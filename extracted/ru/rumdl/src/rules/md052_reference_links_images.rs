@@ -1,7 +1,7 @@
 use crate::rule::{LintError, LintResult, LintWarning, Rule, Severity};
 use crate::utils::mkdocs_patterns::is_mkdocs_auto_reference;
 use crate::utils::range_utils::calculate_match_range;
-use crate::utils::regex_cache::{HTML_COMMENT_PATTERN, SHORTCUT_REF_REGEX};
+use crate::utils::regex_cache::SHORTCUT_REF_REGEX;
 use crate::utils::skip_context::{is_in_math_context, is_in_table_cell};
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
@@ -272,16 +272,6 @@ impl MD052ReferenceLinkImages {
             .any(|span| span.line == line && col >= span.start_col && col < span.end_col)
     }
 
-    /// Check if a byte position is within an HTML comment
-    fn is_in_html_comment(content: &str, byte_pos: usize) -> bool {
-        for m in HTML_COMMENT_PATTERN.find_iter(content) {
-            if m.start() <= byte_pos && byte_pos < m.end() {
-                return true;
-            }
-        }
-        false
-    }
-
     /// Check if a byte position is within an HTML tag
     fn is_in_html_tag(ctx: &crate::lint_context::LintContext, byte_pos: usize) -> bool {
         // Check HTML tags
@@ -361,7 +351,6 @@ impl MD052ReferenceLinkImages {
 
     fn find_undefined_references(
         &self,
-        content: &str,
         references: &HashSet<String>,
         ctx: &crate::lint_context::LintContext,
         mkdocs_mode: bool,
@@ -391,8 +380,8 @@ impl MD052ReferenceLinkImages {
                 continue;
             }
 
-            // Skip links inside HTML comments
-            if Self::is_in_html_comment(content, link.byte_offset) {
+            // Skip links inside HTML comments (uses pre-computed ranges)
+            if ctx.is_in_html_comment(link.byte_offset) {
                 continue;
             }
 
@@ -498,8 +487,8 @@ impl MD052ReferenceLinkImages {
                 continue;
             }
 
-            // Skip images inside HTML comments
-            if Self::is_in_html_comment(content, image.byte_offset) {
+            // Skip images inside HTML comments (uses pre-computed ranges)
+            if ctx.is_in_html_comment(image.byte_offset) {
                 continue;
             }
 
@@ -602,7 +591,7 @@ impl MD052ReferenceLinkImages {
         }
 
         // Need to use regex for shortcut references
-        let lines: Vec<&str> = content.lines().collect();
+        let lines = ctx.raw_lines();
         in_example_section = false; // Reset for line-by-line processing
 
         for (line_num, line) in lines.iter().enumerate() {
@@ -806,8 +795,8 @@ impl MD052ReferenceLinkImages {
                                 continue;
                             }
 
-                            // Skip if inside HTML comment
-                            if Self::is_in_html_comment(content, byte_pos) {
+                            // Skip if inside HTML comment (uses pre-computed ranges)
+                            if ctx.is_in_html_comment(byte_pos) {
                                 continue;
                             }
 
@@ -935,10 +924,8 @@ impl Rule for MD052ReferenceLinkImages {
         let references = self.extract_references(content, mkdocs_mode);
 
         // Use optimized detection method with cached link/image data
-        for (line_num, col, match_len, reference) in
-            self.find_undefined_references(content, &references, ctx, mkdocs_mode)
-        {
-            let lines: Vec<&str> = content.lines().collect();
+        let lines = ctx.raw_lines();
+        for (line_num, col, match_len, reference) in self.find_undefined_references(&references, ctx, mkdocs_mode) {
             let line_content = lines.get(line_num).unwrap_or(&"");
 
             // Calculate precise character range for the entire undefined reference

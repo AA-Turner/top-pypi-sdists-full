@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2015-2021 University of Oxford
+# Copyright (C) 2015-2025 University of Oxford
 #
 # This file is part of msprime.
 #
@@ -815,6 +815,7 @@ def _parse_sim_ancestry(
     coalescing_segments_only=None,
     num_labels=None,
     random_seed=None,
+    stop_at_local_mrca=None,
     init_for_debugger=False,
 ):
     """
@@ -833,6 +834,13 @@ def _parse_sim_ancestry(
     models = _parse_model_arg(model)
     is_dtwf = isinstance(models[0], DiscreteTimeWrightFisher)
     is_pedigree = any(isinstance(model, FixedPedigree) for model in models)
+    is_smck = any(isinstance(model, SMCK) for model in models)
+
+    if is_smck and gene_conversion_rate is not None:
+        raise ValueError(
+            "Gene conversion is not supported for the SMCK model. "
+            "Please refer to issue #2399 on GitHub for details."
+        )
 
     if record_full_arg:
         if coalescing_segments_only is not None:
@@ -890,7 +898,9 @@ def _parse_sim_ancestry(
     if initial_state is not None:
         if isinstance(initial_state, tskit.TreeSequence):
             initial_state = initial_state.dump_tables()
-        elif not isinstance(initial_state, tskit.TableCollection):
+        elif not isinstance(
+            initial_state, (tskit.TableCollection, tskit.ImmutableTableCollection)
+        ):
             raise TypeError(
                 "initial_state must either be a TreeSequence or TableCollection instance"
             )
@@ -1078,6 +1088,9 @@ def _parse_sim_ancestry(
     random_seed = _parse_random_seed(random_seed)
     random_generator = _msprime.RandomGenerator(random_seed)
 
+    if stop_at_local_mrca is None:
+        stop_at_local_mrca = True
+
     return Simulator(
         tables=initial_state,
         recombination_map=recombination_map,
@@ -1094,6 +1107,7 @@ def _parse_sim_ancestry(
         end_time=end_time,
         num_labels=num_labels,
         random_generator=random_generator,
+        stop_at_local_mrca=stop_at_local_mrca,
     )
 
 
@@ -1121,6 +1135,7 @@ def sim_ancestry(
     num_replicates=None,
     replicate_index=None,
     record_provenance=None,
+    stop_at_local_mrca=None,
 ):
     """
     Simulates an ancestral process described by the specified model, demography and
@@ -1220,10 +1235,7 @@ def sim_ancestry(
         (Default: None).
     :param float start_time: If specified, set the initial time that the
         simulation starts to this value. If not specified, the start
-        time is zero if performing a simulation of a set of samples,
-        or is the time of the oldest node if simulating from an
-        existing tree sequence (see the ``initial_state`` parameter).
-        See the :ref:`sec_ancestry_start_time` section for examples.
+        time is zero. See the :ref:`sec_ancestry_start_time` section for examples.
     :param float end_time: If specified, terminate the simulation at the
         specified time. In the returned tree sequence, all rootward paths from
         samples with time < ``end_time`` will end in a node with one child with
@@ -1245,6 +1257,14 @@ def sim_ancestry(
         the :ref:`sec_ancestry_models_specifying` section for more details,
         and the :ref:`sec_ancestry_models` section for the available models
         and examples.
+    :param stop_at_local_mrca: If True (the default), the simulation will stop for a
+        tree when local MRCA is reached. If False, simulations will continue across
+        the full sequence until an MRCA has been found on all segments (except
+        for the FixedPedigree model, which will continue simulation until all
+        individuals have been processed). With this option, all trees will have
+        a root at the same time as the oldest local MRCA, with nodes marking
+        distinct segments of ancestry. See :ref:`sec_ancestry_stop_at_local_mrca`
+        for more information.
     :type model: str or msprime.AncestryModel or list
     :return: The :class:`tskit.TreeSequence` object representing the results
         of the simulation if no replication is performed, or an
@@ -1283,6 +1303,7 @@ def sim_ancestry(
             coalescing_segments_only=coalescing_segments_only,
             num_labels=num_labels,
             random_seed=random_seed,
+            stop_at_local_mrca=stop_at_local_mrca,
             # num_replicates is excluded as provenance is per replicate
             # replicate index is excluded as it is inserted for each replicate
         )
@@ -1307,6 +1328,7 @@ def sim_ancestry(
         coalescing_segments_only=coalescing_segments_only,
         num_labels=num_labels,
         random_seed=random_seed,
+        stop_at_local_mrca=stop_at_local_mrca,
     )
     return _wrap_replicates(
         sim,
@@ -1392,6 +1414,7 @@ class Simulator(_msprime.Simulator):
         start_time=None,
         end_time=None,
         num_labels=None,
+        stop_at_local_mrca=True,
     ):
         # We always need at least n segments, so no point in making
         # allocation any smaller than this.
@@ -1442,6 +1465,7 @@ class Simulator(_msprime.Simulator):
             gene_conversion_tract_length=gene_conversion_tract_length,
             discrete_genome=discrete_genome,
             ploidy=ploidy,
+            stop_at_local_mrca=stop_at_local_mrca,
         )
         # Highlevel attributes used externally that have no lowlevel equivalent
         self.end_time = np.inf if end_time is None else end_time
@@ -1761,6 +1785,10 @@ class StandardCoalescent(AncestryModel):
 
 class SmcApproxCoalescent(AncestryModel):
     """
+    Legacy implementation of the SMC model. Please see the
+    :ref:`sec_ancestry_models_smc` section for information on the more
+    efficient :class:`SMCK` method.
+
     The Sequentially Markov Coalescent (SMC) model defined by
     `McVean and Cardin (2005) <https://dx.doi.org/10.1098%2Frstb.2005.1673>`_.
     In the SMC, only common ancestor events that result in marginal coalescences
@@ -1780,6 +1808,10 @@ class SmcApproxCoalescent(AncestryModel):
 
 class SmcPrimeApproxCoalescent(AncestryModel):
     """
+    Legacy implementation of the SMC' model. Please see the
+    :ref:`sec_ancestry_models_smc` section for information on the more
+    efficient :class:`SMCK` method.
+
     The SMC' model defined by
     `Marjoram and Wall (2006) <https://doi.org/10.1186/1471-2156-7-16>`_
     as a refinement of the :class:`SMC<SmcApproxCoalescent>`. The SMC'
@@ -1796,6 +1828,35 @@ class SmcPrimeApproxCoalescent(AncestryModel):
     """
 
     name = "smc_prime"
+
+
+class ParametricAncestryModel(AncestryModel):
+    """
+    The superclass of ancestry models that require extra parameters.
+    """
+
+
+@dataclasses.dataclass
+class SMCK(ParametricAncestryModel):
+    """
+    A general Sequentially Markov Coalescent (SMC) model. This model accepts a
+    parameter ``k`` that (roughly speaking) defines the distance from
+    the SMC model. Thus ``k=0`` is equivalent to the SMC (more approximate),
+    and ``k=L`` is equivalent to the standard coalescent for a simulation
+    with sequence length ``L`` (less approximate). Smaller values of ``k``
+    usually correspond to shorter running times.
+
+    Please see the :ref:`sec_ancestry_models_smc` section for more information.
+
+    :param float k: The distance parameter defining the approximation.
+    """
+
+    name = "smc_k"
+    k: float
+
+    def __init__(self, k, *, duration=None):
+        self.k = k
+        self.duration = duration
 
 
 class DiscreteTimeWrightFisher(AncestryModel):
@@ -1852,12 +1913,6 @@ class FixedPedigree(AncestryModel):
     """
 
     name = "fixed_pedigree"
-
-
-class ParametricAncestryModel(AncestryModel):
-    """
-    The superclass of ancestry models that require extra parameters.
-    """
 
 
 @dataclasses.dataclass

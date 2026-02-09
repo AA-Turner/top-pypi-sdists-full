@@ -1,11 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-mgmt-resource
-Version: 24.0.0
+Version: 25.0.0
 Summary: Microsoft Azure Resource Management Client Library for Python
-Home-page: https://github.com/Azure/azure-sdk-for-python
-Author: Microsoft Corporation
-Author-email: azpysdkhelp@microsoft.com
-License: MIT License
+Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
+License-Expression: MIT
+Project-URL: repository, https://github.com/Azure/azure-sdk-for-python
 Keywords: azure,azure sdk
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
@@ -15,14 +14,14 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: isodate>=0.6.1
+Requires-Dist: azure-mgmt-core>=1.6.0
 Requires-Dist: typing-extensions>=4.6.0
-Requires-Dist: azure-common>=1.1
-Requires-Dist: azure-mgmt-core>=1.5.0
+Dynamic: license-file
 
 # Microsoft Azure SDK for Python
 
@@ -86,8 +85,23 @@ If you encounter any bugs or have suggestions, please file an issue in the
 [Issues](https://github.com/Azure/azure-sdk-for-python/issues)
 section of the project. 
 
-
 # Release History
+
+## 25.0.0 (2026-02-04)
+
+### Breaking Changes
+
+  - This package now only targets the latest Api-Version available on Azure and removes APIs of other Api-Version. After this change, the package can have much smaller size. If your application requires a specific and non-latest Api-Version, it's recommended to pin this package to the previous released version; If your application always only use latest Api-Version, please ignore this change.
+  - Operation Group `Deployments` and `DeploymentOperations` of `ResourceManagementClient` are moved to `DeploymentsMgmtClient` of independent package `azure-mgmt-resource-deployments`. If you called `ResourceManagementClient(...).deployments.xx(...)` before, just need to change to `DeploymentsMgmtClient(...).deployments.xx(...)`. And same for `DeploymentOperations`.
+  - The following modules have been separated from `azure-mgmt-resource` into independent packages: `subscriptions`, `features`, `links`, `locks`, `policy`, `managedapplications`, `databoundaries`, `changes`, and `privatelinks`. Each module is now available as `azure-mgmt-resource-{module}`.
+  - For separated modules, if you previously imported them using statements like `from azure.mgmt.resource import SubscriptionClient`, you'll need to update your code to `from azure.mgmt.resource.subscriptions import SubscriptionClient`. If you were already using the fully qualified import path, no changes are required.
+
+## 25.0.0b1 (2025-07-16)
+
+### Breaking Changes
+
+  - This package now only targets the latest Api-Version available on Azure and removes APIs of other Api-Version. After this change, the package can have much smaller size. If your application requires a specific and non-latest Api-Version, it's recommended to pin this package to the previous released version; If your application always only use latest Api-Version, please ignore this change.
+  - Operation Group `Deployments` and `DeploymentOperations` of `ResourceManagementClient` are moved to `DeploymentsMgmtClient` of independent package `azure-mgmt-resource-deployments`. If you called `ResourceManagementClient(...).deployments.xx(...)` before, just need to change to `DeploymentsMgmtClient(...).deployments.xx(...)`. And same for `DeploymentOperations`.
 
 ## 24.0.0 (2025-06-16)
 

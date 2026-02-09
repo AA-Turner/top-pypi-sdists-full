@@ -76,15 +76,6 @@ class TipsExtractor:
         "CodeAgent",
     ]
 
-    def __init__(self):
-        """Initialize with LLM from utils if available"""
-        self.llm = None
-        if LLM_AVAILABLE:
-            try:
-                self.llm = get_chat_model(tips_extractor_config)
-            except Exception as e:
-                print(f"Warning: Could not initialize LLM: {e}")
-
     async def extract_tips_from_trajectory(
         self,
         trajectory_text: str,
@@ -93,11 +84,6 @@ class TipsExtractor:
         focus_on_failures: bool = True,
     ) -> Dict[str, List[AgentTip]]:
         """Extract tips for each agent from trajectory analysis"""
-
-        if not self.llm:
-            print("Error: LLM is required for tips extraction")
-            return {}
-
         print(f"Extracting tips from trajectory {trajectory_id}")
 
         # First, analyze failures in the trajectory
@@ -115,6 +101,7 @@ class TipsExtractor:
 
     async def _analyze_failures(self, trajectory_text: str, trajectory_id: str) -> List[FailureAnalysis]:
         """Analyze failure points and determine root causes"""
+        llm = get_chat_model(tips_extractor_config)
 
         # Extract the last part of trajectory (often contains failure summaries)
         trajectory_lines = trajectory_text.split('\n')
@@ -157,7 +144,7 @@ LAST API PLANNER SECTION:
                 prompt_file, template_format="jinja2", encoding='utf-8'
             )
             formatted_prompt = failure_analysis_prompt.format(**prompt_input)
-            response = await self.llm.ainvoke(formatted_prompt)
+            response = await llm.ainvoke(formatted_prompt)
             content = response.content if hasattr(response, 'content') else str(response)
 
             # Extract JSON from response
@@ -248,6 +235,7 @@ LAST API PLANNER SECTION:
             agent_specific_context = api_shortlister_inst
 
         # Generate tips using LLM with full trajectory context
+        llm = get_chat_model(tips_extractor_config)
         tips_prompt_inst = PromptTemplate.from_file(
             tips_prompt_file, template_format="jinja2", encoding='utf-8'
         )
@@ -268,7 +256,7 @@ LAST API PLANNER SECTION:
                 "max_tips": max_tips,
             }
             formatted_prompt = tips_prompt_inst.format(**prompt_input)
-            response = await self.llm.ainvoke(formatted_prompt)
+            response = await llm.ainvoke(formatted_prompt)
             content = response.content if hasattr(response, 'content') else str(response)
 
             # Extract JSON from response

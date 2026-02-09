@@ -1,5 +1,5 @@
 from ._mainExperiment import Experiment
-from AOT_biomaps.AOT_Acoustic.AcousticEnums import WaveType
+from AOT_biomaps.AOT_Acoustic.AcousticEnums import TypeSim, WaveType
 from AOT_biomaps.AOT_Acoustic.StructuredWave import StructuredWave
 from AOT_biomaps.Config import config
 from AOT_biomaps.AOT_Experiment.ExperimentTools import calc_mat_os, convert_to_hex_list, hex_to_binary_profile
@@ -672,7 +672,7 @@ class Tomography(Experiment):
                 pathField = None
             else:
                 pathField = os.path.join(fieldDataPath, AcousticField.getName_field() + self.FormatSave.value)
-            if pathField is not None and os.path.exists(pathField):
+            if pathField is not None and os.path.exists(pathField) and self.params.acoustic['typeSim'] != TypeSim.SIMPLE_SIM.value:
                 progress_bar.set_postfix_str(f"Loading field - {AcousticField.getName_field()} -- Memory used: {memory.percent}%")
                 try:
                     AcousticField.load_field(fieldDataPath, self.FormatSave,nameBlock)
@@ -683,10 +683,10 @@ class Tomography(Experiment):
                         progress_bar.set_postfix_str(f"Saving field - {AcousticField.getName_field()} -- Memory used: {memory.percent}%")
                         os.makedirs(os.path.dirname(pathField), exist_ok=True)
                         AcousticField.save_field(fieldDataPath)
-            elif pathField is None or not os.path.exists(pathField):
+            else:
                 progress_bar.set_postfix_str(f"Generating field - {AcousticField.getName_field()} -- Memory used: {memory.percent}% ---- processing on {config.get_process().upper()} ----")
                 AcousticField.generate_field(show_log=show_log)
-                if pathField is not None and not os.path.exists(pathField):
+                if pathField is not None and not os.path.exists(pathField) and self.params.acoustic['typeSim'] != TypeSim.SIMPLE_SIM.value:
                     progress_bar.set_postfix_str(f"Saving field - {AcousticField.getName_field()} -- Memory used: {memory.percent}%")
                     os.makedirs(os.path.dirname(pathField), exist_ok=True)
                     AcousticField.save_field(fieldDataPath)

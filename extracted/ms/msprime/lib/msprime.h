@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 2015-2020 University of Oxford
+** Copyright (C) 2015-2025 University of Oxford
 **
 ** This file is part of msprime.
 **
@@ -44,6 +44,7 @@
 #define MSP_MODEL_DTWF 5
 #define MSP_MODEL_SWEEP 6
 #define MSP_MODEL_WF_PED 7
+#define MSP_MODEL_SMC_K 8
 
 /* Exit codes from msp_run to distinguish different reasons for exiting
  * before coalescence. */
@@ -75,20 +76,65 @@ typedef tsk_id_t population_id_t;
 typedef tsk_id_t label_id_t;
 
 typedef struct segment_t_t {
-    population_id_t population;
-    label_id_t label;
+    tsk_id_t value;
+    // TODO change to tsk_id_t  or uint32?  Same for hull_t
+    size_t id;
     double left;
     double right;
-    tsk_id_t value;
-    size_t id;
     struct segment_t_t *prev;
     struct segment_t_t *next;
+    /* NOTE: In the DTWF model we don't really use the lineage and it would be
+     * better if we explicitly reserved the concept as something only used in
+     * the coalescent models. One thing we could do is to make this member a
+     * union, which was either a lineage (for the coalescent models) or an
+     * "individual" for the DTWF/pedigree code. Thus, we could then separate
+     * the DTWF and coalescent main loops and population storage (it's
+     * pointless using AVL trees for the DTWF code) while keeping the low-level
+     * segment merging code the same. This would require a significant
+     * refactoring (rewriting, really) of the DTWF code, though.
+     */
+    struct lineage_t_t *lineage;
 } segment_t;
+
+/* A lineage represents a single ancestral (or sample) genome in the coalescent
+ * models, and keeps track of the head and tail of the segment chains. These
+ * lineages are what are stored in the populations. For the SMC(k) model,
+ * we also store a hull_t object, which keeps track of the information required
+ * to implement the indexes for that model.
+ *
+ * Note that the situation is quite confusing for the DTWF and pedigree models,
+ * which sort-of use the same structures as the coalescent models, but don't
+ * really use them in a meaningful way. So, while we need to define lineages
+ * as well as segments here, they don't actually do anything.
+ */
+typedef struct lineage_t_t {
+    population_id_t population;
+    label_id_t label;
+    segment_t *head;
+    segment_t *tail;
+    avl_node_t avl_node;
+    /* The hull is only used for the SMCK, and is NULL otherwise */
+    struct hull_t_t *hull;
+} lineage_t;
 
 typedef struct {
     double position;
     uint32_t value;
 } node_mapping_t;
+
+typedef struct hull_t_t {
+    double left;
+    double right;
+    /* We need a reference back to the lineage because we index the hulls in
+     * the smc_k. */
+    lineage_t *lineage;
+    size_t id;
+    uint64_t count;
+    uint64_t left_insertion_order;
+    uint64_t right_insertion_order;
+    avl_node_t left_avl_node;
+    avl_node_t right_avl_node;
+} hull_t;
 
 #define MSP_POP_STATE_INACTIVE 0
 #define MSP_POP_STATE_ACTIVE 1
@@ -105,6 +151,13 @@ typedef struct {
     avl_tree_t *ancestors;
     tsk_size_t num_potential_destinations;
     tsk_id_t *potential_destinations;
+    /* These three indexes are only used in the SMCK model. We maintain
+     * two AVL trees in which the hulls are indexed by the left and right
+     * coordinates, respectively, along with a Fenwick tree which maintains
+     * the cumulative count of coalescable lineages */
+    avl_tree_t *hulls_left;
+    avl_tree_t *hulls_right;
+    fenwick_t *coal_mass_index;
 } population_t;
 
 #define MSP_MAX_PED_PLOIDY 2
@@ -143,6 +196,10 @@ typedef struct {
 /* Simulation models */
 
 typedef struct {
+    double hull_offset;
+} smc_k_coalescent_t;
+
+typedef struct {
     double alpha;
     double truncation_point;
 } beta_coalescent_t;
@@ -177,6 +234,7 @@ typedef struct _sweep_t {
 typedef struct _simulation_model_t {
     int type;
     union {
+        smc_k_coalescent_t smc_k_coalescent;
         beta_coalescent_t beta_coalescent;
         dirac_coalescent_t dirac_coalescent;
         sweep_t sweep;
@@ -198,6 +256,7 @@ typedef struct _msp_t {
     bool store_full_arg;
     uint32_t additional_nodes;
     bool coalescing_segments_only;
+    bool stop_at_local_mrca;
     double sequence_length;
     bool discrete_genome;
     rate_map_t recomb_map;
@@ -218,6 +277,7 @@ typedef struct _msp_t {
     size_t avl_node_block_size;
     size_t node_mapping_block_size;
     size_t segment_block_size;
+    size_t hull_block_size;
     /* Counters for statistics */
     size_t num_re_events;
     size_t num_ca_events;
@@ -252,8 +312,11 @@ typedef struct _msp_t {
     /* memory management */
     object_heap_t avl_node_heap;
     object_heap_t node_mapping_heap;
+    object_heap_t lineage_heap;
     /* We keep an independent segment heap for each label */
     object_heap_t *segment_heap;
+    /* We keep an independent hull heap for each label */
+    object_heap_t *hull_heap;
     /* The tables used to store the simulation state */
     tsk_table_collection_t *tables;
     tsk_bookmark_t input_position;
@@ -422,6 +485,7 @@ int msp_alloc(msp_t *self, tsk_table_collection_t *tables, gsl_rng *rng);
 int msp_set_simulation_model_hudson(msp_t *self);
 int msp_set_simulation_model_smc(msp_t *self);
 int msp_set_simulation_model_smc_prime(msp_t *self);
+int msp_set_simulation_model_smc_k(msp_t *self, double hull_offset);
 int msp_set_simulation_model_dtwf(msp_t *self);
 int msp_set_simulation_model_fixed_pedigree(msp_t *self);
 int msp_set_simulation_model_dirac(msp_t *self, double psi, double c);
@@ -434,6 +498,7 @@ int msp_set_store_migrations(msp_t *self, bool store_migrations);
 int msp_set_store_full_arg(msp_t *self, bool store_full_arg);
 int msp_set_additional_nodes(msp_t *self, uint32_t additional_nodes);
 int msp_set_coalescing_segments_only(msp_t *self, bool coalescing_segments_only);
+int msp_set_stop_at_local_mrca(msp_t *self, bool stop_at_local_mrca);
 int msp_set_ploidy(msp_t *self, int ploidy);
 int msp_set_recombination_map(msp_t *self, size_t size, double *position, double *rate);
 int msp_set_recombination_rate(msp_t *self, double rate);
@@ -446,6 +511,7 @@ int msp_set_num_labels(msp_t *self, size_t num_labels);
 int msp_set_node_mapping_block_size(msp_t *self, size_t block_size);
 int msp_set_segment_block_size(msp_t *self, size_t block_size);
 int msp_set_avl_node_block_size(msp_t *self, size_t block_size);
+int msp_set_hull_block_size(msp_t *self, size_t block_size);
 int msp_set_migration_matrix(msp_t *self, size_t size, double *migration_matrix);
 int msp_set_population_configuration(msp_t *self, int population_id, double initial_size,
     double growth_rate, bool initially_active);
@@ -535,5 +601,4 @@ void mutgen_print_state(mutgen_t *self, FILE *out);
 /* Functions exposed here for unit testing. Not part of public API. */
 int msp_multi_merger_common_ancestor_event(
     msp_t *self, avl_tree_t *ancestors, avl_tree_t *Q, uint32_t k, uint32_t num_pots);
-
 #endif /*__MSPRIME_H__*/

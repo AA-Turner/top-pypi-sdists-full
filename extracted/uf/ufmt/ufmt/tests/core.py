@@ -13,6 +13,7 @@ import black
 import ruff_api
 import trailrunner
 import usort
+from black.mode import TargetVersion
 from libcst import ParserSyntaxError
 
 import ufmt
@@ -206,6 +207,26 @@ class CoreTest(TestCase):
             ruff_mock.assert_called_once()
             black_mock.assert_not_called()
 
+        with self.subTest("target version"):
+            ruff_mock.reset_mock()
+            black_config_tv = BlackConfig(
+                target_versions={TargetVersion.PY312},
+            )
+            result = ufmt.ufmt_bytes(
+                Path("foo.py"),
+                POORLY_FORMATTED_CODE.encode(),
+                ufmt_config=UfmtConfig(formatter=Formatter.ruff_api),
+                black_config=black_config_tv,
+                usort_config=usort_config,
+            )
+            self.assertEqual(CORRECTLY_FORMATTED_CODE.encode(), result)
+            ruff_mock.assert_called_once()
+            _, call_kwargs = ruff_mock.call_args
+            self.assertEqual(call_kwargs["options"].target_version, "py312")
+            # verify target_versions was not mutated
+            self.assertEqual(black_config_tv.target_versions, {TargetVersion.PY312})
+            black_mock.assert_not_called()
+
         with self.subTest("unsupported formatter"):
             with self.assertRaisesRegex(
                 ValueError, "'garbage' is not a supported formatter"
@@ -213,7 +234,7 @@ class CoreTest(TestCase):
                 ufmt.ufmt_bytes(
                     Path("foo.pyi"),
                     POORLY_FORMATTED_STUB.encode(),
-                    ufmt_config=UfmtConfig(formatter="garbage"),  # type:ignore
+                    ufmt_config=UfmtConfig(formatter="garbage"),  # type: ignore
                     black_config=black_config,
                     usort_config=usort_config,
                 )
@@ -320,7 +341,7 @@ class CoreTest(TestCase):
                 ufmt.ufmt_bytes(
                     Path("foo.py"),
                     POORLY_FORMATTED_CODE.encode(),
-                    ufmt_config=UfmtConfig(sorter="garbage"),  # type:ignore
+                    ufmt_config=UfmtConfig(sorter="garbage"),  # type: ignore
                     black_config=black_config,
                     usort_config=usort_config,
                 )

@@ -9,11 +9,15 @@ from abstra_internals.repositories.consumer import (
 from abstra_internals.repositories.factory import build_web_editor_repositories
 from abstra_internals.settings import SettingsController
 from abstra_internals.signals import SignalHandlers
+from abstra_internals.utils.packages import get_local_package_version
 
 
 def run():
     SignalHandlers.init()
     AbstraLogger.init("cloud")
+    AbstraLogger.warning(
+        f"[web-editor-worker] Running abstra version {get_local_package_version()}"
+    )
     SettingsController.set_root_path(".")
     SettingsController.set_server_port(DEFAULT_PORT)
 

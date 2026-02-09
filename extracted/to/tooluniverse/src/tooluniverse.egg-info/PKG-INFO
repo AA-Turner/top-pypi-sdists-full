@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tooluniverse
-Version: 1.0.17.6
+Version: 1.0.17.9
 Summary: A comprehensive collection of scientific tools for Agentic AI, offering integration with the ToolUniverse SDK and MCP Server to support advanced scientific workflows.
 Author-email: Shanghua Gao <shanghuagao@gmail.com>
 Project-URL: Homepage, https://github.com/mims-harvard/ToolUniverse
@@ -128,17 +128,42 @@ Dynamic: license-file
 
 [//]: # (mcp-name: io.github.mims-harvard/tooluniverse)
 
+## INSTALL ToolUniverse
 
+<table>
+<tr>
+<td width="45%" valign="top">
 
-**Democratizing AI scientists using ToolUniverse**
-
-📦 **Install Package** &nbsp;|&nbsp; 🛠️ **Install Skills** (Claude Code, Cursor, Codex CLI)
-```bash
-uv pip install tooluniverse
+**1️⃣ MCP Setup** – Add to your MCP config:
+```json
+{
+  "mcpServers": {
+    "tooluniverse": {
+      "command": "uvx",
+      "args": ["tooluniverse"],
+      "env": {"PYTHONIOENCODING": "utf-8"}
+    }
+  }
+}
 ```
+
+</td>
+<td width="45%" valign="top">
+
+**2️⃣ Install Agent Skills**
 ```bash
 npx skills add mims-harvard/ToolUniverse
 ```
+
+**3️⃣ Install Package** (Optional)
+```bash
+uv pip install tooluniverse
+```
+
+</td>
+</tr>
+</table>
+
 
 We are currently looking for partners. If you’re interested, please reach out to [Shanghua Gao](shanghuagao@gmail.com).
 
@@ -199,45 +224,7 @@ ToolUniverse addresses this challenge by providing a standardized ecosystem that
 </p>
 
 
-## 🚀 Quick Start
-
-```python
-# 1. Install ToolUniverse
-pip install tooluniverse
-
-# 2. Load tooluniverse
-from tooluniverse import ToolUniverse
-
-tu = ToolUniverse()
-tu.load_tools()  # Load 1000+ scientific tools
-
-# Your AI scientist can reason, experiment, and collaborate in discovery using the AI-tool interaction protocol.
-
-# 3. Use Find Tool operation to discover relevant tools
-tools = tu.run({
-    "name": "Tool_Finder_Keyword",
-    "arguments": {"description": "disease target associations", "limit": 10}
-})
-
-# 4. Use Call Tool operation to execute selected tool
-result = tu.run({
-    "name": "OpenTargets_get_associated_targets_by_disease_efoId",
-    "arguments": {"efoId": "EFO_0000537"}  # hypertension
-})
-```
-
-→ **Complete Quick Start Tutorial**: [Quick Start Tutorial](https://zitniklab.hms.harvard.edu/ToolUniverse/quickstart.html) [Getting Started Tutorial](https://zitniklab.hms.harvard.edu/ToolUniverse/getting_started.html)
-
-
-## 📦 Installation
-
-### Installation (uv)
-
-```bash
-uv pip install tooluniverse
-```
-
-→ **Complete Installation Tutorial**: [Installation Tutorial](https://zitniklab.hms.harvard.edu/ToolUniverse/installation.html)
+→ **Detailed Tutorials**: [Quick Start](https://zitniklab.hms.harvard.edu/ToolUniverse/quickstart.html) | [Installation Guide](https://zitniklab.hms.harvard.edu/ToolUniverse/installation.html) | [Getting Started](https://zitniklab.hms.harvard.edu/ToolUniverse/getting_started.html)
 
 ## 🔧 Usage & Integration
 

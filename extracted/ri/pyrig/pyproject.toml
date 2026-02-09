@@ -1,22 +1,13 @@
 [project]
 name = "pyrig"
-version = "7.0.16"
+version = "7.0.23"
 description = "A Python toolkit to rig up your project that standardizes and automates project setup, configuration and development."
-authors = [
-    {name = "Winipedia"},
-]
-maintainers = [
-    {name = "Winipedia"},
-]
+readme = "README.md"
 license = "MIT"
 license-files = [
     "LICENSE",
 ]
-readme = "README.md"
 requires-python = ">=3.12"
-dependencies = [
-    "typer>=0.20.0",
-]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
@@ -42,6 +33,15 @@ keywords = [
     "devops",
     "packaging",
 ]
+dependencies = [
+    "typer>=0.21.1",
+]
+
+[[project.authors]]
+name = "Winipedia"
+
+[[project.maintainers]]
+name = "Winipedia"
 
 [project.urls]
 Homepage = "https://github.com/Winipedia/pyrig"
@@ -55,7 +55,7 @@ pyrig = "pyrig.dev.cli.cli:main"
 
 [dependency-groups]
 dev = [
-    "pyrig-dev>=0.1.1",
+    "pyrig-dev>=0.1.18",
 ]
 
 [build-system]
@@ -98,11 +98,14 @@ convention = "google"
 [tool.ty.terminal]
 error-on-warning = true
 
+[tool.rumdl]
+respect_gitignore = true
+
 [tool.pytest.ini_options]
-addopts = "--cov=pyrig --cov-report=term-missing --cov-fail-under=90"
 testpaths = [
     "tests",
 ]
+addopts = "--cov=pyrig --cov-report=term-missing --cov-fail-under=90"
 
 [tool.bandit]
 exclude_dirs = [
@@ -113,6 +116,3 @@ exclude_dirs = [
 skips = [
     "*/tests/*.py",
 ]
-
-[tool.rumdl]
-respect_gitignore = true

@@ -4,27 +4,32 @@ from adam.commands.app.show_app_actions import ShowAppActions
 from adam.commands.app.show_app_id import ShowAppId
 from adam.commands.app.show_app_queues import ShowAppQueues
 from adam.commands.audit.audit import Audit
+from adam.commands.cassandra.cancel_restarts import CancelRestarts
 from adam.commands.cassandra.restart_cluster import RestartCluster
 from adam.commands.cassandra.restart_nodes import RestartNodes
 from adam.commands.cassandra.rollout import RollOut
 from adam.commands.cassandra.show_cassandra_repairs import ShowCassandraRepairs
 from adam.commands.cassandra.show_tokens import ShowTokens
-from adam.commands.cassandra.show_cassandra_status import ShowCassandraStatus
+from adam.commands.cassandra.show_status import ShowStatus
 from adam.commands.cassandra.show_cassandra_version import ShowCassandraVersion
 from adam.commands.cassandra.show_processes import ShowProcesses
 from adam.commands.cassandra.show_storage import ShowStorage
 from adam.commands.cassandra.watch import Watch
 from adam.commands.cli.clipboard_copy import ClipboardCopy
+from adam.commands.command_filter import CommandFilter
 from adam.commands.config.param_get import GetParam
 from adam.commands.config.param_set import SetParam
-from adam.commands.debug.show_offloaded_completes import ShowOffloadedCompletes
-from adam.commands.diag.check import Check
-from adam.commands.diag.generate_report import GenerateReport
-from adam.commands.diag.issues import Issues
+from adam.commands.filters.debug_filter import DebugFilter
+from adam.commands.filters.time_filter import TimeFilter
+from adam.commands.fs.show_thread_pools import ShowThreadPools
+from adam.commands.trace.show_offloaded_completes import ShowOffloadedCompletes
+from adam.commands.check_up.check import Check
+from adam.commands.check_up.generate_report import GenerateReport
+from adam.commands.check_up.issues import Issues
 from adam.commands.fs.cat import Cat
 from adam.commands.code import Code
 from adam.commands.cql.alter_tables import AlterTables
-from adam.commands.debug.debug import Debug
+from adam.commands.trace.trace import Trace
 from adam.commands.cassandra.download_cassandra_log import DownloadCassandraLog
 from adam.commands.fs.cat_local import CatLocal
 from adam.commands.fs.download_file import DownloadFile
@@ -96,7 +101,7 @@ class ReplCommands:
         cmds: list[Command] = ReplCommands.navigation() + ReplCommands.cassandra_ops() + ReplCommands.postgres_ops() + \
             ReplCommands.app_ops() + ReplCommands.audit_ops() + ReplCommands.export_ops() + ReplCommands.tools() + ReplCommands.exit()
 
-        intermediate_cmds: list[Command] = [App(), Audit(), Reaper(), Repair(), Debug(), Deploy(), Show(), Undeploy()]
+        intermediate_cmds: list[Command] = [App(), Audit(), Reaper(), Repair(), Deploy(), Show(), Trace(), Undeploy()]
         ic = [c.command() for c in intermediate_cmds]
         # 1. dedup commands
         deduped = []
@@ -118,24 +123,24 @@ class ReplCommands:
                 DownloadFile(), FindLocalFiles(), FindProcesses(), GetParam(),
                 Head(), HeadLocal(), Ls(), LsLocal(), PreviewTable(), Pwd(), RmLogs(),
                 SetParam(), ShowAdam(), ShowHost(), ShowKubectlCommands(), ShowJobResults(),
-                ShowLogin(), ShowOffloadedCompletes(), ShowParams(),
+                ShowLogin(), ShowOffloadedCompletes(), ShowParams(), ShowThreadPools(),
                 Tail(), TailLocal()] + \
                 RmLocal().cmd_list()
 
     def cassandra_ops() -> list[Command]:
-        return [AlterTables(), Bash(), Check(), CleanUpExportSessions(), CleanUpAllExportSessions(), Cqlsh(),
+        return [AlterTables(), Bash(), CancelRestarts(), Check(), CleanUpExportSessions(), CleanUpAllExportSessions(), Cqlsh(),
                 DownloadCassandraLog(), DropExportDatabase(), DropExportDatabases(), DownloadExportSession(),
                 ExportTables(), ExportXSelect(), ExportUse(),
                 GenerateReport(), ImportSession(), ImportCSVFiles(), Issues(), NodeTool(),
                 RestartNodes(), RestartCluster(), RollOut(),
-                ShowTokens(), ShowCassandraStatus(), ShowCassandraVersion(),
+                ShowTokens(), ShowStatus(), ShowCassandraVersion(),
                 ShowCassandraRepairs(), ShowColumnCounts(), ShowJobs(), ShowStorage(), ShowExportDatabases(),
                 ShowExportSessions(), ShowExportSession(), ShowProcesses(),
                 Watch()] + \
-                Debug().cmd_list() + \
                 Medusa().cmd_list() + \
                 Reaper().cmd_list() + \
-                Repair().cmd_list()
+                Repair().cmd_list() + \
+                Trace().cmd_list()
 
     def postgres_ops() -> list[Command]:
         return [Postgres(), DeployPgAgent(), UndeployPgAgent(), PostgresPg()]
@@ -154,3 +159,6 @@ class ReplCommands:
 
     def exit() -> list[Command]:
         return [Exit()]
+
+    def filters() -> list[CommandFilter]:
+        return [DebugFilter(), TimeFilter()]

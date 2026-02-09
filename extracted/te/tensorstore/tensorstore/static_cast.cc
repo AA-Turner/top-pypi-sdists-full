@@ -15,14 +15,15 @@
 #include "tensorstore/static_cast.h"
 
 #include "absl/status/status.h"
-#include "tensorstore/util/str_cat.h"
+#include "absl/strings/str_format.h"
 
 namespace tensorstore {
 namespace internal_cast {
+
 absl::Status CastError(std::string_view source_description,
                        std::string_view target_description) {
-  return absl::InvalidArgumentError(tensorstore::StrCat(
-      "Cannot cast ", source_description, " to ", target_description));
+  return absl::InvalidArgumentError(absl::StrFormat(
+      "Cannot cast %s to %s", source_description, target_description));
 }
 
 }  // namespace internal_cast

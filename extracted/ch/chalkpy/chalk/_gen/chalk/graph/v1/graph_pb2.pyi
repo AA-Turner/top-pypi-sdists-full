@@ -32,6 +32,13 @@ class CacheStrategy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     CACHE_STRATEGY_NO_NULLS_OR_DEFAULTS: _ClassVar[CacheStrategy]
     CACHE_STRATEGY_EVICT_NULLS_AND_DEFAULTS: _ClassVar[CacheStrategy]
 
+class AcceleratePython(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    ACCELERATE_PYTHON_UNSPECIFIED: _ClassVar[AcceleratePython]
+    ACCELERATE_PYTHON_REQUIRE: _ClassVar[AcceleratePython]
+    ACCELERATE_PYTHON_AUTO: _ClassVar[AcceleratePython]
+    ACCELERATE_PYTHON_NEVER: _ClassVar[AcceleratePython]
+
 class ResolverKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     RESOLVER_KIND_UNSPECIFIED: _ClassVar[ResolverKind]
@@ -81,6 +88,10 @@ CACHE_STRATEGY_NO_DEFAULTS: CacheStrategy
 CACHE_STRATEGY_EVICT_DEFAULTS: CacheStrategy
 CACHE_STRATEGY_NO_NULLS_OR_DEFAULTS: CacheStrategy
 CACHE_STRATEGY_EVICT_NULLS_AND_DEFAULTS: CacheStrategy
+ACCELERATE_PYTHON_UNSPECIFIED: AcceleratePython
+ACCELERATE_PYTHON_REQUIRE: AcceleratePython
+ACCELERATE_PYTHON_AUTO: AcceleratePython
+ACCELERATE_PYTHON_NEVER: AcceleratePython
 RESOLVER_KIND_UNSPECIFIED: ResolverKind
 RESOLVER_KIND_ONLINE: ResolverKind
 RESOLVER_KIND_OFFLINE: ResolverKind
@@ -898,6 +909,7 @@ class Resolver(_message.Message):
         "function",
         "resource_hint",
         "is_static",
+        "accelerate_python",
         "is_total",
         "unique_on",
         "partitioned_by",
@@ -929,6 +941,7 @@ class Resolver(_message.Message):
     FUNCTION_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_HINT_FIELD_NUMBER: _ClassVar[int]
     IS_STATIC_FIELD_NUMBER: _ClassVar[int]
+    ACCELERATE_PYTHON_FIELD_NUMBER: _ClassVar[int]
     IS_TOTAL_FIELD_NUMBER: _ClassVar[int]
     UNIQUE_ON_FIELD_NUMBER: _ClassVar[int]
     PARTITIONED_BY_FIELD_NUMBER: _ClassVar[int]
@@ -959,6 +972,7 @@ class Resolver(_message.Message):
     function: FunctionReference
     resource_hint: ResourceHint
     is_static: bool
+    accelerate_python: AcceleratePython
     is_total: bool
     unique_on: _containers.RepeatedScalarFieldContainer[str]
     partitioned_by: _containers.RepeatedScalarFieldContainer[str]
@@ -991,6 +1005,7 @@ class Resolver(_message.Message):
         function: _Optional[_Union[FunctionReference, _Mapping]] = ...,
         resource_hint: _Optional[_Union[ResourceHint, str]] = ...,
         is_static: bool = ...,
+        accelerate_python: _Optional[_Union[AcceleratePython, str]] = ...,
         is_total: bool = ...,
         unique_on: _Optional[_Iterable[str]] = ...,
         partitioned_by: _Optional[_Iterable[str]] = ...,

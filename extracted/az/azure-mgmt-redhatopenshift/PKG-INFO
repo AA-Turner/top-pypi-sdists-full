@@ -1,34 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-mgmt-redhatopenshift
-Version: 2.0.0
-Summary: Microsoft Azure Red Hat Openshift Management Client Library for Python
-Home-page: https://github.com/Azure/azure-sdk-for-python
-Author: Microsoft Corporation
-Author-email: azpysdkhelp@microsoft.com
-License: MIT License
+Version: 3.0.0
+Summary: Microsoft Azure Redhatopenshift Management Client Library for Python
+Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
+License-Expression: MIT
+Project-URL: repository, https://github.com/Azure/azure-sdk-for-python
 Keywords: azure,azure sdk
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: isodate>=0.6.1
+Requires-Dist: azure-mgmt-core>=1.6.0
 Requires-Dist: typing-extensions>=4.6.0
-Requires-Dist: azure-common>=1.1
-Requires-Dist: azure-mgmt-core>=1.3.2
+Dynamic: license-file
 
 # Microsoft Azure SDK for Python
 
 This is the Microsoft Azure Red Hat Openshift Management Client Library.
-This package has been tested with Python 3.8+.
+This package has been tested with Python 3.9+.
 For a more complete view of Azure libraries, see the [azure sdk python release](https://aka.ms/azsdk/python/all).
 
 ## _Disclaimer_
@@ -39,7 +37,7 @@ _Azure SDK Python packages support for Python 2.7 has ended 01 January 2022. For
 
 ### Prerequisites
 
-- Python 3.8+ is required to use this package.
+- Python 3.9+ is required to use this package.
 - [Azure subscription](https://azure.microsoft.com/free/)
 
 ### Install the package
@@ -51,7 +49,7 @@ pip install azure-identity
 
 ### Authentication
 
-By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configure of following environment variables.
+By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configuration of the following environment variables.
 
 - `AZURE_CLIENT_ID` for Azure client ID.
 - `AZURE_TENANT_ID` for Azure tenant ID.
@@ -87,14 +85,60 @@ If you encounter any bugs or have suggestions, please file an issue in the
 [Issues](https://github.com/Azure/azure-sdk-for-python/issues)
 section of the project. 
 
-
 # Release History
+
+## 3.0.0 (2026-02-06)
+
+### Features Added
+
+  - Model `AzureRedHatOpenShiftClient` added parameter `cloud_setting` in method `__init__`
+  - Client `AzureRedHatOpenShiftClient` added operation group `platform_workload_identity_role_sets`
+  - Client `AzureRedHatOpenShiftClient` added operation group `platform_workload_identity_role_set`
+  - Model `ClusterProfile` added property `oidc_issuer`
+  - Model `OpenShiftCluster` added property `identity`
+  - Model `OpenShiftCluster` added property `platform_workload_identity_profile`
+  - Model `OpenShiftClusterUpdate` added property `identity`
+  - Model `OpenShiftClusterUpdate` added property `platform_workload_identity_profile`
+  - Added model `ManagedServiceIdentity`
+  - Added enum `ManagedServiceIdentityType`
+  - Added model `PlatformWorkloadIdentity`
+  - Added model `PlatformWorkloadIdentityProfile`
+  - Added model `PlatformWorkloadIdentityRole`
+  - Added model `PlatformWorkloadIdentityRoleSet`
+  - Added model `PlatformWorkloadIdentityRoleSetList`
+  - Added model `UserAssignedIdentity`
+  - Added operation group `PlatformWorkloadIdentityRoleSetOperations`
+  - Added operation group `PlatformWorkloadIdentityRoleSetsOperations`
+
+### Breaking Changes
+
+  - Deleted or renamed client operation group `AzureRedHatOpenShiftClient.machine_pools`
+  - Deleted or renamed client operation group `AzureRedHatOpenShiftClient.secrets`
+  - Deleted or renamed client operation group `AzureRedHatOpenShiftClient.sync_identity_providers`
+  - Deleted or renamed client operation group `AzureRedHatOpenShiftClient.sync_sets`
+  - Model `OpenShiftClusterUpdate` deleted or renamed its instance variable `system_data`
+  - Deleted or renamed model `MachinePool`
+  - Deleted or renamed model `MachinePoolList`
+  - Deleted or renamed model `MachinePoolUpdate`
+  - Deleted or renamed model `Secret`
+  - Deleted or renamed model `SecretList`
+  - Deleted or renamed model `SecretUpdate`
+  - Deleted or renamed model `SyncIdentityProvider`
+  - Deleted or renamed model `SyncIdentityProviderList`
+  - Deleted or renamed model `SyncIdentityProviderUpdate`
+  - Deleted or renamed model `SyncSet`
+  - Deleted or renamed model `SyncSetList`
+  - Deleted or renamed model `SyncSetUpdate`
+  - Deleted or renamed operation group `MachinePoolsOperations`
+  - Deleted or renamed operation group `SecretsOperations`
+  - Deleted or renamed operation group `SyncIdentityProvidersOperations`
+  - Deleted or renamed operation group `SyncSetsOperations`
 
 ## 2.0.0 (2024-10-30)
 
 ### Breaking Changes
 
-  - This package now only targets the latest Api-Version available on Azure and removes APIs of other Api-Version. After this change, the package can have much smaller size. If your application requires a specific and non-latest Api-Version, it's recommended to pin this package to the previous released version; If your application always only use latest Api-Version, please ingore this change.
+  - This package now only targets the latest Api-Version available on Azure and removes APIs of other Api-Version. After this change, the package can have much smaller size. If your application requires a specific and non-latest Api-Version, it's recommended to pin this package to the previous released version; If your application always only use latest Api-Version, please ignore this change.
     
 ## 1.5.0 (2024-07-22)
 

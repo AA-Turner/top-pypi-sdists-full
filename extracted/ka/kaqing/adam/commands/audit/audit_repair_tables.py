@@ -4,9 +4,9 @@ from adam.commands import validate_args
 from adam.commands.command import Command
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import log, log2
+from adam.utils_log import log, log2
 from adam.utils_athena import Athena
-from adam.utils_audits import AuditMeta, Audits
+from adam.utils_audits import AuditMeta, Audits, audit
 
 class AuditRepairTables(Command):
     COMMAND = 'audit repair'
@@ -43,7 +43,7 @@ class AuditRepairTables(Command):
         if state.device == ReplState.L:
             if not self.auto_repaired:
                 if hours := Config().get('audit.athena.auto-repair.elapsed_hours', 12):
-                    with Audits.offload() as exec:
+                    with audit() as exec:
                         exec.submit(lambda: self.auto_repair(hours))
 
             # return super().completion(state)
@@ -60,7 +60,7 @@ class AuditRepairTables(Command):
             log2(f'Audit tables have been auto-repaired.')
 
     def repair(self, tables: list[str], meta: AuditMeta, show_sql = False):
-        with Audits.offload() as exec:
+        with audit() as exec:
             for table in tables:
                 if show_sql:
                     log(f'MSCK REPAIR TABLE {table}')

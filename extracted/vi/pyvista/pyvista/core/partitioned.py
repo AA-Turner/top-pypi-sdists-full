@@ -6,21 +6,27 @@ from collections.abc import MutableSequence
 from typing import TYPE_CHECKING
 from typing import overload
 
+import pyvista as pv
 from pyvista._deprecate_positional_args import _deprecate_positional_args
+from pyvista.core._vtk_utilities import vtk_version_info
 
 from . import _vtk_core as _vtk
 from .dataobject import DataObject
 from .errors import PartitionedDataSetsNotSupported
 from .utilities.helpers import is_pyvista_dataset
 from .utilities.helpers import wrap
+from .utilities.writer import HDFWriter
+from .utilities.writer import XMLPartitionedDataSetWriter
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+    from typing import ClassVar
 
     from typing_extensions import Self
 
     from .dataset import DataSet
     from .utilities.arrays import FieldAssociation
+    from .utilities.writer import BaseWriter
 
 
 class PartitionedDataSet(DataObject, MutableSequence, _vtk.vtkPartitionedDataSet):  # type: ignore[type-arg]
@@ -42,11 +48,12 @@ class PartitionedDataSet(DataObject, MutableSequence, _vtk.vtkPartitionedDataSet
 
     """
 
-    if _vtk.vtk_version_info >= (9, 1):
-        _WRITERS = {'.vtpd': _vtk.vtkXMLPartitionedDataSetWriter}
+    plot = pv._plot.plot
 
-        if _vtk.vtk_version_info >= (9, 4):
-            _WRITERS['.vtkhdf'] = _vtk.vtkHDFWriter
+    _WRITERS: ClassVar[dict[str, type[BaseWriter]]] = {'.vtpd': XMLPartitionedDataSetWriter}
+
+    if vtk_version_info >= (9, 4):
+        _WRITERS['.vtkhdf'] = HDFWriter
 
     def __init__(self, *args, **kwargs):
         """Initialize the PartitionedDataSet."""
@@ -107,7 +114,7 @@ class PartitionedDataSet(DataObject, MutableSequence, _vtk.vtkPartitionedDataSet
     ):
         """Set a partition with a VTK data object."""
         if isinstance(index, slice):
-            for i, d in zip(range(self.n_partitions)[index], data):
+            for i, d in zip(range(self.n_partitions)[index], data, strict=True):
                 self.SetPartition(i, d)
         else:
             if index < -self.n_partitions or index >= self.n_partitions:

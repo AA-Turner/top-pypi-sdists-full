@@ -1,18 +1,21 @@
 import json
 
-from collections.abc import Generator
-
 from abc import ABC, abstractmethod
+from pydantic_settings import BaseSettings
 
 from cuga.backend.memory.agentic_memory.db.sqlite_manager import SQLiteManager
+from cuga.backend.memory.agentic_memory.llm.conflict_resolution.schema import MemoryEvent
+from cuga.backend.memory.agentic_memory.llm.tips.cuga_tips import extract_cuga_tips_from_data
 from cuga.backend.memory.agentic_memory.schema import Fact, RecordedFact, Message, Run, Namespace
 from cuga.backend.memory.agentic_memory.utils.logging import Logging
-from cuga.backend.memory.agentic_memory.llm.tips.cuga_tips import extract_cuga_tips_from_data
 
 logger = Logging.get_logger()
 
 
 class BaseMemoryBackend(ABC):
+    def __init__(self, config: BaseSettings | None = None):
+        pass
+
     @abstractmethod
     def ready(self):
         pass
@@ -32,25 +35,28 @@ class BaseMemoryBackend(ABC):
         pass
 
     @abstractmethod
-    def all_namespaces(self) -> list[Namespace]:
-        pass
-
-    @abstractmethod
     def search_namespaces(
         self,
         user_id: str | None = None,
         agent_id: str | None = None,
         app_id: str | None = None,
         limit: int = 10,
-    ) -> Generator[Namespace]:
+    ) -> list[Namespace]:
         pass
 
     @abstractmethod
     def delete_namespace(self, namespace_id: str):
         pass
 
+    def update_facts(
+        self, namespace_id: str, facts: list[Fact], enable_conflict_resolution: bool = True
+    ) -> list[MemoryEvent]:
+        pass
+
     @abstractmethod
-    def create_and_store_fact(self, namespace_id: str, fact: Fact) -> str:
+    def create_and_store_fact(
+        self, namespace_id: str, fact: Fact, enable_conflict_resolution: bool = True
+    ) -> list[MemoryEvent]:
         pass
 
     @abstractmethod
@@ -63,8 +69,9 @@ class BaseMemoryBackend(ABC):
     def delete_fact_by_id(self, namespace_id: str, fact_id: str):
         pass
 
-    @abstractmethod
-    def extract_facts_from_messages(self, namespace_id: str, messages: list[Message]) -> str:
+    async def extract_facts_from_messages_async(
+        self, namespace_id: str, messages: list[Message], metadata: dict | None = None
+    ) -> list[MemoryEvent]:
         pass
 
     @abstractmethod
@@ -79,6 +86,10 @@ class BaseMemoryBackend(ABC):
     def add_step(self, namespace_id: str, run_id: str, step: dict, prompt: str):
         pass
 
+    def list_runs(self, namespace_id: str, limit: int = 10) -> list[Run]:
+        with SQLiteManager() as db_manager:
+            return db_manager.list_runs(namespace_id, limit)
+
     @abstractmethod
     def get_run(self, namespace_id: str, run_id: str) -> Run:
         pass
@@ -87,10 +98,11 @@ class BaseMemoryBackend(ABC):
     def search_runs(self, namespace_id: str, query: str, filters: dict[str, str]) -> Run | None:
         pass
 
-    def end_run(self, namespace_id: str, run_id: str):
+    async def end_run(self, namespace_id: str, run_id: str):
         _ = self.get_run(namespace_id, run_id)
         with SQLiteManager() as db_manager:
             db_manager.end_run(namespace_id=namespace_id, run_id=run_id)
+        await self.analyze_run(namespace_id, run_id)
 
     async def analyze_run(self, namespace_id: str, run_id: str):
         try:

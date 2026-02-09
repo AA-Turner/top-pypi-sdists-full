@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import subprocess
@@ -20,6 +21,8 @@ from wakepy.core import (
 if typing.TYPE_CHECKING:
     from typing import Optional, Tuple
 
+logger = logging.getLogger(__name__)
+
 XDG_SESSION_DESKTOP = "XDG_SESSION_DESKTOP"
 """The environment variable for the xdg desktop of the current session. Defined
 in pam_systemd manual[1].
@@ -34,7 +37,7 @@ list of DEs, defined in [2]
 KDE = "KDE"
 """Constant for KDE desktop environment / KDE Plasma"""
 XFCE = "XFCE"
-"""Constant for Xfce desktop environemtn"""
+"""Constant for Xfce desktop environment"""
 
 
 class FreedesktopInhibitorWithCookieMethod(Method):
@@ -59,6 +62,12 @@ class FreedesktopInhibitorWithCookieMethod(Method):
         retval = self.process_dbus_call(call)
         if retval is None:
             raise RuntimeError(f"Could not get inhibit cookie from {self.name}")
+
+        logger.debug(
+            "Got inhibit cookie from %s: %s",
+            self.name,
+            retval[0],
+        )
         self.inhibit_cookie = retval[0]
 
     def exit_mode(self) -> None:
@@ -66,6 +75,11 @@ class FreedesktopInhibitorWithCookieMethod(Method):
             # Nothing to exit from.
             return
 
+        logger.debug(
+            "Exiting %s using inhibit cookie: %s",
+            self.name,
+            self.inhibit_cookie,
+        )
         call = DBusMethodCall(
             method=self.method_uninhibit,
             args=dict(cookie=self.inhibit_cookie),
@@ -113,7 +127,7 @@ class FreedesktopPowerManagementInhibit(FreedesktopInhibitorWithCookieMethod):
     """Method using org.freedesktop.PowerManagement D-Bus API
 
     According to [1] and [2] this might be obsolete. The spec itself can be
-    read in the internet arhives[3]. Part of the spec (v0.2.0) copied here for
+    read in the internet archives[3]. Part of the spec (v0.2.0) copied here for
     convenience:
 
     DBUS Interface:     org.freedesktop.PowerManagement.Inhibit
@@ -179,12 +193,11 @@ class FreedesktopPowerManagementInhibit(FreedesktopInhibitorWithCookieMethod):
     """
 
     def caniuse(self) -> bool | None | str:
-
         current_de = _get_current_desktop_environment()
+        logger.debug("Detected DE: %s", current_de)
 
         if current_de == KDE:
             kde_version = _get_kde_plasma_version()
-
             if kde_version is None:
                 raise RuntimeError(
                     "Running on KDE but could not detect KDE Plasma version."
@@ -200,7 +213,7 @@ class FreedesktopPowerManagementInhibit(FreedesktopInhibitorWithCookieMethod):
 
         elif current_de == XFCE:
             raise RuntimeError(
-                "org.freedesktop.PowerManagemen does not support XFCE as it has a bug "
+                "org.freedesktop.PowerManagement does not support XFCE as it has a bug "
                 "which prevents automatic screenlock / screensaver. See: "
                 "https://gitlab.xfce.org/xfce/xfce4-power-manager/-/issues/65"
             )
@@ -215,7 +228,7 @@ def _get_current_desktop_environment() -> str | None:
     if XDG_SESSION_DESKTOP not in os.environ:
         return None
 
-    de_from_env_var = os.environ[XDG_SESSION_DESKTOP]
+    de_from_env_var = os.environ[XDG_SESSION_DESKTOP].upper()
     if de_from_env_var.upper() == KDE:
         return KDE
     elif de_from_env_var.upper() == XFCE:
@@ -234,8 +247,9 @@ def _get_kde_plasma_version() -> Optional[Tuple[int, ...]]:
 
     """
     # returns for example 'plasmashell 5.27.9' but may also return some
-    # additional text. See: https://github.com/fohrloop/wakepy/issues/415
-    output = subprocess.getoutput("plasmashell --version")
+    # additional text. See: https://github.com/wakepy/wakepy/issues/415
+    # Skipping the warning. Tracking in https://github.com/wakepy/wakepy/issues/520
+    output = subprocess.getoutput("plasmashell --version")  # noqa: S607, S605
     for line in output.splitlines():
         match = re.match(".*plasmashell ([0-9.]*).*", line)
         if match:

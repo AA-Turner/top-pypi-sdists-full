@@ -10,7 +10,7 @@ from ._shared_client import get_shared_client
 
 def execute_tool(
     tool_name: str,
-    arguments: Optional[dict[str, Any]] = None,
+    arguments: Optional[dict[str, Any] | str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -23,8 +23,8 @@ def execute_tool(
     ----------
     tool_name : str
         Name of the tool to execute (e.g., 'example_tool_name')
-    arguments : dict[str, Any]
-        Tool arguments as a JSON object (dictionary), NOT a JSON string. Pass the par...
+    arguments : dict[str, Any] | str
+        Tool arguments as either (1) a JSON object dictionary or (2) a JSON string th...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False

@@ -133,7 +133,7 @@ BUILTINS_OUTPUT = {
     'cout', 'cin', 'cerr', 'clog', 'endl', 'flush', 'getline',
 }
 
-BUILTINS_TYPE = {'typeof', 'isinstance', 'isint', 'isfloat', 'isstr', 'isbool', 'islist', 'isdict', 'isnull', 'isavailable'}
+BUILTINS_TYPE = {'typeof', 'isinstance', 'isint', 'isfloat', 'isstr', 'isbool', 'islist', 'isdict', 'isnull', 'isavailable', 'cast'}
 
 BUILTINS_STRING = {
     'len', 'upper', 'lower', 'trim', 'ltrim', 'rtrim', 'split', 'join', 'replace', 'substr',

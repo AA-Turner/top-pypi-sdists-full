@@ -1,7 +1,7 @@
 from kubernetes import client
 from time import sleep
 from .pods import Pods
-from adam.utils import log2, log_exc
+from adam.utils_log import log2, log_exc
 
 # utility collection on jobs; methods are all static
 class Jobs:

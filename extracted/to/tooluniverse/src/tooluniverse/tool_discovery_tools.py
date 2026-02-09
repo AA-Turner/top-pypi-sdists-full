@@ -725,10 +725,11 @@ class ExecuteToolTool(BaseTool):
         Args:
             arguments (dict): Dictionary containing:
                 - tool_name (str): Name of the tool to execute
-                - arguments (dict): Dictionary of arguments to pass to the tool.
-                  IMPORTANT: This must be a JSON object (dict), NOT a JSON string.
-                  Example: {"param1": "value1", "param2": 5}
-                  Do NOT use: "param1=value1" or '{"param1":"value1"}'
+                - arguments (dict|str): Arguments to pass to the tool.
+                  Accepts:
+                  1) JSON object/dict: {"param1": "value1", "param2": 5}
+                  2) JSON string that parses to object:
+                     "{\"param1\": \"value1\", \"param2\": 5}"
 
         Returns:
             dict or str: Tool execution result. If result is already a dict,
@@ -744,7 +745,8 @@ class ExecuteToolTool(BaseTool):
         # Validate tool_name
         if not tool_name or (isinstance(tool_name, str) and not tool_name.strip()):
             error_msg = "tool_name parameter is required and cannot be empty"
-            self.logger.error(f"execute_tool: {error_msg}")
+            if hasattr(self, "logger"):
+                self.logger.error(f"execute_tool: {error_msg}")
             return {"error": error_msg, "error_type": "ValidationError"}
 
         # Normalize arguments
@@ -752,16 +754,39 @@ class ExecuteToolTool(BaseTool):
             parsed_args = {}
         elif isinstance(tool_arguments, dict):
             parsed_args = tool_arguments
+        elif isinstance(tool_arguments, str):
+            try:
+                parsed_args = json.loads(tool_arguments)
+            except (json.JSONDecodeError, ValueError):
+                error_msg = (
+                    "arguments string must be valid JSON that parses to an object. "
+                    f"Received: {repr(tool_arguments)[:100]}. "
+                    'Example: "{\\"param1\\": \\"value1\\", \\"param2\\": 5}".'
+                )
+                if hasattr(self, "logger"):
+                    self.logger.error(f"{tool_name}: {error_msg}")
+                return {"error": error_msg, "error_type": "ValidationError"}
+
+            if not isinstance(parsed_args, dict):
+                error_msg = (
+                    "arguments JSON string must decode to an object (dictionary), "
+                    f"got {type(parsed_args).__name__}. "
+                    'Example: "{\\"param1\\": \\"value1\\", \\"param2\\": 5}".'
+                )
+                if hasattr(self, "logger"):
+                    self.logger.error(f"{tool_name}: {error_msg}")
+                return {"error": error_msg, "error_type": "ValidationError"}
         else:
             # Provide helpful error message with examples
             received_type = type(tool_arguments).__name__
             error_msg = (
-                f"arguments must be a JSON object (dictionary), not a {received_type}. "
+                f"arguments must be a JSON object (dictionary) or JSON object string, not a {received_type}. "
                 f"Received: {repr(tool_arguments)[:100]}. "
                 f'Example of correct format: {{"param1": "value1", "param2": 5}}. '
-                f"Do NOT use string format like 'param1=value1' or JSON string format."
+                'JSON string also accepted: "{\\"param1\\": \\"value1\\", \\"param2\\": 5}".'
             )
-            self.logger.error(f"{tool_name}: {error_msg}")
+            if hasattr(self, "logger"):
+                self.logger.error(f"{tool_name}: {error_msg}")
             return {"error": error_msg, "error_type": "ValidationError"}
 
         # Directly use tooluniverse.run_one_function - it handles everything

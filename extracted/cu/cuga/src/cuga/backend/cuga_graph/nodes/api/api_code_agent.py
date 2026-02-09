@@ -17,10 +17,6 @@ from cuga.config import settings
 
 tracker = ActivityTracker()
 llm_manager = LLMManager()
-if settings.advanced_features.enable_fact:
-    from cuga.backend.memory.memory import Memory
-
-    memory = Memory()
 
 
 class ApiCoder(BaseNode):
@@ -54,10 +50,28 @@ class ApiCoder(BaseNode):
         msg = AIMessage(content=res_obj.model_dump_json())
         state.messages.append(msg)
         state.sender = name
-        if res_obj.variables and settings.advanced_features.enable_fact:
+        if (
+            res_obj.variables
+            and settings.advanced_features.enable_fact
+            and settings.advanced_features.enable_memory
+        ):
+            from cuga.backend.memory.memory import Memory
+            from cuga.backend.memory.agentic_memory import NamespaceNotFoundException
+
+            memory = Memory()
+
+            # Ensure namespace exists before storing facts
+            try:
+                memory.get_namespace_details(namespace_id="memory")
+            except NamespaceNotFoundException:
+                memory.create_namespace(namespace_id="memory")
+
             variables_string = json.dumps(res_obj.variables)
             memory.create_and_store_fact(
-                namespace_id="memory", content=variables_string, metadata={"user_id": state.user_id}
+                namespace_id="memory",
+                content=variables_string,
+                metadata={"user_id": state.user_id},
+                enable_conflict_resolution=False,
             )
 
         return Command(update=state.model_dump(), goto="APIPlannerAgent")

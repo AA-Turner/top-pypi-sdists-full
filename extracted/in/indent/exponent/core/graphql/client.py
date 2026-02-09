@@ -1,3 +1,4 @@
+import uuid
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -47,8 +48,7 @@ class GraphQLClient:
         return await self._typed_client.github_repositories()
 
     async def halt_chat_stream(self, chat_uuid: str) -> HaltChatStream:
-        """Halt a chat stream with proper typing."""
-        return await self._typed_client.halt_chat_stream(chat_uuid=chat_uuid)
+        return await self._typed_client.halt_chat_stream(chat_uuid=uuid.UUID(chat_uuid))
 
     async def refresh_api_key(self) -> RefreshApiKey:
         """Refresh API key with proper typing."""
@@ -57,17 +57,15 @@ class GraphQLClient:
     async def create_cloud_chat_from_repository(
         self, repository_uuid: str, provider: SandboxProvider | None = None
     ) -> CreateCloudChatFromRepository:
-        """Create a cloud chat from a repository with proper typing."""
         return await self._typed_client.create_cloud_chat_from_repository(
-            repository_uuid=repository_uuid, provider=provider
+            repository_uuid=uuid.UUID(repository_uuid), provider=provider
         )
 
     async def enable_cloud_repository(self, repositories: list[RepositoryInput]) -> EnableCloudRepository:
         return await self._typed_client.enable_cloud_repository(repositories=repositories)
 
-    async def rebuild_cloud_repository(self, org_name: str, repo_name: str) -> RebuildCloudRepository:
-        """Rebuild cloud repository with proper typing."""
-        return await self._typed_client.rebuild_cloud_repository(org_name, repo_name)
+    async def rebuild_cloud_repository(self, repository_uuid: str) -> RebuildCloudRepository:
+        return await self._typed_client.rebuild_cloud_repository(repository_uuid=uuid.UUID(repository_uuid))
 
     async def set_login_complete(self) -> SetLoginComplete:
         """Set login complete with proper typing."""

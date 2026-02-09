@@ -59,6 +59,8 @@ class DepMapTool(BaseTool):
             return self._get_gene_dependencies(arguments)
         elif operation == "get_drug_response":
             return self._get_drug_response(arguments)
+        elif operation == "search_genes":
+            return self._search_genes(arguments)
         else:
             return {"status": "error", "error": f"Unknown operation: {operation}"}
 
@@ -261,32 +263,57 @@ class DepMapTool(BaseTool):
             return {"status": "error", "error": "gene_symbol parameter is required"}
 
         try:
-            # Query the genes endpoint
-            url = f"{DEPMAP_BASE_URL}/genes"
-            params = {"filter[gene]": f"symbol:{gene_symbol}", "page[size]": 10}
+            # Use DepMap_search_genes internally for reliable matching
+            search_result = self._search_genes({"query": gene_symbol})
 
-            response = requests.get(url, params=params, timeout=self.timeout)
-            response.raise_for_status()
-            data = response.json()
+            if search_result.get("status") != "success":
+                return search_result
 
-            genes = []
-            for item in data.get("data", []):
-                attrs = item.get("attributes", {})
-                genes.append(
-                    {
-                        "gene_id": item.get("id"),
-                        "symbol": attrs.get("symbol"),
-                        "name": attrs.get("name"),
-                        "ensembl_id": attrs.get("ensembl_gene_id"),
-                    }
-                )
+            genes = search_result.get("data", {}).get("genes", [])
+            exact_matches = [g for g in genes if g.get("exact_match")]
+            matched_gene = exact_matches[0] if exact_matches else None
+
+            if matched_gene is None and genes:
+                # No exact match — report candidates
+                return {
+                    "status": "success",
+                    "data": {
+                        "gene_symbol": gene_symbol,
+                        "exact_match": None,
+                        "candidates": genes[:5],
+                        "warning": (
+                            f"No exact match for '{gene_symbol}'. "
+                            f"Similar: {[g['symbol'] for g in genes[:5]]}. "
+                            "Use DepMap_search_genes for disambiguation."
+                        ),
+                    },
+                }
+
+            if matched_gene is None:
+                return {
+                    "status": "success",
+                    "data": {
+                        "gene_symbol": gene_symbol,
+                        "exact_match": None,
+                        "message": (
+                            f"Gene '{gene_symbol}' not found in DepMap. "
+                            "The Sanger Cell Model Passports API has "
+                            "limited gene search capabilities."
+                        ),
+                    },
+                }
 
             return {
                 "status": "success",
                 "data": {
                     "gene_symbol": gene_symbol,
-                    "genes": genes,
-                    "note": "Gene effect scores are available through the DepMap portal. Negative scores indicate gene essentiality.",
+                    "matched_gene": matched_gene,
+                    "note": (
+                        "Gene effect scores: negative = essential "
+                        "(cell death upon knockout), zero = no effect, "
+                        "positive = growth advantage. "
+                        "Full dependency profiles at depmap.org."
+                    ),
                 },
             }
         except requests.exceptions.Timeout:
@@ -298,6 +325,115 @@ class DepMapTool(BaseTool):
             return {"status": "error", "error": f"DepMap API request failed: {str(e)}"}
         except Exception as e:
             return {"status": "error", "error": f"Unexpected error: {str(e)}"}
+
+    def _search_genes(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Search for genes in DepMap by symbol.
+
+        The Sanger Cell Model Passports API gene filter is limited,
+        so this method fetches sorted gene batches and filters client-side.
+        """
+        query = arguments.get("query")
+
+        if not query:
+            return {"status": "error", "error": "query parameter is required"}
+
+        try:
+            # The Sanger API's filter[gene] param doesn't work for
+            # exact symbol matching. Use sorted pagination + client filter.
+            url = f"{DEPMAP_BASE_URL}/genes"
+            params = {
+                "sort": "symbol",
+                "page[size]": 100,
+            }
+
+            # Scan through pages to find matching genes
+            # With sorted results, we search up to 5 pages (500 genes)
+            genes = []
+            query_upper = query.upper()
+            for page_num in range(1, 6):
+                params["page[number]"] = page_num
+                response = requests.get(url, params=params, timeout=self.timeout)
+                response.raise_for_status()
+                data = response.json()
+
+                for item in data.get("data", []):
+                    attrs = item.get("attributes", {})
+                    symbol = attrs.get("symbol", "")
+                    # Check for exact or prefix match
+                    if symbol.upper() == query_upper or symbol.upper().startswith(
+                        query_upper
+                    ):
+                        genes.append(
+                            {
+                                "gene_id": item.get("id"),
+                                "symbol": symbol,
+                                "name": attrs.get("name"),
+                                "hgnc_id": attrs.get("hgnc_id"),
+                                "ensembl_id": attrs.get("ensembl_gene_id"),
+                                "exact_match": (symbol.upper() == query_upper),
+                            }
+                        )
+
+                # If we found exact match(es), no need for more pages
+                if any(g["exact_match"] for g in genes):
+                    break
+
+                # Check if we've gone past alphabetically
+                page_data = data.get("data", [])
+                if page_data:
+                    last_sym = page_data[-1].get("attributes", {}).get("symbol", "")
+                    if last_sym.upper() > query_upper + "Z":
+                        break
+
+            # Sort: exact matches first
+            genes.sort(
+                key=lambda g: (
+                    not g["exact_match"],
+                    g.get("symbol", ""),
+                )
+            )
+
+            if not genes:
+                return {
+                    "status": "success",
+                    "data": {
+                        "query": query,
+                        "genes": [],
+                        "count": 0,
+                        "note": (
+                            f"Gene '{query}' not found in DepMap "
+                            "gene catalog. The Sanger Cell Model "
+                            "Passports API has limited gene search. "
+                            "Try using an Ensembl ID or check "
+                            "depmap.org directly."
+                        ),
+                    },
+                }
+
+            return {
+                "status": "success",
+                "data": {
+                    "query": query,
+                    "genes": genes[:20],
+                    "count": len(genes),
+                },
+            }
+        except requests.exceptions.Timeout:
+            return {
+                "status": "error",
+                "error": f"DepMap API timeout after {self.timeout}s",
+            }
+        except requests.exceptions.RequestException as e:
+            return {
+                "status": "error",
+                "error": f"DepMap API request failed: {str(e)}",
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "error": f"Unexpected error: {str(e)}",
+            }
 
     def _get_drug_response(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """

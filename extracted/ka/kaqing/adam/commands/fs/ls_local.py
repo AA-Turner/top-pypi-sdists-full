@@ -2,7 +2,7 @@ import os
 
 from adam.commands.command import Command
 from adam.repl_state import ReplState
-from adam.utils import log2
+from adam.utils_log import log2
 from adam.utils_local import local_qing_dir
 
 class LsLocal(Command):

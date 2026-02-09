@@ -331,6 +331,11 @@ class FieldRenderer(BaseRenderer):
         classes = before + classes
         widget.attrs["class"] = merge_css_classes(*classes)
 
+        # Add button size class for RadioSelectButtonGroup
+        if isinstance(widget, RadioSelectButtonGroup):
+            btn_size_class = get_size_class(self.size, prefix="btn", skip=["xs", "md"])
+            widget.attrs["btn_size_class"] = btn_size_class
+
     def add_placeholder_attrs(self, widget=None):
         """Add placeholder attribute to widget."""
         if widget is None:
@@ -381,15 +386,15 @@ class FieldRenderer(BaseRenderer):
 
     def get_label_html(self, horizontal=False):
         """Return value for label."""
-        label_html = "" if self.show_label == "skip" else self.field.label
+        if self.show_label == "skip":
+            return EMPTY_SAFE_HTML
+
         label_for = self.field.id_for_label
-        if label_html:
-            label_html = render_label(
-                label_html,
-                label_for=label_for,
-                label_class=self.get_label_class(horizontal=horizontal),
-            )
-        return label_html
+        return render_label(
+            self.field.label,
+            label_for=label_for,
+            label_class=self.get_label_class(horizontal=horizontal),
+        )
 
     def get_help_html(self):
         """Return HTML for help text."""

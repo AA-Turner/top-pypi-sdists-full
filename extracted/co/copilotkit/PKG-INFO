@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: copilotkit
-Version: 0.1.77
+Version: 0.1.78
 Summary: CopilotKit python SDK
 License: MIT
 Keywords: copilot,copilotkit,langgraph,langchain,ai,langsmith,langserve

@@ -1,5 +1,6 @@
 from typing import Any, Optional, Callable
-from asyncio import iscoroutinefunction, Future
+from asyncio import Future
+from inspect import iscoroutinefunction
 from slixmpp.xmlstream import JID
 
 APIHandler = Callable[
@@ -52,7 +53,7 @@ class APIRegistry(object):
     """API Registry.
 
     This class is the global Slixmpp API registry, on which any handler will
-    be registed.
+    be registered.
     """
 
     def __init__(self, xmpp):

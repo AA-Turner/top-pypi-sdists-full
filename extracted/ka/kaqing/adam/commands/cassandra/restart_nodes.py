@@ -1,13 +1,13 @@
 from adam.commands import extract_options, extract_trailing_options, validate_args
 from adam.commands.command import Command
-from adam.utils_cassandra.cassandra_status import CassandraStatus
 from adam.utils_cassandra.node_restartability import NodeRestartability
 from adam.utils_cassandra.node_scheduler import NodeScheduler
+from adam.utils_cassandra.node_schedules import NodeSchedules
 from adam.utils_context import Context
 from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.statefulsets import StatefulSets
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import Color
+from adam.utils_color import Color
 from adam.utils_repl.set_completer import SetCompleter
 
 class RestartNodes(Command):
@@ -37,28 +37,21 @@ class RestartNodes(Command):
                 with extract_options(args, '--force') as (args, forced):
                     with validate_args(args, state, name='pod name'):
                         # restart nodes allows comma separator
-                        safe_args = []
-                        for arg in args:
-                            for a in arg.split(','):
-                                if a:
-                                    safe_args.append(a)
-                        args = safe_args
+                        args = self.comma_separated_args(args)
 
                         if background:
                             # start with foreground, it become background if the node restart thread is not yet runnig during scheduling
-                            ctx = Context.new(cmd=cmd, show_out=True)
-
                             for pod in args:
-                                NodeScheduler.schedule(state, pod, ctx)
+                                NodeScheduler.schedule(state, pod, self.context())
                         else:
-                            ctx = Context.new(cmd=cmd, show_out=True, background=background)
+                            ctx: Context = self.context().copy(background=background)
                             for arg in args:
                                 if forced:
                                     ctx.log(f'[{arg}] Restarting...')
                                 else:
                                     ctx.log(f'[{arg}] Checking...')
 
-                                    node: NodeRestartability = CassandraStatus.probe(state, arg, in_restartings=NodeScheduler.restartings(ctx=ctx), ctx=ctx.copy(show_out=False))
+                                    node: NodeRestartability = NodeRestartability.probe(state, arg, in_restartings=NodeSchedules.restartings(ctx=ctx), ctx=ctx.copy(show_out=False))
                                     if not node.restartable():
                                         node.log(ctx=ctx.copy(text_color=Color.gray))
                                         ctx.log2('Please add --force for restarting pod unsafely.')

@@ -1639,7 +1639,8 @@ def tensorleap_status_table():
         cur = row["Added to integration"]
         if status_symbol == UNKNOWN:
             return
-        if cur == CHECK and status_symbol != CHECK:
+        # If any interface of this type already failed (CROSS), keep it as failed
+        if cur == CROSS:
             return
 
         row["Added to integration"] = status_symbol
@@ -1742,7 +1743,7 @@ def tensorleap_status_table():
         crashed_name = _current_func["name"]
         if crashed_name:
             row = _find_row(crashed_name)
-            if row and row["Added to integration"] != CHECK:
+            if row:
                 row["Added to integration"] = CROSS
 
         traceback.print_exception(exc_type, exc_value, exc_traceback)

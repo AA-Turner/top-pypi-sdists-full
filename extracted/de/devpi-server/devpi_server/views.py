@@ -150,7 +150,14 @@ class HTTPResponse(HTTPSuccessful):
         Exception.__init__(self)
 
 
-def apiresult(code, message=None, result=None, type=None):  # noqa: A002
+def apiresult(
+    code,
+    message=None,
+    *,
+    result=None,
+    type=None,  # noqa: A002
+    warnings=None,
+):
     d = dict()
     if result is not None:
         assert type is not None
@@ -158,13 +165,22 @@ def apiresult(code, message=None, result=None, type=None):  # noqa: A002
         d["type"] = type
     if message:
         d["message"] = message
+    if warnings:
+        d["warnings"] = warnings
     data = json.dumps(d, indent=2) + "\n"
     headers = {"content-type": "application/json"}
     return HTTPResponse(body=data, status=code, headers=headers)
 
 
-def apireturn(code, message=None, result=None, type=None):  # noqa: A002
-    raise apiresult(code, message=message, result=result, type=type)
+def apireturn(
+    code,
+    message=None,
+    *,
+    result=None,
+    type=None,  # noqa: A002
+    warnings=None,
+):
+    raise apiresult(code, message=message, result=result, type=type, warnings=warnings)
 
 
 def json_preferred(request):
@@ -352,7 +368,23 @@ class StatusView:
             status["replica-started-at"] = self.xom.replica_thread.started_at
             status["primary-contacted-at"] = self.xom.replica_thread.primary_contacted_at
             status["update-from-primary-at"] = self.xom.replica_thread.update_from_primary_at
-            status["replica-in-sync-at"] = self.xom.replica_thread.replica_in_sync_at
+            status["replica-files-in-sync-at"] = (
+                self.xom.replica_thread.replica_files_in_sync_at
+            )
+            status["replica-init-queue-finished-at"] = (
+                self.xom.replica_thread.replica_init_queue_finished_at
+            )
+            status["replica-metadata-in-sync-at"] = (
+                self.xom.replica_thread.replica_metadata_in_sync_at
+            )
+            _in_sync = [
+                status["replica-files-in-sync-at"],
+                status["replica-init-queue-finished-at"],
+                status["replica-metadata-in-sync-at"],
+            ]
+            status["replica-in-sync-at"] = (
+                None if any(x is None for x in _in_sync) else max(_in_sync)
+            )
             replication_errors = self.xom.replica_thread.shared_data.errors
             status["replication-errors"] = replication_errors.errors
         else:
@@ -943,9 +975,12 @@ class PyPIView:
     def index_modify(self):
         stage = self.context.stage
         json = getjson(self.request)
+        keep_unknown = False
         if isinstance(json, list):
+            used_ops = set()
             ixconfig = stage.get()
             for op, key, value in get_actions(json):
+                used_ops.add(op)
                 if op == 'del':
                     if value not in ixconfig[key]:
                         apireturn(
@@ -967,6 +1002,8 @@ class PyPIView:
                     ixconfig[key] = RemoveValue
                 else:
                     raise ValueError("Unknown operator '%s'." % op)
+            if not used_ops.difference({"add", "del", "drop"}):
+                keep_unknown = True
             json = ixconfig
         if json.get('type') == 'indexconfig' and 'result' in json:
             json = json['result']
@@ -974,7 +1011,7 @@ class PyPIView:
         if 'error_on_noop' in self.request.params and oldconfig == json:
             apireturn(400, message="The requested modifications resulted in no changes")
         try:
-            ixconfig = stage.modify(**json)
+            ixconfig = stage.modify(**json, _keep_unknown=keep_unknown)
         except InvalidIndexconfig as e:
             apireturn(400, message=", ".join(e.messages))
         try:

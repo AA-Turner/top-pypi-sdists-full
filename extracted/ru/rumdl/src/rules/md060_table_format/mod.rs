@@ -667,8 +667,10 @@ impl MD060TableFormat {
                 let after_blockquote = Self::extract_blockquote_prefix(line).1;
                 if list_context.is_some() {
                     if i == 0 {
-                        // Header line: strip list prefix
-                        crate::utils::table_utils::TableUtils::extract_list_prefix(after_blockquote).1
+                        // Header line: strip list prefix (handles both markers and indentation)
+                        after_blockquote.strip_prefix(list_prefix).unwrap_or_else(|| {
+                            crate::utils::table_utils::TableUtils::extract_list_prefix(after_blockquote).1
+                        })
                     } else {
                         // Continuation lines: strip expected indentation
                         after_blockquote
@@ -857,15 +859,14 @@ impl Rule for MD060TableFormat {
             return Ok(Vec::new());
         }
 
-        let content = ctx.content;
         let line_index = &ctx.line_index;
         let mut warnings = Vec::new();
 
-        let lines: Vec<&str> = content.lines().collect();
+        let lines = ctx.raw_lines();
         let table_blocks = &ctx.table_blocks;
 
         for table_block in table_blocks {
-            let format_result = self.fix_table_block(&lines, table_block, ctx.flavor);
+            let format_result = self.fix_table_block(lines, table_block, ctx.flavor);
 
             let table_line_indices: Vec<usize> = std::iter::once(table_block.header_line)
                 .chain(std::iter::once(table_block.delimiter_line))
@@ -940,13 +941,13 @@ impl Rule for MD060TableFormat {
         }
 
         let content = ctx.content;
-        let lines: Vec<&str> = content.lines().collect();
+        let lines = ctx.raw_lines();
         let table_blocks = &ctx.table_blocks;
 
         let mut result_lines: Vec<String> = lines.iter().map(|&s| s.to_string()).collect();
 
         for table_block in table_blocks {
-            let format_result = self.fix_table_block(&lines, table_block, ctx.flavor);
+            let format_result = self.fix_table_block(lines, table_block, ctx.flavor);
 
             let table_line_indices: Vec<usize> = std::iter::once(table_block.header_line)
                 .chain(std::iter::once(table_block.delimiter_line))

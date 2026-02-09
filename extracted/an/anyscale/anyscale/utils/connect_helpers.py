@@ -61,10 +61,22 @@ def _multiclient_supported() -> bool:
 
 
 def find_project_id(
-    sdk: Union["AnyscaleSDK", "DefaultApi"], project_name: str
+    sdk: Union["AnyscaleSDK", "DefaultApi"], project_name: str, parent_cloud_id: str,
 ) -> Optional[str]:
-    """Return id if a project of a given name exists."""
-    resp = sdk.search_projects({"name": {"equals": project_name}})
+    """Return id if a project of a given name exists.
+
+    Args:
+        sdk: The Anyscale SDK client.
+        project_name: The name of the project to find.
+        parent_cloud_id: The cloud ID to scope the project search to.
+            With cloud isolation, projects are scoped to clouds, so this
+            is required to find the correct project.
+    """
+    query: Dict[str, Any] = {
+        "name": {"equals": project_name},
+        "parent_cloud_id": {"equals": parent_cloud_id},
+    }
+    resp = sdk.search_projects(query)
     if len(resp.results) > 0:
         return resp.results[0].id  # type: ignore
     else:

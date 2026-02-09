@@ -1,18 +1,30 @@
 Metadata-Version: 2.4
 Name: langchain
-Version: 1.2.8
+Version: 1.2.9
 Summary: Building applications with LLMs through composability
 Project-URL: Homepage, https://docs.langchain.com/
 Project-URL: Documentation, https://reference.langchain.com/python/langchain/langchain/
-Project-URL: Source, https://github.com/langchain-ai/langchain/tree/master/libs/langchain
+Project-URL: Repository, https://github.com/langchain-ai/langchain
+Project-URL: Issues, https://github.com/langchain-ai/langchain/issues
 Project-URL: Changelog, https://github.com/langchain-ai/langchain/releases?q=tag%3A%22langchain%3D%3D1%22
 Project-URL: Twitter, https://x.com/LangChain
 Project-URL: Slack, https://www.langchain.com/join-community
 Project-URL: Reddit, https://www.reddit.com/r/LangChain/
 License: MIT
 License-File: LICENSE
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: <4.0.0,>=3.10.0
-Requires-Dist: langchain-core<2.0.0,>=1.2.8
+Requires-Dist: langchain-core<2.0.0,>=1.2.9
 Requires-Dist: langgraph<1.1.0,>=1.0.7
 Requires-Dist: pydantic<3.0.0,>=2.7.4
 Provides-Extra: anthropic

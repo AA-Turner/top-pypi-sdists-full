@@ -1,7 +1,7 @@
 from adam.commands.command import Command
 from adam.commands.deploy.code_utils import start_user_code, stop_user_codes
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import log2
+from adam.utils_log import log2
 
 class CodeStart(Command):
     COMMAND = 'code start'

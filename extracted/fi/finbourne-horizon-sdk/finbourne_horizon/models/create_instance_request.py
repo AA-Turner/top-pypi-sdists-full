@@ -23,6 +23,7 @@ from typing_extensions import Annotated
 from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
 from datetime import datetime
 from finbourne_horizon.models.lusid_property_definition_overrides_by_type import LusidPropertyDefinitionOverridesByType
+from finbourne_horizon.models.post_process_task import PostProcessTask
 from finbourne_horizon.models.trigger import Trigger
 
 class CreateInstanceRequest(BaseModel):
@@ -36,7 +37,8 @@ class CreateInstanceRequest(BaseModel):
     enabled: StrictBool
     triggers: List[Trigger]
     details: Dict[str, Any]
-    __properties = ["instanceOptionalProps", "integrationType", "name", "description", "enabled", "triggers", "details"]
+    post_process_tasks: List[PostProcessTask] = Field(alias="postProcessTasks")
+    __properties = ["instanceOptionalProps", "integrationType", "name", "description", "enabled", "triggers", "details", "postProcessTasks"]
 
     class Config:
         """Pydantic configuration"""
@@ -84,6 +86,13 @@ class CreateInstanceRequest(BaseModel):
                 if _item:
                     _items.append(_item.to_dict())
             _dict['triggers'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in post_process_tasks (list)
+        _items = []
+        if self.post_process_tasks:
+            for _item in self.post_process_tasks:
+                if _item:
+                    _items.append(_item.to_dict())
+            _dict['postProcessTasks'] = _items
         # set to None if instance_optional_props (nullable) is None
         # and __fields_set__ contains the field
         if self.instance_optional_props is None and "instance_optional_props" in self.__fields_set__:
@@ -112,7 +121,8 @@ class CreateInstanceRequest(BaseModel):
             "description": obj.get("description"),
             "enabled": obj.get("enabled"),
             "triggers": [Trigger.from_dict(_item) for _item in obj.get("triggers")] if obj.get("triggers") is not None else None,
-            "details": obj.get("details")
+            "details": obj.get("details"),
+            "post_process_tasks": [PostProcessTask.from_dict(_item) for _item in obj.get("postProcessTasks")] if obj.get("postProcessTasks") is not None else None
         })
         return _obj
 

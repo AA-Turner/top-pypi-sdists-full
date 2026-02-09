@@ -1764,7 +1764,6 @@ class RunKwargs(_message.Message):
     context_json: _builtins.bytes
     input_json: _builtins.bytes
     command_json: _builtins.bytes
-    stream_mode: _enum_stream_mode_pb2.StreamMode.ValueType
     webhook: _builtins.str
     temporary: _builtins.bool
     subgraphs: _builtins.bool
@@ -1773,6 +1772,8 @@ class RunKwargs(_message.Message):
     durability: _builtins.str
     @_builtins.property
     def config(self) -> _engine_common_pb2.EngineRunnableConfig: ...
+    @_builtins.property
+    def stream_mode(self) -> _containers.RepeatedScalarFieldContainer[_enum_stream_mode_pb2.StreamMode.ValueType]: ...
     @_builtins.property
     def interrupt_before(self) -> _engine_common_pb2.StaticInterruptConfig: ...
     @_builtins.property
@@ -1786,7 +1787,7 @@ class RunKwargs(_message.Message):
         context_json: _builtins.bytes | None = ...,
         input_json: _builtins.bytes | None = ...,
         command_json: _builtins.bytes | None = ...,
-        stream_mode: _enum_stream_mode_pb2.StreamMode.ValueType = ...,
+        stream_mode: _abc.Iterable[_enum_stream_mode_pb2.StreamMode.ValueType] | None = ...,
         interrupt_before: _engine_common_pb2.StaticInterruptConfig | None = ...,
         interrupt_after: _engine_common_pb2.StaticInterruptConfig | None = ...,
         webhook: _builtins.str | None = ...,
@@ -1968,18 +1969,24 @@ class RunWithAttempt(_message.Message):
 
     RUN_FIELD_NUMBER: _builtins.int
     ATTEMPT_FIELD_NUMBER: _builtins.int
+    ENCRYPTION_CONTEXT_FIELD_NUMBER: _builtins.int
     attempt: _builtins.int
     @_builtins.property
     def run(self) -> Global___Run: ...
+    @_builtins.property
+    def encryption_context(self) -> _encryption_pb2.EncryptionContext:
+        """Need this for the worker to pass to checkpointer for blob encryption"""
+
     def __init__(
         self,
         *,
         run: Global___Run | None = ...,
         attempt: _builtins.int = ...,
+        encryption_context: _encryption_pb2.EncryptionContext | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["run", b"run"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["encryption_context", b"encryption_context", "run", b"run"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["attempt", b"attempt", "run", b"run"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["attempt", b"attempt", "encryption_context", b"encryption_context", "run", b"run"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
 
 Global___RunWithAttempt: _TypeAlias = RunWithAttempt  # noqa: Y015

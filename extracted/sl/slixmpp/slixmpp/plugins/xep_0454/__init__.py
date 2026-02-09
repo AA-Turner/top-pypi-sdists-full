@@ -163,7 +163,7 @@ class XEP_0454(BasePlugin):
         input_enc = BytesIO(payload)
         kwargs['input_file'] = input_enc
 
-        # Size must also be overriden if provided
+        # Size must also be overridden if provided
         size = input_enc.seek(0, SEEK_END)
         input_enc.seek(0)
         kwargs['size'] = size

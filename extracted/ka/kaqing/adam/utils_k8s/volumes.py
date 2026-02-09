@@ -1,5 +1,5 @@
 from kubernetes import client
-from adam.utils import log2
+from adam.utils_log import log2
 
 class ConfigMapMount:
     def __init__(self, config_map_name: str, sub_path: str, mount_path: str):

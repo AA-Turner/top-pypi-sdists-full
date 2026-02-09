@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: LightSim2Grid
-Version: 0.12.1
+Version: 0.12.2
 Summary: LightSim2Grid implements a c++ backend targeting the Grid2Op platform.
 Home-page: https://github.com/grid2op/lightsim2grid/
 Author: Benjamin Donnot

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "claude-mpm"
-version = "5.7.2"
+version = "5.7.21"
 description = "Claude Code workflow and agent management framework - Multi-agent orchestration, skills system, MCP integration, session management, and semantic code search for AI-powered development"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -107,6 +107,7 @@ claude-mpm-monitor = "claude_mpm.scripts.launch_monitor:main"
 claude-mpm-socketio = "claude_mpm.scripts.socketio_daemon:main"
 claude-hook = "claude_mpm.hooks.claude_hooks.hook_handler:main"
 google-workspace-mcp = "claude_mpm.mcp.google_workspace_server:main"
+slack-user-proxy = "claude_mpm.mcp.slack_user_proxy_server:main"
 mpm-session-server = "claude_mpm.mcp.session_server:main"
 mpm-session-server-http = "claude_mpm.mcp.session_server_http:main"
 slack-mpm = "claude_mpm.slack_client:start_socket_mode"
@@ -255,14 +256,14 @@ ignore-imports = false
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "5.7.2"
+version = "5.7.21"
 version_files = [ "VERSION", "src/claude_mpm/VERSION", "package.json:version",]
 tag_format = "v$version"
 update_changelog_on_bump = true
 changelog_incremental = true
 
 [tool.setuptools.package-data]
-claude_mpm = [ "VERSION", "BUILD_NUMBER", "scripts/*", "scripts/*.sh", "commands/*.md", "config/*.yaml", "skills/bundled/**/*.md", "dashboard/*.html", "dashboard/templates/*.html", "dashboard/static/*.css", "dashboard/static/*.js", "dashboard/static/css/*.css", "dashboard/static/js/*.js", "dashboard/static/js/components/*.js", "dashboard/static/svelte-build/**/*", "agents/*.md", "agents/*.json", "agents/*.yaml", "agents/templates/*.json", "agents/templates/*.md", "agents/schema/*.json", "hooks/**/*.py", "hooks/**/*.sh", "hooks/claude_hooks/*", "hooks/claude_hooks/**/*", "templates/*.yaml", "templates/.pre-commit-config.yaml",]
+claude_mpm = [ "VERSION", "BUILD_NUMBER", "scripts/*", "scripts/*.sh", "scripts/setup/*", "scripts/setup/*.sh", "commands/*.md", "config/*.yaml", "skills/bundled/**/*.md", "dashboard/*.html", "dashboard/templates/*.html", "dashboard/static/*.css", "dashboard/static/*.js", "dashboard/static/css/*.css", "dashboard/static/js/*.js", "dashboard/static/js/components/*.js", "dashboard/static/svelte-build/**/*", "agents/*.md", "agents/*.json", "agents/*.yaml", "agents/templates/*.json", "agents/templates/*.md", "agents/schema/*.json", "hooks/**/*.py", "hooks/**/*.sh", "hooks/claude_hooks/*", "hooks/claude_hooks/**/*", "templates/*.yaml", "templates/.pre-commit-config.yaml",]
 
 [tool.pytest.ini_options]
 testpaths = [ "tests",]

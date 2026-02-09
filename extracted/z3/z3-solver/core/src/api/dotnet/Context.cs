@@ -2648,6 +2648,55 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Map function f over the sequence s.
+        /// </summary>
+        public Expr MkSeqMap(Expr f, SeqExpr s)
+        {
+            Debug.Assert(f != null);
+            Debug.Assert(s != null);
+            CheckContextMatch(f, s);
+            return Expr.Create(this, Native.Z3_mk_seq_map(nCtx, f.NativeObject, s.NativeObject));
+        }
+
+        /// <summary>
+        /// Map function f over the sequence s at index i.
+        /// </summary>
+        public Expr MkSeqMapi(Expr f, Expr i, SeqExpr s)
+        {
+            Debug.Assert(f != null);
+            Debug.Assert(i != null);
+            Debug.Assert(s != null);
+            CheckContextMatch(f, i, s);
+            return Expr.Create(this, Native.Z3_mk_seq_mapi(nCtx, f.NativeObject, i.NativeObject, s.NativeObject));
+        }
+
+        /// <summary>
+        /// Fold left the function f over the sequence s with initial value a.
+        /// </summary>
+        public Expr MkSeqFoldLeft(Expr f, Expr a, SeqExpr s)
+        {
+            Debug.Assert(f != null);
+            Debug.Assert(a != null);
+            Debug.Assert(s != null);
+            CheckContextMatch(f, a, s);
+            return Expr.Create(this, Native.Z3_mk_seq_foldl(nCtx, f.NativeObject, a.NativeObject, s.NativeObject));
+        }
+
+        /// <summary>
+        /// Fold left with index the function f over the sequence s with initial value a starting at index i.
+        /// </summary>
+        public Expr MkSeqFoldLeftI(Expr f, Expr i, Expr a, SeqExpr s)
+        {
+            Debug.Assert(f != null);
+            Debug.Assert(i != null);
+            Debug.Assert(a != null);
+            Debug.Assert(s != null);
+            CheckContextMatch(f, i, a);
+            CheckContextMatch(s, a);
+            return Expr.Create(this, Native.Z3_mk_seq_foldli(nCtx, f.NativeObject, i.NativeObject, a.NativeObject, s.NativeObject));
+        }
+
+        /// <summary>
         /// Convert a regular expression that accepts sequence s.
         /// </summary>
         public ReExpr MkToRe(SeqExpr s)
@@ -3395,7 +3444,12 @@ namespace Microsoft.Z3
         /// <seealso cref="Sort.ToString()"/>
         public Z3_ast_print_mode PrintMode
         {
-            set { Native.Z3_set_ast_print_mode(nCtx, (uint)value); }
+            get { return m_print_mode; }
+            set 
+            { 
+                Native.Z3_set_ast_print_mode(nCtx, (uint)value);
+                m_print_mode = value;
+            }
         }
         #endregion
 
@@ -3437,6 +3491,32 @@ namespace Microsoft.Z3
                 AST.ArrayLength(sorts), Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
                 AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls)));
             return assertions.ToBoolExprArray();
+        }
+
+        /// <summary>
+        /// Convert a benchmark into SMT-LIB2 formatted string.
+        /// </summary>
+        /// <param name="name">Name of the benchmark. May be null.</param>
+        /// <param name="logic">The benchmark logic. May be null.</param>
+        /// <param name="status">Status string, such as "sat", "unsat", or "unknown".</param>
+        /// <param name="attributes">Other attributes, such as source, difficulty or category. May be null.</param>
+        /// <param name="assumptions">Auxiliary assumptions.</param>
+        /// <param name="formula">Formula to be checked for consistency in conjunction with assumptions.</param>
+        /// <returns>A string representation of the benchmark in SMT-LIB2 format.</returns>
+        public string BenchmarkToSmtlibString(string name, string logic, string status, string attributes, BoolExpr[] assumptions, BoolExpr formula)
+        {
+            Debug.Assert(assumptions != null);
+            Debug.Assert(formula != null);
+
+            return Native.Z3_benchmark_to_smtlib_string(
+                nCtx,
+                name,
+                logic,
+                status,
+                attributes,
+                (uint)(assumptions?.Length ?? 0),
+                AST.ArrayToNative(assumptions),
+                formula.NativeObject);
         }
         #endregion
 
@@ -4850,6 +4930,44 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Create a partial order relation over a sort.
+        /// </summary>
+        /// <param name="a">The sort of the relation.</param>
+        /// <param name="index">The index of the relation.</param>
+        public FuncDecl MkPartialOrder(Sort a, uint index)
+        {
+            return new FuncDecl(this, Native.Z3_mk_partial_order(this.nCtx, a.NativeObject, index));
+        }
+
+        /// <summary>
+        /// Create the transitive closure of a binary relation.
+        /// </summary>
+        /// <remarks>The resulting relation is recursive.</remarks>
+        /// <param name="f">A binary relation represented as a function declaration.</param>
+        public FuncDecl MkTransitiveClosure(FuncDecl f)
+        {
+            return new FuncDecl(this, Native.Z3_mk_transitive_closure(this.nCtx, f.NativeObject));
+        }
+
+        /// <summary>
+        /// Return the nonzero subresultants of p and q with respect to the "variable" x.
+        /// </summary>
+        /// <remarks>
+        /// p, q and x are Z3 expressions where p and q are arithmetic terms.
+        /// Note that any subterm that cannot be viewed as a polynomial is assumed to be a variable.
+        /// </remarks>
+        /// <param name="p">First arithmetic term.</param>
+        /// <param name="q">Second arithmetic term.</param>
+        /// <param name="x">The variable with respect to which subresultants are computed.</param>
+        public ASTVector PolynomialSubresultants(Expr p, Expr q, Expr x)
+        {
+            CheckContextMatch(p);
+            CheckContextMatch(q);
+            CheckContextMatch(x);
+            return new ASTVector(this, Native.Z3_polynomial_subresultants(this.nCtx, p.NativeObject, q.NativeObject, x.NativeObject));
+        }
+
+        /// <summary>
         /// Return a string describing all available parameters to <c>Expr.Simplify</c>.
         /// </summary>
         public string SimplifyHelp()
@@ -4905,6 +5023,7 @@ namespace Microsoft.Z3
         internal Native.Z3_error_handler m_n_err_handler = null;
         internal static Object creation_lock = new Object();
         internal IntPtr nCtx { get { return m_ctx; } }
+        private Z3_ast_print_mode m_print_mode = Z3_ast_print_mode.Z3_PRINT_SMTLIB2_COMPLIANT;
 
         internal void NativeErrorHandler(IntPtr ctx, Z3_error_code errorCode)
         {

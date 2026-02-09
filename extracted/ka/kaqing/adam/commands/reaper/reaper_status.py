@@ -3,7 +3,7 @@ from typing import List, cast
 from kubernetes import client
 
 from adam.commands.command import Command
-from adam.commands.commands_utils import show_pods
+from adam.commands.utils_table_render import show_pods
 from adam.commands.reaper.utils_reaper import Reapers
 from adam.repl_state import ReplState, RequiredState
 
@@ -35,7 +35,7 @@ class ReaperStatus(Command):
 
             pods = self.list_pods(state.sts, state.namespace)
 
-            show_pods(pods, state.namespace, show_host_id=False)
+            show_pods(state, pods, state.namespace, show_host_id=False)
 
             return state
 

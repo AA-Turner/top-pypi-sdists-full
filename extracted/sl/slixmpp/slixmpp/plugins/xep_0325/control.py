@@ -247,7 +247,7 @@ class XEP_0325(BasePlugin):
             self.sessions[session] = {"from": iq['from'], "to": iq['to'], "seqnr": iq['id']}
             self.sessions[session]["commTimers"] = {}
             self.sessions[session]["nodeDone"] = {}
-            # Flag that a reply is exected when we are done
+            # Flag that a reply is executed when we are done
             self.sessions[session]["reply"] = True
 
             self.sessions[session]["node_list"] = process_nodes
@@ -344,7 +344,7 @@ class XEP_0325(BasePlugin):
         """
 
         if self.sessions[session]["reply"]:
-            # Reply is exected when we are done
+            # Reply is executed when we are done
             iq = self.xmpp.Iq()
             iq['from'] = self.sessions[session]['to']
             iq['to'] = self.sessions[session]['from']
@@ -366,7 +366,7 @@ class XEP_0325(BasePlugin):
 
     def _all_nodes_done(self, session):
         """
-        Checks wheter all devices are done replying to the control command.
+        Checks whether all devices are done replying to the control command.
 
         Arguments:
             session         -- The request session id
@@ -403,7 +403,7 @@ class XEP_0325(BasePlugin):
             self.sessions[session]["commTimers"][nodeId].cancel()
 
             if self.sessions[session]["reply"]:
-                # Reply is exected when we are done
+                # Reply is executed when we are done
                 iq = self.xmpp.Iq()
                 iq['from'] = self.sessions[session]['to']
                 iq['to'] = self.sessions[session]['from']
@@ -428,7 +428,7 @@ class XEP_0325(BasePlugin):
             self.sessions[session]["nodeDone"][nodeId] = True
             if (self._all_nodes_done(session)):
                 if self.sessions[session]["reply"]:
-                    # Reply is exected when we are done
+                    # Reply is executed when we are done
                     iq = self.xmpp.Iq()
                     iq['from'] = self.sessions[session]['to']
                     iq['to'] = self.sessions[session]['from']

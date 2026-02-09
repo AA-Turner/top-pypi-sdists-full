@@ -82,7 +82,7 @@ import os
 import sys
 from pathlib import Path
 
-__version__ = "4.9.12"
+__version__ = "4.9.14"
 __all__ = [
     "CppApi",
     "CSSL",

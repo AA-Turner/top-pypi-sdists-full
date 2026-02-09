@@ -14,6 +14,7 @@ class TestTLS(SlixIntegration):
         )
         client.enable_direct_tls = True
         client.enable_starttls = False
+        client.default_port = 5223
         _, pending = await asyncio.wait(
             [asyncio.ensure_future(client.connect()),
              asyncio.ensure_future(client.wait_until('session_start'))],

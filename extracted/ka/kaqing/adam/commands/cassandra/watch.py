@@ -4,11 +4,11 @@ from kubernetes import client
 from typing import List
 
 from adam.commands.command import Command
-from adam.commands.commands_utils import show_pods, show_rollout
+from adam.commands.utils_table_render import show_pods, show_rollout
 from adam.config import Config
 from adam.utils_k8s.statefulsets import StatefulSets
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import log2
+from adam.utils_log import log2
 
 class Watch(Command):
     COMMAND = 'watch cassandra pods'
@@ -39,7 +39,7 @@ class Watch(Command):
                 return state
 
             stop_event = threading.Event()
-            thread = threading.Thread(target=self.loop, args=(stop_event, state.sts, pods, state.namespace), daemon=True)
+            thread = threading.Thread(target=self.loop, args=(stop_event, state, state.sts, pods, state.namespace), daemon=True)
             thread.start()
 
             try:
@@ -55,8 +55,8 @@ class Watch(Command):
 
             return state
 
-    def loop(self, stop_flag: threading.Event, sts: str, pods: List[client.V1Pod], ns: str):
-        show_pods(pods, ns)
+    def loop(self, stop_flag: threading.Event, state: ReplState, sts: str, pods: List[client.V1Pod], ns: str):
+        show_pods(state, pods, ns)
         show_rollout(sts, ns)
 
         cnt = Config().get('watch.interval', 10)
@@ -65,7 +65,7 @@ class Watch(Command):
             cnt -= 1
 
             if not cnt:
-                show_pods(pods, ns)
+                show_pods(state, pods, ns)
                 show_rollout(sts, ns)
                 cnt = Config().get('watch.interval', 10)
 

@@ -9,11 +9,14 @@
 # @Description  :
 
 from meutils.pipe import *
+from meutils.request_utils.ip import get_myip
 
 from minio import Minio as _Minio
 from openai.types.file_object import FileObject
 from fastapi import APIRouter, File, UploadFile, Query, Form, BackgroundTasks, Depends, HTTPException, Request, status
 from asgiref.sync import sync_to_async
+
+MINIO_ENDPOINT = "s3.ffire.cc" if get_myip() else "s3ai.cn"  # 国内外存储
 
 
 class Minio(_Minio):
@@ -22,7 +25,8 @@ class Minio(_Minio):
                  access_key: Optional[str] = None,
                  secret_key: Optional[str] = None,
                  **kwargs):
-        self.endpoint = endpoint or os.getenv('MINIO_ENDPOINT', 's3.ffire.cc')
+        self.endpoint = endpoint or MINIO_ENDPOINT
+
         access_key = access_key or os.getenv('MINIO_ACCESS_KEY', 'minio')
         secret_key = secret_key or os.getenv('MINIO_SECRET_KEY')
 

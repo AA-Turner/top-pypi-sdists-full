@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: msprime
-Version: 1.3.4
+Version: 1.4.0
 Summary: Simulate genealogical trees and genomic sequence data using population genetic models
 Author-email: Tskit Developers <admin@tskit.dev>
-License: GNU GPLv3+
+License-Expression: GPL-3.0-or-later
 Project-URL: Homepage, https://tskit.dev/msprime
 Project-URL: Documentation, https://tskit.dev/msprime/docs/stable
 Project-URL: Changelog, https://tskit.dev/msprime/docs/stable/CHANGELOG.html
@@ -13,27 +13,103 @@ Keywords: coalescent simulation,population genetics,ms,tree sequence,tskit
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Other Environment
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.23.5
 Requires-Dist: newick>=1.3.0
-Requires-Dist: tskit>=0.5.2
+Requires-Dist: tskit>=1.0.0
 Requires-Dist: demes>=0.2
+Provides-Extra: test
+Requires-Dist: bintrees==2.2.0; extra == "test"
+Requires-Dist: build==1.3.0; extra == "test"
+Requires-Dist: daiquiri==3.3.0; extra == "test"
+Requires-Dist: demes==0.2.3; extra == "test"
+Requires-Dist: kastore==0.3.3; extra == "test"
+Requires-Dist: meson==1.9.0; extra == "test"
+Requires-Dist: newick==1.10.0; extra == "test"
+Requires-Dist: pytest==8.4.1; extra == "test"
+Requires-Dist: pytest-cov==6.2.1; extra == "test"
+Requires-Dist: pytest-xdist==3.8.0; extra == "test"
+Requires-Dist: python_jsonschema_objects==0.5.7; extra == "test"
+Requires-Dist: setuptools==80.9.0; extra == "test"
+Requires-Dist: scipy==1.13.1; python_version <= "3.10" and extra == "test"
+Requires-Dist: scipy==1.16.1; python_version > "3.10" and extra == "test"
+Requires-Dist: tskit==1.0.0; extra == "test"
+Requires-Dist: twine==6.2.0; extra == "test"
+Provides-Extra: docs
+Requires-Dist: daiquiri==3.3.0; extra == "docs"
+Requires-Dist: demes==0.2.3; extra == "docs"
+Requires-Dist: demesdraw==0.4.0; extra == "docs"
+Requires-Dist: jupyter-book==1.0.4.post1; extra == "docs"
+Requires-Dist: networkx==3.5; extra == "docs"
+Requires-Dist: matplotlib==3.10.3; extra == "docs"
+Requires-Dist: newick==1.10.0; extra == "docs"
+Requires-Dist: setuptools==80.9.0; extra == "docs"
+Requires-Dist: sphinx-argparse==0.5.2; extra == "docs"
+Requires-Dist: sphinx-book-theme; extra == "docs"
+Requires-Dist: sphinx-issues==5.0.1; extra == "docs"
+Requires-Dist: tskit==1.0.0; extra == "docs"
+Requires-Dist: scipy==1.16.1; extra == "docs"
+Provides-Extra: dev
+Requires-Dist: docutils==0.21.2; extra == "dev"
+Requires-Dist: asv==0.6.1; extra == "dev"
+Requires-Dist: bintrees; extra == "dev"
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: daiquiri; extra == "dev"
+Requires-Dist: demes>=0.2.0; extra == "dev"
+Requires-Dist: demesdraw; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: matplotlib>=3.4.0; extra == "dev"
+Requires-Dist: meson>=0.61.0; extra == "dev"
+Requires-Dist: mock; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: ninja; extra == "dev"
+Requires-Dist: numpy; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: pytest-xdist; extra == "dev"
+Requires-Dist: tskit>=1.0.0; extra == "dev"
+Requires-Dist: kastore; extra == "dev"
+Requires-Dist: sphinx-book-theme; extra == "dev"
+Requires-Dist: scipy; extra == "dev"
+Requires-Dist: setuptools_scm; extra == "dev"
+Requires-Dist: sphinx>=4.4; extra == "dev"
+Requires-Dist: sphinx-argparse; extra == "dev"
+Requires-Dist: sphinx-issues; extra == "dev"
+Requires-Dist: jupyter-book<2; extra == "dev"
+Requires-Dist: networkx; extra == "dev"
+Requires-Dist: newick>=1.3.0; extra == "dev"
+Requires-Dist: python_jsonschema_objects; extra == "dev"
+Provides-Extra: verification
+Requires-Dist: dendropy; extra == "verification"
+Requires-Dist: matplotlib; extra == "verification"
+Requires-Dist: numpy; extra == "verification"
+Requires-Dist: pandas; extra == "verification"
+Requires-Dist: pyvolve; extra == "verification"
+Requires-Dist: scipy==1.2; extra == "verification"
+Requires-Dist: scikit-allel; extra == "verification"
+Requires-Dist: statsmodels; extra == "verification"
+Requires-Dist: seaborn; extra == "verification"
+Requires-Dist: tqdm; extra == "verification"
+Requires-Dist: argparse; extra == "verification"
+Requires-Dist: daiquiri; extra == "verification"
+Requires-Dist: pyslim>=1.0; extra == "verification"
 Dynamic: license-file
 
 # msprime  <img align="right" width="145" height="90" src="https://raw.githubusercontent.com/tskit-dev/msprime/main/docs/msprime_logo.svg">

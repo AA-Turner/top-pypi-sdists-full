@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2016-2021 University of Oxford
+# Copyright (C) 2016-2025 University of Oxford
 #
 # This file is part of msprime.
 #
@@ -19,6 +19,7 @@
 """
 Test cases for demographic events in msprime.
 """
+import importlib
 import io
 import itertools
 import json
@@ -32,7 +33,6 @@ from unittest import mock
 
 import numpy as np
 import pytest
-import stdpopsim
 import tskit
 
 import msprime
@@ -313,30 +313,6 @@ class TestIntrospectionInterface:
         repr_s = "CensusEvent(time=1)"
         assert repr(event) == repr_s
         assert str(event) == repr_s
-
-
-class TestDemographicEventsHaveExtraLLParameter:
-    """
-    For legacy reasons the DemographicEvent.get_ll_representation took
-    a "num_populations" argument. In versions of stdpopsim using
-    msprime < 1.0, this parameter was specified when testing for
-    model equality (even though it did nothing). To ensure we're not
-    breaking older versions of stdpopsim, we keep this extra parameter
-    and test it here to make sure it works.
-
-    Since the functionality is only really used as a developer tool
-    in stdpopsim, we can get rid of the extra parameters once
-    stdpopsim 0.2 (which won't use this API) has been released.
-
-    See https://github.com/tskit-dev/msprime/issues/1037
-    """
-
-    def test_demographic_events_have_param(self):
-        demography = all_events_example_demography()
-        for event in demography.events:
-            ll_config1 = event.get_ll_representation()
-            ll_config2 = event.get_ll_representation(None)
-            assert ll_config1 == ll_config2
 
 
 class TestTimeTravelErrors:
@@ -1234,8 +1210,8 @@ class DebugOutputBase:
 
     def test_one_population(self):
         demography = msprime.Demography.isolated_model([10])
-        demography.add_population_parameters_change(0.1, initial_size=2),
-        demography.add_population_parameters_change(0.1, growth_rate=10),
+        demography.add_population_parameters_change(0.1, initial_size=2)
+        demography.add_population_parameters_change(0.1, growth_rate=10)
         self.verify(demography)
 
     def test_funky_metadata(self):
@@ -2544,6 +2520,10 @@ class TestMigrationRecordsSmcPrime(MigrationRecordsMixin):
     model = "smc_prime"
 
 
+class TestMigrationRecordsSmcK(MigrationRecordsMixin):
+    model = msprime.SMCK(1)
+
+
 class TestMigrationRecordsDtwf(MigrationRecordsMixin):
     model = "dtwf"
 
@@ -2596,7 +2576,11 @@ class TestFullArgMigration:
         self.verify_two_pops_full_arg(ts)
 
     def test_full_arg_migration_smc(self):
-        for model in ["smc", "smc_prime"]:
+        for model in [
+            msprime.SmcApproxCoalescent(),
+            msprime.SmcPrimeApproxCoalescent(),
+            msprime.SMCK(1),
+        ]:
             population_configurations = [
                 msprime.PopulationConfiguration(10),
                 msprime.PopulationConfiguration(10),
@@ -4288,14 +4272,51 @@ class TestDemographyObject:
                 [msprime.Population(10, name="A"), msprime.Population(11, name="A")]
             )
 
+    def test_init_with_pops(self):
+        pop1 = msprime.Population(10)
+        pop2 = msprime.Population(10)
+        demography = msprime.Demography([pop1, pop2])
+        assert len(demography.populations) == 2
+        assert demography.populations[0].id == 0
+        assert demography.populations[1].id == 1
+
+    def test_init_with_matrix(self):
+        pop1 = msprime.Population(10)
+        pop2 = msprime.Population(10)
+        # Test passing in as a list of lists, not a numpy array
+        demography = msprime.Demography([pop1, pop2], migration_matrix=[[1, 1], [1, 1]])
+        assert demography.migration_matrix.shape == (2, 2)
+        assert np.all(demography.migration_matrix == 1)
+
+    def test_init_with_bad_matrix(self):
+        pop1 = msprime.Population(10)
+        pop2 = msprime.Population(10)
+        with pytest.raises(ValueError, match="must be square"):
+            msprime.Demography([pop1, pop2], migration_matrix=[[1, 1]])
+
+    def test_init_with_events(self):
+        pop = msprime.Population(10)
+        event = msprime.PopulationParametersChange(1, initial_size=1)
+        demography = msprime.Demography([pop], events=[event])
+        assert len(demography.events) == 1
+        assert np.all(demography.migration_matrix == 0)
+        assert demography.events[0].demography == demography
+
+    def test_bad_init_with_events(self):
+        pop = msprime.Population(10)
+        with pytest.raises(TypeError, match="instances of DemographicEvent"):
+            msprime.Demography([pop], events=[None])
+
     def test_duplicate_populations(self):
         pop = msprime.Population(10)
         with pytest.raises(ValueError, match="must be distinct"):
             msprime.Demography([pop] * 2)
 
-    def test_population_ids_set_on_init(self):
-        pop = msprime.Population(10, id=0)
-        with pytest.raises(ValueError, match="ID should not be set"):
+    def test_population_ids_bad_on_init(self):
+        pop = msprime.Population(10, id=1)
+        with pytest.raises(
+            ValueError, match="ID should be unset or set to its index.*got 1"
+        ):
             msprime.Demography([pop])
 
     def test_add_population_error(self):
@@ -4557,6 +4578,45 @@ class TestDemographyObject:
         assert validated["A"].initially_active
         assert validated["B"].initially_active
         assert not validated["C"].initially_active
+
+    def test_population_asdict(self):
+        # Test that we can instantiate the components of a demography object
+        demography = msprime.Demography()
+        demography.add_population(
+            name="A",
+            initial_size=1234,
+            growth_rate=0.234,
+            description="ASDF",
+            extra_metadata={"a": "B", "c": 1234},
+            default_sampling_time=0.2,
+            initially_active=True,
+        )
+        popdict = demography.populations[0].asdict()
+        module, classname = popdict.pop("__class__").rsplit(".", 1)
+        popdict.pop("id", None)  # can't create a population with ID set
+        cls = getattr(importlib.import_module(module), classname)
+        obj = cls(**popdict)
+        assert isinstance(obj, msprime.demography.Population)
+        assert obj.name == "A"
+        assert obj.initial_size == 1234
+
+    def test_event_asdict(self):
+        demography = msprime.Demography(
+            [msprime.Population(1234), msprime.Population(4321)],
+            events=[
+                msprime.PopulationParametersChange(2, initial_size=5, population_id=1)
+            ],
+        )
+        assert len(demography.events) == 1
+        eventdict = demography.events[0].asdict()
+        assert "population_id" not in eventdict  # deprecated param
+        assert eventdict["population"] == 1
+        module, classname = eventdict.pop("__class__").rsplit(".", 1)
+        cls = getattr(importlib.import_module(module), classname)
+        obj = cls(**eventdict)
+        assert isinstance(obj, msprime.demography.PopulationParametersChange)
+        assert obj.time == 2
+        assert obj.initial_size == 5
 
 
 class TestDemographyCopy:
@@ -6440,6 +6500,209 @@ class TestLineageMovementEvents:
 
 
 class TestStdpopsimModels:
+
+    def stdpopsim_ooa_model(self):
+        """
+        This is a copy of the code used in stdpopsim (copied 2025-07-25) to
+        generate the old-style demographic model. We do this rather than
+        using the actual stdpopsim code because the old-style model is
+        lost during intitialisation to msprime 1.0 code, and it's not worth
+        rewriting all the tests to accomodate this.
+        """
+        generation_time = 25
+
+        # First we set out the maximum likelihood values of the various parameters
+        # given in Table 1.
+        N_A = 7300
+        N_B = 2100
+        N_AF = 12300
+        N_EU0 = 1000
+        N_AS0 = 510
+        # Times are provided in years, so we convert into generations.
+
+        T_AF = 220e3 / generation_time
+        T_B = 140e3 / generation_time
+        T_EU_AS = 21.2e3 / generation_time
+        # We need to work out the starting (diploid) population sizes based on
+        # the growth rates provided for these two populations
+        r_EU = 0.004
+        r_AS = 0.0055
+        N_EU = N_EU0 / math.exp(-r_EU * T_EU_AS)
+        N_AS = N_AS0 / math.exp(-r_AS * T_EU_AS)
+        # Migration rates during the various epochs.
+        m_AF_B = 25e-5
+        m_AF_EU = 3e-5
+        m_AF_AS = 1.9e-5
+        m_EU_AS = 9.6e-5
+
+        population_configurations = [
+            msprime.PopulationConfiguration(initial_size=N_AF),
+            msprime.PopulationConfiguration(initial_size=N_EU, growth_rate=r_EU),
+            msprime.PopulationConfiguration(initial_size=N_AS, growth_rate=r_AS),
+        ]
+        migration_matrix = [
+            [0, m_AF_EU, m_AF_AS],  # noqa
+            [m_AF_EU, 0, m_EU_AS],  # noqa
+            [m_AF_AS, m_EU_AS, 0],  # noqa
+        ]
+        demographic_events = [
+            # CEU and CHB merge into B with rate changes at T_EU_AS
+            msprime.MassMigration(
+                time=T_EU_AS, source=2, destination=1, proportion=1.0
+            ),
+            msprime.MigrationRateChange(time=T_EU_AS, rate=0),
+            msprime.MigrationRateChange(time=T_EU_AS, rate=m_AF_B, matrix_index=(0, 1)),
+            msprime.MigrationRateChange(time=T_EU_AS, rate=m_AF_B, matrix_index=(1, 0)),
+            msprime.PopulationParametersChange(
+                time=T_EU_AS, initial_size=N_B, growth_rate=0, population_id=1
+            ),
+            # Population B merges into YRI at T_B
+            msprime.MassMigration(time=T_B, source=1, destination=0, proportion=1.0),
+            msprime.MigrationRateChange(time=T_B, rate=0),
+            # Size changes to N_A at T_AF
+            msprime.PopulationParametersChange(
+                time=T_AF, initial_size=N_A, population_id=0
+            ),
+        ]
+        return (
+            population_configurations,
+            migration_matrix,
+            demographic_events,
+        )
+
+    def stdpopsim_ooa_archaic_admixture_model(self):
+        """
+        See notes above for stdpopsim_ooa_model.
+        """
+
+        # First we set out the maximum likelihood values of the various parameters
+        # given in Table 1 (under archaic admixture).
+        N_0 = 3600
+        N_YRI = 13900
+        N_B = 880
+        N_CEU0 = 2300
+        N_CHB0 = 650
+
+        # Times are provided in years, so we convert into generations.
+        # In the published model, the authors used a generation time of 29 years to
+        # convert from genetic to physical units
+        generation_time = 29
+
+        T_AF = 300e3 / generation_time
+        T_B = 60.7e3 / generation_time
+        T_EU_AS = 36.0e3 / generation_time
+        T_arch_afr_split = 499e3 / generation_time
+        T_arch_afr_mig = 125e3 / generation_time
+        T_nean_split = 559e3 / generation_time
+        T_arch_adm_end = 18.7e3 / generation_time
+
+        # We need to work out the starting (diploid) population sizes based on
+        # the growth rates provided for these two populations
+        r_CEU = 0.00125
+        r_CHB = 0.00372
+        N_CEU = N_CEU0 / math.exp(-r_CEU * T_EU_AS)
+        N_CHB = N_CHB0 / math.exp(-r_CHB * T_EU_AS)
+
+        # Migration rates during the various epochs.
+        m_AF_B = 52.2e-5
+        m_YRI_CEU = 2.48e-5
+        m_YRI_CHB = 0e-5
+        m_CEU_CHB = 11.3e-5
+        m_AF_arch_af = 1.98e-5
+        m_OOA_nean = 0.825e-5
+
+        # Population IDs correspond to their indexes in the population
+        # configuration array. Therefore, we have 0=YRI, 1=CEU and 2=CHB
+        # initially.
+        # We also have two archaic populations, putative Neanderthals and
+        # archaicAfrican, which are population indices 3=Nean and 4=arch_afr.
+        # Their sizes are equal to the ancestral reference population size N_0.
+        population_configurations = [
+            msprime.PopulationConfiguration(initial_size=N_YRI),
+            msprime.PopulationConfiguration(initial_size=N_CEU, growth_rate=r_CEU),
+            msprime.PopulationConfiguration(initial_size=N_CHB, growth_rate=r_CHB),
+            msprime.PopulationConfiguration(initial_size=N_0),
+            msprime.PopulationConfiguration(initial_size=N_0),
+        ]
+        migration_matrix = [  # noqa
+            [0, m_YRI_CEU, m_YRI_CHB, 0, 0],  # noqa
+            [m_YRI_CEU, 0, m_CEU_CHB, 0, 0],  # noqa
+            [m_YRI_CHB, m_CEU_CHB, 0, 0, 0],  # noqa
+            [0, 0, 0, 0, 0],  # noqa
+            [0, 0, 0, 0, 0],  # noqa
+        ]  # noqa
+        demographic_events = [
+            # first event is migration turned on between modern and archaic humans
+            msprime.MigrationRateChange(
+                time=T_arch_adm_end, rate=m_AF_arch_af, matrix_index=(0, 4)
+            ),
+            msprime.MigrationRateChange(
+                time=T_arch_adm_end, rate=m_AF_arch_af, matrix_index=(4, 0)
+            ),
+            msprime.MigrationRateChange(
+                time=T_arch_adm_end, rate=m_OOA_nean, matrix_index=(1, 3)
+            ),
+            msprime.MigrationRateChange(
+                time=T_arch_adm_end, rate=m_OOA_nean, matrix_index=(3, 1)
+            ),
+            msprime.MigrationRateChange(
+                time=T_arch_adm_end, rate=m_OOA_nean, matrix_index=(2, 3)
+            ),
+            msprime.MigrationRateChange(
+                time=T_arch_adm_end, rate=m_OOA_nean, matrix_index=(3, 2)
+            ),
+            # CEU and CHB merge into B with rate changes at T_EU_AS
+            msprime.MassMigration(
+                time=T_EU_AS, source=2, destination=1, proportion=1.0
+            ),
+            msprime.MigrationRateChange(time=T_EU_AS, rate=0),
+            msprime.MigrationRateChange(time=T_EU_AS, rate=m_AF_B, matrix_index=(0, 1)),
+            msprime.MigrationRateChange(time=T_EU_AS, rate=m_AF_B, matrix_index=(1, 0)),
+            msprime.MigrationRateChange(
+                time=T_EU_AS, rate=m_AF_arch_af, matrix_index=(0, 4)
+            ),
+            msprime.MigrationRateChange(
+                time=T_EU_AS, rate=m_AF_arch_af, matrix_index=(4, 0)
+            ),
+            msprime.MigrationRateChange(
+                time=T_EU_AS, rate=m_OOA_nean, matrix_index=(1, 3)
+            ),
+            msprime.MigrationRateChange(
+                time=T_EU_AS, rate=m_OOA_nean, matrix_index=(3, 1)
+            ),
+            msprime.PopulationParametersChange(
+                time=T_EU_AS, initial_size=N_B, growth_rate=0, population_id=1
+            ),
+            # Population B merges into YRI at T_B
+            msprime.MassMigration(time=T_B, source=1, destination=0, proportion=1.0),
+            msprime.MigrationRateChange(time=T_B, rate=0),
+            msprime.MigrationRateChange(
+                time=T_B, rate=m_AF_arch_af, matrix_index=(0, 4)
+            ),
+            msprime.MigrationRateChange(
+                time=T_B, rate=m_AF_arch_af, matrix_index=(4, 0)
+            ),
+            # Beginning of migration between African and archaic African populations
+            msprime.MigrationRateChange(time=T_arch_afr_mig, rate=0),
+            # Size changes to N_0 at T_AF
+            msprime.PopulationParametersChange(
+                time=T_AF, initial_size=N_0, population_id=0
+            ),
+            # Archaic African merges with moderns
+            msprime.MassMigration(
+                time=T_arch_afr_split, source=4, destination=0, proportion=1.0
+            ),
+            # Neanderthal merges with moderns
+            msprime.MassMigration(
+                time=T_nean_split, source=3, destination=0, proportion=1.0
+            ),
+        ]
+        return (
+            population_configurations,
+            migration_matrix,
+            demographic_events,
+        )
+
     def stdpopsim_browning_admixture_model(self):
         """
         The currently released version of the AmericanAdmixture_4B11 model in
@@ -6557,12 +6820,12 @@ class TestStdpopsimModels:
         demog_local.assert_equivalent(demog_sps, rel_tol=1e-5)
 
     def test_ooa_remap(self):
-        # This test is temporary while we are updating stdpopsim to use the
-        # msprime APIs. See the nodes in the _ooa_model() code.
+        (
+            population_configurations,
+            migration_matrix,
+            demographic_events,
+        ) = self.stdpopsim_ooa_model()
         demog_local = msprime.Demography._ooa_model()
-        model_sps = stdpopsim.get_species("HomSap").get_demographic_model(
-            "OutOfAfrica_3G09"
-        )
 
         # Map from local population names into the equivalent in the stdpopsim
         # model, per epoch.
@@ -6572,22 +6835,21 @@ class TestStdpopsimModels:
             {"AMH": 0},
             {"ANC": 0},
         ]
-
         remapped_demog = msprime.Demography.from_old_style(
-            model_sps.population_configurations,
-            migration_matrix=model_sps.migration_matrix,
-            demographic_events=model_sps.demographic_events,
+            population_configurations,
+            migration_matrix=migration_matrix,
+            demographic_events=demographic_events,
             population_map=epoch_pop_map,
         )
         demog_local.assert_equivalent(remapped_demog)
 
     def test_ooa_trunk(self):
-        # This test is temporary while we are updating stdpopsim to use the
-        # msprime APIs. See the notes in the _ooa_model() code.
+        (
+            population_configurations,
+            migration_matrix,
+            demographic_events,
+        ) = self.stdpopsim_ooa_model()
         demog_local = msprime.Demography._ooa_trunk_model()
-        model_sps = stdpopsim.get_species("HomSap").get_demographic_model(
-            "OutOfAfrica_3G09"
-        )
 
         # Map from local population names into the equivalent in the stdpopsim
         # model, per epoch.
@@ -6599,22 +6861,24 @@ class TestStdpopsimModels:
         ]
 
         remapped_demog = msprime.Demography.from_old_style(
-            model_sps.population_configurations,
-            migration_matrix=model_sps.migration_matrix,
-            demographic_events=model_sps.demographic_events,
+            population_configurations,
+            migration_matrix=migration_matrix,
+            demographic_events=demographic_events,
             population_map=epoch_pop_map,
         )
         demog_local.assert_equivalent(remapped_demog)
 
     def test_ooa_archaic(self):
         demog_local = msprime.Demography._ooa_archaic_model()
-        model_sps = stdpopsim.get_species("HomSap").get_demographic_model(
-            "OutOfAfricaArchaicAdmixture_5R19"
-        )
+        (
+            population_configurations,
+            migration_matrix,
+            demographic_events,
+        ) = self.stdpopsim_ooa_archaic_admixture_model()
         demog_sps = msprime.Demography.from_old_style(
-            model_sps.population_configurations,
-            migration_matrix=model_sps.migration_matrix,
-            demographic_events=model_sps.demographic_events,
+            population_configurations,
+            migration_matrix=migration_matrix,
+            demographic_events=demographic_events,
             population_map=[
                 # Initial populations
                 {"AFR": 0, "CEU": 1, "CHB": 2, "Neanderthal": 3, "ArchaicAFR": 4},
@@ -6639,13 +6903,15 @@ class TestStdpopsimModels:
     def test_ooa_manual(self):
         demog_local = msprime.Demography._ooa_model()
         debug_local = demog_local.debug()
-        model_sps = stdpopsim.get_species("HomSap").get_demographic_model(
-            "OutOfAfrica_3G09"
-        )
+        (
+            population_configurations,
+            migration_matrix,
+            demographic_events,
+        ) = self.stdpopsim_ooa_model()
         demog_sps = msprime.Demography.from_old_style(
-            model_sps.population_configurations,
-            migration_matrix=model_sps.migration_matrix,
-            demographic_events=model_sps.demographic_events,
+            population_configurations,
+            migration_matrix=migration_matrix,
+            demographic_events=demographic_events,
         )
         debug_sps = demog_sps.debug()
 

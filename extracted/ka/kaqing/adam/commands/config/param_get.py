@@ -2,7 +2,7 @@ from adam.commands import validate_args
 from adam.commands.command import Command
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import log, log2
+from adam.utils_log import log, log2
 from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 

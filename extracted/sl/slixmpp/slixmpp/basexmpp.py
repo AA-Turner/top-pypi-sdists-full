@@ -252,7 +252,7 @@ class BaseXMPP(XMLStream):
                        be unique.
         :param pconfig: A dictionary of configuration data for the plugin.
                         Defaults to an empty dictionary.
-        :param module: Optional refence to the module containing the plugin
+        :param module: Optional reference to the module containing the plugin
                        class if using custom plugins.
         """
 

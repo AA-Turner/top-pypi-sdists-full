@@ -18,6 +18,7 @@ from coloraide.channels import ANGLE_DEG
 from coloraide.spaces import HSLish, HSVish, HWBish, Labish, LChish, RGBish  # noqa: E402
 from coloraide import algebra as alg  # noqa: E402
 from coloraide.color import POSTFIX  # noqa: E402
+from coloraide.gamut import pointer, visible_spectrum, SPECIAL_GAMUTS
 
 FORCE_OWN_GAMUT = {'ryb', 'ryb-biased'}
 
@@ -156,7 +157,8 @@ def cyl_disc(
     fcolor,
     gmap,
     flags,
-    filters
+    filters,
+    limit
 ):
     """
     Plot cylindrical disc on either top or bottom of an RGB cylinder.
@@ -169,7 +171,7 @@ def cyl_disc(
 
     # Using a lightness of 0 can sometimes cause the bottom not to show with certain resolutions, so use a very
     # small value instead.
-    zpos = 1e-14 if location == 'bottom' else 1.0 * factor
+    zpos = alg.ATOL if location == 'bottom' else 1.0 * factor
 
     x = []
     y = []
@@ -188,7 +190,7 @@ def cyl_disc(
         space=gamut,
         hue='specified'
     )
-    s2 = ColorCyl(gamut, [alg.NaN, 1e-16, alg.NaN])
+    s2 = ColorCyl(gamut, [alg.NaN, alg.ATOL, alg.NaN])
 
     # Interpolate concentric circles to the center of the disc
     step = int(resolution / 2)
@@ -201,6 +203,10 @@ def cyl_disc(
             u.append(c[radius])
             v.append(c[hue])
             c.convert(space, norm=False, in_place=True)
+            if limit['macadam-limits']:
+                c.fit('macadam-limits')
+            if limit['pointer-gamut']:
+                c.fit('pointer-gamut')
 
             store_coords(c, x, y, z, flags)
 
@@ -267,7 +273,7 @@ def store_coords(c, x, y, z, flags):
         z.append(c[2])
 
 
-def render_space_cyl(fig, space, gamut, resolution, opacity, edges, faces, ecolor, fcolor, gmap, filters):
+def render_space_cyl(fig, space, gamut, resolution, opacity, edges, faces, ecolor, fcolor, gmap, filters, limit):
     """Renders the color space using an HSL cylinder that is then mapped to the given space."""
 
     target = Color.CS_MAP[space]
@@ -320,7 +326,7 @@ def render_space_cyl(fig, space, gamut, resolution, opacity, edges, faces, ecolo
     )
     # A generic color at the bottom of the space which we can rotate for
     # interpolation by changing the hue.
-    s2 = ColorCyl(gspace, [alg.NaN, 1 * factor, 1e-14])
+    s2 = ColorCyl(gspace, [alg.NaN, 1 * factor, alg.ATOL])
 
     # Create a 3D mesh by interpolating ring at each lightness down the cylinder side.
     # Include at least 3 points of lightness: lightest, darkest, and mid, which in
@@ -331,6 +337,10 @@ def render_space_cyl(fig, space, gamut, resolution, opacity, edges, faces, ecolo
             u.append(c[2])
             v.append(c['hue'])
             c.convert(space, norm=False, in_place=True)
+            if limit['macadam-limits']:
+                c.fit('macadam-limits')
+            if limit['pointer-gamut']:
+                c.fit('pointer-gamut')
 
             store_coords(c, x, y, z, flags)
 
@@ -352,13 +362,97 @@ def render_space_cyl(fig, space, gamut, resolution, opacity, edges, faces, ecolo
     create3d(fig, x, y, z, tri, cmap, edges, faces, ecolor, fcolor, opacity, filters)
 
     # Generate tops for spaces that do not normally get tops automatically.
-    if flags['is_hwbish'] or (flags['is_cyl'] and not flags['is_lchish']) or isinstance(cs, HSVish):
+    if (flags['is_hwbish'] or (flags['is_cyl'] and not flags['is_lchish']) or isinstance(cs, HSVish)):
         cyl_disc(
-            fig, ColorCyl, space, gspace, 'top', resolution, opacity, edges, faces, ecolor, fcolor, gmap, flags, filters
+            fig, ColorCyl, space, gspace, 'top', resolution, opacity, edges,
+            faces, ecolor, fcolor, gmap, flags, filters, limit
         )
+
     cyl_disc(
-        fig, ColorCyl, space, gspace, 'bottom', resolution, opacity, edges, faces, ecolor, fcolor, gmap, flags, filters
+        fig, ColorCyl, space, gspace, 'bottom', resolution, opacity, edges,
+        faces, ecolor, fcolor, gmap, flags, filters, limit
     )
+
+    return fig
+
+
+def render_special_gamut(gtype, fig, space, resolution, opacity, edges, faces, ecolor, fcolor, gmap, filters, limit):
+    """Render the Pointer gamut in 3d."""
+
+    target = Color.CS_MAP[space]
+    flags = {
+        'is_cyl': target.is_polar(),
+        'is_labish': isinstance(target, Labish),
+        'is_lchish': isinstance(target, LChish),
+        'is_hslish': isinstance(target, HSLish),
+        'is_hwbish': isinstance(target, HWBish),
+        'is_hsvish': isinstance(target, HSVish)
+    }
+
+    # Render the two halves of the cylinder
+    u = []
+    v = []
+    x = []
+    y = []
+    z = []
+    cmap = []
+
+    lightness = [91, *pointer.LIGHTNESS, 14] if gtype == 'pointer-gamut' else visible_spectrum.LUMINANCE
+    hues = pointer.HUE if gtype == 'pointer-gamut' else visible_spectrum.HUE
+
+    for l in lightness:
+        for h in hues:
+            if gtype == 'pointer-gamut':
+                # Close out the top or bottom if see lightness beyond the expected range
+                if l == 91:
+                    _l = l - 1 + 1e-8
+                    c = 1e-12
+                elif l == 14:
+                    _l = l + 1 - 1e-8
+                    c = 1e-12
+                else:
+                    _l = l
+                    c = pointer.LUT[pointer.HUE.index(h)][pointer.LIGHTNESS.index(l)]
+                u.append(_l)
+                v.append(h)
+                color = Color('xyz-d65', [0, 0, 0])
+                pointer.from_lch_sc(color, [_l, c, h])
+            else:
+                color = Color('white').convert('xyy', in_place=True)
+                if l == -1:
+                    u.append(0)
+                    v.append(h)
+                    color.update('black')
+                else:
+                    c = visible_spectrum.LUT[visible_spectrum.HUE.index(h)][visible_spectrum.LUMINANCE.index(l)]
+                    xy = alg.add(alg.polar_to_rect(c, h), color.xy())
+                    u.append(l)
+                    v.append(h)
+                    color[:-1] = [*xy, l]
+
+            color.convert(space, norm=False, in_place=True)
+            if limit['macadam-limits']:
+                color.fit('macadam-limits')
+            if limit['pointer-gamut']:
+                color.fit('pointer-gamut')
+            store_coords(color, x, y, z, flags)
+
+            # Adjust gamut to fit the display space
+            s = color.convert('srgb')
+            if not s.in_gamut():
+                s.fit(**gmap)
+            else:
+                s.clip()
+
+            if filters:
+                s.filter(filters[0], **filters[1], in_place=True, out_space=s.space()).clip()
+
+            cmap.append(s.to_string(hex=True))
+
+    # Calculate the triangles
+    tri = Delaunay([*zip(u, v)])
+
+    create3d(fig, x, y, z, tri, cmap, edges, faces, ecolor, fcolor, opacity, filters)
 
     return fig
 
@@ -433,13 +527,18 @@ def plot_gamut_in_space(
     if not is_cyl:
         xaxis = str(names[axm[0]])
     else:
-        max_angle = target.channels[target.hue_index()].angle
+        max_angle = target.channels[target.hue_index()].high
         if max_angle == 360:
             xaxis = f"{names[axm[0]]} (0˚ - 360˚)"
+        elif max_angle == math.tau:
+            xaxis = f"{names[axm[0]]} (0 rad - 2π rad)"
         else:
             min_angle = target.channels[target.hue_index()].low
             type_angle = target.channels[target.hue_index()].angle
-            xaxis = f"{names[axm[0]]} ({min_angle}{POSTFIX[type_angle]} - {max_angle}{POSTFIX[type_angle]})"
+            xaxis = (
+                f"{names[axm[0]]} ({alg.round_to(min_angle, 5)} {POSTFIX[type_angle]} - "
+                f"{alg.round_to(max_angle, 5)} {POSTFIX[type_angle]})"
+            )
 
     yaxis = str(names[axm[1]])
     zaxis = str(names[axm[2]])
@@ -476,6 +575,10 @@ def plot_gamut_in_space(
         resolution = config.get('resolution', 200)
         edges = config.get('edges', False)
         ecolor = None
+        limit = {
+            'pointer-gamut': config.get('pointer-gamut', False),
+            'macadam-limits': config.get('macadam-limits', False)
+        }
         if isinstance(edges, str):
             c = Color(edges).convert('srgb').fit(**gmap)
             if filters:
@@ -491,7 +594,14 @@ def plot_gamut_in_space(
             fcolor = c.to_string(hex=True, alpha=False)
             faces = True
 
-        render_space_cyl(fig, space, gamut, resolution, opacity, edges, faces, ecolor, fcolor, gmap, filters)
+        if gamut in SPECIAL_GAMUTS:
+            render_special_gamut(
+                gamut, fig, space, resolution, opacity, edges, faces, ecolor, fcolor, gmap, filters, limit
+            )
+        else:
+            render_space_cyl(
+                fig, space, gamut, resolution, opacity, edges, faces, ecolor, fcolor, gmap, filters, limit
+            )
 
     return fig
 
@@ -764,7 +874,9 @@ def main():
         help=(
             "Gamut space to render space in. Can be followed by a JSON config in the form 'space:{}' to set `edges`,"
             '`faces`, `opacity`, or `resolution`. `edges` and `faces` can be a boolean to disable or enable them or '
-            'color to configure them all as a specific color.'
+            "color to configure them all as a specific color. Additionally, if `pointer-gamut` or `macadam-limits` is "
+            "set to true. The current gamut will also have a restriction to force them to be within these gamuts as "
+            "well."
         )
     )
     parser.add_argument(

@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from ollama import Client
     from ollama import AsyncClient
 
-__all__ = ["Ollama", "from_ollama"]
+__all__ = ["AsyncOllama", "Ollama", "from_ollama"]
 
 
 class OllamaTypeAdapter(ModelTypeAdapter):
@@ -96,7 +96,7 @@ class OllamaTypeAdapter(ModelTypeAdapter):
             return {
                 "role": role,
                 "content": prompt,
-                "image": [image.image_str for image in images],
+                "images": [image.image_str for image in images],
             }
 
         else:
@@ -110,9 +110,6 @@ class OllamaTypeAdapter(ModelTypeAdapter):
         self, output_type: Optional[Any] = None
     ) -> Optional[dict]:
         """Format the output type to pass to the client.
-
-        TODO: `int`, `float` and other Python types could be supported via
-        JSON Schema.
 
         Parameters
         ----------
@@ -195,6 +192,8 @@ class Ollama(Model):
         """
         if "model" not in kwargs and self.model_name is not None:
             kwargs["model"] = self.model_name
+
+        print(self.type_adapter.format_input(model_input))
 
         response = self.client.chat(
             messages=self.type_adapter.format_input(model_input),

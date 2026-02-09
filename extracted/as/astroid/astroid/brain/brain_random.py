@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import inspect
 import random
 
 from astroid import nodes
@@ -11,7 +12,7 @@ from astroid.context import InferenceContext
 from astroid.exceptions import UseInferenceDefault
 from astroid.inference_tip import inference_tip
 from astroid.manager import AstroidManager
-from astroid.util import safe_infer
+from astroid.util import UninferableBase, safe_infer
 
 ACCEPTED_ITERABLES_FOR_SAMPLE = (nodes.List, nodes.Set, nodes.Tuple)
 
@@ -30,11 +31,19 @@ def _clone_node_with_lineno(node, parent, lineno):
         "end_col_offset": node.end_col_offset,
     }
     postinit_params = {param: getattr(node, param) for param in _astroid_fields}
-    if other_fields:
-        init_params.update({param: getattr(node, param) for param in other_fields})
+
+    valid_init_params = set(inspect.signature(cls.__init__).parameters)
+    for param in other_fields:
+        if param in valid_init_params:
+            init_params[param] = getattr(node, param)
+
     new_node = cls(**init_params)
     if hasattr(node, "postinit") and _astroid_fields:
         new_node.postinit(**postinit_params)
+
+    for param in other_fields:
+        if param not in valid_init_params:
+            setattr(new_node, param, getattr(node, param))
     return new_node
 
 
@@ -57,6 +66,9 @@ def infer_random_sample(node, context: InferenceContext | None = None):
 
     if inferred_length.value > len(inferred_sequence.elts):
         # In this case, this will raise a ValueError
+        raise UseInferenceDefault
+
+    if any(isinstance(elt, UninferableBase) for elt in inferred_sequence.elts):
         raise UseInferenceDefault
 
     try:

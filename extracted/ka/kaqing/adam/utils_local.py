@@ -3,7 +3,8 @@ import subprocess
 import traceback
 
 from adam.config import Config
-from adam.utils import ExecResult, creating_dir, debug
+from adam.utils import ExecResult
+from adam.utils_log import creating_dir, debug
 
 def local_qing_dir():
     return creating_dir(Config().get('local-qing-dir', '/tmp/qing-db/q'))

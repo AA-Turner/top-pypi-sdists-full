@@ -6,7 +6,7 @@
  *                                                                         *
  * Copyright 2000 - 2009 Alex Martelli                                     *
  *                                                                         *
- * Copyright 2008 - 2024 Case Van Horsen                                   *
+ * Copyright 2008 - 2025 Case Van Horsen                                   *
  *                                                                         *
  * This file is part of GMPY2.                                             *
  *                                                                         *
@@ -41,7 +41,7 @@
  * If bits (or prec) is set to 1, the precision of the result depends on the
  * type of the source.
  *
- *   If the source number is already a radix-2 floating point number,
+ *   If the source number is already a radix-2 floating-point number,
  *   the precision is not changed. In practical terms, this only applies
  *   to sources operands that are either an mpfr or Python double.
  *
@@ -304,26 +304,6 @@ GMPy_MPFR_From_PyStr(PyObject *s, int base, mpfr_prec_t prec, CTXT_Object *conte
 
     len = PyBytes_Size(ascii_str);
     cp = PyBytes_AsString(ascii_str);
-
-    /* Check for leading base indicators. */
-    if (base == 0) {
-        if (len > 2 && cp[0] == '0') {
-            if (cp[1] == 'b')      { base = 2;  cp += 2; len -= 2; }
-            else if (cp[1] == 'x') { base = 16; cp += 2; len -= 2; }
-            else                   { base = 10; }
-        }
-        else {
-            base = 10;
-        }
-    }
-    else if (cp[0] == '0') {
-        /* If the specified base matches the leading base indicators, then
-         * we need to skip the base indicators.
-         */
-        if (cp[1] =='b' && base == 2)       { cp += 2; len -= 2; }
-        else if (cp[1] =='x' && base == 16) { cp += 2; len -= 2; }
-    }
-
 
     if (!(result = GMPy_MPFR_New(prec, context))) {
         Py_XDECREF(ascii_str);
@@ -789,11 +769,9 @@ GMPy_MPFR_Int_Slot(MPFR_Object *self) {
 static PyObject *
 GMPy_PyFloat_From_MPFR(MPFR_Object *self, CTXT_Object *context)
 {
-    double res;
-
     CHECK_CONTEXT(context);
 
-    res = mpfr_get_d(self->f, GET_MPFR_ROUND(context));
+    double res = mpfr_get_d(self->f, GET_MPFR_ROUND(context));
 
     return PyFloat_FromDouble(res);
 }
@@ -880,17 +858,11 @@ GMPy_MPFR_ConvertArg(PyObject *arg, PyObject **ptr)
 static PyObject *
 GMPy_MPFR_Str_Slot(MPFR_Object *self)
 {
-    PyObject *result, *temp;
-    long precision;
-    char fmtstr[60];
+    PyObject *result, *temp = PyUnicode_FromString("{0:}");
 
-    precision = (long)(log10(2) * (double)mpfr_get_prec(MPFR(self))) + 2;
-
-    sprintf(fmtstr, "{0:.%ldg}", precision);
-
-    temp = PyUnicode_FromString(fmtstr);
-    if (!temp)
+    if (!temp) {
         return NULL;
+    }
     result = PyObject_CallMethod(temp, "format", "O", self);
     Py_DECREF(temp);
     return result;
@@ -900,20 +872,19 @@ static PyObject *
 GMPy_MPFR_Repr_Slot(MPFR_Object *self)
 {
     PyObject *result, *temp;
-    long precision, bits;
+    long bits = mpfr_get_prec(MPFR(self));
     char fmtstr[60];
 
-    bits = mpfr_get_prec(MPFR(self));
-    precision = (long)(log10(2) * (double)bits) + 2;
-
-    if (mpfr_number_p(MPFR(self)) && bits != DBL_MANT_DIG)
-        sprintf(fmtstr, "mpfr('{0:.%ldg}',%ld)", precision, bits);
-    else
-        sprintf(fmtstr, "mpfr('{0:.%ldg}')", precision);
-
+    if (mpfr_number_p(MPFR(self)) && bits != DBL_MANT_DIG) {
+        sprintf(fmtstr, "mpfr('{0:}',%ld)", bits);
+    }
+    else {
+        sprintf(fmtstr, "mpfr('{0:}')");
+    }
     temp = PyUnicode_FromString(fmtstr);
-    if (!temp)
+    if (!temp) {
         return NULL;
+    }
     result = PyObject_CallMethod(temp, "format", "O", self);
     Py_DECREF(temp);
     return result;

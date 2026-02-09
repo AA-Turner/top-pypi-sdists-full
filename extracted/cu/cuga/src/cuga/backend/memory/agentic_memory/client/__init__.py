@@ -1,15 +1,3 @@
-from .v1_client import V1MemoryClient
-from .exceptions import (
-    MemoryClientException,
-    NamespaceNotFoundException,
-    FactNotFoundException,
-    APIRequestException,
-)
+from cuga.backend.memory.agentic_memory.client.memory_client import MemoryClient
 
-__all__ = [
-    "V1MemoryClient",
-    "MemoryClientException",
-    "NamespaceNotFoundException",
-    "FactNotFoundException",
-    "APIRequestException",
-]
+__all__ = ["MemoryClient"]

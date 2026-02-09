@@ -1,6 +1,7 @@
 #
 # Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
 #
+from typing import Optional
 
 import pandas
 import pyarrow as pa
@@ -11,7 +12,11 @@ from pyspark.sql.pandas.types import _dedup_names
 from snowflake.snowpark import types as sf_types
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
-from snowflake.snowpark_connect.type_mapping import map_snowpark_types_to_pyarrow_types
+from snowflake.snowpark_connect.type_mapping import (
+    SnowparkToArrowEmptyTableMapper,
+    SnowparkToArrowMapper,
+    SnowparkToArrowTempSchemaMapper,
+)
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
 )
@@ -152,12 +157,17 @@ def arrow_table_to_arrow_bytes(
     """
     assert table.num_rows > 0, "Table must have at least one row"
 
-    pa_schema = pa.schema(
-        map_snowpark_types_to_pyarrow_types(
-            snowpark_schema, pa.struct(table.schema), rename_struct_columns=True
+    pa_schema_temp = pa.schema(
+        SnowparkToArrowTempSchemaMapper().map_schema(
+            snowpark_schema, pa.struct(table.schema)
         )
     )
-    table = _cast_arrow_table(table, pa_schema, spark_columns)
+
+    pa_schema_final = pa.schema(
+        SnowparkToArrowMapper().map_schema(snowpark_schema, pa.struct(table.schema))
+    )
+
+    table = _cast_arrow_table(table, pa_schema_final, spark_columns, pa_schema_temp)
     # note that we don't need to track the original column name, since this helper function only needs to generate arrow
     # data bytes. When the arrow bytes are returned to spark connect client, an explicit schema would be passed along,
     # which contains expected column name. E.g.,
@@ -179,12 +189,21 @@ def arrow_table_to_arrow_bytes(
     return arrow_bytes
 
 
-def _cast_arrow_table(table: Table, pa_schema: pa.Schema, spark_columns: list) -> Table:
+def _cast_arrow_table(
+    table: Table,
+    target_pa_schema: pa.Schema,
+    spark_columns: list,
+    temp_pa_schema: Optional[pa.Schema] = None,
+) -> Table:
     # 1. rename column names to 0,1,2, etc. to avoid unmatching names due to undesired factors like quotes.
     # 2. casting is required here because sometimes arrow table does use expected data type. E.g., for LongType,
     #       pyarrow table uses decimal128(38,0), which converts to Decimal instead of Long on client side.
     table = table.rename_columns([str(i) for i in range(table.num_columns)])
-    table = table.cast(pa_schema, safe=False)
+    if temp_pa_schema is not None and not temp_pa_schema.equals(target_pa_schema):
+        # cast to temp_pa_schema is necessary for cases when i.e. the pyarrow table has int64,
+        # but the snowpark schema is Decimal128(p, s) with p <= 18.
+        table = table.cast(temp_pa_schema, safe=False)
+    table = table.cast(target_pa_schema, safe=False)
     table = table.rename_columns(spark_columns)
     return table
 
@@ -200,11 +219,8 @@ def pandas_empty_table_to_arrow_bytes(
     pandas_df.columns = _dedup_names(pandas_df.columns)
     table = pa.Table.from_pandas(pandas_df)
     pa_schema = pa.schema(
-        map_snowpark_types_to_pyarrow_types(
-            snowpark_schema,
-            pa.struct(table.schema),
-            rename_struct_columns=True,
-            for_empty_table=True,
+        SnowparkToArrowEmptyTableMapper().map_schema(
+            snowpark_schema, pa.struct(table.schema)
         )
     )
     table = _cast_arrow_table(table, pa_schema, spark_columns)

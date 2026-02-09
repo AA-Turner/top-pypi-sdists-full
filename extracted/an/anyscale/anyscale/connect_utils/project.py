@@ -113,9 +113,7 @@ class ProjectBlock:
             )
         self.log.close_block(self.block_label)
 
-    def _get_default_project(
-        self, parent_cloud_id: Optional[str] = None
-    ) -> Tuple[str, str]:
+    def _get_default_project(self, parent_cloud_id: str) -> Tuple[str, str]:
         """
         Get default project id and name.
 
@@ -138,8 +136,8 @@ class ProjectBlock:
         cloud_name: Optional[str],
         cluster_compute_name: Optional[str],
         cluster_compute_dict: Optional[CLUSTER_COMPUTE_DICT_TYPE],
-    ) -> Optional[str]:
-        parent_cloud_id = None
+    ) -> str:
+        parent_cloud_id: Optional[str] = None
         if cloud_name:
             parent_cloud_id, _ = get_cloud_id_and_name(
                 api_client=self.api_client, cloud_id=None, cloud_name=cloud_name,
@@ -161,13 +159,16 @@ class ProjectBlock:
             parent_cloud_id, _ = get_cloud_id_and_name(
                 self.api_client, cloud_id=None, cloud_name=cloud_name
             )
+
+        if parent_cloud_id is None:
+            raise click.ClickException(
+                "Unable to determine the cloud for this operation. "
+                "Please specify a cloud explicitly or provide a cluster_compute config."
+            )
         return parent_cloud_id
 
     def _ensure_project_setup_at_dir(
-        self,
-        project_dir: str,
-        project_name: Optional[str],
-        parent_cloud_id: Optional[str] = None,
+        self, project_dir: str, project_name: Optional[str], parent_cloud_id: str,
     ) -> Tuple[str, str]:
         """
         Get or create an Anyscale project rooted at the given dir. If .anyscale.yaml
@@ -208,7 +209,9 @@ class ProjectBlock:
             )
             return project_id, project_response.result.name
 
-        project_id = find_project_id(self.anyscale_api_client, project_name)
+        project_id = find_project_id(
+            self.anyscale_api_client, project_name, parent_cloud_id
+        )
         if project_id is None:
             # Create a new project in the local directory with given name, because
             # project with this name doesn't exist yet.
@@ -247,7 +250,7 @@ class ProjectBlock:
         return project_id, project_name
 
     def _create_or_get_project_from_name(
-        self, project_name: str, parent_cloud_id: Optional[str] = None
+        self, project_name: str, parent_cloud_id: str
     ) -> Tuple[str, str]:
         """
         Get or create an Anyscale project not rooted in any directory
@@ -256,7 +259,9 @@ class ProjectBlock:
         Returns:
         The project id and project name of the project being used.
         """
-        project_id = find_project_id(self.anyscale_api_client, project_name)
+        project_id = find_project_id(
+            self.anyscale_api_client, project_name, parent_cloud_id
+        )
         if project_id is None:
             self.log.info(
                 f"Creating new project named {BlockLogger.highlight(project_name)}.",

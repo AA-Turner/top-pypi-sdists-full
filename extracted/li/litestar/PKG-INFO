@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litestar
-Version: 2.19.0
+Version: 2.20.0
 Summary: Litestar - A production-ready, highly performant, extensible ASGI API Framework
 Project-URL: Blog, https://blog.litestar.dev
 Project-URL: Changelog, https://github.com/litestar-org/litestar/releases/
@@ -77,7 +77,6 @@ Requires-Dist: attrs; extra == 'full'
 Requires-Dist: brotli; extra == 'full'
 Requires-Dist: cryptography; extra == 'full'
 Requires-Dist: email-validator; extra == 'full'
-Requires-Dist: fast-query-parsers>=1.0.2; extra == 'full'
 Requires-Dist: jinja2; extra == 'full'
 Requires-Dist: jinja2>=3.1.2; extra == 'full'
 Requires-Dist: jsbeautifier; extra == 'full'
@@ -122,7 +121,6 @@ Requires-Dist: redis[hiredis]<5.3,>=4.4.4; extra == 'redis'
 Provides-Extra: sqlalchemy
 Requires-Dist: advanced-alchemy>=0.2.2; extra == 'sqlalchemy'
 Provides-Extra: standard
-Requires-Dist: fast-query-parsers>=1.0.2; extra == 'standard'
 Requires-Dist: jinja2; extra == 'standard'
 Requires-Dist: jsbeautifier; extra == 'standard'
 Requires-Dist: uvicorn[standard]; extra == 'standard'
@@ -237,7 +235,7 @@ litestar run
   - [Swagger-UI](https://swagger.io/tools/swagger-ui/)
 - [Trio](https://trio.readthedocs.io/en/stable/) support (built-in, via [AnyIO](https://anyio.readthedocs.io/))
 - Ultra-fast validation, serialization and deserialization using [msgspec](https://github.com/jcrist/msgspec)
-- [SQLAlchemy integration](https://docs.advanced-alchemy.litestar.dev/latest/)
+- [SQLAlchemy integration](https://advanced-alchemy.litestar.dev/latest/)
 
 ## Example Applications
 

@@ -141,13 +141,11 @@ def json_dumpb(obj) -> bytes:
         if "surrogates not allowed" not in str(e):
             raise
         dumped = orjson.dumps(_sanitise(obj), default=default, option=_option)
-    return (
-        # Unfortunately simply doing ``.replace(rb"\\u0000", b"")`` on
-        # the dumped bytes can leave an **orphaned back-slash** (e.g. ``\\q``)
-        # which makes the resulting JSON invalid.  The fix is to delete the *double*
-        # back-slash form **first**, then (optionally) the single-escapes.
-        dumped.replace(rb"\\u0000", b"").replace(rb"\u0000", b"")
-    )
+    if rb"\u0000" not in dumped:
+        return dumped  # fast path — no null bytes
+    # Delete the double-backslash form first to avoid orphaned backslashes,
+    # then the single-escape form for actual null bytes.
+    return dumped.replace(rb"\\u0000", b"").replace(rb"\u0000", b"")
 
 
 def set_serializer(serializer: SerializerProtocol) -> None:

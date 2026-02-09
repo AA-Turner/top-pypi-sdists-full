@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scikit-lego
-Version: 0.9.7
+Version: 0.9.8
 Summary: A collection of lego bricks for scikit-learn pipelines
 Author: Vincent D. Warmerdam, Matthijs Brouns
 Maintainer: Francesco Bruzzesi

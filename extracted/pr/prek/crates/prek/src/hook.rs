@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::collections::BTreeSet;
 use std::ffi::OsStr;
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
@@ -7,7 +8,7 @@ use std::sync::{Arc, OnceLock};
 
 use anyhow::{Context, Result};
 use clap::ValueEnum;
-use prek_consts::MANIFEST_FILE;
+use prek_consts::PRE_COMMIT_HOOKS_YAML;
 use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
 use tempfile::TempDir;
@@ -165,10 +166,11 @@ pub(crate) enum Repo {
 impl Repo {
     /// Load the remote repo manifest from the path.
     pub(crate) fn remote(url: String, rev: String, path: PathBuf) -> Result<Self, Error> {
-        let manifest = read_manifest(&path.join(MANIFEST_FILE)).map_err(|e| Error::Manifest {
-            repo: url.clone(),
-            error: e,
-        })?;
+        let manifest =
+            read_manifest(&path.join(PRE_COMMIT_HOOKS_YAML)).map_err(|e| Error::Manifest {
+                repo: url.clone(),
+                error: e,
+            })?;
         let hooks = manifest.hooks.into_iter().map(Into::into).collect();
 
         Ok(Self::Remote {
@@ -344,7 +346,7 @@ impl HookBuilder {
 
         let stages = match options.stages {
             Some(stages) => {
-                let stages: FxHashSet<_> = stages.into_iter().collect();
+                let stages: BTreeSet<_> = stages.into_iter().collect();
                 if stages.is_empty() || stages.len() == Stage::value_variants().len() {
                     Stages::All
                 } else {
@@ -407,7 +409,7 @@ impl HookBuilder {
 #[derive(Debug, Clone)]
 pub(crate) enum Stages {
     All,
-    Some(FxHashSet<Stage>),
+    Some(BTreeSet<Stage>),
 }
 
 impl Stages {
@@ -426,7 +428,7 @@ impl Display for Stages {
             Stages::Some(stages) => {
                 let stages_str = stages
                     .iter()
-                    .map(Stage::as_str)
+                    .map(Stage::as_ref)
                     .collect::<Vec<_>>()
                     .join(", ");
                 write!(f, "{stages_str}")
@@ -813,7 +815,7 @@ impl InstallInfo {
         hooks_dir: &Path,
     ) -> Result<Self, Error> {
         let env_path = tempfile::Builder::new()
-            .prefix(&format!("{}-", language.as_str()))
+            .prefix(&format!("{language}-"))
             .rand_bytes(20)
             .tempdir_in(hooks_dir)?;
 
@@ -876,7 +878,7 @@ mod tests {
     use std::sync::Arc;
 
     use anyhow::Result;
-    use prek_consts::CONFIG_FILE;
+    use prek_consts::PRE_COMMIT_CONFIG_YAML;
     use rustc_hash::FxHashMap;
 
     use crate::config::{HookOptions, Language, RemoteHook};
@@ -888,7 +890,7 @@ mod tests {
     #[tokio::test]
     async fn hook_builder_build_fills_and_merges_attributes() -> Result<()> {
         let temp = tempfile::tempdir()?;
-        let config_path = temp.path().join(CONFIG_FILE);
+        let config_path = temp.path().join(PRE_COMMIT_CONFIG_YAML);
 
         // Ensure `combine()` can supply defaults for stages and language_version.
         fs_err::write(

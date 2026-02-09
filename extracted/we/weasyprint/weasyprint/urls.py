@@ -330,17 +330,18 @@ class URLFetcher(request.OpenerDirector):
 
         """
         # Discard URLs with no or invalid protocol.
-        if not UNICODE_SCHEME_RE.match(url):  # pragma: no cover
+        if not (match := UNICODE_SCHEME_RE.match(url)):  # pragma: no cover
             raise ValueError(f'Not an absolute URI: {url}')
+        scheme = match[1].lower()
 
         # Discard URLs with forbidden protocol.
         if self._allowed_protocols is not None:
-            if url.split('://', 1)[0].lower() not in self._allowed_protocols:
+            if scheme not in self._allowed_protocols:
                 raise ValueError(f'URI uses disallowed protocol: {url}')
 
         # Remove query and fragment parts from file URLs.
         # See https://bugs.python.org/issue34702.
-        if url.lower().startswith('file://'):
+        if scheme == 'file':
             url = url.split('?')[0]
 
         # Transform Unicode IRI to ASCII URI.
@@ -385,7 +386,7 @@ class URLFetcherResponse:
     :param body: The body of the HTTP response.
     :type headers: dict or email.message.EmailMessage
     :param headers: The headers of the HTTP response.
-    :param str status: The status of the HTTP response.
+    :param int status: The status of the HTTP response.
 
     Has the same interface as :class:`urllib.response.addinfourl`.
 
@@ -395,7 +396,7 @@ class URLFetcherResponse:
     is used elsewhere, the file object has to be closed manually.
 
     """
-    def __init__(self, url, body=None, headers=None, status='200 OK', **kwargs):
+    def __init__(self, url, body=None, headers=None, status=200, **kwargs):
         self.url = url
         self.status = status
 
@@ -404,7 +405,10 @@ class URLFetcherResponse:
         else:
             self.headers = EmailMessage()
             for key, value in (headers or {}).items():
-                self.headers[key] = value
+                try:
+                    self.headers[key] = value
+                except ValueError:
+                    pass  # Ignore forbidden duplicated headers.
 
         if hasattr(body, 'read'):
             self._file_obj = body
@@ -440,6 +444,19 @@ class URLFetcherResponse:
     def charset(self):
         return self.headers.get_param('charset')
 
+    def geturl(self):
+        return self.url
+
+    def info(self):
+        return self.headers
+
+    @property
+    def code(self):
+        return self.status
+
+    def getcode(self):
+        return self.status
+
 
 @contextlib.contextmanager
 def fetch(url_fetcher, url):
@@ -467,7 +484,7 @@ def fetch(url_fetcher, url):
         resource['body'] = resource.get('file_obj', resource.get('string'))
         content_type = resource.get('mime_type', 'application/octet-stream')
         if charset := resource.get('encoding'):
-            content_type += f';{charset}'
+            content_type += f'; charset={charset}'
         resource['headers'] = {'Content-Type': content_type}
         resource = URLFetcherResponse(**resource)
 

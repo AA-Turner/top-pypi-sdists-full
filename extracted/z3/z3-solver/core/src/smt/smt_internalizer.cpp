@@ -208,11 +208,10 @@ namespace smt {
 
         svector<expr_bool_pair> sorted_exprs;
         top_sort_expr(exprs, num_exprs, sorted_exprs);
-        TRACE(deep_internalize, for (auto & kv : sorted_exprs) tout << "#" << kv.first->get_id() << " " << kv.second << "\n"; );
-        for (auto & kv : sorted_exprs) {
-            expr* e = kv.first;
+        TRACE(deep_internalize, for (auto & [e, b] : sorted_exprs) tout << "#" << e->get_id() << " " << b << "\n"; );
+        for (auto & [e, b] : sorted_exprs) {
             SASSERT(should_internalize_rec(e));
-            internalize_rec(e, kv.second);
+            internalize_rec(e, b);
         }
     }
     void context::internalize_deep(expr* n) {
@@ -546,10 +545,10 @@ namespace smt {
     }
 
     static bool check_patterns(quantifier * q) {
-        for (unsigned i = 0; i < q->get_num_patterns(); i++) {
+        for (unsigned i = 0; i < q->get_num_patterns(); ++i) {
             SASSERT(check_pattern(q->get_pattern(i)));
         }
-        for (unsigned i = 0; i < q->get_num_no_patterns(); i++) {
+        for (unsigned i = 0; i < q->get_num_no_patterns(); ++i) {
             SASSERT(check_pattern(q->get_no_pattern(i)));
         }
         return true;
@@ -1029,11 +1028,9 @@ namespace smt {
             }
             else {
                 if (cgc_enabled) {
-                    enode_bool_pair pair = m_cg_table.insert(e);
-                    enode * e_prime      = pair.first;
+                    auto [e_prime, used_commutativity] = m_cg_table.insert(e);
                     if (e != e_prime) {
                         e->m_cg = e_prime;
-                        bool used_commutativity = pair.second;
                         push_new_congruence(e, e_prime, used_commutativity);
                     }
                     else {
@@ -1155,7 +1152,7 @@ namespace smt {
         std::sort(lits, lits + num_lits);
         literal prev = null_literal;
         unsigned j = 0;
-        for (unsigned i = 0; i < num_lits; i++) {
+        for (unsigned i = 0; i < num_lits; ++i) {
             literal curr = lits[i];
             lbool   val  = get_assignment(curr);
             switch (val) {
@@ -1166,7 +1163,6 @@ namespace smt {
                     simp_lits.push_back(~curr);
                 }
                 break; // ignore literal                
-                // fall through
             case l_undef:
                 if (curr == ~prev)
                     return false; // clause is equivalent to true
@@ -1213,7 +1209,7 @@ namespace smt {
         literal prev = null_literal;
         unsigned i = 0;
         unsigned j = 0;
-        for (; i < num_lits; i++) {
+        for (; i < num_lits; ++i) {
             literal curr = lits[i];
             bool_var var = curr.var();
             lbool   val  = l_undef;
@@ -1261,7 +1257,7 @@ namespace smt {
     */
     unsigned context::get_max_iscope_lvl(unsigned num_lits, literal const * lits) const {
         unsigned r = 0;
-        for (unsigned i = 0; i < num_lits; i++) {
+        for (unsigned i = 0; i < num_lits; ++i) {
             unsigned ilvl = get_intern_level(lits[i].var());
             if (ilvl > r)
                 r = ilvl;
@@ -1309,7 +1305,7 @@ namespace smt {
         int max_false_idx = -1;
         unsigned max_lvl  = UINT_MAX;
         int num_lits      = cls->get_num_literals();
-        for (int i = 1; i < num_lits; i++) {
+        for (int i = 1; i < num_lits; ++i) {
             literal l    = cls->get_literal(i);
             lbool val    = get_assignment(l);
             SASSERT(val == l_false || val == l_undef);
@@ -1352,7 +1348,7 @@ namespace smt {
         int max_false_idx = -1;
         int unknown_idx   = -1;
         int n = cls->get_num_literals();
-        for (int i = starting_at; i < n; i++) {
+        for (int i = starting_at; i < n; ++i) {
             literal l   = cls->get_literal(i);
             switch(get_assignment(l)) {
             case l_false:
@@ -1600,7 +1596,7 @@ namespace smt {
 
     proof * context::mk_clause_def_axiom(unsigned num_lits, literal * lits, expr * root_gate) {
         ptr_buffer<expr> new_lits;
-        for (unsigned i = 0; i < num_lits; i++) {
+        for (unsigned i = 0; i < num_lits; ++i) {
             literal l      = lits[i];
             bool_var v     = l.var();
             expr * atom    = m_bool_var2expr[v]; 
@@ -1609,7 +1605,7 @@ namespace smt {
         if (root_gate)
             new_lits.push_back(m.mk_not(root_gate));
         SASSERT(num_lits > 1);
-        expr * fact        = m.mk_or(new_lits.size(), new_lits.data());
+        expr * fact        = m.mk_or(new_lits);
         return m.mk_def_axiom(fact);
         
     }
@@ -1622,7 +1618,7 @@ namespace smt {
         }
         else if (clause_proof_active()) {
             ptr_buffer<expr> new_lits;
-            for (unsigned i = 0; i < num_lits; i++) {
+            for (unsigned i = 0; i < num_lits; ++i) {
                 literal l      = lits[i];
                 bool_var v     = l.var();
                 expr * atom    = m_bool_var2expr[v]; 

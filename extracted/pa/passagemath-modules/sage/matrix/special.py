@@ -41,6 +41,7 @@ The following constructions are available:
     :meth:`~sage.matrix.special.random_rref_matrix`
     :meth:`~sage.matrix.special.random_subspaces_matrix`
     :meth:`~sage.matrix.special.random_unimodular_matrix`
+    :meth:`~sage.matrix.special.random_unitary_matrix`
     :meth:`~sage.matrix.special.toeplitz`
     :meth:`~sage.matrix.special.vandermonde`
     :meth:`~sage.matrix.special.vector_on_axis_rotation_matrix`
@@ -64,18 +65,17 @@ matrices and Latin squares. See:
 # ****************************************************************************
 from copy import copy
 
-import sage.matrix.matrix_space as matrix_space
 from sage.categories.rings import Rings
-from sage.modules.free_module_element import vector
-from sage.structure.element import Matrix, parent, RingElement
-from sage.structure.sequence import Sequence
-from sage.rings.integer_ring import ZZ
-from sage.rings.rational_field import QQ
-from sage.rings.integer import Integer
+from sage.matrix import matrix_space
+from sage.matrix.constructor import matrix
 from sage.misc.misc_c import running_total
 from sage.misc.prandom import randint, shuffle
-from .constructor import matrix
-import sage.categories.pushout
+from sage.modules.free_module_element import vector
+from sage.rings.integer import Integer
+from sage.rings.integer_ring import ZZ
+from sage.rings.rational_field import QQ
+from sage.structure.element import Matrix, RingElement, parent
+from sage.structure.sequence import Sequence
 
 
 def matrix_method(func=None, name=None):
@@ -242,6 +242,9 @@ def random_matrix(ring, nrows, ncols=None, algorithm='randomize', implementation
 
       - ``'unimodular'`` -- creates a matrix of determinant 1
 
+      - ``'unitary'`` -- creates a (square) unitary matrix over a
+        subfield of the complex numbers
+
       - ``'diagonalizable'`` -- creates a diagonalizable matrix. if the
         base ring is ``QQ`` creates a diagonalizable matrix whose eigenvectors,
         if computed by hand, will have only integer entries. See the
@@ -304,7 +307,7 @@ def random_matrix(ring, nrows, ncols=None, algorithm='randomize', implementation
         sage: expected(100)
         1/25250
         sage: add_samples(ZZ, 5, 5)
-        sage: while not all(abs(dic[a]/total_count - expected(a)) < 0.001 for a in dic):
+        sage: while not all(abs(dic[a]/total_count - expected(a)) < 0.001 for a in dic):  # long time
         ....:     add_samples(ZZ, 5, 5)
 
     The ``distribution`` keyword  set to ``uniform`` will limit values
@@ -314,7 +317,7 @@ def random_matrix(ring, nrows, ncols=None, algorithm='randomize', implementation
         sage: total_count = 0
         sage: dic = defaultdict(Integer)
         sage: add_samples(ZZ, 5, 5, distribution='uniform')
-        sage: while not all(abs(dic[a]/total_count - expected(a)) < 0.001 for a in dic):
+        sage: while not all(abs(dic[a]/total_count - expected(a)) < 0.001 for a in dic):  # long time
         ....:     add_samples(ZZ, 5, 5, distribution='uniform')
 
     The ``x`` and ``y`` keywords can be used to distribute entries uniformly.
@@ -325,14 +328,14 @@ def random_matrix(ring, nrows, ncols=None, algorithm='randomize', implementation
         sage: total_count = 0
         sage: dic = defaultdict(Integer)
         sage: add_samples(ZZ, 4, 8, x=70, y=100)
-        sage: while not all(abs(dic[a]/total_count - expected(a)) < 0.001 for a in dic):
+        sage: while not all(abs(dic[a]/total_count - expected(a)) < 0.001 for a in dic):  # long time
         ....:     add_samples(ZZ, 4, 8, x=70, y=100)
 
         sage: expected = lambda n : 1/10 if n in range(-5, 5) else 0
         sage: total_count = 0
         sage: dic = defaultdict(Integer)
         sage: add_samples(ZZ, 3, 7, x=-5, y=5)
-        sage: while not all(abs(dic[a]/total_count - expected(a)) < 0.001 for a in dic):
+        sage: while not all(abs(dic[a]/total_count - expected(a)) < 0.001 for a in dic):  # long time
         ....:     add_samples(ZZ, 3, 7, x=-5, y=5)
 
     If only ``x`` is given, then it is used as the upper bound of a range
@@ -342,7 +345,7 @@ def random_matrix(ring, nrows, ncols=None, algorithm='randomize', implementation
         sage: total_count = 0
         sage: dic = defaultdict(Integer)
         sage: add_samples(ZZ, 5, 5, x=25)
-        sage: while not all(abs(dic[a]/total_count - expected(a)) < 0.001 for a in dic):
+        sage: while not all(abs(dic[a]/total_count - expected(a)) < 0.001 for a in dic):  # long time
         ....:     add_samples(ZZ, 5, 5, x=25)
 
     To control the number of nonzero entries, use the ``density`` keyword
@@ -428,7 +431,7 @@ def random_matrix(ring, nrows, ncols=None, algorithm='randomize', implementation
         True
 
         sage: A = random_matrix(QQ, 4, density=0.5, sparse=True)
-        sage: type(A)
+        sage: type(A)                                                                   # needs sage.libs.flint
         <class 'sage.matrix.matrix_rational_sparse.Matrix_rational_sparse'>
         sage: A.density() <= 0.5
         True
@@ -468,7 +471,7 @@ def random_matrix(ring, nrows, ncols=None, algorithm='randomize', implementation
 
         sage: K.<a> = FiniteField(3^2)                                                  # needs sage.rings.finite_rings
         sage: A = random_matrix(K, 2, 5, implementation='generic')                      # needs sage.rings.finite_rings
-        sage: type(A)
+        sage: type(A)                                                                   # needs sage.rings.finite_rings
         <class 'sage.matrix.matrix_generic_dense.Matrix_generic_dense'>
         sage: A.base_ring() is K                                                        # needs sage.rings.finite_rings
         True
@@ -495,6 +498,7 @@ def random_matrix(ring, nrows, ncols=None, algorithm='randomize', implementation
     a random matrix in echelon form.  When the base ring is ``QQ`` the result has integer
     entries.  Other exact rings may be also specified. ::
 
+        sage: # needs sage.libs.gsl
         sage: A = random_matrix(QQ, 4, 8, algorithm='echelon_form', num_pivots=3)
         sage: A.base_ring()
         Rational Field
@@ -523,6 +527,7 @@ def random_matrix(ring, nrows, ncols=None, algorithm='randomize', implementation
     of full rank generated by this function always have determinant one, and
     can be constructed with the ``unimodular`` keyword. ::
 
+        sage: # needs sage.libs.gsl
         sage: A = random_matrix(QQ, 4, 8, algorithm='echelonizable', rank=3, upper_bound=60)
         sage: A.base_ring()
         Rational Field
@@ -582,6 +587,7 @@ def random_matrix(ring, nrows, ncols=None, algorithm='randomize', implementation
     contain only integer entries.  If ``rank``, is not set, the
     rank of the matrix will be generated randomly. ::
 
+        sage: # needs sage.libs.gsl
         sage: B = random_matrix(QQ, 5, 6, algorithm='subspaces', rank=3); B  # random
         sage: B_expanded = B.augment(identity_matrix(5)).rref()
         sage: (B.nrows(), B.ncols())
@@ -666,6 +672,8 @@ def random_matrix(ring, nrows, ncols=None, algorithm='randomize', implementation
         return random_subspaces_matrix(parent, *args, **kwds)
     elif algorithm == 'unimodular':
         return random_unimodular_matrix(parent, *args, **kwds)
+    elif algorithm == 'unitary':
+        return random_unitary_matrix(parent, *args, **kwds)
     else:
         raise ValueError('random matrix algorithm "%s" is not recognized' % algorithm)
 
@@ -1790,13 +1798,13 @@ def block_matrix(*args, **kwds):
 
     INPUT:
 
-    The block_matrix command takes a list of submatrices to add
+    The :func:`block_matrix` function takes a list of submatrices to add
     as blocks, optionally preceded by a ring and the number of block rows
     and block columns, and returns a matrix.
 
     The submatrices can be specified as a list of matrices (using
     ``nrows`` and ``ncols`` to determine their layout), or a list
-    of lists of matrices, where each list forms a row.
+    of lists of matrices/column vectors, where each list forms a row.
 
     - ``ring`` -- the base ring
 
@@ -1929,6 +1937,31 @@ def block_matrix(*args, **kwds):
         ...
         ValueError: must specify either nrows or ncols
 
+    Vectors are interpreted as column vectors::
+
+        sage: m = matrix([[1, 2], [3, 4]])
+        sage: v = vector([5, 6])
+        sage: matrix.block([
+        ....:     [m, v],
+        ....:     [0, 1],
+        ....:     ])
+        [1 2|5]
+        [3 4|6]
+        [---+-]
+        [0 0|1]
+
+    To interpret vectors as row vectors, :meth:`~sage.modules.free_module_element.FreeModuleElement.row`
+    can be used::
+
+        sage: matrix.block([
+        ....:     [m, 0],
+        ....:     [v.row(), 1],
+        ....:     ])
+        [1 2|0]
+        [3 4|0]
+        [---+-]
+        [5 6|1]
+
     TESTS::
 
         sage: A = matrix(ZZ, 2, 2, [3,5,8,13])
@@ -1941,6 +1974,55 @@ def block_matrix(*args, **kwds):
         [-----+-----]
         [ 1  0| 3  5]
         [ 0  1| 8 13]
+        sage: block_matrix([[A, 3r+1jr], [1r, A]])
+        [        3.0         5.0|3.0 + 1.0*I         0.0]
+        [        8.0        13.0|        0.0 3.0 + 1.0*I]
+        [-----------------------+-----------------------]
+        [        1.0         0.0|        3.0         5.0]
+        [        0.0         1.0|        8.0        13.0]
+
+    This is not implemented for now, but it might be implemented in the future
+    if there is no ambiguity::
+
+        sage: matrix.block([
+        ....:     [m, 0],
+        ....:     [v, 1],
+        ....:     ])
+        Traceback (most recent call last):
+        ...
+        ValueError: incompatible submatrix widths
+
+    Error reporting when non-ring elements are passed in::
+
+        sage: matrix.block([
+        ....:     ["abc"],
+        ....:     ])
+        Traceback (most recent call last):
+        ...
+        ValueError: an element of parent <class 'str'> was passed in,
+         but only matrices, vectors and ring elements are accepted
+        sage: matrix.block([
+        ....:     [(1, 2)],
+        ....:     ])
+        Traceback (most recent call last):
+        ...
+        ValueError: an element of parent <class 'tuple'> was passed in,
+         but only matrices, vectors and ring elements are accepted
+        sage: matrix.block([
+        ....:     [[1, 2]],
+        ....:     ])
+        Traceback (most recent call last):
+        ...
+        ValueError: an element of parent <class 'list'> was passed in,
+         but only matrices, vectors and ring elements are accepted
+        sage: matrix.block([                                                            # needs eclib sage.schemes
+        ....:     [EllipticCurve('37a1').0],
+        ....:     ])
+        Traceback (most recent call last):
+        ...
+        ValueError: an element of parent Abelian group of points on
+         Elliptic Curve defined by y^2 + y = x^3 - x over Rational Field was passed in,
+         but only matrices, vectors and ring elements are accepted
     """
     args = list(args)
     sparse = kwds.get('sparse', None)
@@ -2051,14 +2133,19 @@ def block_matrix(*args, **kwds):
 
     # At this point sub_matrices is a list of lists
 
+    from sage.structure.coerce import py_scalar_to_element
+    from sage.structure.element import Vector
+    sub_matrices = [[M.column() if isinstance(M, Vector) else M if isinstance(M, Matrix) else py_scalar_to_element(M)
+                     for M in row] for row in sub_matrices]
+
     # determine the base ring and sparsity
     if ring is None:
-        ring = ZZ
-        for row in sub_matrices:
-            for M in row:
-                R = M.base_ring() if isinstance(M, Matrix) else parent(M)
-                if R is not ZZ:
-                    ring = sage.categories.pushout.pushout(ring, R)
+        from sage.structure.element import get_coercion_model
+        parents = [M.base_ring() if isinstance(M, Matrix) else parent(M) for row in sub_matrices for M in row]
+        for p in parents:
+            if p not in Rings():
+                raise ValueError(f"an element of parent {p} was passed in, but only matrices, vectors and ring elements are accepted")
+        ring = get_coercion_model().common_parent(*parents) if parents else ZZ
 
     if sparse is None:
         sparse = True
@@ -2105,11 +2192,10 @@ def block_matrix(*args, **kwds):
                     zero_widths[i] = 0
                 else:
                     continue  # zero-width matrix
+            elif zero_widths is not None:
+                M = matrix(ring, row_heights[i], row_heights[i], M, sparse=sparse)
             else:
-                if zero_widths is not None:
-                    M = matrix(ring, row_heights[i], row_heights[i], M, sparse=sparse)
-                else:
-                    M = matrix(ring, row_heights[i], col_widths[j], M, sparse=sparse)
+                M = matrix(ring, row_heights[i], col_widths[j], M, sparse=sparse)
 
             # append M to this row
             if row is None:
@@ -2449,6 +2535,7 @@ def random_rref_matrix(parent, num_pivots):
     Matrices generated are in reduced row-echelon form with specified rank. If the
     base ring is `QQ` the result has only integer entries.  ::
 
+        sage: # needs sage.libs.gsl
         sage: from sage.matrix.constructor import random_rref_matrix
         sage: matrix_space = sage.matrix.matrix_space.MatrixSpace(QQ, 5, 6)
         sage: A = random_rref_matrix(matrix_space, num_pivots=4); A  # random
@@ -2470,6 +2557,7 @@ def random_rref_matrix(parent, num_pivots):
 
     Matrices can be generated over other exact rings. ::
 
+        sage: # needs sage.libs.gsl
         sage: B = random_matrix(FiniteField(7), 4, 4,  # random
         ....:                   algorithm='echelon_form', num_pivots=3); B
         [1 0 0 0]
@@ -2487,40 +2575,40 @@ def random_rref_matrix(parent, num_pivots):
 
     Rank zero::
 
-        sage: random_matrix(QQ, 1, 1, algorithm='echelon_form', num_pivots=0)
+        sage: random_matrix(QQ, 1, 1, algorithm='echelon_form', num_pivots=0)           # needs sage.libs.gsl
         [0]
 
     Rank of a matrix must be an integer. ::
 
-        sage: random_matrix(QQ, 120, 56, algorithm='echelon_form', num_pivots=61/2)
+        sage: random_matrix(QQ, 120, 56, algorithm='echelon_form', num_pivots=61/2)     # needs sage.libs.gsl
         Traceback (most recent call last):
         ...
         TypeError: the number of pivots must be an integer
 
     Matrices must be generated over exact fields. ::
 
-        sage: random_matrix(RR, 40, 88, algorithm='echelon_form', num_pivots=39)
+        sage: random_matrix(RR, 40, 88, algorithm='echelon_form', num_pivots=39)        # needs sage.libs.gsl
         Traceback (most recent call last):
         ...
         TypeError: the base ring must be exact
 
     Matrices must have the number of pivot columns be less than or equal to the number of rows. ::
 
-        sage: C = random_matrix(ZZ, 6,4, algorithm='echelon_form', num_pivots=7); C
+        sage: C = random_matrix(ZZ, 6,4, algorithm='echelon_form', num_pivots=7); C     # needs sage.libs.gsl
         Traceback (most recent call last):
         ...
         ValueError: number of pivots cannot exceed the number of rows or columns
 
     Matrices must have the number of pivot columns be less than or equal to the number of columns. ::
 
-        sage: D = random_matrix(QQ, 1,3, algorithm='echelon_form', num_pivots=5); D
+        sage: D = random_matrix(QQ, 1,3, algorithm='echelon_form', num_pivots=5); D     # needs sage.libs.gsl
         Traceback (most recent call last):
         ...
         ValueError: number of pivots cannot exceed the number of rows or columns
 
     Matrices must have the number of pivot columns be greater than zero. ::
 
-        sage: random_matrix(QQ, 5, 4, algorithm='echelon_form', num_pivots=-1)
+        sage: random_matrix(QQ, 5, 4, algorithm='echelon_form', num_pivots=-1)          # needs sage.libs.gsl
         Traceback (most recent call last):
         ...
         ValueError: the number of pivots must be zero or greater
@@ -2634,6 +2722,7 @@ def random_echelonizable_matrix(parent, rank, upper_bound=None, max_tries=100):
     Generated matrices have the desired dimensions, rank and entry size. The
     matrix in reduced row-echelon form has only integer entries. ::
 
+        sage: # needs sage.libs.gsl
         sage: from sage.matrix.constructor import random_echelonizable_matrix
         sage: matrix_space = sage.matrix.matrix_space.MatrixSpace(QQ, 5, 6)
         sage: A = random_echelonizable_matrix(matrix_space, rank=4, upper_bound=40)
@@ -2646,6 +2735,7 @@ def random_echelonizable_matrix(parent, rank, upper_bound=None, max_tries=100):
 
     An example with default settings (i.e. no entry size control). ::
 
+        sage: # needs sage.libs.gsl
         sage: C = random_matrix(QQ, 6, 7, algorithm='echelonizable', rank=5)
         sage: C.rank()
         5
@@ -2654,7 +2744,7 @@ def random_echelonizable_matrix(parent, rank, upper_bound=None, max_tries=100):
 
     A matrix without size control may have very large entry sizes. ::
 
-        sage: D = random_matrix(ZZ, 7, 8, algorithm='echelonizable', rank=6); D  # random
+        sage: D = random_matrix(ZZ, 7, 8, algorithm='echelonizable', rank=6); D  # random   # needs sage.libs.gsl
         [    1     2     8   -35  -178  -239  -284   778]
         [    4     9    37  -163  -827 -1111 -1324  3624]
         [    5     6    21   -88  -454  -607  -708  1951]
@@ -2665,7 +2755,7 @@ def random_echelonizable_matrix(parent, rank, upper_bound=None, max_tries=100):
 
     Matrices can be generated over any exact ring. ::
 
-        sage: # needs sage.rings.finite_rings
+        sage: # needs sage.libs.gsl sage.rings.finite_rings
         sage: F.<a> = GF(2^3)
         sage: B = random_matrix(F, 4, 5, algorithm='echelonizable', rank=4,
         ....:                   upper_bound=None)
@@ -2676,6 +2766,7 @@ def random_echelonizable_matrix(parent, rank, upper_bound=None, max_tries=100):
 
     Square matrices over ZZ or QQ with full rank are always unimodular. ::
 
+        sage: # needs sage.libs.gsl
         sage: E = random_matrix(QQ, 7, 7, algorithm='echelonizable', rank=7)
         sage: det(E)
         1
@@ -2688,6 +2779,7 @@ def random_echelonizable_matrix(parent, rank, upper_bound=None, max_tries=100):
     Matrices must have a rank zero or greater, and less than
     both the number of rows and the number of columns. ::
 
+        sage: # needs sage.libs.gsl
         sage: random_matrix(QQ, 3, 4, algorithm='echelonizable', rank=-1)
         Traceback (most recent call last):
         ...
@@ -2703,14 +2795,14 @@ def random_echelonizable_matrix(parent, rank, upper_bound=None, max_tries=100):
 
     The base ring must be exact. ::
 
-        sage: random_matrix(RR, 3, 3, algorithm='echelonizable', rank=2)
+        sage: random_matrix(RR, 3, 3, algorithm='echelonizable', rank=2)                # needs sage.libs.gsl
         Traceback (most recent call last):
         ...
         TypeError: the base ring must be exact
 
     Works for rank==1, too. ::
 
-        sage: random_matrix(QQ, 3, 3, algorithm='echelonizable', rank=1).ncols()
+        sage: random_matrix(QQ, 3, 3, algorithm='echelonizable', rank=1).ncols()        # needs sage.libs.gsl
         3
 
 
@@ -2838,6 +2930,7 @@ def random_subspaces_matrix(parent, rank=None):
     subspaces can then be determined by analyzing subdivisions of this
     matrix. See the four subspaces routine in [Bee]_ for more. ::
 
+        sage: # needs sage.libs.gsl
         sage: from sage.matrix.constructor import random_subspaces_matrix
         sage: matrix_space = sage.matrix.matrix_space.MatrixSpace(QQ, 6, 8)
         sage: B = random_subspaces_matrix(matrix_space, rank=3)
@@ -2855,11 +2948,12 @@ def random_subspaces_matrix(parent, rank=None):
 
     Check that we fixed :issue:`10543` (echelon forms should be immutable)::
 
-        sage: B_expanded.is_immutable()
+        sage: B_expanded.is_immutable()                                                 # needs sage.libs.gsl
         True
 
     We want to modify B_expanded, so replace it with a copy::
 
+        sage: # needs sage.libs.gsl
         sage: B_expanded = copy(B_expanded)
         sage: B_expanded.subdivide(B.nrows()-B.nullity(), B.ncols())
         sage: C = B_expanded.subdivision(0, 0)
@@ -2875,6 +2969,7 @@ def random_subspaces_matrix(parent, rank=None):
 
     A matrix to show that the null space of the L matrix is the column space of the starting matrix. ::
 
+        sage: # needs sage.libs.gsl
         sage: A = random_matrix(QQ, 5, 7, algorithm='subspaces', rank=None)
         sage: (A.nrows(), A.ncols())
         (5, 7)
@@ -2899,6 +2994,7 @@ def random_subspaces_matrix(parent, rank=None):
     The designated rank of the L matrix cannot be greater than the
     number of desired rows, nor can the rank be negative. ::
 
+        sage: # needs sage.libs.gsl
         sage: random_matrix(QQ, 19, 20, algorithm='subspaces', rank=21)
         Traceback (most recent call last):
         ...
@@ -2993,6 +3089,7 @@ def random_unimodular_matrix(parent, upper_bound=None, max_tries=100):
 
     A matrix size 5 over QQ. ::
 
+        sage: # needs sage.libs.gsl
         sage: from sage.matrix.constructor import random_unimodular_matrix
         sage: matrix_space = sage.matrix.matrix_space.MatrixSpace(QQ, 5)
         sage: A = random_unimodular_matrix(matrix_space)
@@ -3001,6 +3098,7 @@ def random_unimodular_matrix(parent, upper_bound=None, max_tries=100):
 
     A matrix size 6 with entries no larger than 50. ::
 
+        sage: # needs sage.libs.gsl
         sage: B = random_matrix(ZZ, 7, algorithm='unimodular', upper_bound=50)
         sage: det(B)
         1
@@ -3009,7 +3107,7 @@ def random_unimodular_matrix(parent, upper_bound=None, max_tries=100):
 
     A matrix over the number Field in `y` with defining polynomial `y^2-2y-2`. ::
 
-        sage: # needs sage.rings.number_field
+        sage: # needs sage.libs.gsl sage.rings.number_field
         sage: y = polygen(ZZ, 'y')
         sage: K = NumberField(y^2 - 2*y - 2, 'y')
         sage: C = random_matrix(K, 3, algorithm='unimodular')
@@ -3055,6 +3153,174 @@ def random_unimodular_matrix(parent, upper_bound=None, max_tries=100):
         return random_matrix(ring, size, algorithm='echelonizable', rank=size)
     elif upper_bound is not None and (ring == ZZ or ring == QQ):
         return random_matrix(ring, size,algorithm='echelonizable',rank=size, upper_bound=upper_bound, max_tries=max_tries)
+
+
+@matrix_method
+def random_unitary_matrix(parent):
+    r"""
+    Generate a random (square) unitary matrix of a given size
+    with entries in a subfield of the complex numbers.
+
+    INPUT:
+
+    - ``parent`` -- :class:`sage.matrix.matrix_space.MatrixSpace`; a
+      square matrix space over a subfield of the complex numbers
+      having characteristic zero.
+
+    OUTPUT:
+
+    A random unitary matrix in ``parent``. A :exc:`ValueError` is
+    raised if ``parent`` is not an appropriate matrix space (is not
+    square, or is not over a usable field).
+
+    ALGORITHM:
+
+    The method described by Liebeck and Osborne [LieOs1991]_ is used
+    almost verbatim.
+
+    .. WARNING:
+
+        Inexact rings may violate your expectations; in particular,
+        the rings ``RR`` and ``CC`` are accepted by this method but
+        the resulting matrix will usually fail the ``is_unitary()``
+        check due to numerical issues.
+
+    EXAMPLES:
+
+    This function is not in the global namespace and must be imported
+    before being used::
+
+        sage: from sage.matrix.constructor import random_unitary_matrix
+
+    Matrices with rational entries::
+
+        sage: n = ZZ.random_element(10)
+        sage: MS = MatrixSpace(QQ, n)
+        sage: U = random_unitary_matrix(MS)
+        sage: U.is_unitary() and U in MS
+        True
+
+    Matrices over a quadratic field::
+
+        sage: # needs sage.rings.number_field
+        sage: n = ZZ.random_element(10)
+        sage: K = QuadraticField(-1,'i')
+        sage: MS = MatrixSpace(K, n)
+        sage: U = random_unitary_matrix(MS)
+        sage: U.is_unitary() and U in MS
+        True
+
+    Matrices with entries in the algebraic real field (slow)::
+
+        sage: # long time, needs sage.rings.number_field
+        sage: n = ZZ.random_element(4)
+        sage: MS = MatrixSpace(AA, n)
+        sage: U = random_unitary_matrix(MS)
+        sage: U.is_unitary() and U in MS
+        True
+
+    Matrices with entries in the algebraic field (slower yet)::
+
+        sage: # long time, needs sage.rings.number_field
+        sage: n = ZZ.random_element(2)
+        sage: MS = MatrixSpace(QQbar, n)
+        sage: U = random_unitary_matrix(MS)
+        sage: U.is_unitary() and U in MS
+        True
+
+    Double-precision real/complex matrices can be constructed as
+    well::
+
+        sage: # needs scipy
+        sage: n = ZZ.random_element(10)
+        sage: MS = MatrixSpace(RDF, n)
+        sage: U = random_unitary_matrix(MS)
+        sage: U.is_unitary() and U in MS
+        True
+        sage: MS = MatrixSpace(CDF, n)
+        sage: U = random_unitary_matrix(MS)
+        sage: U.is_unitary() and U in MS
+        True
+
+    TESTS:
+
+    We raise a :exc:`ValueError` if the supplied matrix space is not
+    square::
+
+        sage: MS = MatrixSpace(QQ, 3, 4)
+        sage: random_unitary_matrix(MS)
+        Traceback (most recent call last):
+        ...
+        ValueError: parent must be square
+
+    Likewise if its base ring is not a field::
+
+        sage: MS = MatrixSpace(ZZ, 3)
+        sage: random_unitary_matrix(MS)
+        Traceback (most recent call last):
+        ...
+        ValueError: base ring of parent must be a field
+
+    Likewise if that field is not of characteristic zero::
+
+        sage: MS = MatrixSpace(GF(5), 3)
+        sage: random_unitary_matrix(MS)
+        Traceback (most recent call last):
+        ...
+        ValueError: base ring of parent must have characteristic zero
+
+    Likewise if that field is not a subfield of the complex numbers::
+
+        sage: # needs sage.rings.padics
+        sage: R = Qp(7)
+        sage: R.characteristic()
+        0
+        sage: MS = MatrixSpace(R, 3)
+        sage: random_unitary_matrix(MS)
+        Traceback (most recent call last):
+        ...
+        ValueError: base ring of parent must be a subfield of the complex
+        numbers
+    """
+    n = parent.nrows()
+    if n != parent.ncols():
+        raise ValueError("parent must be square")
+
+    F = parent.base_ring()
+    if not F.is_field():
+        raise ValueError("base ring of parent must be a field")
+    elif not F.characteristic().is_zero():
+        # This is probably covered by checking for subfields of
+        # RLF/CLF, but it's mentioned explicitly in the paper and my
+        # faith in the subfield check is not 100%, so we verify the
+        # characteristic separately.
+        raise ValueError("base ring of parent must have characteristic zero")
+
+    from sage.rings.real_lazy import CLF, RLF
+    if not (RLF.has_coerce_map_from(F) or
+            F.has_coerce_map_from(RLF) or
+            CLF.has_coerce_map_from(F) or
+            F.has_coerce_map_from(CLF)):
+        # The implementation of SR.random_element() currently just
+        # returns a random integer coerced into SR, so there is no
+        # benefit to allowing SR here when QQ is available.
+        raise ValueError("base ring of parent must be a subfield "
+                         "of the complex numbers")
+
+    I = identity_matrix(F,n)
+    A = random_matrix(F,n)
+    S = A - A.conjugate_transpose()
+    U = (S-I).inverse()*(S+I)
+
+    # Scale the rows of U by plus/minus one with equal probability.
+    # This generates the equivalence class of U according to the
+    # Liebeck/Osborne paper.
+    from random import random
+    for i in range(n):
+        if random() < 0.5:
+            U.set_row_to_multiple_of_row(i, i, -1)
+
+    return U
 
 
 @matrix_method

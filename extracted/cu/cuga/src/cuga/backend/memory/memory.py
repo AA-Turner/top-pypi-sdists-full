@@ -1,10 +1,8 @@
-from cuga.backend.memory.agentic_memory import V1MemoryClient
-from cuga.backend.memory.agentic_memory.schema import Run, RecordedFact, Namespace
+from cuga.backend.memory.agentic_memory import MemoryClient, Fact, Run, RecordedFact, Namespace, MemoryEvent
 from typing import List, Dict, Optional, TYPE_CHECKING
-import os
 import json
-
 from cuga.config import settings
+
 
 if TYPE_CHECKING:
     from cuga.backend.cuga_graph.state.agent_state import AgentState
@@ -21,15 +19,17 @@ class Memory:
 
     def __init__(self, memory_config=None):
         if not self._initialized:
-            port = settings.server_ports.memory
-            self.memory_client = V1MemoryClient(
-                base_url=os.environ.get("MEMORY_BASE_URL", f"http://localhost:{port}"), timeout=600
-            )
+            # Check if memory is enabled before initializing
+            if not settings.advanced_features.enable_memory:
+                raise RuntimeError(
+                    "Memory is disabled in settings. Set enable_memory = true in settings.toml to use memory features."
+                )
+            self.memory_client = MemoryClient(config=None)
             self.user_id = None
             Memory._initialized = True
 
     def health_check(self) -> bool:
-        return self.memory_client.health_check()
+        return self.memory_client.ready()
 
     def create_namespace(
         self,
@@ -63,10 +63,18 @@ class Memory:
         """Delete a namespace."""
         self.memory_client.delete_namespace(namespace_id=namespace_id)
 
-    def create_and_store_fact(self, namespace_id: str, content: str, metadata: Optional[Dict] = None) -> str:
+    def create_and_store_fact(
+        self,
+        namespace_id: str,
+        content: str,
+        metadata: Optional[Dict] = None,
+        enable_conflict_resolution: bool = True,
+    ) -> list[MemoryEvent]:
         """Add a single fact to a namespace."""
         return self.memory_client.create_and_store_fact(
-            namespace_id=namespace_id, content=content, metadata=metadata
+            namespace_id=namespace_id,
+            fact=Fact(content=content, metadata=metadata),
+            enable_conflict_resolution=enable_conflict_resolution,
         )
 
     def search_for_facts(
@@ -125,13 +133,17 @@ class Memory:
         """Search a namespace for a run based on it's step which best matches a query."""
         return self.memory_client.search_runs(namespace_id, query, filters)
 
-    def end_run(self, namespace_id: str, run_id: str):
+    async def end_run(self, namespace_id: str, run_id: str):
         """End an existing run."""
-        return self.memory_client.end_run(namespace_id, run_id)
+        return await self.memory_client.end_run(namespace_id, run_id)
 
-    def add_step(self, namespace_id: str, run_id: str, step: dict, prompt: str) -> str:
+    def add_step(self, namespace_id: str, run_id: str, step: dict, prompt: str) -> MemoryEvent:
         """Add a new step into a run."""
         return self.memory_client.add_step(namespace_id, run_id, step, prompt)
+
+    def list_runs(self, namespace_id: str, limit: int = 10) -> list[Run]:
+        """Retrieve the list of runs in a namespace."""
+        return self.memory_client.list_runs(namespace_id, limit)
 
     def _get_user_id(self, state: "AgentState") -> str:
         """Extract or generate user ID for memory scoping"""

@@ -42,7 +42,7 @@ class GTalkBot(slixmpp.ClientXMPP):
         # Using a Google Apps custom domain, the certificate
         # does not contain the custom domain, just the GTalk
         # server name. So we will need to process invalid
-        # certifcates ourselves and check that it really
+        # certificates ourselves and check that it really
         # is from Google.
         self.add_event_handler("ssl_invalid_cert", self.invalid_cert)
 

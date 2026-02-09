@@ -689,6 +689,81 @@ def test_skip_if_default(se: Any, de: Any) -> None:
     assert serde.from_dict(Foo, {"a": "bar"}) == Foo("bar")
 
 
+@pytest.mark.parametrize("se,de", all_formats)
+def test_skip_if_none(se: Any, de: Any) -> None:
+    @serde.serde
+    class Foo:
+        a: str | None = serde.field(default=None, skip_if_none=True)
+
+    assert serde.to_dict(Foo()) == {}
+    assert serde.to_dict(Foo("x")) == {"a": "x"}
+    assert serde.from_dict(Foo, {}) == Foo()
+    assert serde.from_dict(Foo, {"a": "x"}) == Foo("x")
+
+
+@pytest.mark.parametrize("se,de", all_formats)
+def test_class_skip_if_default(se: Any, de: Any) -> None:
+    @serde.serde(skip_if_default=True)
+    class Foo:
+        a: str = "foo"
+        b: int = 10
+        c: str = serde.field(default="keep", skip_if_default=False)
+
+    f = Foo()
+    assert f == de(Foo, se(f))
+
+    # defaults skipped
+    assert serde.to_dict(Foo()) == {"c": "keep"}
+    # non-default included
+    assert serde.to_dict(Foo("bar", 10)) == {"a": "bar", "c": "keep"}
+    # field-level override preserved even under class default
+    assert serde.from_dict(Foo, {"a": "bar"}) == Foo("bar")
+    assert serde.from_dict(Foo, {"c": "override"}) == Foo(c="override")
+
+    @serde.serde(skip_if_default=True)
+    class Bar:
+        inner: Foo = serde.field(default_factory=Foo)
+        flag: bool = True
+
+    # Nested dataclass with defaults should also be skipped
+    assert serde.to_dict(Bar()) == {}
+    assert de(Bar, se(Bar())) == Bar()
+
+    # Changing inner breaks the default comparison
+    assert serde.to_dict(Bar(Foo("bar"))) == {"inner": {"a": "bar", "c": "keep"}}
+
+    # default_factory paths respect skip_if_default
+    @serde.serde(skip_if_default=True)
+    class Baz:
+        mapping: dict[str, int] = serde.field(default_factory=dict)
+
+    assert serde.to_dict(Baz()) == {}
+    assert serde.to_dict(Baz({"k": 1})) == {"mapping": {"k": 1}}
+
+
+@pytest.mark.parametrize("se,de", all_formats)
+def test_class_skip_if_none(se: Any, de: Any) -> None:
+    @serde.serde(skip_if_none=True)
+    class Foo:
+        a: str | None = None
+        b: int | None = None
+        c: str | None = serde.field(default=None, skip_if_none=False)
+
+    assert serde.to_dict(Foo()) == {"c": None}
+    assert serde.to_dict(Foo("x")) == {"a": "x", "c": None}
+    assert de(Foo, se(Foo())) == Foo()
+    assert serde.from_dict(Foo, {}) == Foo()
+
+    @serde.serde(skip_if_none=True)
+    class Bar:
+        inner: Foo | None = None
+        tags: list[str] | None = None
+
+    assert serde.to_dict(Bar()) == {}
+    assert serde.to_dict(Bar(Foo("x"))) == {"inner": {"a": "x", "c": None}}
+    assert de(Bar, se(Bar())) == Bar()
+
+
 @pytest.mark.parametrize("se,de", format_msgpack)
 def test_inheritance(se: Any, de: Any) -> None:
     @serde.serde

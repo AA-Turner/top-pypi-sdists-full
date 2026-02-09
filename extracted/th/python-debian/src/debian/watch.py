@@ -17,14 +17,15 @@
 
 """Functions for working with watch files."""
 
+from __future__ import annotations
+
+
 import logging
 import re
 
 from typing import (
     Iterable,
     Iterator,
-    List,
-    Optional,
     Sequence,
     TextIO,
 )
@@ -93,9 +94,9 @@ class WatchFile:
     """
 
     def __init__(self,
-                 entries=None,              # type: Optional[Sequence[Watch]]
-                 options=None,              # type: Optional[Sequence[str]]
-                 version=DEFAULT_VERSION,   # type: Optional[int]
+                 entries: Sequence[Watch] | None = None,
+                 options: Sequence[str] | None = None,
+                 version: int | None = DEFAULT_VERSION,
                  ):
         self.version = version
         if entries is None:
@@ -105,12 +106,10 @@ class WatchFile:
             options = []
         self.options = options
 
-    def __iter__(self):
-        # type: () -> Iterator[Watch]
+    def __iter__(self) -> Iterator[Watch]:
         return iter(self.entries)
 
-    def dump(self, f):
-        # type: (TextIO) -> None
+    def dump(self, f: TextIO) -> None:
         """Write the contents of a watch file to a file-like object.
 
         Note that this will not preserve the formatting of the original file,
@@ -119,8 +118,7 @@ class WatchFile:
 
         :param f: File-like object to write to
         """
-        def serialize_options(opts):
-            # type: (Sequence[str]) -> str
+        def serialize_options(opts: Sequence[str]) -> str:
             s = ','.join(opts)
             if ' ' in s or '\t' in s:
                 return 'opts="' + s + '"'
@@ -142,8 +140,9 @@ class WatchFile:
             f.write('\n')
 
     @classmethod
-    def from_lines(cls, lines, strict=False):
-        # type: (Iterable[str], bool) -> Optional[WatchFile]
+    def from_lines(cls,
+                   lines: Iterable[str],
+                   strict: bool = False) -> WatchFile | None:
         """Parse from the contents that make up a watch file.
 
         :param lines: watch file lines to parse
@@ -151,8 +150,8 @@ class WatchFile:
         :raise MissingVersion: if there is no version number declared
         :raise ValueError: when syntax errors are encountered
         """
-        joined_lines = []   # type: List[List[str]]
-        continued = []   # type: List[str]
+        joined_lines: list[list[str]] = []
+        continued: list[str] = []
         for line in lines:
             if line.startswith('#'):
                 continue
@@ -236,11 +235,11 @@ class Watch:
     """
 
     def __init__(self,
-                 url,                    # type: str
-                 matching_pattern=None,  # type: Optional[str]
-                 version=None,           # type: Optional[str]
-                 script=None,            # type: Optional[str]
-                 opts=None,              # type: Optional[Sequence[str]]
+                 url: str,
+                 matching_pattern: str | None = None,
+                 version: str | None = None,
+                 script: str | None = None,
+                 opts: Sequence[str] | None = None,
                  ):
         self.url = url
         self.matching_pattern = matching_pattern
@@ -252,12 +251,11 @@ class Watch:
 
     def __repr__(self) -> str:
         return (
-            "%s(%r, matching_pattern=%r, version=%r, script=%r, opts=%r)" % (
+            "{}({!r}, matching_pattern={!r}, version={!r}, script={!r}, opts={!r})".format(
                 self.__class__.__name__, self.url, self.matching_pattern,
                 self.version, self.script, self.options))
 
-    def __eq__(self, other):
-        # type: (object) -> bool
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, Watch):
             return False
         return (other.url == self.url and

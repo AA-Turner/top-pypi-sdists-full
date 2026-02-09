@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "toonify"
-version = "1.5.1"
+version = "1.6.0"
 description = "TOON (Token-Oriented Object Notation) - A compact, human-readable serialization format for LLMs"
 readme = "README.md"
 authors = [

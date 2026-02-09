@@ -553,8 +553,9 @@ class Schema(BaseSchema, ABC):
 
         Returns:
             The input eager or lazy frame, wrapped in a generic version of the
-            input's data frame type to reflect schema adherence. This operation is
-            guaranteed to maintain input ordering of rows.
+            input's data frame type to reflect schema adherence. Columns not defined
+            in the schema are removed from the output. This operation is guaranteed
+            to maintain input ordering of rows.
 
         Raises:
             SchemaError: If `eager=True` and the input data frame misses columns or
@@ -704,7 +705,8 @@ class Schema(BaseSchema, ABC):
         Returns:
             A tuple of the validated rows in the input data frame (potentially
             empty) and a simple dataclass carrying information about the rows of the
-            data frame which could not be validated successfully. Just like in polars'
+            data frame which could not be validated successfully. Columns not defined
+            in the schema are removed from the output. Just like in polars'
             native :meth:`~polars.DataFrame.filter`, the order of rows in the returned
             data frame is maintained.
 
@@ -884,7 +886,8 @@ class Schema(BaseSchema, ABC):
             df: The data frame to write to the parquet file.
             file: The file path or writable file-like object to which to write the
                 parquet file. This should be a path to a directory if writing a
-                partitioned dataset.
+                partitioned dataset. The `mkdir` kwarg controls whether the directory
+                is created if needed.
             kwargs: Additional keyword arguments passed directly to
                 :meth:`polars.write_parquet`. `metadata` may only be provided if it
                 is a dictionary.

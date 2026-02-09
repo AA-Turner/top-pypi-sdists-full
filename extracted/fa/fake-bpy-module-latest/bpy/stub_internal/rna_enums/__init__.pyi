@@ -9,6 +9,10 @@ type AssetLibraryTypeItems = typing.Literal[
     "ESSENTIALS",  # Essentials.Show the basic building blocks and utilities coming with Blender.
     "CUSTOM",  # Custom.Show assets from the asset libraries configured in the Preferences.
 ]
+type AttrStorageTypeItems = typing.Literal[
+    "ARRAY",  # Array.Store a value for every element.
+    "SINGLE",  # Single.Store a single value for the entire domain.
+]
 type AttributeCurvesDomainItems = typing.Literal[
     "POINT",  # Control Point.
     "CURVE",  # Curve.
@@ -1875,6 +1879,7 @@ type ImageGeneratedTypeItems = typing.Literal[
     "COLOR_GRID",  # Color Grid.Generated improved UV grid to test UV mappings.
 ]
 type ImageTypeAllItems = typing.Literal[
+    "AVIF",  # AVIF (.avif).Output image in AVIF format.
     "JPEG",  # JPEG (.jpg).Output image in JPEG format.
     "OPEN_EXR",  # OpenEXR (.exr).Output image in OpenEXR format.
     "PNG",  # PNG (.png).Output image in PNG format.
@@ -2022,9 +2027,11 @@ type MeshSelectModeUvItems = typing.Literal[
     "FACE",  # Face.Face selection mode.
 ]
 type MeshWalkDelimitEdgeLoopItems = typing.Literal[
+    "SEAM",  # Seam.Delimit edge loop selection at seams.
+    "SHARP",  # Sharp.Delimit edge loop selection at sharp edges.
+    "NGONS",  # N-gons.Stop boundary selection at n-gons.
     "INNER_CORNERS",  # Inner Corners.Stop boundary selection at vertices with more than three edges.
     "OUTER_CORNERS",  # Outer Corners.Stop boundary selection at vertices with two edges when they share a face that is not an n-gon.
-    "NGONS",  # N-gons.Stop boundary selection at n-gons.
 ]
 type MeshWalkDelimitEdgeRingItems = typing.Literal[
     "SEAM",  # Seam.Delimit edge ring selection at seams.

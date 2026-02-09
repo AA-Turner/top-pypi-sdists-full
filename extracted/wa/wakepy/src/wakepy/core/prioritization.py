@@ -1,5 +1,5 @@
-"""This module functions which may be used in the prioritization of wakepy
-Methods.
+"""This module contains functions which may be used in the prioritization of
+wakepy Methods.
 
 Most important functions
 ------------------------
@@ -13,8 +13,8 @@ from __future__ import annotations
 import typing
 from typing import List, Sequence, Set, Union
 
-from .constants import WAKEPY_FAKE_SUCCESS
-from .platform import CURRENT_PLATFORM
+from .constants import WAKEPY_FAKE_SUCCESS_METHOD
+from .platform import CURRENT_PLATFORM, get_platform_supported
 
 if typing.TYPE_CHECKING:
     from typing import List, Optional, Tuple, Union
@@ -87,7 +87,7 @@ def order_methods_by_priority(
     # Prioritize the WAKEPY_FAKE_SUCCESS before anything else.
     return sorted(
         methods,
-        key=lambda m: (0 if m.name == WAKEPY_FAKE_SUCCESS else 1,),
+        key=lambda m: (0 if m.name == WAKEPY_FAKE_SUCCESS_METHOD else 1,),
     )
 
 
@@ -246,15 +246,15 @@ def _order_set_of_methods_by_priority(methods: Set[MethodCls]) -> List[MethodCls
     """
 
     # Later: Use some better logic for this.
-    # See: https://github.com/fohrloop/wakepy/issues/262
+    # See: https://github.com/wakepy/wakepy/issues/262
     return sorted(
         methods,
         key=lambda m: (
-            # Prioritize the WAKEPY_FAKE_SUCCESS before anything else.
-            0 if m.name == WAKEPY_FAKE_SUCCESS else 1,
+            # Prioritize the WakepyFakeSuccess method before anything else.
+            0 if m.name == WAKEPY_FAKE_SUCCESS_METHOD else 1,
             # Then, prioritize methods supporting CURRENT_PLATFORM over any
             # others
-            0 if CURRENT_PLATFORM in m.supported_platforms else 1,
+            0 if get_platform_supported(CURRENT_PLATFORM, m.supported_platforms) else 1,
             m.name.lower() if m.name else "",
         ),
     )

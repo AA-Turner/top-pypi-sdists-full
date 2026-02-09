@@ -11,8 +11,8 @@ from adam.utils_k8s.kube_context import KubeContext
 from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.service_accounts import ServiceAccounts
 from adam.utils_k8s.volumes import ConfigMapMount
+from adam.utils_log import ing, log2, log_exc
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import ing, log2, log_exc
 
 class DeployPod(Command):
     COMMAND = 'deploy pod'

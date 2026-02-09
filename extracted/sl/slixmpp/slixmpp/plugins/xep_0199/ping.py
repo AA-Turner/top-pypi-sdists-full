@@ -96,7 +96,7 @@ class XEP_0199(BasePlugin):
     def _clear_pending_futures(self):
         """Cancel all pending ping futures"""
         if self.__pending_futures:
-            log.debug('Clearing %s pdnding pings', len(self.__pending_futures))
+            log.debug('Clearing %s pending pings', len(self.__pending_futures))
             for future in self.__pending_futures:
                 future.cancel()
             self.__pending_futures.clear()

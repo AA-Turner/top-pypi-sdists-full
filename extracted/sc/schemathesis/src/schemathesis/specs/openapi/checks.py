@@ -9,17 +9,18 @@ from http.cookies import SimpleCookie
 from typing import TYPE_CHECKING, Any, NoReturn, cast
 from urllib.parse import parse_qs, urlparse
 
+import jsonschema_rs
+
 import schemathesis
 from schemathesis.checks import CheckContext, CheckFunction
 from schemathesis.core import media_types, string_to_boolean
-from schemathesis.core.failures import Failure
+from schemathesis.core.failures import AcceptedNegativeData, Failure
 from schemathesis.core.jsonschema import get_type
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transport import Response
 from schemathesis.generation.case import Case
 from schemathesis.generation.meta import CoveragePhaseData, CoverageScenario, FuzzingPhaseData
 from schemathesis.openapi.checks import (
-    AcceptedNegativeData,
     EnsureResourceAvailability,
     IgnoredAuth,
     JsonSchemaError,
@@ -35,6 +36,9 @@ from schemathesis.openapi.checks import (
 )
 from schemathesis.specs.openapi.utils import expand_status_code, expand_status_codes
 from schemathesis.transport.prepare import prepare_path
+
+# Large size limit for regex patterns to support schemas with large quantifiers (e.g., {1,262144})
+_PATTERN_OPTIONS = jsonschema_rs.FancyRegexOptions(size_limit=1_000_000_000)
 
 if TYPE_CHECKING:
     from schemathesis.schemas import APIOperation
@@ -169,8 +173,6 @@ def _reraise_malformed_media_type(case: Case, location: str, actual: str, define
 @requires_openapi_schema
 @skips_on_unexpected_http_status
 def response_headers_conformance(ctx: CheckContext, response: Response, case: Case) -> bool | None:
-    import jsonschema
-
     from schemathesis.specs.openapi.schemas import _maybe_raise_one_or_more
 
     # Find the matching response definition
@@ -193,12 +195,13 @@ def response_headers_conformance(ctx: CheckContext, response: Response, case: Ca
             coerced = _coerce_header_value(value, header.schema)
             try:
                 header.validator.validate(coerced)
-            except jsonschema.ValidationError as exc:
+            except jsonschema_rs.ValidationError as exc:
                 errors.append(
                     JsonSchemaError.from_exception(
                         title="Response header does not conform to the schema",
                         operation=case.operation.label,
                         exc=exc,
+                        root_schema=header.schema,
                         config=case.operation.schema.config.output,
                         name_to_uri=header.name_to_uri,
                     )
@@ -559,7 +562,9 @@ def has_only_additional_properties_in_non_body_parameters(case: Case) -> bool:
                 continue
 
             value_without_additional_properties = {k: v for k, v in value.items() if k in container}
-            if not validator_cls(schema).is_valid(value_without_additional_properties):
+            if not validator_cls(schema, pattern_options=_PATTERN_OPTIONS).is_valid(
+                value_without_additional_properties
+            ):
                 # Other types of negation found
                 return False
     # Only additional properties are added

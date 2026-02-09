@@ -243,6 +243,26 @@ class OcrClient(AbstractClient):
         
         return await self.call_and_deserialize(**kwargs)
         
+    async def DescribeQuestionMarkAgentJob(
+            self,
+            request: models.DescribeQuestionMarkAgentJobRequest,
+            opts: Dict = None,
+    ) -> models.DescribeQuestionMarkAgentJobResponse:
+        """
+        用于试题批改Agent查询任务。主要面向K12的试题批改产品，支持整卷/单题端到端（试卷切题+题目批改+手写坐标回显）处理，主要聚焦的场景包括试题批改（含手写答案）、试题解析（不含手写答案），其中低年级算式批改效果比线上[数学作业批改](https://cloud.tencent.com/document/product/1004)效果更好。精准输出题目、正误判定、答案对比、错误及知识点等结构化评估结果。
+
+        默认接口请求并发限制：10题/分钟。
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "DescribeQuestionMarkAgentJob"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.DescribeQuestionMarkAgentJobResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
     async def DriverLicenseOCR(
             self,
             request: models.DriverLicenseOCRRequest,
@@ -576,8 +596,8 @@ class OcrClient(AbstractClient):
                 </tr>
                 <tr>
                   <td>支持的语言</td>
-                  <td>中文、英文、中英文、泰语、印尼语、日语、韩语、西班牙语、法语、德语、葡萄牙语、越南语、马来语、俄语、意大利语、荷兰语、瑞典语、芬兰语、丹麦语、挪威语、匈牙利语、哈萨克语、阿拉伯语、维吾尔语、藏语、捷克语、希腊语、西班牙语（智利）、西班牙语（墨西哥）、希伯来语、克罗地亚语、波兰语、葡萄牙语（巴西）、罗马尼亚语、斯洛伐克语、斯洛文尼亚语、土耳其语、保加利亚语、爱沙尼亚语、拉脱维亚语、立陶宛语</td>
-                  <td>中文、英文、中英文、日语、韩语、西班牙语、法语、德语、葡萄牙语、越南语、马来语、俄语、意大利语、荷兰语、瑞典语、芬兰语、丹麦语、挪威语、匈牙利语、泰语</td>
+                  <td>中文、英文、泰语、印尼语、日语、韩语、西班牙语（智利）、西班牙语（墨西哥）、法语、德语、葡萄牙语、葡萄牙语（巴西）、越南语、马来语、俄语、意大利语、荷兰语、瑞典语、芬兰语、丹麦语、挪威语、匈牙利语、哈萨克语、阿拉伯语、维吾尔语、藏语、捷克语、希腊语、希伯来语、克罗地亚语、波兰语、罗马尼亚语、斯洛伐克语、斯洛文尼亚语、土耳其语、保加利亚语、爱沙尼亚语、拉脱维亚语、立陶宛语、乌尔都文、塞尔维亚文、欧西坦文、毛利文、阿尔巴尼亚文、斯瓦希里文、乌兹别克文、乌克兰文、阿巴扎文、南非荷兰文、威尔士文、冰岛文、库尔德文、达尔瓦文、因古什文、拉克文、莱兹甘文、塔巴萨兰文、沙特阿拉伯文、阿瓦尔文、阿迪赫文、印度-古吉拉特语、印度-印地语、印度-孟加拉语、印度-卡纳达语、印度-马拉亚拉姆语、印度-马拉地语、印度-旁遮普语、印度-泰米尔语、印度-泰卢固语、阿塞拜疆语、波斯尼亚语、加泰罗尼亚语、卢森堡语、马耳他语、爱尔兰语、白俄罗斯语、高棉语、他加禄语、普什图语、波斯语、塔吉克斯坦语</td>
+                  <td>中文、英文、日语、韩语、西班牙语、法语、德语、葡萄牙语、越南语、马来语、俄语、意大利语、荷兰语、瑞典语、芬兰语、丹麦语、挪威语、匈牙利语、泰语</td>
                 </tr>
                 <tr>
                   <td>自动语言检测</td>
@@ -1980,6 +2000,26 @@ class OcrClient(AbstractClient):
         kwargs["action"] = "SubmitExtractDocAgentJob"
         kwargs["params"] = request._serialize()
         kwargs["resp_cls"] = models.SubmitExtractDocAgentJobResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def SubmitQuestionMarkAgentJob(
+            self,
+            request: models.SubmitQuestionMarkAgentJobRequest,
+            opts: Dict = None,
+    ) -> models.SubmitQuestionMarkAgentJobResponse:
+        """
+        用于试题批改Agent提交任务。主要面向K12的试题批改产品，支持整卷/单题端到端（试卷切题+题目批改+手写坐标回显）处理，主要聚焦的场景包括试题批改（含手写答案）、试题解析（不含手写答案），其中低年级算式批改效果比线上[数学作业批改](https://cloud.tencent.com/document/product/1004)效果更好。精准输出题目、正误判定、答案对比、错误及知识点等结构化评估结果。
+
+        默认接口请求并发限制：10题/分钟。
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "SubmitQuestionMarkAgentJob"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.SubmitQuestionMarkAgentJobResponse
         kwargs["headers"] = request.headers
         kwargs["opts"] = opts or {}
         

@@ -6,6 +6,26 @@ import numpy as np
 import polars_ds as pds
 from polars.testing import assert_frame_equal, assert_series_equal
 
+def test_random_functions_in_streaming():
+    df = pl.DataFrame({"x": list(range(0,50))}).lazy()
+
+    try:
+        df_test = df.with_columns(
+            x1 = pds.random(len_ref = 'x')
+            , x2 = pds.random_normal(0.0, 1.0, len_ref='x')
+            , x3 = pds.random_int(0, 10 , len_ref = 'x')
+            , x4 = pds.random_exp(0.5, len_ref = 'x')
+            , x5 = pds.random_str(1, 3, len_ref = 'x')
+            , x6 = pds.random_binomial(5, 0.3, len_ref = 'x')
+        )
+        _ = df_test.collect(engine="streaming")
+        for batch in df_test.collect_batches(chunk_size=10):
+            assert batch.shape == (10, 7)
+
+        assert True
+    except Exception as e:
+        raise e
+
 
 def test_mcc():
     from sklearn.metrics import matthews_corrcoef
@@ -99,22 +119,22 @@ def test_cond_indep_and_transfer():
 
     assert np.isclose(t_ans, t_res)
 
+# The package is very old and and relies on an old version of setuptools
+# def test_xi_corr():
+#     df = pds.frame(size=2_000).select(
+#         pds.random(0.0, 12.0).alias("x"),
+#         pds.random(0.0, 1.0).alias("y"),
+#     )
 
-def test_xi_corr():
-    df = pds.frame(size=2_000).select(
-        pds.random(0.0, 12.0).alias("x"),
-        pds.random(0.0, 1.0).alias("y"),
-    )
+#     from xicor.xicor import Xi
 
-    from xicor.xicor import Xi
+#     x = df["x"].to_numpy()
+#     y = df["y"].to_numpy()
+#     xi_obj = Xi(x, y)
+#     ans_statistic = xi_obj.correlation
+#     test_statistic = df.select(pds.xi_corr("x", "y")).item(0, 0)
 
-    x = df["x"].to_numpy()
-    y = df["y"].to_numpy()
-    xi_obj = Xi(x, y)
-    ans_statistic = xi_obj.correlation
-    test_statistic = df.select(pds.xi_corr("x", "y")).item(0, 0)
-
-    assert np.isclose(ans_statistic, test_statistic, rtol=1e-5)
+#     assert np.isclose(ans_statistic, test_statistic, rtol=1e-5)
 
 
 def test_bicor():

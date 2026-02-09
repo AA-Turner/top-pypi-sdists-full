@@ -1,9 +1,9 @@
 from adam.commands.command import Command
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import log2
+from adam.utils_log import log2
 from adam.utils_athena import Athena
-from adam.utils_audits import AuditMeta, Audits
+from adam.utils_audits import AuditMeta, Audits, audit
 
 class AuditRun(Command):
     COMMAND = 'audit run'
@@ -35,7 +35,7 @@ class AuditRun(Command):
             if clusters:
                 log2(f'Added {len(clusters)} new clusters.')
                 tables = Config().get('audit.athena.repair-cluster-tables', 'cluster').split(',')
-                with Audits.offload() as exec:
+                with audit() as exec:
                     for table in tables:
                         exec.submit(Athena.query, f'MSCK REPAIR TABLE {table}', None,)
             else:

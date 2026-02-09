@@ -16,7 +16,6 @@ from cutlass.pipeline import pipeline_init_arrive, pipeline_init_wait
 from cutlass.cute.nvgpu import cpasync, warp, warpgroup
 import cutlass.utils.hopper_helpers as sm90_utils
 from cutlass import Int32, Float32, Float16, Boolean, const_expr
-from cutlass.cutlass_dsl import if_generate
 from cutlass.utils import LayoutEnum
 
 
@@ -469,7 +468,7 @@ class GemmSm90:
             ab_pipeline_array_ptr: cute.struct.MemRange[cutlass.Int64, self.ab_stage * 2]
             epi_pipeline_array_ptr: cute.struct.MemRange[cutlass.Int64, self.epi_c_stage * 2]
             sched_pipeline_array_ptr: cute.struct.MemRange[cutlass.Int64, self.sched_stage * 2]
-            scheduler_data: cute.struct.MemRange[Int32, self.sched_stage * 4]
+            sched_data: cute.struct.MemRange[Int32, self.sched_stage * 4]
             sD: cute.struct.Align[
                 cute.struct.MemRange[
                     self.d_dtype if self.d_dtype is not None else Int32, epi_smem_size
@@ -605,14 +604,14 @@ class GemmSm90:
                 epi_pipeline_mbar_ptr=storage.epi_pipeline_array_ptr.data_ptr(),
             )
         sched_pipeline = None
-        scheduler_data = None
+        sched_data = None
         if const_expr(self.is_persistent):
             sched_pipeline = self.make_sched_pipeline(
                 cluster_layout_mnk,
                 sched_pipeline_mbar_ptr=storage.sched_pipeline_array_ptr.data_ptr(),
                 varlen_k=varlen_k,
             )
-            scheduler_data = storage.scheduler_data.get_tensor((4, self.sched_stage))
+            sched_data = storage.sched_data.get_tensor((4, self.sched_stage))
 
         # Cluster arrive after barrier init
         pipeline_init_arrive(cluster_shape_mn=self.cluster_shape_mnk[:-1], is_relaxed=True)
@@ -644,7 +643,7 @@ class GemmSm90:
         )
 
         TileSchedulerCls = partial(
-            TileSchedulerCls.create, tile_sched_params, scheduler_data, sched_pipeline
+            TileSchedulerCls.create, tile_sched_params, sched_data, sched_pipeline
         )
 
         # Cluster wait for barrier init
@@ -831,16 +830,13 @@ class GemmSm90:
             )
 
             # Make fragments
-            tCrA = tiled_mma.make_fragment_A(thr_mma.partition_A(sA))
-            tCrB = tiled_mma.make_fragment_B(thr_mma.partition_B(sB))
-
-            acc_shape = tiled_mma.partition_shape_C(
-                cute.select(self.cta_tile_shape_mnk, mode=[0, 1])
+            acc, tCrA, tCrB = quack_sm90_utils.partition_fragment_ABC(
+                thr_mma, self.cta_tile_shape_mnk, sA, sB
             )
-            acc = cute.make_rmem_tensor(acc_shape, self.acc_dtype)
             acc_slow = None
             if const_expr(self.fp8_slow_accum):
-                acc_slow = cute.make_rmem_tensor(acc_shape, self.acc_dtype)
+                acc_slow = cute.make_rmem_tensor(acc.shape, self.acc_dtype)
+            mma_fn = partial(quack_sm90_utils.gemm_w_idx, tiled_mma, acc, tCrA, tCrB)
 
             if const_expr(self.pingpong):
                 if warp_group_idx == 0:
@@ -889,16 +885,8 @@ class GemmSm90:
                 )
                 len_k = varlen_manager.len_k(batch_idx)
                 k_tile_cnt = cute.ceil_div(len_k, self.cta_tile_shape_mnk[2])
-                ab_read_state, tiled_mma = self.mma(
-                    ab_pipeline,
-                    ab_read_state,
-                    tiled_mma,
-                    tCrA,
-                    tCrB,
-                    acc,
-                    acc_slow,
-                    k_tile_cnt,
-                    warp_group_idx,
+                ab_read_state = self.mma(
+                    ab_pipeline, ab_read_state, mma_fn, acc, acc_slow, k_tile_cnt, warp_group_idx
                 )
                 if const_expr(varlen_k):
                     if k_tile_cnt == 0:
@@ -1124,14 +1112,12 @@ class GemmSm90:
         self,
         ab_pipeline: cutlass.pipeline.PipelineAsync,
         ab_read_state: cutlass.pipeline.PipelineState,
-        tiled_mma: cute.TiledMma,
-        tCrA: cute.Tensor,
-        tCrB: cute.Tensor,
+        mma_fn: Callable,
         acc: cute.Tensor,
         acc_slow: Optional[cute.Tensor],
         k_tile_cnt: Int32,
         warp_group_idx: Int32,
-    ) -> Tuple[cutlass.pipeline.PipelineState, cute.TiledMma]:
+    ) -> cutlass.pipeline.PipelineState:
         # Prologue MMAs
         k_pipe_mmas = 1
         ab_release_state = ab_read_state.clone()
@@ -1141,17 +1127,12 @@ class GemmSm90:
         peek_ab_full_status = Boolean(True)
         if 0 < k_tile_cnt:
             peek_ab_full_status = ab_pipeline.consumer_try_wait(ab_read_state)
-        tiled_mma.set(warpgroup.Field.ACCUMULATE, False)
-        num_k_blocks = cute.size(tCrA, mode=[2])
+        zero_init = Boolean(True)
         for k_tile in cutlass.range(num_prologue_mma):
             # Wait for A/B buffer to be ready
             ab_pipeline.consumer_wait(ab_read_state, peek_ab_full_status)
-            warpgroup.fence()
-            for k_blk_idx in cutlass.range(num_k_blocks, unroll_full=True):
-                k_blk_coord = (None, None, k_blk_idx, ab_read_state.index)
-                cute.gemm(tiled_mma, acc, tCrA[k_blk_coord], tCrB[k_blk_coord], acc)
-                tiled_mma.set(warpgroup.Field.ACCUMULATE, True)
-            warpgroup.commit_group()
+            mma_fn(A_idx=ab_read_state.index, B_idx=ab_read_state.index, zero_init=zero_init)
+            zero_init = Boolean(False)
             ab_read_state.advance()
             peek_ab_full_status = Boolean(True)
             if k_tile + 1 < k_tile_cnt:
@@ -1166,14 +1147,10 @@ class GemmSm90:
         for k_tile in cutlass.range(num_prologue_mma, k_tile_cnt, unroll=1):
             # Wait for TMA copies to complete
             ab_pipeline.consumer_wait(ab_read_state, peek_ab_full_status)
-            warpgroup.fence()
             if const_expr(self.fp8_slow_accum):
-                tiled_mma.set(warpgroup.Field.ACCUMULATE, False)
-            for k_blk_idx in cutlass.range(num_k_blocks, unroll_full=True):
-                k_blk_coord = (None, None, k_blk_idx, ab_read_state.index)
-                cute.gemm(tiled_mma, acc, tCrA[k_blk_coord], tCrB[k_blk_coord], acc)
-                tiled_mma.set(warpgroup.Field.ACCUMULATE, True)
-            warpgroup.commit_group()
+                zero_init = Boolean(True)
+            mma_fn(A_idx=ab_read_state.index, B_idx=ab_read_state.index, zero_init=zero_init)
+            zero_init = Boolean(False)
             # Wait on the wgmma barrier for previous k_pipe_mmas wgmmas to complete
             if const_expr(not self.fp8_slow_accum):
                 warpgroup.wait_group(k_pipe_mmas)
@@ -1197,9 +1174,7 @@ class GemmSm90:
             ab_release_state.advance()
         if const_expr(self.fp8_slow_accum):
             acc.store(acc_slow.load())
-        # If we don't return the tiled_mma, we get compiler error
-        # "operand #0 does not dominate this use"
-        return ab_read_state, tiled_mma
+        return ab_read_state
 
     @cute.jit
     def epilogue(
@@ -1261,24 +1236,6 @@ class GemmSm90:
                     epi_pipeline.producer_commit(epi_producer_state)
                 epi_producer_state.advance()
 
-        def tma_store_fn(src_idx, dst_idx):
-            # Fence and barrier to make sure shared memory store is visible to TMA store
-            cute.arch.fence_view_async_shared()
-            epilogue_barrier.arrive_and_wait()
-            # Copy from shared memory to global memory
-            if is_tma_warp:
-                if const_expr(has_D):
-                    copy_D(src_idx=src_idx, dst_idx=dst_idx)
-            # Can't use if statement here, epi_store_pipeline object isn't captured somehow
-            if_generate(is_tma_warp, lambda: epi_store_pipeline.producer_commit())
-            if_generate(is_tma_warp, lambda: epi_store_pipeline.producer_acquire())
-            epilogue_barrier.arrive_and_wait()
-
-        # We could delay the TMA store by 1 epi tile to better overlap the non-TMA ops
-        # with the TMA store. However, currently this doesn't seem to improve perf.
-        delay_tma_store = False
-
-        src_idx_prev, dst_idx_prev = None, None
         for epi_idx in cutlass.range_constexpr(epi_tile_num):
             # The global memory coordinate for the current epi tile
             gmem_coord = epi_tile_layout.get_hier_coord(epi_idx)
@@ -1302,19 +1259,21 @@ class GemmSm90:
                     epi_pipeline.producer_commit(epi_producer_state)
                 epi_producer_state.advance()
             tRS_rEpi = self.epi_visit_subtile(params, epi_loop_tensors, tRS_rD, tRS_rC)
-            epi_buffer = (num_prev_subtiles + epi_idx) % self.epi_stage
-            if const_expr(delay_tma_store):
-                if const_expr(epi_idx > 0):
-                    tma_store_fn(src_idx=src_idx_prev, dst_idx=dst_idx_prev)
-                src_idx_prev, dst_idx_prev = epi_buffer, gmem_coord
+            if is_tma_warp:
+                epi_store_pipeline.producer_acquire()
+            epilogue_barrier.arrive_and_wait()
             # Copy from D registers to shared memory
+            epi_buffer = (num_prev_subtiles + epi_idx) % self.epi_stage
             if const_expr(has_D):
                 copy_utils.cvt_copy(tiled_copy_r2s, tRS_rD, tRS_sD[None, None, None, epi_buffer])
-            if const_expr(not delay_tma_store):
-                tma_store_fn(src_idx=epi_buffer, dst_idx=gmem_coord)
-
-        if const_expr(delay_tma_store):
-            tma_store_fn(src_idx=src_idx_prev, dst_idx=dst_idx_prev)
+            # Fence and barrier to make sure shared memory store is visible to TMA store
+            cute.arch.fence_view_async_shared()
+            epilogue_barrier.arrive_and_wait()
+            # Copy from shared memory to global memory
+            if is_tma_warp:
+                if const_expr(has_D):
+                    copy_D(src_idx=epi_buffer, dst_idx=gmem_coord)
+                epi_store_pipeline.producer_commit()
 
         self.epi_end(
             params,
@@ -1344,10 +1303,13 @@ class GemmSm90:
         """Create scheduler arguments. Override in subclasses for custom schedulers."""
         if const_expr(not self.is_persistent):
             persistence_mode = PersistenceMode.NONE
-        elif const_expr(scheduler_args.tile_count_semaphore is not None):
-            persistence_mode = PersistenceMode.DYNAMIC
         else:
-            persistence_mode = PersistenceMode.STATIC
+            if const_expr(self.arch >= 100):
+                persistence_mode = PersistenceMode.CLC
+            elif const_expr(scheduler_args.tile_count_semaphore is not None):
+                persistence_mode = PersistenceMode.DYNAMIC
+            else:
+                persistence_mode = PersistenceMode.STATIC
         if const_expr(varlen_args.mCuSeqlensM is None):
             num_problems = (
                 mD.shape[2]
@@ -1984,20 +1946,10 @@ class GemmSm90:
         :rtype: bool
         """
         is_valid = True
-        if a_dtype not in {
-            Float16,
-            cutlass.BFloat16,
-            cutlass.Float8E4M3FN,
-            cutlass.Float8E5M2,
-        }:
+        if a_dtype not in {Float16, cutlass.BFloat16, cutlass.Float8E4M3FN, cutlass.Float8E5M2}:
             is_valid = False
         # tested b_dtype
-        if b_dtype not in {
-            Float16,
-            cutlass.BFloat16,
-            cutlass.Float8E4M3FN,
-            cutlass.Float8E5M2,
-        }:
+        if b_dtype not in {Float16, cutlass.BFloat16, cutlass.Float8E4M3FN, cutlass.Float8E5M2}:
             is_valid = False
         if acc_dtype not in {Float32, Float16}:
             is_valid = False

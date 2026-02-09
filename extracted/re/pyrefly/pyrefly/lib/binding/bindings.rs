@@ -23,7 +23,6 @@ use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::sys_info::SysInfo;
 use pyrefly_types::type_alias::TypeAliasIndex;
 use pyrefly_types::type_info::JoinStyle;
-use pyrefly_types::types::Type;
 use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::gas::Gas;
 use pyrefly_util::uniques::UniqueFactory;
@@ -96,6 +95,7 @@ use crate::table_for_each;
 use crate::table_try_for_each;
 use crate::types::globals::ImplicitGlobal;
 use crate::types::quantified::QuantifiedKind;
+use crate::types::types::AnyStyle;
 use crate::types::types::Var;
 
 /// The result of looking up a name. Similar to `NameReadInfo`, but
@@ -423,7 +423,7 @@ impl Bindings {
         let b = self.get(self.key_to_idx(&Key::ReturnType(ShortIdentifier::new(name))));
         if let Binding::ReturnType(box r) = b {
             r.kind.has_return_annotation()
-        } else if let Binding::Type(_) = b {
+        } else if matches!(b, Binding::Any(_)) {
             // This happens when we have an un-annotated return & the inference behavior is "skip and infer Any"
             false
         } else {
@@ -791,7 +791,7 @@ impl<'a> BindingsBuilder<'a> {
         self.table.types.0.insert(match last {
             LastStmt::Expr => Key::StmtExpr(x.range()),
             LastStmt::With(_) => Key::ContextExpr(x.range()),
-            LastStmt::Match(match_range) => Key::MatchExhaustive(match_range),
+            LastStmt::Exhaustive(kind, range) => Key::Exhaustive(kind, range),
         })
     }
 
@@ -1001,7 +1001,7 @@ impl<'a> BindingsBuilder<'a> {
                         error.message(name),
                     );
                 }
-                Binding::Type(Type::any_error())
+                Binding::Any(AnyStyle::Error)
             }
         };
         // Insert that type into the current flow.
@@ -1801,7 +1801,8 @@ impl<'a> SemanticSyntaxContext for BindingsBuilder<'a> {
     }
 
     fn future_annotations_or_stub(&self) -> bool {
-        self.module_info.source_type() == ruff_python_ast::PySourceType::Stub
+        self.scopes.has_future_annotations()
+            || self.module_info.source_type() == ruff_python_ast::PySourceType::Stub
     }
 
     fn report_semantic_error(&self, error: SemanticSyntaxError) {

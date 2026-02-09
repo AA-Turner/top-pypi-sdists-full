@@ -32,12 +32,12 @@ dependencies = [
     "cryptography>=42.0.0,<47.0",
     "langgraph-sdk>=0.3.0",
     "cloudpickle>=3.0.0",
-    "langgraph-runtime-inmem>=0.23.0,<0.24.0",
+    "langgraph-runtime-inmem>=0.24.0,<0.25.0",
     "truststore>=0.1",
     "protobuf>=6.32.1,<7.0.0",
-    "grpcio>=1.75.0,<2.0.0",
-    "grpcio-tools==1.75.1", # Pinned to ensure consistent libprotoc version (31.1). Note: grpcio-tools does not yet support protoc 6.32.0 (as of 1.76.0), so Python uses 6.31.1 while Go/JS use 6.32.0 from install.mk. This version difference is compatible.
-    "grpcio-health-checking>=1.75.0,<2.0.0",
+    "grpcio>=1.76.0,<1.77.0",
+    "grpcio-tools==1.76.0", # Pinned: must match GRPC_GENERATED_VERSION in generated _pb2_grpc.py stubs
+    "grpcio-health-checking>=1.76.0,<1.77.0",
     "opentelemetry-api>=1.37.0",
     "opentelemetry-sdk>=1.37.0",
     "opentelemetry-exporter-otlp-proto-http>=1.37.0",

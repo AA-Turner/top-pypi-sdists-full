@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from queue import Empty, Queue
 from threading import Thread
-from typing import Any, Callable, Dict, Generator, List, Literal, Optional, Tuple
+from typing import Any, Callable, Dict, Generator, List, Literal, Optional, Tuple, Union
 
 import requests
 from requests.adapters import HTTPAdapter, Retry
@@ -14,6 +14,7 @@ from requests.adapters import HTTPAdapter, Retry
 from .check_type import CheckTypeException, OptionalKey, OptionalValue, check_type
 
 ExceptionBehavior = Literal["fail", "expire", "ignore"]
+OnExceptionBehavior = Union[ExceptionBehavior, Callable[[BaseException], ExceptionBehavior]]
 
 
 @dataclass
@@ -79,12 +80,18 @@ class TasqClient:
         max_timeout: float = 30.0,
         task_timeout: Optional[float] = None,
         retry_server_errors: bool = True,
+        auth: tuple[str, str] | Callable | None = None,
     ):
         self.base_url = base_url.rstrip("/")
         self.keepalive_interval = keepalive_interval
         self.context = context
         self.username = username
         self.password = password
+        self.auth = (
+            (username, password)
+            if auth is None and username is not None and password is not None
+            else auth
+        )
         self.max_timeout = max_timeout
         self.task_timeout = task_timeout
         self.retry_server_errors = retry_server_errors
@@ -241,7 +248,7 @@ class TasqClient:
 
     @contextmanager
     def pop_running_task(
-        self, on_exception: ExceptionBehavior = "ignore"
+        self, on_exception: OnExceptionBehavior = "ignore"
     ) -> Generator[Optional["RunningTask"], None, None]:
         """
         Pop a task from the queue and wrap it in a RunningTask, blocking until
@@ -255,9 +262,10 @@ class TasqClient:
         completed unless the with clause is exited with an exception.
 
         In the case of an exception, the on_exception behavior determines what
-        is done with the task. Optionally, the task can be marked as expired or
-        failed; by default, the task will be left in the running state until
-        its timeout expires.
+        is done with the task. It can be a fixed behavior or a callable that
+        chooses behavior based on the exception. Optionally, the task can be
+        marked as expired or failed; by default, the task will be left in the
+        running state until its timeout expires.
         """
         while True:
             task, timeout = self.pop()
@@ -265,10 +273,11 @@ class TasqClient:
                 rt = RunningTask(self, id=task.id, contents=task.contents)
                 try:
                     yield rt
-                except:
-                    if on_exception == "fail":
+                except BaseException as exc:
+                    behavior = on_exception(exc) if callable(on_exception) else on_exception
+                    if behavior == "fail":
                         rt.failed()
-                    elif on_exception == "expire":
+                    elif behavior == "expire":
                         rt.expire()
                     else:
                         rt.cancel()
@@ -320,9 +329,7 @@ class TasqClient:
         self._configure_session()
 
     def _configure_session(self):
-        if self.username is not None or self.password is not None:
-            assert self.username is not None and self.password is not None
-            self.session.auth = (self.username, self.password)
+        self.session.auth = self.auth
         if self.retry_server_errors:
             retries = Retry(
                 total=10,

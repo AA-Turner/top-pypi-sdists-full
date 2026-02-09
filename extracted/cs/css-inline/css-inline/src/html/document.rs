@@ -201,6 +201,40 @@ impl Document {
         self.by_tag.get(tag).map_or(&[], Vec::as_slice)
     }
 
+    /// Quick check if a selector's anchor exists in the document.
+    /// Returns `false` if we can determine the selector won't match anything.
+    ///
+    /// This is a fast heuristic, not a full CSS parser. It extracts the leftmost
+    /// identifier from the selector and checks if it exists in our indexes.
+    /// False positives (returning `true` for non-matching selectors) are acceptable;
+    /// the full selector matching will filter those out later.
+    #[inline]
+    pub(crate) fn anchor_exists(&self, selector: &str) -> bool {
+        // Only use this optimization when indexes are enabled.
+        // For small documents, indexes aren't built so we can't do this check.
+        if !self.use_indexes {
+            return true;
+        }
+
+        let bytes = selector.trim_ascii_start().as_bytes();
+
+        match bytes.first() {
+            // Class selector: .classname
+            Some(b'.') => extract_identifier(&bytes[1..]).map_or(true, |name| {
+                self.by_class.contains_key(&LocalName::from(name))
+            }),
+            // ID selector: #id
+            Some(b'#') => extract_identifier(&bytes[1..])
+                .map_or(true, |name| self.by_id.contains_key(&LocalName::from(name))),
+            // Tag selector: starts with ASCII letter
+            Some(b'a'..=b'z' | b'A'..=b'Z') => extract_identifier(bytes).map_or(true, |name| {
+                self.by_tag.contains_key(&LocalName::from(name))
+            }),
+            // Universal (*), attribute ([), pseudo-class (:), empty, or unknown
+            _ => true,
+        }
+    }
+
     pub(crate) fn detach_node(&mut self, node: NodeId) {
         self.detach(node);
     }
@@ -357,7 +391,7 @@ impl Document {
     }
 
     /// Serialize the document to HTML string.
-    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments, clippy::fn_params_excessive_bools)]
     pub(crate) fn serialize<W: Write>(
         &self,
         writer: &mut W,
@@ -367,6 +401,8 @@ impl Document {
         minify_css: bool,
         at_rules: Option<&String>,
         mode: InliningMode,
+        apply_width_attributes: bool,
+        apply_height_attributes: bool,
     ) -> Result<(), InlineError> {
         serialize_to(
             self,
@@ -377,6 +413,8 @@ impl Document {
             minify_css,
             at_rules,
             mode,
+            apply_width_attributes,
+            apply_height_attributes,
         )
     }
 
@@ -406,6 +444,24 @@ impl std::ops::IndexMut<NodeId> for Document {
     }
 }
 
+/// Extract a CSS identifier (class/id/tag name) from a byte slice.
+/// Returns the identifier as a `&str` if valid, `None` otherwise.
+#[inline]
+fn extract_identifier(bytes: &[u8]) -> Option<&str> {
+    // Find the end of the identifier (ASCII letters, digits, underscore, hyphen)
+    let end = bytes
+        .iter()
+        .position(|&b| !matches!(b, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_' | b'-'))
+        .unwrap_or(bytes.len());
+
+    if end == 0 {
+        return None;
+    }
+
+    // SAFETY: All matched bytes are ASCII (0x00-0x7F), which is valid UTF-8
+    Some(unsafe { std::str::from_utf8_unchecked(&bytes[..end]) })
+}
+
 #[cfg(test)]
 mod tests {
     use super::{super::node::ElementData, *};
@@ -430,6 +486,8 @@ mod tests {
             false,
             None,
             InliningMode::Document,
+            false,
+            false,
         )
         .expect("Failed to serialize");
         buffer

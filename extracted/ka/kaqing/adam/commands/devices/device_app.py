@@ -5,7 +5,7 @@ from adam.commands.command import Command
 from adam.commands.devices.device import Device
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import wait_log
+from adam.utils_log import wait_log
 from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 from adam.utils_k8s.app_pods import AppPods
@@ -163,11 +163,11 @@ class DeviceApp(Command, Device):
 
     def exec_no_dir(self, command: str, state: ReplState, ctx: Context = Context.NULL):
         with app(state) as pods:
-            return pods.exec(command, ctx=ctx.copy(show_out=True, show_verbose=True))
+            return pods.exec(command, ctx=ctx.copy(show_out=True))
 
     def exec_with_dir(self, command: str, session_just_created: bool, state: ReplState, ctx: Context = Context.NULL):
         with app(state) as pods:
-            return pods.exec(command, ctx=ctx.copy(show_out=not session_just_created, show_verbose=not session_just_created))
+            return pods.exec(command, ctx=ctx.copy(show_out=not session_just_created))
 
     def bash_completion(self, cmd: str, state: ReplState, default: dict = {}):
         return {cmd: BashCompleter(lambda: [])} | \

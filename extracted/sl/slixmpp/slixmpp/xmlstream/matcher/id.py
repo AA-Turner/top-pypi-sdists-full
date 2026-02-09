@@ -23,4 +23,4 @@ class MatcherId(MatcherBase):
         :param xml: The :class:`~slixmpp.xmlstream.stanzabase.StanzaBase`
                     stanza to compare against.
         """
-        return bool(xml['id'] == self._criteria)
+        return bool(xml.get_toplevel_attr("id", default='') == self._criteria)

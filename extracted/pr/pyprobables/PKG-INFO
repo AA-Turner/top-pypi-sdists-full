@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyprobables
-Version: 0.6.2
+Version: 0.7.0
 Summary: Probabilistic data structures in python
 Author-email: Tyler Barrus <barrust@gmail.com>
 License-Expression: MIT
@@ -16,13 +16,12 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Dynamic: license-file
@@ -76,6 +75,11 @@ Pip Installation:
 
     $ pip install pyprobables
 
+Conda Installation:
+::
+
+    $ conda install -c conda-forge pyprobables
+
 To install from source:
 
 To install `pyprobables`, simply clone the `repository on GitHub
@@ -85,13 +89,13 @@ To install `pyprobables`, simply clone the `repository on GitHub
 
     $ python setup.py install
 
-`pyprobables` supports python 3.6 - 3.11+
+`pyprobables` supports python 3.10 - 3.14+
 
 For *python 2.7* support, install `release 0.3.2 <https://github.com/barrust/pyprobables/releases/tag/v0.3.2>`__
 
 ::
 
-    $ pip install pyprobables==0.3.2
+    $ pip install pyprobables==0.7.0
 
 
 API Documentation

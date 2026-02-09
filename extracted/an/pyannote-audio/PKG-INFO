@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyannote-audio
-Version: 4.0.3
+Version: 4.0.4
 Summary: State-of-the-art speaker diarization toolkit
 Author-email: Hervé BREDIN <herve@pyannote.ai>
 License-File: LICENSE
@@ -21,11 +21,10 @@ Requires-Dist: pyannoteai-sdk>=0.3.0
 Requires-Dist: pytorch-metric-learning>=2.8.1
 Requires-Dist: rich>=13.9.4
 Requires-Dist: safetensors>=0.5.2
-Requires-Dist: soundfile>=0.13.1
 Requires-Dist: torch-audiomentations>=0.12.0
-Requires-Dist: torch==2.8.0
-Requires-Dist: torchaudio==2.8.0
-Requires-Dist: torchcodec==0.7.0
+Requires-Dist: torch>=2.8.0
+Requires-Dist: torchaudio>=2.8.0
+Requires-Dist: torchcodec>=0.7.0
 Requires-Dist: torchmetrics>=1.6.1
 Provides-Extra: cli
 Requires-Dist: typer>=0.15.1; extra == 'cli'

@@ -15,6 +15,7 @@ except ImportError:
 
 from sage.misc.lazy_import import lazy_import
 
+lazy_import('sage.interfaces.maxima', 'maxima')
 lazy_import('sage.interfaces.sage0', ['sage0', 'sage0_version', 'Sage'])
 lazy_import('sage.interfaces.axiom', ['Axiom', 'axiom'])
 lazy_import('sage.interfaces.ecm', ['ECM', 'ecm'])
@@ -47,6 +48,7 @@ lazy_import('sage.interfaces.psage', 'PSage')
 lazy_import('sage.interfaces.qepcad', ['qepcad', 'qepcad_version', 'qepcad_formula'])
 lazy_import('sage.interfaces.r', ['r', 'R', 'r_version'])
 lazy_import('sage.interfaces.read_data', 'read_data')
+lazy_import('sage.interfaces.regina', ['regina', 'Regina'])
 lazy_import('sage.interfaces.scilab', 'scilab')
 lazy_import('sage.interfaces.singular', ['singular', 'singular_version', 'Singular'])
 

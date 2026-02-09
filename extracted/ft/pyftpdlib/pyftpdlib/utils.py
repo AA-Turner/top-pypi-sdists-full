@@ -2,8 +2,24 @@
 # Use of this source code is governed by MIT license that can be
 # found in the LICENSE file.
 
+import contextlib
 import os
+import socket
 import sys
+
+try:
+    from OpenSSL import SSL  # requires "pip install pyopenssl"
+except ImportError:
+    SSL = None
+
+__all__ = [
+    "has_dualstack_ipv6",
+    "hilite",
+    "is_ssl_sock",
+    "memoize",
+    "strerror",
+    "term_supports_colors",
+]
 
 
 def memoize(fun):
@@ -67,3 +83,35 @@ def hilite(s, color=None, bold=False):  # pragma: no cover
     if bold:
         attr.append("1")
     return f"\x1b[{';'.join(attr)}m{s}\x1b[0m"
+
+
+def strerror(err):
+    if isinstance(err, OSError):
+        return os.strerror(err.errno)
+    return str(err)
+
+
+# backport of Python 3.8 socket.has_dualstack_ipv6()
+@memoize
+def has_dualstack_ipv6():
+    """Return True if the platform supports creating a SOCK_STREAM socket
+    which can handle both AF_INET and AF_INET6 (IPv4 / IPv6) connections.
+    """
+    if (
+        not socket.has_ipv6
+        or not hasattr(socket, "IPPROTO_IPV6")
+        or not hasattr(socket, "IPV6_V6ONLY")
+    ):
+        return False
+    try:
+        with contextlib.closing(
+            socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        ) as sock:
+            sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+            return True
+    except OSError:
+        return False
+
+
+def is_ssl_sock(sock):
+    return SSL is not None and isinstance(sock, SSL.Connection)

@@ -1151,6 +1151,15 @@ class ToProtoConverter:
         else:
             raise ValueError(f"Unsupported resource hint: {r.resource_hint}")
 
+        if r.accelerate_python == "auto" or r.accelerate_python is None:
+            accelerate_python = pb.ACCELERATE_PYTHON_AUTO
+        elif r.accelerate_python == "never":
+            accelerate_python = pb.ACCELERATE_PYTHON_NEVER
+        elif r.accelerate_python == "require":
+            accelerate_python = pb.ACCELERATE_PYTHON_REQUIRE
+        else:
+            raise ValueError(f"Unsupported value for accelerate_python: {r.accelerate_python}")
+
         static_operation = None
         static_operation_dataframe = None
         if r.static:
@@ -1186,6 +1195,7 @@ class ToProtoConverter:
             tags=r.tags,
             resource_hint=resource_hint,
             is_static=r.static,
+            accelerate_python=accelerate_python,
             owner=r.owner,
             doc=r.doc,
             environments=r.environment,

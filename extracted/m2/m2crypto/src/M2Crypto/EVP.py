@@ -38,10 +38,6 @@ class MessageDigest(object):
     Message Digest
     """
 
-    @staticmethod
-    def m2_md_ctx_free(ctx: C.EVP_MD_CTX) -> None:
-        m2.md_ctx_free(ctx)
-
     def __init__(self, algo: str) -> None:
         md: Optional[Callable] = getattr(m2, algo, None)
         if md is None:
@@ -54,6 +50,10 @@ class MessageDigest(object):
             self.md = md()
         self.ctx = m2.md_ctx_new()
         m2.digest_init(self.ctx, self.md)
+
+    @staticmethod
+    def m2_md_ctx_free(ctx: C.EVP_MD_CTX) -> None:
+        m2.md_ctx_free(ctx)
 
     def __del__(self) -> None:
         if getattr(self, "ctx", None):
@@ -303,7 +303,7 @@ class PKey(object):
         """
 
         if not hasattr(m2, "digest_sign"):
-            raise NotImplemented(
+            raise NotImplementedError(
                 "This method requires OpenSSL version " + "1.1.1 or greater."
             )  # type: ignore[misc]
 
@@ -348,7 +348,7 @@ class PKey(object):
         """
 
         if not hasattr(m2, "digest_verify"):
-            raise NotImplemented(
+            raise NotImplementedError(
                 "This method requires OpenSSL version " + "1.1.1 or greater."
             )  # type: ignore[misc]
 

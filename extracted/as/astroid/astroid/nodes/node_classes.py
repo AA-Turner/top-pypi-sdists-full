@@ -55,6 +55,7 @@ else:
 if TYPE_CHECKING:
     from astroid import nodes
     from astroid.nodes import LocalsDictNodeNG
+    from astroid.nodes.node_ng import FrameType
 
 
 def _is_const(value) -> bool:
@@ -1019,6 +1020,23 @@ class Arguments(
         for elt in self.kwonlyargs_annotations:
             if elt is not None:
                 yield elt
+
+    def get_annotations(self) -> Iterator[nodes.NodeNG]:
+        """Iterate over all annotations nodes."""
+        for elt in self.posonlyargs_annotations:
+            if elt is not None:
+                yield elt
+        for elt in self.annotations:
+            if elt is not None:
+                yield elt
+        if self.varargannotation is not None:
+            yield self.varargannotation
+
+        for elt in self.kwonlyargs_annotations:
+            if elt is not None:
+                yield elt
+        if self.kwargannotation is not None:
+            yield self.kwargannotation
 
     @decorators.raise_if_nothing_inferred
     def _infer(
@@ -2222,12 +2240,21 @@ class Decorators(NodeNG):
 
         :returns: The first parent scope node.
         """
-        # skip the function node to go directly to the upper level scope
+        # skip the function or class node to go directly to the upper level scope
         if not self.parent:
             raise ParentMissingError(target=self)
         if not self.parent.parent:
             raise ParentMissingError(target=self.parent)
         return self.parent.parent.scope()
+
+    def frame(self) -> FrameType:
+        """The first parent node defining a new frame."""
+        # skip the function or class node to go directly to the upper level frame
+        if not self.parent:
+            raise ParentMissingError(target=self)
+        if not self.parent.parent:
+            raise ParentMissingError(target=self.parent)
+        return self.parent.parent.frame()
 
     def get_children(self):
         yield from self.nodes
@@ -4713,6 +4740,9 @@ class FormattedValue(NodeNG):
                     uninferable_already_generated = True
                 continue
             for value in self.value.infer(context, **kwargs):
+                if value is util.Uninferable:
+                    yield util.Uninferable
+                    return
                 value_to_format = value
                 if isinstance(value, Const):
                     value_to_format = value.value
@@ -4916,7 +4946,7 @@ class NamedExpr(_base_nodes.AssignTypeNode):
     See astroid/protocols.py for actual implementation.
     """
 
-    def frame(self) -> nodes.FunctionDef | nodes.Module | nodes.ClassDef | nodes.Lambda:
+    def frame(self) -> FrameType:
         """The first parent frame node.
 
         A frame node is a :class:`Module`, :class:`FunctionDef`,
@@ -4972,9 +5002,10 @@ class NamedExpr(_base_nodes.AssignTypeNode):
 
 class Unknown(_base_nodes.AssignTypeNode):
     """This node represents a node in a constructed AST where
-    introspection is not possible.  At the moment, it's only used in
-    the args attribute of FunctionDef nodes where function signature
-    introspection failed.
+    introspection is not possible.
+
+    Used in the args attribute of FunctionDef nodes where function signature
+    introspection failed, and as a placeholder in ObjectModel.
     """
 
     name = "Unknown"

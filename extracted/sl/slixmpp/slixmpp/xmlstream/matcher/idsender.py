@@ -47,9 +47,9 @@ class MatchIDSender(MatcherBase):
         allowed[peerjid.bare] = True
         allowed[peerjid.domain] = True
 
-        _from = xml['from']
+        _from = xml.get_toplevel_attr('from', default='')
 
         try:
-            return xml['id'] == self._criteria['id'] and allowed[_from]
+            return xml.get_toplevel_attr('id', '') == self._criteria['id'] and allowed[_from]
         except KeyError:
             return False

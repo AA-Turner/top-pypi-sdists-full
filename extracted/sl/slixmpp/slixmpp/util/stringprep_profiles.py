@@ -89,7 +89,7 @@ def check_bidi(data):
 
     for c in data:
         if stringprep.in_table_c8(c):
-            raise StringPrepError("BIDI violation: seciton 6 (1)")
+            raise StringPrepError("BIDI violation: section 6 (1)")
         if stringprep.in_table_d1(c):
             has_randal = True
         elif stringprep.in_table_d2(c):

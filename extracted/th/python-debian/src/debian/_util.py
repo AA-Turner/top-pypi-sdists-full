@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 import weakref
 from weakref import ReferenceType
 
 from typing import (
-    Iterable, Optional, Generic, Dict, Iterator, TypeVar, TYPE_CHECKING, Any,
-    Callable,
+    Iterable, Generic, Iterator, TypeVar, TYPE_CHECKING, Any, Callable,
 )
 
 # Used a generic type for any case where we need a generic type without any bounds
@@ -11,8 +12,7 @@ from typing import (
 T = TypeVar('T')
 
 
-def resolve_ref(ref):
-    # type: (Optional[ReferenceType[T]]) -> Optional[T]
+def resolve_ref(ref: ReferenceType[T] | None) -> T | None:
     return ref() if ref is not None else None
 
 
@@ -24,7 +24,7 @@ class _CaseInsensitiveString(str):
     if TYPE_CHECKING:  # pragma: no cover
         # neither pylint nor mypy cope with str_lower being defined in __new__
         def __init__(self, s: str) -> None:
-            super(_CaseInsensitiveString, self).__init__(s)   # type: ignore
+            super().__init__(s)   # type: ignore
             self.str_lower = ''
 
     def __new__(cls, str_):  # type: ignore
@@ -60,71 +60,62 @@ class LinkedListNode(Generic[T]):
 
     __slots__ = ('_previous_node', 'value', 'next_node', '__weakref__')
 
-    def __init__(self, value):
-        # type: (T) -> None
-        self._previous_node = None  # type: Optional[ReferenceType[LinkedListNode[T]]]
-        self.next_node = None  # type: Optional[LinkedListNode[T]]
+    def __init__(self, value: T) -> None:
+        self._previous_node: ReferenceType[LinkedListNode[T]] | None = None
+        self.next_node: LinkedListNode[T] | None = None
         self.value = value
 
     @property
-    def previous_node(self):
-        # type: () -> Optional[LinkedListNode[T]]
+    def previous_node(self) -> LinkedListNode[T] | None:
         return resolve_ref(self._previous_node)
 
     @previous_node.setter
-    def previous_node(self, node):
-        # type: (LinkedListNode[T]) -> None
+    def previous_node(self, node: LinkedListNode[T] | None) -> None:
         self._previous_node = weakref.ref(node) if node is not None else None
 
-    def remove(self):
-        # type: () -> T
+    def remove(self) -> T:
         LinkedListNode.link_nodes(self.previous_node, self.next_node)
         self.previous_node = None
         self.next_node = None
         return self.value
 
     def iter_next(self, *,
-                  skip_current=False  # type: Optional[bool]
-                  ):
-        # type: (...) -> Iterator[LinkedListNode[T]]
+                  skip_current: bool | None = False
+                  ) -> Iterator[LinkedListNode[T]]:
         node = self.next_node if skip_current else self
         while node:
             yield node
             node = node.next_node
 
     def iter_previous(self, *,
-                      skip_current=False  # type: Optional[bool]
-                      ):
-        # type: (...) -> Iterator[LinkedListNode[T]]
+                      skip_current: bool | None = False
+                      ) -> Iterator[LinkedListNode[T]]:
         node = self.previous_node if skip_current else self
         while node:
             yield node
             node = node.previous_node
 
     @staticmethod
-    def link_nodes(previous_node, next_node):
-        # type: (Optional[LinkedListNode[T]], Optional['LinkedListNode[T]']) -> None
+    def link_nodes(previous_node: LinkedListNode[T] | None,
+                   next_node: LinkedListNode[T] | None) -> None:
         if next_node:
             next_node.previous_node = previous_node
         if previous_node:
             previous_node.next_node = next_node
 
     @staticmethod
-    def _insert_link(first_node,  # type: Optional[LinkedListNode[T]]
-                     new_node,  # type: LinkedListNode[T]
-                     last_node,  # type: Optional[LinkedListNode[T]]
-                     ):
-        # type: (...) -> None
+    def _insert_link(first_node: LinkedListNode[T] | None,
+                     new_node: LinkedListNode[T],
+                     last_node: LinkedListNode[T] | None,
+                     ) -> None:
         LinkedListNode.link_nodes(first_node, new_node)
         LinkedListNode.link_nodes(new_node, last_node)
 
-    def insert_before(self, new_node):
-        # type: (LinkedListNode[T]) -> None
+    def insert_before(self, new_node: LinkedListNode[T]) -> None:
         assert self is not new_node and new_node is not self.previous_node
         LinkedListNode._insert_link(self.previous_node, new_node, self)
 
-    def insert_after(self, new_node):
-        # type: (LinkedListNode[T]) -> None
+    def insert_after(self, new_node: LinkedListNode[T]) -> None:
         assert self is not new_node and new_node is not self.next_node
         LinkedListNode._insert_link(self, new_node, self.next_node)
 
@@ -140,10 +131,9 @@ class LinkedList(Generic[T]):
 
     __slots__ = ('head_node', 'tail_node', '_size')
 
-    def __init__(self, values=None):
-        # type: (Optional[Iterable[T]]) -> None
-        self.head_node = None  # type: Optional[LinkedListNode[T]]
-        self.tail_node = None  # type: Optional[LinkedListNode[T]]
+    def __init__(self, values: Iterable[T] | None = None) -> None:
+        self.head_node: LinkedListNode[T] | None = None
+        self.tail_node: LinkedListNode[T] | None = None
         self._size = 0
         if values is not None:
             self.extend(values)
@@ -155,8 +145,7 @@ class LinkedList(Generic[T]):
         return self._size
 
     @property
-    def tail(self):
-        # type: () -> Optional[T]
+    def tail(self) -> T | None:
         return self.tail_node.value if self.tail_node is not None else None
 
     def pop(self) -> None:
@@ -164,26 +153,22 @@ class LinkedList(Generic[T]):
             raise IndexError('pop from empty list')
         self.remove_node(self.tail_node)
 
-    def iter_nodes(self):
-        # type: () -> Iterator[LinkedListNode[T]]
+    def iter_nodes(self) -> Iterator[LinkedListNode[T]]:
         head_node = self.head_node
         if head_node is None:
             return
         yield from head_node.iter_next()
 
-    def __iter__(self):
-        # type: () -> Iterator[T]
+    def __iter__(self) -> Iterator[T]:
         yield from (node.value for node in self.iter_nodes())
 
-    def __reversed__(self):
-        # type: () -> Iterator[T]
+    def __reversed__(self) -> Iterator[T]:
         tail_node = self.tail_node
         if tail_node is None:
             return
         yield from (n.value for n in tail_node.iter_previous())
 
-    def remove_node(self, node):
-        # type: (LinkedListNode[T]) -> None
+    def remove_node(self, node: LinkedListNode[T]) -> None:
         if node is self.head_node:
             self.head_node = node.next_node
             if self.head_node is None:
@@ -197,14 +182,12 @@ class LinkedList(Generic[T]):
         self._size -= 1
         node.remove()
 
-    def insert_at_head(self, value):
-        # type: (T) -> LinkedListNode[T]
+    def insert_at_head(self, value: T) -> LinkedListNode[T]:
         if self.head_node is None:
             return self.append(value)
         return self.insert_before(value, self.head_node)
 
-    def append(self, value):
-        # type: (T) -> LinkedListNode[T]
+    def append(self, value: T) -> LinkedListNode[T]:
         node = LinkedListNode(value)
         if self.head_node is None:
             self.head_node = node
@@ -222,16 +205,19 @@ class LinkedList(Generic[T]):
         self._size += 1
         return node
 
-    def insert_before(self, value, existing_node):
-        # type: (T, LinkedListNode[T]) -> LinkedListNode[T]
+    def insert_before(self,
+                      value: T,
+                      existing_node: LinkedListNode[T]) -> LinkedListNode[T]:
         return self.insert_node_before(LinkedListNode(value), existing_node)
 
-    def insert_after(self, value, existing_node):
-        # type: (T, LinkedListNode[T]) -> LinkedListNode[T]
+    def insert_after(self,
+                     value: T,
+                     existing_node: LinkedListNode[T]) -> LinkedListNode[T]:
         return self.insert_node_after(LinkedListNode(value), existing_node)
 
-    def insert_node_before(self, new_node, existing_node):
-        # type: (LinkedListNode[T], LinkedListNode[T]) -> LinkedListNode[T]
+    def insert_node_before(self,
+                           new_node: LinkedListNode[T],
+                           existing_node: LinkedListNode[T]) -> LinkedListNode[T]:
         if self.head_node is None:
             raise ValueError("List is empty; node argument cannot be valid")
         if new_node.next_node is not None or new_node.previous_node is not None:
@@ -242,8 +228,9 @@ class LinkedList(Generic[T]):
         self._size += 1
         return new_node
 
-    def insert_node_after(self, new_node, existing_node):
-        # type: (LinkedListNode[T], LinkedListNode[T]) -> LinkedListNode[T]
+    def insert_node_after(self,
+                          new_node: LinkedListNode[T],
+                          existing_node: LinkedListNode[T]) -> LinkedListNode[T]:
         if self.tail_node is None:
             raise ValueError("List is empty; node argument cannot be valid")
         if new_node.next_node is not None or new_node.previous_node is not None:
@@ -254,8 +241,7 @@ class LinkedList(Generic[T]):
         self._size += 1
         return new_node
 
-    def extend(self, values):
-        # type: (Iterable[T]) -> None
+    def extend(self, values: Iterable[T]) -> None:
         for v in values:
             self.append(v)
 
@@ -272,15 +258,14 @@ class OrderedSet:
     to look up if a key is in a set than in a list.
     """
 
-    def __init__(self, iterable=None):
-        # type: (Optional[Iterable[str]]) -> None
+    def __init__(self, iterable: Iterable[str] | None = None) -> None:
 
         # We implement the OrderedSet as a "Home-built" LinkedHashSet because
         # python does not provide better facilities for it.  On the flip side,
         # we can add specialized functionality on top of it like "insert after"
         # or "move to the end".
-        self.__table = {}  # type: Dict[str, LinkedListNode[str]]
-        self.__order = LinkedList()   # type: LinkedList[str]
+        self.__table: dict[str, LinkedListNode[str]] = {}
+        self.__order: LinkedList[str] = LinkedList()
         if iterable is None:
             iterable = []
         for item in iterable:
@@ -325,8 +310,7 @@ class OrderedSet:
     # ### list-like methods
     append = add
 
-    def extend(self, iterable):
-        # type: (Iterable[str]) -> None
+    def extend(self, iterable: Iterable[str]) -> None:
         for item in iterable:
             self.add(item)
 
@@ -354,10 +338,9 @@ class OrderedSet:
         self._reorder(item, lambda x: self.__order.insert_after(x, reference_node))
 
     def _reorder(self,
-                 item,  # type: str
-                 reinserter,  # type: Callable[[str], LinkedListNode[str]]
-                 ):
-        # type: (...) -> None
+                 item: str,
+                 reinserter: Callable[[str], LinkedListNode[str]],
+                 ) -> None:
         node = self.__table[item]
         self.__order.remove_node(node)
         new_node = reinserter(node.value)

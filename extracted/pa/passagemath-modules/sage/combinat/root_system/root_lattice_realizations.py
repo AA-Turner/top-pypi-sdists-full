@@ -695,14 +695,14 @@ class RootLatticeRealizations(Category_over_base_ring):
                 sage: [PR.unrank(i) for i in range(10)]                                 # needs sage.graphs
                 [alpha[1],
                  alpha[2],
+                 alpha[0] + alpha[1] + alpha[2] + alpha[3],
                  alpha[3],
+                 2*alpha[0] + 2*alpha[1] + 2*alpha[2] + 2*alpha[3],
                  alpha[1] + alpha[2],
+                 3*alpha[0] + 3*alpha[1] + 3*alpha[2] + 3*alpha[3],
                  alpha[2] + alpha[3],
-                 alpha[1] + alpha[2] + alpha[3],
-                 alpha[0] + 2*alpha[1] + alpha[2] + alpha[3],
-                 alpha[0] + alpha[1] + 2*alpha[2] + alpha[3],
-                 alpha[0] + alpha[1] + alpha[2] + 2*alpha[3],
-                 alpha[0] + 2*alpha[1] + 2*alpha[2] + alpha[3]]
+                 4*alpha[0] + 4*alpha[1] + 4*alpha[2] + 4*alpha[3],
+                 alpha[1] + alpha[2] + alpha[3]]
             """
             if self.cartan_type().is_affine():
                 from sage.sets.disjoint_union_enumerated_sets \
@@ -799,18 +799,18 @@ class RootLatticeRealizations(Category_over_base_ring):
                 sage: [PR.unrank(i) for i in range(5)]                                  # needs sage.graphs
                 [alpha[1],
                  alpha[2],
+                 2*alpha[0] + 2*alpha[1] + alpha[2],
                  alpha[1] + alpha[2],
-                 2*alpha[1] + alpha[2],
-                 alpha[0] + alpha[1] + alpha[2]]
+                 4*alpha[0] + 4*alpha[1] + 2*alpha[2]]
 
                 sage: Q = RootSystem(['D',3,2]).root_lattice()
                 sage: PR = Q.positive_roots()                                           # needs sage.graphs
                 sage: [PR.unrank(i) for i in range(5)]                                  # needs sage.graphs
                 [alpha[1],
                  alpha[2],
+                 alpha[0] + alpha[1] + alpha[2],
                  alpha[1] + 2*alpha[2],
-                 alpha[1] + alpha[2],
-                 alpha[0] + alpha[1] + 2*alpha[2]]
+                 2*alpha[0] + 2*alpha[1] + 2*alpha[2]]
             """
             if self.cartan_type().is_finite():
                 return tuple(RecursivelyEnumeratedSet(self.simple_roots(),
@@ -3094,18 +3094,20 @@ class RootLatticeRealizations(Category_over_base_ring):
 
             EXAMPLES::
 
-                sage: B = crystals.infinity.MVPolytopes(['C',2])                        # needs sage.combinat
+                sage: # needs sage.combinat sage.groups
+                sage: B = crystals.infinity.MVPolytopes(['C',2])
                 sage: L = RootSystem(['C',2]).ambient_space()
-                sage: p = B.highest_weight_vector().f_string([1,2,1,2])                 # needs sage.combinat
-                sage: L.plot_fundamental_weights() + L.plot_mv_polytope(p)              # needs sage.combinat sage.geometry.polyhedron sage.plot sage.symbolic
+                sage: p = B.highest_weight_vector().f_string([1,2,1,2])
+                sage: L.plot_fundamental_weights() + L.plot_mv_polytope(p)              # needs sage.geometry.polyhedron sage.plot sage.symbolic
                 Graphics object consisting of 14 graphics primitives
 
             This also works in 3 dimensions::
 
-                sage: B = crystals.infinity.MVPolytopes(['A',3])                        # needs sage.combinat
+                sage: # needs sage.combinat sage.groups
+                sage: B = crystals.infinity.MVPolytopes(['A',3])
                 sage: L = RootSystem(['A',3]).ambient_space()
-                sage: p = B.highest_weight_vector().f_string([2,1,3,2])                 # needs sage.combinat
-                sage: L.plot_mv_polytope(p)                                             # needs sage.combinat sage.geometry.polyhedron sage.plot sage.symbolic
+                sage: p = B.highest_weight_vector().f_string([2,1,3,2])
+                sage: L.plot_mv_polytope(p)                                             # needs sage.geometry.polyhedron sage.plot sage.symbolic
                 Graphics3d Object
             """
             from sage.geometry.polyhedron.constructor import Polyhedron
@@ -4439,10 +4441,7 @@ class RootLatticeRealizations(Category_over_base_ring):
                 sage: alpha.is_parabolic_root([2])
                 False
             """
-            for i in self.support():
-                if i not in index_set:
-                    return False
-            return True
+            return all(i in index_set for i in self.support())
 
         def is_short_root(self):
             r"""

@@ -37,17 +37,18 @@ classifiers = [
 ]
 
 [dependency-groups]
-typos = ["typos == 1.42.1"]
+typos = ["typos == 1.43.3"]
 zizmor = ["zizmor == 1.22.0"]
 ci = [
-    "ty == 0.0.14",
-    "ruff == 0.14.14",
+    "ty == 0.0.15",
+    "ruff == 0.15.0",
     "maturin == 1.11.5",
     "pytest == 9.0.2",
-    "rumdl == 0.1.8",
+    "rumdl == 0.1.14",
     # last `tomli` version which support TOML 1.0
     # need to check compatibility
     "tomli == 2.3.0 ; python_version<'3.11'",
+    "tomli-w == 1.2.0",
 ]
 dev = [
     { include-group = "ci" },
@@ -61,6 +62,7 @@ bench = [
     "qtoml",
     "rtoml",
     "tomli ; python_version<'3.11'",
+    "tomli-w",
     "polars == 1.37.1",
     "altair == 6.0.0",
     "vl-convert-python == 1.9.0",

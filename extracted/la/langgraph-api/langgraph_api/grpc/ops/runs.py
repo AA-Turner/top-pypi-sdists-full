@@ -42,6 +42,7 @@ from langgraph_api.grpc.ops import (
     Authenticated,
     _handle_grpc_error,
     build_encryption_context,
+    extract_encryption_context,
     grpc_error_guard,
     transform_grpc_error_event,
 )
@@ -336,6 +337,29 @@ def proto_to_run(proto_run: pb.Run) -> Run:
     }
 
 
+def _static_interrupt_config_from_proto(
+    config: Any,  # pb.StaticInterruptConfig from engine-common.proto
+) -> str | list[str] | None:
+    """Convert protobuf StaticInterruptConfig to Python format.
+
+    The protobuf uses a oneof with two cases:
+    - all: true means interrupt at all nodes (returns "*")
+    - node_names: list of specific node names (returns list of strings)
+    - neither set means no interrupts (returns None)
+    """
+    if not config:
+        return None
+
+    # Check which field is set in the oneof
+    which = config.WhichOneof("config")
+    if which == "all":
+        return "*"
+    elif which == "node_names":
+        return list(config.node_names.names)
+    else:
+        return None
+
+
 def _proto_kwargs_to_dict(kwargs: pb.RunKwargs) -> dict:
     """Convert protobuf RunKwargs to dictionary format."""
     result: dict = {
@@ -351,13 +375,13 @@ def _proto_kwargs_to_dict(kwargs: pb.RunKwargs) -> dict:
         "command": json_loads_optional(kwargs.command_json)
         if kwargs.HasField("command_json")
         else None,
-        "stream_mode": [STREAM_MODE_FROM_PB.get(kwargs.stream_mode)]
+        "stream_mode": [STREAM_MODE_FROM_PB.get(mode) for mode in kwargs.stream_mode]
         if kwargs.stream_mode
         else None,
-        "interrupt_before": list(kwargs.interrupt_before.node_names.names)
+        "interrupt_before": _static_interrupt_config_from_proto(kwargs.interrupt_before)
         if kwargs.HasField("interrupt_before")
         else None,
-        "interrupt_after": list(kwargs.interrupt_after.node_names.names)
+        "interrupt_after": _static_interrupt_config_from_proto(kwargs.interrupt_after)
         if kwargs.HasField("interrupt_after")
         else None,
         "webhook": kwargs.webhook if kwargs.HasField("webhook") else None,
@@ -739,12 +763,17 @@ class Runs(Authenticated):
         await client.runs.MarkDone(request)
 
     @staticmethod
-    async def next(wait: bool, limit: int = 1) -> AsyncIterator[tuple[Run, int]]:
-        """Get the next run from the queue, and the attempt number.
+    async def next(
+        wait: bool, limit: int = 1
+    ) -> AsyncIterator[tuple[Run, int, dict[str, Any] | None]]:
+        """Get the next run from the queue, the attempt number, and encryption context.
 
         1 is the first attempt, 2 is the first retry, etc.
 
         Not exposed via API, no auth.
+
+        Returns:
+            AsyncIterator of (run, attempt, encryption_context) tuples
         """
         request = pb.NextRunRequest(wait=wait, limit=limit)
 
@@ -753,7 +782,8 @@ class Runs(Authenticated):
 
         for run_with_attempt in response.runs:
             run = proto_to_run(run_with_attempt.run)
-            yield run, run_with_attempt.attempt
+            encryption_context = extract_encryption_context(run_with_attempt)
+            yield run, run_with_attempt.attempt, encryption_context
 
     class Stream(Authenticated):
         """Stream operations for runs."""

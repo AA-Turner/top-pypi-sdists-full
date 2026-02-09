@@ -7,8 +7,9 @@ from adam.checks.check_context import CheckContext
 from adam.checks.check_result import CheckResult
 from adam.checks.issue import Issue
 from adam.config import Config
-from adam.utils import Color, log_exc
 from adam.utils_cassandra.cassandra_nodes import CassandraNodes
+from adam.utils_color import Color
+from adam.utils_log import log_exc
 
 class Disk(Check):
     def name(self):
@@ -34,38 +35,39 @@ class Disk(Check):
 
             result = self.build_details(ctx, df_result.stdout, ss_result.stdout, ds_result.stdout, ts_result.stdout)
 
-            dev = result['devices']['/']
-            root_used = float(dev['per'].strip('%'))
-            if root_used > Config().get('checks.root-disk-threshold', 50):
-                usage = f"{dev['per']}({dev['used']}/{dev['total']})"
-                issues.append(Issue(
-                    statefulset=ctx.statefulset,
-                    namespace=ctx.namespace,
-                    pod=ctx.pod,
-                    category="disk",
-                    desc=f"Root data disk is full: {usage}"
-                ))
+            if ctx.find_issues:
+                dev = result['devices']['/']
+                root_used = float(dev['per'].strip('%'))
+                if root_used > Config().get('checks.root-disk-threshold', 50):
+                    usage = f"{dev['per']}({dev['used']}/{dev['total']})"
+                    issues.append(Issue(
+                        statefulset=ctx.statefulset,
+                        namespace=ctx.namespace,
+                        pod=ctx.pod,
+                        category="disk",
+                        desc=f"Root data disk is full: {usage}"
+                    ))
 
-            if not cass_data_path in result['devices']:
-                issues.append(Issue(
-                    statefulset=ctx.statefulset,
-                    namespace=ctx.namespace,
-                    pod=ctx.pod,
-                    category="disk",
-                    desc=f"Cassandra volume is lost: {cass_data_path}"
-                ))
+                if not cass_data_path in result['devices']:
+                    issues.append(Issue(
+                        statefulset=ctx.statefulset,
+                        namespace=ctx.namespace,
+                        pod=ctx.pod,
+                        category="disk",
+                        desc=f"Cassandra volume is lost: {cass_data_path}"
+                    ))
 
-            dev = result['devices'][cass_data_path]
-            cass_used = float(dev['per'].strip('%'))
-            if cass_used > Config().get('checks.cassandra-disk-threshold', 50):
-                usage = f"{dev['per']}({dev['used']}/{dev['total']})"
-                issues.append(Issue(
-                    statefulset=ctx.statefulset,
-                    namespace=ctx.namespace,
-                    pod=ctx.pod,
-                    category="disk",
-                    desc=f"Cassandra data disk is full: {usage}"
-                ))
+                dev = result['devices'][cass_data_path]
+                cass_used = float(dev['per'].strip('%'))
+                if cass_used > Config().get('checks.cassandra-disk-threshold', 50):
+                    usage = f"{dev['per']}({dev['used']}/{dev['total']})"
+                    issues.append(Issue(
+                        statefulset=ctx.statefulset,
+                        namespace=ctx.namespace,
+                        pod=ctx.pod,
+                        category="disk",
+                        desc=f"Cassandra data disk is full: {usage}"
+                    ))
         except Exception as e:
             if ctx.debug:
                 traceback.print_exc()

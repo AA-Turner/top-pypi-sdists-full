@@ -1,0 +1,65 @@
+image: fedora/rawhide
+oauth: git.sr.ht/REPOSITORIES:RW git.sr.ht/PROFILE:RO
+packages:
+  - hut
+  - swig
+  - python3
+  - python3-devel
+  - python3-pip
+  - openssl
+  - openssl-devel
+  - openssl-devel-engine
+  - pkcs11-provider
+  - softhsm
+  - opensc
+  - python3-setuptools
+  - python3-build
+  - python3-twisted
+  - python3-irc
+  - python3-docutils
+  - python3-mypy
+environment:
+  CFLAGS: -pthread -Wno-unused-result -O2 -g -pipe -Wall -Wp,-D_FORTIFY_SOURCE=2 -fstack-protector-strong --param=ssp-buffer-size=4 -grecord-gcc-switches -mtune=generic -D_GNU_SOURCE -fwrapv
+sources:
+  - https://git.sr.ht/~mcepl/m2crypto
+secrets:
+  - nickserv_pass
+tasks:
+  - build: |
+     cd m2crypto
+     echo "BUILD_SUBMITTER = $BUILD_SUBMITTER"
+     export PATH=$PATH:$HOME/.local/bin
+     python3 -mpip install --user -r dev-requirements.txt
+     python3 -mbuild --sdist --no-isolation .
+     python3 -mpip wheel --verbose  --no-cache-dir --no-clean --no-build-isolation --wheel-dir dist/ .
+     find . -name \*.c
+     find . -name \*.whl -o -name \*.tar.gz
+     mkdir -p shadowing/sys && touch shadowing/sys/types.h
+     python3 -mpip install -v --upgrade --target $(readlink -f build/lib.*) --no-compile --ignore-installed --no-deps --no-index dist/[mM]2[cC]rypto*.whl
+  - mypy: |
+     cd m2crypto
+     PYTHONPATH=$(readlink -f build/lib.*) python3 -mmypy --no-color-output -p M2Crypto
+  - test: |
+     cd m2crypto
+     export M2CRYPTO_OPENSSL_MODULE_PKCS11=/usr/lib64/ossl-modules/pkcs11.so
+     export M2CRYPTO_PKCS11_MODULE_PATH=/usr/lib64/libsofthsm2.so
+     export PYTHONPATH=$(readlink -f build/lib.*)
+     python3 -munittest discover -b -v tests
+     python3 -mdoctest -v src/M2Crypto/SSL/Checker.py
+     case $BUILD_SUBMITTER in
+        *git.sr.ht*)
+             [ -n "$GIT_REF" ] && REASON="$JOB_ID ($GIT_REF)"
+             [ -n "$PATCHSET_URL" ] && REASON="$JOB_ID ($PATCHSET_URL)"
+             echo "Sourcehut build $BUILD_REASON finished with the result $? ($JOB_URL)." \
+                 | .builds/irc-send irc.libera.chat m2bot mcepl "#m2crypto"
+        ;;
+     esac
+  - prepare_artifacts: |
+     cd m2crypto
+     zip -9rmT artifacts.zip dist/*
+artifacts:
+  - m2crypto/src/SWIG/_m2crypto_wrap.c
+  - m2crypto/artifacts.zip
+  # https://is.gd/Z5VJlI
+  # - pygn/dist/pygn-*.tar.gz
+  # - pygn/dist/pygn-*.whl

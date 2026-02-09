@@ -4,7 +4,7 @@ from yamloom.actions.utils import validate_choice
 
 from typing import TYPE_CHECKING
 
-from ...expressions import context, StringExpression, BooleanExpression
+from ...expressions import context, StringExpression
 from ..._yamloom import ActionStep
 from ..types import (
     Oboollike,
@@ -157,8 +157,8 @@ class CreatePullRequest(ActionStep):
         return context.steps[id].outputs['pull-request-branch']
 
     @classmethod
-    def pull_request_commits_verified(cls, id: str) -> BooleanExpression:
-        return context.steps[id].outputs['pull-request-commits-verified'].as_bool()
+    def pull_request_commits_verified(cls, id: str) -> StringExpression:
+        return context.steps[id].outputs['pull-request-commits-verified']
 
     def __new__(
         cls,

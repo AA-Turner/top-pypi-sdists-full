@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
-import warnings
 
 import numpy as np
 
-import pyvista
+import pyvista as pv
+from pyvista._warn_external import warn_external
+from pyvista.core import _validation
 from pyvista.core.dataobject import DataObject
 from pyvista.core.utilities.fileio import _try_imageio_imread
 from pyvista.core.utilities.misc import AnnotatedIntEnum
@@ -16,6 +17,8 @@ from pyvista.core.utilities.misc import AnnotatedIntEnum
 from . import _vtk
 
 if TYPE_CHECKING:
+    from typing import Literal
+
     from pyvista.core._typing_core import NumpyArray
 
 
@@ -28,6 +31,10 @@ class Texture(DataObject, _vtk.vtkTexture):
     They can also be used for environment textures to affect the lighting of
     the scene, or even as a environment cubemap as in the case of
     :ref:`pbr_example` and :ref:`planets_example`.
+
+    .. versionchanged:: 0.47
+
+        All textures now use ``'direct'`` :attr:`color_mode` by default.
 
     Parameters
     ----------
@@ -113,6 +120,8 @@ class Texture(DataObject, _vtk.vtkTexture):
         MIRRORED_REPEAT = (2, 'Mirrored repeat')
         CLAMP_TO_BORDER = (3, 'Clamp to border')
 
+    _default_color_mode: Literal['direct'] = 'direct'
+
     def __init__(self, uinput=None, **kwargs):
         """Initialize the texture."""
         super().__init__(uinput)
@@ -133,7 +142,7 @@ class Texture(DataObject, _vtk.vtkTexture):
 
             # add each image to the cubemap
             for i, image in enumerate(uinput):
-                if not isinstance(image, pyvista.ImageData):
+                if not isinstance(image, pv.ImageData):
                     msg = (
                         'If a sequence, the each item in the first argument must be a '
                         'pyvista.ImageData'
@@ -147,9 +156,11 @@ class Texture(DataObject, _vtk.vtkTexture):
             msg = f'Cannot create a pyvista.Texture from ({type(uinput)})'
             raise TypeError(msg)
 
+        self.color_mode = self._default_color_mode
+
     def _from_file(self, filename, **kwargs):
         try:
-            image = pyvista.read(filename, **kwargs)
+            image = pv.read(filename, **kwargs)
             if image.n_points < 2:  # pragma: no cover
                 msg = 'Problem reading the image with VTK.'
                 raise RuntimeError(msg)
@@ -160,6 +171,36 @@ class Texture(DataObject, _vtk.vtkTexture):
     def _from_texture(self, texture):
         image = texture.GetInput()
         self._from_image_data(image)
+
+    @property
+    def color_mode(self) -> Literal['map', 'direct']:  # numpydoc ignore=RT01
+        """Return or set the color mode.
+
+        Either ``'direct'``, or ``'map'``.
+
+        * ``'direct'`` - All integer types are treated as colors with values in
+          the range 0-255 and floating types are treated as colors with values
+          in the range 0.0-1.0
+        * ``'map'`` - All scalar data will be mapped through the lookup table.
+
+        .. versionadded:: 0.47
+
+        """
+        mode = self.GetColorMode()
+        if mode == 0:
+            # VTK's default mode uses 'direct' if scalars have uint8 dtype, and 'map' otherwise
+            # But PyVista's default is to always use 'direct', even for floats
+            self.color_mode = self._default_color_mode
+            return self.color_mode
+        return 'map' if mode == 1 else 'direct'
+
+    @color_mode.setter
+    def color_mode(self, value: Literal['map', 'direct']):
+        _validation.check_contains(['map', 'direct'], must_contain=value, name='color_mode')
+        if value == 'direct':
+            self.SetColorModeToDirectScalars()
+        else:
+            self.SetColorModeToMapScalars()
 
     @property
     def interpolate(self) -> bool:  # numpydoc ignore=RT01
@@ -197,8 +238,8 @@ class Texture(DataObject, _vtk.vtkTexture):
         self.SetMipmap(value)
 
     def _from_image_data(self, image):
-        if not isinstance(image, pyvista.ImageData):
-            image = pyvista.ImageData(image)
+        if not isinstance(image, pv.ImageData):
+            image = pv.ImageData(image)
         self.SetInputDataObject(image)
         self.Update()
 
@@ -217,7 +258,7 @@ class Texture(DataObject, _vtk.vtkTexture):
         elif image.ndim == 2:
             n_components = 1
 
-        grid = pyvista.ImageData(dimensions=(image.shape[1], image.shape[0], 1))
+        grid = pv.ImageData(dimensions=(image.shape[1], image.shape[0], 1))
         grid.point_data['Image'] = np.flip(image.swapaxes(0, 1), axis=1).reshape(
             (-1, n_components),
             order='F',
@@ -421,7 +462,7 @@ class Texture(DataObject, _vtk.vtkTexture):
 
     def __repr__(self):
         """Return the object representation."""
-        return pyvista.DataSet.__repr__(self)  # type: ignore[type-var]
+        return pv.DataSet.__repr__(self)  # type: ignore[type-var]
 
     def _get_attrs(self):
         """Return the representation methods (internal helper)."""
@@ -483,7 +524,7 @@ class Texture(DataObject, _vtk.vtkTexture):
 
         Returns
         -------
-        pyvista.Actor | None
+        output : pyvista.Actor | None
             See the returns section of :func:`pyvista.plot`.
 
         Examples
@@ -506,7 +547,7 @@ class Texture(DataObject, _vtk.vtkTexture):
         kwargs.setdefault('lighting', False)
         kwargs.setdefault('show_axes', False)
         kwargs.setdefault('show_scalar_bar', False)
-        mesh = pyvista.Plane(i_size=self.dimensions[0], j_size=self.dimensions[1])
+        mesh = pv.Plane(i_size=self.dimensions[0], j_size=self.dimensions[1])
         return mesh.plot(texture=self, **kwargs)
 
     def _plot_skybox(self, **kwargs):
@@ -515,10 +556,10 @@ class Texture(DataObject, _vtk.vtkTexture):
         zoom = kwargs.pop('zoom', 0.5)
         show_axes = kwargs.pop('show_axes', True)
         lighting = kwargs.pop('lighting', None)
-        pl = pyvista.Plotter(lighting=lighting)
+        pl = pv.Plotter(lighting=lighting)
         pl.add_actor(self.to_skybox())
         pl.set_environment_texture(self, is_srgb=True)
-        pl.add_mesh(pyvista.Sphere(), pbr=True, roughness=0.5, metallic=1.0)
+        pl.add_mesh(pv.Sphere(), pbr=True, roughness=0.5, metallic=1.0)
         pl.camera_position = cpos
         pl.camera.zoom(zoom)
         if show_axes:
@@ -687,7 +728,7 @@ def numpy_to_texture(image):
     """
     if image.dtype != np.uint8:
         image = image.astype(np.uint8)
-        warnings.warn(
+        warn_external(
             'Expected `image` dtype to be ``np.uint8``. `image` has been copied '
             'and converted to np.uint8.',
             UserWarning,

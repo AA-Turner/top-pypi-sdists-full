@@ -6,7 +6,7 @@
  *                                                                         *
  * Copyright 2000 - 2009 Alex Martelli                                     *
  *                                                                         *
- * Copyright 2008 - 2024 Case Van Horsen                                   *
+ * Copyright 2008 - 2025 Case Van Horsen                                   *
  *                                                                         *
  * This file is part of GMPY2.                                             *
  *                                                                         *
@@ -332,7 +332,9 @@ GMPy_RealWithType_##NAME(PyObject *x, int xtype, CTXT_Object *context) \
     result->rc = mpfr_##FUNC(result->f, tempx->f); \
     Py_DECREF((PyObject*)tempx); \
     _GMPy_MPFR_Cleanup(&result, context); \
-    return (PyObject*)result; \
+    MPZ_Object *mpz_result = GMPy_MPZ_From_MPFR(result, context); \
+    Py_DECREF((PyObject*)result); \
+    return (PyObject*)mpz_result; \
 } \
 static PyObject * \
 GMPy_Number_##NAME(PyObject *x, CTXT_Object *context) \
@@ -723,4 +725,21 @@ GMPy_Context_##NAME(PyObject *self, PyObject *args) \
         CHECK_CONTEXT(context); \
     } \
     return GMPy_Number_##NAME(PyTuple_GET_ITEM(args, 0), PyTuple_GET_ITEM(args, 1), context); \
+}
+
+#define SWAP(T, a, b)  \
+    do {               \
+        T tmp = a;     \
+        a = b;         \
+        b = tmp;       \
+    } while (0);
+
+static inline void
+revstr(char *s, size_t l, size_t r)
+{
+    while (l < r) {
+        SWAP(char, s[l], s[r]);
+        l++;
+        r--;
+    }
 }

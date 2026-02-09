@@ -409,6 +409,33 @@ def cli_command_add_scope_condition_rule(ctx, action, scope, **kwargs):
     )
 
 
+@click.command(name="add-timeframe-condition-rule")
+@click.argument("start-time", type=click.DateTime())
+@click.argument("end-time", type=click.DateTime())
+@click.option("--name", required=True)
+@click.option("--action", required=True, multiple=True, type=click.Choice(rules.ACTIONS))
+@click.option("--purpose", default=None)
+@click.option("--org-id", default=None)
+@click.option("--standalone-rule-policy-id", default=None)
+@click.pass_context
+def cli_command_add_timeframe_condition_rule(ctx, action, **kwargs):
+    output_entry(ctx, rules.add_timeframe_condition_rule(ctx, actions=action, **kwargs))
+
+
+@click.command(name="add-always-match-condition-rule")
+@click.option("--name", required=True)
+@click.option("--action", required=True, multiple=True, type=click.Choice(rules.ACTIONS))
+@click.option("--purpose", default=None)
+@click.option("--org-id", default=None)
+@click.option("--standalone-rule-policy-id", default=None)
+@click.option("--condition-result", default=True)
+@click.pass_context
+def cli_command_add_always_match_condition_rule(ctx, action, **kwargs):
+    output_entry(
+        ctx, rules.add_always_match_condition_rule(ctx, actions=action, **kwargs)
+    )
+
+
 all_funcs = [func for func in dir() if "cli_command_" in func]
 
 

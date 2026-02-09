@@ -5,7 +5,7 @@ import yaml, pyaml
 @contextlib.contextmanager
 def safe_replacement(path, *open_args, mode=None, xattrs=None, **open_kws):
 	'Context to atomically create/replace file-path in-place unless errors are raised'
-	path, xattrs = str(path), None
+	path = str(path)
 	if mode is None:
 		try: mode = stat.S_IMODE(os.lstat(path).st_mode)
 		except FileNotFoundError: pass
@@ -54,10 +54,13 @@ def main(argv=None, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr):
 	parser = argparse.ArgumentParser(
 		formatter_class=argparse.RawTextHelpFormatter,
 		description='Process and dump prettified YAML to stdout.')
-	parser.add_argument('path', nargs='?', metavar='path',
-		help='Path to YAML to read (default: use stdin).')
+	parser.add_argument('path', nargs='*', metavar='path', default=list(), help=dd('''
+		Path(s) to YAML to read (default/empty: use stdin).
+		With multiple paths, will output YAML documents from each one in the same order.'''))
 	parser.add_argument('-r', '--replace', action='store_true',
-		help='Replace specified path with prettified version in-place.')
+		help='Replace specified YAML file(s) with prettified version in-place.')
+	parser.add_argument('-o', '--out-file', metavar='file-path',
+		help='Write output to specified file instead of standard output.')
 	parser.add_argument('-w', '--width', type=int, metavar='chars', help=dd('''
 		Max line width hint to pass to pyyaml for the dump.
 		Only used to format scalars and collections (e.g. lists).'''))
@@ -80,15 +83,6 @@ def main(argv=None, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr):
 		help='Disable sanity-check on the output and suppress stderr warnings.')
 	opts = parser.parse_args(sys.argv[1:] if argv is None else argv)
 
-	if opts.replace and not opts.path:
-		parser.error('-r/--replace option can only be used with a file path, not stdin')
-
-	src = open(opts.path) if opts.path else stdin
-	try:
-		data = list( yaml.safe_load_all(src) if not opts.lines else
-			(yaml.safe_load(chunk) for chunk in file_line_iter(src) if chunk.strip()) )
-	finally: src.close()
-
 	pyaml_kwargs = dict()
 	if opts.width: pyaml_kwargs['width'] = opts.width
 	if vspacing := opts.vspacing:
@@ -104,24 +98,41 @@ def main(argv=None, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr):
 			if count: vspacing['split_count'] = int(count.strip())
 		if vspacing: pyaml_kwargs['vspacing'] = vspacing
 
-	if len(data) > 1: ys = pyaml.dump_all(data, **pyaml_kwargs)
-	else: ys = pyaml.dump(data[0], **pyaml_kwargs) # avoids leading "---"
+	if not all(paths := opts.path or ['']) and opts.replace:
+		parser.error('-r/--replace option can only be used with a file path, not stdin')
+	if opts.out_file and opts.replace:
+		parser.error('-r/--replace and -o/--out-file options cannot be used at the same time')
+	with contextlib.ExitStack() as srcs:
+		data = list([p, srcs.enter_context(open(p)) if p else stdin] for p in (paths or ['']))
+		for d in data: d[1] = list( yaml.safe_load_all(d[1]) if not opts.lines else
+			(yaml.safe_load(chunk) for chunk in file_line_iter(d[1]) if chunk.strip()) )
+	for d in data: d.append(
+		pyaml.dump(d[1][0], **pyaml_kwargs) # avoid leading "---" if possible
+		if len(data) == len(d[1]) == 1 else pyaml.dump_all(d[1], **pyaml_kwargs) )
 
 	if not opts.quiet:
 		try:
-			data_chk = list(yaml.safe_load_all(ys))
-			try: data_hash = json.dumps(data, sort_keys=True)
-			except: pass # too complex for checking with json
-			else:
-				if json.dumps(data_chk, sort_keys=True) != data_hash:
-					raise AssertionError('Data from before/after pyaml does not match')
+			for p, d, ys in data:
+				data_chk = list(yaml.safe_load_all(ys))
+				try: data_hash = json.dumps(d, sort_keys=True)
+				except: pass # too complex for checking with json
+				else:
+					if json.dumps(data_chk, sort_keys=True) != data_hash:
+						raise AssertionError('Data from before/after pyaml does not match')
 		except Exception as err:
 			p_err = lambda *a,**kw: print(*a, **kw, file=stderr, flush=True)
-			p_err( 'WARNING: Failed to parse produced YAML'
-				' output back to data, it is likely too complicated for pyaml' )
+			p_err( 'WARNING: Failed to parse produced YAML output for'
+				f' <{p or "stdin"}> back to same data, it is likely too complicated for pyaml' )
 			err = f'[{err.__class__.__name__}] {err}'
 			p_err('  raised error: ' + ' // '.join(map(str.strip, err.split('\n'))))
 
-	if opts.replace:
-		with safe_replacement(opts.path) as tmp: tmp.write(ys)
-	else: stdout.write(ys)
+	with contextlib.ExitStack() as dsts:
+		if opts.replace:
+			for d in data: d[0] = dsts.enter_context(safe_replacement(d[0]))
+		elif p := opts.out_file:
+			dst = dsts.enter_context( safe_replacement(p) if not
+				any(p.startswith(pre) for pre in ['/dev/', '/proc/']) else open(p, 'w') )
+			for d in data: d[0] = dst
+		else:
+			for d in data: d[0] = stdout
+		for dst, d, ys in data: dst.write(ys)

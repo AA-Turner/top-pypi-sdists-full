@@ -2,7 +2,8 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-from adam.utils import creating_dir, debug, log_exc
+from adam.utils import creating_dir
+from adam.utils_log import debug, log_exc
 from adam.utils_k8s.kube_context import KubeContext
 
 class CredCache:

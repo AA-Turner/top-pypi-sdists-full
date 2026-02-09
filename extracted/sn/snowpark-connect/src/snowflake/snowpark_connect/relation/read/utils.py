@@ -7,12 +7,12 @@ import re
 import time
 from collections.abc import Callable
 from typing import (  # noqa: F401
-    TYPE_CHECKING,
     Any,
     Dict,
     Generator,
     Iterator,
     List,
+    Literal,
     NewType,
     Optional,
     Protocol,
@@ -33,13 +33,68 @@ from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 
+# Maximum number of files allowed in COPY INTO with FILES parameter
+MAX_FILES_PER_COPY_INTO = 1000
+
 STATEMENT_PARAMS_DATA_SOURCE = "SNOWPARK_PYTHON_DATASOURCE"
+
+
 DATA_SOURCE_DBAPI_SIGNATURE = "DataFrameReader.dbapi"
 DATA_SOURCE_SQL_COMMENT = (
     f"/* Python:snowflake.snowpark.{DATA_SOURCE_DBAPI_SIGNATURE} */"
 )
 
 INDEXED_COLUMN_NAME_PATTERN = re.compile(r"(^\"c)(\d+)(\"$)")
+
+
+def _split_into_chunks(items: list, chunk_size: int) -> list[list]:
+    """
+    Split a list into chunks of specified size.
+
+    Args:
+        items: The list to split.
+        chunk_size: Maximum size of each chunk.
+
+    Returns:
+        A list of chunks, each with at most chunk_size items.
+    """
+    return [items[i : i + chunk_size] for i in range(0, len(items), chunk_size)]
+
+
+def generate_stage_path_groups(paths: list[str]) -> list[tuple[str, list[str]]]:
+    """
+    Group quoted Snowflake stage paths by their stage.
+
+    Args:
+        paths: List of quoted Snowflake stage paths like "'@stage_name/path/to/file.csv'".
+               Each path must be wrapped in single quotes and start with '@'.
+
+    Returns:
+        A list of tuples (stage, paths) where each tuple represents a group.
+        Each group contains at most MAX_FILES_PER_COPY_INTO files.
+
+    Raises:
+        ValueError: If any path is not a properly quoted Snowflake stage path.
+
+    Example:
+        Input: ["'@stage/file1.csv'", "'@stage/file2.csv'"]
+        Output: [("'@stage'", ["'@stage/file1.csv'", "'@stage/file2.csv'"])]
+    """
+    # First, group paths by stage
+    stage_path_dict: dict[str, list[str]] = {}
+    for path in paths:
+        stage = extract_stage_from_path(path)
+        if stage not in stage_path_dict:
+            stage_path_dict[stage] = []
+        stage_path_dict[stage].append(path)
+
+    result: list[tuple[str, list[str]]] = []
+
+    for stage, stage_paths in stage_path_dict.items():
+        for chunk in _split_into_chunks(stage_paths, MAX_FILES_PER_COPY_INTO):
+            result.append((stage, chunk))
+
+    return result
 
 
 def apply_metadata_exclusion_pattern(options: dict) -> None:
@@ -294,3 +349,88 @@ def exponential_backoff(
         return error
 
     return wrapper
+
+
+def _load_file_with_copy_into(
+    reader: "snowpark.DataFrameReader",
+    session: "snowpark.Session",
+    target: str,
+    stage_file_paths: list[str],
+    stage: str,
+    schema: "snowpark.types.StructType",
+    file_format_options: dict[str, Any],
+    file_format: Literal["csv", "json"],
+) -> None:
+    """
+    Load multiple files from the same stage using COPY INTO with FILES parameter.
+
+    Supports CSV and JSON file formats for parallel execution.
+
+    Args:
+        reader: The DataFrameReader with configured options.
+        session: The Snowpark session.
+        target: The name of the temporary table to load the data into.
+        stage_file_paths: List of full stage paths like ['@stage/file1.csv', '@stage/file2.csv'] to load.
+        stage: The common stage name like '@stage_name'.
+        schema: The StructType schema for the table.
+        file_format_options: File format options for the file type.
+        file_format: The file format type, either "csv" or "json".
+
+    TODO: SNOW-3002469 copy_into_table does not enable INCLUDE_METADATA even though add_filename_metadata_to_reader
+        has been called before.
+    """
+    # Extract just the file paths relative to the stage for the FILES parameter
+    relative_files = [
+        extract_relative_file_path(path, stage) for path in stage_file_paths
+    ]
+
+    logger.debug(
+        f"Using COPY INTO for parallel {file_format.upper()} loading: "
+        f"{len(relative_files)} files from {stage}"
+    )
+
+    # Pre-create the target table if it doesn't exist.
+    #
+    # Why this is necessary:
+    # Snowpark's copy_into_table() can only auto-create tables for CSV format (without
+    # transformations). For JSON and other semi-structured formats, Snowpark cannot
+    # determine column names from the data alone and raises:
+    #   SnowparkDataframeReaderException: "Cannot create the target table ... because
+    #   Snowpark cannot determine the column names to use."
+    #
+    # This is a Snowpark Python client-side limitation, not a Snowflake SQL limitation.
+    # By pre-creating the table with our known schema, we bypass this restriction.
+    #
+    # See: snowflake/snowpark/_internal/analyzer/snowflake_plan.py::copy_into_table()
+    try:
+        session.table(target).schema  # Check if table exists
+    except Exception:
+        # Table doesn't exist - create an empty table with the expected schema
+        logger.debug(
+            f"Pre-creating temporary table '{target}' with schema for COPY INTO"
+        )
+        session.create_dataframe(data=[], schema=schema).write.save_as_table(
+            target, table_type="temporary"
+        )
+
+    # Get the appropriate reader method based on format
+    schema_reader = reader.schema(schema)
+    if file_format == "csv":
+        source_df = schema_reader.csv(stage)
+    elif file_format == "json":
+        source_df = schema_reader.json(stage)
+    else:
+        raise ValueError(f"Unsupported file format for COPY INTO: {file_format}")
+
+    # Build copy options - JSON requires MATCH_BY_COLUMN_NAME to load into multi-column tables
+    copy_options: dict[str, Any] = {"force": True}
+    if file_format == "json":
+        copy_options["MATCH_BY_COLUMN_NAME"] = "CASE_INSENSITIVE"
+
+    # Use Snowpark's copy_into_table API with the files parameter for parallel loading
+    source_df.copy_into_table(
+        target,
+        files=relative_files,
+        format_type_options=file_format_options,
+        **copy_options,
+    )

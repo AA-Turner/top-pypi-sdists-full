@@ -3,7 +3,7 @@ from adam.commands.command import Command
 from adam.commands.export.completions_x import completions_x
 from adam.commands.export.export_databases import export_db
 from adam.repl_state import ReplState, RequiredState
-from adam.utils_async_job import AsyncJobs
+from adam.utils_job.job import Job
 from adam.utils_context import Context
 
 class ExportXSelect(Command):

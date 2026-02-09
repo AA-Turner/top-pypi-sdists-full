@@ -1,0 +1,1 @@
+(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[7890],{50755:function(n,t,u){(window.__NEXT_P=window.__NEXT_P||[]).push(["/data-discovery/action-center/infrastructure/[monitorId]",function(){return u(48465)}])}},function(n){n.O(0,[431,3662,7245,9698,408,9789,9949,2888,9774,179],function(){return n(n.s=50755)}),_N_E=n.O()}]);

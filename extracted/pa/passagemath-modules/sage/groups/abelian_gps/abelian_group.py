@@ -47,7 +47,7 @@ invariant factors of the group. You should now use
     (2, 0, 3, 2, 4)
     sage: J.invariants()             # deprecated
     (2, 0, 3, 2, 4)
-    sage: J.elementary_divisors()    # these are the "invariant factors"
+    sage: J.elementary_divisors()    # these are the "invariant factors"                # needs sage.libs.pari
     (2, 2, 12, 0)
     sage: for i in range(J.ngens()):
     ....:     print((i, J.gen(i), J.gen(i).order()))     # or use this form
@@ -458,29 +458,6 @@ def AbelianGroup(n, gens_orders=None, names='f'):
     return M
 
 
-def is_AbelianGroup(x):
-    """
-    Return ``True`` if ``x`` is an Abelian group.
-
-    EXAMPLES::
-
-        sage: from sage.groups.abelian_gps.abelian_group import is_AbelianGroup
-        sage: F = AbelianGroup(5,[5,5,7,8,9], names=list("abcde")); F
-        Multiplicative Abelian group isomorphic to C5 x C5 x C7 x C8 x C9
-        sage: is_AbelianGroup(F)
-        doctest:warning...
-        DeprecationWarning: the function is_AbelianGroup is deprecated;
-        use 'isinstance(..., AbelianGroup_class)' instead
-        See https://github.com/sagemath/sage/issues/37898 for details.
-        True
-        sage: is_AbelianGroup(AbelianGroup(7, [3]*7))
-        True
-    """
-    from sage.misc.superseded import deprecation
-    deprecation(37898, "the function is_AbelianGroup is deprecated; use 'isinstance(..., AbelianGroup_class)' instead")
-    return isinstance(x, AbelianGroup_class)
-
-
 class AbelianGroup_class(UniqueRepresentation, AbelianGroupBase):
     """
     The parent for Abelian groups with chosen generator orders.
@@ -508,16 +485,16 @@ class AbelianGroup_class(UniqueRepresentation, AbelianGroupBase):
         False
         sage: Z2xZ3 == Z6
         False
-        sage: Z2xZ3.is_isomorphic(Z6)
+        sage: Z2xZ3.is_isomorphic(Z6)                                                   # needs sage.libs.pari
         True
 
+        sage: # needs sage.libs.pari
         sage: F = AbelianGroup(5,[5,5,7,8,9], names=list("abcde")); F
         Multiplicative Abelian group isomorphic to C5 x C5 x C7 x C8 x C9
         sage: F = AbelianGroup(5,[2, 4, 12, 24, 120], names=list("abcde")); F
         Multiplicative Abelian group isomorphic to C2 x C4 x C12 x C24 x C120
         sage: F.elementary_divisors()
         (2, 4, 12, 24, 120)
-
         sage: F.category()
         Category of finite enumerated commutative groups
 
@@ -582,7 +559,7 @@ class AbelianGroup_class(UniqueRepresentation, AbelianGroupBase):
 
             sage: G1 = AbelianGroup([2,3,4,5])
             sage: G2 = AbelianGroup([2,3,4,5,1])
-            sage: G1.is_isomorphic(G2)
+            sage: G1.is_isomorphic(G2)                                                  # needs sage.libs.pari
             True
         """
         if not isinstance(right, AbelianGroup_class):
@@ -608,10 +585,7 @@ class AbelianGroup_class(UniqueRepresentation, AbelianGroupBase):
             sage: H < G
             False
         """
-        for l in left.gens():
-            if l not in right:
-                return False
-        return True
+        return all(l in right for l in left.gens())
 
     __le__ = is_subgroup
 
@@ -662,6 +636,7 @@ class AbelianGroup_class(UniqueRepresentation, AbelianGroupBase):
 
         EXAMPLES::
 
+            sage: # needs sage.libs.pari
             sage: AbelianGroup([2, 3]).is_trivial()
             False
             sage: AbelianGroup([1, 1]).is_trivial()
@@ -675,6 +650,7 @@ class AbelianGroup_class(UniqueRepresentation, AbelianGroupBase):
 
         EXAMPLES::
 
+            sage: # needs sage.libs.pari
             sage: T = AbelianGroup([2, 3])
             sage: bool(T)  # indirect doctest
             True
@@ -754,6 +730,7 @@ class AbelianGroup_class(UniqueRepresentation, AbelianGroupBase):
 
         EXAMPLES::
 
+            sage: # needs sage.libs.pari
             sage: G = AbelianGroup(2, [2,3])
             sage: G.elementary_divisors()
             (6,)
@@ -885,7 +862,7 @@ class AbelianGroup_class(UniqueRepresentation, AbelianGroupBase):
         GapPackage("polycyclic", spkg='gap_packages').require()
         return libgap.AbelianPcpGroup(self.gens_orders())
 
-    def _gap_init_(self):
+    def _gap_init_(self) -> str:
         r"""
         Return string that defines corresponding abelian group in GAP.
 
@@ -972,16 +949,16 @@ class AbelianGroup_class(UniqueRepresentation, AbelianGroupBase):
             sage: Z2xZ3 = AbelianGroup([2,3])
             sage: Z2xZ3.gens_orders()
             (2, 3)
-            sage: Z2xZ3.elementary_divisors()
+            sage: Z2xZ3.elementary_divisors()                                           # needs sage.libs.pari
             (6,)
 
             sage: Z6 = AbelianGroup([6])
             sage: Z6.gens_orders()
             (6,)
-            sage: Z6.elementary_divisors()
+            sage: Z6.elementary_divisors()                                              # needs sage.libs.pari
             (6,)
 
-            sage: Z2xZ3.is_isomorphic(Z6)
+            sage: Z2xZ3.is_isomorphic(Z6)                                               # needs sage.libs.pari
             True
             sage: Z2xZ3 is Z6
             False
@@ -1026,6 +1003,7 @@ class AbelianGroup_class(UniqueRepresentation, AbelianGroupBase):
 
         EXAMPLES::
 
+            sage: # needs sage.libs.pari
             sage: J = AbelianGroup([2,3])
             sage: J.invariants()
             (2, 3)
@@ -1043,12 +1021,13 @@ class AbelianGroup_class(UniqueRepresentation, AbelianGroupBase):
         # TODO: deprecate
         return self.gens_orders()
 
-    def is_cyclic(self):
+    def is_cyclic(self) -> bool:
         """
         Return ``True`` if the group is a cyclic group.
 
         EXAMPLES::
 
+            sage: # needs sage.libs.pari
             sage: J = AbelianGroup([2,3])
             sage: J.gens_orders()
             (2, 3)
@@ -1183,7 +1162,7 @@ class AbelianGroup_class(UniqueRepresentation, AbelianGroupBase):
             order = g.order()
             if order is infinity:
                 order = 42  # infinite order; randomly chosen maximum
-            result *= g ** (randint(0, order))
+            result *= g ** randint(0, order-1)
         return result
 
     def _repr_(self) -> str:
@@ -1408,7 +1387,7 @@ class AbelianGroup_class(UniqueRepresentation, AbelianGroupBase):
 
         # The group order is prod(p^e for (p,e) in primary_factors)
         primary_factors = list(chain.from_iterable(
-                        factor(ed) for ed in self.elementary_divisors()))
+            factor(ed) for ed in self.elementary_divisors()))
         sylow_types = defaultdict(list)
         for p, e in primary_factors:
             sylow_types[p].append(e)
@@ -1745,7 +1724,7 @@ class AbelianGroup_subgroup(AbelianGroup_class):
             category = Groups().Commutative().Subobjects()
         AbelianGroup_class.__init__(self, invs, names, category=category)
 
-    def __contains__(self, x):
+    def __contains__(self, x) -> bool:
         """
         Test whether ``x`` is an element of this subgroup.
 
@@ -1797,7 +1776,7 @@ class AbelianGroup_subgroup(AbelianGroup_class):
                 [g.list() for g in self._gens]
             )
             return (vector(ZZ, x.list())
-                in inv_basis.stack(gens_basis).row_module())
+                    in inv_basis.stack(gens_basis).row_module())
         return False
 
     def ambient_group(self):

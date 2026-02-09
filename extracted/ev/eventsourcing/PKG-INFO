@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: eventsourcing
-Version: 9.5.2
+Version: 9.5.3
 Summary: Event sourcing in Python
 License-Expression: BSD-3-Clause
 License-File: AUTHORS

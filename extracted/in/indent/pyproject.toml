@@ -154,3 +154,6 @@ include_all_enums = false
 convert_to_snake_case = true
 async_client = true
 
+[tool.ariadne-codegen.scalars.UUID]
+type = "uuid.UUID"
+

@@ -103,10 +103,7 @@ A parent ``P`` is in a category ``C`` if ``P.category()`` is a subcategory of
 # ****************************************************************************
 
 import inspect
-try:
-    from typing import Self  # type: ignore (Python >= 3.11)
-except ImportError:
-    from typing_extensions import Self  # type: ignore (Python 3.10)
+from typing import Self
 from warnings import warn
 
 from sage.categories.category_cy_helper import (
@@ -128,7 +125,8 @@ from sage.structure.unique_representation import UniqueRepresentation
 _join_cache = WeakValueDictionary()
 
 
-HALL_OF_FAME = ['Coxeter', 'Hopf', 'Weyl', 'Lie', 'Hecke', 'Dedekind']
+HALL_OF_FAME = ['Coxeter', 'Hopf', 'Weyl', 'Lie',
+                'Hecke', 'Dedekind', 'Stone']
 
 
 class Category(UniqueRepresentation, SageObject):
@@ -687,7 +685,7 @@ class Category(UniqueRepresentation, SageObject):
         """
         return issubclass(category.parent_class, self.parent_class)
 
-    def __contains__(self, x):
+    def __contains__(self, x) -> bool:
         """
         Membership testing.
 
@@ -747,7 +745,7 @@ class Category(UniqueRepresentation, SageObject):
             return False
         return any(isinstance(cat, cls) for cat in c)
 
-    def is_abelian(self):
+    def is_abelian(self) -> bool:
         """
         Return whether this category is abelian.
 
@@ -2618,26 +2616,6 @@ class Category(UniqueRepresentation, SageObject):
         Return the category as Lean mathlib input for a typeclass.
         """
         return self.__lean_init__()
-
-
-def is_Category(x):
-    """
-    Return ``True`` if `x` is a category.
-
-    EXAMPLES::
-
-        sage: sage.categories.category.is_Category(CommutativeAdditiveSemigroups())
-        doctest:warning...
-        DeprecationWarning: the function is_Category is deprecated;
-        use 'isinstance(..., Category)' instead
-        See https://github.com/sagemath/sage/issues/37922 for details.
-        True
-        sage: sage.categories.category.is_Category(ZZ)
-        False
-    """
-    from sage.misc.superseded import deprecation
-    deprecation(37922, "the function is_Category is deprecated; use 'isinstance(..., Category)' instead")
-    return isinstance(x, Category)
 
 
 @cached_function

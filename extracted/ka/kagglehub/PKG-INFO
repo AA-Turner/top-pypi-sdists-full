@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: kagglehub
-Version: 0.4.2
+Version: 0.4.3
 Summary: Access Kaggle resources anywhere
 Project-URL: Homepage, https://github.com/Kaggle/kagglehub
 Project-URL: Bug Tracker, https://github.com/Kaggle/kagglehub/issues
@@ -316,6 +316,12 @@ kagglehub.model_download('google/bert/tensorFlow2/answer-equivalence-bem', path=
 
 # Download a model or file, even if previously downloaded to cache.
 kagglehub.model_download('google/bert/tensorFlow2/answer-equivalence-bem', force_download=True)
+
+# Download to a custom local directory.
+kagglehub.model_download('google/bert/tensorFlow2/answer-equivalence-bem', output_dir='./models')
+
+# Overwrite an existing output directory.
+kagglehub.model_download('google/bert/tensorFlow2/answer-equivalence-bem', output_dir='./models', force_download=True)
 ```
 
 ### Upload Model
@@ -568,6 +574,15 @@ kagglehub.dataset_download('bricevergnou/spotify-recommendation', path='data.csv
 
 # Download a dataset or file, even if previously downloaded to cache.
 kagglehub.dataset_download('bricevergnou/spotify-recommendation', force_download=True)
+
+# Download a dataset to a custom output directory.
+kagglehub.dataset_download('bricevergnou/spotify-recommendation', output_dir='./data')
+
+# Download a single file to a custom output directory.
+kagglehub.dataset_download('bricevergnou/spotify-recommendation', path='data.csv', output_dir='./data')
+
+# Overwrite an existing output directory.
+kagglehub.dataset_download('bricevergnou/spotify-recommendation', output_dir='./data', force_download=True)
 ```
 
 ### Upload Dataset
@@ -612,6 +627,12 @@ kagglehub.competition_download('digit-recognizer', path='train.csv')
 
 # Download a competition or file, even if previously downloaded to cache. 
 kagglehub.competition_download('digit-recognizer', force_download=True)
+
+# Download competition data to a custom output directory.
+kagglehub.competition_download('digit-recognizer', output_dir='./competition')
+
+# Overwrite an existing output directory.
+kagglehub.competition_download('digit-recognizer', output_dir='./competition', force_download=True)
 ```
 
 ### Download Notebook Outputs
@@ -629,6 +650,12 @@ kagglehub.notebook_output_download('alexisbcook/titanic-tutorial/versions/1')
 
 # Download a single file.
 kagglehub.notebok_output_download('alexisbcook/titanic-tutorial', path='submission.csv')
+
+# Download notebook output to a custom output directory.
+kagglehub.notebook_output_download('alexisbcook/titanic-tutorial', output_dir='./output')
+
+# Overwrite an existing output directory.
+kagglehub.notebook_output_download('alexisbcook/titanic-tutorial', output_dir='./output', force_download=True)
 ```
 
 ### Install Utility Script

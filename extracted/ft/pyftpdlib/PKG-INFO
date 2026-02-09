@@ -1,65 +1,52 @@
 Metadata-Version: 2.4
 Name: pyftpdlib
-Version: 2.1.0
+Version: 2.2.0
 Summary: Very fast asynchronous FTP server library
-Home-page: https://github.com/giampaolo/pyftpdlib/
-Author: Giampaolo Rodola'
-Author-email: g.rodola@gmail.com
-License: MIT
-Keywords: ftp,ftps,server,ftpd,daemon,python,ssl,sendfile,asynchronous,nonblocking,eventdriven,rfc959,rfc1123,rfc2228,rfc2428,rfc2640,rfc3659
-Platform: Platform Independent
+Author-email: Giampaolo Rodola' <g.rodola@gmail.com>
+Project-URL: Homepage, https://github.com/giampaolo/pyftpdlib/
+Keywords: asynchronous,daemon,eventdriven,ftp,ftpd,ftps,nonblocking,python,rfc1123,rfc2228,rfc2428,rfc2640,rfc3659,rfc959,sendfile,server,ssl
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python
 Classifier: Topic :: Internet :: File Transfer Protocol (FTP)
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Filesystems
-Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
-Requires-Python: >2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*
+Requires-Python: >=3.6
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: pyasyncore; python_version >= "3.12"
 Requires-Dist: pyasynchat; python_version >= "3.12"
+Requires-Dist: pyasyncore; python_version >= "3.12"
 Provides-Extra: dev
 Requires-Dist: black; extra == "dev"
+Requires-Dist: build; extra == "dev"
 Requires-Dist: check-manifest; extra == "dev"
 Requires-Dist: coverage; extra == "dev"
+Requires-Dist: pdbpp; os_name == "nt" and extra == "dev"
 Requires-Dist: pylint; extra == "dev"
+Requires-Dist: pyreadline3; os_name == "nt" and extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: rstcheck; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: toml-sort; extra == "dev"
 Requires-Dist: twine; extra == "dev"
+Provides-Extra: ssl
+Requires-Dist: PyOpenSSL; extra == "ssl"
 Provides-Extra: test
 Requires-Dist: psutil; extra == "test"
+Requires-Dist: pyasynchat; python_version >= "3.12" and extra == "test"
+Requires-Dist: pyasyncore; python_version >= "3.12" and extra == "test"
 Requires-Dist: pyopenssl; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-instafail; extra == "test"
 Requires-Dist: pytest-xdist; extra == "test"
+Requires-Dist: pywin32; os_name == "nt" and extra == "test"
 Requires-Dist: setuptools; extra == "test"
-Requires-Dist: pyasyncore; extra == "test"
-Requires-Dist: pyasynchat; extra == "test"
-Provides-Extra: ssl
-Requires-Dist: PyOpenSSL; extra == "ssl"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: platform
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 |  |downloads| |stars| |forks| |contributors|
 |  |version| |packages| |license|
@@ -122,8 +109,8 @@ About
 
 Python FTP server library provides a high-level portable interface to easily
 write very efficient, scalable and asynchronous FTP servers with Python. It is
-the most complete `RFC-959`_ FTP server implementation available for `Python`_
-programming language.
+the most complete `RFC-959`_ FTP server implementation available for the
+`Python`_ programming language.
 
 Features
 ========
@@ -207,20 +194,22 @@ For more benchmarks see `here <https://pyftpdlib.readthedocs.io/en/latest/benchm
 Command line usage
 ==================
 
-Start a FTP server, with an anonymous user with write permissions, on port 2121:
+Start an anonymous FTP server on port 2121:
+
+.. code-block:: sh
+
+    $ python3 -m pyftpdlib
+    [I 2024-06-23 13:49:35] >>> starting FTP server on 0.0.0.0:2121, pid=763634 <<<
+
+Same but with write permissions (useful to setup a quick and dirty file sharing server):
 
 .. code-block:: sh
 
     $ python3 -m pyftpdlib --write
-    RuntimeWarning: write permissions assigned to anonymous user.
-      self._check_permissions(username, perm)
-    [I 2024-06-23 13:49:35] concurrency model: async
-    [I 2024-06-23 13:49:35] masquerade (NAT) address: None
-    [I 2024-06-23 13:49:35] passive ports: None
-    [I 2024-06-23 13:49:35] >>> starting FTP server on 0.0.0.0:2121, pid=763634 <<<
+    [I 2024-06-23 13:49:35] >>> starting FTP server on 0.0.0.0:2121, pid=763641 <<<
 
 Also see `CLI doc <https://pyftpdlib.readthedocs.io/en/latest/cli.html>`__
-for more examples.
+for more command line examples.
 
 API usage
 =========

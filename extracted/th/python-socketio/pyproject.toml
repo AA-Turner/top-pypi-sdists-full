@@ -1,6 +1,6 @@
 [project]
 name = "python-socketio"
-version = "5.16.0"
+version = "5.16.1"
 license = {text = "MIT"}
 authors = [
     { name = "Miguel Grinberg", email = "miguel.grinberg@gmail.com" },
@@ -39,6 +39,7 @@ dev = [
 ]
 docs = [
     "sphinx",
+    "furo",
 ]
 
 [tool.setuptools]

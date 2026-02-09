@@ -41,8 +41,18 @@ class ModelColabCacheResolver(Resolver[ModelHandle]):
         return True
 
     def _resolve(
-        self, h: ModelHandle, path: str | None = None, *, force_download: bool | None = False
+        self,
+        h: ModelHandle,
+        path: str | None = None,
+        *,
+        force_download: bool | None = False,
+        output_dir: str | None = None,
     ) -> tuple[str, int | None]:
+        if output_dir:
+            logger.info(
+                "Ignoring `output_dir` argument when running inside the Colab notebook environment.",
+                extra={**EXTRA_CONSOLE_BLOCK},
+            )
         if force_download:
             logger.info(
                 "Ignoring `force_download` argument when running inside the Colab notebook environment.",
@@ -117,8 +127,18 @@ class DatasetColabCacheResolver(Resolver[DatasetHandle]):
         return True
 
     def _resolve(
-        self, h: DatasetHandle, path: str | None = None, *, force_download: bool | None = False
+        self,
+        h: DatasetHandle,
+        path: str | None = None,
+        *,
+        force_download: bool | None = False,
+        output_dir: str | None = None,
     ) -> tuple[str, int | None]:
+        if output_dir:
+            logger.info(
+                "Ignoring `output_dir` argument when running inside the Colab notebook environment.",
+                extra={**EXTRA_CONSOLE_BLOCK},
+            )
         if force_download:
             logger.info(
                 "Ignoring `force_download` argument when running inside the Colab notebook environment.",

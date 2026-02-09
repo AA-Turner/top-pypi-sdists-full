@@ -1,14 +1,19 @@
 when:
   event: [ push, pull_request ]
-  path: [ "**/*.py" ]
+  path: [ "**/*.py", "uv.lock", ".woodpecker/lint.yml", "**/*.rs" ]
 
 steps:
   setup_venv:
-    image: codeberg.org/poezio/woodpecker-slixmpp
-    pull: true
+    image: codeberg.org/poezio/slixmpp:ci
     commands:
     - uv sync --frozen --only-group dev
   mypy:
-    image: codeberg.org/poezio/woodpecker-slixmpp
+    image: codeberg.org/poezio/slixmpp:ci
     commands:
     - mypy slixmpp
+    depends_on: setup_venv
+  typos:
+    image: codeberg.org/poezio/slixmpp:ci
+    commands:
+    - typos
+    depends_on: setup_venv

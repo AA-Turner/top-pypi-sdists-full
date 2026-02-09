@@ -887,7 +887,7 @@ cdef class dancing_linksWrapper:
         Return the SAT solver solving an equivalent problem.
 
         Note that row index `i` in the dancing links solver corresponds to
-        the boolean variable index `ì+1` for the SAT solver to avoid
+        the boolean variable index `i+1` for the SAT solver to avoid
         the variable index `0`.
 
         See also :mod:`sage.sat.solvers.satsolver`.
@@ -1018,19 +1018,16 @@ cdef class dancing_linksWrapper:
         the `i`-th row is in the solution::
 
             sage: p.show()                                                              # needs sage.numerical.mip
-            Maximization:
-            <BLANKLINE>
-            <BLANKLINE>
             Constraints:...
               one 1 in 0-th column: 1.0 <= x_0 + x_1 <= 1.0
               one 1 in 1-th column: 1.0 <= x_0 + x_2 <= 1.0
               one 1 in 2-th column: 1.0 <= x_0 + x_1 <= 1.0
               one 1 in 3-th column: 1.0 <= x_3 <= 1.0
             Variables:
-              x_0 is a boolean variable (min=0.0, max=1.0)
-              x_1 is a boolean variable (min=0.0, max=1.0)
-              x_2 is a boolean variable (min=0.0, max=1.0)
-              x_3 is a boolean variable (min=0.0, max=1.0)
+              x_0 is a... variable (min=0.0, max=1.0)
+              x_1 is a... variable (min=0.0, max=1.0)
+              x_2 is a... variable (min=0.0, max=1.0)
+              x_3 is a... variable (min=0.0, max=1.0)
 
         Using some optional MILP solvers::
 

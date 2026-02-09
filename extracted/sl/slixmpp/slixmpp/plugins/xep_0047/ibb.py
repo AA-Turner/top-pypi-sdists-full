@@ -35,7 +35,7 @@ class XEP_0047(BasePlugin):
 
     Plugin Parameters:
 
-    - ``block_size`` (default: ``4096``): default block size to negociate
+    - ``block_size`` (default: ``4096``): default block size to negotiate
     - ``max_block_size`` (default: ``8192``): max block size to accept
     - ``auto_accept`` (default: ``False``): if incoming streams should be
         accepted automatically.

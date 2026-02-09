@@ -12,6 +12,7 @@ from .schema import (
     AvailableCommandsUpdate,
     CancelNotification,
     ClientCapabilities,
+    ConfigOptionUpdate,
     CreateTerminalRequest,
     CreateTerminalResponse,
     CurrentModeUpdate,
@@ -58,13 +59,13 @@ from .schema import (
     ToolCallProgress,
     ToolCallStart,
     ToolCallUpdate,
+    UsageUpdate,
     UserMessageChunk,
     WaitForTerminalExitRequest,
     WaitForTerminalExitResponse,
     WriteTextFileRequest,
     WriteTextFileResponse,
 )
-from .terminal import TerminalHandle
 from .utils import param_model
 
 __all__ = ["Agent", "Client"]
@@ -88,7 +89,9 @@ class Client(Protocol):
         | AgentPlanUpdate
         | AvailableCommandsUpdate
         | CurrentModeUpdate
-        | SessionInfoUpdate,
+        | ConfigOptionUpdate
+        | SessionInfoUpdate
+        | UsageUpdate,
         **kwargs: Any,
     ) -> None: ...
 
@@ -112,7 +115,7 @@ class Client(Protocol):
         env: list[EnvVariable] | None = None,
         output_byte_limit: int | None = None,
         **kwargs: Any,
-    ) -> CreateTerminalResponse | TerminalHandle: ...
+    ) -> CreateTerminalResponse: ...
 
     @param_model(TerminalOutputRequest)
     async def terminal_output(self, session_id: str, terminal_id: str, **kwargs: Any) -> TerminalOutputResponse: ...
@@ -151,12 +154,16 @@ class Agent(Protocol):
 
     @param_model(NewSessionRequest)
     async def new_session(
-        self, cwd: str, mcp_servers: list[HttpMcpServer | SseMcpServer | McpServerStdio], **kwargs: Any
+        self, cwd: str, mcp_servers: list[HttpMcpServer | SseMcpServer | McpServerStdio] | None = None, **kwargs: Any
     ) -> NewSessionResponse: ...
 
     @param_model(LoadSessionRequest)
     async def load_session(
-        self, cwd: str, mcp_servers: list[HttpMcpServer | SseMcpServer | McpServerStdio], session_id: str, **kwargs: Any
+        self,
+        cwd: str,
+        session_id: str,
+        mcp_servers: list[HttpMcpServer | SseMcpServer | McpServerStdio] | None = None,
+        **kwargs: Any,
     ) -> LoadSessionResponse | None: ...
 
     @param_model(ListSessionsRequest)

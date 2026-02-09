@@ -65,6 +65,27 @@ Analyze the policy complexity and recommend conversation turns."""
                 reasoning="Default - unable to analyze complexity",
             )
 
+    @staticmethod
+    def _normalize_counts(categories: list[Category], target: int) -> list[Category]:
+        """Adjust category counts so they sum exactly to *target*."""
+        if not categories:
+            return categories
+        total = sum(c.count for c in categories)
+        if total == target:
+            return categories
+        # Scale proportionally, then distribute remainder by largest-remainder method
+        scaled = [c.count * target / total for c in categories]
+        floored = [int(s) for s in scaled]
+        remainders = [(s - f, i) for i, (s, f) in enumerate(zip(scaled, floored))]
+        remainders.sort(reverse=True)
+        deficit = target - sum(floored)
+        for _, i in remainders[:deficit]:
+            floored[i] += 1
+        return [
+            Category(name=c.name, description=c.description, count=floored[i])
+            for i, c in enumerate(categories)
+        ]
+
     async def plan(self, policy_text: str, target_traces: int, analyze_turns: bool = True) -> Plan:
         """
         Create a generation plan for the policy.
@@ -107,6 +128,9 @@ Analyze the policy and create a plan with categories for generating training dat
                 )
                 for c in parsed.categories
             ]
+
+            # Normalize counts to match target_traces exactly
+            categories = self._normalize_counts(categories, target_traces)
 
             return Plan(
                 categories=categories,

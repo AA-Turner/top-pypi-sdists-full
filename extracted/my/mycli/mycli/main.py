@@ -20,6 +20,7 @@ from datetime import datetime
 from importlib import resources
 import itertools
 from random import choice
+from textwrap import dedent
 from time import sleep, time
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -137,6 +138,10 @@ class MyCli:
         # Load config.
         config_files: list[str | IO[str]] = self.system_config_files + [myclirc] + [self.pwd_config_file]
         c = self.config = read_config_files(config_files)
+        # this parallel config exists to
+        #  * compare with my.cnf
+        #  * support the --checkup feature
+        self.config_without_package_defaults = read_config_files(config_files, ignore_package_defaults=True)
         self.multi_line = c["main"].as_bool("multi_line")
         self.key_bindings = c["main"]["key_bindings"]
         special.set_timing_enabled(c["main"].as_bool("timing"))
@@ -163,6 +168,7 @@ class MyCli:
         self.post_redirect_command = c['main'].get('post_redirect_command')
         self.null_string = c['main'].get('null_string')
         self.numeric_alignment = c['main'].get('numeric_alignment', 'right')
+        self.binary_display = c['main'].get('binary_display')
 
         # set ssl_mode if a valid option is provided in a config file, otherwise None
         ssl_mode = c["main"].get("ssl_mode", None)
@@ -219,6 +225,10 @@ class MyCli:
                 print("Error: Unable to read login path file.")
 
         self.my_cnf = read_config_files(self.cnf_files, list_values=False)
+        if not self.my_cnf.get('client'):
+            self.my_cnf['client'] = {}
+        if not self.my_cnf.get('mysqld'):
+            self.my_cnf['mysqld'] = {}
         prompt_cnf = self.read_my_cnf(self.my_cnf, ["prompt"])["prompt"]
         self.prompt_format = prompt or prompt_cnf or c["main"]["prompt"] or self.default_prompt
         self.multiline_continuation_char = c["main"]["prompt_continuation"]
@@ -510,26 +520,75 @@ class MyCli:
         host = host or cnf["host"]
         port = port or cnf["port"]
         ssl_config: dict[str, Any] = ssl or {}
+        user_connection_config = self.config_without_package_defaults.get('connection', {})
 
         int_port = port and int(port)
         if not int_port:
             int_port = 3306
             if not host or host == "localhost":
-                socket = socket or cnf["socket"] or cnf["default_socket"] or guess_socket_location()
+                socket = (
+                    socket
+                    or user_connection_config.get("default_socket")
+                    or cnf["socket"]
+                    or cnf["default_socket"]
+                    or guess_socket_location()
+                )
 
         passwd = passwd if isinstance(passwd, str) else cnf["password"]
-        charset = charset or self.config["main"].get("default_character_set") or cnf["default-character-set"] or "utf8mb4"
+
+        # default_character_set doesn't check in self.config_without_package_defaults, because the
+        # option already existed before the my.cnf deprecation.  For the same reason,
+        # default_character_set can be in [connection] or [main].
+        if not charset:
+            if 'default_character_set' in self.config['connection']:
+                charset = self.config['connection']['default_character_set']
+            elif 'default_character_set' in self.config['main']:
+                charset = self.config['main']['default_character_set']
+            elif 'default_character_set' in cnf:
+                charset = cnf['default_character_set']
+            elif 'default-character-set' in cnf:
+                charset = cnf['default-character-set']
+        if not charset:
+            charset = 'utf8mb4'
 
         # Favor whichever local_infile option is set.
         use_local_infile = False
-        for local_infile_option in (local_infile, cnf["local-infile"], cnf["loose-local-infile"], False):
+        for local_infile_option in (
+            local_infile,
+            user_connection_config.get('default_local_infile'),
+            cnf['local_infile'],
+            cnf['local-infile'],
+            cnf['loose_local_infile'],
+            cnf['loose-local-infile'],
+            False,
+        ):
             try:
                 use_local_infile = str_to_bool(local_infile_option or '')
                 break
             except (TypeError, ValueError):
                 pass
 
+        # temporary my.cnf override mappings
+        if 'default_ssl_ca' in user_connection_config:
+            cnf['ssl-ca'] = user_connection_config.get('default_ssl_ca') or None
+        if 'default_ssl_cert' in user_connection_config:
+            cnf['ssl-cert'] = user_connection_config.get('default_ssl_cert') or None
+        if 'default_ssl_key' in user_connection_config:
+            cnf['ssl-key'] = user_connection_config.get('default_ssl_key') or None
+        if 'default_ssl_cipher' in user_connection_config:
+            cnf['ssl-cipher'] = user_connection_config.get('default_ssl_cipher') or None
+        if 'default_ssl_verify_server_cert' in user_connection_config:
+            cnf['ssl-verify-server-cert'] = user_connection_config.get('default_ssl_verify_server_cert') or None
+
+        # todo: rewrite the merge method using self.config['connection'] instead of cnf, after removing my.cnf support
         ssl_config_or_none: dict[str, Any] | None = self.merge_ssl_with_cnf(ssl_config, cnf)
+
+        # default_ssl_ca_path is not represented in my.cnf
+        if 'default_ssl_ca_path' in self.config['connection'] and (not ssl_config_or_none or not ssl_config_or_none.get('capath')):
+            if ssl_config_or_none is None:
+                ssl_config_or_none = {}
+            ssl_config_or_none['capath'] = self.config['connection']['default_ssl_ca_path'] or False
+
         # prune lone check_hostname=False
         if not any(v for v in ssl_config.values()):
             ssl_config_or_none = None
@@ -542,12 +601,12 @@ class MyCli:
         # 5. cnf (.my.cnf / etc)
         # 6. keyring
 
-        keychain_user = f'{user}@{host}'
+        keychain_identifier = f'{user}@{host}:{int_port}:{socket}'
         keychain_domain = 'mycli.net'
         keychain_retrieved = False
 
         if passwd is None and use_keyring and not reset_keyring:
-            passwd = keyring.get_password(keychain_domain, keychain_user)
+            passwd = keyring.get_password(keychain_domain, keychain_identifier)
             keychain_retrieved = True
 
         # if no password was found from all of the above sources, ask for a password
@@ -556,10 +615,12 @@ class MyCli:
 
         if reset_keyring or (use_keyring and not keychain_retrieved):
             try:
-                keyring.set_password(keychain_domain, keychain_user, passwd)
-                click.secho('Password saved to the system keychain', err=True)
+                saved_pw = keyring.get_password(keychain_domain, keychain_identifier)
+                if passwd != saved_pw or reset_keyring:
+                    keyring.set_password(keychain_domain, keychain_identifier, passwd)
+                    click.secho('Password saved to the system keyring', err=True)
             except Exception as e:
-                click.secho(f'Password not saved to the system keychain: {e}', err=True, fg='red')
+                click.secho(f'Password not saved to the system keyring: {e}', err=True, fg='red')
 
         # Connect to the database.
         def _connect() -> None:
@@ -828,6 +889,7 @@ class MyCli:
                     special.is_redirected(),
                     self.null_string,
                     self.numeric_alignment,
+                    self.binary_display,
                     max_width,
                 )
 
@@ -866,6 +928,7 @@ class MyCli:
                             special.is_redirected(),
                             self.null_string,
                             self.numeric_alignment,
+                            self.binary_display,
                             max_width,
                         )
                         self.echo("")
@@ -1344,6 +1407,7 @@ class MyCli:
                 special.is_redirected(),
                 self.null_string,
                 self.numeric_alignment,
+                self.binary_display,
             )
             for line in output:
                 self.log_output(line)
@@ -1364,6 +1428,7 @@ class MyCli:
                         special.is_redirected(),
                         self.null_string,
                         self.numeric_alignment,
+                        self.binary_display,
                     )
                     for line in output:
                         click.echo(line, nl=new_line)
@@ -1380,6 +1445,7 @@ class MyCli:
         is_redirected: bool = False,
         null_string: str | None = None,
         numeric_alignment: str = 'right',
+        binary_display: str | None = None,
         max_width: int | None = None,
     ) -> itertools.chain[str]:
         if is_redirected:
@@ -1401,7 +1467,7 @@ class MyCli:
         if null_string is not None and default_kwargs.get('missing_value') == DEFAULT_MISSING_VALUE:
             output_kwargs['missing_value'] = null_string
 
-        if use_formatter.format_name not in sql_format.supported_formats:
+        if use_formatter.format_name not in sql_format.supported_formats and binary_display != 'utf8':
             # will run before preprocessors defined as part of the format in cli_helpers
             output_kwargs["preprocessors"] = (preprocessors.convert_to_undecoded_string,)
 
@@ -1564,6 +1630,7 @@ class MyCli:
     default=None,
     help='Store and retrieve passwords from the system keyring: true/false/reset.',
 )
+@click.option("--checkup", is_flag=True, help="Run a checkup on your config file.")
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -1617,6 +1684,7 @@ def cli(
     batch_format: str | None,
     throttle: float,
     use_keyring_cli_opt: str | None,
+    checkup: bool,
 ) -> None:
     """A MySQL terminal client with auto-completion and syntax highlighting.
 
@@ -1683,6 +1751,10 @@ def cli(
         myclirc=myclirc,
     )
 
+    if checkup:
+        do_config_checkup(mycli)
+        sys.exit(0)
+
     if csv and batch_format not in [None, 'csv']:
         click.secho("Conflicting --csv and --format arguments.", err=True, fg="red")
         sys.exit(1)
@@ -1703,7 +1775,8 @@ def cli(
     if ssl_enable is not None:
         click.secho(
             "Warning: The --ssl/--no-ssl CLI options are deprecated and will be removed in a future release. "
-            "Please use the ssl_mode config or --ssl-mode CLI options instead.",
+            "Please use the ssl_mode config or --ssl-mode CLI options instead. "
+            "See issue https://github.com/dbcli/mycli/issues/1507",
             err=True,
             fg="yellow",
         )
@@ -1897,6 +1970,82 @@ def cli(
         use_keyring = str_to_bool(use_keyring_cli_opt)
         reset_keyring = False
 
+    # todo: removeme after a period of transition
+    for tup in [
+        ('client', 'prompt', 'prompt', 'main', 'prompt'),
+        ('client', 'pager', 'pager', 'main', 'pager'),
+        ('client', 'skip-pager', 'skip-pager', 'main', 'enable_pager'),
+        # this is a white lie, because default_character_set can actually be read from the package config
+        ('client', 'default-character-set', 'default-character-set', 'connection', 'default_character_set'),
+        # local-infile can be read from both sections
+        ('mysqld', 'local-infile', 'local-infile', 'connection', 'default_local_infile'),
+        ('client', 'local-infile', 'local-infile', 'connection', 'default_local_infile'),
+        ('mysqld', 'loose-local-infile', 'loose-local-infile', 'connection', 'default_local_infile'),
+        ('client', 'loose-local-infile', 'loose-local-infile', 'connection', 'default_local_infile'),
+        # todo: in the future we should add default_port, etc, but only in .myclirc
+        # they are currently ignored in my.cnf
+        ('mysqld', 'default_socket', 'socket', 'connection', 'default_socket'),
+        ('client', 'ssl-ca', 'ssl-ca', 'connection', 'default_ssl_ca'),
+        ('client', 'ssl-cert', 'ssl-cert', 'connection', 'default_ssl_cert'),
+        ('client', 'ssl-key', 'ssl-key', 'connection', 'default_ssl_key'),
+        ('client', 'ssl-cipher', 'ssl-cipher', 'connection', 'default_ssl_cipher'),
+        ('client', 'ssl-verify-server-cert', 'ssl-verify-server-cert', 'connection', 'default_ssl_verify_server_cert'),
+    ]:
+        (
+            mycnf_section_name,
+            mycnf_item_name,
+            printable_mycnf_item_name,
+            myclirc_section_name,
+            myclirc_item_name,
+        ) = tup
+        if str_to_bool(mycli.config['main'].get('my_cnf_transition_done', 'False')):
+            break
+        if (
+            mycli.my_cnf[mycnf_section_name].get(mycnf_item_name) is None
+            and mycli.my_cnf[mycnf_section_name].get(mycnf_item_name.replace('-', '_')) is None
+        ):
+            continue
+        user_section = mycli.config_without_package_defaults.get(myclirc_section_name, {})
+        if user_section.get(myclirc_item_name) is None:
+            cnf_value = mycli.my_cnf[mycnf_section_name].get(mycnf_item_name)
+            if cnf_value is None:
+                cnf_value = mycli.my_cnf[mycnf_section_name].get(mycnf_item_name.replace('-', '_'))
+            click.secho(
+                dedent(
+                    f"""
+                    Reading configuration from my.cnf files is deprecated.
+                    See https://github.com/dbcli/mycli/issues/1490 .
+                    The cause of this message is the following in a my.cnf file without a corresponding
+                    ~/.myclirc entry:
+
+                        [{mycnf_section_name}]
+                        {printable_mycnf_item_name} = {cnf_value}
+
+                    To suppress this message, remove the my.cnf item add or the following to ~/.myclirc:
+
+                        [{myclirc_section_name}]
+                        {myclirc_item_name} = <value>
+
+                    The ~/.myclirc setting will take precedence.  In the future, the my.cnf will be ignored.
+
+                    Values are documented at https://github.com/dbcli/mycli/blob/main/mycli/myclirc .  An
+                    empty <value> is generally accepted.
+
+                    To ignore all of this, set
+
+                        [main]
+                        my_cnf_transition_done = True
+
+                    in ~/.myclirc.
+
+                    --------
+
+                    """
+                ),
+                err=True,
+                fg='yellow',
+            )
+
     mycli.connect(
         database=database,
         user=user,
@@ -2079,6 +2228,34 @@ def read_ssh_config(ssh_config_path: str):
         sys.exit(1)
     else:
         return ssh_config
+
+
+def do_config_checkup(mycli: MyCli) -> None:
+    did_output = False
+
+    if not list(mycli.config.keys()):
+        print('\nThe local ~/,myclirc is missing or empty.\n')
+        did_output = True
+    else:
+        for section_name in mycli.config.keys():
+            if section_name not in mycli.config_without_package_defaults:
+                if not did_output:
+                    print('\nMissing in user ~/.myclirc:\n')
+                print(f'The entire section:\n\n    [{section_name}]\n')
+                did_output = True
+                continue
+            for item_name in mycli.config[section_name]:
+                if item_name not in mycli.config_without_package_defaults[section_name]:
+                    if not did_output:
+                        print('\nMissing in user ~/.myclirc:\n')
+                    print(f'The item:\n\n    [{section_name}]\n    {item_name} =\n')
+                    did_output = True
+    if did_output:
+        print(
+            'For more info on new features, see the commentary and defaults at:\n\n    * https://github.com/dbcli/mycli/blob/main/mycli/myclirc\n'
+        )
+    else:
+        print('User configuration all up to date!')
 
 
 if __name__ == "__main__":

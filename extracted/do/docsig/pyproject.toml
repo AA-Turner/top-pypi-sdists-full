@@ -11,7 +11,7 @@ line-length = 79
 allow_dirty = true
 commit = true
 commit_args = "-sS"
-current_version = "0.77.0"
+current_version = "0.78.0"
 message = "bump: version {current_version} → {new_version}"
 sign_tags = true
 tag = true
@@ -121,7 +121,7 @@ maintainers = [
 name = "docsig"
 readme = "README.rst"
 repository = "https://github.com/jshwi/docsig"
-version = "0.77.0"
+version = "0.78.0"
 
 [tool.poetry.dependencies]
 Sphinx = ">=7,<9"
@@ -155,6 +155,7 @@ pyyaml = "^6.0.1"
 roman-numerals = "4.1.0"
 sphinx-copybutton = "^0.5.2"
 sphinx-markdown-builder = ">=0.5.5,<0.7.0"
+sphinx-sitemap = "^2.9.0"
 templatest = ">=0.10.1,<0.13.0"
 
 [tool.poetry.group.flake8.dependencies]

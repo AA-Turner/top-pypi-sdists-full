@@ -9,7 +9,7 @@ from ._shared_client import get_shared_client
 
 
 def PubMed_get_article(
-    pmid: str,
+    pmid: str | int,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -20,8 +20,8 @@ def PubMed_get_article(
 
     Parameters
     ----------
-    pmid : str
-        PubMed ID (PMID) as string or integer (e.g., '12345678', '33250470'). Find PM...
+    pmid : str | int
+        PubMed ID (PMID) as string or integer (e.g., '12345678' or 12345678, '3325047...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False

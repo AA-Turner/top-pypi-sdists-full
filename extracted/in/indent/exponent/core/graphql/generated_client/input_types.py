@@ -2,6 +2,7 @@
 # Source: ../../schema.graphql
 
 from typing import Any, Optional
+from uuid import UUID
 
 from pydantic import Field
 
@@ -113,7 +114,7 @@ class RepositoryInput(BaseModel):
 
 
 class RepositoryResourceConfigInput(BaseModel):
-    repository_uuid: str = Field(alias="repositoryUuid")
+    repository_uuid: UUID = Field(alias="repositoryUuid")
     is_primary: bool = Field(alias="isPrimary", default=False)
 
 

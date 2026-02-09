@@ -1080,7 +1080,7 @@ The email of my assistant is jane@example.com"""
                     "uv",
                     "run",
                     "--active",
-                    "--group",
+                    "--extra",
                     "memory",
                     "uvicorn",
                     "cuga.backend.memory.agentic_memory.main:app",

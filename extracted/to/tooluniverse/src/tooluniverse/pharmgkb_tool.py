@@ -11,6 +11,7 @@ import requests
 from typing import Dict, Any, List
 from .base_tool import BaseTool
 from .tool_registry import register_tool
+from .http_utils import request_with_retry
 
 # Base URL for PharmGKB/ClinPGx REST API
 PHARMGKB_BASE_URL = "https://api.clinpgx.org/v1"
@@ -34,6 +35,7 @@ class PharmGKBTool(BaseTool):
         super().__init__(tool_config)
         self.timeout = tool_config.get("timeout", 30)
         self.operation = tool_config.get("fields", {}).get("operation", "search_drugs")
+        self.session = requests.Session()
 
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the PharmGKB API call."""
@@ -54,10 +56,52 @@ class PharmGKBTool(BaseTool):
         elif operation == "dosing_guidelines":
             return self._get_dosing_guidelines(arguments)
         else:
-            return {
-                "status": "error",
-                "data": {"error": f"Unknown operation: {operation}"},
-            }
+            return self._error(f"Unknown operation: {operation}")
+
+    def _error(self, message: str) -> Dict[str, Any]:
+        return {"status": "error", "error": message, "data": {"error": message}}
+
+    def _request_json(
+        self, url: str, params: Dict[str, Any]
+    ) -> tuple[int, Dict[str, Any], str]:
+        try:
+            response = request_with_retry(
+                self.session,
+                "GET",
+                url,
+                params=params,
+                timeout=self.timeout,
+                max_attempts=4,
+                backoff_seconds=0.75,
+            )
+        except requests.RequestException as e:
+            return 0, {}, f"PharmGKB API request failed: {str(e)}"
+
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = {}
+
+        if response.status_code >= 400:
+            detail = (
+                payload.get("error")
+                if isinstance(payload, dict)
+                else response.text[:200]
+            )
+            return (
+                response.status_code,
+                payload,
+                f"PharmGKB API error {response.status_code}: {detail}",
+            )
+
+        if not payload:
+            return (
+                response.status_code,
+                payload,
+                "PharmGKB API returned non-JSON or empty response",
+            )
+
+        return response.status_code, payload, ""
 
     def _search_entity(
         self, entity_type: str, arguments: Dict[str, Any]
@@ -65,41 +109,32 @@ class PharmGKBTool(BaseTool):
         """Search for drugs, genes, or variants."""
         query = arguments.get("query", "")
         if not query:
-            return {"status": "error", "data": {"error": "query parameter is required"}}
+            return self._error("query parameter is required")
 
         params = {"name": query, "view": "base"}
 
-        try:
-            # PharmGKB uses specific endpoints for filtered searches
-            params = {"view": "base"}
-            if entity_type == "Gene":
-                params["symbol"] = query
-            else:
-                params["name"] = query
+        # PharmGKB uses specific endpoints for filtered searches
+        params = {"view": "base"}
+        if entity_type == "Gene":
+            params["symbol"] = query
+        else:
+            params["name"] = query
 
-            response = requests.get(
-                f"{PHARMGKB_BASE_URL}/data/{entity_type.lower()}",
-                params=params,
-                timeout=self.timeout,
+        status_code, api_response, error = self._request_json(
+            f"{PHARMGKB_BASE_URL}/data/{entity_type.lower()}",
+            params,
+        )
+        if status_code == 404:
+            status_code, api_response, error = self._request_json(
+                f"{PHARMGKB_BASE_URL}/data/search",
+                {"query": query, "view": "base"},
             )
-            if response.status_code == 404:
-                # Try generic search if name search fails
-                response = requests.get(
-                    f"{PHARMGKB_BASE_URL}/data/search",
-                    params={"query": query, "view": "base"},
-                    timeout=self.timeout,
-                )
-            response.raise_for_status()
-            api_response = response.json()
-            # PharmGKB API returns {"data": [...], "status": "success"}
-            # Extract the data array from the API response
-            results = api_response.get("data", api_response)
-            return {"status": "success", "data": results}
-        except requests.RequestException as e:
-            return {
-                "status": "error",
-                "data": {"error": f"PharmGKB API request failed: {str(e)}"},
-            }
+
+        if error:
+            return self._error(error)
+
+        results = api_response.get("data", api_response)
+        return {"status": "success", "data": results}
 
     def _get_entity_details(
         self, entity_type: str, arguments: Dict[str, Any]
@@ -118,49 +153,30 @@ class PharmGKBTool(BaseTool):
             )
 
         if not entity_id:
-            return {
-                "status": "error",
-                "data": {"error": f"{entity_type.lower()}_id parameter is required"},
-            }
+            return self._error(f"{entity_type.lower()}_id parameter is required")
 
-        try:
-            response = requests.get(
-                f"{PHARMGKB_BASE_URL}/data/{entity_type.lower()}/{entity_id}",
-                params={"view": "base"},
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            api_response = response.json()
-            # PharmGKB API returns {"data": {...}, "status": "success"}
-            # Extract the data object from the API response
-            result = api_response.get("data", api_response)
-            return {"status": "success", "data": result}
-        except requests.RequestException as e:
-            return {
-                "status": "error",
-                "data": {"error": f"PharmGKB API request failed: {str(e)}"},
-            }
+        _, api_response, error = self._request_json(
+            f"{PHARMGKB_BASE_URL}/data/{entity_type.lower()}/{entity_id}",
+            {"view": "base"},
+        )
+        if error:
+            return self._error(error)
+
+        result = api_response.get("data", api_response)
+        return {"status": "success", "data": result}
 
     def _get_clinical_annotations(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get clinical annotations. Best retrieved by specific ID or filtered."""
         annotation_id = arguments.get("annotation_id")
         if annotation_id:
-            try:
-                response = requests.get(
-                    f"{PHARMGKB_BASE_URL}/data/clinicalAnnotation/{annotation_id}",
-                    params={"view": "base"},
-                    timeout=self.timeout,
-                )
-                response.raise_for_status()
-                api_response = response.json()
-                # PharmGKB API returns {"data": {...}, "status": "success"}
-                result = api_response.get("data", api_response)
-                return {"status": "success", "data": result}
-            except requests.RequestException as e:
-                return {
-                    "status": "error",
-                    "data": {"error": f"PharmGKB API request failed: {str(e)}"},
-                }
+            _, api_response, error = self._request_json(
+                f"{PHARMGKB_BASE_URL}/data/clinicalAnnotation/{annotation_id}",
+                {"view": "base"},
+            )
+            if error:
+                return self._error(error)
+            result = api_response.get("data", api_response)
+            return {"status": "success", "data": result}
 
         # If no ID, try to filter by gene or drug if possible via search or direct list
 
@@ -170,16 +186,14 @@ class PharmGKBTool(BaseTool):
             gene_id = arguments.get("gene_id")
             if gene_id:
                 # Try to find annotations associated with this gene
-                response = requests.get(
+                status_code, api_response, error = self._request_json(
                     f"{PHARMGKB_BASE_URL}/data/clinicalAnnotation",
-                    params={
+                    {
                         "relatedGenes.id": gene_id,
                         "view": "base",
-                    },  # Try one more time with different param
-                    timeout=self.timeout,
+                    },
                 )
-                if response.status_code == 200:
-                    api_response = response.json()
+                if status_code == 200 and not error:
                     # PharmGKB API returns {"data": {...}, "status": "success"}
                     result = api_response.get("data", api_response)
                     return {"status": "success", "data": result}
@@ -189,44 +203,31 @@ class PharmGKBTool(BaseTool):
             }
             return {"status": "success", "data": result}
         except Exception as e:
-            return {
-                "status": "error",
-                "data": {"error": f"PharmGKB annotation retrieval failed: {str(e)}"},
-            }
+            return self._error(f"PharmGKB annotation retrieval failed: {str(e)}")
 
     def _get_dosing_guidelines(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get CPIC/DPWG dosing guidelines."""
         guideline_id = arguments.get("guideline_id")
         if guideline_id:
-            try:
-                response = requests.get(
-                    f"{PHARMGKB_BASE_URL}/data/guideline/{guideline_id}",
-                    params={"view": "base"},
-                    timeout=self.timeout,
-                )
-                response.raise_for_status()
-                api_response = response.json()
-                # PharmGKB API returns {"data": {...}, "status": "success"}
-                result = api_response.get("data", api_response)
-                return {"status": "success", "data": result}
-            except requests.RequestException as e:
-                return {
-                    "status": "error",
-                    "data": {"error": f"PharmGKB API request failed: {str(e)}"},
-                }
+            _, api_response, error = self._request_json(
+                f"{PHARMGKB_BASE_URL}/data/guideline/{guideline_id}",
+                {"view": "base"},
+            )
+            if error:
+                return self._error(error)
+            result = api_response.get("data", api_response)
+            return {"status": "success", "data": result}
 
         # Fallback to listing by gene if provided
         gene_symbol = arguments.get("gene") or arguments.get("gene_id")
         if gene_symbol:
             try:
                 # Some guidelines are indexed by related genes
-                response = requests.get(
+                status_code, api_response, error = self._request_json(
                     f"{PHARMGKB_BASE_URL}/data/guideline",
-                    params={"relatedGenes.symbol": gene_symbol, "view": "base"},
-                    timeout=self.timeout,
+                    {"relatedGenes.symbol": gene_symbol, "view": "base"},
                 )
-                if response.status_code == 200:
-                    api_response = response.json()
+                if status_code == 200 and not error:
                     # PharmGKB API returns {"data": {...}, "status": "success"}
                     result = api_response.get("data", api_response)
                     return {"status": "success", "data": result}

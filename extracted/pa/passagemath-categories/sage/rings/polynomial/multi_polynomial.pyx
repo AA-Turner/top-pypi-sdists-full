@@ -22,19 +22,13 @@ from sage.misc.misc_c import prod
 from sage.misc.superseded import deprecated_function_alias
 
 
-def is_MPolynomial(x):
-    from sage.misc.superseded import deprecation
-    deprecation(32709, "the function is_MPolynomial is deprecated; use isinstance(x, sage.rings.polynomial.multi_polynomial.MPolynomial) instead")
-
-    return isinstance(x, MPolynomial)
-
-
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.categories.map cimport Map
 from sage.rings.rational_field import QQ
 
 from sage.rings.polynomial.polydict cimport ETuple
 from sage.rings.polynomial.polynomial_element cimport Polynomial
+
 
 cdef class MPolynomial(CommutativePolynomial):
 
@@ -1240,9 +1234,7 @@ cdef class MPolynomial(CommutativePolynomial):
             ((0, 2), (1, 1), (2, 0))
         """
         from sage.geometry.polyhedron.constructor import Polyhedron
-        e = self.exponents()
-        P = Polyhedron(vertices=e, base_ring=ZZ)
-        return P
+        return Polyhedron(vertices=self.exponents(), base_ring=ZZ)
 
     def __iter__(self):
         r"""
@@ -2249,6 +2241,7 @@ cdef class MPolynomial(CommutativePolynomial):
 
         EXAMPLES::
 
+            sage: # needs sage.libs.singular
             sage: R.<x,y,z> = QQ[]
             sage: a = 32 * (x*y + 1)^5 * (x+y+z)^5
             sage: a.nth_root(5)
@@ -2259,6 +2252,7 @@ cdef class MPolynomial(CommutativePolynomial):
             ...
             ValueError: not a 42nd power
 
+            sage: # needs sage.libs.singular, known bug: windows (hangs)
             sage: R.<x,y> = QQ[]
             sage: S.<z,t> = R[]
             sage: T.<u,v> = S[]
@@ -2697,7 +2691,7 @@ cdef class MPolynomial(CommutativePolynomial):
         d.pop(zero_key, None)
         return all(d[k].is_nilpotent() for k in d)
 
-    def is_nilpotent(self):
+    def is_nilpotent(self) -> bool:
         r"""
         Return ``True`` if ``self`` is nilpotent, i.e., some power of ``self``
         is 0.
@@ -2801,6 +2795,7 @@ cdef class MPolynomial(CommutativePolynomial):
         Renormalized Schur polynomials are Lorentzian, but not in general if the
         renormalization is skipped::
 
+            sage: # needs sage.libs.pari
             sage: P.<x,y> = QQ[]
             sage: p = (x^2 / 2) + x*y + (y^2 / 2)
             sage: p.is_lorentzian()
@@ -2812,6 +2807,7 @@ cdef class MPolynomial(CommutativePolynomial):
         Homogeneous linear forms and constant polynomials with positive
         coefficients are Lorentzian, as well as the zero polynomial::
 
+            sage: # needs sage.libs.pari
             sage: p = x + 2*y
             sage: p.is_lorentzian()
             True
@@ -2824,6 +2820,7 @@ cdef class MPolynomial(CommutativePolynomial):
         Inhomogeneous polynomials and polynomials with negative coefficients
         are not Lorentzian::
 
+            sage: # needs sage.libs.pari
             sage: p = x^2 + 2*x + y^2
             sage: p.is_lorentzian()
             False
@@ -2845,6 +2842,7 @@ cdef class MPolynomial(CommutativePolynomial):
 
         The method can give a reason for a polynomial failing to be Lorentzian::
 
+            sage: # needs sage.libs.pari
             sage: p = x^2 + 2*x + y^2
             sage: p.is_lorentzian(explain=True)
             (False, 'inhomogeneous')
@@ -2957,7 +2955,7 @@ cdef class MPolynomial(CommutativePolynomial):
             (2*x^2 - 3*x - 5*y, -1)
         """
         lc = self.leading_coefficient()
-        n, u = lc.canonical_associate()
+        _, u = lc.canonical_associate()
         return (u.inverse_of_unit() * self, u)
 
 

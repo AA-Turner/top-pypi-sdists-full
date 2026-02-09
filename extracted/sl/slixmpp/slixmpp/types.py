@@ -67,6 +67,7 @@ OptJid = Optional[JID]
 JidStr = Union[str, JID]
 OptJidStr = Optional[Union[str, JID]]
 
+
 class PresenceArgs(TypedDict, total=False):
     pfrom: JidStr
     pto: JidStr
@@ -107,13 +108,16 @@ RosterState = TypedDict(
 
 
 class RosterDBProtocol(Protocol):
-    def load(self, owner:JidStr, jid:JidStr, db_state: Dict[str, Any]) -> Optional[RosterState]:
+    def load(self, owner: JidStr, jid: JidStr,
+             db_state: Dict[str, Any]) -> Optional[RosterState]:
         ...
 
-    def save(self, owner:JidStr, jid:JidStr, state: RosterState, db_state: Dict[str, Any]):
+    def save(self, owner: JidStr, jid: JidStr,
+             state: RosterState, db_state: Dict[str, Any]):
         ...
 
-    def entries(self, owner: OptJidStr, db_state: Optional[dict[str, Any]] = None) -> Iterable[str]:
+    def entries(self, owner: OptJidStr,
+                db_state: Optional[dict[str, Any]] = None) -> Iterable[str]:
         ...
 
 
@@ -166,6 +170,7 @@ ClientTypes = Literal[
     "web",
 ]
 
+
 class HatTuple(NamedTuple):
     uri: str
     title: str
@@ -173,8 +178,8 @@ class HatTuple(NamedTuple):
 
 
 __all__ = [
-    'Protocol', 'TypedDict', 'Literal', 'OptJid', 'OptJidStr', 'JidStr', 'MAMDefault',
+    'Protocol', 'TypedDict', 'Literal', 'OptJid', 'OptJidStr', 'JidStr',
     'PresenceTypes', 'PresenceShows', 'MessageTypes', 'IqTypes', 'MucRole',
-    'MucAffiliation', 'FilterString', 'ErrorConditions', 'ErrorTypes', 'ClientTypes',
-    'HatTuple',
+    'MucAffiliation', 'FilterString', 'ErrorConditions', 'ErrorTypes',
+    'ClientTypes', 'HatTuple', 'ResourceDict', 'MAMDefault',
 ]

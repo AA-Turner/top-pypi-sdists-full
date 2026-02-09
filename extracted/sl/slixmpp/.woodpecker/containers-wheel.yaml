@@ -1,0 +1,32 @@
+when:
+  - event: [ manual ]
+  - event: push
+    path: [ "Containerfile" ]
+    branch: master
+  - event: cron
+    cron: containers
+
+matrix:
+  ARCH:
+    - amd64
+    - arm64
+  TARGET:
+    - musllinux
+    - manylinux
+
+labels:
+  platform: linux/${ARCH}
+
+steps:
+  wheelbuilder:
+    image: woodpeckerci/plugin-docker-buildx:6.0.2
+    settings:
+      platforms: linux/${ARCH}
+      target: "${TARGET}-${ARCH}"
+      tag: "${TARGET}-${ARCH}"
+      registry: codeberg.org
+      username: nicoco
+      dockerfile: Containerfile
+      repo: codeberg.org/poezio/slixmpp
+      password:
+        from_secret: codeberg_package_nicoco

@@ -1,5 +1,4 @@
 """Test merging PDF functionality."""
-import sys
 from io import BytesIO
 from pathlib import Path
 
@@ -7,16 +6,10 @@ import pytest
 
 import pypdf
 from pypdf import PdfReader, PdfWriter
-from pypdf.generic import Destination, Fit
+from pypdf.generic import ArrayObject, Destination, DictionaryObject, Fit, NameObject, NullObject
 
-from . import get_data_from_url
+from . import RESOURCE_ROOT, get_data_from_url
 from .test_encryption import HAS_AES
-
-TESTS_ROOT = Path(__file__).parent.resolve()
-PROJECT_ROOT = TESTS_ROOT.parent
-RESOURCE_ROOT = PROJECT_ROOT / "resources"
-
-sys.path.append(str(PROJECT_ROOT))
 
 
 def merger_operate(merger):
@@ -515,3 +508,29 @@ def test_named_ref_to_page_that_is_gone(pdf_file_path):
     writer = PdfWriter()
     writer.add_page(source.pages[0])  # now references to non-existent page
     writer.write(pdf_file_path)  # don't crash
+
+
+def test_merge__null_destination():
+    """Tests for issue #3444."""
+    writer = PdfWriter(clone_from=RESOURCE_ROOT / "crazyones.pdf")
+    writer2 = PdfWriter(clone_from=RESOURCE_ROOT / "crazyones.pdf")
+
+    annotation = DictionaryObject()
+    annotation[NameObject("/Subtype")] = NameObject("/Link")
+    a = DictionaryObject()
+    annotation[NameObject("/A")] = a
+    a[NameObject("/S")] = NameObject("/GoTo")
+
+    target = NullObject()
+    a[NameObject("/D")] = writer._add_object(target)
+
+    annots = ArrayObject([annotation])
+    page = writer2.pages[0]
+    page[NameObject("/Annots")] = annots
+
+    data = BytesIO()
+    writer2.write(data)
+    data.seek(0)
+
+    writer.merge(position=1, fileobj=data)
+    assert writer.pages[0].annotations is None

@@ -4,8 +4,8 @@ from loguru import logger
 import docker
 
 from cuga.backend.cuga_graph.state.agent_state import AgentState
-from ..base_executor import RemoteExecutor
-from ..common import CallApiHelper
+from cuga.backend.cuga_graph.nodes.cuga_lite.executors.base_executor import RemoteExecutor
+from cuga.backend.cuga_graph.nodes.cuga_lite.executors.common import CallApiHelper
 
 
 class DockerExecutor(RemoteExecutor):

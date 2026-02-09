@@ -53,8 +53,11 @@ def bin_native(
         y = y.copy()
 
     n_bytes = native.measure_dataset_header(len(feature_idxs), n_weights, 1)
+    # during fitting we extract the feature handling first via the EBMPreprocessor,
+    # and then we re-extract the data here, so we can now call unify_columns with
+    # the same binning strategy as during prediction using is_schematized=True.
     get_col = unify_columns(
-        X, n_samples, feature_names_in, feature_types_in, None, False, False
+        X, n_samples, feature_names_in, feature_types_in, None, True, False
     )
     for feature_idx, feature_bins in zip(feature_idxs, bins_iter):
         feature_type = feature_types_in[feature_idx]
@@ -116,7 +119,7 @@ def bin_native(
         native.fill_dataset_header(len(feature_idxs), n_weights, 1, dataset)
 
         get_col = unify_columns(
-            X, n_samples, feature_names_in, feature_types_in, None, False, False
+            X, n_samples, feature_names_in, feature_types_in, None, True, False
         )
         for feature_idx, feature_bins in zip(feature_idxs, bins_iter):
             feature_type = feature_types_in[feature_idx]

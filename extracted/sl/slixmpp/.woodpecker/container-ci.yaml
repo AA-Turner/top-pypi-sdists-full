@@ -1,41 +1,39 @@
 when:
-  event: [ manual ]
+  - event: [ manual ]
+  - event: push
+    path: [ "Containerfile" ]
+    branch: master
+  - event: cron
+    cron: containers
 
 labels:
   platform: linux/amd64
 
-variables:
-  - &settings
+steps:
+  ci:
+    image: woodpeckerci/plugin-docker-buildx:6.0.2
+    depends_on: []
+    settings:
       platforms: linux/amd64,linux/arm64
+      target: ci
+      tag: ci
       registry: codeberg.org
       username: nicoco
       dockerfile: Containerfile
-      target: woodpecker
+      repo: codeberg.org/poezio/slixmpp
       password:
         from_secret: codeberg_package_nicoco
 
-steps:
-  woodpecker:
+  prosody:
     image: woodpeckerci/plugin-docker-buildx:6.0.2
+    depends_on: []
     settings:
-      repo: codeberg.org/poezio/woodpecker-slixmpp
-      target: woodpecker
-      <<: *settings
-
-  maturin-musl-amd64:
-    image: woodpeckerci/plugin-docker-buildx:6.0.2
-    settings:
-      repo: codeberg.org/poezio/maturin-musllinux
-      target: musl-wheels-amd64
-      <<: *settings
-      platform: linux/amd64
-      tag: amd64
-
-  maturin-musl:
-    image: woodpeckerci/plugin-docker-buildx:6.0.2
-    settings:
-      repo: codeberg.org/poezio/maturin-musllinux
-      target: musl-wheels-arm64
-      <<: *settings
-      platform: linux/arm64
-      tag: arm64
+      repo: codeberg.org/poezio/slixmpp
+      platforms: linux/amd64,linux/arm64
+      target: prosody
+      tag: prosody
+      registry: codeberg.org
+      username: nicoco
+      dockerfile: Containerfile
+      password:
+        from_secret: codeberg_package_nicoco

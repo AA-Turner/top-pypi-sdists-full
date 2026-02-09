@@ -32,7 +32,7 @@ class _TimerReset(Thread):
         self.args = args
         self.kwargs = kwargs
         self.finished = Event()
-        self.resetted = True
+        self.reset = True
 
     def cancel(self):
         """Stop the timer if it hasn't finished yet"""
@@ -41,9 +41,9 @@ class _TimerReset(Thread):
     def run(self):
         #print "Time: %s - timer running..." % time.asctime()
 
-        while self.resetted:
+        while self.reset:
             #print "Time: %s - timer waiting for timeout in %.2f..." % (time.asctime(), self.interval)
-            self.resetted = False
+            self.reset = False
             self.finished.wait(self.interval)
 
         if not self.finished.isSet():
@@ -61,6 +61,6 @@ class _TimerReset(Thread):
             #print "Time: %s - timer resetting..." % time.asctime()
             pass
 
-        self.resetted = True
+        self.reset = True
         self.finished.set()
         self.finished.clear()

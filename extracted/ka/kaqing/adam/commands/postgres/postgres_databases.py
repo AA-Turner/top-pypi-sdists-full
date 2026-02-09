@@ -4,12 +4,14 @@ import subprocess
 
 from adam.config import Config
 from adam.repl_state import ReplState
+from adam.utils_color import Color
 from adam.utils_context import Context
 from adam.utils_k8s.kube_context import KubeContext
 from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.secrets import Secrets
-from adam.utils import Color, ExecResult, log2, log_exc
+from adam.utils import ExecResult
 from adam.utils_local import LocalExecResult
+from adam.utils_log import log2, log_exc
 
 class ConnectionDetails:
     def __init__(self, state: ReplState, namespace: str, host: str):

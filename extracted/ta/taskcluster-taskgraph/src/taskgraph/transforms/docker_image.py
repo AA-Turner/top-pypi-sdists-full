@@ -13,7 +13,7 @@ import taskgraph
 from taskgraph.transforms.base import TransformSequence
 from taskgraph.util import json
 from taskgraph.util.docker import create_context_tar, generate_context_hash
-from taskgraph.util.schema import Schema
+from taskgraph.util.schema import LegacySchema
 
 from .task import task_description_schema
 
@@ -32,7 +32,7 @@ IMAGE_BUILDER_IMAGE = (
 transforms = TransformSequence()
 
 #: Schema for docker_image transforms
-docker_image_schema = Schema(
+docker_image_schema = LegacySchema(
     {
         Required(
             "name",
@@ -126,8 +126,7 @@ def fill_template(config, tasks):
     context_hashes = {}
 
     if not taskgraph.fast and config.write_artifacts:
-        if not os.path.isdir(CONTEXTS_DIR):
-            os.makedirs(CONTEXTS_DIR)
+        os.makedirs(CONTEXTS_DIR, exist_ok=True)
 
     for task in tasks:
         image_name = task.pop("name")

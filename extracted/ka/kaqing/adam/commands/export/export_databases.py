@@ -5,7 +5,7 @@ from adam.commands.export.export_sessions import ExportSessions
 from adam.commands.export.importer import Importer
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import debug, log_timing, ing, log_exc
+from adam.utils_log import debug, log_timing, ing, log_exc
 from adam.utils_tabulize import tabulize
 from adam.utils_athena import Athena
 from adam.utils_context import Context

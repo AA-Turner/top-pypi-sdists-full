@@ -30,7 +30,7 @@ class RosterNode:
                                      manually authorized.
                           Defaults to True.
         auto_subscribe -- Determines if bi-directional subscriptions
-                          are created after automatically authrorizing
+                          are created after automatically authorizing
                           a subscription request.
                           Defaults to True
         last_status    -- The last sent presence status that was broadcast

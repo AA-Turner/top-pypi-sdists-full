@@ -6,7 +6,7 @@ and servers; HTTPS extensions to Python's httplib, urllib, and
 xmlrpclib; unforgeable HMAC'ing AuthCookies for web session
 management; FTP/TLS client and server; and ZSmime: An S/MIME
 messenger for Zope.  M2Crypto can also be used to provide SSL for
-Twisted.
+Twisted. Smartcards supported through the Engine interface.
 
 Copyright (c) 1999-2004 Ng Pheng Siong. All rights reserved.
 
@@ -16,7 +16,7 @@ Copyright (C) 2004-2007 OSAF. All Rights Reserved.
 Copyright 2008-2011 Heikki Toivonen. All rights reserved.
 """
 
-__version__: str = "0.46.2"
+__version__: str = "0.47.0"
 version: str = __version__
 
 try:

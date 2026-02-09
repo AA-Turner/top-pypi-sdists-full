@@ -4,25 +4,27 @@ import math
 import mmap
 import string
 from array import array
+from io import IOBase
 from pathlib import Path
-from typing import Union
+from struct import Struct
+from typing import Literal
 
 
-def is_hex_string(hex_string: Union[str, None]) -> bool:
+def is_hex_string(hex_string: str | None) -> bool:
     """check if the passed in string is really hex"""
     if hex_string is None:
         return False
     return all(c in string.hexdigits for c in hex_string)
 
 
-def is_valid_file(filepath: Union[str, Path, None]) -> bool:
+def is_valid_file(filepath: str | Path | None) -> bool:
     """check if the passed filepath points to a real file"""
     if filepath is None:
         return False
     return Path(filepath).exists()
 
 
-def resolve_path(filepath: Union[str, Path]) -> Path:
+def resolve_path(filepath: str | Path) -> Path:
     """fully resolve the path by expanding user and resolving"""
     return Path(filepath).expanduser().resolve()
 
@@ -39,7 +41,7 @@ class MMap:
 
     __slots__ = ("__p", "__f", "__m", "_closed")
 
-    def __init__(self, path: Union[Path, str]):
+    def __init__(self, path: Path | str):
         self.__p = Path(path)
         self.__f = self.path.open("rb")  # noqa: SIM115
         self.__m = mmap.mmap(self.__f.fileno(), 0, access=mmap.ACCESS_READ)
@@ -74,7 +76,7 @@ class MMap:
         """Close the MMap class includeing cleaning up open files, etc"""
         self.__exit__()
 
-    def seek(self, pos: int, whence: int) -> None:
+    def seek(self, pos: int, whence: Literal[0, 1, 2]) -> None:
         """Implement a method to seek on top of the MMap class"""
         self.__m.seek(pos, whence)
 
@@ -190,3 +192,38 @@ class Bitarray:
         Returns:
             int: Number of bits set"""
         return sum(self.check_bit(x) for x in range(self._size))
+
+    _BITARRAY_FOOTER = Struct("Q")
+    _BITARRAY_BIN = Struct("B")
+
+    def to_bytes(self) -> bytes:
+        """Convert the bitarray to bytes
+
+        Returns:
+            bytes: Bitarray representation as bytes"""
+        footer = self._BITARRAY_FOOTER.pack(self._size)
+        return self._bitarray.tobytes() + footer
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> "Bitarray":
+        """Convert bytes to a bitarray
+
+        Args:
+            data (bytes): Bytes to convert"""
+        size = cls._BITARRAY_FOOTER.unpack(data[-8:])[0]
+        bitarray = array("B", data[:-8])
+        ba = Bitarray(size)
+        ba._bitarray = bitarray
+        return ba
+
+    def export(self, file: Path | str | IOBase | mmap.mmap) -> None:
+        """Export the bitarray to a file
+
+        Args:
+            filename (str): Filename to export to"""
+        if not isinstance(file, IOBase | mmap.mmap):
+            file = resolve_path(file)
+            with open(file, "wb") as filepointer:
+                self.export(filepointer)
+        else:
+            file.write(self.to_bytes())

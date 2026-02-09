@@ -37,7 +37,7 @@ __all__ = ('HTTPXEndpoint',)
 import json
 import httpx
 
-from .base import add_query_to_url
+from .base import JSONEncoder, add_query_to_url
 from .http import HTTPEndpoint
 from typing import Optional, Union, Dict
 
@@ -61,7 +61,7 @@ class HTTPXEndpoint(HTTPEndpoint):
     :errors: list of errors, which are objects with the key "message" and
        optionally others, such as "location" (for errors matching GraphQL
        input). Instead of raising exceptions, such as
-       :exc:`requests.exceptions.HTTPError` or
+       :exc:`requests.exceptions.HTTPStatusError` or
        :exc:`json.JSONDecodeError` those are stored in the
        "exception" key.
 
@@ -152,7 +152,7 @@ class HTTPXEndpoint(HTTPEndpoint):
                 try:
                     response = await self.client.send(req)
                     return self._parse_httpx_response(query, response)
-                except httpx.HTTPError as exc:
+                except httpx.HTTPStatusError as exc:
                     return self._log_httpx_error(query, req, exc)
 
             return runner()
@@ -226,15 +226,25 @@ class HTTPXEndpoint(HTTPEndpoint):
 
     def get_http_post_request(self, query, variables, operation_name, headers):
         '''Create an HTTP POST request for the query.'''
-        return self.client.build_request(
-            method='POST',
-            url=self.url,
-            headers=headers,
-            json={
+        post_data = json.dumps(
+            {
                 'query': query,
                 'variables': variables,
                 'operationName': operation_name,
             },
+            cls=JSONEncoder,
+        ).encode('utf-8')
+        headers.update(
+            {
+                'Content-Type': 'application/json; charset=utf-8',
+                'Content-Length': str(len(post_data)),
+            }
+        )
+        return self.client.build_request(
+            method='POST',
+            url=self.url,
+            headers=headers,
+            content=post_data,
         )
 
     def get_http_get_request(self, query, variables, operation_name, headers):
@@ -244,7 +254,7 @@ class HTTPXEndpoint(HTTPEndpoint):
             params['operationName'] = operation_name
 
         if variables:
-            params['variables'] = json.dumps(variables)
+            params['variables'] = json.dumps(variables, cls=JSONEncoder)
 
         url = add_query_to_url(self.url, params)
 

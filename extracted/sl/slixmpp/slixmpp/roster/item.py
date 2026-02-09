@@ -415,6 +415,8 @@ class RosterItem:
             self.save()
         else:
             #server shouldn't send an invalid subscription request
+            if not self['from'] and not self['pending_in']:
+                self['pending_in'] = True
             self.xmpp.event('roster_subscription_request', presence)
 
     def handle_subscribed(self, presence: Presence) -> None:
@@ -459,7 +461,7 @@ class RosterItem:
         +------------------------------------------------------------------+
         """
         if self.xmpp.is_component:
-            if not self['from']  and self['pending_in']:
+            if not self['from'] and self['pending_in']:
                 self['pending_in'] = False
                 self._unsubscribed()
             elif self['from']:
@@ -468,6 +470,10 @@ class RosterItem:
                 self.xmpp.event('roster_subscription_remove', presence)
             self.save()
         else:
+            if not self['from'] and self['pending_in']:
+                self['pending_in'] = False
+            elif self['from']:
+                self['from'] = False
             self.xmpp.event('roster_subscription_remove', presence)
 
     def handle_unsubscribed(self, presence: Presence) -> None:

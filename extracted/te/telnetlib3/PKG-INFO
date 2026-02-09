@@ -1,40 +1,39 @@
 Metadata-Version: 2.4
 Name: telnetlib3
-Version: 2.0.8
-Summary: Python 3 asyncio Telnet server and client Protocol library
-Home-page: http://telnetlib3.rtfd.org/
-Author: Jeff Quast
-Author-email: contact@jeffquast.com
-License: ISC
-Keywords: telnet,server,client,bbs,mud,utf8,cp437,api,library,asyncio,talker
-Platform: any
+Version: 2.3.0
+Summary:  Python Telnet server and client CLI and Protocol library
+Project-URL: Homepage, https://github.com/jquast/telnetlib3
+Project-URL: Documentation, https://telnetlib3.readthedocs.io
+Project-URL: Repository, https://github.com/jquast/telnetlib3
+Project-URL: Issues, https://github.com/jquast/telnetlib3/issues
+Author-email: Jeff Quast <contact@jeffquast.com>
+License-Expression: ISC
+License-File: LICENSE.txt
+Keywords: api,asyncio,bbs,client,cp437,library,mud,pty,server,telnet,utf8
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: ISC License (ISCL)
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Intended Audience :: Developers
-Classifier: Development Status :: 4 - Beta
-Classifier: Topic :: System :: Networking
-Classifier: Topic :: Terminals :: Telnet
-Classifier: Topic :: System :: Shells
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
-Requires-Python: >=3.7
-License-File: LICENSE.txt
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: platform
-Dynamic: requires-python
-Dynamic: summary
+Classifier: Topic :: System :: Networking
+Classifier: Topic :: System :: Shells
+Classifier: Topic :: Terminals :: Telnet
+Classifier: Typing :: Typed
+Requires-Python: >=3.9
+Provides-Extra: docs
+Requires-Dist: sphinx-autodoc-typehints; extra == 'docs'
+Requires-Dist: sphinx-rtd-theme; extra == 'docs'
+Requires-Dist: sphinx>3; extra == 'docs'
+Provides-Extra: extras
+Requires-Dist: prettytable; extra == 'extras'
+Requires-Dist: ucs-detect>=2; extra == 'extras'
+Description-Content-Type: text/x-rst
 
 .. image:: https://img.shields.io/pypi/v/telnetlib3.svg
     :alt: Latest Version
@@ -48,47 +47,149 @@ Dynamic: summary
     :alt: codecov.io Code Coverage
     :target: https://codecov.io/gh/jquast/telnetlib3/
 
+.. image:: https://img.shields.io/badge/Linux-yes-success?logo=linux
+    :alt: Linux supported
+    :target: https://telnetlib3.readthedocs.io/
+
+.. image:: https://img.shields.io/badge/Windows-yes-success?logo=windows
+    :alt: Windows supported
+    :target: https://telnetlib3.readthedocs.io/
+
+.. image:: https://img.shields.io/badge/MacOS-yes-success?logo=apple
+    :alt: MacOS supported
+    :target: https://telnetlib3.readthedocs.io/
+
+.. image:: https://img.shields.io/badge/BSD-yes-success?logo=freebsd
+    :alt: BSD supported
+    :target: https://telnetlib3.readthedocs.io/
+
 Introduction
 ============
 
-telnetlib3 is a Telnet Client and Server library for python.  This project
-requires python 3.7 and later, using the asyncio_ module.
+``telnetlib3`` is a feature-rich Telnet Server, Client, and Protocol library
+for Python 3.9 and newer.
 
-.. _asyncio: http://docs.python.org/3.11/library/asyncio.html
+This library supports both modern asyncio_ *and* legacy `Blocking API`_.
 
-Legacy 'telnetlib'
-------------------
+The python telnetlib.py_ module removed by Python 3.13 is also re-distributed as-is, as a backport.
 
-This library *also* contains a copy of telnetlib.py_ from the standard library of
-Python 3.12 before it was removed in Python 3.13. asyncio_ is not required.
+See the `Guidebook`_ for examples and the `API documentation`_.
 
-To migrate code from Python 3.11 and earlier, install this library and change
-instances of `telnetlib` to `telnetlib3`:
+Asyncio Protocol
+----------------
+
+The core protocol and CLI utilities are written using an `Asyncio Interface`_.
+
+Blocking API
+------------
+
+A Synchronous interface, modeled after telnetlib.py_ (client) and miniboa_ (server), with various
+enhancements in protocol negotiation is also provided.  See `sync API documentation`_ for more.
+
+Command-line Utilities
+----------------------
+
+Two CLI tools are included: ``telnetlib3-client`` for connecting to servers
+and ``telnetlib3-server`` for hosting a server.
+
+Both tools argument ``--shell=my_module.fn_shell`` describing a python
+module path to a function of signature ``async def shell(reader, writer)``.
+The server also provides ``--pty-exec`` argument to host a stand-alone
+program.
+
+::
+
+    # utf8 roguelike server
+    telnetlib3-client nethack.alt.org
+    # utf8 bbs
+    telnetlib3-client xibalba.l33t.codes 44510
+    # automatic communication with telnet server
+    telnetlib3-client --shell bin.client_wargame.shell 1984.ws 666
+    # run a server with default shell
+    telnetlib3-server
+    # or custom port and ip and shell
+    telnetlib3-server 0.0.0.0 1984 --shell=bin.server_wargame.shell
+    # run an external program with a pseudo-terminal
+    telnetlib3-server --pty-exec /bin/bash --pty-raw -- --login
+    # or a simple linemode program, bc (calculator)
+    telnetlib3-server --pty-exec /bin/bc
+
+
+There are also fingerprinting CLIs, ``telnetlib3-fingerprint`` and
+``telnetlib3-fingerprint-server``
+
+::
+
+    # host a server, wait for clients to connect and fingerprint them,
+    telnetlib3-fingerprint-server
+
+    # report fingerprint of telnet server on 1984.ws
+    telnetlib3-fingerprint 1984.ws
+
+
+Legacy telnetlib
+----------------
+
+This library contains an *unadulterated copy* of Python 3.12's telnetlib.py_,
+from the standard library before it was removed in Python 3.13.
+
+To migrate code, change import statements:
 
 .. code-block:: python
 
     # OLD imports:
     import telnetlib
-    # - or -
-    from telnetlib import Telnet, ECHO, BINARY
 
     # NEW imports:
-    import telnetlib3.telnetlib as telnetlib
-    # - or - 
-    from telnetlib3 import Telnet, ECHO, BINARY
-    from telnetlib3.telnetlib import Telnet, ECHO, BINARY
+    import telnetlib3
 
-.. _telnetlib.py: https://docs.python.org/3.12/library/telnetlib.html
+``telnetlib3`` did not provide server support, while this library also provides
+both client and server support through a similar Blocking API interface.
 
+See `sync API documentation`_ for details.
+
+Encoding
+--------
+
+Often required, ``--encoding`` and ``--force-binary``::
+
+    telnetlib3-client --encoding=cp437 --force-binary 20forbeers.com 1337
+
+The default encoding is the system locale, usually UTF-8, but all Telnet
+protocol text *should* be limited to ASCII until BINARY mode is agreed by
+compliance of their respective RFCs.
+
+However, many clients and servers that are capable of non-ascii encodings like
+UTF-8 or CP437 may not be capable of negotiating about BINARY, NEW_ENVIRON,
+or CHARSET to negotiate about it.
+
+In this case, use ``--force-binary`` and ``--encoding`` when the encoding of
+the remote end is known.
+
+Go-Ahead (GA)
+--------------
+
+When a client does not negotiate Suppress Go-Ahead (SGA), the server sends
+``IAC GA`` after output to signal that the client may transmit. This is
+correct behavior for MUD clients like Mudlet that expect prompt detection
+via GA.
+
+If GA causes unwanted output for your use case, disable it::
+
+    telnetlib3-server --never-send-ga
+
+For PTY shells, GA is sent after 500ms of output idle time to avoid
+injecting GA in the middle of streaming output.
 
 Quick Example
--------------
+=============
 
-Writing a Telnet Server that offers a basic "war game":
+A simple telnet server:
 
 .. code-block:: python
 
-    import asyncio, telnetlib3
+    import asyncio
+    import telnetlib3
 
     async def shell(reader, writer):
         writer.write('\r\nWould you like to play a game? ')
@@ -101,197 +202,12 @@ Writing a Telnet Server that offers a basic "war game":
         writer.close()
 
     async def main():
-        server = await telnetlib3.create_server('127.0.0.1', 6023, shell=shell)
+        server = await telnetlib3.create_server(port=6023, shell=shell)
         await server.wait_closed()
 
     asyncio.run(main())
 
-Writing a Telnet Client that plays the "war game" against this server:
-
-.. code-block:: python
-
-    import asyncio, telnetlib3
-
-    async def shell(reader, writer):
-        while True:
-            # read stream until '?' mark is found
-            outp = await reader.read(1024)
-            if not outp:
-                # End of File
-                break
-            elif '?' in outp:
-                # reply all questions with 'y'.
-                writer.write('y')
-
-            # display all server output
-            print(outp, flush=True)
-
-        # EOF
-        print()
-
-    async def main():
-        reader, writer = await telnetlib3.open_connection('localhost', 6023, shell=shell)
-        await writer.protocol.waiter_closed
-
-    asyncio.run(main())
-
-Command-line
-------------
-
-Two command-line scripts are distributed with this package,
-`telnetlib3-client` and `telnetlib3-server`.
-
-Both command-line scripts accept argument ``--shell=my_module.fn_shell``
-describing a python module path to an function of signature
-``async def shell(reader, writer)``, as in the above examples.
-
-These scripts also serve as more advanced server and client examples that
-perform advanced telnet option negotation and may serve as a basis for
-creating your own custom negotiation behaviors.
-
-Find their filepaths using command::
-
-     python -c 'import telnetlib3.server;print(telnetlib3.server.__file__, telnetlib3.client.__file__)'
-
-telnetlib3-client
-~~~~~~~~~~~~~~~~~
-
-This is an entry point for command ``python -m telnetlib3.client``
-
-Small terminal telnet client.  Some example destinations and options::
-
-    telnetlib3-client --loglevel warn 1984.ws
-    telnetlib3-client --loglevel debug --logfile logfile.txt nethack.alt.org 
-    telnetlib3-client --encoding=cp437 --force-binary blackflag.acid.org
-
-See section Encoding_ about arguments, ``--encoding=cp437`` and ``--force-binary``.
-
-::
-
-    usage: telnetlib3-client [-h] [--term TERM] [--loglevel LOGLEVEL]
-                             [--logfmt LOGFMT] [--logfile LOGFILE] [--shell SHELL]
-                             [--encoding ENCODING] [--speed SPEED]
-                             [--encoding-errors {replace,ignore,strict}]
-                             [--force-binary] [--connect-minwait CONNECT_MINWAIT]
-                             [--connect-maxwait CONNECT_MAXWAIT]
-                             host [port]
-    
-    Telnet protocol client
-    
-    positional arguments:
-      host                  hostname
-      port                  port number (default: 23)
-    
-    optional arguments:
-      -h, --help            show this help message and exit
-      --term TERM           terminal type (default: xterm-256color)
-      --loglevel LOGLEVEL   log level (default: warn)
-      --logfmt LOGFMT       log format (default: %(asctime)s %(levelname)s
-                            %(filename)s:%(lineno)d %(message)s)
-      --logfile LOGFILE     filepath (default: None)
-      --shell SHELL         module.function_name (default:
-                            telnetlib3.telnet_client_shell)
-      --encoding ENCODING   encoding name (default: utf8)
-      --speed SPEED         connection speed (default: 38400)
-      --encoding-errors {replace,ignore,strict}
-                            handler for encoding errors (default: replace)
-      --force-binary        force encoding (default: True)
-      --connect-minwait CONNECT_MINWAIT
-                            shell delay for negotiation (default: 1.0)
-      --connect-maxwait CONNECT_MAXWAIT
-                            timeout for pending negotiation (default: 4.0)
-
-telnetlib3-server
-~~~~~~~~~~~~~~~~~
-
-This is an entry point for command ``python -m telnetlib3.server``
-
-Telnet server providing the default debugging shell.  This provides a simple
-shell server that allows introspection of the session's values.
-
-Example session::
-
-     tel:sh> help
-     quit, writer, slc, toggle [option|all], reader, proto
-
-     tel:sh> writer
-     <TelnetWriter server mode:kludge +lineflow -xon_any +slc_sim server-will:BINARY,ECHO,SGA client-will:BINARY,NAWS,NEW_ENVIRON,TTYPE>
-
-     tel:sh> reader
-     <TelnetReaderUnicode encoding='utf8' limit=65536 buflen=0 eof=False>
-
-     tel:sh> toggle all
-     wont echo.
-     wont suppress go-ahead.
-     wont outbinary.
-     dont inbinary.
-     xon-any enabled.
-     lineflow disabled.
-
-     tel:sh> reader
-     <TelnetReaderUnicode encoding='US-ASCII' limit=65536 buflen=1 eof=False>
-
-     tel:sh> writer
-     <TelnetWriter server mode:local -lineflow +xon_any +slc_sim client-will:NAWS,NEW_ENVIRON,TTYPE>
-
-::
-
-    usage: telnetlib3-server [-h] [--loglevel LOGLEVEL] [--logfile LOGFILE]
-                             [--logfmt LOGFMT] [--shell SHELL]
-                             [--encoding ENCODING] [--force-binary]
-                             [--timeout TIMEOUT]
-                             [--connect-maxwait CONNECT_MAXWAIT]
-                             [host] [port]
-    
-    Telnet protocol server
-    
-    positional arguments:
-      host                  bind address (default: localhost)
-      port                  bind port (default: 6023)
-    
-    optional arguments:
-      -h, --help            show this help message and exit
-      --loglevel LOGLEVEL   level name (default: info)
-      --logfile LOGFILE     filepath (default: None)
-      --logfmt LOGFMT       log format (default: %(asctime)s %(levelname)s
-                            %(filename)s:%(lineno)d %(message)s)
-      --shell SHELL         module.function_name (default: telnet_server_shell)
-      --encoding ENCODING   encoding name (default: utf8)
-      --force-binary        force binary transmission (default: False)
-      --timeout TIMEOUT     idle disconnect (0 disables) (default: 300)
-      --connect-maxwait CONNECT_MAXWAIT
-                            timeout for pending negotiation (default: 4.0)
-
-Encoding
---------
-
-In this client connection example::
-
-    telnetlib3-client --encoding=cp437 --force-binary blackflag.acid.org
-
-Note the use of `--encoding=cp437` to translate input and output characters of
-the remote end. This example legacy telnet BBS is unable to negotiate about
-or present characters in any other encoding but CP437. Without these arguments,
-Telnet protocol would dictate our session to be US-ASCII.
-
-Argument `--force-binary` is *also* required in many cases, with both
-``telnetlib3-client`` and ``telnetlib3-server``. In the original Telnet protocol
-specifications, the Network Virtual Terminal (NVT) is defined as 7-bit US-ASCII,
-and this is the default state for both ends until negotiated otherwise by RFC-856_
-by negotiation of BINARY TRANSMISSION.
-
-However, **many common telnet clients and servers fail to negotiate for BINARY**
-correctly or at all. Using ``--force-binary`` allows non-ASCII encodings to be
-used with those kinds of clients.
-
-A Telnet Server that prefers "utf8" encoding, and, transmits it even in the case
-of failed BINARY negotiation, to support a "dumb" telnet client like netcat::
-
-    telnetlib3-server --encoding=utf8 --force-binary
-
-Connecting with "dumb" client::
-
-    nc -t localhost 6023
+More examples are available in the `Guidebook`_ and the `bin/`_ directory of the repository.
 
 Features
 --------
@@ -308,6 +224,7 @@ The following RFC specifications are implemented:
 * `rfc-859`_, "Telnet Status Option", May 1983.
 * `rfc-860`_, "Telnet Timing mark Option", May 1983.
 * `rfc-885`_, "Telnet End of Record Option", Dec 1983.
+* `rfc-930`_, "Telnet Terminal Type Option", Jan 1984.
 * `rfc-1073`_, "Telnet Window Size Option", Oct 1988.
 * `rfc-1079`_, "Telnet Terminal Speed Option", Dec 1988.
 * `rfc-1091`_, "Telnet Terminal-Type Option", Feb 1989.
@@ -330,6 +247,7 @@ The following RFC specifications are implemented:
 .. _rfc-859: https://www.rfc-editor.org/rfc/rfc859.txt
 .. _rfc-860: https://www.rfc-editor.org/rfc/rfc860.txt
 .. _rfc-885: https://www.rfc-editor.org/rfc/rfc885.txt
+.. _rfc-930: https://www.rfc-editor.org/rfc/rfc930.txt
 .. _rfc-1073: https://www.rfc-editor.org/rfc/rfc1073.txt
 .. _rfc-1079: https://www.rfc-editor.org/rfc/rfc1079.txt
 .. _rfc-1091: https://www.rfc-editor.org/rfc/rfc1091.txt
@@ -341,6 +259,27 @@ The following RFC specifications are implemented:
 .. _rfc-1571: https://www.rfc-editor.org/rfc/rfc1571.txt
 .. _rfc-1572: https://www.rfc-editor.org/rfc/rfc1572.txt
 .. _rfc-2066: https://www.rfc-editor.org/rfc/rfc2066.txt
+.. _`bin/`: https://github.com/jquast/telnetlib3/tree/master/bin
+.. _telnetlib.py: https://docs.python.org/3.12/library/telnetlib.html
+.. _Asyncio Interface: https://telnetlib3.readthedocs.io/en/latest/guidebook.html#asyncio-interface
+.. _Blocking API: https://telnetlib3.readthedocs.io/en/latest/guidebook.html#blocking-interface
+.. _Guidebook: https://telnetlib3.readthedocs.io/en/latest/guidebook.html
+.. _API documentation: https://telnetlib3.readthedocs.io/en/latest/api.html
+.. _sync API documentation: https://telnetlib3.readthedocs.io/en/latest/api/sync.html
+.. _miniboa: https://github.com/shmup/miniboa
+.. _asyncio: https://docs.python.org/3/library/asyncio.html
+.. _wait_for(): https://telnetlib3.readthedocs.io/en/latest/api/sync.html#telnetlib3.sync.TelnetConnection.wait_for
+.. _get_extra_info(): https://telnetlib3.readthedocs.io/en/latest/api/sync.html#telnetlib3.sync.TelnetConnection.get_extra_info
+.. _readline(): https://telnetlib3.readthedocs.io/en/latest/api/sync.html#telnetlib3.sync.TelnetConnection.readline
+.. _read_until(): https://telnetlib3.readthedocs.io/en/latest/api/sync.html#telnetlib3.sync.TelnetConnection.read_until
+.. _active: https://telnetlib3.readthedocs.io/en/latest/api/sync.html#telnetlib3.sync.ServerConnection.active
+.. _address: https://telnetlib3.readthedocs.io/en/latest/api/sync.html#telnetlib3.sync.ServerConnection.address
+.. _terminal_type: https://telnetlib3.readthedocs.io/en/latest/api/sync.html#telnetlib3.sync.ServerConnection.terminal_type
+.. _columns: https://telnetlib3.readthedocs.io/en/latest/api/sync.html#telnetlib3.sync.ServerConnection.columns
+.. _rows: https://telnetlib3.readthedocs.io/en/latest/api/sync.html#telnetlib3.sync.ServerConnection.rows
+.. _idle(): https://telnetlib3.readthedocs.io/en/latest/api/sync.html#telnetlib3.sync.ServerConnection.idle
+.. _duration(): https://telnetlib3.readthedocs.io/en/latest/api/sync.html#telnetlib3.sync.ServerConnection.duration
+.. _deactivate(): https://telnetlib3.readthedocs.io/en/latest/api/sync.html#telnetlib3.sync.ServerConnection.deactivate
 
 Further Reading
 ---------------

@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: cuvs-cu12
-Version: 25.12.0
+Version: 26.2.0
 Summary: cuVS: Vector Search on the GPU
 Author: NVIDIA Corporation
-License: Apache-2.0
+License-Expression: Apache-2.0
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.10
@@ -13,14 +13,14 @@ Classifier: Programming Language :: Python :: 3.13
 Project-URL: Homepage, https://github.com/rapidsai/cuvs
 Project-URL: Documentation, https://docs.rapids.ai/api/cuvs/stable/
 Requires-Python: >=3.10
-Requires-Dist: cuda-python<13.0a0,>=12.9.2
-Requires-Dist: libcuvs-cu12==25.12.*
-Requires-Dist: numpy<3.0a0,>=1.23
-Requires-Dist: pylibraft-cu12==25.12.*
+Requires-Dist: cuda-python<13.0,>=12.9.2
+Requires-Dist: libcuvs-cu12==26.2.*
+Requires-Dist: numpy<3.0,>=1.23
+Requires-Dist: pylibraft-cu12==26.2.*
 Provides-Extra: test
 Requires-Dist: cupy-cuda12x>=13.6.0; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
-Requires-Dist: pytest<9.0.0a0; extra == "test"
+Requires-Dist: pytest<9.0.0; extra == "test"
 Requires-Dist: scikit-learn; extra == "test"
 Description-Content-Type: text/markdown
 

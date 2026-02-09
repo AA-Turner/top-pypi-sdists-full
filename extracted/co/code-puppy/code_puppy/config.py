@@ -504,7 +504,12 @@ def model_supports_setting(model_name: str, setting: str) -> bool:
             # Default: assume common settings are supported for backwards compatibility
             # For Anthropic/Claude models, include extended thinking settings
             if model_name.startswith("claude-") or model_name.startswith("anthropic-"):
-                return setting in ["temperature", "extended_thinking", "budget_tokens"]
+                base = ["temperature", "extended_thinking", "budget_tokens"]
+                # Opus 4-6 models also support the effort setting
+                lower = model_name.lower()
+                if "opus-4-6" in lower or "4-6-opus" in lower:
+                    base.append("effort")
+                return setting in base
             return setting in ["temperature", "seed"]
 
         return setting in supported_settings
@@ -1378,6 +1383,7 @@ DEFAULT_BANNER_COLORS = {
     "invoke_agent": "deep_pink4",  # Ruby - agent invocation
     "subagent_response": "sea_green3",  # Emerald - sub-agent success
     "list_agents": "dark_slate_gray3",  # Slate - neutral listing
+    "universal_constructor": "dark_cyan",  # Teal - constructing tools
     # Browser/Terminal tools - same color as edit_file (gold)
     "terminal_tool": "dark_goldenrod",  # Gold - browser terminal operations
 }

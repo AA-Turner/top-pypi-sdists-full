@@ -584,7 +584,7 @@ class SlixTest(unittest.TestCase):
                 "Criteria:\n%s\n" % highlight(tostring(xml)) + \
                 "Stanza:\n%s" % highlight(tostring(sent_xml)))
         else:
-            raise ValueError("Uknown matching method: %s" % method)
+            raise ValueError("Unknown matching method: %s" % method)
 
     def send(self, data, defaults=None, use_values=True,
              timeout=.5, method='exact'):

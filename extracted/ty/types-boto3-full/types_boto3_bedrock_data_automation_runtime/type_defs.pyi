@@ -150,6 +150,7 @@ class TagResourceRequestTypeDef(TypedDict):
     tags: Sequence[TagTypeDef]
 
 class InvokeDataAutomationResponseTypeDef(TypedDict):
+    outputConfiguration: OutputConfigurationTypeDef
     semanticModality: SemanticModalityType
     outputSegments: list[OutputSegmentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -163,6 +164,7 @@ class InvokeDataAutomationRequestTypeDef(TypedDict):
     dataAutomationConfiguration: NotRequired[DataAutomationConfigurationTypeDef]
     blueprints: NotRequired[Sequence[BlueprintTypeDef]]
     encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
+    outputConfiguration: NotRequired[OutputConfigurationTypeDef]
 
 class VideoAssetProcessingConfigurationTypeDef(TypedDict):
     segmentConfiguration: NotRequired[VideoSegmentConfigurationTypeDef]

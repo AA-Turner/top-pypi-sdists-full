@@ -1,10 +1,8 @@
 from typing import List
 from kubernetes import client
 
-from adam.config import Config
-from adam.utils import debug, log2
-
-from .kube_context import KubeContext
+from adam.utils_k8s.kube_context import KubeContext
+from adam.utils_log import debug, log2
 
 # utility collection on services; methods are all static
 class Services:

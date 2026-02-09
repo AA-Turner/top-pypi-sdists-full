@@ -165,6 +165,8 @@ def map_update_fields(
 
     # Snowflake UDFs don't support StructType, so we use VariantType
     # The result will be automatically cast back to the struct type
+    # Note: We can't use cached_udf here because this UDF uses a closure (array_of_named_parts)
+    # that varies per call. Caching would return UDFs with stale closure values.
     @snowpark_fn.udf(
         input_types=input_types_to_the_udf,
         return_type=VariantType(),
@@ -175,7 +177,8 @@ def map_update_fields(
 
         # Recursively copy to create mutable dict from Snowflake's VARIANT objects
         def make_mutable_copy(obj):
-            if obj is None:
+            # Handle sqlNullWrapper objects from Snowflake VARIANT nulls
+            if obj is None or getattr(obj, "is_sql_null", False):
                 return None
             elif isinstance(obj, dict):
                 return {k: make_mutable_copy(v) for k, v in obj.items()}
@@ -197,7 +200,10 @@ def map_update_fields(
                 if value == "_SNOWPARK_CONNECT_UPDATE_FIELD_DROP_":
                     current.pop(fields_array[-1], None)
                 else:
-                    current[fields_array[-1]] = value
+                    # Convert sqlNullWrapper to None before assignment
+                    current[fields_array[-1]] = (
+                        None if getattr(value, "is_sql_null", False) else value
+                    )
 
         return result
 

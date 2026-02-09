@@ -4,7 +4,7 @@ from adam.checks.check import Check
 from adam.checks.check_context import CheckContext
 from adam.checks.check_result import CheckResult
 from adam.checks.issue import Issue
-from adam.utils import Color
+from adam.utils_color import Color
 from adam.utils_cassandra.cassandra_nodes import CassandraNodes
 
 class Gossip(Check):

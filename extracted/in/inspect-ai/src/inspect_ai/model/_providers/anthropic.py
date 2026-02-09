@@ -28,6 +28,7 @@ from anthropic import (
     BadRequestError,
     NotGiven,
 )
+from anthropic.lib.streaming import AsyncMessageStream
 from anthropic.types import (
     Base64PDFSourceParam,
     ContentBlock,
@@ -69,7 +70,11 @@ from anthropic.types.beta import (
     BetaBashCodeExecutionToolResultBlock,
     BetaBashCodeExecutionToolResultBlockParam,
     BetaCodeExecutionTool20250825Param,
+    BetaCompact20260112EditParam,
+    BetaCompactionBlock,
+    BetaCompactionBlockParam,
     BetaDirectCaller,
+    BetaInputTokensTriggerParam,
     BetaMCPToolResultBlock,
     BetaMCPToolUseBlock,
     BetaMCPToolUseBlockParam,
@@ -106,6 +111,7 @@ from typing_extensions import override
 from inspect_ai._util.constants import BASE_64_DATA_REMOVED, NO_CONTENT
 from inspect_ai._util.content import (
     Content,
+    ContentData,
     ContentDocument,
     ContentImage,
     ContentReasoning,
@@ -137,7 +143,12 @@ from inspect_ai.tool._mcp._remote import is_mcp_server_tool
 from inspect_ai.util._json import set_additional_properties_false
 
 from ..._util.httpx import httpx_should_retry
-from .._chat_message import ChatMessage, ChatMessageAssistant, ChatMessageUser
+from .._chat_message import (
+    ChatMessage,
+    ChatMessageAssistant,
+    ChatMessageTool,
+    ChatMessageUser,
+)
 from .._generate_config import GenerateConfig, normalized_batch_config
 from .._model import ModelAPI, log_model_retry
 from .._model_call import ModelCall
@@ -201,7 +212,7 @@ class AnthropicAPI(ModelAPI):
                 model_args.pop(name)
             return value
 
-        self.extra_body: dict[str, Any] | None = collect_model_arg("extra_body")
+        self.extra_body: dict[str, Any] | None = collect_model_arg(EXTRA_BODY)
 
         # call super
         super().__init__(
@@ -327,7 +338,7 @@ class AnthropicAPI(ModelAPI):
         tools: list[ToolInfo],
         tool_choice: ToolChoice,
         config: GenerateConfig,
-    ) -> ModelOutput | tuple[ModelOutput | Exception, ModelCall]:
+    ) -> tuple[ModelOutput | Exception, ModelCall]:
         # allocate request_id (so we can see it from ModelCall)
         request_id = self._http_hooks.start_request()
 
@@ -402,21 +413,31 @@ class AnthropicAPI(ModelAPI):
             ):
                 betas.append("web-fetch-2025-09-10")
 
+            # extra_body
+            if len(extra_body) > 0 or self.extra_body is not None:
+                request[EXTRA_BODY] = extra_body | (self.extra_body or {})
+
+            # add compaction if the input has it and there is no config
+            if _input_has_compaction(input) and not _request_has_edit_compaction(
+                request
+            ):
+                _add_edit_compation(request, betas)
+
+            # add compaction beta header if required
+            if _request_has_edit_compaction(request):
+                betas.append("compact-2026-01-12")
+
+            # resolve betas and extra headers
             if len(betas) > 0:
                 betas = list(dict.fromkeys(betas))  # remove duplicates
                 extra_headers["anthropic-beta"] = ",".join(betas)
-
             request["extra_headers"] = extra_headers
-
-            # extra_body
-            if len(extra_body) > 0 or self.extra_body is not None:
-                request["extra_body"] = extra_body | (self.extra_body or {})
 
             # mcp servers
             if len(mcp_servers_param) > 0:
-                if "extra_body" not in request:
-                    request["extra_body"] = dict()
-                request["extra_body"]["mcp_servers"] = mcp_servers_param
+                if EXTRA_BODY not in request:
+                    request[EXTRA_BODY] = dict()
+                request[EXTRA_BODY]["mcp_servers"] = mcp_servers_param
 
             # stream if we are using reasoning or >= 8192 max_tokens
             streaming = (
@@ -446,7 +467,11 @@ class AnthropicAPI(ModelAPI):
                 raise ex
 
     @override
-    async def count_tokens(self, input: str | list[ChatMessage]) -> int:
+    async def count_tokens(
+        self,
+        input: str | list[ChatMessage],
+        config: GenerateConfig | None = None,
+    ) -> int:
         """Estimate token count for an input."""
         # turn system into user for purposes of counting
         if isinstance(input, str):
@@ -455,6 +480,9 @@ class AnthropicAPI(ModelAPI):
             ChatMessageUser(content=m.content) if m.role == "system" else m
             for m in input
         ]
+
+        # Check if messages contain compaction blocks before conversion
+        has_compaction = _messages_contain_compaction(input)
 
         # Convert to Anthropic message format
         messages = [await message_param(m) for m in input]
@@ -476,10 +504,89 @@ class AnthropicAPI(ModelAPI):
         if self.is_thinking_model() and _messages_contain_thinking(messages):
             thinking_config["thinking"] = {"type": "enabled", "budget_tokens": 1024}
 
-        response = await self.client.messages.count_tokens(
-            model=self.service_model_name(), messages=messages, **thinking_config
-        )
+        if has_compaction:
+            # Use beta header with context_management for compaction support
+            response = await self.client.messages.count_tokens(
+                model=self.service_model_name(),
+                messages=messages,
+                extra_headers={"anthropic-beta": "compact-2026-01-12"},
+                extra_body={
+                    "context_management": {"edits": [{"type": "compact_20260112"}]}
+                },
+                **thinking_config,
+            )
+        else:
+            # Standard token counting
+            response = await self.client.messages.count_tokens(
+                model=self.service_model_name(), messages=messages, **thinking_config
+            )
         return response.input_tokens
+
+    @override
+    async def compact(
+        self,
+        input: list[ChatMessage],
+        tools: list[ToolInfo],
+        config: GenerateConfig,
+        instructions: str | None = None,
+    ) -> tuple[list[ChatMessage], ModelUsage | None]:
+        """Compact messages using provider-native compaction.
+
+        Args:
+            input: Chat message input (if a `str` is passed it is converted to a `ChatUserMessage`).
+            tools: Tools available for the model to call.
+            config: Model configuration.
+            instructions: Additional instructions to give the model about compaction
+
+        Returns:
+            A tuple of (compacted_messages, usage) where compacted_messages is a
+            list containing a single message with compaction metadata, and usage
+            contains token counts for the compaction operation.
+
+        Raises:
+            NotImplementedError: For providers or models without native compaction support.
+        """
+        edit = BetaCompact20260112EditParam(
+            type="compact_20260112",
+            instructions=instructions,
+            trigger=BetaInputTokensTriggerParam(
+                type="input_tokens", value=MIN_COMPACTION_TOKENS
+            ),
+            pause_after_compaction=True,
+        )
+
+        # delegate to generate with context_management config
+        config = config.model_copy(
+            update={
+                EXTRA_BODY: (config.extra_body or {})
+                | {CONTEXT_MANAGEMENT: {EDITS: [edit]}}
+            }
+        )
+        output, _ = await self.generate(input, tools, "auto", config)
+
+        if isinstance(output, ModelOutput):
+            # confirm a compaction occurred
+            if _message_has_compaction(output.message):
+                return [output.message], output.usage
+            else:
+                raise RuntimeError(
+                    f"Anthropic native compaction did not trigger. "
+                    f"This can occur when the total input tokens (including tools) "
+                    f"is below Anthropic's {MIN_COMPACTION_TOKENS} token minimum for compaction. "
+                    f"Consider increasing the compaction threshold or using a "
+                    f"non-native compaction strategy."
+                )
+        elif isinstance(output, BadRequestError):
+            # Check if model doesn't support compaction
+            error_msg = str(output)
+            if "does not support context management" in error_msg:
+                raise NotImplementedError(
+                    f"Model {self.model_name} does not support native compaction: {error_msg}"
+                ) from output
+            else:
+                raise output from None
+        else:
+            raise output from None
 
     async def _perform_request_and_continuations(
         self,
@@ -516,7 +623,7 @@ class AnthropicAPI(ModelAPI):
             head_message = await self._batcher.generate_for_request(request)
         elif streaming:
             async with self.client.messages.stream(**request) as stream:
-                head_message = await stream.get_final_message()
+                head_message, _ = await _capture_compaction_from_stream(stream)
         else:
             head_message = await self.client.messages.create(**request, stream=False)
 
@@ -554,9 +661,14 @@ class AnthropicAPI(ModelAPI):
     ) -> tuple[dict[str, Any], dict[str, Any], dict[str, str], list[str]]:
         max_tokens = cast(int, config.max_tokens)
         params = dict(model=self.service_model_name(), max_tokens=max_tokens)
-        headers: dict[str, str] = {}
+        headers: dict[str, str] = config.extra_headers or {}
         extra_body: dict[str, Any] = {}
         betas: list[str] = self.betas.copy()
+
+        # pull betas out of headers
+        anthropic_beta_header = headers.pop("anthropic_beta", None)
+        if anthropic_beta_header:
+            betas.extend([h.strip() for h in anthropic_beta_header.split(",")])
 
         # temperature not compatible with extended thinking
         THINKING_WARNING = "anthropic models do not support the '{parameter}' parameter when using extended thinking."
@@ -581,13 +693,23 @@ class AnthropicAPI(ModelAPI):
         # effort
         if config.effort is not None:
             betas.append("effort-2025-11-24")
-            extra_body["output_config"] = {"effort": config.effort}
+            effort = config.effort
+            # max is claude 4.6 only
+            if effort == "max" and not self.is_claude_4_6():
+                effort = "high"
+            extra_body["output_config"] = {"effort": effort}
 
         # some thinking-only stuff
         if self.is_using_thinking(config):
-            params["thinking"] = dict(
-                type="enabled", budget_tokens=config.reasoning_tokens
-            )
+            reasoning_effort = self.effort_from_reasoning_effort(config)
+            if reasoning_effort is not None:
+                params["thinking"] = dict(type="adaptive")
+                extra_body.setdefault("output_config", {})
+                extra_body["output_config"]["effort"] = reasoning_effort
+            else:
+                params["thinking"] = dict(
+                    type="enabled", budget_tokens=config.reasoning_tokens
+                )
             headers["anthropic-version"] = "2023-06-01"
             if max_tokens > 8192:
                 betas.append("output-128k-2025-02-19")
@@ -611,6 +733,10 @@ class AnthropicAPI(ModelAPI):
             for field in anthropic_extra_body_fields():
                 if field in config.extra_body and field not in params:
                     params[field] = config.extra_body[field]
+            # pass through other extra_body fields (e.g. context_management for compaction)
+            for key, value in config.extra_body.items():
+                if key not in anthropic_extra_body_fields():
+                    extra_body[key] = value
 
         # return config
         return params, extra_body, headers, betas
@@ -633,19 +759,34 @@ class AnthropicAPI(ModelAPI):
     @override
     def max_tokens_for_config(self, config: GenerateConfig) -> int | None:
         max_tokens = cast(int, self.max_tokens())
-        if self.is_thinking_model() and config.reasoning_tokens is not None:
-            max_tokens = max_tokens + config.reasoning_tokens
-            # after bumping for reasoning, make sure we don't exceed model max tokens
-            if self.is_claude_4_opus():
-                max_tokens = min(max_tokens, 32000)
-            elif self.is_claude_3_7():
-                max_tokens = min(max_tokens, 128000)
-            else:
-                max_tokens = min(max_tokens, 64000)
+        if self.is_thinking_model():
+            reasoning_effort = self.effort_from_reasoning_effort(config)
+            if reasoning_effort is not None:
+                effort_tokens = {
+                    "low": 4096,
+                    "medium": 10000,
+                    "high": 16000,
+                    "max": 24000,
+                }
+                max_tokens = max_tokens + effort_tokens.get(reasoning_effort, 16000)
+            elif config.reasoning_tokens is not None:
+                max_tokens = max_tokens + config.reasoning_tokens
+
+        # apply caps after bumping for reasoning
+        if self.is_claude_4_opus():
+            max_tokens = min(max_tokens, 32000)
+        elif self.is_claude_3_7():
+            max_tokens = min(max_tokens, 128000)
+        else:
+            max_tokens = min(max_tokens, 64000)
+
         return max_tokens
 
     def is_using_thinking(self, config: GenerateConfig) -> bool:
-        return self.is_thinking_model() and config.reasoning_tokens is not None
+        return self.is_thinking_model() and (
+            (config.reasoning_tokens is not None)
+            or (self.effort_from_reasoning_effort(config) is not None)
+        )
 
     # see https://github.com/anthropics/anthropic-sdk-python?tab=readme-ov-file#long-requests
     def auto_streaming(self, config: GenerateConfig) -> bool:
@@ -673,6 +814,9 @@ class AnthropicAPI(ModelAPI):
 
     def is_claude_4_5(self) -> bool:
         return re.search(r"claude-[a-zA-Z]+-4-5", self.service_model_name()) is not None
+
+    def is_claude_4_6(self) -> bool:
+        return re.search(r"claude-[a-zA-Z]+-4-6", self.service_model_name()) is not None
 
     @override
     def connection_key(self) -> str:
@@ -791,6 +935,10 @@ class AnthropicAPI(ModelAPI):
         list[BetaRequestMCPServerURLDefinitionParam],
         list[MessageParam],
     ]:
+        # Convert orphaned tool results to text messages before processing
+        # (handles case where native compaction summarized away tool_use blocks)
+        input = _convert_orphaned_tool_results(input)
+
         # extract system message
         system_messages, messages = split_system_messages(input)
 
@@ -970,7 +1118,9 @@ class AnthropicAPI(ModelAPI):
             # TODO: enhance this code to calculate the dimensions based on the scaled screen
             # size used by the container.
             # computer_20251124 is only supported by Claude Opus 4.5
-            if self.is_claude_4_5() and self.is_claude_4_opus():
+            if (
+                self.is_claude_4_5() or self.is_claude_4_6()
+            ) and self.is_claude_4_opus():
                 return BetaToolComputerUse20251124Param(
                     type="computer_20251124",
                     name="computer",
@@ -1024,7 +1174,7 @@ class AnthropicAPI(ModelAPI):
                 BetaToolTextEditor20250728Param(
                     type="text_editor_20250728", name="str_replace_based_edit_tool"
                 )
-                if self.is_claude_4_5()
+                if (self.is_claude_4_5() or self.is_claude_4_6())
                 else BetaToolTextEditor20250429Param(
                     type="text_editor_20250429", name="str_replace_based_edit_tool"
                 )
@@ -1099,6 +1249,27 @@ class AnthropicAPI(ModelAPI):
         else:
             return None
 
+    def effort_from_reasoning_effort(
+        self, config: GenerateConfig
+    ) -> Literal["max", "high", "medium", "low"] | None:
+        # claude 4.6 supports reasoning effort via type: "adaptive"
+        if (
+            config.reasoning_effort is not None
+            and config.reasoning_effort != "none"
+            and self.is_claude_4_6()
+        ):
+            match config.reasoning_effort:
+                case "low" | "minimal":
+                    return "low"
+                case "medium":
+                    return "medium"
+                case "high":
+                    return "high"
+                case "xhigh":
+                    return "max"
+        else:
+            return None
+
 
 def _messages_contain_thinking(messages: list[MessageParam]) -> bool:
     """Check if any message contains thinking or redacted_thinking blocks."""
@@ -1110,6 +1281,16 @@ def _messages_contain_thinking(messages: list[MessageParam]) -> bool:
                     block_type = block.get("type", "")
                     if block_type in ("thinking", "redacted_thinking"):
                         return True
+    return False
+
+
+def _messages_contain_compaction(messages: list[ChatMessage]) -> bool:
+    """Check if any message contains compaction blocks."""
+    for msg in messages:
+        if isinstance(msg.content, list):
+            for content in msg.content:
+                if _is_compaction_content(content):
+                    return True
     return False
 
 
@@ -1335,6 +1516,65 @@ def message_tool_choice(
     return tool_choice_param
 
 
+def _tool_result_to_text(msg: ChatMessageTool) -> str:
+    """Convert a tool result message to plain text."""
+    function_name = msg.function or "unknown"
+
+    # Extract text content
+    if isinstance(msg.content, str):
+        content = msg.content
+    else:
+        # Join text content from list
+        content = "\n".join(c.text for c in msg.content if isinstance(c, ContentText))
+
+    # Include error if present
+    if msg.error:
+        return (
+            f"[Tool result for {function_name} (error: {msg.error.message})]\n{content}"
+        )
+    else:
+        return f"[Tool result for {function_name}]\n{content}"
+
+
+def _convert_orphaned_tool_results(
+    messages: list[ChatMessage],
+) -> list[ChatMessage]:
+    """Convert orphaned tool results to regular user text messages.
+
+    When native compaction summarizes away tool_use blocks, subsequent tool_results
+    become "orphaned" (their tool_use_id has no match). This function detects such
+    orphans and converts them to regular user text messages so the API doesn't
+    reject them.
+
+    Args:
+        messages: List of messages to process.
+
+    Returns:
+        New list with orphaned tool results converted to user text messages.
+    """
+    # Collect all tool_use IDs from assistant messages
+    tool_use_ids: set[str] = set()
+    for msg in messages:
+        if isinstance(msg, ChatMessageAssistant) and msg.tool_calls:
+            for tc in msg.tool_calls:
+                tool_use_ids.add(tc.id)
+
+    # Process messages, converting orphaned tool results to text
+    result: list[ChatMessage] = []
+    for msg in messages:
+        if isinstance(msg, ChatMessageTool) and msg.tool_call_id:
+            if msg.tool_call_id not in tool_use_ids:
+                # Orphaned tool result - convert to user text message
+                text_content = _tool_result_to_text(msg)
+                result.append(ChatMessageUser(content=text_content))
+            else:
+                result.append(msg)
+        else:
+            result.append(msg)
+
+    return result
+
+
 async def message_param(message: ChatMessage) -> MessageParam:
     # if content is empty that is going to result in an error when we replay
     # this message to claude, so in that case insert a NO_CONTENT message
@@ -1420,6 +1660,7 @@ MessageBlock = Union[
     | ToolUseBlock
     | BetaToolUseBlock
     | ServerToolUseBlock
+    | BetaCompactionBlock
     | BetaServerToolUseBlock
     | WebSearchToolResultBlock
     | BetaWebSearchToolResultBlock
@@ -1438,6 +1679,7 @@ MessageBlockParam = Union[
     | ImageBlockParam
     | ToolUseBlockParam
     | ServerToolUseBlockParam
+    | BetaCompactionBlockParam
     | BetaServerToolUseBlockParam
     | BetaBashCodeExecutionToolResultBlockParam
     | WebSearchToolResultBlockParam
@@ -1505,6 +1747,8 @@ async def assistant_message_blocks(
             blocks.append(BetaMCPToolResultBlock.model_validate(block_param))
         elif block_param["type"] == "web_fetch_tool_result":
             blocks.append(BetaWebFetchToolResultBlock.model_validate(block_param))
+        elif block_param["type"] == "compaction":
+            blocks.append(BetaCompactionBlock.model_validate(block_param))
         else:
             logger.warning(
                 f"Unexpecxted assistant message block type: {block_param['type']}"
@@ -1629,19 +1873,35 @@ async def model_output_from_message(
     usage = message.usage.model_dump()
     input_tokens_cache_write = usage.get("cache_creation_input_tokens", None)
     input_tokens_cache_read = usage.get("cache_read_input_tokens", None)
+
+    # When compaction occurs, the top-level usage excludes compaction iteration tokens.
+    # The iterations array contains per-iteration usage which we aggregate for accuracy.
+    iterations = usage.get("iterations", None)
+    if isinstance(iterations, list) and len(iterations) > 0:
+        # Aggregate tokens from all iterations
+        input_tokens = sum(
+            it.get("input_tokens", 0) for it in iterations if isinstance(it, dict)
+        )
+        output_tokens = sum(
+            it.get("output_tokens", 0) for it in iterations if isinstance(it, dict)
+        )
+    else:
+        input_tokens = message.usage.input_tokens
+        output_tokens = message.usage.output_tokens
+
     total_tokens = (
-        message.usage.input_tokens
+        input_tokens
         + (input_tokens_cache_write or 0)
         + (input_tokens_cache_read or 0)
-        + message.usage.output_tokens  # includes reasoning tokens
+        + output_tokens  # includes reasoning tokens
     )
     return (
         ModelOutput(
             model=message.model,
             choices=[choice],
             usage=ModelUsage(
-                input_tokens=message.usage.input_tokens,
-                output_tokens=message.usage.output_tokens,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
                 total_tokens=total_tokens,
                 input_tokens_cache_write=input_tokens_cache_write,
                 input_tokens_cache_read=input_tokens_cache_read,
@@ -1653,13 +1913,15 @@ async def model_output_from_message(
 
 
 content_block_adapter = TypeAdapter[
-    BetaServerToolUseBlock
+    BetaCompactionBlock
+    | BetaServerToolUseBlock
     | BetaBashCodeExecutionToolResultBlock
     | BetaTextEditorCodeExecutionToolResultBlock
     | BetaWebFetchToolResultBlock
     | ContentBlock,
 ](
-    BetaServerToolUseBlock
+    BetaCompactionBlock
+    | BetaServerToolUseBlock
     | BetaBashCodeExecutionToolResultBlock
     | BetaTextEditorCodeExecutionToolResultBlock
     | BetaWebFetchToolResultBlock
@@ -1669,7 +1931,8 @@ content_block_adapter = TypeAdapter[
 
 def content_and_tool_calls_from_assistant_content_blocks(
     content_blocks_input: Sequence[
-        BetaServerToolUseBlockParam
+        BetaCompactionBlockParam
+        | BetaServerToolUseBlockParam
         | BetaBashCodeExecutionToolResultBlockParam
         | BetaTextEditorCodeExecutionToolResultBlock
         | ContentBlockParam
@@ -1679,7 +1942,8 @@ def content_and_tool_calls_from_assistant_content_blocks(
 ) -> tuple[list[Content], list[ToolCall] | None]:
     # resolve params to blocks
     content_blocks: list[
-        BetaServerToolUseBlock
+        BetaCompactionBlock
+        | BetaServerToolUseBlock
         | BetaBashCodeExecutionToolResultBlock
         | BetaTextEditorCodeExecutionToolResultBlock
         | BetaWebFetchToolResultBlock
@@ -1814,6 +2078,9 @@ def content_and_tool_calls_from_assistant_content_blocks(
                     result=to_json_str_safe(content_block.content),
                 )
             )
+        elif content_block.type == "compaction":
+            content.append(_content_data_for_compaction(content_block))
+
         elif isinstance(content_block, TextBlock):
             if content_block.text is None:
                 continue
@@ -1926,6 +2193,141 @@ def content_and_tool_calls_from_assistant_content_blocks(
             )
 
     return content, tool_calls
+
+
+EDITS = "edits"
+EDIT_TYPE = "type"
+COMPACT_20260112 = "compact_20260112"
+EXTRA_BODY = "extra_body"
+CONTEXT_MANAGEMENT = "context_management"
+MIN_COMPACTION_TOKENS = 50000  # Anthropic API minimum trigger value
+
+
+def _add_edit_compation(request: dict[str, Any], betas: list[str]) -> None:
+    """Add compaction edit to request without triggering new compaction.
+
+    When messages already contain compaction blocks, we need to include
+    context_management for the API to accept them. We set trigger just
+    below the context window limit to prevent automatic compaction
+    (user controls compaction via their own threshold).
+    """
+    # Determine max trigger based on context window
+    if "context-1m-2025-08-07" in betas:
+        max_trigger = 990_000  # Just below 1M context
+    else:
+        max_trigger = 190_000  # Just above default 150k trigger
+
+    extra_body = request.setdefault(EXTRA_BODY, {})
+    context_mgmt = extra_body.setdefault(CONTEXT_MANAGEMENT, {})
+    context_mgmt.setdefault(EDITS, []).append(
+        {
+            EDIT_TYPE: COMPACT_20260112,
+            "trigger": {"type": "input_tokens", "value": max_trigger},
+        }
+    )
+
+
+def _request_has_edit_compaction(request: dict[str, Any]) -> bool:
+    edits = request.get(EXTRA_BODY, {}).get(CONTEXT_MANAGEMENT, {}).get(EDITS, [])
+    return isinstance(edits, list) and any(
+        isinstance(e, dict) and e.get(EDIT_TYPE) == COMPACT_20260112 for e in edits
+    )
+
+
+def _input_has_compaction(input: list[ChatMessage]) -> bool:
+    return any(
+        [
+            _message_has_compaction(m)
+            for m in input
+            if isinstance(m, ChatMessageAssistant)
+        ]
+    )
+
+
+def _message_has_compaction(message: ChatMessageAssistant) -> bool:
+    if isinstance(message.content, list):
+        for c in message.content:
+            if (
+                isinstance(c, ContentData)
+                and _compaction_from_content_data(c) is not None
+            ):
+                return True
+
+    return False
+
+
+def _content_data_for_compaction(block: BetaCompactionBlock) -> ContentData:
+    return ContentData(
+        data={
+            "compaction_metadata": {
+                "type": "anthropic_compact",
+                "content": block.content,
+            }
+        }
+    )
+
+
+def _compaction_from_content_data(
+    content: ContentData,
+) -> BetaCompactionBlockParam | None:
+    compaction_metadata = content.data.get("compaction_metadata", None)
+    if isinstance(compaction_metadata, dict):
+        if compaction_metadata.get("type") == "anthropic_compact":
+            compaction_content = compaction_metadata.get("content", None)
+            if isinstance(compaction_content, str):
+                return BetaCompactionBlockParam(
+                    type="compaction", content=compaction_content
+                )
+
+    return None
+
+
+def _is_compaction_content(content: Content) -> bool:
+    """Check if content is a compaction block."""
+    if isinstance(content, ContentData):
+        return _compaction_from_content_data(content) is not None
+    return False
+
+
+async def _capture_compaction_from_stream(
+    stream: AsyncMessageStream,
+) -> tuple[Message, str | None]:
+    """Consume a streaming response and capture any compaction content.
+
+    The Anthropic SDK's streaming doesn't properly accumulate compaction_delta
+    events into the final message snapshot. This function iterates through all
+    streaming events, captures any compaction_delta content, and returns the
+    final message with the compaction content properly set.
+
+    Args:
+        stream: The Anthropic AsyncMessageStream from messages.stream().
+
+    Returns:
+        A tuple of (message, compaction_content) where message is the final
+        message snapshot with compaction blocks fixed up, and compaction_content
+        is the raw content captured from compaction_delta events (or None).
+    """
+    compaction_content: str | None = None
+
+    # Iterate through all streaming events to capture compaction_delta content
+    async for event in stream:
+        if (
+            hasattr(event, "delta")
+            and getattr(event.delta, "type", None) == "compaction_delta"
+        ):
+            compaction_content = getattr(event.delta, "content", None)
+
+    # Get the final message snapshot
+    message = stream.current_message_snapshot
+
+    # Fix up compaction blocks with captured content
+    if compaction_content is not None:
+        for block in message.content:
+            if getattr(block, "type", None) == "compaction":
+                setattr(block, "content", compaction_content)
+                break
+
+    return message, compaction_content
 
 
 def _internal_name_from_tool_call(tool_call: ToolCall) -> str | None:
@@ -2253,6 +2655,13 @@ async def message_block_params(
         return [
             DocumentBlockParam(type="document", source=source, title=content.filename)
         ]
+
+    elif isinstance(content, ContentData):
+        compaction_param = _compaction_from_content_data(content)
+        if compaction_param:
+            return [compaction_param]
+        else:
+            raise RuntimeError(f"Unexpected data block: {content.data}")
 
     else:
         raise RuntimeError(

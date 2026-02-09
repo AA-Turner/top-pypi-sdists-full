@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlfluff
-Version: 4.0.0
+Version: 4.0.4
 Summary: The SQL Linter for Humans
 Author-email: Alan Cruickshank <alan@designingoverload.com>
 License: MIT License
@@ -48,6 +48,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: SQL
 Classifier: Topic :: Utilities
@@ -69,7 +70,7 @@ Requires-Dist: tblib
 Requires-Dist: tomli; python_version < "3.11"
 Requires-Dist: tqdm
 Provides-Extra: rs
-Requires-Dist: sqlfluffrs==4.0.0; extra == "rs"
+Requires-Dist: sqlfluffrs==4.0.4; extra == "rs"
 Dynamic: license-file
 
 ![SQLFluff](https://raw.githubusercontent.com/sqlfluff/sqlfluff/main/images/sqlfluff-wide.png)

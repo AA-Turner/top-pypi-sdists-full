@@ -4,6 +4,7 @@ FetchStealthMode = Literal["none", "auto", "ultra"]
 FetchSanitizeMode = Literal["none", "basic", "advanced"]
 FetchStatus = Literal["completed", "failed", "pending", "running"]
 BatchFetchJobStatus = Literal["completed", "failed", "pending", "running"]
+WebCrawlJobStatus = Literal["completed", "failed", "pending", "running"]
 PageStatus = Literal["completed", "failed", "pending", "running"]
 WebSearchStatus = Literal["completed", "failed", "pending", "running"]
 FetchWaitUntil = Literal["load", "domcontentloaded", "networkidle"]
@@ -59,6 +60,7 @@ HyperAgentLlm = Literal[
 ]
 ClaudeComputerUseLlm = Literal[
     "claude-opus-4-5",
+    "claude-opus-4-6",
     "claude-haiku-4-5-20251001",
     "claude-sonnet-4-5",
     "claude-sonnet-4-20250514",

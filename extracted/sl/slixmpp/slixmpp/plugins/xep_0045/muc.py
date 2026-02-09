@@ -175,6 +175,12 @@ class XEP_0045(BasePlugin):
                 StanzaPath('message/muc/decline'),
                 self._handle_groupchat_decline
         ))
+        self.xmpp.register_handler(
+            Callback(
+                'MUCAffiliationChange',
+                StanzaPath('message/muc/item'),
+                self._handle_groupchat_affiliation_change
+        ))
         if not self.xmpp.is_component:
             self.multi_from = False
 
@@ -204,6 +210,12 @@ class XEP_0045(BasePlugin):
         """Handle a MUC configuration change (with status code)."""
         self.xmpp.event('groupchat_config_status', msg)
         self.xmpp.event('muc::%s::config_status' % msg['from'].bare, msg)
+
+    def _handle_groupchat_affiliation_change(self, msg: Message) -> None:
+        if msg.get_from().resource:
+            return
+        self.xmpp.event('groupchat_affiliation_change', msg)
+        self.xmpp.event('muc::%s::affiliation_change' % msg['from'].bare, msg)
 
     def _handle_presence(self, pr: Presence):
         """As a client, handle a presence stanza"""

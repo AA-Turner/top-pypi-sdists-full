@@ -7,7 +7,7 @@ version = "v1.1"
 provider = "milvus"
 
 [mem0_config.vector_store.config]
-url = "./milvus.db" # overridable by env
+url = "./milvus_memory.db" # overridable by env
 token = "123" # overridable by env
 collection_name = "collection_name" # overridable by env
 embedding_model_dims = "384"
@@ -18,3 +18,4 @@ provider = "huggingface"
 
 [mem0_config.embedder.config]
 model = "all-MiniLM-L6-v2"
+model_kwargs = { device = "cpu" }

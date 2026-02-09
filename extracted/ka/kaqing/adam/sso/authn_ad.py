@@ -4,10 +4,9 @@ import jwt
 import requests
 from urllib.parse import urlparse, parse_qs
 
-from adam.log import Log
 from adam.sso.authenticator import Authenticator
 from adam.sso.id_token import IdToken
-from adam.utils import debug, log_exc
+from adam.utils_log import Log, debug, log_exc
 from .idp_login import IdpLogin
 from adam.config import Config
 

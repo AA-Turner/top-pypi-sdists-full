@@ -1363,7 +1363,7 @@ class Workflow(YmlConfigFile):
         *,
         step: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Create a step that runs pre-commit hooks.
+        """Create a step that runs prek hooks.
 
         Ensures code quality checks pass before commits. Also useful
         for ensuring git stash pop doesn't fail when there are no changes.
@@ -1372,7 +1372,7 @@ class Workflow(YmlConfigFile):
             step: Existing step dict to update.
 
         Returns:
-            Step that runs pre-commit on all files.
+            Step that runs prek on all files.
         """
         return cls.get_step(
             step_func=cls.step_run_pre_commit_hooks,
@@ -1421,7 +1421,7 @@ class Workflow(YmlConfigFile):
         Returns:
             Step that commits with [skip ci] prefix.
         """
-        msg = '"[skip ci] CI/CD: Committing possible changes (e.g.: pyproject.toml)"'
+        msg = '"[skip ci] CI/CD: Committing possible staged changes"'
         return cls.get_step(
             step_func=cls.step_commit_added_changes,
             run=str(VersionController.L.get_commit_no_verify_args(msg=msg)),

@@ -48,6 +48,7 @@ def simulate_pedigree(
     num_generations=3,
     sequence_length=1,
     random_seed=42,
+    sample_gen=None,
 ) -> tskit.TableCollection:
     """
     Simulates pedigree.
@@ -61,12 +62,19 @@ def simulate_pedigree(
     num_generations: Number of generations to attempt to simulate
     sequence_length: The sequence_length of the output tables.
     random_seed: Random seed.
+    sample_gen: Generations at which all individuals are samples. Defaults
+        to the first generation (backwards in time).
     """
     rng = np.random.RandomState(random_seed)
     builder = msprime.PedigreeBuilder()
 
     time = num_generations - 1
-    curr_gen = [builder.add_individual(time=time) for _ in range(num_founders)]
+    if sample_gen is None:
+        sample_gen = [0]
+    curr_gen = [
+        builder.add_individual(time=time, is_sample=time in sample_gen)
+        for _ in range(num_founders)
+    ]
     for generation in range(1, num_generations):
         num_pairs = len(curr_gen) // 2
         if num_pairs == 0 and num_children_prob[0] != 1:
@@ -80,7 +88,9 @@ def simulate_pedigree(
             num_children = rng.choice(len(num_children_prob), p=num_children_prob)
             for _ in range(num_children):
                 parents = np.sort(parents).astype(np.int32)
-                ind_id = builder.add_individual(time=time, parents=parents)
+                ind_id = builder.add_individual(
+                    time=time, parents=parents, is_sample=time in sample_gen
+                )
                 curr_gen.append(ind_id)
     return builder.finalise(sequence_length)
 
@@ -373,6 +383,42 @@ class TestPedigreeSimulation:
             tc.individuals.append(row)
         tc.tree_sequence()  # creating tree sequence should succeed
 
+    @pytest.mark.parametrize("direction", ["backward", "forward"])
+    def test_equal_N_Nfunc(self, direction):
+        seed = np.random.randint(1e6)
+        p1 = pedigrees.sim_pedigree(
+            num_samples=10,
+            population_size=10,
+            end_time=20,
+            random_seed=seed,
+            direction=direction,
+        )
+        p2 = pedigrees.sim_pedigree(
+            num_samples=10,
+            population_size=lambda _: 10,
+            end_time=20,
+            random_seed=seed,
+            direction=direction,
+        )
+        assert p1 == p2
+
+    @pytest.mark.parametrize("direction", ["backward", "forward"])
+    def test_pop_collapse(self, direction):
+        seed = np.random.randint(1e6)
+        collapse_time = 10
+        ped = pedigrees.sim_pedigree(
+            num_samples=100,
+            population_size=lambda t: 100 if t < collapse_time else 1,
+            end_time=20,
+            random_seed=seed,
+            direction=direction,
+        )
+        times_old_nodes = ped.nodes.time[ped.nodes.time > collapse_time - 1]
+        _, node_counts = np.unique(times_old_nodes, return_counts=True)
+        # if we have a collapse down to one (diploid) individual, there should be only
+        # two nodes at each time point after the collapse
+        assert all(node_counts == 2)
+
 
 def join_pedigrees(tables_list):
     """
@@ -438,9 +484,8 @@ class TestJoinPedigrees:
 
 
 class TestSimulateThroughPedigree:
-    def verify(self, input_tables, recombination_rate=0):
+    def verify(self, input_tables, recombination_rate=0, stop_at_local_mrca=True):
         initial_state = input_tables.tree_sequence()
-
         # print()
         # print(list(input_tables.individuals.parents))
         # time = [
@@ -456,6 +501,7 @@ class TestSimulateThroughPedigree:
             initial_state=initial_state,
             recombination_rate=recombination_rate,
             random_seed=1,
+            stop_at_local_mrca=stop_at_local_mrca,
         )
         sim.run()
         # print(sim)
@@ -496,64 +542,122 @@ class TestSimulateThroughPedigree:
                     assert parent_node.individual in ancestors[individual.id] | {
                         tskit.NULL
                     }
+            if not stop_at_local_mrca:
+                # All roots should be founders
+                for root in tree.roots:
+                    node = ts.node(root)
+                    individual = ts.individual(node.individual)
+                    assert all(p == -1 for p in individual.parents)
+
         return ts
 
     @pytest.mark.parametrize("num_founders", [2, 3, 5, 100])
     @pytest.mark.parametrize("recombination_rate", [0, 0.01])
-    def test_shallow(self, num_founders, recombination_rate):
+    @pytest.mark.parametrize("stop_at_local_mrca", [True, False])
+    def test_shallow(self, num_founders, recombination_rate, stop_at_local_mrca):
         tables = simulate_pedigree(
             num_founders=num_founders,
             num_children_prob=[0, 0, 1],
             num_generations=2,
             sequence_length=100,
         )
-        self.verify(tables, recombination_rate)
+        self.verify(tables, recombination_rate, stop_at_local_mrca)
+
+    @pytest.mark.parametrize("num_founders", [2, 3, 5])
+    @pytest.mark.parametrize("recombination_rate", [0, 0.01])
+    @pytest.mark.parametrize("stop_at_local_mrca", [True, False])
+    def test_shallow_internal(
+        self, num_founders, recombination_rate, stop_at_local_mrca
+    ):
+        tables = simulate_pedigree(
+            num_founders=num_founders,
+            num_children_prob=[0, 0, 1],
+            num_generations=2,
+            sequence_length=100,
+            sample_gen=[0, 1],
+        )
+        self.verify(tables, recombination_rate, stop_at_local_mrca)
+
+    @pytest.mark.parametrize("num_founders", [2, 3, 5])
+    @pytest.mark.parametrize("recombination_rate", [0, 0.01])
+    @pytest.mark.parametrize("stop_at_local_mrca", [True, False])
+    def test_internal_and_leaf_samples(
+        self, num_founders, recombination_rate, stop_at_local_mrca
+    ):
+        tables = simulate_pedigree(
+            num_founders=num_founders,
+            num_children_prob=[0, 0, 1],
+            num_generations=5,
+            sequence_length=100,
+            sample_gen=[0, 2],
+        )
+        self.verify(tables, recombination_rate, stop_at_local_mrca)
+
+    @pytest.mark.parametrize("num_founders", [2, 3, 5])
+    @pytest.mark.parametrize("recombination_rate", [0, 0.01])
+    @pytest.mark.parametrize("stop_at_local_mrca", [True, False])
+    def test_no_leaf_samples(
+        self, num_founders, recombination_rate, stop_at_local_mrca
+    ):
+        tables = simulate_pedigree(
+            num_founders=num_founders,
+            num_children_prob=[0, 0, 1],
+            num_generations=5,
+            sequence_length=100,
+            sample_gen=[1],
+        )
+        self.verify(tables, recombination_rate, stop_at_local_mrca)
 
     @pytest.mark.parametrize("num_founders", [2, 3, 10, 20])
     @pytest.mark.parametrize("recombination_rate", [0, 0.01])
-    def test_deep(self, num_founders, recombination_rate):
+    @pytest.mark.parametrize("stop_at_local_mrca", [True, False])
+    def test_deep(self, num_founders, recombination_rate, stop_at_local_mrca):
         tables = simulate_pedigree(
             num_founders=num_founders,
             num_children_prob=[0, 0, 1],
             num_generations=6,  # Takes a long time if this is increased
             sequence_length=100,
         )
-        self.verify(tables, recombination_rate)
+        self.verify(tables, recombination_rate, stop_at_local_mrca)
 
     @pytest.mark.parametrize("num_founders", [2, 3])
     @pytest.mark.parametrize("recombination_rate", [0, 0.01])
-    def test_very_deep(self, num_founders, recombination_rate):
+    @pytest.mark.parametrize("stop_at_local_mrca", [True, False])
+    def test_very_deep(self, num_founders, recombination_rate, stop_at_local_mrca):
         tables = simulate_pedigree(
             num_founders=num_founders,
             num_children_prob=[0, 0, 1],
             num_generations=16,  # Takes a long time if this is increased
             sequence_length=10,
         )
-        self.verify(tables, recombination_rate)
+        self.verify(tables, recombination_rate, stop_at_local_mrca)
 
     @pytest.mark.parametrize("num_founders", [2, 3, 10, 20])
     @pytest.mark.parametrize("recombination_rate", [0, 0.01])
-    def test_many_children(self, num_founders, recombination_rate):
+    @pytest.mark.parametrize("stop_at_local_mrca", [True, False])
+    def test_many_children(self, num_founders, recombination_rate, stop_at_local_mrca):
         tables = simulate_pedigree(
             num_founders=num_founders,
             num_children_prob=[0] * 99
             + [1],  # Each pair of parents will always have 100 children
             num_generations=2,
         )
-        self.verify(tables, recombination_rate)
+        self.verify(tables, recombination_rate, stop_at_local_mrca)
 
     @pytest.mark.parametrize("num_founders", [2, 3, 10, 20])
     @pytest.mark.parametrize("recombination_rate", [0, 0.01])
-    def test_unrelated(self, num_founders, recombination_rate):
+    @pytest.mark.parametrize("stop_at_local_mrca", [True, False])
+    def test_unrelated(self, num_founders, recombination_rate, stop_at_local_mrca):
         tables = simulate_pedigree(
             num_founders=num_founders,
             num_children_prob=[0],
             num_generations=1,
         )
-        self.verify(tables, recombination_rate)
+        self.verify(tables, recombination_rate, stop_at_local_mrca)
 
     @pytest.mark.parametrize("recombination_rate", [0, 0.01])
-    def test_two_pedigrees(self, recombination_rate):
+    @pytest.mark.parametrize("stop_at_local_mrca", [True, False])
+    def test_two_pedigrees(self, recombination_rate, stop_at_local_mrca):
         tables1 = simulate_pedigree(
             num_founders=5,
             num_generations=5,
@@ -565,12 +669,15 @@ class TestSimulateThroughPedigree:
             sequence_length=100,
         )
         joined = join_pedigrees([tables1, tables2])
-        ts = self.verify(joined.tables, recombination_rate)
+        ts = self.verify(joined.tables, recombination_rate, stop_at_local_mrca)
         for tree in ts.trees():
             assert tree.num_roots >= 2
 
     @pytest.mark.parametrize("recombination_rate", [0, 0.01])
-    def test_two_pedigrees_different_times(self, recombination_rate):
+    @pytest.mark.parametrize("stop_at_local_mrca", [True, False])
+    def test_two_pedigrees_different_times(
+        self, recombination_rate, stop_at_local_mrca
+    ):
         tables1 = simulate_pedigree(
             num_founders=5,
             num_generations=5,
@@ -584,7 +691,7 @@ class TestSimulateThroughPedigree:
         # The pedigree in tables2 starts at 1 generation ago
         tables2.nodes.time += 1
         joined = join_pedigrees([tables1, tables2])
-        ts = self.verify(joined.tables, recombination_rate)
+        ts = self.verify(joined.tables, recombination_rate, stop_at_local_mrca)
         for tree in ts.trees():
             assert tree.num_roots >= 2
             for root in tree.roots:
@@ -605,7 +712,6 @@ class TestSimulateThroughPedigree:
         # The pedigree in tables2 starts at 1 generation ago
         tables2.nodes.time += 5
         joined = join_pedigrees([tables1, tables2])
-        joined.dump("joined_ped.ts")
         ts = self.verify(joined.tables, recombination_rate)
         for tree in ts.trees():
             assert tree.num_roots >= 2
@@ -750,23 +856,43 @@ class TestSimulateThroughPedigree:
         parent_nodes = {0, 1, 2, 3}
         assert set(ts.first().roots) == parent_nodes
 
+    @pytest.mark.parametrize("num_founders", [2, 3, 10, 20])
+    def test_all_samples(self, num_founders):
+        tables = simulate_pedigree(
+            num_founders=num_founders,
+            num_children_prob=[0, 0, 1],
+            num_generations=6,
+            sequence_length=100,
+        )
+        flags = tables.nodes.flags
+        flags[:] = tskit.NODE_IS_SAMPLE
+        tables.nodes.flags = flags
+        self.verify(tables)
+
 
 class TestSimulateThroughPedigreeEventByEvent(TestSimulateThroughPedigree):
-    def verify(self, input_tables, recombination_rate=0):
+    def verify(self, input_tables, recombination_rate=0, stop_at_local_mrca=True):
         ts1 = msprime.sim_ancestry(
             model="fixed_pedigree",
             initial_state=input_tables,
             recombination_rate=recombination_rate,
             random_seed=1,
+            stop_at_local_mrca=stop_at_local_mrca,
         )
         sim = msprime.ancestry._parse_sim_ancestry(
             model="fixed_pedigree",
             initial_state=input_tables,
             recombination_rate=recombination_rate,
             random_seed=1,
+            stop_at_local_mrca=stop_at_local_mrca,
         )
+        # print(ts1.tables)
+        # print(ts1.draw_text())
         sim.run(event_chunk=1)
         output_tables = tskit.TableCollection.fromdict(sim.tables.asdict())
+        # print(output_tables)
+        # ts2 = output_tables.tree_sequence()
+        # print(ts2.draw_text())
         output_tables.assert_equals(ts1.tables, ignore_provenance=True)
         return ts1
 
@@ -776,11 +902,12 @@ class TestContinueSimulateThroughPedigree(TestSimulateThroughPedigree):
     Can we extend the simulations of the pedigree as we'd expect?
     """
 
-    def verify(self, input_tables, recombination_rate=0):
+    def verify(self, input_tables, recombination_rate=0, stop_at_local_mrca=True):
         ts1 = msprime.sim_ancestry(
             model="fixed_pedigree",
             initial_state=input_tables,
             recombination_rate=recombination_rate,
+            stop_at_local_mrca=stop_at_local_mrca,
             random_seed=42,
         )
         # print(ts1.draw_text())
@@ -792,11 +919,14 @@ class TestContinueSimulateThroughPedigree(TestSimulateThroughPedigree):
             for node_id in tree.nodes():
                 if tree.num_children(node_id) == 1:
                     # Any unary nodes should be associated with a pedigree
-                    # founder.
+                    # founder or a sapmle
                     node = ts2.node(node_id)
                     assert node.individual != tskit.NULL
                     individual = ts2.individual(node.individual)
-                    assert list(individual.parents) == [tskit.NULL, tskit.NULL]
+                    assert node.is_sample() or list(individual.parents) == [
+                        tskit.NULL,
+                        tskit.NULL,
+                    ]
         tables1 = ts1.tables
         tables2 = ts2.tables
         tables1.individuals.assert_equals(
@@ -843,7 +973,7 @@ class TestContinueSimulateThroughPedigree(TestSimulateThroughPedigree):
 
 
 class TestSimulateThroughPedigreeReplicates(TestSimulateThroughPedigree):
-    def verify(self, input_tables, recombination_rate=0):
+    def verify(self, input_tables, recombination_rate=0, stop_at_local_mrca=True):
         num_replicates = 5
         replicates = list(
             msprime.sim_ancestry(
@@ -852,6 +982,7 @@ class TestSimulateThroughPedigreeReplicates(TestSimulateThroughPedigree):
                 recombination_rate=recombination_rate,
                 random_seed=42,
                 num_replicates=num_replicates,
+                stop_at_local_mrca=stop_at_local_mrca,
             )
         )
 
@@ -859,6 +990,7 @@ class TestSimulateThroughPedigreeReplicates(TestSimulateThroughPedigree):
             model="fixed_pedigree",
             initial_state=input_tables,
             recombination_rate=recombination_rate,
+            stop_at_local_mrca=stop_at_local_mrca,
             random_seed=42,
         )
         ts1.tables.assert_equals(replicates[0].tables, ignore_provenance=True)
@@ -912,19 +1044,6 @@ class TestSimulateThroughPartialPedigree:
 
 
 class TestSimulateThroughPedigreeErrors:
-    def test_parents_are_samples(self):
-        tables = get_base_tables(100)
-        parents = [
-            add_pedigree_individual(tables, time=1, is_sample=True) for _ in range(2)
-        ]
-        add_pedigree_individual(tables, parents=parents, time=0)
-
-        with pytest.raises(_msprime.LibraryError, match="1855"):
-            msprime.sim_ancestry(
-                initial_state=tables,
-                model="fixed_pedigree",
-            )
-
     @pytest.mark.parametrize("num_parents", [0, 1, 3])
     def test_not_two_parents(self, num_parents):
         tables = get_base_tables(100)
@@ -982,20 +1101,6 @@ class TestSimulateThroughPedigreeErrors:
         parents = [add_pedigree_individual(tables, time=0) for _ in range(2)]
         add_pedigree_individual(tables, time=1, parents=parents, is_sample=True)
         with pytest.raises(_msprime.InputError, match="time for a parent must be"):
-            msprime.sim_ancestry(initial_state=tables, model="fixed_pedigree")
-
-    @pytest.mark.parametrize("num_founders", [2, 3, 10, 20])
-    def test_all_samples(self, num_founders):
-        tables = simulate_pedigree(
-            num_founders=num_founders,
-            num_children_prob=[0, 0, 1],
-            num_generations=6,
-            sequence_length=100,
-        )
-        flags = tables.nodes.flags
-        flags[:] = tskit.NODE_IS_SAMPLE
-        tables.nodes.flags = flags
-        with pytest.raises(_msprime.LibraryError, match="1855"):
             msprime.sim_ancestry(initial_state=tables, model="fixed_pedigree")
 
 
@@ -1086,7 +1191,7 @@ class TestSimulateThroughPedigreeMultiplePops:
 
 
 class TestSimulateAdditionalNodes:
-    def verify_pedigree_unary(self, ts, initial_state):
+    def verify_pedigree_unary(self, ts, initial_state, stop_at_local_mrca=True):
         # verifies whether for each step in the pedigree and for each
         # marginal tree there is an edge recorded for each ploid to
         # either one of the parent's ploids
@@ -1109,6 +1214,12 @@ class TestSimulateAdditionalNodes:
                 if tree.parent(node_id) != tskit.NULL:
                     direct_ancestor = direct_ancestors[node_id]
                     assert tree.parent(node_id) in direct_ancestor
+
+            if not stop_at_local_mrca:
+                for root in tree.roots:
+                    node = ts.node(root)
+                    individual = ts.individual(node.individual)
+                    assert all(p == -1 for p in individual.parents)
 
     def verify_pedigree_recombination(self, tables):
         children = collections.defaultdict(set)
@@ -1195,7 +1306,8 @@ class TestSimulateAdditionalNodes:
                 record_full_arg=True,
             )
 
-    def test_pedigree_unary(self):
+    @pytest.mark.parametrize("stop_at_local_mrca", [True, False])
+    def test_pedigree_unary(self, stop_at_local_mrca):
         node_values = [
             msprime.NODE_IS_RE_EVENT,
             msprime.NODE_IS_CA_EVENT | msprime.NODE_IS_PASS_THROUGH,
@@ -1212,13 +1324,15 @@ class TestSimulateAdditionalNodes:
                 model="fixed_pedigree",
                 additional_nodes=additional_nodes,
                 coalescing_segments_only=False,
+                stop_at_local_mrca=stop_at_local_mrca,
                 initial_state=initial_state,
                 random_seed=1234,
             )
             ts = self.verify_pedigree(sim, additional_nodes)
-            self.verify_pedigree_unary(ts, initial_state)
+            self.verify_pedigree_unary(ts, initial_state, stop_at_local_mrca)
 
-    def test_pedigree_unary_simple(self):
+    @pytest.mark.parametrize("stop_at_local_mrca", [True, False])
+    def test_pedigree_unary_simple(self, stop_at_local_mrca):
         node_value = (
             msprime.NODE_IS_RE_EVENT
             | msprime.NODE_IS_CA_EVENT
@@ -1239,10 +1353,11 @@ class TestSimulateAdditionalNodes:
             recombination_rate=0.1,
             model="fixed_pedigree",
             additional_nodes=additional_nodes,
+            stop_at_local_mrca=stop_at_local_mrca,
             coalescing_segments_only=False,
             initial_state=pedigree,
         )
-        self.verify_pedigree_unary(ts, pedigree)
+        self.verify_pedigree_unary(ts, pedigree, stop_at_local_mrca)
 
     def test_deep_pedigree(self):
         node_value = (

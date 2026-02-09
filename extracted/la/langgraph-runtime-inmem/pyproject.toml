@@ -19,6 +19,7 @@ dependencies = [
     "sse-starlette>=2",
     "starlette>=0.37",
     "langgraph-checkpoint>=3,<5",
+    "croniter>=1.0.1",
 ]
 
 [dependency-groups]

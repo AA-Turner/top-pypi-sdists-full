@@ -3,7 +3,7 @@ mod common;
 use crate::common::{TestContext, cmd_snapshot};
 
 use assert_fs::fixture::{FileWriteStr, PathChild, PathCreateDir};
-use prek_consts::CONFIG_FILE;
+use prek_consts::PRE_COMMIT_CONFIG_YAML;
 
 #[test]
 fn meta_hooks() -> anyhow::Result<()> {
@@ -83,14 +83,20 @@ fn meta_hooks_unknown_hook() {
     "});
     context.git_add(".");
 
-    cmd_snapshot!(context.filters(), context.run(), @r"
+    cmd_snapshot!(context.filters(), context.run(), @"
     success: false
     exit_code: 2
     ----- stdout -----
 
     ----- stderr -----
     error: Failed to parse `.pre-commit-config.yaml`
-      caused by: Invalid meta repo: unknown meta hook id `this-hook-does-not-exist`
+      caused by: error: line 4 column 9: unknown meta hook id `this-hook-does-not-exist` at line 4, column 9
+     --> <input>:4:9
+      |
+    2 |   - repo: meta
+    3 |     hooks:
+    4 |       - id: this-hook-does-not-exist
+      |         ^ unknown meta hook id `this-hook-does-not-exist` at line 4, column 9
     ");
 }
 
@@ -153,7 +159,8 @@ fn meta_hooks_workspace() -> anyhow::Result<()> {
 
     let app = context.work_dir().child("app");
     app.create_dir_all()?;
-    app.child(CONFIG_FILE).write_str(indoc::indoc! {r"
+    app.child(PRE_COMMIT_CONFIG_YAML)
+        .write_str(indoc::indoc! {r"
         repos:
           - repo: meta
             hooks:

@@ -38,12 +38,12 @@ import itertools
 from sage.categories.homset import Homset
 from sage.categories.morphism import Morphism
 from sage.misc.cachefunc import cached_method
-from .polynomial_ring_constructor import PolynomialRing
-from .polynomial_ring import PolynomialRing_generic
-from .multi_polynomial_ring_base import MPolynomialRing_base
 from sage.rings.fraction_field import FractionField_generic
 from sage.rings.fraction_field_element import FractionFieldElement
+from sage.rings.polynomial.multi_polynomial_ring_base import MPolynomialRing_base
 from sage.rings.polynomial.polydict import ETuple
+from sage.rings.polynomial.polynomial_ring import PolynomialRing_generic
+from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 
 
 class FlatteningMorphism(Morphism):
@@ -382,7 +382,7 @@ class UnflatteningMorphism(Morphism):
             sage: rings = [ZZ['x']['y']['a,b,c']]
             sage: rings += [GF(4)['x','y']['a','b']]                                    # needs sage.rings.finite_rings
             sage: rings += [AA['x']['a','b']['y'], QQbar['a1','a2']['t']['X','Y']]      # needs sage.rings.number_field
-            sage: for R in rings:                                                       # needs sage.modules
+            sage: for R in rings:                                                       # needs sage.libs.pari sage.modules
             ....:    f = FlatteningMorphism(R)
             ....:    g = f.section()
             ....:    for _ in range(10):

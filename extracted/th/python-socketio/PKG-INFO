@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-socketio
-Version: 5.16.0
+Version: 5.16.1
 Summary: Socket.IO server and client for Python
 Author-email: Miguel Grinberg <miguel.grinberg@gmail.com>
 License: MIT
@@ -24,6 +24,7 @@ Provides-Extra: dev
 Requires-Dist: tox; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: furo; extra == "docs"
 Dynamic: license-file
 
 python-socketio

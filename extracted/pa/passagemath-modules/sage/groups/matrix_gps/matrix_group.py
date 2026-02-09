@@ -70,31 +70,6 @@ from sage.groups.group import Group
 
 from sage.groups.matrix_gps.group_element import MatrixGroupElement_generic
 
-
-def is_MatrixGroup(x):
-    """
-    Test whether ``x`` is a matrix group.
-
-    EXAMPLES::
-
-        sage: from sage.groups.matrix_gps.matrix_group import is_MatrixGroup
-        sage: is_MatrixGroup(MatrixSpace(QQ, 3))
-        doctest:warning...
-        DeprecationWarning: the function is_MatrixGroup is deprecated;
-        use 'isinstance(..., MatrixGroup_base)' instead
-        See https://github.com/sagemath/sage/issues/37898 for details.
-        False
-        sage: is_MatrixGroup(Mat(QQ, 3))
-        False
-        sage: is_MatrixGroup(GL(2, ZZ))
-        True
-        sage: is_MatrixGroup(MatrixGroup([matrix(2, [1,1,0,1])]))
-        True
-    """
-    from sage.misc.superseded import deprecation
-    deprecation(37898, "the function is_MatrixGroup is deprecated; use 'isinstance(..., MatrixGroup_base)' instead")
-    return isinstance(x, MatrixGroup_base)
-
 ###################################################################
 #
 # Base class for all matrix groups
@@ -121,7 +96,7 @@ class MatrixGroup_base(Group):
     """
     _ambient = None  # internal attribute to register the ambient group in case this instance is a subgroup
 
-    def _check_matrix(self, x, *args):
+    def _check_matrix(self, x, *args) -> None:
         """
         Check whether the matrix ``x`` defines a group element.
 
@@ -147,9 +122,7 @@ class MatrixGroup_base(Group):
             sage: G._check_matrix(matrix(F, [[1,1], [0,1]]))                            # needs sage.rings.finite_rings
             Traceback (most recent call last):
             ...
-            TypeError: matrix must be unitary with respect to the hermitian form
-            [0 1]
-            [1 0]
+            TypeError: matrix must be unitary...
         """
         if not x.is_invertible():
             raise TypeError('matrix is not invertible')

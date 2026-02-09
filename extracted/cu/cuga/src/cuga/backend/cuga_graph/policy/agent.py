@@ -40,6 +40,26 @@ class PlaybookEnactment(BaseModel):
     original_plan: str = Field(..., description="Original playbook markdown content")
 
 
+class PolicyConflictResolution(BaseModel):
+    """LLM response for resolving policy conflicts."""
+
+    matched_policy_index: Optional[int] = Field(
+        None,
+        description="1-based index of the matched policy, or null if no match",
+        ge=1,
+    )
+    confidence: float = Field(
+        ...,
+        description="Confidence score between 0.0 and 1.0",
+        ge=0.0,
+        le=1.0,
+    )
+    reasoning: str = Field(
+        ...,
+        description="Brief explanation of why this policy was chosen or why no match",
+    )
+
+
 class PolicyContext(BaseModel):
     """Context information for policy matching."""
 
@@ -573,16 +593,14 @@ Guidelines:
 - Focus on the CORE INTENT of the user's input
 - Consider the policy descriptions and their natural language triggers
 - If multiple policies could apply, choose the most specific/relevant one
-- If NO policy truly matches the user's intent, indicate no match
+- If NO policy truly matches the user's intent, set matched_policy_index to null
 - Intent Guards (blocking/warning) should be prioritized if they match
 - Playbooks (guidance) should match when user needs help with a process
 
-Respond with JSON:
-{
-  "matched_policy_index": 1-N or null if no match,
-  "confidence": 0.0-1.0,
-  "reasoning": "brief explanation of why this policy was chosen or why no match"
-}"""
+Provide:
+- matched_policy_index: 1-N (1-based index) or null if no match
+- confidence: 0.0-1.0 (how confident you are in the match)
+- reasoning: brief explanation of why this policy was chosen or why no match"""
 
             # Build user prompt using helper function
             user_prompt = self._build_conflict_resolution_user_prompt(
@@ -602,73 +620,49 @@ Respond with JSON:
             logger.debug(f"    User prompt length: {len(user_prompt)} chars")
             logger.debug(f"    Number of policies in prompt: {len(policies_with_nl_triggers)}")
 
-            response = await self.llm.ainvoke(messages)
-            response_text = response.content.strip()
+            # Use structured output for reliable JSON parsing
+            structured_llm = self.llm.with_structured_output(PolicyConflictResolution)
+            result: PolicyConflictResolution = await structured_llm.ainvoke(messages)
 
-            logger.debug(f"  - Received LLM response ({len(response_text)} chars)")
-            logger.debug(f"    Response preview: {response_text[:200]}...")
+            logger.debug("  - Received structured LLM response:")
+            logger.debug(f"    - matched_policy_index: {result.matched_policy_index}")
+            logger.debug(f"    - confidence: {result.confidence:.2f}")
+            logger.debug(f"    - reasoning: {result.reasoning[:100]}...")
 
-            # Parse JSON response
-            import json
+            matched_index = result.matched_policy_index
+            confidence = result.confidence
+            reasoning = result.reasoning
 
-            json_match = re.search(r'\{[^}]+\}', response_text, re.DOTALL)
-            if json_match:
-                try:
-                    result = json.loads(json_match.group())
-                    matched_index = result.get("matched_policy_index")
-                    confidence = float(result.get("confidence", 0.0))
-                    reasoning = result.get("reasoning", "")
+            if matched_index and 1 <= matched_index <= len(policies_with_nl_triggers):
+                policy, nl_triggers = policies_with_nl_triggers[matched_index - 1]
 
-                    logger.debug("  - Parsed JSON response:")
-                    logger.debug(f"    - matched_policy_index: {matched_index}")
-                    logger.debug(f"    - confidence: {confidence:.2f}")
-                    logger.debug(f"    - reasoning: {reasoning[:100]}...")
-
-                    if matched_index and 1 <= matched_index <= len(policies_with_nl_triggers):
-                        policy, nl_triggers = policies_with_nl_triggers[matched_index - 1]
-
-                        # Validate confidence against threshold(s) from the selected policy's triggers
-                        # Use minimum threshold (most strict) if multiple triggers exist
-                        thresholds = [
-                            trigger.threshold for trigger in nl_triggers if hasattr(trigger, 'threshold')
-                        ]
-                        if thresholds:
-                            min_threshold = min(thresholds)
-                            if confidence < min_threshold:
-                                logger.info(
-                                    f"❌ LLM conflict resolution confidence ({confidence:.2f}) "
-                                    f"below threshold ({min_threshold:.2f}) for policy '{policy.name}'"
-                                )
-                                logger.debug(
-                                    f"    - Confidence: {confidence:.2f}, Threshold: {min_threshold:.2f}, "
-                                    f"Policy: {policy.name}"
-                                )
-                                return None
-                            logger.debug(
-                                f"    - Confidence {confidence:.2f} meets threshold {min_threshold:.2f}"
-                            )
-
+                # Validate confidence against threshold(s) from the selected policy's triggers
+                # Use minimum threshold (most strict) if multiple triggers exist
+                thresholds = [trigger.threshold for trigger in nl_triggers if hasattr(trigger, 'threshold')]
+                if thresholds:
+                    min_threshold = min(thresholds)
+                    if confidence < min_threshold:
                         logger.info(
-                            f"✅ LLM resolved conflict: selected '{policy.name}' "
-                            f"(confidence: {confidence:.2f})"
+                            f"❌ LLM conflict resolution confidence ({confidence:.2f}) "
+                            f"below threshold ({min_threshold:.2f}) for policy '{policy.name}'"
                         )
-                        logger.debug(f"    - Selected policy index: {matched_index} (1-based)")
-                        return policy, confidence, f"LLM conflict resolution: {reasoning}"
-                    else:
-                        logger.info(
-                            f"❌ LLM determined no policy matches (index {matched_index} out of range 1-{len(policies_with_nl_triggers)})"
+                        logger.debug(
+                            f"    - Confidence: {confidence:.2f}, Threshold: {min_threshold:.2f}, "
+                            f"Policy: {policy.name}"
                         )
                         return None
-                except json.JSONDecodeError as e:
-                    logger.warning(f"⚠️  Failed to parse JSON from LLM response: {e}")
-                    logger.debug(f"    - JSON match: {json_match.group()[:200]}...")
-            else:
-                logger.warning("⚠️  No JSON found in LLM response")
-                logger.debug(f"    - Full response: {response_text[:500]}...")
+                    logger.debug(f"    - Confidence {confidence:.2f} meets threshold {min_threshold:.2f}")
 
-            # Fallback if parsing fails
-            logger.warning("⚠️  Failed to parse LLM conflict resolution response, returning None")
-            return None
+                logger.info(
+                    f"✅ LLM resolved conflict: selected '{policy.name}' (confidence: {confidence:.2f})"
+                )
+                logger.debug(f"    - Selected policy index: {matched_index} (1-based)")
+                return policy, confidence, f"LLM conflict resolution: {reasoning}"
+            else:
+                logger.info(
+                    f"❌ LLM determined no policy matches (index {matched_index} out of range 1-{len(policies_with_nl_triggers)})"
+                )
+                return None
 
         except Exception as e:
             logger.error(f"❌ Error in LLM conflict resolution: {e}")

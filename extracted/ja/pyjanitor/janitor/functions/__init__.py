@@ -33,13 +33,18 @@ from .change_type import change_type
 from .clean_names import clean_names
 from .coalesce import coalesce
 from .collapse_levels import collapse_levels
+from .compare_df_cols import compare_df_cols, compare_df_cols_same, describe_class
 from .complete import complete
 from .concatenate_columns import concatenate_columns
-from .conditional_join import conditional_join, get_join_indices
+from .conditional_join import conditional_join, get_join_indices, join_agg
 from .convert_date import (
     convert_excel_date,
     convert_matlab_date,
+    convert_to_date,
+    convert_to_datetime,
     convert_unix_date,
+    excel_time_to_numeric,
+    sas_numeric_to_date,
 )
 from .count_cumulative_unique import count_cumulative_unique
 from .currency_column_to_numeric import currency_column_to_numeric
@@ -57,6 +62,7 @@ from .filter import filter_column_isin, filter_date, filter_on, filter_string
 from .find_replace import find_replace
 from .flag_nulls import flag_nulls
 from .get_dupes import get_dupes
+from .get_one_to_one import get_one_to_one
 from .groupby_agg import groupby_agg
 from .groupby_topk import groupby_topk
 from .impute import impute
@@ -66,7 +72,8 @@ from .label_encode import label_encode
 from .limit_column_characters import limit_column_characters
 from .min_max_scale import min_max_scale
 from .move import move
-from .mutate import mutate
+from .mutate import assign, mutate
+from .paste_skip_na import paste_skip_na
 from .pivot import (
     pivot_longer,
     pivot_longer_spec,
@@ -79,8 +86,10 @@ from .remove_empty import remove_empty
 from .rename_columns import rename_column, rename_columns
 from .reorder_columns import reorder_columns
 from .rle_id import rle_id
+from .round_half_up import round_half_up, signif_half_up
 from .round_to_fraction import round_to_fraction
 from .row_to_names import row_to_names
+from .scale_mad import scale_mad
 from .select import (
     DropLabel,
     get_columns,
@@ -90,13 +99,16 @@ from .select import (
     select_rows,
 )
 from .shuffle import shuffle
+from .single_value import single_value
 from .sort_column_value_order import sort_column_value_order
 from .sort_naturally import sort_naturally
+from .statistical_tests import chisq_test, fisher_test
 from .summarise import summarise
 from .tabyl import tabyl
 from .take_first import take_first
 from .then import then
 from .to_datetime import to_datetime
+from .top_levels import top_levels
 from .toset import toset
 from .transform_columns import transform_column, transform_columns
 from .truncate_datetime import truncate_datetime_dataframe
@@ -115,23 +127,32 @@ __all__ = [
     "adorn_totals",
     "alias",
     "also",
+    "assign",
     "bin_numeric",
     "cartesian_product",
     "case_when",
     "change_type",
     "change_index_dtype",
+    "chisq_test",
     "clean_names",
     "coalesce",
     "collapse_levels",
+    "compare_df_cols",
+    "compare_df_cols_same",
     "complete",
     "concatenate_columns",
     "conditional_join",
     "convert_excel_date",
     "convert_matlab_date",
+    "convert_to_date",
+    "convert_to_datetime",
     "convert_unix_date",
+    "excel_time_to_numeric",
+    "sas_numeric_to_date",
     "count_cumulative_unique",
     "currency_column_to_numeric",
     "deconcatenate_column",
+    "describe_class",
     "drop_constant_columns",
     "drop_duplicate_columns",
     "dropnotnull",
@@ -141,6 +162,7 @@ __all__ = [
     "expand_grid",
     "explode_index",
     "factorize_columns",
+    "fisher_test",
     "fill_direction",
     "fill_empty",
     "filter_date",
@@ -150,17 +172,20 @@ __all__ = [
     "find_replace",
     "flag_nulls",
     "get_dupes",
+    "get_one_to_one",
     "get_join_indices",
     "groupby_agg",
     "groupby_topk",
     "impute",
     "jitter",
     "join_apply",
+    "join_agg",
     "label_encode",
     "limit_column_characters",
     "min_max_scale",
     "move",
     "mutate",
+    "paste_skip_na",
     "pivot_longer",
     "pivot_longer_spec",
     "pivot_wider",
@@ -172,12 +197,16 @@ __all__ = [
     "rename_columns",
     "reorder_columns",
     "rle_id",
+    "round_half_up",
     "round_to_fraction",
     "row_to_names",
+    "scale_mad",
     "select_columns",
     "select_rows",
     "select",
     "shuffle",
+    "signif_half_up",
+    "single_value",
     "sort_column_value_order",
     "sort_naturally",
     "summarise",
@@ -186,6 +215,7 @@ __all__ = [
     "then",
     "to_datetime",
     "toset",
+    "top_levels",
     "transform_column",
     "transform_columns",
     "truncate_datetime_dataframe",

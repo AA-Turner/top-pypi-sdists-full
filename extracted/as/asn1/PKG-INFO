@@ -1,14 +1,13 @@
 Metadata-Version: 2.4
 Name: asn1
-Version: 3.1.0
+Version: 3.2.0
 Summary: Python-ASN1 is a simple ASN.1 encoder and decoder for Python 2.7+ and 3.5+.
 Home-page: https://github.com/andrivet/python-asn1
 Author: Sebastien Andrivet
 Author-email: sebastien@andrivet.com
-License: BSD
+License: MIT
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: Unix
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Microsoft :: Windows
@@ -24,6 +23,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Utilities
@@ -136,6 +136,13 @@ The complete documentation is available on Read The Docs:
 
 `python-asn1.readthedocs.io <https://python-asn1.readthedocs.io/en/latest/>`_
 
+Contributing
+============
+
+Contributions to Python-ASN1 are welcome. If you want to contribute, please fork the repository on GitHub, make your changes and submit a pull request (PR).
+Please make sure that your code is properly tested and that all tests pass.
+In particular, tests should pass for old versions of Python (2.7 and from 3.5 to 3.14).
+You can use the provided Docker file to test your code on all those versions of Python.
 
 License
 =======
@@ -151,9 +158,24 @@ The following people have contributed to Python-ASN1. Collectively they own the 
 
 * Geert Jansen (geert@boskant.nl): `original implementation <https://github.com/geertj/python-asn1>`_.
 * Sebastien Andrivet (sebastien@andrivet.com)
+* Filippo Santovito (filippo.santovito@gmail.com)
 
 Changelog
 =========
+
+3.2.0 (2026-02-06)
+------------------
+
+* New API using a context manager
+    * Support for using Encoder via context manager
+    * Support for encoding sequences via context manager
+    * Support for encoding sets via context manager
+    * Support for using Decoder via context manager
+
+* Add support of Python 3.14
+
+* New way of installing old versions of Python in the Docker file.
+  As a consequence, all versions of Python including 2.7 and from 3.5 to 3.14 are now properly tested.
 
 3.1.0 (2025-05-16)
 ------------------

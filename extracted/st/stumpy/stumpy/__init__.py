@@ -235,7 +235,7 @@ else:  # pragma: no cover
         if cd.name == "gpu_aamp_stimp":
             gpu_aamp_stimp.__doc__ = ast.get_docstring(cd)
 
-try:
+try:  # pragma: no cover
     # _dist = get_distribution("stumpy")
     _dist = distribution("stumpy")
     # Normalize case for Windows systems

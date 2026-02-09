@@ -11,7 +11,6 @@ from abstra_internals.contracts_generated import (
     CloudApiConsoleWorkflowUpdateTaskRequestCompleted,
     CloudApiConsoleWorkflowUpdateTaskRequestLocked,
 )
-from abstra_internals.repositories.multiprocessing import MPContext
 from abstra_internals.services.sql_storage import SqlStorage
 from abstra_internals.utils.datetime import to_utc_iso_string
 from abstra_internals.utils.serializable import Serializable
@@ -112,10 +111,8 @@ class TasksRepository(ABC):
 
 
 class LocalTasksRepository(TasksRepository):
-    def __init__(self, mp_context: MPContext):
-        self.fs_storage = SqlStorage(
-            mp_context, directory=TASKS_DIR_PATH, model=TaskDTO
-        )
+    def __init__(self):
+        self.fs_storage = SqlStorage(directory=TASKS_DIR_PATH, model=TaskDTO)
 
     def clear(self):
         self.fs_storage.clear()

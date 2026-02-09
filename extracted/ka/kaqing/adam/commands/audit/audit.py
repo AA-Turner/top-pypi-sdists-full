@@ -10,7 +10,7 @@ from adam.commands.audit.show_top10 import ShowTop10
 from adam.commands.command import Command
 from adam.commands.intermediate_command import IntermediateCommand
 from adam.repl_state import ReplState
-from adam.utils import log2
+from adam.utils_log import log2
 from adam.utils_athena import Athena
 from adam.utils_context import Context
 

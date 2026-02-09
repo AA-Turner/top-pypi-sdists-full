@@ -35,10 +35,6 @@ from cuga.backend.cuga_graph.utils.nodes_names import NodeNames, ActionIds
 instructions_manager = InstructionsManager()
 tracker = ActivityTracker()
 llm_manager = LLMManager()
-if settings.advanced_features.enable_fact:
-    from cuga.backend.memory.memory import Memory
-
-    memory = Memory()
 
 
 # --- Minimal tolerant planner parser (handles double-encoded JSON, code fences, minor key typos) ---
@@ -197,14 +193,22 @@ class ApiPlanner(BaseNode):
                     logger.debug(f"Human consultation response received: {human_response}")
                     state.sender = name
 
-        if settings.advanced_features.enable_fact:
+        if settings.advanced_features.enable_fact and settings.advanced_features.enable_memory:
+            from cuga.backend.memory.memory import Memory
+
             logger.info("Retrieving facts stored in memory")
             filters = {
                 "user_id": state.user_id,
             }
-            retrieved_facts = memory.search_for_facts(
-                namespace_id='memory', query=state.input, filters=filters
-            )
+            memory = Memory()
+            try:
+                retrieved_facts = memory.search_for_facts(
+                    namespace_id='memory', query=state.input, filters=filters
+                )
+            except Exception as e:
+                logger.warning(f"Failed to retrieve facts from memory: {e}")
+                retrieved_facts = None
+
             if retrieved_facts:
                 for fact in retrieved_facts:
                     if "variable_name" in fact.content:

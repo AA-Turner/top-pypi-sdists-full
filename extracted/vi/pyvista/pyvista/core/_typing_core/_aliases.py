@@ -35,18 +35,14 @@ else:
 # Long or complex type aliases (e.g. a union of 4 or more base types) should
 # always be added to the dictionary and documented
 Number = Union[int, float]
-
 VectorLike = _ArrayLike1D[NumberType]
-
 MatrixLike = _ArrayLike2D[NumberType]
-
 ArrayLike = _ArrayLike[NumberType]
 
 if Rotation is not None:
     RotationLike = Union[MatrixLike[float], _vtk.vtkMatrix3x3, Rotation]
 else:
     RotationLike = Union[MatrixLike[float], _vtk.vtkMatrix3x3]  # type: ignore[misc]
-
 TransformLike = Union[RotationLike, _vtk.vtkMatrix4x4, _vtk.vtkTransform]
 
 
@@ -77,7 +73,7 @@ class BoundsTuple(NamedTuple):
         field_size = max(len(f) for f in fields)
         name = self.__class__.__name__
         whitespace = (len(name) + 1) * ' '
-        for i, items in enumerate(zip(fields, split_strings)):
+        for i, items in enumerate(zip(fields, split_strings, strict=True)):
             field, parts = items
             if has_dot[i]:
                 left, right = parts

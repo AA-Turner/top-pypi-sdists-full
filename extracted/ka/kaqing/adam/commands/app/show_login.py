@@ -5,7 +5,8 @@ from adam.sso.idp import Idp
 from adam.sso.idp_login import IdpLogin
 from adam.commands.command import Command
 from adam.repl_state import ReplState
-from adam.utils import duration, log2, log_exc
+from adam.utils import duration
+from adam.utils_log import log2, log_exc
 from adam.utils_tabulize import tabulize
 
 class ShowLogin(Command):

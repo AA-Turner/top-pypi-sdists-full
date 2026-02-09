@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-""" icdiff.py
+"""icdiff.py
 
 Author: Jeff Kaufman, derived from difflib.HtmlDiff
 
@@ -11,7 +11,7 @@ Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006 Python Software Foundation;
 All Rights Reserved
 
 Based on Python's difflib.HtmlDiff,
-with changes to provide console output instead of html output.  """
+with changes to provide console output instead of html output."""
 
 import os
 import stat
@@ -22,10 +22,9 @@ from optparse import Option, OptionParser
 import re
 import filecmp
 import unicodedata
-import codecs
 import fnmatch
 
-__version__ = "2.0.7"
+__version__ = "2.0.10"
 
 # Exit code constants
 EXIT_CODE_SUCCESS = 0
@@ -759,7 +758,7 @@ def set_cols_option(options):
                 import struct
 
                 cr = struct.unpack(
-                    "hh", fcntl.ioctl(fd, termios.TIOCGWINSZ, "1234")
+                    "hhhh", fcntl.ioctl(fd, termios.TIOCGWINSZ, "12345678")
                 )
             except Exception:
                 return None
@@ -877,7 +876,7 @@ def diff(options, a, b):
 
 def read_file(fname, options):
     try:
-        with codecs.open(fname, encoding=options.encoding, mode="rb") as inf:
+        with open(fname, encoding=options.encoding, newline="") as inf:
             return inf.readlines()
     except UnicodeDecodeError as e:
         codec_print(

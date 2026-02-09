@@ -1,13 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: censusgeocode
-Version: 0.5.2
+Version: 0.5.3
 Summary: Thin Python wrapper for the US Census Geocoder
 Home-page: https://github.com/fitnr/censusgeocode
 Author: Neil Freeman
 Author-email: contact@fakeisthenewreal.org
 License: GNU General Public License v3 (GPLv3)
 Keywords: census,geocode,api
-Platform: UNKNOWN
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
@@ -16,13 +15,25 @@ Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
-Requires-Python: <4,>=3.6
+Requires-Python: <4,>=3.8
 Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: requests[security]>=2.27
+Requires-Dist: requests-toolbelt>=0.9
+Provides-Extra: test
+Requires-Dist: vcrpy>=4.1; extra == "test"
 Provides-Extra: tests
+Requires-Dist: vcrpy>=4.1; extra == "tests"
+Dynamic: license-file
 
-Census Geocode
---------------
+[![Test package](https://github.com/fitnr/censusgeocode/actions/workflows/test.yml/badge.svg)](https://github.com/fitnr/censusgeocode/actions/workflows/test.yml)
+
+# Census Geocode
 
 Census Geocode is a light weight Python wrapper for the US Census [Geocoder API](http://geocoding.geo.census.gov/geocoder/), compatible with  Python 3. It comes packaged with a simple command line tool for geocoding an address to a longitude and latitude, or a batch file into a parsed address and coordinates.
 
@@ -118,7 +129,7 @@ Queries return a CensusResult object, which is basically a Python list with an e
 }]
 ```
 
-### Advanced
+## Advanced
 
 By default, the geocoder uses the "Current" vintage and benchmarks. To use another vintage or benchmark, use the `CensusGeocode` class:
 ````python
@@ -189,5 +200,3 @@ This program is free software: you can redistribute it and/or modify it under th
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with this program.  If not, see http://www.gnu.org/licenses/.
-
-

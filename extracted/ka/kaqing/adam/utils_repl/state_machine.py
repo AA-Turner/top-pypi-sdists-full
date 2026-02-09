@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from typing import Generic, TypeVar
 
-from adam.utils import log_exc
+from adam.utils_log import log_exc
 
 __all__ = [
     'State',

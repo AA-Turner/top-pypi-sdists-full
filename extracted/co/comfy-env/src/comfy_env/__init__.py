@@ -4,7 +4,7 @@ comfy-env - Environment management for ComfyUI custom nodes.
 Features:
 - CUDA wheel resolution (pre-built wheels without compilation)
 - Process isolation (run nodes in separate Python environments)
-- Central environment cache (~/.comfy-env/envs/)
+- Local _env_* folders (no central cache, no junctions)
 """
 
 from importlib.metadata import version, PackageNotFoundError
@@ -27,7 +27,7 @@ from .environment.setup import setup_env
 from .environment.paths import copy_files
 
 # Isolation
-from .isolation import wrap_isolated_nodes, wrap_nodes
+from .isolation import wrap_isolated_nodes, wrap_nodes, register_nodes
 
 
 # =============================================================================
@@ -91,12 +91,9 @@ from .packages import (
 # =============================================================================
 
 from .environment import (
-    # Cache management
     get_cache_dir,
-    cleanup_orphaned_envs,
     resolve_env_path,
     CACHE_DIR,
-    MARKER_FILE,
 )
 
 
@@ -129,6 +126,7 @@ __all__ = [
     # Isolation
     "wrap_isolated_nodes",
     "wrap_nodes",
+    "register_nodes",
     # Config
     "ComfyEnvConfig",
     "NodeDependency",
@@ -160,30 +158,14 @@ __all__ = [
     "get_cuda_torch_mapping",
     # Environment
     "get_cache_dir",
-    "cleanup_orphaned_envs",
     "resolve_env_path",
     "CACHE_DIR",
-    "MARKER_FILE",
     # Workers
     "Worker",
     "WorkerError",
     "SubprocessWorker",
     "TensorKeeper",
 ]
-
-
-# =============================================================================
-# Startup cleanup
-# =============================================================================
-
-def _run_startup_cleanup():
-    """Clean orphaned envs on startup."""
-    try:
-        cleanup_orphaned_envs(log=lambda x: None)  # Silent
-    except Exception:
-        pass  # Never fail startup due to cleanup
-
-_run_startup_cleanup()
 
 
 # =============================================================================
@@ -205,9 +187,15 @@ def _mock_cuda_packages():
     if not mock_packages:
         return
 
+    import importlib.util
+
     for pkg in mock_packages.split(","):
         pkg = pkg.strip()
         if not pkg or pkg in sys.modules:
+            continue
+
+        # Skip packages that are already installable (e.g. torch from ComfyUI's requirements)
+        if importlib.util.find_spec(pkg) is not None:
             continue
 
         mock_module = types.ModuleType(pkg)

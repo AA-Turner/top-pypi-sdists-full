@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: gget
-Version: 0.30.0
+Version: 0.30.2
 Summary: Efficient querying of genomic databases.
 Home-page: https://github.com/pachterlab/gget
 Author: Laura Luebbert

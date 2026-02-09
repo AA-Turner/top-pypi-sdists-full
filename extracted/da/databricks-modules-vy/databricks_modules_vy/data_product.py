@@ -275,7 +275,10 @@ def get_confluence_markdown(page_id: str) -> str:
 
 
 
-def push_data_products_to_datahub_from_yml(yml_path: str) -> None:
+def push_data_products_to_datahub_from_yml(
+    yml_path: str, 
+    env: str = "test"
+) -> None:
     import yaml
     import logging
     from datahub.emitter.rest_emitter import DatahubRestEmitter
@@ -294,6 +297,14 @@ def push_data_products_to_datahub_from_yml(yml_path: str) -> None:
     DATAHUB_URL = db.secrets.get("DATAPLATTFORM_DATAHUB", "url")
     DATAHUB_TOKEN = db.secrets.get("DATAPLATTFORM_DATAHUB", "token")
     DATAHUB_GMS_URL = f"https://{DATAHUB_URL}/api/gms"
+    
+    if env == "prod":
+        platform = "databricks,PROD"
+    elif env == "test":
+        platform = "databricks,TEST"
+    elif env == "stage":
+        platform = "databricks,TEST"
+
 
     try:
         emitter = DatahubRestEmitter(gms_server=DATAHUB_GMS_URL, token=DATAHUB_TOKEN)
@@ -334,7 +345,7 @@ def push_data_products_to_datahub_from_yml(yml_path: str) -> None:
                     )
                     continue
                 #dataset_urn = f"urn:li:dataset:(urn:li:dataPlatform:databricks,{asset},PROD)"
-                dataset_urn = f"urn:li:dataset:(urn:li:dataPlatform:databricks,TEST.{asset},PROD)"
+                dataset_urn = f"urn:li:dataset:(urn:li:dataPlatform{platform}.{asset},PROD)"
                 #dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:databricks,TEST.dataplattform_test.shared.d_calendar,PROD)"
 
                 print(dataset_urn)
@@ -394,7 +405,8 @@ def report_table_freshness(
     table_name: str,
     gms_url: Optional[str] = None,
     gms_token: Optional[str] = None,
-    platform: str = "databricks,TEST", #Brukes ikke frem til vi fjerner "TEST"
+    #platform: str = "databricks,TEST", #Brukes ikke frem til vi fjerner "TEST"
+    env : str = "test",
     result: Literal["SUCCESS", "FAILURE"] = "SUCCESS",
     run_id: Optional[str] = None,
     cron_schedule: str = "0 2 * * *",
@@ -436,6 +448,14 @@ def report_table_freshness(
         FreshnessCronScheduleClass,
     )
 
+    if env == "prod":
+        platform = "databricks,PROD"
+    elif env == "test":
+        platform = "databricks,TEST"
+    elif env == "stage":
+        platform = "databricks,TEST"
+
+
      # Resolve secrets if not explicitly provided
     if gms_url is None or gms_token is None:
         gms_url = gms_url or f"https://{db.secrets.get('DATAPLATTFORM_DATAHUB', 'url')}/api/gms"
@@ -444,7 +464,7 @@ def report_table_freshness(
     emitter = DatahubRestEmitter(gms_server=gms_url, token=gms_token)
     
     #dataset_urn = builder.make_dataset_urn(platform=platform, name=table_name)
-    dataset_urn = f"urn:li:dataset:(urn:li:dataPlatform:databricks,TEST.{table_name},PROD)"
+    dataset_urn = f"urn:li:dataset:(urn:li:dataPlatform:{platform}.{table_name},PROD)"
     
     assertion_urn = builder.make_assertion_urn(
         builder.datahub_guid({"entity": dataset_urn, "type": "freshness"})

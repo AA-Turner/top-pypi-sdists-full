@@ -26,13 +26,14 @@ class Entry(em.Root):
                  ord=None, ex=None, fun=None):
         """Create an entry for a help topic.  Arguments are:
 
-        - raw: The left side raw value: list[str] | str
+        - raw: The left side raw value: str | list[str]
         - right: The right side base value: str
         - var: The configuration variable, if any: Optional[str]
         - val: The boolean value of the variable, if any: Optional[bool]
         - env: The environment variable name, if any: Optional[str]
         - arg: The command line option arguments, if any: Optional[str]
-        - ord: The Unicode code point value(s), if any: Optional[int]
+        - ord: The Unicode code point value(s), if any: Optional[int |
+          list[int]]
         - ex: A practical example, if any: Optional[str]
         - fun: An optional function to format the resulting string:
           Optional[Callable]
@@ -68,10 +69,7 @@ class Entry(em.Root):
     def format(self, raw):
         """Format the raw list.  Override in subclasses."""
         if isinstance(raw, list):
-            if isinstance(raw, list):
-                return ' '.join(raw)
-            else:
-                return raw
+            return ' '.join(raw)
         else:
             return raw
 
@@ -227,21 +225,39 @@ class Usage(em.Root):
     """A utility class to print usage and extended help."""
 
     aliases = {
+        # Groups
         'default': ['usage', 'options', 'markup', 'hints', 'topics'],
         'more': ['usage', 'options', 'markup', 'escapes', 'environ', 'hints',
                  'topics'],
-        'optional': ['emojis'],
-        'config': ['variables', 'methods'],
-        'controls': ['named'],
-        'markups': ['markup'],
         'all': ['usage', 'options', 'simple',
                 'markup', 'escapes', 'environ', 'pseudo',
                 'constructor', 'variables', 'methods', 'hooks', 'named',
                 'diacritics', 'icons', 'emojis', 'hints', 'topics'],
+        # Aliases
+        'accents': ['diacritics'],
+        'config': ['variables', 'methods'],
+        'control': ['named'],
+        'controls': ['named'],
+        'ctor': ['constructor'],
+        'diacritic': ['diacritics'],
+        'emoji': ['emojis'],
+        'escape': ['escapes'],
+        'flags': ['options'],
+        'hint': ['hints'],
+        'hook': ['hooks'],
+        'icon': ['icons'],
+        'markups': ['markup'],
+        'method': ['methods'],
+        'option': ['options'],
+        'optional': ['emojis'],
+        'switches': ['options'],
+        'topic': ['topics'],
+        'variable': ['variables'],
     }
 
     defaultWidth = 6
     columns = None # 81
+    dottedCircle = '\N{DOTTED CIRCLE}'
 
     def __init__(self, config=None, file=None):
         if config is None:
@@ -344,16 +360,16 @@ class Usage(em.Root):
             return
         if firstOrd >= 0x0300 and firstOrd < 0x0370:
             # Combining diacritical marks.
-            chars = chr(0x25cc) + chars
+            chars = self.dottedCircle + chars
         if firstOrd >= 0x1ab0 and firstOrd < 0x1b00:
             # Combining diacritical marks extended.
-            chars = chr(0x25cc) + chars
+            chars = self.dottedCircle + chars
         if firstOrd >= 0x1dc0 and firstOrd < 0x1e00:
             # Combining diacritical marks supplemental.
-            chars = chr(0x25cc) + chars
+            chars = self.dottedCircle + chars
         if firstOrd >= 0x20d0 and firstOrd < 0x2100:
             # Combining diacritical marks for symbols.
-            chars = chr(0x25cc) + chars
+            chars = self.dottedCircle + chars
         return chars
 
     def entry(self, entry, format):
@@ -448,7 +464,7 @@ def prepare(usage, executable=None):
         """\
 %s [<options>] [<filename, or `-` for stdin> [<argument>...]]
   - Options begin with `-` or `--`
-  - Specify a filename (and arguments) to process that file as input
+  - Specify a filename (and arguments) to process that document as input
   - Specify `-` (and arguments) to process stdin with standard buffering
   - Specify no filename to enter interactive mode with line buffering
   - Specify `--` to stop processing options
@@ -520,7 +536,9 @@ OE(["-F", "--file=FILENAME"], "Execute Python file before main document"),
 OE(["-G", "--postfile=FILENAME"], "Execute Python file after main document"),
 OE(["-X", "--expand=MARKUP"], "Expand EmPy markup before main document"),
 OE(["-Y", "--postexpand=MARKUP"], "Expand EmPy markup after main document"),
-OE(["-w", "--pause-at-end"], "Prompt at the ending of processing", var='pauseAtEnd'),
+OE(["--preinitializer=FILENAME"], "Execute Python file before interpreter"),
+OE(["--postinitializer=FILENAME"], "Execute Python file after interpreter"),
+OE(["-w", "--pause-at-end"], "Prompt at the end of processing", var='pauseAtEnd'),
 OE(["-l", "--relative-path"], "Add path of EmPy script to sys.path", var='relativePath'),
 OE(["--replace-newlines"], "Replace expression newlines with spaces (default)", var='replaceNewlines', val=True),
 OE(["--no-replace-newlines"], "Don't replace expression newlines with spaces", var='replaceNewlines', val=False),
@@ -571,7 +589,7 @@ OE(["--unknown-code=N"], "Exit code to return on bad configuration", var='unknow
 Short (single letter) command line options:
 """,
         sorted([x for x in usage.payload['options'].entries if x.sim],
-                           key=lambda x: x.raw[0])))
+                           key=lambda x: x.raw[0].swapcase())))
 
     usage.add(TableSection(
         'markup',
@@ -599,12 +617,13 @@ E("@ SIMPLE_EXPRESSION", "Evaluate simple expression and substitute\n", ex="@x, 
 E("@$ EXPRESSION $ [DUMMY] $", "Evaluates to @$ EXPRESSION $ EXPANSION $"),
 E("@{ STATEMENTS }", "Statements are executed for side effects"),
 E("@[ CONTROL ]", "Control markups: if E; elif E; for N in E;\n"
-                  "while E; try; except E as N; finally;\n"
+                  "while E; dowhile E; try; except E as N; finally;\n"
                   "continue; break; else; with E as N; match E;\n"
                   "case E; defined N; def F(...); end X"),
 E("@\\ ESCAPE_CODE", "A C-style escape sequence"),
+E("@\\^{ NAMED_ESCAPE }", "A named escape sequence", ex="ESC for escape"),
 E("@^ CHAR DIACRITIC(S)", "A two-part diacritic sequence\n", ex="e' for an e with acute accent"),
-E("@| ICON", "A custom icon sequence\n", ex="'( for a single open curly quote"),
+E("@| ICON", "A custom icon sequence\n", ex=":) for a smiley face emoji"),
 E("@: EMOJI :", "Lookup emoji by name"),
 E("@% KEY NL", "Significator form of __KEY__ = None"),
 E("@% KEY WS VALUE NL", "Significator form of __KEY__ = VALUE"),
@@ -614,7 +633,8 @@ E("@%% KEY WS VALUE %% NL", "Multiline significator form"),
 E("@%%! KEY WS STRING %% NL", "Multiline stringized significator form"),
 E("@? NAME NL", "Set the current context name"),
 E("@! INTEGER NL", "Set the current context line number"),
-E("@< CONTENTS >", "Custom markup; meaning provided via callback"),
+E("@(( ... )), @[[ ... ]],", "Extension markup; implementation provided by user"),
+E("@{{ ... }}, @< ... >", ""),
 ]))
 
     usage.add(TableSection(
@@ -747,6 +767,7 @@ E("restoreContext(context)", "Replace the top context with an existing one"),
 E("clearFinalizers()", "Clear all finalizers"),
 E("appendFinalizer(finalizer)", "Append function to be called at shutdown"),
 E("prependFinalizer(finalizer)", "Prepend function to be called at shutdown"),
+E("setFinalizers(finalizers)", "Set functions to be called at shutdown"),
 E("getGlobals()", "Retrieve this interpreter's globals"),
 E("setGlobals(dict)", "Set this interpreter's globals"),
 E("updateGlobals(dict)", "Merge dictionary into interpreter's globals"),
@@ -806,6 +827,7 @@ E("invokeCallback(contents)", "Invoke the custom callback directly"),
 E("defaultHandler(t, e, tb)", "The default error handler"),
 E("getHandler()", "Get the current error handler (or None)"),
 E("setHandler(handler, [eoe])", "Set the error handler"),
+E("resetHandler([eoe])", "Reset the error handler"),
 E("invokeHandler(t, e, tb)", "Manually invoke the error handler"),
 E("initializeEmojiModules(names)", "Initialize the emoji modules"),
 E("getEmojiModule(name)", "Get an abstracted emoji module"),
@@ -824,24 +846,20 @@ E("argv", "The system arguments to use ['<->']"),
 E("callback", "A custom callback to register [None]"),
 E("config", "The configuration object [default]"),
 E("core", "The core to use for this interpreter [Core()]"),
-E("definerFunc", "Interpreter `@[def]` definition function [Python]"),
 E("dispatcher", "Dispatch errors or raise to caller? [True]"),
-E("evalFunc", "Interpreter expression evaluation function [eval]"),
-E("execFunc", "Interpreter statement execution function [exec]"),
 E("executable", "The path to the EmPy executable [\".../em.py\"]"),
 E("extension", "The extension to automatically install [None]"),
 E("filespec", "A 3-tuple of the input filename, mode, and buffering [None]"),
 E("filters", "The list of filters to install [[]]"),
+E("finalizers", "The list of finalizers to installed [[]]"),
 E("globals", "The globals dictionary to use [{}]"),
 E("handler", "The error handler to use [default]"),
 E("hooks", "The list of hooks to install [[]]"),
 E("ident", "The identifier for the interpreter [None]"),
 E("immediately", "Declare the interpreter ready after initialization? [True]"),
 E("input", "The input file to use for interactivity [sys.stdin]"),
-E("matcherFunc", "Interpreter `@[match]` matcher function [Python]"),
 E("output", "The output file to use [sys.stdout]"),
 E("root", "The root interpreter context filename ['<root>']"),
-E("serializerFunc", "Interpreter serializer function [str]"),
 ]))
 
     usage.add(ConfigSection(
@@ -1009,7 +1027,7 @@ E("afterFinalizer()", "After finalizer processing"),
     usage.add(MappingSection(
         'named',
         "Named escapes",
-        "The following named escapes (control codes) (`@\\^{...}`) are supported:\n",
+        "The following named escapes (control codes and control-like characters)\n(`@\\^{...}`) are supported:\n",
         usage.config.controls,
         ControlEntry))
 

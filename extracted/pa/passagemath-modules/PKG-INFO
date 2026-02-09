@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-modules
-Version: 10.6.48
+Version: 10.8.1
 Summary: passagemath: Vectors, matrices, tensors, vector spaces, affine spaces, modules and algebras, additive groups, quadratic forms, homology, coding theory, matroids
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -21,33 +21,33 @@ Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering :: Mathematics
-Requires-Python: <3.15,>=3.10
+Requires-Python: <3.15,>=3.11
 Description-Content-Type: text/x-rst
 Requires-Dist: gmpy2~=2.1.b999
+Requires-Dist: gmpy2~=2.3.b1; sys_platform == "win32"
 Requires-Dist: cysignals!=1.12.4; sys_platform == "win32"
 Requires-Dist: cysignals!=1.12.0,>=1.11.2
 Requires-Dist: memory_allocator<0.2
-Requires-Dist: passagemath-categories~=10.6.48.0
-Requires-Dist: passagemath-environment~=10.6.48.0
+Requires-Dist: passagemath-categories~=10.8.1.0
+Requires-Dist: passagemath-environment~=10.8.1.0
 Requires-Dist: mpmath<1.4,>=1.1.0
 Provides-Extra: test
 Requires-Dist: passagemath-repl; extra == "test"
 Provides-Extra: flint
 Requires-Dist: passagemath-flint; extra == "flint"
 Provides-Extra: fpylll
-Requires-Dist: fpylll>=0.5.9; extra == "fpylll"
+Requires-Dist: fpylll>=0.5.9; sys_platform != "win32" and extra == "fpylll"
 Provides-Extra: gsl
 Provides-Extra: linbox
 Requires-Dist: passagemath-linbox; extra == "linbox"
 Provides-Extra: m4ri
-Requires-Dist: passagemath-m4ri-m4rie~=10.6.48.0; extra == "m4ri"
+Requires-Dist: passagemath-m4ri-m4rie~=10.8.1.0; extra == "m4ri"
 Provides-Extra: m4rie
 Requires-Dist: passagemath-modules[m4ri,pari]; extra == "m4rie"
 Provides-Extra: meataxe
@@ -59,8 +59,8 @@ Provides-Extra: mpmath
 Provides-Extra: ntl
 Requires-Dist: passagemath-ntl; extra == "ntl"
 Provides-Extra: numpy
-Requires-Dist: numpy>=1.19; extra == "numpy"
-Requires-Dist: numpy>=1.22.4; extra == "numpy"
+Requires-Dist: numpy>=1.25; extra == "numpy"
+Requires-Dist: numpy>=2.2.4; extra == "numpy"
 Provides-Extra: pari
 Requires-Dist: passagemath-pari; extra == "pari"
 Provides-Extra: rdf
@@ -123,31 +123,50 @@ source mathematical software in Python, released under the GNU General
 Public Licence GPLv2+.
 
 It is a fork of `SageMath <https://www.sagemath.org/>`__, which has been
-developed 2005-2025 under the motto “Creating a Viable Open Source
+developed 2005-2026 under the motto “Creating a Viable Open Source
 Alternative to Magma, Maple, Mathematica, and MATLAB”.
 
 The passagemath fork uses the motto "Creating a Free Passage Between the
 Scientific Python Ecosystem and Mathematical Software Communities."
 It was created in October 2024 with the following goals:
 
--  providing modularized installation with pip,
+-  providing modularized installation with pip from binary wheels,
+   - this major project was started in May 2020 in the Sage codebase and completed in passagemath 10.5.29 (May 2025),
+
 -  establishing first-class membership in the scientific Python
    ecosystem,
+
 -  giving `clear attribution of upstream
    projects <https://groups.google.com/g/sage-devel/c/6HO1HEtL1Fs/m/G002rPGpAAAJ>`__,
+
 -  providing independently usable Python interfaces to upstream
    libraries,
+
 -  offering `platform portability and integration testing
    services <https://github.com/passagemath/passagemath/issues/704>`__
    to upstream projects,
+
 -  inviting collaborations with upstream projects,
+
 -  `building a professional, respectful, inclusive
    community <https://groups.google.com/g/sage-devel/c/xBzaINHWwUQ>`__,
+
 -  `empowering Sage users to participate in the scientific Python ecosystem
    <https://github.com/passagemath/passagemath/issues/248>`__ by publishing packages,
--  developing a port to `Pyodide <https://pyodide.org/en/stable/>`__ for
+
+-  developing a port to WebAssembly (`Pyodide <https://pyodide.org/en/stable/>`__, emscripten-forge) for
    serverless deployment with Javascript,
--  developing a native Windows port.
+
+-  developing a native Windows port
+   - passagemath 10.6.1 (July 2025) published the first pip-installable wheel packages for native Windows on x86_64,
+   - passagemath packages became available in the [MSYS2 software distribution](https://packages.msys2.org/search?t=pkg&q=passagemath) in November 2025.
+
+Moreover, the passagemath project:
+
+-  provides a stable, frequently updated version of the Sage distribution,
+-  integrates additional mathematical software, notably Macaulay2, a full set of GAP packages,
+   and the Combinatorial Matrix Recognition library,
+-  curates a library of Sage user packages.
 
 `Full documentation <https://passagemath.org/docs/latest/html/en/index.html>`__ is
 available online.
@@ -155,12 +174,13 @@ available online.
 passagemath attempts to support and provides binary wheels suitable for
 all major Linux distributions and recent versions of macOS.
 
-Binary wheels for native Windows (x86_64) are are available for a subset of
+Binary wheels for native Windows (x86_64, ARM) are are available for a subset of
 the passagemath distributions. Use of the full functionality of passagemath
 on Windows currently requires the use of Windows Subsystem for Linux (WSL)
 or virtualization.
 
-The supported Python versions in the passagemath 10.6.x series are 3.10.x-3.14.x.
+The supported Python versions in the passagemath-10.8.x series are 3.11.x-3.14.x;
+the passagemath-10.6.x series (EOL 2026-10) still supports Python 3.10.x.
 
 
 About this pip-installable distribution package
@@ -202,7 +222,7 @@ What is included
 
 * `Cryptography <https://passagemath.org/docs/latest/html/en/reference/cryptography/index.html>`_
 
-* `Probability Spaces and Distributions <https://passagemath.org/docs/latest/html/en/reference/probability/index.html>`_, `Statistics <https://passagemath.org/docs/latest/html/en/reference/stats/index.html>`_
+* `Statistics <https://passagemath.org/docs/latest/html/en/reference/stats/index.html>`_
 
 
 Examples

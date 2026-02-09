@@ -5,7 +5,7 @@ from adam.config import Config
 from adam.utils_context import Context
 from adam.utils_k8s.pod_exec_result import PodExecResult
 from adam.repl_state import BashSession, ReplState
-from adam.utils import log2
+from adam.utils_log import log2
 from adam.utils_k8s.pods import Pods
 
 class Device:

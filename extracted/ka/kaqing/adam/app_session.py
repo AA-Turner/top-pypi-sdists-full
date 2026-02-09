@@ -4,12 +4,12 @@ import time
 import requests
 from urllib.parse import urlparse
 
-from adam.log import Log
 from adam.sso.idp import Idp
 from adam.sso.idp_login import IdpLogin
 from adam.config import Config
-from adam.utils import debug, debug_trace, json_to_csv, log2, log_exc
+from adam.utils import json_to_csv
 from adam.utils_context import Context
+from adam.utils_log import Log, debug, debug_trace,log2, log_exc
 from adam.utils_tabulize import tabulize
 from adam.apps import Apps
 

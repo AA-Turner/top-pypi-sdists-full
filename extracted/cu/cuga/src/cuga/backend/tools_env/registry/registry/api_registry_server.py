@@ -157,7 +157,76 @@ async def call_mcp_function(request: FunctionCallRequest, trajectory_path: Optio
             arguments=request.args,
             auth_config=mcp_manager.auth_config.get(request.app_name) if is_secure else None,
         )
+
+        # Check if this is an /auth/token endpoint call and update stored token
+        # Only do this when benchmark is "appworld"
+        if settings.advanced_features.benchmark == "appworld":
+            api_path = api_info.get("path", "")
+            is_auth_token_endpoint = api_path.endswith("/auth/token") or "/auth/token" in api_path
+
+            if is_auth_token_endpoint and not isinstance(result, dict):
+                # Successful token fetch - extract and store the token
+                try:
+                    # Result is TextContent list, extract the text
+                    if result and len(result) > 0:
+                        result_text = result[0].text if hasattr(result[0], 'text') else str(result[0])
+                        try:
+                            result_json = (
+                                json.loads(result_text) if isinstance(result_text, str) else result_text
+                            )
+                            if isinstance(result_json, dict) and "access_token" in result_json:
+                                token = result_json["access_token"]
+                                # Update the auth manager's stored token
+                                if registry.auth_manager:
+                                    registry.auth_manager._tokens[request.app_name] = token
+                                    logger.info(
+                                        f"✅ Updated stored token for {request.app_name} from /auth/token endpoint"
+                                    )
+                                else:
+                                    logger.debug(
+                                        f"Auth manager not available to store token for {request.app_name}"
+                                    )
+                            else:
+                                logger.debug(
+                                    f"Token response for {request.app_name} does not contain 'access_token': {result_json}"
+                                )
+                        except (json.JSONDecodeError, TypeError) as e:
+                            logger.debug(f"Could not parse token response as JSON: {result_text}, error: {e}")
+                except Exception as e:
+                    logger.warning(f"Failed to extract and store token from /auth/token response: {e}")
+
         if isinstance(result, dict):
+            # If it's an error dict, extract and prioritize the detailed error message
+            if result.get("status") == "exception":
+                error_message = result.get("message", "Unknown error")
+                logger.error(f"Function call returned error: {error_message}")
+
+                # Extract detailed message from error_detail if available
+                error_detail = result.get("error_detail", {})
+                if error_detail and isinstance(error_detail, dict):
+                    response_body = error_detail.get("response_body")
+                    if response_body:
+                        if isinstance(response_body, dict):
+                            # Prioritize "message" field, then "detail", then format the whole dict
+                            if "message" in response_body:
+                                detailed_msg = response_body["message"]
+                                result["message"] = detailed_msg
+                                logger.error(f"  Detailed error message: {detailed_msg}")
+                            elif "detail" in response_body:
+                                detailed_msg = response_body["detail"]
+                                result["message"] = detailed_msg
+                                logger.error(f"  Detailed error message: {detailed_msg}")
+                        elif isinstance(response_body, str):
+                            # If response_body is a string, use it as the detailed message
+                            result["message"] = response_body
+                            logger.error(f"  Detailed error message: {response_body}")
+                        logger.error(f"  Full error detail: {error_detail}")
+                else:
+                    # Even if no error_detail, check if message already contains detailed info
+                    # and ensure it's properly set
+                    if error_message and error_message != "Unknown error":
+                        logger.error(f"  Error message: {error_message}")
+
             tracker.collect_step_external(
                 Step(name="api_response", data=json.dumps(result)), full_path=trajectory_path
             )
@@ -184,20 +253,44 @@ async def call_mcp_function(request: FunctionCallRequest, trajectory_path: Optio
         )
         return final_response
     except HTTPException as e:
-        logger.error(e)
-
-        # Re-raise HTTPExceptions directly (e.g., 404 from registry if app not found, or 500 if client fails)
+        logger.error(f"HTTPException in call_mcp_function: {e}")
+        logger.error(f"  Status Code: {e.status_code}")
+        logger.error(f"  Detail: {e.detail}")
         raise e
     except Exception as e:
         # Catch any other unexpected errors during the process
-        logger.error(e)
-        print(f"Unexpected error in call_mcp_function endpoint: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error processing function call.")
+        import traceback
+
+        error_traceback = traceback.format_exc()
+        logger.error(f"Unexpected error in call_mcp_function endpoint: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Full traceback:\n{error_traceback}")
+
+        print(f"\n{'=' * 60}")
+        print("UNEXPECTED ERROR in call_mcp_function endpoint")
+        print(f"{'=' * 60}")
+        print(f"Error Type: {type(e).__name__}")
+        print(f"Error Message: {str(e)}")
+        print(f"Function: {request.function_name}")
+        print(f"App: {request.app_name}")
+        print(f"Args: {request.args}")
+        print("\nFull Traceback:")
+        print(error_traceback)
+        print(f"{'=' * 60}\n")
+
+        raise HTTPException(
+            status_code=500, detail=f"Internal server error processing function call: {str(e)}"
+        )
 
 
 @app.get("/api/reset")
 async def reset():
+    """Reset the registry state, including clearing all stored authentication tokens."""
+    if registry.auth_manager:
+        registry.auth_manager.clear_tokens()
+        logger.info("Cleared all stored authentication tokens")
     registry.auth_manager = None
+    logger.info("Registry reset completed")
 
 
 @app.get("/functions/get_schema/{call_name}", tags=["Functions"])

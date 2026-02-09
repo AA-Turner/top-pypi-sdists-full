@@ -37,6 +37,7 @@ manifest-path = "crates/py_inbq/Cargo.toml"
 [dependency-groups]
 dev = [
     "maturin>=1.11.5",
+    "mypy>=1.19.1",
     "pre-commit>=4.5.1",
     "pytest>=9.0.2",
 ]

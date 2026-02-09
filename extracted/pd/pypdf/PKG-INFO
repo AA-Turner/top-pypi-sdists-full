@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pypdf
-Version: 6.6.2
+Version: 6.7.0
 Summary: A pure-python PDF library capable of splitting, merging, cropping, and transforming PDF files
 Author-email: Mathieu Fenniak <biziqe@mathieu.fenniak.net>
 Maintainer: stefan6419846
@@ -25,7 +25,6 @@ License-File: LICENSE
 Requires-Dist: typing_extensions >= 4.0; python_version < '3.11'
 Requires-Dist: cryptography ; extra == "crypto"
 Requires-Dist: PyCryptodome ; extra == "cryptodome"
-Requires-Dist: black ; extra == "dev"
 Requires-Dist: flit ; extra == "dev"
 Requires-Dist: pip-tools ; extra == "dev"
 Requires-Dist: pre-commit ; extra == "dev"

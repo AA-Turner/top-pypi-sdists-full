@@ -15,7 +15,7 @@ from typing import AsyncIterator, Iterator, Optional, Generator, Dict, Union, Li
 from ...requests.curl_cffi import AsyncSession
 
 try:
-    import nodriver
+    import zendriver as nodriver
 
     has_nodriver = True
 except ImportError:
@@ -464,6 +464,8 @@ class OpenaiChat(AsyncAuthedProvider, ProviderModelMixin):
                     }
                     if temporary:
                         data["history_and_training_disabled"] = True
+                    if conversation.conversation_id is not None and not temporary:
+                        data["conversation_id"] = conversation.conversation_id
                     async with session.post(
                             prepare_url,
                             json=data,

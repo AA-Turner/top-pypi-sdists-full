@@ -9,7 +9,7 @@ from pypika_tortoise import Query
 
 from tortoise.backends.base.executor import BaseExecutor
 from tortoise.backends.base.schema_generator import BaseSchemaGenerator
-from tortoise.connection import connections
+from tortoise.connection import get_connections
 from tortoise.exceptions import TransactionManagementError
 from tortoise.log import db_client_logger
 
@@ -39,6 +39,8 @@ class Capabilities:
     :param support_update_limit_order_by: support update/delete with limit and order by.
     :param support_for_posix_regex_queries: indicated if the db supports posix regex queries
     :param support_json_attributes: indicated if the db supports accessing json attributes
+    :param can_rollback_ddl: Whether the database supports transactional DDL.
+        Used to determine if migrations can be run atomically.
     """
 
     def __init__(
@@ -59,6 +61,7 @@ class Capabilities:
         support_update_limit_order_by: bool = True,
         support_for_posix_regex_queries: bool = False,
         support_json_attributes: bool = False,
+        can_rollback_ddl: bool = False,
     ) -> None:
         super().__setattr__("_mutable", True)
 
@@ -73,6 +76,7 @@ class Capabilities:
         self.support_update_limit_order_by = support_update_limit_order_by
         self.support_for_posix_regex_queries = support_for_posix_regex_queries
         self.support_json_attributes = support_json_attributes
+        self.can_rollback_ddl = can_rollback_ddl
         super().__setattr__("_mutable", False)
 
     def __setattr__(self, attr: str, value: Any) -> None:
@@ -218,7 +222,21 @@ class BaseDBAsyncClient(abc.ABC):
         :param query: The SQL string, pre-parametrized for the target DB dialect.
         :param values: A sequence of positional DB parameters.
         """
-        raise NotImplementedError()  # pragma: nocoverage
+        return (await self.execute_query_dict_with_affected(query, values))[0]
+
+    async def execute_query_dict_with_affected(
+        self, query: str, values: list | None = None
+    ) -> tuple[list[dict], int]:
+        """
+        Executes a RAW SQL query statement, and returns the resultset as a list of dicts
+        along with the rows affected if available.
+
+        :param query: The SQL string, pre-parametrized for the target DB dialect.
+        :param values: A sequence of positional DB parameters.
+        """
+        rowcount, rows = await self.execute_query(query, values)
+        normalized = [dict(row) for row in rows]
+        return normalized, rowcount
 
 
 class TransactionalDBClient(BaseDBAsyncClient, abc.ABC):
@@ -302,10 +320,12 @@ class TransactionContextPooled(TransactionContext):
 
     async def __aenter__(self) -> TransactionalDBClient:
         await self.ensure_connection()
-        # Set the context variable so the current task is always seeing a
-        # TransactionWrapper conneciton.
-        self.token = connections.set(self.connection_name, self.client)
+        # Acquire connection first to avoid race condition where concurrent tasks
+        # see the wrapper via the context before it has a connection.
         self.client._connection = await self.client._parent._pool.acquire()
+        # Set the context variable so the current task is always seeing a
+        # TransactionWrapper connection.
+        self.token = get_connections().set(self.connection_name, self.client)
         await self.client.begin()
         return self.client
 
@@ -321,7 +341,7 @@ class TransactionContextPooled(TransactionContext):
         finally:
             if self.client._parent._pool:
                 await self.client._parent._pool.release(self.client._connection)
-            connections.reset(self.token)
+            get_connections().reset(self.token)
 
 
 class NestedTransactionContext(TransactionContext):

@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, TypedDict
+from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, TypedDict, Union
 
 import jwt
 import msgspec
@@ -29,7 +29,7 @@ def _normalize_datetime(value: datetime) -> datetime:
         A datetime instance
     """
     if value.tzinfo is not None:
-        value.astimezone(timezone.utc)
+        value = value.astimezone(timezone.utc)
 
     return value.replace(microsecond=0)
 
@@ -57,9 +57,9 @@ class Token:
     """Issued at - should always be current now."""
     iss: Optional[str] = field(default=None)  # noqa: UP045
     """Issuer - optional unique identifier for the issuer."""
-    aud: Optional[str] = field(default=None)  # noqa: UP045
+    aud: Optional[Union[str, Sequence[str]]] = field(default=None)  # noqa: UP045, UP007
     """Audience - intended audience."""
-    jti: Optional[str] = field(default=None)  # noqa: UP045
+    jti: Optional[Union[str, Sequence[str]]] = field(default=None)  # noqa: UP045, UP007
     """JWT ID - a unique identifier of the JWT between different issuers."""
     extras: Dict[str, Any] = field(default_factory=dict)  # noqa: UP006
     """Extra fields that were found on the JWT token."""
@@ -90,7 +90,7 @@ class Token:
         encoded_token: str,
         secret: str,
         algorithms: list[str],
-        issuer: list[str] | None = None,
+        issuer: str | Sequence[str] | None = None,
         audience: str | Sequence[str] | None = None,
         options: JWTDecodeOptions | None = None,
     ) -> Any:
@@ -99,7 +99,7 @@ class Token:
             jwt=encoded_token,
             key=secret,
             algorithms=algorithms,
-            issuer=issuer,
+            issuer=issuer,  # type: ignore[arg-type]
             audience=audience,
             options=options,  # type: ignore[arg-type]
         )
@@ -171,7 +171,7 @@ class Token:
                 secret=secret,
                 algorithms=[algorithm],
                 audience=audience,
-                issuer=list(issuer) if issuer else None,
+                issuer=issuer,
                 options=options,
             )
             # msgspec can do these conversions as well, but to keep backwards

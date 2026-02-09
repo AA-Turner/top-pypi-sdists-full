@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: truss_transfer
-Version: 0.0.39
+Version: 0.0.41
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

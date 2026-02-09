@@ -22,6 +22,7 @@
 #include <ostream>
 
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/result.h"
 
@@ -61,7 +62,13 @@ struct ByteRange {
   }
 
   /// Prints a debugging string representation to an `std::ostream`.
-  friend std::ostream& operator<<(std::ostream& os, const ByteRange& r);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const ByteRange& r) {
+    absl::Format(&sink, "[%d, %d)", r.inclusive_min, r.exclusive_max);
+  }
+  friend std::ostream& operator<<(std::ostream& os, const ByteRange& r) {
+    return os << absl::StreamFormat("%v", r);
+  }
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.inclusive_min, x.exclusive_max);
@@ -179,8 +186,18 @@ struct OptionalByteRangeRequest {
   }
 
   /// Prints a debugging string representation to an `std::ostream`.
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const OptionalByteRangeRequest& r) {
+    if (r.exclusive_max != -1) {
+      absl::Format(&sink, "[%d, %d)", r.inclusive_min, r.exclusive_max);
+    } else {
+      absl::Format(&sink, "[%d, ?)", r.inclusive_min);
+    }
+  }
   friend std::ostream& operator<<(std::ostream& os,
-                                  const OptionalByteRangeRequest& r);
+                                  const OptionalByteRangeRequest& r) {
+    return os << absl::StreamFormat("%v", r);
+  }
 
   /// Checks that this byte range is valid.
   constexpr bool SatisfiesInvariants() const {

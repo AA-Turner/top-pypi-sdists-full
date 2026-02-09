@@ -50,7 +50,9 @@ _CLIENT_CONNECTION_ERROR = "ClientSideConnection requires asyncio StreamWriter/S
 @final
 @compatible_class
 class ClientSideConnection:
-    """Client-side connection wrapper that dispatches JSON-RPC messages to an Agent implementation."""
+    """Client-side connection wrapper that dispatches JSON-RPC messages to an Agent implementation.
+    The client can use this connection to communicate with the Agent so it behaves like an Agent.
+    """
 
     def __init__(
         self,
@@ -63,7 +65,7 @@ class ClientSideConnection:
     ) -> None:
         if not isinstance(input_stream, asyncio.StreamWriter) or not isinstance(output_stream, asyncio.StreamReader):
             raise TypeError(_CLIENT_CONNECTION_ERROR)
-        client = to_client(cast(Agent, self)) if callable(to_client) else to_client
+        client = to_client(self) if callable(to_client) else to_client
         handler = build_client_router(cast(Client, client), use_unstable_protocol=use_unstable_protocol)
         self._conn = Connection(handler, input_stream, output_stream, **connection_kwargs)
         if on_connect := getattr(client, "on_connect", None):
@@ -91,23 +93,31 @@ class ClientSideConnection:
 
     @param_model(NewSessionRequest)
     async def new_session(
-        self, cwd: str, mcp_servers: list[HttpMcpServer | SseMcpServer | McpServerStdio], **kwargs: Any
+        self, cwd: str, mcp_servers: list[HttpMcpServer | SseMcpServer | McpServerStdio] | None = None, **kwargs: Any
     ) -> NewSessionResponse:
+        resolved_mcp_servers = mcp_servers or []
         return await request_model(
             self._conn,
             AGENT_METHODS["session_new"],
-            NewSessionRequest(cwd=cwd, mcp_servers=mcp_servers, field_meta=kwargs or None),
+            NewSessionRequest(cwd=cwd, mcp_servers=resolved_mcp_servers, field_meta=kwargs or None),
             NewSessionResponse,
         )
 
     @param_model(LoadSessionRequest)
     async def load_session(
-        self, cwd: str, mcp_servers: list[HttpMcpServer | SseMcpServer | McpServerStdio], session_id: str, **kwargs: Any
+        self,
+        cwd: str,
+        session_id: str,
+        mcp_servers: list[HttpMcpServer | SseMcpServer | McpServerStdio] | None = None,
+        **kwargs: Any,
     ) -> LoadSessionResponse:
+        resolved_mcp_servers = mcp_servers or []
         return await request_model_from_dict(
             self._conn,
             AGENT_METHODS["session_load"],
-            LoadSessionRequest(cwd=cwd, mcp_servers=mcp_servers, session_id=session_id, field_meta=kwargs or None),
+            LoadSessionRequest(
+                cwd=cwd, mcp_servers=resolved_mcp_servers, session_id=session_id, field_meta=kwargs or None
+            ),
             LoadSessionResponse,
         )
 
@@ -221,3 +231,6 @@ class ClientSideConnection:
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
         await self.close()
+
+    def on_connect(self, conn: Client) -> None:
+        pass

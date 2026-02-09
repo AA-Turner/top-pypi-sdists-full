@@ -5,7 +5,7 @@ from adam.commands.command import Command
 from adam.utils_k8s.statefulsets import StatefulSets
 from adam.repl_state import ReplState, RequiredState
 from adam.utils_k8s.custom_resources import CustomResources
-from adam.utils import log2
+from adam.utils_log import log2
 
 class MedusaBackup(Command):
     COMMAND = 'backup'

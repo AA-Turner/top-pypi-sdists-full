@@ -6,10 +6,8 @@ use clap::builder::styling::{AnsiColor, Effects};
 use clap::builder::{ArgPredicate, Styles};
 use clap::{ArgAction, Args, Parser, Subcommand, ValueHint};
 use clap_complete::engine::ArgValueCompleter;
-use serde::{Deserialize, Serialize};
-
-use prek_consts::CONFIG_FILE;
 use prek_consts::env_vars::EnvVars;
+use serde::{Deserialize, Serialize};
 
 use crate::config::{HookType, Language, Stage};
 
@@ -19,6 +17,7 @@ mod cache_gc;
 mod cache_size;
 mod completion;
 mod hook_impl;
+mod identify;
 mod install;
 mod list;
 pub mod reporter;
@@ -28,6 +27,7 @@ mod sample_config;
 mod self_update;
 mod try_repo;
 mod validate;
+mod yaml_to_toml;
 
 pub(crate) use auto_update::auto_update;
 pub(crate) use cache_clean::cache_clean;
@@ -35,6 +35,7 @@ pub(crate) use cache_gc::cache_gc;
 pub(crate) use cache_size::cache_size;
 use completion::selector_completer;
 pub(crate) use hook_impl::hook_impl;
+pub(crate) use identify::identify;
 pub(crate) use install::{init_template_dir, install, install_hooks, uninstall};
 pub(crate) use list::list;
 pub(crate) use run::run;
@@ -43,8 +44,9 @@ pub(crate) use sample_config::sample_config;
 pub(crate) use self_update::self_update;
 pub(crate) use try_repo::try_repo;
 pub(crate) use validate::{validate_configs, validate_manifest};
+pub(crate) use yaml_to_toml::yaml_to_toml;
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) enum ExitStatus {
     /// The command succeeded.
     Success,
@@ -173,7 +175,7 @@ pub(crate) struct GlobalArgs {
     ///
     /// Repeating this option, e.g., `-qq`, will enable a silent mode in which
     /// prek will write no output to stdout.
-    #[arg(global = true, short, long, conflicts_with = "verbose", action = ArgAction::Count)]
+    #[arg(global = true, short, long, env = EnvVars::PREK_QUIET, conflicts_with = "verbose", action = ArgAction::Count)]
     pub quiet: u8,
 
     /// Use verbose output.
@@ -202,9 +204,9 @@ pub(crate) struct GlobalArgs {
 
 #[derive(Debug, Subcommand)]
 pub(crate) enum Command {
-    /// Install the prek git hook.
+    /// Install prek as a git hook under the `.git/hooks/` directory.
     Install(InstallArgs),
-    /// Create hook environments for all hooks used in the config file.
+    /// Create environments for all hooks used in the config file.
     ///
     /// This command does not install the git hook. To install the git hook along with the hook environments in one command, use `prek install --install-hooks`.
     InstallHooks(InstallHooksArgs),
@@ -212,15 +214,15 @@ pub(crate) enum Command {
     Run(Box<RunArgs>),
     /// List available hooks.
     List(ListArgs),
-    /// Uninstall the prek git hook.
+    /// Uninstall prek from git hooks.
     Uninstall(UninstallArgs),
-    /// Validate `.pre-commit-config.yaml` files.
+    /// Validate configuration files (prek.toml or .pre-commit-config.yaml).
     ValidateConfig(ValidateConfigArgs),
     /// Validate `.pre-commit-hooks.yaml` files.
     ValidateManifest(ValidateManifestArgs),
-    /// Produce a sample `.pre-commit-config.yaml` file.
+    /// Produce a sample configuration file (prek.toml or .pre-commit-config.yaml).
     SampleConfig(SampleConfigArgs),
-    /// Auto-update pre-commit config to the latest repos' versions.
+    /// Auto-update the `rev` field of repositories in the config file to the latest version.
     #[command(alias = "autoupdate")]
     AutoUpdate(AutoUpdateArgs),
     /// Manage the prek cache.
@@ -232,19 +234,18 @@ pub(crate) enum Command {
     #[command(hide = true)]
     Clean,
     /// Install hook script in a directory intended for use with `git config init.templateDir`.
-    #[command(alias = "init-templatedir")]
+    #[command(alias = "init-templatedir", hide = true)]
     InitTemplateDir(InitTemplateDirArgs),
     /// Try the pre-commit hooks in the current repo.
     TryRepo(Box<TryRepoArgs>),
-    /// The implementation of the `pre-commit` hook.
+    /// The implementation of the prek hook script that is installed in the `.git/hooks/` directory.
     #[command(hide = true)]
     HookImpl(HookImplArgs),
+    /// Utility commands.
+    Util(UtilNamespace),
     /// `prek` self management.
     #[command(name = "self")]
     Self_(SelfNamespace),
-    /// Generate shell completion scripts.
-    #[command(hide = true)]
-    GenerateShellCompletion(GenerateShellCompletionArgs),
 }
 
 #[derive(Debug, Args)]
@@ -285,7 +286,7 @@ pub(crate) struct InstallArgs {
     #[arg(short = 'f', long)]
     pub(crate) overwrite: bool,
 
-    /// Create hook environments for all hooks used in the config file.
+    /// Create environments for all hooks used in the config file.
     #[arg(long)]
     pub(crate) install_hooks: bool,
 
@@ -302,7 +303,7 @@ pub(crate) struct InstallArgs {
     #[arg(short = 't', long = "hook-type", value_name = "HOOK_TYPE", value_enum)]
     pub(crate) hook_types: Vec<HookType>,
 
-    /// Allow a missing `pre-commit` configuration file.
+    /// Allow a missing configuration file.
     #[arg(long)]
     pub(crate) allow_missing_config: bool,
 }
@@ -509,6 +510,14 @@ pub(crate) enum ListOutputFormat {
     Json,
 }
 
+#[derive(Debug, Clone, Copy, clap::ValueEnum, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum IdentifyOutputFormat {
+    #[default]
+    Text,
+    Json,
+}
+
 #[derive(Debug, Clone, Default, Args)]
 pub(crate) struct ListArgs {
     /// Include the specified hooks or projects.
@@ -554,6 +563,16 @@ pub(crate) struct ListArgs {
     pub(crate) output_format: ListOutputFormat,
 }
 
+#[derive(Debug, Clone, Default, Args)]
+pub(crate) struct IdentifyArgs {
+    /// The path(s) to the file(s) to identify.
+    #[arg(value_name = "PATH", value_hint = ValueHint::AnyPath)]
+    pub(crate) paths: Vec<PathBuf>,
+    /// The output format.
+    #[arg(long, value_enum, default_value_t = IdentifyOutputFormat::Text)]
+    pub(crate) output_format: IdentifyOutputFormat,
+}
+
 #[derive(Debug, Args)]
 pub(crate) struct ValidateConfigArgs {
     /// The path to the configuration file.
@@ -568,16 +587,47 @@ pub(crate) struct ValidateManifestArgs {
     pub(crate) manifests: Vec<PathBuf>,
 }
 
+#[expect(clippy::option_option)]
 #[derive(Debug, Args)]
 pub(crate) struct SampleConfigArgs {
-    /// Write the sample config to a file (`.pre-commit-config.yaml` by default).
+    /// Write the sample config to a file.
+    ///
+    /// Defaults to `.pre-commit-config.yaml` unless `--format toml` is set,
+    /// which uses `prek.toml`. If a path is provided without `--format`,
+    /// the format is inferred from the file extension (`.toml` uses TOML).
     #[arg(
         short,
         long,
         num_args = 0..=1,
-        default_missing_value = CONFIG_FILE,
     )]
-    pub(crate) file: Option<PathBuf>,
+    pub(crate) file: Option<Option<PathBuf>>,
+
+    /// Select the sample configuration format.
+    #[arg(long, value_enum)]
+    pub(crate) format: Option<SampleConfigFormat>,
+}
+
+#[derive(Debug, Copy, Clone, clap::ValueEnum)]
+pub(crate) enum SampleConfigFormat {
+    Yaml,
+    Toml,
+}
+
+#[derive(Debug)]
+pub(crate) enum SampleConfigTarget {
+    Stdout,
+    DefaultFile,
+    Path(PathBuf),
+}
+
+impl From<Option<Option<PathBuf>>> for SampleConfigTarget {
+    fn from(value: Option<Option<PathBuf>>) -> Self {
+        match value {
+            None => Self::Stdout,
+            Some(None) => Self::DefaultFile,
+            Some(Some(path)) => Self::Path(path),
+        }
+    }
 }
 
 #[derive(Debug, Args)]
@@ -660,6 +710,42 @@ pub(crate) struct HookImplArgs {
 pub(crate) struct CacheNamespace {
     #[command(subcommand)]
     pub(crate) command: CacheCommand,
+}
+
+#[derive(Debug, Args)]
+pub(crate) struct UtilNamespace {
+    #[command(subcommand)]
+    pub(crate) command: UtilCommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub(crate) enum UtilCommand {
+    /// Show file identification tags.
+    Identify(IdentifyArgs),
+    /// Install hook script in a directory intended for use with `git config init.templateDir`.
+    #[command(alias = "init-templatedir")]
+    InitTemplateDir(InitTemplateDirArgs),
+    /// Convert a YAML configuration file to prek.toml.
+    YamlToToml(YamlToTomlArgs),
+    /// Generate shell completion scripts.
+    #[command(hide = true)]
+    GenerateShellCompletion(GenerateShellCompletionArgs),
+}
+
+#[derive(Debug, Args)]
+pub(crate) struct YamlToTomlArgs {
+    /// The YAML configuration file to convert.
+    #[arg(value_name = "CONFIG", value_hint = ValueHint::FilePath)]
+    pub(crate) input: PathBuf,
+
+    /// Path to write the generated prek.toml file.
+    /// Defaults to `prek.toml` in the same directory as the input file.
+    #[arg(short, long, value_name = "OUTPUT", value_hint = ValueHint::FilePath)]
+    pub(crate) output: Option<PathBuf>,
+
+    /// Overwrite the output file if it already exists.
+    #[arg(long)]
+    pub(crate) force: bool,
 }
 
 #[derive(Debug, Subcommand)]

@@ -1,7 +1,7 @@
 from kubernetes import client
 
 from adam.config import Config
-from adam.utils import debug, log2
+from adam.utils_log import debug, log2
 
 # utility collection on ingresses; methods are all static
 class Ingresses:

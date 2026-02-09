@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: supervision
-Version: 0.27.0
+Version: 0.27.0.post1
 Summary: A set of easy-to-use utils that will come in handy in any Computer Vision project
 Author-email: Piotr Skalski <piotr.skalski92@gmail.com>
 Maintainer-email: Piotr Skalski <piotr.skalski92@gmail.com>
@@ -36,6 +36,7 @@ Requires-Dist: pillow>=9.4
 Requires-Dist: requests>=2.26.0
 Requires-Dist: tqdm>=4.62.3
 Requires-Dist: opencv-python>=4.5.5.64
+Requires-Dist: pyDeprecate>=0.4.0
 Provides-Extra: metrics
 Requires-Dist: pandas>=2.0.0; extra == "metrics"
 Dynamic: license-file

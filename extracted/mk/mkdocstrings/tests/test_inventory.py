@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from io import BytesIO
 from os.path import join
+from pathlib import Path
 
 import pytest
 from mkdocs.commands.build import build
@@ -48,7 +49,7 @@ def test_sphinx_load_mkdocstrings_inventory_file() -> None:
         mkdocs_config["plugins"].run_event("shutdown")
     own_inv = mkdocs_config["plugins"]["mkdocstrings"].handlers.inventory
 
-    with open("site/objects.inv", "rb") as fp:
+    with Path("site/objects.inv").open("rb") as fp:
         sphinx_inv = sphinx.InventoryFile.load(fp, "", join)
 
     sphinx_inv_length = sum(len(sphinx_inv[key]) for key in sphinx_inv)

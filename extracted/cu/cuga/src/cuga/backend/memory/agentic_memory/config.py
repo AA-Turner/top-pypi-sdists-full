@@ -18,6 +18,12 @@ def _sanitize_vector_store_config(raw: dict) -> dict:
 
 
 def get_config(namespace_id: str | None = None):
+    # Check if memory is enabled
+    if not settings.advanced_features.enable_memory:
+        raise RuntimeError(
+            "Memory is disabled in settings. Set enable_memory = true in settings.toml to use memory features."
+        )
+
     # Use cached Dynaconf instance to avoid duplication and key normalization issues
     # settings = _get_settings()
 
@@ -28,7 +34,7 @@ def get_config(namespace_id: str | None = None):
     vs = root.get("vector_store", {})
     vs_cfg = _sanitize_vector_store_config((vs or {}).get("config", {}))
     # Default milvus url/path under DBS_DIR if not provided
-    default_milvus = os.path.join(DBS_DIR, "milvus.db")
+    default_milvus = os.path.join(DBS_DIR, "milvus_memory.db")
     vs_url = os.environ.get('WXO_MILVUS_URI', vs_cfg.get("url", default_milvus))
     # If the configured url is a relative filesystem path, resolve it under DBS_DIR
     if isinstance(vs_url, str) and not (vs_url.startswith("http://") or vs_url.startswith("https://")):
@@ -61,10 +67,12 @@ def get_config(namespace_id: str | None = None):
         "config": {
             "model": llm_model.model_name,
             "temperature": llm_model.temperature,
-            "openai_base_url": llm_model.openai_api_base,
             "max_tokens": llm_model.max_tokens,
         },
     }
+
+    if hasattr(llm_model, "platform"):
+        cfg["llm"]["config"]["openai_base_url"] = llm_model.openai_api_base
 
     emb = root.get("embedder", {})
     emb_cfg = (emb or {}).get("config", {})
@@ -83,14 +91,6 @@ def get_config(namespace_id: str | None = None):
     return cfg
 
 
-def get_milvus_config():
-    milvus_config = settings.milvus_config
-    milvus_config_dict = milvus_config.to_dict()
-    milvus_config_dict["step_processing"] = settings.memory.milvus.step_processing.model
-    milvus_config_dict["fact_extraction"] = settings.memory.milvus.fact_extraction.model
-    return Dynaconf(settings_files=[], environments=False, milvus_config=milvus_config_dict)
-
-
 def get_tips_extractor_config():
     tips_extractor_config = settings.tips_extractor_config
     tips_extractor_config_dict = tips_extractor_config.to_dict()
@@ -99,10 +99,12 @@ def get_tips_extractor_config():
 
 
 # Backward compatible module-level variables
-config = get_config()
-milvus_config = (
-    get_milvus_config()
-    if settings.features.memory_provider == "milvus"
-    else Dynaconf(settings_files=[], environments=False, milvus_config={})
-)
-tips_extractor_config = get_tips_extractor_config().tips_extractor_config
+# Only initialize if memory is enabled
+if settings.advanced_features.enable_memory:
+    config = get_config()
+    milvus_config = settings.milvus
+    tips_extractor_config = get_tips_extractor_config().tips_extractor_config
+else:
+    config = None
+    milvus_config = None
+    tips_extractor_config = None

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: tlds
-Version: 2025102200
+Version: 2026020700
 Summary: Automatically updated list of valid TLDs taken directly from IANA
 Home-page: https://github.com/kichik/tlds
 Author: Amir Szekely
@@ -12,6 +12,15 @@ Classifier: Programming Language :: Python
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Topic :: Communications
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary
 
 ###################################################
 Automatically updated list of valid TLDs for Python

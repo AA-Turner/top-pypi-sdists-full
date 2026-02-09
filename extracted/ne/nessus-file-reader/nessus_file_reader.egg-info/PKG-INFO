@@ -1,11 +1,12 @@
 Metadata-Version: 2.4
 Name: nessus_file_reader
-Version: 0.7.2
+Version: 0.8.0
 Summary: nessus file reader (NFR) by LimberDuck is a CLI tool and python module created to quickly parse nessus files containing the results of scans performed by Tenable Nessus and Tenable Security Center.
 Home-page: https://github.com/LimberDuck/nessus-file-reader
 Author: Damian Krawczyk
 Author-email: damian.krawczyk@limberduck.org
 License: GPLv3
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.11
@@ -21,6 +22,7 @@ Requires-Dist: tabulate>=0.9.0
 Requires-Dist: jmespath>=1.0.1
 Requires-Dist: requests>=2.32.5
 Requires-Dist: packaging>=25.0
+Requires-Dist: plotext>=5.3.2
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

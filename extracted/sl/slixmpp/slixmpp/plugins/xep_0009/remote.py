@@ -382,7 +382,7 @@ class RemoteSession(object):
         key = "%s.%s" % (endpoint, name)
         log.debug("Registering call handler for %s (%s).", key, method)
         if key in self._entries:
-            raise KeyError("A handler for %s has already been regisered!" % endpoint)
+            raise KeyError("A handler for %s has already been registered!" % endpoint)
         self._entries[key] = JabberRPCEntry(endpoint, method)
         return key
 
@@ -521,7 +521,7 @@ class RemoteSession(object):
 
 class Remote:
     """
-    Bootstrap class for Jabber-RPC sessions. New sessions are openend
+    Bootstrap class for Jabber-RPC sessions. New sessions are opened
     with an existing XMPP client, or one is instantiated on demand.
     """
     _sessions = dict()

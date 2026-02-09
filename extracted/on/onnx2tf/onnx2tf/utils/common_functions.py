@@ -28,7 +28,7 @@ from tensorflow.python.keras.utils import conv_utils
 import onnx
 from onnx.serialization import ProtoSerializer
 from onnx.external_data_helper import uses_external_data
-import onnx_graphsurgeon as gs
+import onnx2tf.gs as gs
 try:
     import onnxruntime as ort
 except Exception as ex:
@@ -429,7 +429,7 @@ def print_node_info(func):
             )
             error(
                 f'Alternatively, if the input OP has a dynamic dimension, ' +
-                f'use the -b or -ois option to rewrite it to a static shape and try again.'
+                f'use the -sh or -b or -ois option to rewrite it to a static shape and try again.'
             )
             error(
                 f'If the input OP of ONNX before conversion is NHWC or ' +
@@ -2502,6 +2502,15 @@ def shape_unmatched_special_avoidance_workaround(
             return None
         return [dim if isinstance(dim, int) else None for dim in shape]
 
+    def _transpose_preserve_array(tensor, perm):
+        if isinstance(tensor, np.ndarray):
+            return np.transpose(tensor, axes=perm)
+        return transpose_with_flexing_deterrence(
+            input_tensor=tensor,
+            perm=perm,
+            **kwargs,
+        )
+
     def _broadcastable(shape_a, shape_b):
         if shape_a is None or shape_b is None:
             return False
@@ -2582,19 +2591,15 @@ def shape_unmatched_special_avoidance_workaround(
                         # Avoid ambiguous ties.
                         if len(candidates) == 1 or best_score > candidates[1][0]:
                             if best_idx == 0:
-                                input_tensor_1 = \
-                                    transpose_with_flexing_deterrence(
-                                        input_tensor=input_tensor_1,
-                                        perm=best_perm,
-                                        **kwargs,
-                                    )
+                                input_tensor_1 = _transpose_preserve_array(
+                                    input_tensor_1,
+                                    best_perm,
+                                )
                             else:
-                                input_tensor_2 = \
-                                    transpose_with_flexing_deterrence(
-                                        input_tensor=input_tensor_2,
-                                        perm=best_perm,
-                                        **kwargs,
-                                    )
+                                input_tensor_2 = _transpose_preserve_array(
+                                    input_tensor_2,
+                                    best_perm,
+                                )
     except Exception:
         pass
 
@@ -2609,19 +2614,15 @@ def shape_unmatched_special_avoidance_workaround(
                 s1 = [dim if isinstance(dim, int) else None for dim in s1]
                 s2 = [dim if isinstance(dim, int) else None for dim in s2]
                 if s1[1] == 1 and s1[2] is not None and s2[1] == s1[2]:
-                    input_tensor_2 = \
-                        transpose_with_flexing_deterrence(
-                            input_tensor=input_tensor_2,
-                            perm=[0, 2, 1],
-                            **kwargs,
-                        )
+                    input_tensor_2 = _transpose_preserve_array(
+                        input_tensor_2,
+                        [0, 2, 1],
+                    )
                 elif s2[1] == 1 and s2[2] is not None and s1[1] == s2[2]:
-                    input_tensor_1 = \
-                        transpose_with_flexing_deterrence(
-                            input_tensor=input_tensor_1,
-                            perm=[0, 2, 1],
-                            **kwargs,
-                        )
+                    input_tensor_1 = _transpose_preserve_array(
+                        input_tensor_1,
+                        [0, 2, 1],
+                    )
     except Exception:
         pass
 
@@ -2654,19 +2655,15 @@ def shape_unmatched_special_avoidance_workaround(
                     in2_matches_perm = _shape_matches(input_shape_2, permuted_onnx_shape_2)
 
                     if in1_matches_perm and in2_matches_onnx and not in2_matches_perm:
-                        input_tensor_2 = \
-                            transpose_with_flexing_deterrence(
-                                input_tensor=input_tensor_2,
-                                perm=perm,
-                                **kwargs,
-                            )
+                        input_tensor_2 = _transpose_preserve_array(
+                            input_tensor_2,
+                            perm,
+                        )
                     elif in2_matches_perm and in1_matches_onnx and not in1_matches_perm:
-                        input_tensor_1 = \
-                            transpose_with_flexing_deterrence(
-                                input_tensor=input_tensor_1,
-                                perm=perm,
-                                **kwargs,
-                            )
+                        input_tensor_1 = _transpose_preserve_array(
+                            input_tensor_1,
+                            perm,
+                        )
     except Exception:
         pass
     # At least one True value for same_input_shape_as_onnx
@@ -2683,8 +2680,10 @@ def shape_unmatched_special_avoidance_workaround(
             ]
         else:
             graph_node_input_1_shape = []
+        input_tensor_1_shape = _normalize_shape(input_tensor_1.shape) \
+            if hasattr(input_tensor_1, "shape") else None
         same_input_shape_as_onnx_1 = True if len(graph_node_input_1_shape) > 0 \
-            and graph_node_input_1_shape == input_tensor_1.shape else False
+            and _shape_matches(graph_node_input_1_shape, input_tensor_1_shape) else False
     else:
         nhwc_flag_1 = False
         if graph_node_input_1.shape is not None:
@@ -2693,8 +2692,10 @@ def shape_unmatched_special_avoidance_workaround(
             ]
         else:
             graph_node_input_1_shape = []
+        input_tensor_1_shape = _normalize_shape(input_tensor_1.shape) \
+            if hasattr(input_tensor_1, "shape") else None
         same_input_shape_as_onnx_1 = True if len(graph_node_input_1_shape) > 0 \
-            and graph_node_input_1_shape == input_tensor_1.shape else False
+            and _shape_matches(graph_node_input_1_shape, input_tensor_1_shape) else False
     nhwc_flag_2 = False
     same_input_shape_as_onnx_2 = False
     if isinstance(graph_node_input_2, gs.Variable):
@@ -2706,8 +2707,10 @@ def shape_unmatched_special_avoidance_workaround(
             ]
         else:
             graph_node_input_2_shape = []
+        input_tensor_2_shape = _normalize_shape(input_tensor_2.shape) \
+            if hasattr(input_tensor_2, "shape") else None
         same_input_shape_as_onnx_2 = True if len(graph_node_input_2_shape) > 0 \
-            and graph_node_input_2_shape == input_tensor_2.shape else False
+            and _shape_matches(graph_node_input_2_shape, input_tensor_2_shape) else False
     else:
         nhwc_flag_2 = False
         if graph_node_input_2.shape is not None:
@@ -2716,8 +2719,10 @@ def shape_unmatched_special_avoidance_workaround(
             ]
         else:
             graph_node_input_2_shape = []
+        input_tensor_2_shape = _normalize_shape(input_tensor_2.shape) \
+            if hasattr(input_tensor_2, "shape") else None
         same_input_shape_as_onnx_2 = True if len(graph_node_input_2_shape) > 0 \
-            and graph_node_input_2_shape == input_tensor_2.shape else False
+            and _shape_matches(graph_node_input_2_shape, input_tensor_2_shape) else False
 
     same_input_shape_as_onnxs = [same_input_shape_as_onnx_1, same_input_shape_as_onnx_2]
     nhwc_flags = [nhwc_flag_1, nhwc_flag_2]
@@ -2726,26 +2731,20 @@ def shape_unmatched_special_avoidance_workaround(
         for idx, (same_input_shape_as_onnx, nhwc_flag) in enumerate(zip(same_input_shape_as_onnxs, nhwc_flags)):
             if same_input_shape_as_onnx and not nhwc_flag:
                 if len(values[idx].shape) == 3:
-                    values[idx] = \
-                        transpose_with_flexing_deterrence(
-                            input_tensor=values[idx],
-                            perm=[0,2,1],
-                            **kwargs,
-                        )
+                    values[idx] = _transpose_preserve_array(
+                        values[idx],
+                        [0,2,1],
+                    )
                 elif len(values[idx].shape) == 4:
-                    values[idx] = \
-                        transpose_with_flexing_deterrence(
-                            input_tensor=values[idx],
-                            perm=[0,2,3,1],
-                            **kwargs,
-                        )
+                    values[idx] = _transpose_preserve_array(
+                        values[idx],
+                        [0,2,3,1],
+                    )
                 elif len(values[idx].shape) == 5:
-                    values[idx] = \
-                        transpose_with_flexing_deterrence(
-                            input_tensor=values[idx],
-                            perm=[0,2,3,4,1],
-                            **kwargs,
-                        )
+                    values[idx] = _transpose_preserve_array(
+                        values[idx],
+                        [0,2,3,4,1],
+                    )
 
         # Transpose until the nhwc flag matches the shape toward True
         #   1. Either one of the nhwc flags is True and either one is False
@@ -2777,10 +2776,9 @@ def shape_unmatched_special_avoidance_workaround(
                     for perm in perms:
                         try:
                             tmp_trans_value = \
-                                transpose_with_flexing_deterrence(
-                                    input_tensor=transpose_target_tensor,
-                                    perm=perm,
-                                    **kwargs,
+                                _transpose_preserve_array(
+                                    transpose_target_tensor,
+                                    perm,
                                 )
                             dummy_mul = no_transpose_target_tensor * tmp_trans_value
                             values[false_indices] = tmp_trans_value

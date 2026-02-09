@@ -5,7 +5,7 @@ import json
 import uuid
 
 try:
-    import nodriver
+    import zendriver as nodriver
     has_nodriver = True
 except ImportError:
     has_nodriver = False
@@ -94,7 +94,7 @@ class You(AsyncGeneratorProvider, ProviderModelMixin):
                         cookies[c.name] = c.value
                     await page.close()
                 finally:
-                    stop_browser()
+                    await stop_browser()
         async with StreamSession(
             proxy=proxy,
             impersonate="chrome",

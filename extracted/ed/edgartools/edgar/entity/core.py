@@ -942,7 +942,7 @@ class Company(Entity):
                 log.debug(f"Error getting balance sheet for {self.name}: {e}")
         return None
 
-    def cash_flow(
+    def cashflow_statement(
         self,
         periods: int = 4,
         period: str = 'annual',
@@ -991,7 +991,7 @@ class Company(Entity):
 
                 # TTMEntityFacts removed - using EntityFacts directly
                 ttm_facts = EntityFacts(self.cik, self.name, adjusted_facts, self.sic)
-                return ttm_facts.cash_flow(
+                return ttm_facts.cashflow_statement(
                     periods=periods,
                     annual=False,
                     as_dataframe=as_dataframe,
@@ -999,7 +999,7 @@ class Company(Entity):
                 )
 
             else:  # annual
-                return facts.cash_flow(
+                return facts.cashflow_statement(
                     periods=periods,
                     annual=True,
                     as_dataframe=as_dataframe,
@@ -1009,6 +1009,27 @@ class Company(Entity):
             from edgar.core import log
             log.debug(f"Error getting cash flow for {self.name}: {e}")
         return None
+
+    def cash_flow(
+        self,
+        periods: int = 4,
+        period: str = 'annual',
+        annual: Optional[bool] = None,
+        as_dataframe: bool = False,
+        concise_format: bool = False
+    ) -> Union["MultiPeriodStatement", TTMStatement, "pd.DataFrame", None]:
+        """Deprecated: Use cashflow_statement() instead."""
+        import warnings
+        warnings.warn(
+            "cash_flow() is deprecated and will be removed in v6.0. "
+            "Use cashflow_statement() instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.cashflow_statement(
+            periods=periods, period=period, annual=annual,
+            as_dataframe=as_dataframe, concise_format=concise_format
+        )
 
     # -------------------------------------------------------------------------
     # Concept Discovery Methods
@@ -1381,11 +1402,22 @@ class Company(Entity):
         raise ValueError(f"Invalid date format: '{as_of}'. Use 'YYYY-MM-DD' or 'YYYY-QN'")
 
     def __str__(self):
-        ticker = self.get_ticker()
-        ticker_str = f" - {ticker}" if ticker else ""
-        if hasattr(self, 'data'):
-            return f"Company({self.data.name} [{self.cik}]{ticker_str})"
-        return f"Company(CIK={self.cik}{ticker_str})"
+        if hasattr(self, 'data') and self.data.name:
+            # Handle individuals (persons)
+            if self.data.is_individual:
+                return f"{self.display_name} (Person) CIK:{self.cik}"
+
+            # Company format
+            ticker = self.get_ticker()
+            parts = [self.data.name]
+            if ticker:
+                parts.append(f"[{ticker}]")
+            parts.append(f"CIK:{self.cik}")
+            if self.industry:
+                parts.append(f"• {self.industry}")
+            return " ".join(parts)
+        # Fallback for minimal data
+        return f"Company(CIK={self.cik})"
 
     def __repr__(self):
         # Delegate to the rich representation for consistency with the old implementation

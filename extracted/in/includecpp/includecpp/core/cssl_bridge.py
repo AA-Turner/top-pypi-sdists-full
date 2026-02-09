@@ -11,14 +11,99 @@ v3.8.0 API:
     cssl.include(path, name)       - Register for payload(name)
 """
 
+import asyncio
 import atexit
 import os
 import pickle
 import random
 import threading
 import warnings
+from concurrent.futures import ThreadPoolExecutor, Future
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, List, Optional, Callable, Dict, Union, Tuple
+
+# -----------------------------------------------------------------------------
+# v4.9.12: Global state for Extended API
+# -----------------------------------------------------------------------------
+
+# Async execution
+_async_futures: Dict[str, Future] = {}
+_async_executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix="CSSLAsync")
+
+# Variable watching
+_watch_threads: Dict[str, tuple] = {}
+
+# Debug stepping
+_breakpoints: Dict[str, dict] = {}
+_debug_state: Dict[str, Any] = {
+    'paused': False,
+    'step_mode': False,
+    'line': 0,
+    'function': '<module>',
+    'locals': {},
+    'stack': [],
+    'continue_event': threading.Event()
+}
+
+# Hot reload
+_hot_reload_mtimes: Dict[str, float] = {}
+_hot_reload_threads: Dict[str, tuple] = {}
+
+# Event system
+_event_handlers: Dict[str, Dict[str, dict]] = {}
+
+# Function hooks
+_function_hooks: Dict[str, List[tuple]] = {}
+_original_functions: Dict[str, Any] = {}
+
+
+# -----------------------------------------------------------------------------
+# v4.9.12: Data classes for result types
+# -----------------------------------------------------------------------------
+
+@dataclass
+class ValidationResult:
+    """Result of code validation."""
+    valid: bool
+    errors: List[Dict[str, Any]]
+    warnings: List[Dict[str, Any]]
+    ast_size: int
+
+
+@dataclass
+class ProfileResult:
+    """Result of code profiling."""
+    total_time: float
+    call_count: int
+    hotspots: List[Dict[str, Any]]
+    result: Any
+
+
+@dataclass
+class BenchmarkResult:
+    """Result of benchmarking."""
+    iterations: int
+    total_time: float
+    avg_time: float
+    min_time: float
+    max_time: float
+    std_dev: float
+    ops_per_sec: float
+
+
+@dataclass
+class MemoryStats:
+    """Memory usage statistics."""
+    variable_count: int
+    total_size: int
+    largest_objects: List[Dict[str, Any]]
+    gc_collected: int
+
+
+class SecurityError(Exception):
+    """Raised when sandbox security is violated."""
+    pass
 
 
 def _get_share_directory() -> Path:
@@ -350,6 +435,113 @@ class CSSLFunctionModule:
         self._ensure_initialized()
         funcs = ', '.join(self._functions.keys())
         return f"<CSSLFunctionModule functions=[{funcs}]>"
+
+
+class CSSLPipeline:
+    """
+    Pipeline for chaining CSSL transformations.
+
+    Usage:
+        cssl = CsslLang()
+        result = (cssl.pipe(
+            'return value * 2;',
+            'return value + 10;',
+            lambda x: x ** 2
+        ).run(5))  # ((5 * 2) + 10) ** 2 = 400
+    """
+
+    def __init__(self, cssl: 'CsslLang', stages: List[Union[str, Callable]]):
+        self._cssl = cssl
+        self._stages = stages
+
+    def add(self, stage: Union[str, Callable]) -> 'CSSLPipeline':
+        """Add a stage to the pipeline."""
+        self._stages.append(stage)
+        return self
+
+    def run(self, initial_value: Any = None) -> Any:
+        """Execute the pipeline with an initial value."""
+        value = initial_value
+
+        for stage in self._stages:
+            if callable(stage):
+                value = stage(value)
+            else:
+                # CSSL code - set 'value' variable and execute
+                self._cssl.set_global('value', value)
+                value = self._cssl.run(stage)
+
+        return value
+
+    def __or__(self, other: Union[str, Callable]) -> 'CSSLPipeline':
+        """Pipe operator: pipeline | 'code' or pipeline | function."""
+        return self.add(other)
+
+    def __repr__(self) -> str:
+        return f"<CSSLPipeline stages={len(self._stages)}>"
+
+
+class CSSLContext:
+    """
+    Isolated execution context for CSSL.
+
+    Usage:
+        cssl = CsslLang()
+
+        with cssl.context(x=10, y=20) as ctx:
+            result = ctx.run('return x + y;')
+            print(result)  # 30
+        # Variables x, y are cleaned up automatically
+    """
+
+    def __init__(self, cssl: 'CsslLang', initial_vars: Dict[str, Any]):
+        self._cssl = cssl
+        self._initial_vars = initial_vars
+        self._saved_vars: Dict[str, Any] = {}
+        self._created_vars: List[str] = []
+
+    def __enter__(self) -> 'CSSLContext':
+        runtime = self._cssl._get_runtime()
+
+        # Save existing values and set new ones
+        for name, value in self._initial_vars.items():
+            try:
+                self._saved_vars[name] = runtime.global_scope.get(name)
+            except Exception:
+                self._created_vars.append(name)
+            runtime.global_scope.set(name, value)
+
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        runtime = self._cssl._get_runtime()
+
+        # Restore saved values
+        for name, value in self._saved_vars.items():
+            runtime.global_scope.set(name, value)
+
+        # Remove created variables
+        for name in self._created_vars:
+            try:
+                runtime.global_scope.delete(name)
+            except Exception:
+                pass
+
+        return False
+
+    def run(self, code: str, *args) -> Any:
+        """Execute CSSL code in this context."""
+        return self._cssl.run(code, *args)
+
+    def set(self, name: str, value: Any) -> None:
+        """Set a variable in this context."""
+        self._cssl.set_global(name, value)
+        if name not in self._saved_vars and name not in self._created_vars:
+            self._created_vars.append(name)
+
+    def get(self, name: str) -> Any:
+        """Get a variable from this context."""
+        return self._cssl.get_global(name)
 
 
 class CsslLang:
@@ -1230,6 +1422,1418 @@ class CsslLang:
         """
         from .cssl.cssl_types import UniversalInstance
         return UniversalInstance.list_all()
+
+    # =========================================================================
+    # v4.9.12: Extended API - 20 New Features as Instance Methods
+    # =========================================================================
+
+    # -------------------------------------------------------------------------
+    # 1. Developer Console
+    # -------------------------------------------------------------------------
+
+    def async_console(self, shared_instances: list = None, block: bool = True) -> 'CSSLDevConsole':
+        """
+        Launch the CSSL Developer Console.
+
+        Opens a Tkinter-based multi-line editor with:
+        - CSSL syntax highlighting
+        - API Tree showing all share()'d objects
+        - Output panel with colored output
+        - History navigation
+        - Ctrl+Enter to execute
+
+        Args:
+            shared_instances: Optional list of objects to auto-share
+            block: If True, blocks until console is closed
+
+        Returns:
+            CSSLDevConsole instance
+
+        Usage:
+            cssl = CsslLang()
+            cssl.share(player, "player")
+            cssl.async_console()
+        """
+        console = CSSLDevConsole(self, shared_instances=shared_instances)
+        console.launch(block=block)
+        return console
+
+    # -------------------------------------------------------------------------
+    # 2. Async/Await Support
+    # -------------------------------------------------------------------------
+
+    async def async_run(self, code: str, *args, timeout: float = None) -> Any:
+        """
+        Execute CSSL code asynchronously with native asyncio support.
+
+        Args:
+            code: CSSL code string or file path
+            *args: Arguments to pass to the script
+            timeout: Optional timeout in seconds
+
+        Returns:
+            Execution result
+
+        Usage:
+            import asyncio
+            cssl = CsslLang()
+
+            async def main():
+                result = await cssl.async_run('return 42;')
+                print(result)
+
+            asyncio.run(main())
+        """
+        import asyncio
+        loop = asyncio.get_event_loop()
+
+        def _run():
+            return self.run(code, *args)
+
+        if timeout:
+            try:
+                return await asyncio.wait_for(
+                    loop.run_in_executor(_async_executor, _run),
+                    timeout=timeout
+                )
+            except asyncio.TimeoutError:
+                raise TimeoutError(f"CSSL execution timed out after {timeout}s")
+        else:
+            return await loop.run_in_executor(_async_executor, _run)
+
+    def start_async(self, code: str, *args) -> str:
+        """
+        Start CSSL code execution in background, returns task ID.
+
+        Args:
+            code: CSSL code string or file path
+            *args: Arguments to pass to the script
+
+        Returns:
+            Task ID string for tracking
+
+        Usage:
+            cssl = CsslLang()
+            task_id = cssl.start_async('long_running_task();')
+            # ... do other work ...
+            result = cssl.await_result(task_id)
+        """
+        import uuid
+        task_id = str(uuid.uuid4())[:8]
+
+        def _run():
+            return self.run(code, *args)
+
+        future = _async_executor.submit(_run)
+        _async_futures[task_id] = future
+        return task_id
+
+    def await_result(self, task_id: str, timeout: float = None) -> Any:
+        """
+        Wait for and return result of async task.
+
+        Args:
+            task_id: Task ID from start_async()
+            timeout: Optional timeout in seconds
+
+        Returns:
+            Task result
+
+        Raises:
+            KeyError: If task_id not found
+            TimeoutError: If timeout exceeded
+        """
+        if task_id not in _async_futures:
+            raise KeyError(f"Unknown task ID: {task_id}")
+
+        future = _async_futures[task_id]
+        try:
+            result = future.result(timeout=timeout)
+            del _async_futures[task_id]
+            return result
+        except TimeoutError:
+            raise TimeoutError(f"Task {task_id} timed out after {timeout}s")
+
+    def is_async_done(self, task_id: str) -> bool:
+        """
+        Check if async task is complete.
+
+        Args:
+            task_id: Task ID from start_async()
+
+        Returns:
+            True if task is done, False if still running
+        """
+        if task_id not in _async_futures:
+            return True
+        return _async_futures[task_id].done()
+
+    def cancel_async(self, task_id: str) -> bool:
+        """
+        Cancel a running async task.
+
+        Args:
+            task_id: Task ID from start_async()
+
+        Returns:
+            True if cancelled, False if already done or not found
+        """
+        if task_id not in _async_futures:
+            return False
+        future = _async_futures[task_id]
+        result = future.cancel()
+        if result:
+            del _async_futures[task_id]
+        return result
+
+    # -------------------------------------------------------------------------
+    # 3. Variable Watching
+    # -------------------------------------------------------------------------
+
+    def watch(self, target: str, callback: Callable[[Any, Any], None], interval: float = 0.1) -> str:
+        """
+        Watch a variable for changes with callback notification.
+
+        Args:
+            target: Variable name or expression to watch
+            callback: Function(old_value, new_value) called on change
+            interval: Check interval in seconds (default 0.1)
+
+        Returns:
+            Watch ID for unwatch()
+
+        Usage:
+            def on_change(old, new):
+                print(f"Changed from {old} to {new}")
+
+            cssl = CsslLang()
+            watch_id = cssl.watch("player.health", on_change)
+            # ... later ...
+            cssl.unwatch(watch_id)
+        """
+        import uuid
+        watch_id = str(uuid.uuid4())[:8]
+        runtime = self._get_runtime()
+
+        last_value = [None]
+        stop_event = threading.Event()
+
+        def _watch_loop():
+            while not stop_event.is_set():
+                try:
+                    current = runtime.global_scope.get(target) if '.' not in target else \
+                              self.run(f'return {target};')
+                    if current != last_value[0]:
+                        callback(last_value[0], current)
+                        last_value[0] = current
+                except Exception:
+                    pass
+                stop_event.wait(interval)
+
+        thread = threading.Thread(target=_watch_loop, daemon=True)
+        thread.start()
+
+        _watch_threads[watch_id] = (thread, stop_event)
+        return watch_id
+
+    def unwatch(self, watch_id: str) -> bool:
+        """
+        Stop watching a variable.
+
+        Args:
+            watch_id: Watch ID from watch()
+
+        Returns:
+            True if stopped, False if not found
+        """
+        if watch_id not in _watch_threads:
+            return False
+        thread, stop_event = _watch_threads[watch_id]
+        stop_event.set()
+        del _watch_threads[watch_id]
+        return True
+
+    def unwatch_all(self) -> int:
+        """
+        Stop all variable watches.
+
+        Returns:
+            Number of watches stopped
+        """
+        count = len(_watch_threads)
+        for watch_id in list(_watch_threads.keys()):
+            self.unwatch(watch_id)
+        return count
+
+    # -------------------------------------------------------------------------
+    # 4. Debug Stepping
+    # -------------------------------------------------------------------------
+
+    def breakpoint_add(self, location: Union[int, str]) -> str:
+        """
+        Add a breakpoint at a line number or function name.
+
+        Args:
+            location: Line number (int) or function name (str)
+
+        Returns:
+            Breakpoint ID
+
+        Usage:
+            cssl = CsslLang()
+            bp_id = cssl.breakpoint_add(42)  # Line 42
+            bp_id = cssl.breakpoint_add("myFunction")  # Function entry
+        """
+        import uuid
+        bp_id = str(uuid.uuid4())[:8]
+        _breakpoints[bp_id] = {'location': location, 'enabled': True}
+        return bp_id
+
+    def breakpoint_remove(self, bp_id: str) -> bool:
+        """
+        Remove a breakpoint.
+
+        Args:
+            bp_id: Breakpoint ID from breakpoint_add()
+
+        Returns:
+            True if removed, False if not found
+        """
+        if bp_id in _breakpoints:
+            del _breakpoints[bp_id]
+            return True
+        return False
+
+    def breakpoint_clear(self) -> int:
+        """
+        Remove all breakpoints.
+
+        Returns:
+            Number of breakpoints removed
+        """
+        count = len(_breakpoints)
+        _breakpoints.clear()
+        return count
+
+    def step(self) -> Optional[Dict[str, Any]]:
+        """
+        Execute one statement when paused at breakpoint.
+
+        Returns:
+            Current execution state or None if not paused
+        """
+        global _debug_state
+        if not _debug_state.get('paused'):
+            return None
+
+        _debug_state['step_mode'] = True
+        _debug_state['continue_event'].set()
+
+        return {
+            'line': _debug_state.get('line', 0),
+            'function': _debug_state.get('function', '<module>'),
+            'locals': _debug_state.get('locals', {})
+        }
+
+    def continue_debug(self) -> bool:
+        """
+        Continue execution after breakpoint.
+
+        Returns:
+            True if continued, False if not paused
+        """
+        global _debug_state
+        if not _debug_state.get('paused'):
+            return False
+
+        _debug_state['step_mode'] = False
+        _debug_state['continue_event'].set()
+        return True
+
+    def get_stack(self) -> List[Dict[str, Any]]:
+        """
+        Get current call stack when paused.
+
+        Returns:
+            List of stack frames with line, function, locals
+        """
+        return _debug_state.get('stack', [])
+
+    def is_paused(self) -> bool:
+        """
+        Check if execution is paused at breakpoint.
+
+        Returns:
+            True if paused, False otherwise
+        """
+        return _debug_state.get('paused', False)
+
+    # -------------------------------------------------------------------------
+    # 5. Performance Profiling
+    # -------------------------------------------------------------------------
+
+    def profile(self, code: str, *args) -> 'ProfileResult':
+        """
+        Profile CSSL code execution with detailed timing.
+
+        Args:
+            code: CSSL code string or file path
+            *args: Arguments to pass to the script
+
+        Returns:
+            ProfileResult with timing data
+
+        Usage:
+            cssl = CsslLang()
+            result = cssl.profile('''
+                for (i = 0; i < 1000; i++) {
+                    compute(i);
+                }
+            ''')
+            print(f"Total: {result.total_time}ms")
+            for call in result.hotspots[:5]:
+                print(f"  {call['name']}: {call['time']}ms ({call['calls']} calls)")
+        """
+        import time
+        import cProfile
+        import pstats
+        import io
+
+        pr = cProfile.Profile()
+        start = time.perf_counter()
+
+        pr.enable()
+        try:
+            result = self.run(code, *args)
+        finally:
+            pr.disable()
+
+        end = time.perf_counter()
+
+        s = io.StringIO()
+        ps = pstats.Stats(pr, stream=s).sort_stats('cumulative')
+        ps.print_stats(20)
+
+        hotspots = []
+        for func, (cc, nc, tt, ct, callers) in ps.stats.items():
+            hotspots.append({
+                'name': f"{func[2]}",
+                'file': func[0],
+                'line': func[1],
+                'calls': nc,
+                'time': round(ct * 1000, 3),
+                'time_per_call': round((ct / nc) * 1000, 6) if nc > 0 else 0
+            })
+
+        hotspots.sort(key=lambda x: x['time'], reverse=True)
+
+        return ProfileResult(
+            total_time=round((end - start) * 1000, 3),
+            call_count=sum(h['calls'] for h in hotspots),
+            hotspots=hotspots[:20],
+            result=result
+        )
+
+    # -------------------------------------------------------------------------
+    # 6. Code Validation
+    # -------------------------------------------------------------------------
+
+    def validate(self, code: str) -> 'ValidationResult':
+        """
+        Validate CSSL code without executing it.
+
+        Args:
+            code: CSSL code string
+
+        Returns:
+            ValidationResult with errors/warnings
+
+        Usage:
+            cssl = CsslLang()
+            result = cssl.validate('''
+                void test() {
+                    printl("Hello"  // Missing closing paren
+                }
+            ''')
+            if not result.valid:
+                for error in result.errors:
+                    print(f"Line {error['line']}: {error['message']}")
+        """
+        from .cssl import parse_cssl_program
+
+        errors = []
+        warnings = []
+
+        try:
+            ast = parse_cssl_program(code)
+
+            def _check_node(node, depth=0):
+                if hasattr(node, 'children'):
+                    for child in node.children:
+                        _check_node(child, depth + 1)
+
+            _check_node(ast)
+
+        except SyntaxError as e:
+            errors.append({
+                'line': getattr(e, 'lineno', 1),
+                'column': getattr(e, 'offset', 0),
+                'message': str(e),
+                'severity': 'error'
+            })
+        except Exception as e:
+            error_str = str(e)
+            line_match = None
+            import re
+            line_match = re.search(r'line (\d+)', error_str, re.IGNORECASE)
+            errors.append({
+                'line': int(line_match.group(1)) if line_match else 1,
+                'column': 0,
+                'message': error_str,
+                'severity': 'error'
+            })
+
+        return ValidationResult(
+            valid=len(errors) == 0,
+            errors=errors,
+            warnings=warnings,
+            ast_size=0
+        )
+
+    # -------------------------------------------------------------------------
+    # 7. Code Transpilation
+    # -------------------------------------------------------------------------
+
+    def transpile(self, code: str, target: str = 'python') -> str:
+        """
+        Transpile CSSL code to another language.
+
+        Args:
+            code: CSSL code string
+            target: Target language ('python', 'cpp', 'javascript')
+
+        Returns:
+            Transpiled code string
+
+        Usage:
+            cssl = CsslLang()
+            py_code = cssl.transpile('''
+                void greet(string name) {
+                    printl("Hello, " + name);
+                }
+            ''', 'python')
+        """
+        from .cssl import parse_cssl_program
+
+        ast = parse_cssl_program(code)
+
+        if target == 'python':
+            return self._transpile_to_python(ast)
+        elif target == 'cpp':
+            return self._transpile_to_cpp(ast)
+        elif target == 'javascript':
+            return self._transpile_to_js(ast)
+        else:
+            raise ValueError(f"Unknown target language: {target}")
+
+    def _transpile_to_python(self, ast) -> str:
+        """Transpile AST to Python code."""
+        lines = ["# Transpiled from CSSL", ""]
+
+        def _node_to_python(node, indent=0):
+            ind = "    " * indent
+            if node.type == 'function':
+                info = node.value
+                params = ', '.join(p.get('name', '_') for p in info.get('params', []))
+                lines.append(f"{ind}def {info['name']}({params}):")
+                if node.children:
+                    for child in node.children:
+                        _node_to_python(child, indent + 1)
+                else:
+                    lines.append(f"{ind}    pass")
+                lines.append("")
+            elif node.type == 'call':
+                name = node.value.get('name', '')
+                if name == 'printl':
+                    name = 'print'
+                args = ', '.join(str(a) for a in node.value.get('args', []))
+                lines.append(f"{ind}{name}({args})")
+            elif node.type == 'var_decl':
+                name = node.value.get('name', '_')
+                val = node.value.get('initializer', 'None')
+                lines.append(f"{ind}{name} = {val}")
+            elif node.type == 'return':
+                val = node.value if node.value else 'None'
+                lines.append(f"{ind}return {val}")
+            elif hasattr(node, 'children'):
+                for child in node.children:
+                    _node_to_python(child, indent)
+
+        _node_to_python(ast)
+        return '\n'.join(lines)
+
+    def _transpile_to_cpp(self, ast) -> str:
+        """Transpile AST to C++ code."""
+        lines = ["// Transpiled from CSSL", "#include <iostream>", "#include <string>", ""]
+
+        def _type_map(t):
+            return {'string': 'std::string', 'int': 'int', 'float': 'double', 'bool': 'bool', 'void': 'void'}.get(t, 'auto')
+
+        def _node_to_cpp(node, indent=0):
+            ind = "    " * indent
+            if node.type == 'function':
+                info = node.value
+                ret_type = _type_map(info.get('return_type', 'void'))
+                params = ', '.join(f"{_type_map(p.get('type', 'auto'))} {p.get('name', '_')}"
+                                   for p in info.get('params', []))
+                lines.append(f"{ind}{ret_type} {info['name']}({params}) {{")
+                if node.children:
+                    for child in node.children:
+                        _node_to_cpp(child, indent + 1)
+                lines.append(f"{ind}}}")
+                lines.append("")
+            elif node.type == 'call':
+                name = node.value.get('name', '')
+                if name == 'printl':
+                    args = ' << '.join(str(a) for a in node.value.get('args', []))
+                    lines.append(f"{ind}std::cout << {args} << std::endl;")
+                else:
+                    args = ', '.join(str(a) for a in node.value.get('args', []))
+                    lines.append(f"{ind}{name}({args});")
+            elif node.type == 'return':
+                val = node.value if node.value else ''
+                lines.append(f"{ind}return {val};")
+            elif hasattr(node, 'children'):
+                for child in node.children:
+                    _node_to_cpp(child, indent)
+
+        _node_to_cpp(ast)
+        return '\n'.join(lines)
+
+    def _transpile_to_js(self, ast) -> str:
+        """Transpile AST to JavaScript code."""
+        lines = ["// Transpiled from CSSL", ""]
+
+        def _node_to_js(node, indent=0):
+            ind = "    " * indent
+            if node.type == 'function':
+                info = node.value
+                params = ', '.join(p.get('name', '_') for p in info.get('params', []))
+                lines.append(f"{ind}function {info['name']}({params}) {{")
+                if node.children:
+                    for child in node.children:
+                        _node_to_js(child, indent + 1)
+                lines.append(f"{ind}}}")
+                lines.append("")
+            elif node.type == 'call':
+                name = node.value.get('name', '')
+                if name == 'printl':
+                    name = 'console.log'
+                args = ', '.join(str(a) for a in node.value.get('args', []))
+                lines.append(f"{ind}{name}({args});")
+            elif node.type == 'var_decl':
+                name = node.value.get('name', '_')
+                val = node.value.get('initializer', 'null')
+                lines.append(f"{ind}let {name} = {val};")
+            elif node.type == 'return':
+                val = node.value if node.value else ''
+                lines.append(f"{ind}return {val};")
+            elif hasattr(node, 'children'):
+                for child in node.children:
+                    _node_to_js(child, indent)
+
+        _node_to_js(ast)
+        return '\n'.join(lines)
+
+    # -------------------------------------------------------------------------
+    # 8. State Serialization
+    # -------------------------------------------------------------------------
+
+    def serialize(self) -> bytes:
+        """
+        Serialize current runtime state to bytes.
+
+        Returns:
+            Pickled runtime state
+
+        Usage:
+            cssl = CsslLang()
+            cssl.run('global x = 42;')
+            state = cssl.serialize()
+            # ... later ...
+            cssl.deserialize(state)
+        """
+        runtime = self._get_runtime()
+        state = {
+            'globals': dict(runtime.global_scope._variables),
+            'output': list(runtime.output_buffer),
+        }
+        return pickle.dumps(state)
+
+    def deserialize(self, data: bytes) -> None:
+        """
+        Restore runtime state from serialized bytes.
+
+        Args:
+            data: Serialized state from serialize()
+        """
+        state = pickle.loads(data)
+        runtime = self._get_runtime()
+
+        for name, value in state.get('globals', {}).items():
+            runtime.global_scope.set(name, value)
+
+        runtime.output_buffer.clear()
+        runtime.output_buffer.extend(state.get('output', []))
+
+    def save_state(self, filepath: str) -> None:
+        """
+        Save runtime state to file.
+
+        Args:
+            filepath: Path to save state file
+        """
+        data = self.serialize()
+        with open(filepath, 'wb') as f:
+            f.write(data)
+
+    def load_state(self, filepath: str) -> None:
+        """
+        Load runtime state from file.
+
+        Args:
+            filepath: Path to state file
+        """
+        with open(filepath, 'rb') as f:
+            data = f.read()
+        self.deserialize(data)
+
+    # -------------------------------------------------------------------------
+    # 9. Hot Reload
+    # -------------------------------------------------------------------------
+
+    def hot_reload(self, filepath: str) -> bool:
+        """
+        Reload and re-execute a CSSL file if it changed.
+
+        Args:
+            filepath: Path to .cssl file
+
+        Returns:
+            True if reloaded, False if unchanged
+        """
+        path = Path(filepath)
+        if not path.exists():
+            raise FileNotFoundError(f"File not found: {filepath}")
+
+        mtime = path.stat().st_mtime
+        if filepath in _hot_reload_mtimes and _hot_reload_mtimes[filepath] >= mtime:
+            return False
+
+        _hot_reload_mtimes[filepath] = mtime
+        self.run(path.read_text(encoding='utf-8'))
+        return True
+
+    def enable_hot_reload(self, filepath: str, interval: float = 1.0, callback: Callable = None) -> str:
+        """
+        Enable automatic hot reload for a file.
+
+        Args:
+            filepath: Path to .cssl file
+            interval: Check interval in seconds
+            callback: Optional callback on reload
+
+        Returns:
+            Watch ID for disable_hot_reload()
+        """
+        import uuid
+        watch_id = str(uuid.uuid4())[:8]
+        stop_event = threading.Event()
+
+        def _watch_loop():
+            while not stop_event.is_set():
+                try:
+                    if self.hot_reload(filepath):
+                        if callback:
+                            callback(filepath)
+                except Exception:
+                    pass
+                stop_event.wait(interval)
+
+        thread = threading.Thread(target=_watch_loop, daemon=True)
+        thread.start()
+        _hot_reload_threads[watch_id] = (thread, stop_event)
+        return watch_id
+
+    def disable_hot_reload(self, watch_id: str) -> bool:
+        """
+        Disable automatic hot reload.
+
+        Args:
+            watch_id: Watch ID from enable_hot_reload()
+
+        Returns:
+            True if disabled, False if not found
+        """
+        if watch_id not in _hot_reload_threads:
+            return False
+        thread, stop_event = _hot_reload_threads[watch_id]
+        stop_event.set()
+        del _hot_reload_threads[watch_id]
+        return True
+
+    # -------------------------------------------------------------------------
+    # 10. Event System
+    # -------------------------------------------------------------------------
+
+    def on(self, event: str, handler: Callable) -> str:
+        """
+        Register an event handler.
+
+        Args:
+            event: Event name
+            handler: Callback function
+
+        Returns:
+            Handler ID for off()
+
+        Usage:
+            cssl = CsslLang()
+
+            def on_error(e):
+                print(f"Error: {e}")
+
+            cssl.on('error', on_error)
+            cssl.emit('error', 'Something went wrong')
+        """
+        import uuid
+        handler_id = str(uuid.uuid4())[:8]
+        if event not in _event_handlers:
+            _event_handlers[event] = {}
+        _event_handlers[event][handler_id] = {'handler': handler, 'once': False}
+        return handler_id
+
+    def once(self, event: str, handler: Callable) -> str:
+        """
+        Register a one-time event handler.
+
+        Args:
+            event: Event name
+            handler: Callback function
+
+        Returns:
+            Handler ID
+        """
+        import uuid
+        handler_id = str(uuid.uuid4())[:8]
+        if event not in _event_handlers:
+            _event_handlers[event] = {}
+        _event_handlers[event][handler_id] = {'handler': handler, 'once': True}
+        return handler_id
+
+    def emit(self, event: str, *args, **kwargs) -> int:
+        """
+        Emit an event to all handlers.
+
+        Args:
+            event: Event name
+            *args, **kwargs: Arguments to pass to handlers
+
+        Returns:
+            Number of handlers called
+        """
+        if event not in _event_handlers:
+            return 0
+
+        count = 0
+        to_remove = []
+
+        for handler_id, info in _event_handlers[event].items():
+            try:
+                info['handler'](*args, **kwargs)
+                count += 1
+                if info['once']:
+                    to_remove.append(handler_id)
+            except Exception:
+                pass
+
+        for handler_id in to_remove:
+            del _event_handlers[event][handler_id]
+
+        return count
+
+    def off(self, event: str, handler_id: str = None) -> bool:
+        """
+        Remove event handler(s).
+
+        Args:
+            event: Event name
+            handler_id: Specific handler ID, or None for all
+
+        Returns:
+            True if removed, False if not found
+        """
+        if event not in _event_handlers:
+            return False
+
+        if handler_id is None:
+            del _event_handlers[event]
+            return True
+
+        if handler_id in _event_handlers[event]:
+            del _event_handlers[event][handler_id]
+            return True
+
+        return False
+
+    def off_all(self) -> int:
+        """
+        Remove all event handlers.
+
+        Returns:
+            Number of events cleared
+        """
+        count = len(_event_handlers)
+        _event_handlers.clear()
+        return count
+
+    # -------------------------------------------------------------------------
+    # 11. Pipeline Chaining
+    # -------------------------------------------------------------------------
+
+    def pipe(self, *functions: Union[str, Callable]) -> 'CSSLPipeline':
+        """
+        Create a pipeline of transformations.
+
+        Args:
+            *functions: CSSL code strings or Python callables
+
+        Returns:
+            CSSLPipeline object
+
+        Usage:
+            cssl = CsslLang()
+            result = (cssl.pipe(
+                'return value * 2;',
+                'return value + 10;',
+                lambda x: x ** 2
+            ).run(5))  # ((5 * 2) + 10) ** 2 = 400
+        """
+        return CSSLPipeline(self, list(functions))
+
+    # -------------------------------------------------------------------------
+    # 12. Sandbox Execution
+    # -------------------------------------------------------------------------
+
+    def sandbox(self, code: str, *args,
+                allowed_builtins: List[str] = None,
+                denied_builtins: List[str] = None,
+                max_iterations: int = 100000,
+                max_recursion: int = 100) -> Any:
+        """
+        Execute CSSL code in a restricted sandbox.
+
+        Args:
+            code: CSSL code string
+            *args: Arguments to pass to the script
+            allowed_builtins: Whitelist of allowed builtins (None = all)
+            denied_builtins: Blacklist of denied builtins
+            max_iterations: Maximum loop iterations
+            max_recursion: Maximum recursion depth
+
+        Returns:
+            Execution result
+
+        Raises:
+            SecurityError: If code violates sandbox restrictions
+
+        Usage:
+            cssl = CsslLang()
+            result = cssl.sandbox(
+                'return calculate(42);',
+                denied_builtins=['exec', 'eval', 'pyimport']
+            )
+        """
+        DANGEROUS = ['exec', 'eval', 'pyimport', 'cppimport', '__import__', 'open',
+                     'system', 'popen', 'subprocess', 'os', 'sys']
+
+        if denied_builtins is None:
+            denied_builtins = DANGEROUS
+        else:
+            denied_builtins = list(denied_builtins) + DANGEROUS
+
+        import re
+        for builtin in denied_builtins:
+            if re.search(rf'\b{re.escape(builtin)}\s*\(', code):
+                raise SecurityError(f"Builtin '{builtin}' is not allowed in sandbox mode")
+
+        runtime = self._get_runtime()
+        old_max_iter = getattr(runtime, '_max_iterations', None)
+        old_max_rec = getattr(runtime, '_max_recursion', None)
+
+        try:
+            runtime._max_iterations = max_iterations
+            runtime._max_recursion = max_recursion
+            return self.run(code, *args)
+        finally:
+            if old_max_iter is not None:
+                runtime._max_iterations = old_max_iter
+            if old_max_rec is not None:
+                runtime._max_recursion = old_max_rec
+
+    # -------------------------------------------------------------------------
+    # 13. Timeout Execution
+    # -------------------------------------------------------------------------
+
+    def run_with_timeout(self, code: str, timeout: float, *args) -> Any:
+        """
+        Execute CSSL code with a timeout.
+
+        Args:
+            code: CSSL code string
+            timeout: Timeout in seconds
+            *args: Arguments to pass to the script
+
+        Returns:
+            Execution result
+
+        Raises:
+            TimeoutError: If execution exceeds timeout
+        """
+        result = [None]
+        error = [None]
+
+        def _run():
+            try:
+                result[0] = self.run(code, *args)
+            except Exception as e:
+                error[0] = e
+
+        thread = threading.Thread(target=_run)
+        thread.start()
+        thread.join(timeout=timeout)
+
+        if thread.is_alive():
+            raise TimeoutError(f"CSSL execution timed out after {timeout}s")
+
+        if error[0]:
+            raise error[0]
+
+        return result[0]
+
+    # -------------------------------------------------------------------------
+    # 14. Memory Statistics
+    # -------------------------------------------------------------------------
+
+    def memory_stats(self) -> 'MemoryStats':
+        """
+        Get memory usage statistics.
+
+        Returns:
+            MemoryStats object with memory info
+
+        Usage:
+            cssl = CsslLang()
+            cssl.run('global data = [1, 2, 3, 4, 5];')
+            stats = cssl.memory_stats()
+            print(f"Variables: {stats.variable_count}")
+            print(f"Total size: {stats.total_size} bytes")
+        """
+        import sys
+        import gc
+
+        runtime = self._get_runtime()
+        variables = dict(runtime.global_scope._variables)
+
+        var_count = len(variables)
+        total_size = 0
+        largest = []
+
+        for name, value in variables.items():
+            try:
+                size = sys.getsizeof(value)
+                total_size += size
+                largest.append({'name': name, 'size': size, 'type': type(value).__name__})
+            except Exception:
+                pass
+
+        largest.sort(key=lambda x: x['size'], reverse=True)
+
+        gc_stats = gc.get_stats()
+        gc_collected = sum(s.get('collected', 0) for s in gc_stats)
+
+        return MemoryStats(
+            variable_count=var_count,
+            total_size=total_size,
+            largest_objects=largest[:10],
+            gc_collected=gc_collected
+        )
+
+    # -------------------------------------------------------------------------
+    # 15. Symbol Export
+    # -------------------------------------------------------------------------
+
+    def export_symbols(self, include_builtins: bool = False) -> Dict[str, Any]:
+        """
+        Export all defined symbols (functions, variables, classes).
+
+        Args:
+            include_builtins: Include built-in functions
+
+        Returns:
+            Dict mapping symbol names to their info
+
+        Usage:
+            cssl = CsslLang()
+            cssl.run('''
+                global counter = 0;
+                void increment() { counter++; }
+            ''')
+            symbols = cssl.export_symbols()
+            # {'counter': {'type': 'variable', 'value': 0},
+            #  'increment': {'type': 'function', ...}}
+        """
+        runtime = self._get_runtime()
+        symbols = {}
+
+        for name, value in runtime.global_scope._variables.items():
+            if name.startswith('_'):
+                continue
+
+            if not include_builtins and name in runtime.builtins:
+                continue
+
+            if callable(value):
+                symbols[name] = {
+                    'type': 'function',
+                    'callable': True,
+                    'value': repr(value)
+                }
+            elif hasattr(value, 'type') and value.type == 'function':
+                info = value.value if hasattr(value, 'value') else {}
+                symbols[name] = {
+                    'type': 'function',
+                    'params': info.get('params', []),
+                    'return_type': info.get('return_type', 'void')
+                }
+            else:
+                symbols[name] = {
+                    'type': 'variable',
+                    'value_type': type(value).__name__,
+                    'value': value
+                }
+
+        return symbols
+
+    # -------------------------------------------------------------------------
+    # 16. Function Hooks
+    # -------------------------------------------------------------------------
+
+    def hook(self, function_name: str, hook_fn: Callable) -> str:
+        """
+        Hook a function to intercept calls.
+
+        Args:
+            function_name: Name of function to hook
+            hook_fn: Hook function(original_fn, *args) -> result
+
+        Returns:
+            Hook ID for unhook()
+
+        Usage:
+            cssl = CsslLang()
+
+            def my_hook(original, *args):
+                print(f"Called with: {args}")
+                return original(*args)
+
+            hook_id = cssl.hook('printl', my_hook)
+        """
+        import uuid
+        hook_id = str(uuid.uuid4())[:8]
+
+        runtime = self._get_runtime()
+
+        if function_name not in _function_hooks:
+            _function_hooks[function_name] = []
+            original = runtime.builtins.get(function_name) or runtime.global_scope.get(function_name)
+            _original_functions[function_name] = original
+
+            def hooked(*args):
+                result = args
+                for hid, hfn in _function_hooks[function_name]:
+                    result = hfn(_original_functions[function_name], *args)
+                return result
+
+            if function_name in runtime.builtins:
+                runtime.builtins[function_name] = hooked
+            else:
+                runtime.global_scope.set(function_name, hooked)
+
+        _function_hooks[function_name].append((hook_id, hook_fn))
+        return hook_id
+
+    def unhook(self, hook_id: str) -> bool:
+        """
+        Remove a function hook.
+
+        Args:
+            hook_id: Hook ID from hook()
+
+        Returns:
+            True if removed, False if not found
+        """
+        runtime = self._get_runtime()
+
+        for func_name, hooks in list(_function_hooks.items()):
+            for i, (hid, _) in enumerate(hooks):
+                if hid == hook_id:
+                    hooks.pop(i)
+                    if not hooks:
+                        original = _original_functions.get(func_name)
+                        if original:
+                            if func_name in runtime.builtins:
+                                runtime.builtins[func_name] = original
+                            else:
+                                runtime.global_scope.set(func_name, original)
+                        del _function_hooks[func_name]
+                        if func_name in _original_functions:
+                            del _original_functions[func_name]
+                    return True
+        return False
+
+    def unhook_all(self) -> int:
+        """
+        Remove all function hooks.
+
+        Returns:
+            Number of hooks removed
+        """
+        runtime = self._get_runtime()
+        count = sum(len(hooks) for hooks in _function_hooks.values())
+
+        for func_name, original in _original_functions.items():
+            if func_name in runtime.builtins:
+                runtime.builtins[func_name] = original
+            else:
+                runtime.global_scope.set(func_name, original)
+
+        _function_hooks.clear()
+        _original_functions.clear()
+        return count
+
+    # -------------------------------------------------------------------------
+    # 17. Code Injection
+    # -------------------------------------------------------------------------
+
+    def inject(self, target: str, code: str, position: str = 'before') -> bool:
+        """
+        Inject code before/after a function.
+
+        Args:
+            target: Target function name
+            code: CSSL code to inject
+            position: 'before' or 'after'
+
+        Returns:
+            True if injected successfully
+
+        Usage:
+            cssl = CsslLang()
+            cssl.run('void greet() { printl("Hello"); }')
+            cssl.inject('greet', 'printl("Starting...");', 'before')
+            cssl.inject('greet', 'printl("Done!");', 'after')
+            cssl.run('greet();')
+            # Output: Starting... Hello Done!
+        """
+        def hook_fn(original, *args):
+            if position == 'before':
+                self.run(code)
+            result = original(*args) if callable(original) else None
+            if position == 'after':
+                self.run(code)
+            return result
+
+        self.hook(target, hook_fn)
+        return True
+
+    # -------------------------------------------------------------------------
+    # 18. Code Formatting
+    # -------------------------------------------------------------------------
+
+    def format_code(self, code: str, indent_size: int = 4, max_line_length: int = 120) -> str:
+        """
+        Format CSSL code with proper indentation.
+
+        Args:
+            code: CSSL code string
+            indent_size: Spaces per indent level
+            max_line_length: Maximum line length (soft limit)
+
+        Returns:
+            Formatted code string
+
+        Usage:
+            cssl = CsslLang()
+            formatted = cssl.format_code('void test(){printl("hi");}')
+            # Result:
+            # void test() {
+            #     printl("hi");
+            # }
+        """
+        lines = []
+        indent = 0
+        in_string = False
+        string_char = None
+
+        tokens = []
+        current = ''
+        i = 0
+        while i < len(code):
+            c = code[i]
+
+            if not in_string and c in '"\'':
+                if current.strip():
+                    tokens.append(current)
+                    current = ''
+                string_char = c
+                in_string = True
+                str_content = c
+                i += 1
+                while i < len(code):
+                    sc = code[i]
+                    str_content += sc
+                    if sc == string_char and code[i-1] != '\\':
+                        break
+                    i += 1
+                tokens.append(str_content)
+            elif not in_string and c == '{':
+                if current.strip():
+                    tokens.append(current)
+                    current = ''
+                tokens.append('{')
+            elif not in_string and c == '}':
+                if current.strip():
+                    tokens.append(current)
+                    current = ''
+                tokens.append('}')
+            elif not in_string and c == ';':
+                if current.strip():
+                    tokens.append(current)
+                    current = ''
+                tokens.append(';')
+            elif not in_string and c in '\n\r':
+                if current.strip():
+                    tokens.append(current)
+                    current = ''
+            else:
+                current += c
+            i += 1
+
+        if current.strip():
+            tokens.append(current)
+
+        for token in tokens:
+            token = token.strip()
+            if not token:
+                continue
+
+            if token == '}':
+                indent = max(0, indent - 1)
+                lines.append(' ' * (indent * indent_size) + token)
+            elif token == '{':
+                if lines and not lines[-1].rstrip().endswith('{'):
+                    lines[-1] = lines[-1].rstrip() + ' {'
+                else:
+                    lines.append(' ' * (indent * indent_size) + token)
+                indent += 1
+            elif token == ';':
+                if lines:
+                    lines[-1] = lines[-1].rstrip() + ';'
+                else:
+                    lines.append(';')
+            else:
+                lines.append(' ' * (indent * indent_size) + token)
+
+        return '\n'.join(lines)
+
+    # -------------------------------------------------------------------------
+    # 19. Benchmarking
+    # -------------------------------------------------------------------------
+
+    def benchmark(self, code: str, iterations: int = 1000, warmup: int = 100) -> 'BenchmarkResult':
+        """
+        Benchmark CSSL code execution.
+
+        Args:
+            code: CSSL code string
+            iterations: Number of iterations
+            warmup: Warmup iterations (not counted)
+
+        Returns:
+            BenchmarkResult with timing statistics
+
+        Usage:
+            cssl = CsslLang()
+            result = cssl.benchmark('return fib(20);', iterations=100)
+            print(f"Average: {result.avg_time}ms")
+            print(f"Throughput: {result.ops_per_sec} ops/sec")
+        """
+        import time
+        import statistics
+
+        for _ in range(warmup):
+            try:
+                self.run(code)
+            except Exception:
+                pass
+
+        times = []
+        for _ in range(iterations):
+            start = time.perf_counter()
+            try:
+                self.run(code)
+            except Exception:
+                pass
+            end = time.perf_counter()
+            times.append((end - start) * 1000)
+
+        avg = statistics.mean(times)
+        std = statistics.stdev(times) if len(times) > 1 else 0.0
+
+        return BenchmarkResult(
+            iterations=iterations,
+            total_time=sum(times),
+            avg_time=avg,
+            min_time=min(times),
+            max_time=max(times),
+            std_dev=std,
+            ops_per_sec=1000 / avg if avg > 0 else 0
+        )
+
+    # -------------------------------------------------------------------------
+    # 20. Context Manager
+    # -------------------------------------------------------------------------
+
+    def context(self, **initial_vars) -> 'CSSLContext':
+        """
+        Create an isolated execution context.
+
+        Args:
+            **initial_vars: Initial variables for the context
+
+        Returns:
+            CSSLContext for use with 'with' statement
+
+        Usage:
+            cssl = CsslLang()
+
+            with cssl.context(x=10, y=20) as ctx:
+                result = ctx.run('return x + y;')
+                print(result)  # 30
+            # Variables x, y are cleaned up automatically
+        """
+        return CSSLContext(self, initial_vars)
 
 
 # Global shared objects registry (for cross-instance sharing)

@@ -8,6 +8,7 @@ Optional support classes for EmPy.
 # imports
 #
 
+import operator
 import os
 import platform
 import sys
@@ -320,35 +321,13 @@ class SplittingFilter(Filter):
 # Container
 #
 
-class Container:
-
-    """A container contains a reference to an interpreter.  This is the
-    base class of several support classes."""
-
-    def __init__(self, interp=None):
-        self.interp = None
-        if interp is not None:
-            self.register(interp)
-
-    def register(self, interp):
-        self.interp = interp
-
-    def deregister(self, interp):
-        if interp is not self.interp:
-            raise em.ConsistencyError("container not associated with this interpeter")
-        self.interp = None
-
-    def push(self):
-        self.interp.push()
-
-    def pop(self):
-        self.interp.pop()
+Container = em.Plugin # DEPRECATED
 
 #
 # AbstractHook, Hook ...
 #
 
-class AbstractHook(Container):
+class AbstractHook(em.Plugin):
 
     """An abstract base class for implementing hooks.  All
     hook invocations are not present.  (Use this if you plan
@@ -371,6 +350,9 @@ class Hook(AbstractHook):
 
     def atInstallProxy(self, proxy, new): pass
     def atUninstallProxy(self, proxy, done): pass
+
+    def atInstallFinder(self, finder): pass
+    def atUninstallFinder(self, finder): pass
 
     def atStartup(self): pass
     def atReady(self): pass
@@ -530,19 +512,9 @@ class Hook(AbstractHook):
 # Callback
 #
 
-class Callback(Container):
+class Callback(em.Plugin):
 
     """A root class for any callback utilities."""
-
-    pass
-
-#
-# Handler
-#
-
-class Handler(Container):
-
-    """A root class for any error handler."""
 
     pass
 
@@ -550,9 +522,19 @@ class Handler(Container):
 # Finalizer
 #
 
-class Finalizer(Container):
+class Finalizer(em.Plugin):
 
     """A root class for a finalizer."""
+
+    pass
+
+#
+# Handler
+#
+
+class Handler(em.Plugin):
+
+    """A root class for any error handler."""
 
     pass
 
@@ -652,6 +634,83 @@ class Processor(em.Root):
             document.significators[key] = value
 
 #
+# Requirement ...
+#
+
+class Requirement(em.Root):
+
+    def check(self, details): raise NotImplementedError
+
+
+class ConjunctiveRequirement(Requirement):
+
+    def __init__(self, requirements):
+        self.requirements = requirements
+
+    def check(self, details):
+        for requirement in self.requirements:
+            if not requirement.check(details):
+                return False
+        return True
+
+
+class DisjunctiveRequirement(Requirement):
+
+    def __init__(self, requirements):
+        self.requirements = requirements
+
+    def check(self, details):
+        for requirement in self.requirements:
+            if requirement.check(details):
+                return True
+        return False
+
+
+class VersionRequirement(Requirement):
+
+    operators = {
+        '=~': lambda x, y: y == x[:min(len(x), len(y))],
+        '==': operator.eq,
+        '!=': operator.ne,
+        '>=': operator.ge,
+        '>':  operator.gt,
+        '<=': operator.le,
+        '<':  operator.lt,
+    }
+
+    def __init__(self, operator, version):
+        if isinstance(operator, em.strType):
+            operator = self.operators[operator]
+        self.operator = operator
+        if isinstance(version, em.strType):
+            version = Details.unpack(version)
+        self.version = version
+
+    def check(self, details):
+        thisVersion = Details.unpack(details.getPythonVersion())
+        return self.operator(thisVersion, self.version)
+
+
+class ImplementationRequirement(Requirement):
+
+    identity = lambda x: x
+    operators = {
+        '':  identity,
+        '+': identity,
+        '-': operator.not_,
+    }
+
+    def __init__(self, operator, implementation):
+        if isinstance(operator, em.strType):
+            operator = self.operators[operator]
+        self.operator = operator
+        self.implementation = implementation
+
+    def check(self, details):
+        thisImplementation = details.getPythonImplementation()
+        return self.operator(self.implementation == thisImplementation)
+
+#
 # Details
 #
 
@@ -662,6 +721,22 @@ class Details(em.Root):
 
     releaseFilenames = ['/etc/os-release', '/usr/lib/os-release']
     delimiter = '/'
+    unsanitizableNames = set(['URL', 'ID'])
+
+    @staticmethod
+    def pack(tuple, delimiter='.'):
+        """Pack a sequence of ints into a string."""
+        return delimiter.join([str(x) for x in tuple])
+
+    @staticmethod
+    def unpack(string, delimiter='.'):
+        """Unpack a string into a sequence of ints."""
+        def convert(x):
+            if x.isdigit():
+                return int(x)
+            else:
+                return x
+        return tuple([convert(x) for x in string.split(delimiter)])
 
     def __init__(self, useSanitization=False):
         self.useSanitization = useSanitization
@@ -751,22 +826,34 @@ class Details(em.Root):
             except AttributeError:
                 # Stackless Python 2.4 raises an internal error when this is
                 # called since sys.version is in an unexpected format.
-                self._version = '.'.join([str(x) for x in sys.version_info[:3]])
+                self._version = self.pack(sys.version_info[:3])
         assert self._version is not None
         return self._version
 
+    def parsePythonVersion(self, version):
+        """Parse a Python version into a tuple of ints."""
+        if isinstance(version, em.strType):
+            version = Details.unpack(version)
+        return version
+
     def checkPythonVersion(self, minimum, maximum=None, closed=True):
         """Check whether or not this Python version is greater than or
-        equal to the minimum, and if present, less than or equal to the
-        maximum."""
+        equal to the minimum, and if present, less than or equal to (or
+        less than) the maximum."""
         version = sys.version_info[:3]
+        minimum = self.parsePythonVersion(minimum)
         if version < minimum:
             return False
         if maximum is not None:
+            maximum = self.parsePythonVersion(maximum)
+            if len(version) > len(maximum):
+                # Trim the version down so it's no more detailed than the
+                # maximum.
+                version = version[:len(maximum)]
             if closed:
-                test = version >= maximum
-            else:
                 test = version > maximum
+            else:
+                test = version >= maximum
             if test:
                 return False
         return True
@@ -818,9 +905,9 @@ class Details(em.Root):
         return self._framework
 
     def getContext(self):
-        """Get the context (with possible version) that this
-        interpreter is running in as a string or None.  Note: This is
-        not always possible.  Cached."""
+        """Get the context that this interpreter is running in as a
+        string.  Note: This is not always possible.  Cached."""
+        release = platform.release().lower()
         if self._context is None:
             if 'pyrun_config' in sys.modules:
                 self._context = 'PyRun'
@@ -829,6 +916,15 @@ class Details(em.Root):
                 self._context = fields[1] + '/' + fields[2]
             elif 'ActiveState' in sys.copyright:
                 self._context = 'ActiveState'
+            elif ('microsoft' in release or 'wsl' in release or
+                  'WSL_DISTRO_NAME' in os.environ):
+                version = '?'
+                # It's WSL.
+                if 'wsl2' in release:
+                    version = 2
+                else:
+                    version = 1
+                self._context = 'WSL/' + str(version)
             else:
                 self._context = ''
             assert self._context is not None
@@ -841,11 +937,13 @@ class Details(em.Root):
         if self.useSanitization:
             if '_' in suffix:
                 words = suffix.split('_')
-                for i in range(len(words)):
+                for i, word in enumerate(words):
                     if i == 0:
-                        words[i] = words[i].lower()
+                        words[i] = word.lower()
+                    elif word in self.unsanitizableNames:
+                        words[i] = word
                     else:
-                        words[i] = words[i].capitalize()
+                        words[i] = word.capitalize()
                 suffix = ''.join(words)
             if suffix.isupper():
                 suffix = suffix.lower()
@@ -951,6 +1049,59 @@ class Details(em.Root):
             value = '?' + error.__class__.__name__
             for suffix in suffixes:
                 self.set(prefix, suffix, value)
+
+    # Requirements.
+
+    def parseRequirement(self, string):
+        DISJUNCTION = ';'
+        VERSION_OPERATORS = '><=!~'
+        IMPLEMENTATION_OPERATORS = '-'
+        strings = string.split(';')
+        results = []
+        for string in strings:
+            assert string
+            if string[0] in VERSION_OPERATORS:
+                # It's a version requirement.
+                i = 0
+                while i < len(string) and string[i] in VERSION_OPERATORS:
+                    i += 1
+                op, ver = string[:i], string[i:].strip()
+                results.append(VersionRequirement(op, ver))
+            else:
+                # It's an implementation requirement.
+                i = 0
+                while i < len(string) and string[i] in IMPLEMENTATION_OPERATORS:
+                    i += 1
+                op, impl = string[:i], string[i:].strip()
+                results.append(ImplementationRequirement(op, impl))
+        if len(results) == 1:
+            return results[0]
+        else:
+            return DisjunctiveRequirement(results)
+
+    def parseRequirements(self, filename):
+        requirements = []
+        file = open(filename)
+        try:
+            for line in file.readlines():
+                line = line.strip()
+                if not line:
+                    continue
+                elif line.startswith('#'):
+                    continue
+                requirement = self.parseRequirement(line)
+                requirements.append(requirement)
+        finally:
+            file.close()
+        return requirements
+
+    def checkRequirements(self, requirements):
+        if isinstance(requirements, em.strType):
+            requirements = self.parseRequirements(requirements)
+        for requirement in requirements:
+            if not requirement.check(self):
+                return False
+        return True
 
     # Details.
 
@@ -1098,13 +1249,6 @@ class Details(em.Root):
 
     def classify(self, version):
         """Classify a release by version string."""
-        # First, normalize it.
-        if '-' in version and '.' not in version:
-            version = version.replace('-', '.')
-        major = version.split('.')[0]
-        if len(major) == 4 and major.isdigit():
-            # If the major version looks like a year, it's a preview version.
-            return 'preview'
         PAIRS = [
             ('a', 'alpha'),
             ('b', 'beta'),
@@ -1116,6 +1260,13 @@ class Details(em.Root):
             ('v', 'version'),
             ('x', 'development'),
         ]
+        # First, normalize it.
+        if '-' in version and '.' not in version:
+            version = version.replace('-', '.')
+        major = version.split('.')[0]
+        if len(major) == 4 and major.isdigit():
+            # If the major version looks like a year, it's a preview version.
+            return 'preview'
         for key, name in PAIRS:
             if key in version:
                 return name
@@ -1187,7 +1338,7 @@ def main():
         except ValueError:
             level = getattr(em.Version, arg)
     else:
-        level = em.Version.RELEASE
+        level = em.Version.ALL
     details = Details()
     details.show(level, prelim="Welcome to ", postlim=".\n")
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mysql-replication
-Version: 1.0.14
+Version: 1.0.15
 Summary: Pure Python Implementation of MySQL replication protocol build on top of PyMYSQL.
 Home-page: https://github.com/julien-duponchelle/python-mysql-replication
 Author: Julien Duponchelle
@@ -58,7 +58,7 @@ The project is test with:
 - MySQL 5.5, 5.6 and 5.7 (v0.1 ~ v0.45)
 - MySQL 8.0.14 (v1.0 ~)
 - MariaDB 10.6
-- Python 3.9, 3.13
+- Python 3.10 - 3.14
 - PyPy 3.7, 3.9 (really faster than the standard Python interpreter)
 
 MySQL version 8.0.14 and later Set global variable binlog_row_metadata='FULL' and binlog_row_image='FULL'
@@ -391,6 +391,7 @@ Other contributors:
 - Etern: Add XAPrepareEvent, parse last_committed & sequence_number of GtidEvent (https://github.com/etern)
 - Jason Fulghum: typo in ident variable name (https://github.com/fulghum)
 - Adam Mizerski: Improve MariaDB coverage (https://github.com/etam)
+- Jeong, YunWon: Replace all loggers with a project logger (https://github.com/youknowone)
 
 Thanks to GetResponse for their support
 

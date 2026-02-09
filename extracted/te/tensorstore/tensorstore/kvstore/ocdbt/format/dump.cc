@@ -22,19 +22,20 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
-#include "absl/strings/escaping.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "re2/re2.h"
+#include "tensorstore/internal/ascii_set.h"
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/internal/json_binding/std_variant.h"
-#include "tensorstore/internal/path.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/ocdbt/config.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
+#include "tensorstore/kvstore/ocdbt/format/config.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
@@ -54,8 +55,8 @@ Result<LabeledIndirectDataReference> LabeledIndirectDataReference::Parse(
   if (!RE2::FullMatch(s, *kPattern, &label, &encoded_base_path,
                       &encoded_relative_path, &r.location.offset,
                       &r.location.length)) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Invalid indirect data reference: ", tensorstore::QuoteString(s)));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Invalid indirect data reference: %v", tensorstore::QuoteString(s)));
   }
   TENSORSTORE_ASSIGN_OR_RETURN(r.kind, ParseIndirectDataKind(label));
   r.location.file_id.base_path = internal::PercentDecode(encoded_base_path);
@@ -72,7 +73,7 @@ namespace jb = tensorstore::internal_json_binding;
 constexpr auto ConfigBinder = jb::Compose<ConfigConstraints>(
     [](auto is_loading, const auto& options, auto* obj, auto* constraints) {
       if constexpr (is_loading) {
-        CreateConfig(constraints, *obj);
+        TENSORSTORE_RETURN_IF_ERROR(CreateConfig(*constraints, {}, *obj));
         if (ConfigConstraints(*obj) != *constraints) {
           return absl::InvalidArgumentError("Config is not fully specified");
         }
@@ -92,11 +93,16 @@ static inline constexpr internal::AsciiSet
 constexpr auto LabeledIndirectDataReferenceBinder =
     [](auto is_loading, const auto& options, auto* obj, auto* j) {
       if constexpr (is_loading) {
-        if (auto* s = j->template get_ptr<const std::string*>()) {
-          TENSORSTORE_ASSIGN_OR_RETURN(*obj,
-                                       LabeledIndirectDataReference::Parse(*s));
+        if (j->is_discarded()) {
+          *obj = LabeledIndirectDataReference{IndirectDataKind::kBtreeNode,
+                                              IndirectDataReference::Missing()};
         } else {
-          return internal_json::ExpectedError(*j, "string");
+          if (auto* s = j->template get_ptr<const std::string*>()) {
+            TENSORSTORE_ASSIGN_OR_RETURN(
+                *obj, LabeledIndirectDataReference::Parse(*s));
+          } else {
+            return internal_json::ExpectedError(*j, "string");
+          }
         }
       } else {
         if (obj->location.IsMissing()) {
@@ -121,6 +127,11 @@ constexpr auto IndirectDataReferenceBinder(IndirectDataKind kind) {
   return jb::Compose<LabeledIndirectDataReference>(
       [kind](auto is_loading, const auto& options, auto* obj, auto* j) {
         if constexpr (is_loading) {
+          if (j->kind != kind) {
+            return absl::InvalidArgumentError(absl::StrFormat(
+                "Indirect data reference kind mismatch: expected %v, got %v",
+                kind, j->kind));
+          }
           *obj = j->location;
         } else {
           j->location = *obj;
@@ -271,6 +282,22 @@ constexpr auto VersionTreeNodeBinder = jb::Object(
 
 ::nlohmann::json Dump(const VersionTreeNode& node) {
   return jb::ToJson(node, VersionTreeNodeBinder).value();
+}
+
+Result<absl::Cord> UndumpManifest(::nlohmann::json dumped_manifest) {
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto manifest, jb::FromJson<Manifest>(dumped_manifest, ManifestBinder));
+  return EncodeManifest(manifest, /*encode_as_single=*/false);
+}
+
+Result<absl::Cord> UndumpVersionTreeNode(::nlohmann::json dumped_config,
+                                         ::nlohmann::json dumped_node) {
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto config, jb::FromJson<Config>(dumped_config, ConfigBinder));
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto node,
+      jb::FromJson<VersionTreeNode>(dumped_node, VersionTreeNodeBinder));
+  return EncodeVersionTreeNode(config, node);
 }
 
 }  // namespace internal_ocdbt

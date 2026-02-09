@@ -16,14 +16,13 @@ from g4f.image import to_bytes, detect_file_type
 
 try:
     import curl_cffi
-
     has_curl_cffi = True
 except ImportError:
     has_curl_cffi = False
 
 try:
-    import nodriver
-    from nodriver import cdp
+    import zendriver as nodriver
+    from zendriver import cdp
     has_nodriver = True
 except ImportError:
     has_nodriver = False
@@ -88,10 +87,10 @@ if has_nodriver:
 
 class LMArena(AsyncGeneratorProvider, ProviderModelMixin, AuthFileMixin):
     label = "LMArena"
-    url = "https://lmarena.ai"
+    url = "https://arena.ai"
     share_url = None
-    create_evaluation = "https://lmarena.ai/nextjs-api/stream/create-evaluation"
-    post_to_evaluation = "https://lmarena.ai/nextjs-api/stream/post-to-evaluation/{id}"
+    create_evaluation = "https://arena.ai/nextjs-api/stream/create-evaluation"
+    post_to_evaluation = "https://arena.ai/nextjs-api/stream/post-to-evaluation/{id}"
     working = True
     active_by_default = True
     use_stream_timeout = False
@@ -216,7 +215,10 @@ class LMArena(AsyncGeneratorProvider, ProviderModelMixin, AuthFileMixin):
             # else:
             #     debug.log("No 'Agree' button found, skipping.")
             await asyncio.sleep(1)
-            element = await page.select('[style="display: grid;"]')
+            try:
+                element = await page.select('[style="display: grid;"]')
+            except TimeoutError:
+                element = None
             if element:
                 await click_trunstile(page, 'document.querySelector(\'[style="display: grid;"]\')')
             if not await page.evaluate('document.cookie.indexOf("arena-auth-prod-v1") >= 0'):
@@ -227,7 +229,7 @@ class LMArena(AsyncGeneratorProvider, ProviderModelMixin, AuthFileMixin):
                 await click_trunstile(page)
             while not await page.evaluate('document.cookie.indexOf("arena-auth-prod-v1") >= 0'):
                 await asyncio.sleep(1)
-            while not await page.evaluate('document.querySelector(\'textarea\')'):
+            while not await page.evaluate('!!document.querySelector(\'textarea\')'):
                 await asyncio.sleep(1)
             captcha = await page.evaluate(
                 """window.grecaptcha.enterprise.execute('6Led_uYrAAAAAKjxDIF58fgFtX3t8loNAK85bW9I',  { action: 'chat_submit' }  );""",
@@ -370,7 +372,7 @@ class LMArena(AsyncGeneratorProvider, ProviderModelMixin, AuthFileMixin):
         files = []
         if not media:
             return files
-        url = "https://lmarena.ai/?chat-modality=image"
+        url = "https://arena.ai/?chat-modality=image"
         async with StreamSession(**args, ) as session:
 
             for index, (_file, file_name) in enumerate(media):
@@ -389,7 +391,7 @@ class LMArena(AsyncGeneratorProvider, ProviderModelMixin, AuthFileMixin):
                 extension, file_type = detect_file_type(data_bytes)
                 file_name = file_name or f"file-{len(data_bytes)}{extension}"
                 # async with session.post(
-                #         url="https://lmarena.ai/?chat-modality=image",
+                #         url="https://arena.ai/?chat-modality=image",
                 #         json=[],
                 #         headers={
                 #             "accept": "text/x-component",
@@ -402,7 +404,7 @@ class LMArena(AsyncGeneratorProvider, ProviderModelMixin, AuthFileMixin):
                 #     await raise_for_status(response)
 
                 async with session.post(
-                        url="https://lmarena.ai/?chat-modality=image",
+                        url="https://arena.ai/?chat-modality=image",
                         json=[file_name, file_type],
                         headers={
                             "accept": "text/x-component",

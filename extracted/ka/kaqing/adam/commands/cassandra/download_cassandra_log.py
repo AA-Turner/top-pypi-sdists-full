@@ -1,9 +1,9 @@
 from adam.commands.command import Command
-from adam.commands.devices.devices import Devices
+from adam.commands.devices.devices import device
 from adam.config import Config
 from adam.utils_cassandra.cassandra_nodes import CassandraNodes
 from adam.utils_k8s.pod_exec_result import PodExecResult
-from adam.utils import log2
+from adam.utils_log import log2
 from adam.repl_state import ReplState, RequiredState
 from adam.utils_k8s.pod_files import PodFiles
 
@@ -39,7 +39,7 @@ class DownloadCassandraLog(Command):
             return r
 
     def completion(self, state: ReplState):
-        return super().completion(state, pods=Devices.of(state).pods(state, '-'), auto='jit')
+        return super().completion(state, pods=device(state).pods(state, '-'), auto='jit')
 
     def help(self, state: ReplState):
         return super().help(state, 'download cassandra system log')

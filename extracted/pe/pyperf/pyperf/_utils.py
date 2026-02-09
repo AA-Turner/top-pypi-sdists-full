@@ -15,6 +15,7 @@ from shutil import which
 USE_PSUTIL = not bool(sysconfig.get_config_var('Py_GIL_DISABLED'))
 MS_WINDOWS = (sys.platform == 'win32')
 MAC_OS = (sys.platform == 'darwin')
+BSD = ('bsd' in sys.platform)
 
 if MS_WINDOWS:
     import msvcrt
@@ -173,22 +174,7 @@ def sysfs_path(path):
 
 
 def python_implementation():
-    if hasattr(sys, 'implementation'):
-        # PEP 421, Python 3.3
-        name = sys.implementation.name
-    else:
-        # Code extracted from platform.python_implementation().
-        # Don't import platform to avoid the subprocess import.
-        sys_version = sys.version
-        if 'IronPython' in sys_version:
-            name = 'IronPython'
-        elif sys.platform.startswith('java'):
-            name = 'Jython'
-        elif "PyPy" in sys_version:
-            name = "PyPy"
-        else:
-            name = 'CPython'
-    return name.lower()
+    return sys.implementation.name.lower()
 
 
 def python_has_jit():
@@ -197,6 +183,11 @@ def python_has_jit():
         return sys.pypy_translation_info["translation.jit"]
     elif implementation_name in ['graalpython', 'graalpy']:
         return True
+    elif implementation_name == 'cpython':
+        jit_module = getattr(sys, '_jit', None)
+        if jit_module is not None:
+            return jit_module.is_enabled()
+        return False
     elif hasattr(sys, "pyston_version_info") or "pyston_lite" in sys.modules:
         return True
     return False

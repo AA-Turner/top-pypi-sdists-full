@@ -65,7 +65,7 @@ class XEP_0115(BasePlugin):
                            'has_identity']
 
         self.xmpp.register_handler(
-                Callback('Entity Capabilites',
+                Callback('Entity Capabilities',
                          StanzaPath('presence/caps'),
                          self._handle_caps))
 
@@ -340,7 +340,7 @@ class XEP_0115(BasePlugin):
         return self.api['get_verstring'](jid)
 
     def assign_verstring(self, jid=None, verstring=None) -> Future:
-        """Assign a vertification string to a jid.
+        """Assign a verification string to a jid.
 
         .. versionchanged:: 1.8.0
             This function now returns a Future.

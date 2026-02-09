@@ -38,6 +38,7 @@ use crate::binding::binding::Binding;
 use crate::binding::binding::BindingAnnotation;
 use crate::binding::binding::BindingExpect;
 use crate::binding::binding::BindingTypeAlias;
+use crate::binding::binding::ExhaustivenessKind;
 use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::IsAsync;
 use crate::binding::binding::Key;
@@ -49,8 +50,11 @@ use crate::binding::binding::NarrowUseLocation;
 use crate::binding::binding::RaisedException;
 use crate::binding::binding::TypeAliasParams;
 use crate::binding::bindings::BindingsBuilder;
+use crate::binding::bindings::NameLookupResult;
 use crate::binding::expr::Usage;
+use crate::binding::narrow::NarrowOp;
 use crate::binding::narrow::NarrowOps;
+use crate::binding::narrow::NarrowingSubject;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::LoopExit;
 use crate::binding::scope::NameReadInfo;
@@ -63,7 +67,7 @@ use crate::state::loader::FindError;
 use crate::state::loader::FindingOrError;
 use crate::types::alias::resolve_typeshed_alias;
 use crate::types::special_form::SpecialForm;
-use crate::types::types::Type;
+use crate::types::types::AnyStyle;
 
 /// Checks if an iterable expression is guaranteed to be non-empty and thus
 /// the for-loop body will definitely execute at least once.
@@ -149,16 +153,16 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     fn bind_unimportable_names(&mut self, x: &StmtImportFrom, as_error: bool) {
-        let any = if as_error {
-            Type::any_error()
+        let style = if as_error {
+            AnyStyle::Error
         } else {
-            Type::any_explicit()
+            AnyStyle::Explicit
         };
         for x in &x.names {
             if &x.name != "*" {
                 let asname = x.asname.as_ref().unwrap_or(&x.name);
                 // We pass None as imported_from, since we are really faking up a local error definition
-                self.bind_definition(asname, Binding::Type(any.clone()), FlowStyle::Other);
+                self.bind_definition(asname, Binding::Any(style), FlowStyle::Other);
             }
         }
     }
@@ -425,9 +429,9 @@ impl<'a> BindingsBuilder<'a> {
         self.ensure_type(annotation, &mut None);
         let ann_val = if let Some(special) = SpecialForm::new(&name.id, annotation) {
             // Special case `_: SpecialForm` declarations (this mainly affects some names declared in `typing.pyi`)
-            BindingAnnotation::Type(
+            BindingAnnotation::SpecialForm(
                 AnnotationTarget::Assign(name.id.clone(), AnnAssignHasValue::Yes),
-                special.to_type(),
+                special,
             )
         } else {
             BindingAnnotation::AnnotateExpr(
@@ -465,7 +469,7 @@ impl<'a> BindingsBuilder<'a> {
         {
             match oops_top_level.value {
                 Some(v) => self.insert_binding_current(ret, Binding::Expr(None, *v)),
-                None => self.insert_binding_current(ret, Binding::Type(Type::None)),
+                None => self.insert_binding_current(ret, Binding::None),
             };
             self.error(
                 oops_top_level.range,
@@ -667,7 +671,7 @@ impl<'a> BindingsBuilder<'a> {
                             &name,
                             Binding::AnnotatedType(
                                 ann_idx,
-                                Box::new(Binding::Type(Type::any_implicit())),
+                                Box::new(Binding::Any(AnyStyle::Implicit)),
                             ),
                             if self.scopes.in_class_body() {
                                 FlowStyle::ClassField {
@@ -713,7 +717,7 @@ impl<'a> BindingsBuilder<'a> {
                                 ExprOrBinding::Expr(v.clone())
                             })
                         }
-                        _ => ExprOrBinding::Binding(Binding::Type(Type::any_implicit())),
+                        _ => ExprOrBinding::Binding(Binding::Any(AnyStyle::Implicit)),
                     };
                     if !self
                         .scopes
@@ -753,7 +757,7 @@ impl<'a> BindingsBuilder<'a> {
                         ),
                         None => {
                             self.bind_target_no_expr(&mut target, &|_| {
-                                Binding::Type(Type::any_error())
+                                Binding::Any(AnyStyle::Error)
                             });
                         }
                     }
@@ -774,7 +778,7 @@ impl<'a> BindingsBuilder<'a> {
                     Expr::Attribute(attr) => {
                         let mut x_cloned = x.clone();
                         self.bind_attr_assign(attr.clone(), &mut x.value, move |expr, ann| {
-                            x_cloned.value = Box::new(expr.clone());
+                            *x_cloned.value = expr.clone();
                             ExprOrBinding::Binding(Binding::AugAssign(ann, x_cloned))
                         });
                     }
@@ -784,7 +788,7 @@ impl<'a> BindingsBuilder<'a> {
                             subscr.clone(),
                             &mut x.value,
                             move |expr, ann| {
-                                x_cloned.value = Box::new(expr.clone());
+                                *x_cloned.value = expr.clone();
                                 ExprOrBinding::Binding(Binding::AugAssign(ann, x_cloned))
                             },
                         );
@@ -923,7 +927,8 @@ impl<'a> BindingsBuilder<'a> {
             Stmt::If(x) => {
                 let is_definitely_unreachable = self.scopes.is_definitely_unreachable();
                 let mut exhaustive = false;
-                self.start_fork(x.range);
+                let if_range = x.range;
+                self.start_fork(if_range);
                 // Type narrowing operations that are carried over from one branch to the next. For example, in:
                 //   if x is None:
                 //     pass
@@ -982,6 +987,47 @@ impl<'a> BindingsBuilder<'a> {
                         exhaustive = true;
                         break; // We definitely picked this branch if we got here, nothing below is reachable.
                     }
+                }
+                // Create Exhaustive binding for type-based exhaustiveness checking.
+                // This is done BEFORE finish_*_fork() so the binding exists in the right scope.
+                // Only do this when there's no else clause (not syntactically exhaustive).
+                if !exhaustive {
+                    let exhaustiveness_info =
+                        Self::extract_if_exhaustiveness_info(&negated_prev_ops);
+                    let (subject_idx, subject_range, info_for_binding) =
+                        if let Some((name, narrowing_subject, (op, narrow_range))) =
+                            exhaustiveness_info
+                        {
+                            let hashed_name = Hashed::new(&name);
+                            if let NameLookupResult::Found { idx, .. } =
+                                self.lookup_name(hashed_name, &mut Usage::Narrowing(None))
+                            {
+                                (
+                                    idx,
+                                    narrow_range,
+                                    Some((narrowing_subject, (op, narrow_range))),
+                                )
+                            } else {
+                                // Name lookup failed - create a fallback binding with None info
+                                let fallback_idx =
+                                    self.insert_binding(Key::Anon(if_range), Binding::None);
+                                (fallback_idx, if_range, None)
+                            }
+                        } else {
+                            // Couldn't extract exhaustiveness info - create a fallback binding
+                            let fallback_idx =
+                                self.insert_binding(Key::Anon(if_range), Binding::None);
+                            (fallback_idx, if_range, None)
+                        };
+                    self.insert_binding(
+                        Key::Exhaustive(ExhaustivenessKind::IfElif, if_range),
+                        Binding::Exhaustive {
+                            kind: ExhaustivenessKind::IfElif,
+                            subject_idx,
+                            subject_range,
+                            exhaustiveness_info: info_for_binding,
+                        },
+                    );
                 }
                 if exhaustive {
                     self.finish_exhaustive_fork();
@@ -1094,7 +1140,7 @@ impl<'a> BindingsBuilder<'a> {
                             self.bind_current_as(
                                 name,
                                 handler,
-                                Binding::Type(Type::any_error()),
+                                Binding::Any(AnyStyle::Error),
                                 FlowStyle::Other,
                             );
                         }
@@ -1228,7 +1274,7 @@ impl<'a> BindingsBuilder<'a> {
                 } else {
                     unreachable!("args.len() can only be 1 or 2")
                 };
-                self.insert_binding(Key::StmtExpr(expr_range), Binding::Type(Type::None));
+                self.insert_binding(Key::StmtExpr(expr_range), Binding::None);
                 self.assert(call_range, test, msg);
             }
             Stmt::Expr(mut x) => {
@@ -1302,7 +1348,7 @@ impl<'a> BindingsBuilder<'a> {
                             ErrorInfo::Kind(ErrorKind::MissingModuleAttribute),
                             format!("Could not import `{name}` from `{m}`"),
                         );
-                        Binding::Type(Type::any_error())
+                        Binding::Any(AnyStyle::Error)
                     };
                     let key = self.insert_binding(key, val);
                     // Register the imported name from wildcard imports
@@ -1364,9 +1410,9 @@ impl<'a> BindingsBuilder<'a> {
                             ErrorInfo::Kind(ErrorKind::MissingModuleAttribute),
                             format!("Could not import `{}` from `{m}`", x.name.id),
                         );
-                        Binding::Type(Type::any_error())
+                        Binding::Any(AnyStyle::Error)
                     } else {
-                        Binding::Type(Type::any_explicit())
+                        Binding::Any(AnyStyle::Explicit)
                     }
                 };
                 // __future__ imports have side effects even if not explicitly used,
@@ -1374,12 +1420,81 @@ impl<'a> BindingsBuilder<'a> {
                 // See: https://typing.python.org/en/latest/spec/distributing.html#import-conventions
                 if m == ModuleName::future() {
                     self.scopes.register_future_import(&asname);
+                    if x.name.id.as_str() == "annotations" {
+                        self.scopes.set_has_future_annotations();
+                    }
                 } else if is_reexport {
                     self.scopes.register_reexport_import(&asname);
                 } else {
                     self.scopes.register_import(&asname);
                 }
                 self.bind_definition(&asname, val, FlowStyle::Import(m, x.name.id));
+            }
+        }
+    }
+
+    /// Extract exhaustiveness info from accumulated negated ops for if/elif chains.
+    ///
+    /// Returns Some(name, subject, narrow_op_and_range) when a single subject exists
+    /// - This is the only case we initially will support for exhaustiveness checks
+    ///
+    /// Returns None if:
+    /// - Multiple names are being narrowed (different subjects in different branches)
+    /// - No narrowing operations present
+    /// - Inconsistent facet subjects within a name
+    ///
+    /// Note: This returns the Name, not an Idx<Key>. The caller is responsible for
+    /// looking up the subject's Idx<Key> through appropriate scope mechanisms.
+    pub fn extract_if_exhaustiveness_info(
+        ops: &NarrowOps,
+    ) -> Option<(Name, NarrowingSubject, (Box<NarrowOp>, TextRange))> {
+        let entries: Vec<_> = ops.0.iter().collect();
+        if entries.len() != 1 {
+            return None;
+        }
+        let (name, (op, range)) = entries[0];
+        let narrowing_subject = Self::extract_narrowing_subject_from_op(name, op)?;
+        Some((
+            name.clone(),
+            narrowing_subject,
+            (Box::new(op.clone()), *range),
+        ))
+    }
+
+    /// Recursively walk a NarrowOp to extract a consistent NarrowingSubject.
+    /// Helper for `extract_if_exhaustiveness_info`, see its doc comment for more details.
+    fn extract_narrowing_subject_from_op(name: &Name, op: &NarrowOp) -> Option<NarrowingSubject> {
+        match op {
+            NarrowOp::Atomic(facet_opt, _) => match facet_opt {
+                Some(facet) => Some(NarrowingSubject::Facets(name.clone(), facet.clone())),
+                None => Some(NarrowingSubject::Name(name.clone())),
+            },
+            NarrowOp::And(ops) | NarrowOp::Or(ops) => {
+                // All sub-ops must have consistent narrowing subject
+                let mut result: Option<NarrowingSubject> = None;
+                for sub_op in ops {
+                    let sub_subject = Self::extract_narrowing_subject_from_op(name, sub_op)?;
+                    match &result {
+                        None => result = Some(sub_subject),
+                        Some(existing) => {
+                            // Check consistency: both must be Name or both must be Facets with same name
+                            let consistent = match (existing, &sub_subject) {
+                                (NarrowingSubject::Name(n1), NarrowingSubject::Name(n2)) => {
+                                    n1 == n2
+                                }
+                                (
+                                    NarrowingSubject::Facets(n1, _),
+                                    NarrowingSubject::Facets(n2, _),
+                                ) => n1 == n2,
+                                _ => false, // Mixing Name and Facets is inconsistent
+                            };
+                            if !consistent {
+                                return None;
+                            }
+                        }
+                    }
+                }
+                result
             }
         }
     }

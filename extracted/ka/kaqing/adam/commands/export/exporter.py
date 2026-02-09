@@ -13,8 +13,9 @@ from adam.commands.export.importer_sqlite import SqliteImporter
 from adam.commands.export.utils_export import ExportSpec, ExportTableStatus, ExportTableSpec, ImportSpec, csv_dir, fs_exec, state_with_pod, table_log_dir
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import debug, log, log_to_pods, offload, parallelize, log2, ing, log_exc
+from adam.utils_log import debug, log, log2, ing, log_exc
 from adam.utils_cassandra.cassandra_nodes import CassandraNodes
+from adam.utils_concurrent import offload, parallelize
 from adam.utils_context import Context
 from adam.utils_k8s.pod_files import PodFiles
 
@@ -27,8 +28,7 @@ class Exporter:
         with log_exc(True):
             spec = Exporter.export_spec(' '.join(args), state)
 
-            r = Exporter._export_tables(spec, state, max_workers=max_workers, export_state='init', ctx=ctx)
-            if not r:
+            if not (r := Exporter._export_tables(spec, state, max_workers=max_workers, export_state='init', ctx=ctx)):
                 return r
 
             return Exporter._export_tables(spec, state, export_only, max_workers, 'pending_export', ctx=ctx)
@@ -85,7 +85,7 @@ class Exporter:
 
         return None
 
-    def import_local_csv_files(spec_str: str, state: ReplState, max_workers = 0) -> tuple[list[str], ExportSpec]:
+    def import_local_csv_files(spec_str: str, state: ReplState) -> tuple[list[str], ExportSpec]:
         spec: ImportSpec = None
         with log_exc(True):
             spec = Exporter.import_spec(spec_str, state, files=True)
@@ -102,7 +102,8 @@ class Exporter:
             table = d_t[1]
             im = AthenaImporter() if spec.importer == 'athena' else SqliteImporter()
 
-            with parallelize(spec.files, max_workers, msg='Importing|Imported {size} csv files') as exec:
+            with parallelize(spec.files,
+                             msg='Importing|Imported {size} csv files') as exec:
                 return exec.map(lambda f: im.import_from_local_csv(state, database, table, f, len(spec.files) > 1, True)), spec
 
         return [], None
@@ -159,21 +160,27 @@ class Exporter:
             action = f'[{spec.session}] Preparing|Prepared'
         elif export_state == 'import':
             action = f'[{spec.session}] Importing|Imported'
-        msg = action + ' {size} Cassandra tables'
         pod = state.pod
         if export_state != 'init':
             ctx = ctx.copy(background=True, extra={'session': spec.session})
 
-        with parallelize(spec.tables, max_workers, msg=msg, collect=export_state == 'init', name='exporter') as exec:
-            statuses = exec.map(lambda table: Exporter.export_table(table,
-                                                                state.with_pod(pod),
-                                                                spec.session,
-                                                                spec.importer,
-                                                                export_only,
-                                                                len(spec.tables) > 1,
-                                                                consistency=spec.consistency,
-                                                                export_state=export_state,
-                                                                ctx=ctx))
+        with parallelize(spec.tables,
+                         msg=action + ' {size} Cassandra tables') as exec:
+            def _export(table: str):
+                Exporter.export_table(table,
+                                      state.with_pod(pod),
+                                      spec.session,
+                                      spec.importer,
+                                      export_only,
+                                      len(spec.tables) > 1,
+                                      consistency=spec.consistency,
+                                      export_state=export_state,
+                                      ctx=ctx)
+            if export_state == 'init':
+                statuses = exec.collect(lambda table: _export(table))
+            else:
+                statuses = exec.map(lambda table: _export(table))
+
             return ExportExecResult(log_file=ctx.log_file, job_id=ctx.job_id, spec=spec, statuses=statuses)
 
     def export_table(spec: ExportTableSpec,
@@ -200,7 +207,7 @@ class Exporter:
                 if export_state == 'pending_export':
                     Exporter.export_to_csv(spec, state, session, table, target_table, columns, multi_tables=multi_tables, consistency=consistency, ctx=ctx)
 
-                table_logs: list[str] = PodFiles.find_files(state.pod, 'cassandra', state.namespace, f'{table_log_base}*', remote=log_to_pods())
+                table_logs: list[str] = PodFiles.find_files(state.pod, 'cassandra', state.namespace, f'{table_log_base}*', remote=True)
                 if not table_logs:
                     return None
 
@@ -208,9 +215,9 @@ class Exporter:
 
                 status = ExportTableStatus.from_log_file(state.pod, state.namespace, session, table_log)
 
-                with offload(name='exporter') as exec:
+                with offload() as submit:
                     etc = ExportTableContext(spec, state, session, importer, export_only, multi_tables, table, target_table, columns, create_db, table_log, status, ctx=ctx)
-                    exec.submit(lambda: Exporter.export_loop(etc))
+                    submit(lambda: Exporter.export_loop(etc))
             except:
                 traceback.print_exc()
 

@@ -37,7 +37,6 @@ fake_cookie = 75848243423
 
 def get_test_dbus_adapter(process) -> DBusAdapter:
     class TestAdapter(DBusAdapter):
-
         def process(self, call):
             return process(call)
 
@@ -45,7 +44,6 @@ def get_test_dbus_adapter(process) -> DBusAdapter:
 
 
 class TestFreedesktopEnterMode:
-
     @pytest.mark.parametrize(
         "method_cls, dbus_address",
         [
@@ -54,7 +52,6 @@ class TestFreedesktopEnterMode:
         ],
     )
     def test_success(self, method_cls, dbus_address: DBusAddress):
-
         method_inhibit = DBusMethod(
             name="Inhibit",
             signature="ss",
@@ -90,7 +87,6 @@ class TestFreedesktopEnterMode:
         [FreedesktopScreenSaverInhibit, FreedesktopPowerManagementInhibit],
     )
     def test_with_dbus_adapter_which_returns_none(self, method_cls):
-
         def process(_):
             return None
 
@@ -104,7 +100,6 @@ class TestFreedesktopEnterMode:
 
 
 class TestFreedesktopExitMode:
-
     @pytest.mark.parametrize(
         "method_cls, dbus_address",
         [
@@ -147,7 +142,6 @@ class TestFreedesktopExitMode:
 
 
 class TestPowerManagementCanIUse:
-
     def test_on_kde_5_12_90(self, monkeypatch):
         # Should support KDE 5.12.90 +
         monkeypatch.setenv("XDG_SESSION_DESKTOP", "KDE")
@@ -225,7 +219,7 @@ class TestPowerManagementCanIUse:
         with pytest.raises(
             RuntimeError,
             match=re.escape(
-                "org.freedesktop.PowerManagemen does not support XFCE as it has a bug "
+                "org.freedesktop.PowerManagement does not support XFCE as it has a bug "
                 "which prevents automatic screenlock / screensaver. See: "
                 "https://gitlab.xfce.org/xfce/xfce4-power-manager/-/issues/65"
             ),
@@ -235,7 +229,6 @@ class TestPowerManagementCanIUse:
 
 class TestGetKDEPlasmaVersion:
     def test_success(self):
-
         with patch(
             "wakepy.methods.freedesktop.subprocess.getoutput",
             return_value="plasmashell 1.2.3",
@@ -257,7 +250,7 @@ class TestGetKDEPlasmaVersion:
             assert _get_kde_plasma_version() == (4, 5, 6)
 
     def test_success_qthread_storage_pre(self):
-        # Test for bug: https://github.com/fohrloop/wakepy/issues/415
+        # Test for bug: https://github.com/wakepy/wakepy/issues/415
         with patch(
             "wakepy.methods.freedesktop.subprocess.getoutput",
             return_value="QThreadStorage: entry 3 destroyed before end of thread 0x61b4ee73d540\nQThreadStorage: entry 2 destroyed before end of thread 0x61b4ee73d540\nplasmashell 6.3.4",  # noqa: E501
@@ -265,7 +258,7 @@ class TestGetKDEPlasmaVersion:
             assert _get_kde_plasma_version() == (6, 3, 4)
 
     def test_success_qthread_storage_post(self):
-        # Test for bug: https://github.com/fohrloop/wakepy/issues/415
+        # Test for bug: https://github.com/wakepy/wakepy/issues/415
         with patch(
             "wakepy.methods.freedesktop.subprocess.getoutput",
             return_value="plasmashell 6.3.4\nQThreadStorage: entry 3 destroyed before end of thread 0x61b4ee73d540\nQThreadStorage: entry 2 destroyed before end of thread 0x61b4ee73d540",  # noqa: E501
@@ -273,7 +266,7 @@ class TestGetKDEPlasmaVersion:
             assert _get_kde_plasma_version() == (6, 3, 4)
 
     def test_success_qthread_storage_mid(self):
-        # Test for bug: https://github.com/fohrloop/wakepy/issues/415
+        # Test for bug: https://github.com/wakepy/wakepy/issues/415
         with patch(
             "wakepy.methods.freedesktop.subprocess.getoutput",
             return_value="QThreadStorage: entry 3 destroyed before end of thread 0x61b4ee73d540\nplasmashell 6.3.4\nQThreadStorage: entry 2 destroyed before end of thread 0x61b4ee73d540",  # noqa: E501
@@ -297,7 +290,6 @@ class TestGetKDEPlasmaVersion:
 
 
 class TestGetCurrentDesktopEnvironment:
-
     def test_kde(self, monkeypatch):
         monkeypatch.setenv("XDG_SESSION_DESKTOP", "KDE")
         assert _get_current_desktop_environment() == "KDE"

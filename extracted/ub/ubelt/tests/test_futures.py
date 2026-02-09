@@ -1,3 +1,15 @@
+def _process_backend_available():
+    import multiprocessing as mp
+
+    try:
+        ctx = mp.get_context()
+        ctx.Lock()
+    except (PermissionError, OSError):
+        return False
+    else:
+        return True
+
+
 def test_job_pool_context_manager():
     import ubelt as ub
 
@@ -6,7 +18,6 @@ def test_job_pool_context_manager():
 
     pool = ub.JobPool('thread', max_workers=16)
     with pool:
-
         for data in ub.ProgIter(range(10), desc='submit jobs'):
             pool.submit(worker, data)
 
@@ -14,6 +25,22 @@ def test_job_pool_context_manager():
         for job in pool.as_completed(desc='collect jobs'):
             info = job.result()
             final.append(info)
+
+
+def test_job_pool_clear_completed_thread():
+    import ubelt as ub
+
+    jobs = ub.JobPool(mode='thread', max_workers=2)
+
+    for jobid in range(4):
+        jobs.submit(simple_worker, jobid)
+
+    for fs in jobs.as_completed():
+        fs.result()
+
+    assert len(jobs.jobs) > 0
+    jobs._clear_completed()
+    assert len(jobs.jobs) == 0
 
 
 def test_job_pool_as_completed_prog_args():
@@ -28,7 +55,11 @@ def test_job_pool_as_completed_prog_args():
         pool.submit(worker, data)
 
     with ub.CaptureStdout() as cap:
-        final = list(pool.as_completed(desc='collect jobs', progkw={'verbose': 3, 'time_thresh': 0}))
+        final = list(
+            pool.as_completed(
+                desc='collect jobs', progkw={'verbose': 3, 'time_thresh': 0}
+            )
+        )
 
     print(f'cap.text={cap.text}')
     num_lines = len(cap.text.split('\n'))
@@ -41,12 +72,15 @@ def test_job_pool_as_completed_prog_args():
 
 def test_executor_timeout():
     import pytest
-    pytest.skip(
-        'long test, demos that timeout does not work with SerialExecutor')
 
-    import ubelt as ub
+    pytest.skip(
+        'long test, demos that timeout does not work with SerialExecutor'
+    )
+
     import time
     from concurrent.futures import TimeoutError
+
+    import ubelt as ub
 
     def long_job(n, t):
         for i in range(n):
@@ -68,9 +102,15 @@ def test_executor_timeout():
 
 
 def test_job_pool_clear_completed():
-    import weakref
+    if not _process_backend_available():
+        import pytest
+
+        pytest.skip('process backend not permitted')
     import gc
+    import weakref
+
     import ubelt as ub
+
     is_deleted = {}
     weak_futures = {}
 
@@ -79,6 +119,7 @@ def test_job_pool_clear_completed():
     def make_finalizer(jobid):
         def _finalizer():
             is_deleted[jobid] = True
+
         return _finalizer
 
     def debug_referrers():
@@ -86,7 +127,9 @@ def test_job_pool_clear_completed():
             referrers = ub.udict({})
             for jobid, ref in weak_futures.items():
                 fs = ref()
-                referrers[jobid] = 0 if fs is None else len(gc.get_referrers(fs))
+                referrers[jobid] = (
+                    0 if fs is None else len(gc.get_referrers(fs))
+                )
             print('is_deleted = {}'.format(ub.urepr(is_deleted, nl=1)))
             print('referrers = {}'.format(ub.urepr(referrers, nl=1)))
 
@@ -111,6 +154,7 @@ def test_job_pool_clear_completed():
     debug_referrers()
 
     import platform
+
     if 'pypy' not in platform.python_implementation().lower():
         if not any(is_deleted.values()):
             raise AssertionError
@@ -127,8 +171,14 @@ def simple_worker(jobid):
 
 
 def test_job_pool_transient():
+    if not _process_backend_available():
+        import pytest
+
+        pytest.skip('process backend not permitted')
     import weakref
+
     import ubelt as ub
+
     is_deleted = {}
     weak_futures = {}
 
@@ -137,6 +187,7 @@ def test_job_pool_transient():
     def make_finalizer(jobid):
         def _finalizer():
             is_deleted[jobid] = True
+
         return _finalizer
 
     for jobid in range(10):
@@ -154,6 +205,7 @@ def test_job_pool_transient():
     # For 3.6, pytest has an AST issue if and assert statements are used.
     # raising regular AssertionErrors to handle that.
     import platform
+
     if 'pypy' not in platform.python_implementation().lower():
         if not any(is_deleted.values()):
             raise AssertionError
@@ -165,17 +217,38 @@ def test_job_pool_transient():
             raise AssertionError
 
 
+def test_job_pool_transient_thread():
+    import ubelt as ub
+
+    jobs = ub.JobPool(mode='thread', max_workers=2, transient=True)
+    for jobid in range(4):
+        jobs.submit(simple_worker, jobid)
+
+    for fs in jobs.as_completed():
+        fs.result()
+
+    assert jobs.jobs == []
+
+
 def test_backends():
     import platform
     import sys
+
     # The process backend breaks pyp3 when using coverage
     if 'pypy' in platform.python_implementation().lower():
         import pytest
+
         pytest.skip('not testing process on pypy')
     if sys.platform.startswith('win32'):
         import pytest
+
         pytest.skip('not running this test on win32 for now')
+    if not _process_backend_available():
+        import pytest
+
+        pytest.skip('process backend not permitted')
     import ubelt as ub
+
     # Fork before threading!
     # https://pybay.com/site_media/slides/raymond2017-keynote/combo.html
     self1 = ub.Executor(mode='serial', max_workers=0)
@@ -201,13 +274,16 @@ def test_backends():
 
 def test_done_callback():
     import ubelt as ub
+
     self1 = ub.Executor(mode='serial', max_workers=0)
     with self1:
         jobs = []
         for i in range(10):
             jobs.append(self1.submit(sum, [i + 1, i]))
         for job in jobs:
-            job.add_done_callback(lambda x: print('done callback got x = {}'.format(x)))
+            job.add_done_callback(
+                lambda x: print('done callback got x = {}'.format(x))
+            )
             result = job.result()
             print('result = {!r}'.format(result))
 
@@ -217,6 +293,7 @@ def _killable_worker(kill_fpath):
     An infinite loop that we can kill by writing a sentinel value to disk
     """
     import ubelt as ub
+
     timer = ub.Timer().tic()
     while True:
         # Don't want for too long
@@ -231,6 +308,7 @@ def _sleepy_worker(seconds, loops=100):
     An infinite loop that we can kill by writing a sentinel value to disk
     """
     import time
+
     start_time = time.monotonic()
     while True:
         time.sleep(seconds / loops)
@@ -243,14 +321,17 @@ def test_as_completed_timeout():
     """
     xdoctest ~/code/ubelt/tests/test_futures.py test_as_completed_timeout
     """
+    import uuid
     from concurrent.futures import TimeoutError
 
     import ubelt as ub
-    import uuid
+
     kill_fname = str(uuid.uuid4()) + '.signal'
 
     # modes = ['thread', 'process', 'serial']
     modes = ['thread', 'process']
+    if not _process_backend_available():
+        modes = ['thread']
 
     timeout = 0.1
     dpath = ub.Path.appdir('ubelt', 'tests', 'futures', 'timeout').ensuredir()

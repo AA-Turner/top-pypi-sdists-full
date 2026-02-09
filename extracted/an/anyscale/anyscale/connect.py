@@ -836,6 +836,20 @@ class ClientBuilder:
         if self._run_mode == "local_docker":
             self._exec_self_in_local_docker()
 
+        # With cloud isolation, projects are scoped to clouds. If the user specifies
+        # a project name, they must also specify a cloud (either directly or via
+        # cluster_compute) to avoid ambiguity.
+        if self._project_name and not (
+            self._cloud_name or self._cluster_compute_name or self._cluster_compute_dict
+        ):
+            raise RuntimeError(
+                f"Project '{self._project_name}' was specified without a cloud. "
+                "Projects are scoped to clouds, so a cloud must be specified. "
+                "Please specify a cloud using the `cloud` argument, e.g., "
+                f'`ray.init("anyscale://{self._project_name}/{self._cluster_name or ""}", '
+                f'cloud="my-cloud")` or provide a `cluster_compute` config.'
+            )
+
         self._project_block = create_project_block(
             self._project_dir,
             self._project_name,

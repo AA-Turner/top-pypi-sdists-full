@@ -113,7 +113,7 @@ class TestPlugins(unittest.TestCase):
         self.assertTrue('init_c' in events, "Dependency C not enabled.")
         self.assertTrue('init_d' in events, "Dependency D not enabled.")
 
-    def test_disable_dependendents(self):
+    def test_disable_dependents(self):
         """Disable a plugin with dependents."""
 
         p = PluginManager(None)

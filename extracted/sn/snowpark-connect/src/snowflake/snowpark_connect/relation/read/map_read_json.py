@@ -15,7 +15,11 @@ import pyspark.sql.connect.proto.relations_pb2 as relation_proto
 
 from snowflake import snowpark
 from snowflake.snowpark._internal.analyzer.analyzer_utils import unquote_if_quoted
-from snowflake.snowpark._internal.utils import is_in_stored_procedure
+from snowflake.snowpark._internal.utils import (
+    TempObjectType,
+    is_in_stored_procedure,
+    random_name_for_temp_object,
+)
 from snowflake.snowpark.row import Row
 from snowflake.snowpark.types import (
     ArrayType,
@@ -33,6 +37,7 @@ from snowflake.snowpark.types import (
     _FractionalType,
     _IntegralType,
 )
+from snowflake.snowpark_connect.config import str_to_bool
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
@@ -44,7 +49,9 @@ from snowflake.snowpark_connect.relation.read.metadata_utils import (
     add_filename_metadata_to_reader,
 )
 from snowflake.snowpark_connect.relation.read.utils import (
+    _load_file_with_copy_into,
     apply_metadata_exclusion_pattern,
+    generate_stage_path_groups,
     get_spark_column_names_from_snowpark_columns,
     rename_columns_as_snowflake_standard,
 )
@@ -83,6 +90,105 @@ def _get_max_workers() -> int:
         # We can have more workers than CPU count, this is an IO-intensive task
         max_workers = min(16, os.cpu_count() * 2)
     return max_workers
+
+
+_json_file_format_allowed_options = {
+    "COMPRESSION",
+    "DATE_FORMAT",
+    "TIMESTAMP_FORMAT",
+    "FILE_EXTENSION",
+    "STRIP_OUTER_ARRAY",
+    "ENCODING",
+    "NULL_IF",
+}
+
+
+def _parse_json_snowpark_options(
+    snowpark_options: dict[str, typing.Any]
+) -> dict[str, typing.Any]:
+    """
+    Extract JSON file format options from Snowpark options.
+
+    Args:
+        snowpark_options: Dictionary of Snowpark options
+
+    Returns:
+        Dictionary of file format options that can be used with COPY INTO
+    """
+    file_format_options = dict()
+    for key, value in snowpark_options.items():
+        upper_key = key.upper()
+        if upper_key in _json_file_format_allowed_options:
+            file_format_options[upper_key] = value
+
+    return file_format_options
+
+
+def _get_schema_for_copy_into_json(
+    session: snowpark.Session,
+    schema: StructType | None,
+    first_path: str,
+    snowpark_options: dict,
+    raw_options: dict,
+    rows_to_infer_schema: int,
+    dropFieldIfAllNull: bool,
+) -> StructType:
+    """
+    Get schema for COPY INTO operation by reading the first file.
+
+    This function determines the schema to use for COPY INTO:
+    1. If user provided a schema, use it directly (no I/O needed)
+    2. Otherwise, read the first file to infer the schema (handles nested structures, arrays, etc.)
+
+    Args:
+        session: The Snowpark session.
+        schema: User-provided schema, or None if not provided.
+        first_path: The first file path to read.
+        snowpark_options: Snowpark options for reading.
+        raw_options: Raw options from the read request.
+        rows_to_infer_schema: Number of rows to use for schema inference.
+        dropFieldIfAllNull: Whether to drop fields that are all null.
+
+    Returns:
+        StructType schema to use for COPY INTO.
+    """
+    # Case 1: User provided schema - use it directly (cheapest, no I/O)
+    if schema is not None:
+        return schema
+
+    # Case 2: Read the first file to infer the schema
+    reader = add_filename_metadata_to_reader(
+        session.read.options(snowpark_options), raw_options
+    )
+    df = reader.json(first_path)
+
+    inferred_schema = copy.deepcopy(df.schema)
+    infer_row_counts = 0
+
+    columns_with_valid_contents = set()
+    string_nodes_finalized = set[str]()
+
+    for row in df.to_local_iterator():
+        infer_row_counts += 1
+        if rows_to_infer_schema != -1 and infer_row_counts > rows_to_infer_schema:
+            break
+        inferred_schema = merge_row_schema(
+            inferred_schema,
+            row,
+            columns_with_valid_contents,
+            string_nodes_finalized,
+            dropFieldIfAllNull,
+        )
+
+    if dropFieldIfAllNull:
+        inferred_schema.fields = [
+            sf
+            for sf in inferred_schema.fields
+            if unquote_if_quoted(sf.name) in columns_with_valid_contents
+        ]
+
+    validated_schema, _ = validate_and_update_schema(inferred_schema)
+    return validated_schema
 
 
 def map_read_json(
@@ -127,6 +233,7 @@ def map_read_json(
             exception = ValueError(f"No paths provided to read JSON files: {paths}")
             attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
             raise exception
+        result_can_be_cached = True
         if process_single_bz2_file:
             # TODO: SNOW-3022765 Add read partitioned files support for reading bz2 file
             df = read_single_bz2_file(
@@ -139,6 +246,13 @@ def map_read_json(
                 dropFieldIfAllNull,
             )
         else:
+            # Determine if COPY INTO will be used (to set can_be_cached flag)
+            # COPY INTO is used when: multiple paths AND no metadata requested
+            if len(paths) > 1 and not str_to_bool(
+                raw_options.get("snowpark.populateFileMetadata", "false")
+            ):
+                result_can_be_cached = False
+
             df = read_normal_json_files(
                 session,
                 paths,
@@ -163,6 +277,7 @@ def map_read_json(
             snowpark_column_types=[
                 _emulate_integral_types_for_json(f.datatype) for f in df.schema.fields
             ],
+            can_be_cached=result_can_be_cached,
         )
 
 
@@ -255,28 +370,82 @@ def read_normal_json_files(
         session.read.options(snowpark_options), raw_options
     )
 
-    df, _ = _read_file_with_partitions(
-        session=session,
-        reader=reader,
-        file_format="json",
-        path=paths[0],
-        schema=schema,
-        snowpark_options=snowpark_options,
-        raw_options=raw_options,
-    )
-    if len(paths) > 1:
-        for p in paths[1:]:
-            partition_df, _ = _read_file_with_partitions(
+    file_format_options = _parse_json_snowpark_options(snowpark_options)
+
+    # Check if we should use COPY INTO optimization or UNION ALL approach
+    if str_to_bool(raw_options.get("snowpark.populateFileMetadata", "false")):
+        # TODO: SNOW-3002469 copy into approach does not support metadata columns today, so we fallback to the UNION ALL approach.
+        df, _ = _read_file_with_partitions(
+            session=session,
+            reader=reader,
+            file_format="json",
+            path=paths[0],
+            schema=schema,
+            snowpark_options=snowpark_options,
+            raw_options=raw_options,
+        )
+        if len(paths) > 1:
+            for p in paths[1:]:
+                partition_df, _ = _read_file_with_partitions(
+                    session=session,
+                    reader=reader,
+                    file_format="json",
+                    path=p,
+                    schema=schema,
+                    snowpark_options=snowpark_options,
+                    raw_options=raw_options,
+                )
+                df = df.union_all(partition_df)
+    else:
+        # Use copy into approach for parallel loading.
+        if len(paths) == 1:
+            df, _ = _read_file_with_partitions(
                 session=session,
                 reader=reader,
                 file_format="json",
-                path=p,
+                path=paths[0],
                 schema=schema,
                 snowpark_options=snowpark_options,
                 raw_options=raw_options,
             )
-            df = df.union_all(partition_df)
+        elif len(paths) > 1:
+            # Note: this assumes that all paths are exact filenames, not directories. It will fail early if any path is a directory.
+            logger.debug(
+                f"Using COPY INTO FILES optimization for {len(paths)} JSON files."
+            )
+            # Generate a temporary table name
+            temp_table_name = random_name_for_temp_object(TempObjectType.TABLE)
+            df = session.table(temp_table_name)
+            stage_file_groups = generate_stage_path_groups(paths)
+            for stage_name, stage_files in stage_file_groups:
+                # Get schema from the first file
+                copy_into_schema = _get_schema_for_copy_into_json(
+                    session=session,
+                    schema=schema,
+                    first_path=stage_files[0],
+                    snowpark_options=snowpark_options,
+                    raw_options=raw_options,
+                    rows_to_infer_schema=rows_to_infer_schema,
+                    dropFieldIfAllNull=dropFieldIfAllNull,
+                )
+                if len(stage_files) == 1:
+                    stage_file_paths = []
+                    copy_from_stage = stage_files[0]
+                else:
+                    stage_file_paths = stage_files
+                    copy_from_stage = stage_name
+                _load_file_with_copy_into(
+                    reader=reader,
+                    session=session,
+                    target=temp_table_name,
+                    stage_file_paths=stage_file_paths,
+                    stage=copy_from_stage,
+                    schema=copy_into_schema,
+                    file_format_options=file_format_options,
+                    file_format="json",
+                )
 
+    # Original schema inference and processing path (for single file or with metadata)
     if schema is None:
         schema = copy.deepcopy(df.schema)
         infer_row_counts = 0

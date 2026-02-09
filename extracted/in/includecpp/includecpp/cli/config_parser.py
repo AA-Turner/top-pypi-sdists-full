@@ -1,8 +1,34 @@
 from pathlib import Path
+import hashlib
 import json
 import platform
 import os
 from typing import Dict, Any
+
+
+def _windows_long_paths_enabled() -> bool:
+    """Check if Windows long path support is enabled in registry."""
+    if platform.system() != "Windows":
+        return True  # Non-Windows always "supports" long paths
+
+    try:
+        import winreg
+        key = winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE,
+            r"SYSTEM\CurrentControlSet\Control\FileSystem",
+            0,
+            winreg.KEY_READ
+        )
+        try:
+            value, _ = winreg.QueryValueEx(key, "LongPathsEnabled")
+            return value == 1
+        except FileNotFoundError:
+            return False  # Key doesn't exist = not enabled
+        finally:
+            winreg.CloseKey(key)
+    except Exception:
+        return False  # Assume not enabled on any error
+
 
 class CppProjectConfig:
     def __init__(self, config_path: Path = None):
@@ -62,6 +88,9 @@ class CppProjectConfig:
 
     def _get_appdata_path(self) -> Path:
         if platform.system() == "Windows":
+            # Use short path if long paths not enabled (avoids 260 char limit)
+            if not _windows_long_paths_enabled():
+                return Path("C:/icpp")
             base = Path(os.getenv('APPDATA', Path.home() / 'AppData' / 'Roaming'))
         else:
             base = Path.home() / ".local" / "share" / "includecpp"
@@ -69,7 +98,17 @@ class CppProjectConfig:
 
     def get_build_dir(self, compiler: str) -> Path:
         project_name = self.config.get('project', 'unnamed')
-        build_dir_name = f"{project_name}-{compiler}-build-proj"
+
+        # Use short hashed name if long paths not enabled on Windows
+        if platform.system() == "Windows" and not _windows_long_paths_enabled():
+            # Create short hash of project name + path for uniqueness
+            unique_id = hashlib.md5(
+                f"{project_name}:{self.project_root}".encode()
+            ).hexdigest()[:8]
+            build_dir_name = f"{unique_id}"  # e.g., "a1b2c3d4"
+        else:
+            build_dir_name = f"{project_name}-{compiler}-build-proj"
+
         build_dir = self._get_appdata_path() / build_dir_name
         build_dir.mkdir(parents=True, exist_ok=True)
         return build_dir

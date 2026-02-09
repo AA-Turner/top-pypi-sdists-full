@@ -2551,12 +2551,24 @@ def map_unresolved_function(
                     raise exception
 
             match snowpark_typed_args[0].typ:
-                case DecimalType():
+                # https://github.com/apache/spark/blob/15c68493b3690e206f5f5406afb4ad3ce2104b4d/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/mathExpressions.scala#L1504
+                case DecimalType(precision=p, scale=s):
+                    least_num_digits = p - s + 1
+                    if scale < 0:
+                        new_precision = max(least_num_digits, -scale + 1)
+                        return_type = DecimalType(
+                            min(new_precision, DecimalType._MAX_PRECISION), 0
+                        )
+                    else:
+                        new_precision = min(s, scale) + least_num_digits
+                        return_type = DecimalType(
+                            min(new_precision, DecimalType._MAX_PRECISION),
+                            min(s, scale),
+                        )
                     result_exp = snowpark_fn.bround(
                         snowpark_args[0], snowpark_fn.lit(scale)
-                    )
-                    # TODO SNOW-2034495: type
-                    result_exp = _type_with_typer(result_exp)
+                    ).cast(return_type)
+                    result_exp = TypedColumn(result_exp, lambda: [return_type])
                 case _:
                     # TODO: Snowflake's bround only supports decimal, not floating point types.
                     # If fixing this in Snowflake takes some time, we should change to use a UDF here for float.
@@ -3138,7 +3150,7 @@ def map_unresolved_function(
             # as a 32-bit INT, or None if the input is None.
             @cached_udf(
                 input_types=[snowpark_typed_args[0].typ],
-                return_type=IntegerType(),
+                return_type=LongType(),
             )
             def _crc32(data):
                 import zlib
@@ -3154,7 +3166,7 @@ def map_unresolved_function(
                 return crc32_value
 
             result_exp = _crc32(snowpark_args[0])
-            result_type = IntegerType()
+            result_type = LongType()
 
         case "csc":
             spark_function_name = f"CSC({snowpark_arg_names[0]})"
@@ -4657,7 +4669,7 @@ def map_unresolved_function(
                 StructType(
                     [
                         StructField("x", aggregate_input_typ, _is_column=False),
-                        StructField("y", FloatType(), _is_column=False),
+                        StructField("y", DoubleType(), _is_column=False),
                     ]
                 )
             )
@@ -10335,7 +10347,9 @@ def map_unresolved_function(
                 .otherwise(width_bucket_fn(v, min_, max_, num_buckets))
             )
 
-            result_type = IntegerType()
+            # Snowflake returns Decimal(x, 0), but Spark expects LongType() always
+            result_type = LongType()
+            result_exp.cast(result_type)
         case "window":
             (window_duration, start_time) = _extract_window_args(exp)
             spark_function_name = "window"
@@ -10989,7 +11003,11 @@ def _resolve_function_with_lambda(
         # confirm that m is a dict and not a sqlNullWrapper
         if m is None or not hasattr(m, "items"):
             return None
-        return [{"key": k, "value": v} for k, v in m.items()]
+        # Convert sqlNullWrapper values to None to avoid serialization errors
+        return [
+            {"key": k, "value": (None if getattr(v, "is_sql_null", False) else v)}
+            for k, v in m.items()
+        ]
 
     def _randomize_lambda_args_names(message: Message, suffix: str | None = None):
         if suffix is None:
@@ -11227,8 +11245,20 @@ def _resolve_function_with_lambda(
                     or not hasattr(m2, "items")
                 ):
                     return None
+
+                def _convert_null(v):
+                    """Convert sqlNullWrapper to None to avoid serialization errors."""
+                    return None if getattr(v, "is_sql_null", False) else v
+
                 keys = set(m1.keys()) | set(m2.keys())  # Union of keys from both maps
-                return [{"k": k, "v1": m1.get(k), "v2": m2.get(k)} for k in keys]
+                return [
+                    {
+                        "k": k,
+                        "v1": _convert_null(m1.get(k)),
+                        "v2": _convert_null(m2.get(k)),
+                    }
+                    for k in keys
+                ]
 
             ([arg2_name], arg2_tc) = map_expression(
                 exp.unresolved_function.arguments[1], column_mapping, typer

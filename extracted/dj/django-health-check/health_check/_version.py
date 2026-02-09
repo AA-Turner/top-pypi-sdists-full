@@ -28,7 +28,7 @@ version_tuple: VERSION_TUPLE
 commit_id: COMMIT_ID
 __commit_id__: COMMIT_ID
 
-__version__ = version = '3.23.3'
-__version_tuple__ = version_tuple = (3, 23, 3)
+__version__ = version = '3.23.5'
+__version_tuple__ = version_tuple = (3, 23, 5)
 
-__commit_id__ = commit_id = 'gea6fbff62'
+__commit_id__ = commit_id = 'gb5176b7bf'

@@ -33,7 +33,7 @@ DEFAULT_TASK_BACKEND_ALIAS = "default"
 DEFAULT_TASK_QUEUE_NAME = "default"
 TASK_MIN_PRIORITY = -100
 TASK_MAX_PRIORITY = 100
-TASK_DEFAULT_PRIORITY = 0
+DEFAULT_TASK_PRIORITY = 0
 
 TASK_REFRESH_ATTRS = {
     "errors",
@@ -44,7 +44,6 @@ TASK_REFRESH_ATTRS = {
     "status",
     "enqueued_at",
     "worker_ids",
-    "metadata",
 }
 
 
@@ -58,7 +57,7 @@ class TaskResultStatus(TextChoices):
     FAILED = ("FAILED", pgettext_lazy("Task", "Failed"))
     """The Task raised an exception during execution, or was unable to start."""
 
-    SUCCEEDED = ("SUCCEEDED", pgettext_lazy("Task", "Succeeded"))
+    SUCCESSFUL = ("SUCCESSFUL", pgettext_lazy("Task", "Successful"))
     """The Task has finished running successfully."""
 
 
@@ -71,7 +70,7 @@ class Task(Generic[P, T]):
     func: Callable[P, T]
     """The Task function"""
 
-    priority: int = TASK_DEFAULT_PRIORITY
+    priority: int = DEFAULT_TASK_PRIORITY
     """The Task's priority"""
 
     backend: str = DEFAULT_TASK_BACKEND_ALIAS
@@ -191,7 +190,7 @@ def task(function: Callable[P, T], **kwargs: Any) -> Task[P, T]: ...
 @overload
 def task(
     *,
-    priority: int = TASK_DEFAULT_PRIORITY,
+    priority: int = DEFAULT_TASK_PRIORITY,
     queue_name: str = DEFAULT_TASK_QUEUE_NAME,
     backend: str = DEFAULT_TASK_BACKEND_ALIAS,
     takes_context: Literal[False] = False,
@@ -204,7 +203,7 @@ def task(
 @overload
 def task(
     *,
-    priority: int = TASK_DEFAULT_PRIORITY,
+    priority: int = DEFAULT_TASK_PRIORITY,
     queue_name: str = DEFAULT_TASK_QUEUE_NAME,
     backend: str = DEFAULT_TASK_BACKEND_ALIAS,
     takes_context: Literal[True],
@@ -216,7 +215,7 @@ def task(
 def task(
     function: Callable[P, T] | None = None,
     *,
-    priority: int = TASK_DEFAULT_PRIORITY,
+    priority: int = DEFAULT_TASK_PRIORITY,
     queue_name: str = DEFAULT_TASK_QUEUE_NAME,
     backend: str = DEFAULT_TASK_BACKEND_ALIAS,
     takes_context: bool = False,
@@ -306,15 +305,11 @@ class TaskResult(Generic[T]):
     worker_ids: list[str]
     """The workers which have processed the task"""
 
-    metadata: dict[str, Any]
-    """Additional metadata for the task"""
-
     _return_value: T | None = field(init=False, default=None)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "args", normalize_json(self.args))
         object.__setattr__(self, "kwargs", normalize_json(self.kwargs))
-        object.__setattr__(self, "metadata", normalize_json(self.metadata))
 
     @property
     def return_value(self) -> T | None:
@@ -324,7 +319,7 @@ class TaskResult(Generic[T]):
         If the task didn't succeed, an exception is raised.
         This is to distinguish against the task returning None.
         """
-        if self.status == TaskResultStatus.SUCCEEDED:
+        if self.status == TaskResultStatus.SUCCESSFUL:
             return cast(T, self._return_value)
         elif self.status == TaskResultStatus.FAILED:
             raise ValueError("Task failed")
@@ -334,7 +329,7 @@ class TaskResult(Generic[T]):
     @property
     def is_finished(self) -> bool:
         """Has the task finished?"""
-        return self.status in {TaskResultStatus.FAILED, TaskResultStatus.SUCCEEDED}
+        return self.status in {TaskResultStatus.FAILED, TaskResultStatus.SUCCESSFUL}
 
     @property
     def attempts(self) -> int:
@@ -366,17 +361,3 @@ class TaskContext:
     @property
     def attempt(self) -> int:
         return self.task_result.attempts
-
-    @property
-    def metadata(self) -> dict[str, Any]:
-        return self.task_result.metadata
-
-    def save_metadata(self) -> None:
-        self.task_result.task.get_backend().save_metadata(
-            self.task_result.id, self.metadata
-        )
-
-    async def asave_metadata(self) -> None:
-        await self.task_result.task.get_backend().asave_metadata(
-            self.task_result.id, self.metadata
-        )

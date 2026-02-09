@@ -26,19 +26,21 @@ PARSER_IMPORT_SOLUTION = "Install it using 'pip install stealth-requests[parsers
 
 
 class StealthResponse:
-    def __init__(self, resp):
+    def __init__(self, resp, elapsed):
         self._response = resp
+        self._elapsed = elapsed
 
         self._tree: HtmlElement | None = None
         self._important_meta_tags: Metadata | None = None
         self._links: tuple[str] = tuple()
         self._images: tuple[str] = tuple()
+        self._tables: list[dict[str, list[str]]] | None = None
 
     def __getattr__(self, name):
         return getattr(self._response, name)
 
     def __repr__(self):
-        return f'<StealthResponse [Status: {self._response.status_code} Elapsed Time: {self._response.elapsed:.2f} seconds]>'
+        return f'<StealthResponse [Status: {self._response.status_code} Elapsed Time: {self._elapsed:.2f} seconds]>'
 
     def _get_tree(self) -> HtmlElement:
         try:
@@ -154,6 +156,48 @@ class StealthResponse:
         if not self._links:
             self._links = self._parse_links('a')
         return self._links
+
+    @staticmethod
+    def _parse_table(table_element) -> dict[str, list[str]] | None:
+        header_row = table_element.xpath('.//thead/tr[1] | .//tr[th][1]')
+        if not header_row:
+            return None
+
+        headers = [th.text_content().strip() for th in header_row[0].xpath('./th | ./td')]
+        if not headers or all(h == '' for h in headers):
+            return None
+
+        body_rows = table_element.xpath('.//tbody/tr')
+        if not body_rows:
+            all_rows = table_element.xpath('.//tr')
+            # Skip the header row
+            body_rows = [r for r in all_rows if r is not header_row[0]]
+
+        result = {header: [] for header in headers}
+        for row in body_rows:
+            cells = row.xpath('./td | ./th')
+            for i, header in enumerate(headers):
+                value = cells[i].text_content().strip() if i < len(cells) else ''
+                result[header].append(value)
+
+        return result
+
+    @property
+    def tables(self) -> list[dict[str, list[str]]]:
+        if self._tables is not None:
+            return self._tables
+
+        parsed = []
+        for table in self.tree().xpath('//table'):
+            try:
+                result = self._parse_table(table)
+                if result is not None:
+                    parsed.append(result)
+            except Exception:
+                continue
+
+        self._tables = parsed
+        return self._tables
 
     @property
     def emails(self) -> tuple[str]:

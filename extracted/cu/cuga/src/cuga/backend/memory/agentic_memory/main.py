@@ -2,18 +2,23 @@ import uvicorn
 
 from typing import Annotated
 from dotenv import load_dotenv
-from cuga.backend.memory.agentic_memory.backend.mem0_backend import Mem0MemoryBackend
-from cuga.backend.memory.agentic_memory.config import get_config
+from cuga.backend.memory.agentic_memory.client import MemoryClient
+from cuga.backend.memory.agentic_memory.llm.conflict_resolution.conflict_resolution import MemoryEvent
+from cuga.backend.memory.agentic_memory.utils.exceptions import (
+    MemoryException,
+    NamespaceNotFoundException,
+    RunNotFoundException,
+    NamespaceAlreadyExistsException,
+)
 from cuga.backend.memory.agentic_memory.utils.logging import Logging
 from cuga.backend.memory.agentic_memory.schema import Fact, Message, RecordedFact, Run, Namespace
-from fastapi import APIRouter, FastAPI, HTTPException, Path, Body, Query, BackgroundTasks
+from fastapi import APIRouter, FastAPI, HTTPException, Path, Body, Query
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from mem0 import Memory
-from mem0.configs.base import MemoryConfig
 from pydantic.json_schema import SkipJsonSchema
 
 load_dotenv(override=True)
-memory = Memory(config=MemoryConfig.model_validate(get_config()))
 
 logger = Logging.get_logger()
 app = FastAPI(debug=True)
@@ -30,14 +35,17 @@ app.add_middleware(
 
 router_v1 = APIRouter(prefix="/v1")
 
-memory_backend = Mem0MemoryBackend()
+memory_client = MemoryClient(config=None)
+assert memory_client.config.provider != 'http', (
+    'The memory service cannot be backed by an `http` memory provider.'
+)
 
 
 @router_v1.get("/health/live")
 @router_v1.get("/health/ready")
 async def ready():
     """Attempt to query if the memory service is available"""
-    if memory_backend.ready():
+    if memory_client.ready():
         return {"status": "ok"}
     raise HTTPException(status_code=503, detail="Memory service is unavailable")
 
@@ -61,11 +69,7 @@ def create_namespace(
     ] = None,
 ) -> Namespace:
     """Create a new namespace for facts to exist in."""
-    try:
-        namespace = memory_backend.create_namespace(namespace_id, user_id, agent_id, app_id)
-        return namespace
-    except RuntimeError:
-        raise HTTPException(status_code=409, detail=f'Namespace `{namespace_id}` already exists.')
+    return memory_client.create_namespace(namespace_id, user_id, agent_id, app_id)
 
 
 @router_v1.get("/namespaces/{namespace_id}", response_description='The ID of the created namespace.')
@@ -75,11 +79,7 @@ def get_namespace_details(
     ],
 ) -> Namespace:
     """Get the details of a specific namespace."""
-    try:
-        namespace = memory_backend.get_namespace_details(namespace_id)
-    except LookupError:
-        raise HTTPException(status_code=404, detail=f"Namespace {namespace_id} not found.")
-    return namespace
+    return memory_client.get_namespace_details(namespace_id)
 
 
 @router_v1.get("/namespaces", response_description='A list of namespaces matching the filters.')
@@ -96,10 +96,7 @@ def search_namespaces(
     limit: Annotated[int, Query(description='The number of results to return.')] = 10,
 ) -> list[Namespace]:
     """Find namespaces matching the filters."""
-    if user_id is None and agent_id is None and app_id is None:
-        return memory_backend.all_namespaces()
-    else:
-        return list(memory_backend.search_namespaces(user_id, agent_id, app_id, limit))
+    return memory_client.search_namespaces(user_id, agent_id, app_id, limit)
 
 
 @router_v1.delete("/namespaces/{namespace_id}", status_code=204)
@@ -109,7 +106,7 @@ def delete_namespace(
     ],
 ):
     """Delete a namespace that facts exist in."""
-    memory_backend.delete_namespace(namespace_id=namespace_id)
+    memory_client.delete_namespace(namespace_id=namespace_id)
 
 
 @router_v1.put(
@@ -126,11 +123,35 @@ def create_and_store_fact(
             'professional details, and other miscellaneous information.'
         ),
     ],
-) -> str:
+) -> list[MemoryEvent]:
     """Based on something the user previously said, create and store in memory a new fact about the user,
     their personal preferences, upcoming plans, professional details, and other miscellaneous information.
     """
-    return memory_backend.create_and_store_fact(namespace_id=namespace_id, fact=fact)
+    return memory_client.create_and_store_fact(namespace_id=namespace_id, fact=fact)
+
+
+@router_v1.patch("/namespaces/{namespace_id}/facts")
+def update_facts(
+    namespace_id: Annotated[
+        str, Path(description='The namespace which contains facts relevant to the user.')
+    ],
+    facts: Annotated[
+        list[Fact],
+        Body(
+            description='A fact about the user, their personal preferences, upcoming plans, '
+            'professional details, and other miscellaneous information.'
+        ),
+    ],
+    enable_conflict_resolution: Annotated[
+        bool, Query(description='If true, old facts will be reconciled with new facts.')
+    ] = True,
+) -> list[MemoryEvent]:
+    """Based on something the user previously said, create and store in memory new facts about the user,
+    their personal preferences, upcoming plans, professional details, and other miscellaneous information.
+    """
+    return memory_client.update_facts(
+        namespace_id=namespace_id, facts=facts, enable_conflict_resolution=enable_conflict_resolution
+    )
 
 
 @router_v1.post(
@@ -153,7 +174,7 @@ def search_for_facts(
     """Based on a query, find in memory a fact about the user, their personal preferences, upcoming plans,
     professional details, and other miscellaneous information.
     """
-    return memory_backend.search_for_facts(
+    return memory_client.search_for_facts(
         namespace_id=namespace_id, query=query, filters=filters, limit=limit
     )
 
@@ -166,32 +187,31 @@ def delete_fact_by_id(
     fact_id: Annotated[str, Path(description='The ID of the fact to delete.')],
 ):
     """Remove a fact from memory by its ID."""
-    memory_backend.delete_fact_by_id(namespace_id=namespace_id, fact_id=fact_id)
+    memory_client.delete_fact_by_id(namespace_id=namespace_id, fact_id=fact_id)
 
 
 @router_v1.post(
     "/namespaces/{namespace_id}/messages",
     response_description='The number of messages received for extraction.',
 )
-def extract_facts_from_messages(
+async def extract_facts_from_messages(
     namespace_id: Annotated[
         str, Path(description='The namespace which contains facts relevant to the user.')
     ],
-    messages: Annotated[
-        list[Message], Body(description='A list of messages between a user and a chatbot.', embed=True)
-    ],
-) -> str:
+    messages: Annotated[list[Message], Body(description='A list of messages between a user and a chatbot.')],
+    metadata: Annotated[
+        dict | SkipJsonSchema[None], Body(description='Metadata to apply to any found facts')
+    ] = None,
+) -> list[MemoryEvent]:
     """Takes a list of messages between a user and a chatbot, extracting and storing facts about the user,
     their personal preferences, upcoming plans, professional details, and other miscellaneous information.
     """
+    return await memory_client.extract_facts_from_messages_async(
+        namespace_id=namespace_id, messages=messages, metadata=metadata
+    )
 
-    memory_backend.extract_facts_from_messages(namespace_id=namespace_id, messages=messages)
-    return f'{len(messages)} messages received for namespace {namespace_id}'
 
-
-@router_v1.post(
-    "/namespaces/{namespace_id}/runs",
-)
+@router_v1.post("/namespaces/{namespace_id}/runs", status_code=201)
 def create_run(
     namespace_id: Annotated[
         str, Path(description='The namespace which contains facts relevant to the user.')
@@ -201,12 +221,10 @@ def create_run(
     ],
 ) -> Run:
     """Add a new run into memory. Runs are a series of steps executed in an agentic workflow."""
-    return memory_backend.create_run(namespace_id=namespace_id, run_id=run_id)
+    return memory_client.create_run(namespace_id=namespace_id, run_id=run_id)
 
 
-@router_v1.get(
-    "/namespaces/{namespace_id}/runs/{run_id}",
-)
+@router_v1.get("/namespaces/{namespace_id}/runs/{run_id}")
 def get_run(
     namespace_id: Annotated[
         str, Path(description='The namespace which contains facts relevant to the user.')
@@ -214,7 +232,7 @@ def get_run(
     run_id: Annotated[str, Path(description='The run which contains the steps for an agentic workflow.')],
 ) -> Run:
     """Get a run."""
-    return memory_backend.get_run(namespace_id=namespace_id, run_id=run_id)
+    return memory_client.get_run(namespace_id=namespace_id, run_id=run_id)
 
 
 @router_v1.delete("/namespaces/{namespace_id}/runs/{run_id}", status_code=204)
@@ -225,7 +243,7 @@ def delete_run(
     run_id: Annotated[str, Path(description='The run which contains the steps for an agentic workflow.')],
 ):
     """Delete a run from memory."""
-    return memory_backend.delete_run(namespace_id=namespace_id, run_id=run_id)
+    return memory_client.delete_run(namespace_id=namespace_id, run_id=run_id)
 
 
 @router_v1.post("/namespaces/{namespace_id}/runs/{run_id}/steps", response_description='The number of runs.')
@@ -236,9 +254,19 @@ def add_step(
     run_id: Annotated[str, Path(description='The run which contains the steps for an agentic workflow.')],
     step: Annotated[dict, Body(description='The step, an arbitrary JSON object.')],
     prompt: Annotated[str, Body(description='The prompt used by an LLM to parse a step.')],
-) -> str:
+) -> MemoryEvent:
     """Add a new step into a run."""
-    return memory_backend.add_step(namespace_id, run_id, step, prompt)
+    return memory_client.add_step(namespace_id, run_id, step, prompt)
+
+
+@router_v1.get("/namespaces/{namespace_id}/runs")
+def list_runs(
+    namespace_id: Annotated[
+        str, Path(description='The namespace which contains facts relevant to the user.')
+    ],
+    limit: Annotated[int, Query(description='The number of results to return.')] = 10,
+) -> list[Run]:
+    return memory_client.list_runs(namespace_id=namespace_id, limit=limit)
 
 
 @router_v1.post("/namespaces/{namespace_id}/runs/search")
@@ -254,8 +282,8 @@ def search_runs(
         dict[str, str] | SkipJsonSchema[None],
         Body(description='A set of filters to apply against the metadata of each step.'),
     ] = None,
-) -> Run:
-    return memory_backend.search_runs(namespace_id=namespace_id, query=query, filters=filters)
+) -> Run | None:
+    return memory_client.search_runs(namespace_id=namespace_id, query=query, filters=filters)
 
 
 @router_v1.post("/namespaces/{namespace_id}/runs/{run_id}/end")
@@ -264,14 +292,26 @@ def end_run(
         str, Path(description='The namespace which contains facts relevant to the user.')
     ],
     run_id: Annotated[str, Path(description='The run which contains the steps for an agentic workflow.')],
-    background_tasks: BackgroundTasks,
 ) -> None:
-    """End a run and execute any background tasks."""
-    memory_backend.end_run(namespace_id, run_id)
-    background_tasks.add_task(memory_backend.analyze_run, namespace_id=namespace_id, run_id=run_id)
+    """End a run."""
+    memory_client.end_run(namespace_id, run_id)
 
 
 app.include_router(router_v1)
+
+
+@app.exception_handler(MemoryException)
+async def memory_exception_handler(request, exc):
+    if isinstance(exc, (NamespaceNotFoundException, RunNotFoundException)):
+        status_code = 404
+    elif isinstance(exc, NamespaceAlreadyExistsException):
+        status_code = 409
+    else:
+        status_code = 500
+    return JSONResponse(
+        status_code=status_code,
+        content=jsonable_encoder({"detail": str(exc)}),
+    )
 
 
 def main():

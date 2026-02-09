@@ -49,6 +49,9 @@ class BaseRecord(PartialModelMixin, BaseStep):
     feedback_rating_info: Dict[str, FeedbackRatingInfo] = Field(
         default_factory=dict, description="Feedback information related to the record"
     )
+    annotations: Dict[UUID4, Dict[UUID4, FeedbackRatingInfo]] = Field(
+        default_factory=dict, description="Annotations keyed by template ID and annotator ID"
+    )
 
     def to_record_ids_with_metrics(self) -> RecordIdsWithMetrics:
         return RecordIdsWithMetrics(

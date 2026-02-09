@@ -52,7 +52,7 @@ class CliffordAlgebraIndices(UniqueRepresentation, Parent):
     A facade parent for the indices of Clifford algebra.
     Users should not create instances of this class directly.
     """
-    def __init__(self, Qdim, degree=None):
+    def __init__(self, Qdim, degree=None) -> None:
         r"""
         Initialize ``self``.
 
@@ -168,7 +168,7 @@ class CliffordAlgebraIndices(UniqueRepresentation, Parent):
 
     __len__ = cardinality
 
-    def _repr_(self):
+    def _repr_(self) -> str:
         r"""
         Return a string representation of ``self``.
 
@@ -198,7 +198,7 @@ class CliffordAlgebraIndices(UniqueRepresentation, Parent):
             return "Subsets of {0,1}" + extra
         return f"Subsets of {{0,1,...,{self._nbits-1}}}" + extra
 
-    def _latex_(self):
+    def _latex_(self) -> str:
         r"""
         Return a latex representation of ``self``.
 
@@ -272,7 +272,7 @@ class CliffordAlgebraIndices(UniqueRepresentation, Parent):
                 yield FrozenBitset(C)
             k += 1
 
-    def __contains__(self, elt):
+    def __contains__(self, elt) -> bool:
         r"""
         Check containment of ``elt`` in ``self``.
 
@@ -504,7 +504,7 @@ class CliffordAlgebra(CombinatorialFreeModule):
                 raise ValueError("the number of variables does not match the number of generators")
         return super().__classcall__(cls, Q, names)
 
-    def __init__(self, Q, names, category=None):
+    def __init__(self, Q, names, category=None) -> None:
         r"""
         Initialize ``self``.
 
@@ -529,15 +529,31 @@ class CliffordAlgebra(CombinatorialFreeModule):
             sage: ba = Cl.basis().keys()
             sage: all(FrozenBitset(format(i,'b')[::-1]) in ba for i in range(2**9))
             True
+
+        Check for the category::
+
+            sage: Q = QuadraticForm(ZZ, 3, [1,2,3,4,5,6])
+            sage: Cl.<x,y,z> = CliffordAlgebra(Q)
+            sage: Cl.is_commutative()
+            False
+            sage: Q = QuadraticForm(ZZ, 1, [1])
+            sage: Cl.<x> = CliffordAlgebra(Q)
+            sage: Cl.is_commutative()
+            True
         """
         self._quadratic_form = Q
         R = Q.base_ring()
         category = AlgebrasWithBasis(R.category()).Super().Filtered().FiniteDimensional().or_subcategory(category)
+
+        if self._quadratic_form.dim() < 2:
+            category = category.Commutative()
+
         indices = CliffordAlgebraIndices(Q.dim())
-        CombinatorialFreeModule.__init__(self, R, indices, category=category, sorting_key=tuple)
+        CombinatorialFreeModule.__init__(self, R, indices, category=category,
+                                         sorting_key=tuple)
         self._assign_names(names)
 
-    def _repr_(self):
+    def _repr_(self) -> str:
         r"""
         Return a string representation of ``self``.
 
@@ -553,7 +569,7 @@ class CliffordAlgebra(CombinatorialFreeModule):
         """
         return "The Clifford algebra of the {}".format(self._quadratic_form)
 
-    def _repr_term(self, m):
+    def _repr_term(self, m) -> str:
         """
         Return a string representation of the basis element indexed by ``m``.
 
@@ -579,7 +595,7 @@ class CliffordAlgebra(CombinatorialFreeModule):
             term += self.variable_names()[i]
         return term
 
-    def _latex_term(self, m):
+    def _latex_term(self, m) -> str:
         r"""
         Return a `\LaTeX` representation of the basis element indexed
         by ``m``.
@@ -844,19 +860,6 @@ class CliffordAlgebra(CombinatorialFreeModule):
             0
         """
         return FrozenBitset()
-
-    def is_commutative(self) -> bool:
-        """
-        Check if ``self`` is a commutative algebra.
-
-        EXAMPLES::
-
-            sage: Q = QuadraticForm(ZZ, 3, [1,2,3,4,5,6])
-            sage: Cl.<x,y,z> = CliffordAlgebra(Q)
-            sage: Cl.is_commutative()
-            False
-        """
-        return self._quadratic_form.dim() < 2
 
     def quadratic_form(self):
         """
@@ -1461,7 +1464,7 @@ class ExteriorAlgebra(CliffordAlgebra):
                 raise ValueError("the number of variables does not match the number of generators")
         return super().__classcall__(cls, R, names)
 
-    def __init__(self, R, names):
+    def __init__(self, R, names) -> None:
         """
         Initialize ``self``.
 
@@ -1478,7 +1481,7 @@ class ExteriorAlgebra(CliffordAlgebra):
         cat = HopfAlgebrasWithBasis(R).FiniteDimensional().Supercommutative().Supercocommutative()
         CliffordAlgebra.__init__(self, QuadraticForm(R, len(names)), names, category=cat)
 
-    def _repr_(self):
+    def _repr_(self) -> str:
         r"""
         Return a string representation of ``self``.
 
@@ -1489,7 +1492,7 @@ class ExteriorAlgebra(CliffordAlgebra):
         """
         return "The exterior algebra of rank {} over {}".format(self.ngens(), self.base_ring())
 
-    def _repr_term(self, m):
+    def _repr_term(self, m) -> str:
         """
         Return a string representation of the basis element indexed by
         ``m``.
@@ -1545,7 +1548,7 @@ class ExteriorAlgebra(CliffordAlgebra):
         wedge = unicodedata.lookup('LOGICAL AND')
         return unicode_art(*[self.variable_names()[i] for i in m], sep=wedge)
 
-    def _latex_term(self, m):
+    def _latex_term(self, m) -> str:
         r"""
         Return a `\LaTeX` representation of the basis element indexed
         by ``m``.
@@ -2122,7 +2125,7 @@ class ExteriorAlgebraDifferential(ModuleMorphismByLinearity,
         from sage.sets.family import Family
         return super().__classcall__(cls, E, Family(d))
 
-    def __init__(self, E, s_coeff):
+    def __init__(self, E, s_coeff) -> None:
         """
         Initialize ``self``.
 
@@ -2293,7 +2296,7 @@ class ExteriorAlgebraBoundary(ExteriorAlgebraDifferential):
 
     - :wikipedia:`Exterior_algebra#Lie_algebra_homology`
     """
-    def _repr_type(self):
+    def _repr_type(self) -> str:
         """
         TESTS::
 
@@ -2536,7 +2539,7 @@ class ExteriorAlgebraCoboundary(ExteriorAlgebraDifferential):
 
     - :wikipedia:`Exterior_algebra#Differential_geometry`
     """
-    def __init__(self, E, s_coeff):
+    def __init__(self, E, s_coeff) -> None:
         """
         Initialize ``self``.
 
@@ -2564,7 +2567,7 @@ class ExteriorAlgebraCoboundary(ExteriorAlgebraDifferential):
                 self._cos_coeff[m] = self._cos_coeff.get(m, zero) + c * k
         ExteriorAlgebraDifferential.__init__(self, E, s_coeff)
 
-    def _repr_type(self):
+    def _repr_type(self) -> str:
         """
         TESTS::
 
@@ -2731,7 +2734,7 @@ class ExteriorAlgebraIdeal(Ideal_nc):
         sage: xbar * ybar
         0
     """
-    def __init__(self, ring, gens, coerce=True, side='twosided'):
+    def __init__(self, ring, gens, coerce=True, side='twosided') -> None:
         """
         Initialize ``self``.
 
@@ -2774,7 +2777,7 @@ class ExteriorAlgebraIdeal(Ideal_nc):
 
             sage: E.<a,b,c,d> = ExteriorAlgebra(QQ)
             sage: I = E.ideal([a+b*c])
-            sage: I.reduce(I.gen(0) * d)
+            sage: I.reduce(I.gen(0) * d)                                                # needs sage.libs.pari
             0
         """
         if self._groebner_strategy is None:
@@ -2789,6 +2792,7 @@ class ExteriorAlgebraIdeal(Ideal_nc):
 
         EXAMPLES::
 
+            sage: # needs sage.libs.pari
             sage: E.<x,y,z> = ExteriorAlgebra(QQ)
             sage: I = E.ideal([x, x*y*z + 2*x*z + 3*y*z], side='left')
             sage: I.groebner_basis()
@@ -2813,12 +2817,13 @@ class ExteriorAlgebraIdeal(Ideal_nc):
         """
         return not self.reduce(f)
 
-    def __richcmp__(self, other, op):
+    def __richcmp__(self, other, op) -> bool:
         """
         Compare ``self`` and ``other``.
 
         EXAMPLES::
 
+            sage: # needs sage.libs.pari
             sage: E.<x,y,z> = ExteriorAlgebra(QQ)
             sage: I = E.ideal([x, x*y*z + 2*x*z + 3*y*z])
             sage: I == I
@@ -2841,6 +2846,7 @@ class ExteriorAlgebraIdeal(Ideal_nc):
             sage: I <= E.ideal([x])
             False
 
+            sage: # needs sage.libs.pari
             sage: E.<a,b,c,d> = ExteriorAlgebra(QQ)
             sage: p = a + b*c
             sage: IT = E.ideal([p], side='twosided')
@@ -2856,7 +2862,6 @@ class ExteriorAlgebraIdeal(Ideal_nc):
             2*a*d
             sage: IR.reduce(d * p)
             -2*a*d
-
             sage: IR <= IT
             True
             sage: IL <= IT
@@ -2931,6 +2936,7 @@ class ExteriorAlgebraIdeal(Ideal_nc):
 
             sage: E.<a,b,c,d> = ExteriorAlgebra(QQ)
 
+            sage: # needs sage.libs.pari
             sage: I = E.ideal([a + 1], side='left')
             sage: J = I * I; J
             Left Ideal (2*a + 1, a, b, c, d, a*b, a*c, a*d, 2*a*b*c + b*c, 2*a*b*d + b*d,
@@ -2940,19 +2946,16 @@ class ExteriorAlgebraIdeal(Ideal_nc):
             (1,)
             sage: I.gen(0)^2
             2*a + 1
-
             sage: J = E.ideal([b+c])
             sage: I * J
             Twosided Ideal (a*b + a*c + b + c) of The exterior algebra of rank 4 over Rational Field
             sage: J * I
             Left Ideal (-a*b - a*c + b + c) of The exterior algebra of rank 4 over Rational Field
-
             sage: K = J * I
             sage: K
             Left Ideal (-a*b - a*c + b + c) of The exterior algebra of rank 4 over Rational Field
             sage: E.ideal([J.gen(0) * d * I.gen(0)], side='left') <= K
             True
-
             sage: J = E.ideal([b + c*d], side='right')
             sage: I * J
             Twosided Ideal (a*c*d + a*b + c*d + b) of The exterior algebra of rank 4 over Rational Field
@@ -2965,7 +2968,6 @@ class ExteriorAlgebraIdeal(Ideal_nc):
             c*d + b
             sage: a * p  # not a left ideal
             a*c*d + a*b
-
             sage: I = E.ideal([a + 1], side='right')
             sage: E.ideal([1]) * I
             Twosided Ideal (a + 1) of The exterior algebra of rank 4 over Rational Field
@@ -3054,6 +3056,7 @@ class ExteriorAlgebraIdeal(Ideal_nc):
         By default, the Gröbner basis is reduced, but we can get non-reduced
         Gröber bases (which are not unique)::
 
+            sage: # needs sage.libs.pari
             sage: E.<x,y,z> = ExteriorAlgebra(QQ)
             sage: I = E.ideal([x+y*z])
             sage: I.groebner_basis(reduced=False)
@@ -3064,6 +3067,7 @@ class ExteriorAlgebraIdeal(Ideal_nc):
         However, if we have already computed a reduced Gröbner basis (with
         a given term order), then we return that::
 
+            sage: # needs sage.libs.pari
             sage: I = E.ideal([x+y*z])  # A fresh ideal
             sage: I.groebner_basis()
             (x*y, x*z, y*z + x)
@@ -3072,6 +3076,7 @@ class ExteriorAlgebraIdeal(Ideal_nc):
 
         TESTS::
 
+            sage: # needs sage.libs.pari
             sage: E.<a,b,c,d,e> = ExteriorAlgebra(ZZ)
             sage: I = E.ideal([a+1, b*c+d])
             sage: I.groebner_basis()

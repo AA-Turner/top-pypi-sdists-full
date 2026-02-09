@@ -20,20 +20,27 @@ def model_download(
     path: str | None = None,
     *,
     force_download: bool | None = False,
+    output_dir: str | None = None,
 ) -> str:
     """Download model files.
 
     Args:
         handle: (string) the model handle.
         path: (string) Optional path to a file within the model bundle.
-        force_download: (bool) Optional flag to force download a model, even if it's cached.
+        force_download: (bool) Optional flag to force download a model, even if it's cached or already in output_dir.
+        output_dir: (string) Optional output directory for direct download, bypassing the default cache.
 
     Returns:
         A string representing the path to the requested model files.
     """
     h = parse_model_handle(handle)
     logger.info(f"Downloading Model: {h.to_url()} ...", extra={**EXTRA_CONSOLE_BLOCK})
-    path, _ = registry.model_resolver(h, path, force_download=force_download)
+    path, _ = registry.model_resolver(
+        h,
+        path,
+        force_download=force_download,
+        output_dir=output_dir,
+    )
     return path
 
 

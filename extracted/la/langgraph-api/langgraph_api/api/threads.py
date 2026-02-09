@@ -263,6 +263,7 @@ async def update_thread_state(
     except AssertionError:
         pass
     config["configurable"].update(get_configurable_headers(request.headers))
+    config["configurable"]["thread_id"] = thread_id
     async with connect(supports_core_api=False) as conn:
         inserted = await Threads.State.post(
             conn,
@@ -314,6 +315,7 @@ async def get_thread_history_post(
     config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
     config["configurable"].update(payload.get("checkpoint", {}))
     config["configurable"].update(get_configurable_headers(request.headers))
+    config["configurable"]["thread_id"] = thread_id
     async with connect(supports_core_api=False) as conn:
         states = [
             state_snapshot_to_thread_state(c)

@@ -2,13 +2,20 @@
 
 from ...core.unchecked_base_model import UncheckedBaseModel
 from .create_integration_response_result import CreateIntegrationResponseResult
-from ...core.pydantic_utilities import IS_PYDANTIC_V2
 import typing
+from .integration_messages_response import IntegrationMessagesResponse
 import pydantic
+from ...core.pydantic_utilities import IS_PYDANTIC_V2
 
 
 class CreateIntegrationResponse(UncheckedBaseModel):
     result: CreateIntegrationResponseResult
+    messages: typing.Optional[IntegrationMessagesResponse] = pydantic.Field(
+        default=None
+    )
+    """
+    Warnings or issues that occurred during integration creation, such as authentication failures or invalid custom field mappings.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(

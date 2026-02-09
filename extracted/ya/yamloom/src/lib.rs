@@ -94,6 +94,27 @@ fn escape_control_chars(s: &str) -> String {
     }
     out
 }
+
+fn contains_github_expression(s: &str) -> bool {
+    s.contains("${{") && s.contains("}}")
+}
+
+fn normalize_expression_aware_string(s: &str) -> String {
+    if contains_github_expression(s) {
+        escape_control_chars(s)
+    } else {
+        s.to_string()
+    }
+}
+
+fn yaml_string_or_expression_scalar(s: &str) -> Yaml {
+    if contains_github_expression(s) {
+        // Keep expression strings unquoted where possible while preserving escaped control chars.
+        Yaml::Real(normalize_expression_aware_string(s))
+    } else {
+        Yaml::String(s.to_string())
+    }
+}
 impl Yamlable for f64 {
     fn as_yaml(&self) -> Yaml {
         Yaml::Real(self.to_string())
@@ -106,14 +127,7 @@ impl Yamlable for &f64 {
 }
 impl Yamlable for String {
     fn as_yaml(&self) -> Yaml {
-        if self.contains("${{") && self.contains("}}") {
-            let escaped = escape_control_chars(self);
-            // prevents variables from being quoted when they might
-            // evaluate as bools or numbers
-            Yaml::Real(escaped)
-        } else {
-            Yaml::String(self.clone())
-        }
+        yaml_string_or_expression_scalar(self)
     }
 }
 impl Yamlable for &str {
@@ -443,7 +457,8 @@ mod yamloom {
 
     use crate::{
         Either, InsertYaml, MaybeYamlable, PushYaml, PyMap, TryArray, TryHash, TryYamlable,
-        WORKFLOW_SCHEMA, Yamlable, yaml_to_json,
+        WORKFLOW_SCHEMA, Yamlable, contains_github_expression, normalize_expression_aware_string,
+        yaml_to_json,
         yamloom::expressions::{
             Allowed, ArrayExpression, BooleanExpression, Contexts, Funcs, NumberExpression,
             ObjectExpression, StringExpression, YamlExpression,
@@ -2561,13 +2576,21 @@ mod yamloom {
 
     #[derive(Clone)]
     enum StepAction {
-        Run(StringLike),
+        Run(Vec<StringLike>),
         Action {
             uses: String,
             with: Option<WithArgs>,
         },
     }
     impl StepAction {
+        fn render_run_line(line: &StringLike) -> String {
+            let rendered = match line {
+                Either::A(expr) => expr.as_expression_string(),
+                Either::B(raw) => raw.clone(),
+            };
+            normalize_expression_aware_string(&rendered)
+        }
+
         fn uses(&self) -> Option<String> {
             match self {
                 StepAction::Run(_) => None,
@@ -2580,9 +2603,16 @@ mod yamloom {
                 StepAction::Action { with, .. } => with.clone(),
             }
         }
-        fn run(&self) -> Option<&StringLike> {
+        fn run(&self) -> Option<Yaml> {
             match self {
-                StepAction::Run(script) => Some(script),
+                StepAction::Run(script) => {
+                    let lines = script.iter().map(Self::render_run_line).collect::<Vec<_>>();
+                    if lines.len() == 1 && contains_github_expression(&lines[0]) {
+                        Some(Yaml::Real(lines[0].clone()))
+                    } else {
+                        Some(Yaml::String(lines.join("\n")))
+                    }
+                }
                 StepAction::Action { .. } => None,
             }
         }
@@ -2632,18 +2662,6 @@ mod yamloom {
             Yaml::Hash(entries)
         }
     }
-    fn collect_script_lines(script: Vec<StringLike>) -> StringLike {
-        let lines = script
-            .into_iter()
-            .map(|line| match line {
-                Either::A(expr) => expr.as_expression_string(),
-                Either::B(raw) => raw,
-            })
-            .collect::<Vec<String>>()
-            .join("\n");
-        Either::B(lines)
-    }
-
     /// Generate a `Step` from a list of shell commands.
     ///
     /// Parameters
@@ -2701,7 +2719,6 @@ mod yamloom {
             continue_on_error.as_ref(),
             timeout_minutes.as_ref(),
         )?;
-        let script = collect_script_lines(script);
         Ok(Step {
             name,
             step_action: StepAction::Run(script),
@@ -6418,7 +6435,7 @@ mod yamloom {
 fn yaml_to_json(yaml: &Yaml) -> PyResult<Value> {
     Ok(match yaml {
         Yaml::Real(v) => {
-            if v.contains("${{") && v.contains("}}") {
+            if contains_github_expression(v) {
                 Value::String(v.clone())
             } else {
                 Value::Number(

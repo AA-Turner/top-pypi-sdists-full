@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dukpy
-Version: 0.5.0
+Version: 0.5.1
 Summary: Simple JavaScript interpreter for Python
 Home-page: https://github.com/amol-/dukpy
 Author: Alessandro Molina
@@ -11,15 +11,14 @@ Project-URL: CI: Travis, https://travis-ci.org/amol-/dukpy
 Project-URL: GitHub: issues, https://github.com/amol-/dukpy/issues
 Project-URL: GitHub: repo, https://github.com/amol-/dukpy
 Keywords: javascript compiler babeljs jsx coffeescript typescript
-Platform: UNKNOWN
 Classifier: Development Status :: 3 - Alpha
 Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: JavaScript
 Provides-Extra: testing
 Provides-Extra: webassets
@@ -342,5 +341,3 @@ The same functionality is also provided by the ``dukpy-install`` shell command::
 
 Please note that currently `install_jspackage` is not able to resolve conflicting
 dependencies.
-
-

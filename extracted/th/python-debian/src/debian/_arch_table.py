@@ -23,15 +23,17 @@ other people.  Copyright years imported from the sources.
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+from __future__ import annotations
+
 import os
 from os import PathLike
-from typing import Iterable, Optional, IO, List, Dict, Union
+from typing import Iterable, IO
 
 import collections.abc
 
 
-def _parse_table_file(fd):
-    # type: (IO[str]) -> Iterable[List[str]]
+def _parse_table_file(fd: IO[str]) -> Iterable[list[str]]:
     for line in fd:
         line = line.rstrip()
         if not line or line.startswith("#"):
@@ -45,8 +47,7 @@ _QuadTuple = collections.namedtuple("_QuadTuple", ['api_name', 'libc_name', 'os_
 class QuadTupleDpkgArchitecture(_QuadTuple):
     """Implementation detail of ArchTable"""
 
-    def __contains__(self, item):
-        # type: (object) -> bool
+    def __contains__(self, item: object) -> bool:
         if isinstance(item, QuadTupleDpkgArchitecture):
             # This covers both equal and wildcard matches and semantically matches how dpkg does it
             return self.api_name in ('any', item.api_name) \
@@ -62,16 +63,21 @@ class QuadTupleDpkgArchitecture(_QuadTuple):
 
 class DpkgArchTable:
 
-    def __init__(self, arch2tuple):
-        # type: (Dict[str, QuadTupleDpkgArchitecture]) -> None
+    def __init__(self,
+                 arch2tuple: dict[str, QuadTupleDpkgArchitecture],
+                 cputable: dict[str, tuple[str, ...]],
+                 ostable: dict[str, tuple[str, ...]]
+                ) -> None:
         self._arch2table = arch2tuple
-        self._wildcard_cache = {
+        self._cputable = cputable
+        self._ostable = ostable
+        self._wildcard_cache: dict[str, QuadTupleDpkgArchitecture] = {
             'any': QuadTupleDpkgArchitecture('any', 'any', 'any', 'any')
-        }  # type: Dict[str, QuadTupleDpkgArchitecture]
+        }
 
     @classmethod
-    def load_arch_table(cls, path='/usr/share/dpkg'):
-        # type: (Union[str, PathLike[str]]) -> DpkgArchTable
+    def load_arch_table(cls,
+                        path: str | PathLike[str] = '/usr/share/dpkg') -> DpkgArchTable:
         # NOTE! This method is stubbed in including doctests to support non-Debian systems
         #   See conftest.py for the concrete implementation and the limited data set available.
         """Load the Dpkg Architecture Table
@@ -89,6 +95,7 @@ class DpkgArchTable:
           "cputable")
         """
         tupletable_path = os.path.join(path, 'tupletable')
+        ostable_path = os.path.join(path, 'ostable')
         cputable_path = os.path.join(path, 'cputable')
         triplet_compat = False
         if not os.path.exists(tupletable_path):
@@ -98,14 +105,28 @@ class DpkgArchTable:
                 tupletable_path = triplettable_path
 
         with open(tupletable_path, encoding='utf-8') as tuple_fd,\
+                open(ostable_path, encoding='utf-8') as os_fd,\
                 open(cputable_path, encoding='utf-8') as cpu_fd:
-            return cls._from_file(tuple_fd, cpu_fd, triplet_compat=triplet_compat)
+            return cls._from_file(tuple_fd, os_fd, cpu_fd, triplet_compat=triplet_compat)
 
     @classmethod
-    def _from_file(cls, tuple_table_fd, cpu_table_fd, triplet_compat=False):
-        # type: (IO[str], IO[str], bool) -> DpkgArchTable
-        arch2tuple = {}  # type: Dict[str, QuadTupleDpkgArchitecture]
-        cpu_list = [x[0] for x in _parse_table_file(cpu_table_fd)]
+    def _from_file(
+        cls,
+        tuple_table_fd: IO[str],
+        os_table_fd: IO[str],
+        cpu_table_fd: IO[str],
+        triplet_compat: bool = False
+    ) -> DpkgArchTable:
+        arch2tuple: dict[str, QuadTupleDpkgArchitecture] = {}
+        cputable = {} # Dict[str, Tuple[str, ...]]
+        ostable = {} # Dict[str, Tuple[str, ...]]
+
+        for row in _parse_table_file(os_table_fd):
+            ostable[row[0]] = tuple(row[1:])
+        for row in _parse_table_file(cpu_table_fd):
+            cputable[row[0]] = tuple(row[1:])
+
+        cpu_list = list(cputable.keys())
         for row in _parse_table_file(tuple_table_fd):
             # Manual unpack (so we support new columns)
             dpkg_tuple = row[0]
@@ -118,15 +139,15 @@ class DpkgArchTable:
                 for cpu_name in cpu_list:
                     debtuple_cpu = dpkg_tuple.replace('<cpu>', cpu_name)
                     dpkg_arch_cpu = dpkg_arch.replace('<cpu>', cpu_name)
-                    arch2tuple[dpkg_arch_cpu] = QuadTupleDpkgArchitecture(
-                        *debtuple_cpu.split('-', 3)
-                    )
+                    if dpkg_arch_cpu not in arch2tuple:
+                        arch2tuple[dpkg_arch_cpu] = QuadTupleDpkgArchitecture(
+                            *debtuple_cpu.split('-', 3)
+                        )
             else:
                 arch2tuple[dpkg_arch] = QuadTupleDpkgArchitecture(*dpkg_tuple.split('-', 3))
-        return DpkgArchTable(arch2tuple)
+        return DpkgArchTable(arch2tuple, cputable, ostable)
 
-    def _dpkg_wildcard_to_tuple(self, arch):
-        # type: (str) -> QuadTupleDpkgArchitecture
+    def _dpkg_wildcard_to_tuple(self, arch: str) -> QuadTupleDpkgArchitecture:
         try:
             return self._wildcard_cache[arch]
         except KeyError:
@@ -144,15 +165,41 @@ class DpkgArchTable:
         self._wildcard_cache[arch] = result
         return result
 
-    def _dpkg_arch_to_tuple(self, dpkg_arch):
-        # type: (str) -> QuadTupleDpkgArchitecture
+    def _dpkg_arch_to_tuple(self, dpkg_arch: str) -> QuadTupleDpkgArchitecture:
         if dpkg_arch.startswith("linux-"):
             dpkg_arch = dpkg_arch[6:]
 
         return self._arch2table[dpkg_arch]
 
-    def matches_architecture(self, architecture, alias):
-        # type: (str, str) -> bool
+    def dpkg_arch_to_multiarch(self, dpkg_arch: str) -> str:
+        """Return the multiarch name for a given dpkg architecture [debarch_to_multiarch]
+
+        This method is the closest match to dpkg's Dpkg::Arch::debarch_to_multiarch function.
+
+        >>> arch_table = DpkgArchTable.load_arch_table()
+        >>> arch_table.dpkg_arch_to_multiarch("amd64")
+        'x86_64-linux-gnu'
+        >>> arch_table.dpkg_arch_to_multiarch("armhf")
+        'arm-linux-gnueabihf'
+
+        :param dpkg_arch: A string representing a dpkg architecture.
+        :returns: The multiarch name corresponding to the dpkg architecture.
+        """
+        debtuple = self._arch2table[dpkg_arch]
+        abi = debtuple.api_name
+        libc = debtuple.libc_name
+        osname = debtuple.os_name
+        cpu = debtuple.cpu_name
+
+        assert cpu in self._cputable
+        assert f'{abi}-{libc}-{osname}' in self._ostable
+        gnutriplet = '-'.join((
+                             self._cputable[cpu][0],
+                             self._ostable[f'{abi}-{libc}-{osname}'][0]
+                         ))
+        return gnutriplet.replace('i686', 'i386')
+
+    def matches_architecture(self, architecture: str, alias: str) -> bool:
         """Determine if a dpkg architecture matches another architecture or a wildcard [debarch_is]
 
         This method is the closest match to dpkg's Dpkg::Arch::debarch_is function.
@@ -221,8 +268,7 @@ class DpkgArchTable:
             return False
         return dpkg_arch in dpkg_wildcard
 
-    def architecture_equals(self, arch1, arch2):
-        # type: (str, str) -> bool
+    def architecture_equals(self, arch1: str, arch2: str) -> bool:
         """Determine whether two dpkg architecture are exactly the same [debarch_eq]
 
         Unlike Python's `==` operator, this method also accounts for things like `linux-amd64` is
@@ -265,10 +311,9 @@ class DpkgArchTable:
             return False
         return dpkg_arch1 == dpkg_arch2
 
-    def architecture_is_concerned(self, architecture, architecture_restrictions,
-                                  allow_mixing_positive_and_negative=False,
-                                  ):
-        # type: (str, Iterable[str], bool) -> bool
+    def architecture_is_concerned(self, architecture: str, architecture_restrictions: Iterable[str],
+                                  allow_mixing_positive_and_negative: bool = False,
+                                  ) -> bool:
         """Determine if a dpkg architecture is part of a list of restrictions [debarch_is_concerned]
 
         This method is the closest match to dpkg's Dpkg::Arch::debarch_is_concerned function.
@@ -311,7 +356,7 @@ class DpkgArchTable:
         # allow_mixing_positive_and_negative=False even if the input matches before the
         # inconsistency is detected.
 
-        verdict = None  # type: Optional[bool]
+        verdict: bool | None = None
         positive_match_seen = False
         negative_match_seen = False
         arch_restriction_iter = iter(architecture_restrictions)
@@ -367,8 +412,7 @@ class DpkgArchTable:
             verdict = negative_match_seen
         return verdict
 
-    def is_wildcard(self, wildcard):
-        # type: (str) -> bool
+    def is_wildcard(self, wildcard: str) -> bool:
         """Determine if a given string is a dpkg wildcard [debarch_is_wildcard]
 
         This method is the closest match to dpkg's Dpkg::Arch::debarch_is_wildcard function.

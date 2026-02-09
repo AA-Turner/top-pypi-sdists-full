@@ -24,10 +24,10 @@ if os.getenv('SPELLCHECK'):
 source_suffix = '.rst'
 master_doc = 'index'
 project = 'Python-ASN1'
-year = '2007-2022'
+year = '2007-2026'
 author = 'Sebastien Andrivet'
 copyright = '{0}, {1}'.format(year, author)
-version = release = '3.1.0'
+version = release = '3.2.0'
 
 pygments_style = 'trac'
 templates_path = ['.']
@@ -36,9 +36,7 @@ extlinks = {
     'pr': ('https://github.com/andrivet/python-asn1/pull/%s', 'PR #'),
 }
 
-import sphinx_rtd_theme
 html_theme = "sphinx_rtd_theme"
-html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 html_theme_options = {
 }
 

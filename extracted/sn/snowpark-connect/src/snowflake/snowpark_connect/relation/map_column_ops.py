@@ -178,13 +178,6 @@ def map_drop(
         column_qualifiers=[c.qualifiers for c in new_columns],
         parent_column_name_map=column_map,
         equivalent_snowpark_names=[c.equivalent_snowpark_names for c in new_columns],
-        cached_schema_getter=lambda: StructType(
-            [
-                f
-                for f in input_df.schema.fields
-                if f.name not in _get_column_names_to_drop()
-            ]
-        ),
     )
 
 

@@ -141,6 +141,7 @@ class VariablesManager(object):
     def add_variable(self, value: Any, name: Optional[str] = None, description: Optional[str] = None) -> str:
         """
         Add a new variable with an optional name or auto-generated name and description.
+        If a variable with the same name exists, it will be updated.
 
         Args:
             value (Any): The value to store
@@ -148,7 +149,7 @@ class VariablesManager(object):
             description (Optional[str]): Optional description of the variable
 
         Returns:
-            str: The name of the variable that was created
+            str: The name of the variable that was created or updated
         """
         is_new = True
         original_name = name
@@ -162,12 +163,9 @@ class VariablesManager(object):
                 if num >= self.variable_counter:
                     self.variable_counter = num
 
+            # Check if variable already exists - if so, we'll update it
             if name in self.variables:
-                suffix = 1
-                base_name = name
-                while f"{base_name}_{suffix}" in self.variables:
-                    suffix += 1
-                name = f"{base_name}_{suffix}"
+                is_new = False
 
         self.variables[name] = VariableMetadata(value, description)
 

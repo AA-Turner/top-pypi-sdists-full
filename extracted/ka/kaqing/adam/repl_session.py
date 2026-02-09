@@ -3,7 +3,8 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 
 from adam.config import Config
-from adam.utils import ConfigHolder, LogFile
+from adam.utils import ConfigHolder
+from adam.utils_log import LogFile
 
 class ReplSession:
     # the singleton pattern

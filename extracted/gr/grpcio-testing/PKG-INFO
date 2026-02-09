@@ -1,14 +1,22 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: grpcio-testing
-Version: 1.76.0
+Version: 1.78.0
 Summary: Testing utilities for gRPC Python
-Home-page: https://grpc.io
-Author: The gRPC Authors
-Author-email: grpc-io@googlegroups.com
-License: Apache License 2.0
+Author-email: The gRPC Authors <grpc-io@googlegroups.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://grpc.io
+Project-URL: Documentation, https://grpc.github.io/grpc/python/grpc_testing.html
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: protobuf<7.0.0,>=6.31.1
-Requires-Dist: grpcio>=1.76.0
+Requires-Dist: grpcio>=1.78.0
+Dynamic: classifier
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
 
 gRPC Python Testing Package
 ===========================

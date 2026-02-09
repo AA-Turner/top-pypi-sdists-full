@@ -1,0 +1,31 @@
+# This file makes it easy to run integration tests locally
+# podman-compose up --abort-on-container-exit --exit-code-from test
+
+services:
+  test:
+    build:
+      target: woodpecker
+    environment:
+      CI_ACCOUNT1: slix-ci-1@prosody
+      CI_ACCOUNT1_PASSWORD: slix-ci-1-pass
+      CI_ACCOUNT2: slix-ci-2@prosody
+      CI_ACCOUNT2_PASSWORD: slix-ci-2-pass
+      CI_MUC_SERVER: muc.prosody
+    volumes_from:
+      - prosody
+    volumes:
+      - ./slixmpp:/io/slixmpp:ro
+      - ./itests:/io/itests:ro
+      - ./run_integration_tests.py:/io/run_integration_tests.py:ro
+    working_dir: /io/
+    command: |
+      bash -c "uv pip install aiohttp &&
+               /.venv/bin/python run_integration_tests.py --debug"
+    depends_on:
+      - prosody
+
+  prosody:
+    build:
+      target: prosody
+    volumes:
+      - ./itests/prosody.cfg.lua:/etc/prosody/prosody.cfg.lua

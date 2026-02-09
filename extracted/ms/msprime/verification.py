@@ -1,57 +1,40 @@
-"""
-Script to automate verification of msprime against known statistical
-results and benchmark programs such as ms and Seq-Gen.
-
-Tests are structured in a similar way to Python unittests. Tests
-are organised into classes of similar tests. Ideally, each test
-in the class is a simple call to a general method with
-different parameters (this is called ``_run``, by convention).
-Tests must be *independent* and not depend on any shared
-state within the test class, other than the ``self.output_dir``
-variable which is guaranteed to be set when the method is called.
-
-The output directory is <output-dir>/<class name>/<test name>.
-Each test should output one or more diagnostic plots, which have
-a clear interpretation as "correct" or "incorrect". QQ-plots
-are preferred, where possible. Numerical results can also be
-output by using ``logging.debug()``, where appropriate; to
-view these, append ``--debug`` to the comand line running
-your tests.
-
-Test classes must be a subclass of the ``Test`` class defined
-in this module.
-
-To run the tests, first get some help from the CLI:
-
-    python3 verification.py --help
-
-This will output some basic help on the tests. Use
-
-    python3 verification.py --list
-
-to show all the available tests.
-
-If you run without any arguments, this will run all the tests
-sequentially. The progress bar and output behaviour can be
-controlled using command line parameters, and running over
-multiple processes is possible.
-
-If you wish to run a specific tests, you can provide the
-test names as positional arguments, i.e.,
-
-    python3 verification.py test_msdoc_outgroup_sequence test_msdoc_recomb_ex
-
-will just run these two specific tests.
-
-Using the ``-c`` option allows you to run all tests in a
-given class.
-
-Gotchas:
-- Any test superclasses must be abstract. That is, you cannot
-  inherit from a test class that contains any tests.
-- Test method names must be unique across *all* classes.
-
-"""
+# Script to automate verification of msprime against known statistical
+# results and benchmark programs such as ms and Seq-Gen.
+# Tests are structured in a similar way to Python unittests. Tests
+# are organised into classes of similar tests. Ideally, each test
+# in the class is a simple call to a general method with
+# different parameters (this is called ``_run``, by convention).
+# Tests must be *independent* and not depend on any shared
+# state within the test class, other than the ``self.output_dir``
+# variable which is guaranteed to be set when the method is called.
+# The output directory is <output-dir>/<class name>/<test name>.
+# Each test should output one or more diagnostic plots, which have
+# a clear interpretation as "correct" or "incorrect". QQ-plots
+# are preferred, where possible. Numerical results can also be
+# output by using ``logging.debug()``, where appropriate; to
+# view these, append ``--debug`` to the comand line running
+# your tests.
+# Test classes must be a subclass of the ``Test`` class defined
+# in this module.
+# To run the tests, first get some help from the CLI:
+#     python3 verification.py --help
+# This will output some basic help on the tests. Use
+#     python3 verification.py --list
+# to show all the available tests.
+# If you run without any arguments, this will run all the tests
+# sequentially. The progress bar and output behaviour can be
+# controlled using command line parameters, and running over
+# multiple processes is possible.
+# If you wish to run a specific tests, you can provide the
+# test names as positional arguments, i.e.,
+#     python3 verification.py test_msdoc_outgroup_sequence test_msdoc_recomb_ex
+# will just run these two specific tests.
+# Using the ``-c`` option allows you to run all tests in a
+# given class.
+# Gotchas:
+# - Any test superclasses must be abstract. That is, you cannot
+#   inherit from a test class that contains any tests.
+# - Test method names must be unique across *all* classes.
 import argparse
 import ast
 import collections
@@ -75,6 +58,7 @@ import attr
 import daiquiri
 import dendropy
 import matplotlib
+import matplotlib.colors as mcolors
 import numpy as np
 import pandas as pd
 import pyslim
@@ -124,6 +108,10 @@ def hk_f(n, z):
     else:
         ret = sum(1 / j**2 for j in range(1, n)) * hk_f(2, z)
     return ret
+
+
+def chisquare_stat(observed, expected):
+    return np.sum((observed - expected) ** 2 / expected)
 
 
 def get_predicted_variance(n, R):
@@ -3834,46 +3822,50 @@ class HudsonAnalytical(Test):
         gc_length = np.array([100, 50, 20])
         gc_rate = 0.25 / (gc_length_rate_ratio * gc_length)
         seq_length = 500
+        # NOTE GC is not supported in SMCK. issue #2399
+        models = ["hudson"]
         predicted_prob = np.zeros([gc_length_rate_ratio.size, seq_length], dtype=float)
         empirical_prob_first = np.zeros(
-            [gc_length_rate_ratio.size, seq_length], dtype=float
+            [2, gc_length_rate_ratio.size, seq_length], dtype=float
         )
         empirical_prob_mid = np.zeros(
-            [gc_length_rate_ratio.size, seq_length], dtype=float
+            [2, gc_length_rate_ratio.size, seq_length], dtype=float
         )
         empirical_prob_last = np.zeros(
-            [gc_length_rate_ratio.size, seq_length], dtype=float
+            [2, gc_length_rate_ratio.size, seq_length], dtype=float
         )
 
         for k, l in enumerate(gc_length):
-            same_root_count_first = np.zeros(seq_length)
-            same_root_count_mid = np.zeros(seq_length)
-            same_root_count_last = np.zeros(seq_length)
-            replicates = msprime.sim_ancestry(
-                samples=sample_size,
-                sequence_length=seq_length,
-                gene_conversion_rate=gc_rate[k],
-                gene_conversion_tract_length=gc_length[k],
-                num_replicates=R,
-            )
-            for ts in replicates:
-                firstroot = ts.first().root
-                lastroot = ts.last().root
-                for tree in ts.trees():
-                    left, right = tree.interval
-                    if left <= seq_length / 2 < right:
-                        midroot = tree.root
-                for tree in ts.trees():
-                    left, right = map(int, tree.interval)
-                    if firstroot == tree.root:
-                        same_root_count_first[left:right] += 1
-                    if lastroot == tree.root:
-                        same_root_count_last[left:right] += 1
-                    if midroot == tree.root:
-                        same_root_count_mid[left:right] += 1
-            empirical_prob_first[k, :] = same_root_count_first / R
-            empirical_prob_last[k, :] = same_root_count_last / R
-            empirical_prob_mid[k, :] = same_root_count_mid / R
+            for j, model in enumerate(models):
+                same_root_count_first = np.zeros(seq_length)
+                same_root_count_mid = np.zeros(seq_length)
+                same_root_count_last = np.zeros(seq_length)
+                replicates = msprime.sim_ancestry(
+                    samples=sample_size,
+                    sequence_length=seq_length,
+                    gene_conversion_rate=gc_rate[k],
+                    gene_conversion_tract_length=gc_length[k],
+                    num_replicates=R,
+                    model=model,
+                )
+                for ts in replicates:
+                    firstroot = ts.first().root
+                    lastroot = ts.last().root
+                    for tree in ts.trees():
+                        left, right = tree.interval
+                        if left <= seq_length / 2 < right:
+                            midroot = tree.root
+                    for tree in ts.trees():
+                        left, right = map(int, tree.interval)
+                        if firstroot == tree.root:
+                            same_root_count_first[left:right] += 1
+                        if lastroot == tree.root:
+                            same_root_count_last[left:right] += 1
+                        if midroot == tree.root:
+                            same_root_count_mid[left:right] += 1
+                empirical_prob_first[j, k, :] = same_root_count_first / R
+                empirical_prob_last[j, k, :] = same_root_count_last / R
+                empirical_prob_mid[j, k, :] = same_root_count_mid / R
             # Predicted prob
             # From Wiuf, Hein, 2000, eqn (15), pg. 457
             rG = (
@@ -3883,11 +3875,14 @@ class HudsonAnalytical(Test):
 
         x = np.arange(500) + 1
         pyplot.plot(x, predicted_prob[0], "--", label="prediction")
-        pyplot.plot(x, empirical_prob_first[0], "-", label="simulation")
+        pyplot.plot(x, empirical_prob_first[0, 0], "-", label="simulation hudson")
+        pyplot.plot(x, empirical_prob_first[1, 0], ":", label="simulation smc-k")
         pyplot.plot(x, predicted_prob[1], "--")
-        pyplot.plot(x, empirical_prob_first[1], "-")
+        pyplot.plot(x, empirical_prob_first[0, 1], "-")
+        pyplot.plot(x, empirical_prob_first[1, 1], ":")
         pyplot.plot(x, predicted_prob[2], "--")
-        pyplot.plot(x, empirical_prob_first[2], "-")
+        pyplot.plot(x, empirical_prob_first[0, 2], "-")
+        pyplot.plot(x, empirical_prob_first[1, 2], ":")
         pyplot.xlabel("chromosome positon")
         pyplot.ylabel("fraction of trees identical to first position tree")
         pyplot.legend(loc="upper right")
@@ -3895,11 +3890,14 @@ class HudsonAnalytical(Test):
         pyplot.close("all")
 
         pyplot.plot(x, predicted_prob[0, ::-1], "--", label="prediction")
-        pyplot.plot(x, empirical_prob_last[0], "-", label="simulation")
+        pyplot.plot(x, empirical_prob_last[0, 0], "-", label="simulation hudson")
+        pyplot.plot(x, empirical_prob_last[1, 0], ":", label="simulation smc-k")
         pyplot.plot(x, predicted_prob[1, ::-1], "--")
-        pyplot.plot(x, empirical_prob_last[1], "-")
+        pyplot.plot(x, empirical_prob_last[0, 1], "-")
+        pyplot.plot(x, empirical_prob_last[1, 1], ":")
         pyplot.plot(x, predicted_prob[2, ::-1], "--")
-        pyplot.plot(x, empirical_prob_last[2], "-")
+        pyplot.plot(x, empirical_prob_last[0, 2], "-")
+        pyplot.plot(x, empirical_prob_last[1, 2], ":")
         pyplot.xlabel("chromosome positon")
         pyplot.ylabel("fraction of trees identical to last position tree")
         pyplot.legend(loc="upper left")
@@ -3912,19 +3910,22 @@ class HudsonAnalytical(Test):
             "--",
             label="prediction",
         )
-        pyplot.plot(x, empirical_prob_mid[0], "-", label="simulation")
+        pyplot.plot(x, empirical_prob_mid[0, 0], "-", label="simulation hudson")
+        pyplot.plot(x, empirical_prob_mid[1, 0], ":", label="simulation smc-k")
         pyplot.plot(
             x,
             np.concatenate((predicted_prob[1, 249::-1], predicted_prob[1, :250])),
             "--",
         )
-        pyplot.plot(x, empirical_prob_mid[1], "-")
+        pyplot.plot(x, empirical_prob_mid[0, 1], "-")
+        pyplot.plot(x, empirical_prob_mid[1, 1], ":")
         pyplot.plot(
             x,
             np.concatenate((predicted_prob[2, 249::-1], predicted_prob[2, :250])),
             "--",
         )
-        pyplot.plot(x, empirical_prob_mid[2], "-")
+        pyplot.plot(x, empirical_prob_mid[0, 2], "-")
+        pyplot.plot(x, empirical_prob_mid[1, 2], ":")
         pyplot.xlabel("chromosome positon")
         pyplot.ylabel("fraction of trees identical to middle position tree")
         pyplot.legend(loc="upper right")
@@ -3933,11 +3934,18 @@ class HudsonAnalytical(Test):
 
         x = np.arange(10) + 1
         pyplot.plot(x, predicted_prob[0, range(10)], "--", label="prediction")
-        pyplot.plot(x, empirical_prob_first[0, range(10)], "-", label="simulation")
+        pyplot.plot(
+            x, empirical_prob_first[0, 0, range(10)], "-", label="simulation hudson"
+        )
+        pyplot.plot(
+            x, empirical_prob_first[1, 0, range(10)], ":", label="simulation smc-k"
+        )
         pyplot.plot(x, predicted_prob[1, range(10)], "--")
-        pyplot.plot(x, empirical_prob_first[1, range(10)], "-")
+        pyplot.plot(x, empirical_prob_first[0, 1, range(10)], "-")
+        pyplot.plot(x, empirical_prob_first[1, 1, range(10)], ":")
         pyplot.plot(x, predicted_prob[2, range(10)], "--")
-        pyplot.plot(x, empirical_prob_first[2, range(10)], "-")
+        pyplot.plot(x, empirical_prob_first[0, 2, range(10)], "-")
+        pyplot.plot(x, empirical_prob_first[1, 2, range(10)], ":")
         pyplot.xlabel("chromosome positon")
         pyplot.ylabel("fraction of trees identical to first position tree")
         pyplot.legend(loc="upper right")
@@ -4520,7 +4528,473 @@ class SmcTest(Test):
         pyplot.close("all")
 
 
-class SimulateFrom(Test):
+class SmcKTest(Test):
+    """
+    Tests for the SMCK model.
+    SMC(0) is compared against rejection sampling SMC (SmcApproxCoalescent).
+    """
+
+    models = {
+        "SmcKApprox": msprime.SMCK(k=0.0),
+        "smc": msprime.SmcApproxCoalescent(),
+    }
+
+    def run_Smck_SMCK_stats(self, initial_condition=False, **kwargs):
+        df_list = []
+
+        for model, model_cls in self.models.items():
+
+            if initial_condition:
+                kwargs["model"] = [msprime.StandardCoalescent(duration=50), model_cls]
+            else:
+                kwargs["model"] = model_cls
+
+            logging.debug(f"Running: {kwargs}")
+            data = collections.defaultdict(list)
+            replicates = msprime.sim_ancestry(**kwargs)
+            for ts in replicates:
+                t_mrca = np.zeros(ts.num_trees)
+                t_intervals = []
+                for tree in ts.trees():
+                    t_mrca[tree.index] = tree.time(tree.root)
+                    t_intervals.append(tree.interval)
+                data["tmrca_mean"].append(np.mean(t_mrca))
+                data["num_trees"].append(ts.num_trees)
+                data["intervals"].append(t_intervals)
+                data["model"].append(model)
+            df_list.append(pd.DataFrame(data))
+        return pd.concat(df_list)
+
+    def plot_SmcKApprox_smcK_stats(self, df):
+        df_SmcKApprox = df[df.model == "SmcKApprox"]
+        df_smcK = df[df.model == "smc"]
+        for stat in ["tmrca_mean", "num_trees"]:
+            plot_qq(df_SmcKApprox[stat], df_smcK[stat])
+            f = self.output_dir / f"{stat}.png"
+            pyplot.savefig(f, dpi=72)
+            pyplot.close("all")
+
+        SmcKApprox_breakpoints = all_breakpoints_in_replicates(
+            df_SmcKApprox["intervals"]
+        )
+        smcK_breakpoints = all_breakpoints_in_replicates(df_smcK["intervals"])
+        if len(SmcKApprox_breakpoints) > 0 or len(smcK_breakpoints) > 0:
+            plot_breakpoints_hist(
+                SmcKApprox_breakpoints, smcK_breakpoints, "SmcKApprox", "smc"
+            )
+            pyplot.savefig(self.output_dir / "breakpoints.png", dpi=72)
+            pyplot.close("all")
+
+    def plot_tree_intervals(self, df):
+        fig, ax_arr = pyplot.subplots(2, 1)
+        for subplot_idx, model in enumerate(self.models):
+            intervals = df[df.model == model]["intervals"][0]
+            for i, interval in enumerate(intervals):
+                left, right = interval
+                ax_arr[subplot_idx].set_title(model)
+                ax_arr[subplot_idx].set_ylabel("tree index")
+                ax_arr[subplot_idx].plot([left, right], [i, i], c="grey")
+
+        ax_arr[1].set_xlabel("tree interval")
+        pyplot.tight_layout()
+        pyplot.savefig(self.output_dir / "intervals.png", dpi=72)
+        pyplot.close("all")
+
+    def plot_gc_metric(self, df, metric, ylabel, discrete_genome):
+
+        grouped = (
+            df.groupby(["tract_length", "model"])[metric]
+            .agg(["mean", "std"])
+            .reset_index()
+        )
+        smc_means = grouped[grouped["model"] == "SMC"]["mean"]
+        smc_stds = grouped[grouped["model"] == "SMC"]["std"]
+        smck_means = grouped[grouped["model"] == "SMCK"]["mean"]
+        smck_stds = grouped[grouped["model"] == "SMCK"]["std"]
+        hudson_means = grouped[grouped["model"] == "Hudson"]["mean"]
+        hudson_stds = grouped[grouped["model"] == "Hudson"]["std"]
+
+        tract_lengths = grouped["tract_length"].unique()
+        x = np.arange(len(tract_lengths))
+        width = 0.25
+
+        filename = f"{metric}_discrete={int(discrete_genome)}.png"
+
+        fig, ax = pyplot.subplots(figsize=(10, 6))
+        ax.bar(x - width, smc_means, width, yerr=smc_stds, capsize=5, label="SMC")
+        ax.bar(x, smck_means, width, yerr=smck_stds, capsize=5, label="SMCK")
+        ax.bar(
+            x + width, hudson_means, width, yerr=hudson_stds, capsize=5, label="Hudson"
+        )
+        ax.set_xticks(x)
+        ax.set_xticklabels([str(tl) for tl in tract_lengths], rotation=45)
+        ax.set_xlabel("Tract length (l)")
+        ax.set_ylabel(ylabel)
+        ax.set_title(
+            f"{ylabel} comparison (discrete={int(discrete_genome)}). "
+            "Error bars equals 1 standard deviation."
+        )
+        ax.legend()
+        pyplot.tight_layout()
+        pyplot.savefig(self.output_dir / filename)
+        pyplot.close()
+
+    def _run(self, **kwargs):
+        df = self.run_Smck_SMCK_stats(**kwargs)
+        self.plot_SmcKApprox_smcK_stats(df)
+        self.plot_tree_intervals(df)
+
+        # test with initial conditions
+        df = self.run_Smck_SMCK_stats(initial_condition=True, **kwargs)
+        self.output_dir = self.output_dir.parent / (
+            self.output_dir.name + "_with_initial_conditions"
+        )
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+
+        self.plot_SmcKApprox_smcK_stats(df)
+        self.plot_tree_intervals(df)
+
+    def test_smc_k_oldest_time(self):
+        """
+        Runs the check for number of trees using the CLI.
+        """
+        r = 1e-8  # Per generation recombination rate.
+        num_loci = np.linspace(100, 10**5, 10).astype(int)
+        Ne = 10**4
+        n = 100
+        rho = r * 4 * Ne * (num_loci - 1)
+        num_replicates = 1000
+        smck_zero_mean = np.zeros_like(rho)
+        smck_one_mean = np.zeros_like(rho)
+        smck_inf_mean = np.zeros_like(rho)
+        msp_mean = np.zeros_like(rho)
+        msp_smc_mean = np.zeros_like(rho)
+        msp_smc_prime_mean = np.zeros_like(rho)
+
+        for j in range(len(num_loci)):
+            for dest, model in [
+                (smck_zero_mean, msprime.SMCK(k=0.0)),
+                (smck_one_mean, msprime.SMCK(k=1.0)),
+                (smck_inf_mean, msprime.SMCK(k=num_loci[j])),
+                (msp_mean, "hudson"),
+                (msp_smc_mean, "smc"),
+                (msp_smc_prime_mean, "smc_prime"),
+            ]:
+                replicates = msprime.simulate(
+                    sample_size=n,
+                    length=num_loci[j],
+                    recombination_rate=r,
+                    Ne=Ne,
+                    num_replicates=num_replicates,
+                    model=model,
+                )
+                T = np.zeros(num_replicates)
+                for k, ts in enumerate(replicates):
+                    for record in ts.records():
+                        T[k] = max(T[k], record.time)
+                # Normalise back to coalescent time.
+                T /= 4 * Ne
+                dest[j] = np.mean(T)
+        pyplot.plot(rho, smck_zero_mean, "-", color="red", label="smc(0)")
+        pyplot.plot(rho, smck_one_mean, "-", color="blue", label="smc(1)")
+        pyplot.plot(rho, smck_inf_mean, "-", color="black", label="smc(inf)")
+        pyplot.plot(rho, msp_smc_mean, "--", color="red", label="smc_rejection")
+        pyplot.plot(
+            rho, msp_smc_prime_mean, "--", color="blue", label="smc_prime_rejection"
+        )
+        pyplot.plot(rho, msp_mean, "--", color="black", label="msprime")
+        pyplot.xlabel("rho")
+        pyplot.ylabel("Mean oldest coalescence time")
+        pyplot.legend(loc="lower right")
+        pyplot.savefig(self.output_dir / "mean.png")
+        pyplot.close("all")
+
+    def test_smc_k_num_trees(self):
+        """
+        Runs the check for number of trees in the SMC and full coalescent
+        using the API. We compare this with scrm using the SMC as a check.
+        """
+        r = 1e-8  # Per generation recombination rate.
+        L = np.linspace(100, 10**5, 10).astype(int)
+        Ne = 10**4
+        n = 100
+        rho = r * 4 * Ne * (L - 1)
+        num_replicates = 10_000
+        num_trees = np.zeros(num_replicates)
+        mean_exact = np.zeros_like(rho)
+        var_exact = np.zeros_like(rho)
+        mean_smc = np.zeros_like(rho)
+        var_smc = np.zeros_like(rho)
+        mean_smc_prime = np.zeros_like(rho)
+        var_smc_prime = np.zeros_like(rho)
+        mean_smc_k_zero = np.zeros_like(rho)
+        var_smc_k_zero = np.zeros_like(rho)
+        mean_smc_k_one = np.zeros_like(rho)
+        var_smc_k_one = np.zeros_like(rho)
+        mean_smc_k_inf = np.zeros_like(rho)
+        var_smc_k_inf = np.zeros_like(rho)
+
+        for j in range(len(L)):
+            for mean_array, var_array, k in zip(
+                [mean_smc_k_zero, mean_smc_k_one, mean_smc_k_inf],
+                [var_smc_k_zero, var_smc_k_one, var_smc_k_inf],
+                [0.0, 1.0, L[j]],
+            ):
+                smc_k_sim = msprime.ancestry._parse_simulate(
+                    sample_size=n,
+                    recombination_rate=r,
+                    Ne=Ne,
+                    length=L[j],
+                    model=msprime.SMCK(k=k),
+                )
+                for k in range(num_replicates):
+                    smc_k_sim.run()
+                    num_trees[k] = smc_k_sim.num_breakpoints
+                    smc_k_sim.reset()
+                mean_array[j] = np.mean(num_trees)
+                var_array[j] = np.var(num_trees)
+
+            exact_sim = msprime.ancestry._parse_simulate(
+                sample_size=n, recombination_rate=r, Ne=Ne, length=L[j]
+            )
+            for k in range(num_replicates):
+                exact_sim.run()
+                num_trees[k] = exact_sim.num_breakpoints
+                exact_sim.reset()
+            mean_exact[j] = np.mean(num_trees)
+            var_exact[j] = np.var(num_trees)
+
+            smc_sim = msprime.ancestry._parse_simulate(
+                sample_size=n, recombination_rate=r, Ne=Ne, length=L[j], model="smc"
+            )
+            for k in range(num_replicates):
+                smc_sim.run()
+                num_trees[k] = smc_sim.num_breakpoints
+                smc_sim.reset()
+            mean_smc[j] = np.mean(num_trees)
+            var_smc[j] = np.var(num_trees)
+
+            smc_prime_sim = msprime.ancestry._parse_simulate(
+                sample_size=n,
+                recombination_rate=r,
+                Ne=Ne,
+                length=L[j],
+                model="smc_prime",
+            )
+            for k in range(num_replicates):
+                smc_prime_sim.run()
+                num_trees[k] = smc_prime_sim.num_breakpoints
+                smc_prime_sim.reset()
+            mean_smc_prime[j] = np.mean(num_trees)
+            var_smc_prime[j] = np.var(num_trees)
+
+        pyplot.plot(rho, mean_exact, "o", label="msprime (hudson)")
+        pyplot.plot(rho, mean_smc, "^", label="msprime (smc)")
+        pyplot.plot(rho, mean_smc_prime, "*", label="msprime (smc_prime)")
+        pyplot.plot(rho, mean_smc_k_zero, "^", label="smc_k(0)")
+        pyplot.plot(rho, mean_smc_k_one, "*", label="smc_k(1)")
+        pyplot.plot(rho, mean_smc_k_inf, "o", label="smc_k(inf)")
+        pyplot.plot(rho, rho * harmonic_number(n - 1), "-")
+        pyplot.legend(loc="upper left")
+        pyplot.xlabel("scaled recombination rate rho")
+        pyplot.ylabel("Mean number of breakpoints")
+        pyplot.savefig(self.output_dir / "mean.png")
+        pyplot.close("all")
+
+        v = np.zeros(len(rho))
+        for j in range(len(rho)):
+            v[j] = get_predicted_variance(n, rho[j])
+        pyplot.plot(rho, var_exact, "o", label="msprime (hudson)")
+        pyplot.plot(rho, var_smc, "^", label="msprime (smc)")
+        pyplot.plot(rho, var_smc_prime, "*", label="msprime (smc_prime)")
+        pyplot.plot(rho, var_smc_k_zero, "x", label="smc_k(0)")
+        pyplot.plot(rho, var_smc_k_one, "x", label="smc_k(1)")
+        pyplot.plot(rho, var_smc_k_inf, "o", label="smc_k(inf)")
+        pyplot.plot(rho, v, "-")
+        pyplot.xlabel("scaled recombination rate rho")
+        pyplot.ylabel("variance in number of breakpoints")
+        pyplot.legend(loc="upper left")
+        pyplot.savefig(self.output_dir / "var.png")
+        pyplot.close("all")
+
+    def test_smck_vs_smckapprox_single_locus(self):
+        self._run(samples=10, population_size=1000, num_replicates=300)
+
+    def test_smck_vs_smckapprox_recomb_discrete_hotspots(self):
+        """
+        Checks the DTWF against the standard coalescent with a
+        discrete recombination map with variable rates.
+        """
+        recombination_map = msprime.RateMap(
+            position=[0, 100, 500, 900, 1200, 1500, 2000],
+            rate=[0.00001, 0, 0.0002, 0.00005, 0, 0.001],
+        )
+        self._run(
+            samples=10,
+            population_size=1000,
+            recombination_rate=recombination_map,
+            num_replicates=300,
+            discrete_genome=True,
+        )
+
+    def test_smck_vs_smckapprox_recomb_continuous_hotspots(self):
+        """
+        Checks the DTWF against the standard coalescent with a
+        continuous recombination map with variable rates.
+        """
+        recombination_map = msprime.RateMap(
+            position=[0, 0.1, 0.5, 0.9, 1.2, 1.5, 2.0],
+            rate=[0.00001, 0, 0.0002, 0.00005, 0, 0.001],
+        )
+        self._run(
+            samples=10,
+            population_size=1000,
+            recombination_rate=recombination_map,
+            num_replicates=300,
+            discrete_genome=False,
+        )
+
+    def test_smck_vs_smckapprox_single_forced_recombination(self):
+        recombination_map = msprime.RateMap(position=[0, 100, 101, 201], rate=[0, 1, 0])
+        self._run(
+            samples=10,
+            population_size=10,
+            num_replicates=300,
+            discrete_genome=True,
+            recombination_rate=recombination_map,
+        )
+
+    def test_smck_vs_smckapprox_low_recombination(self):
+        self._run(
+            samples=10,
+            population_size=1000,
+            num_replicates=400,
+            recombination_rate=0.01,
+            sequence_length=5,
+        )
+
+    def test_smck_vs_smckapprox_2_pops_massmigration(self):
+        demography = msprime.Demography.isolated_model([1000, 1000])
+        demography.add_mass_migration(time=10, source=1, dest=0, proportion=1.0)
+        self._run(
+            samples={0: 10, 1: 10},
+            demography=demography,
+            sequence_length=10**6,
+            num_replicates=300,
+            recombination_rate=1e-8,
+        )
+
+    def test_smck_vs_smckapprox_1_pop_growth(self):
+        self._run(
+            samples=10,
+            demography=msprime.Demography.isolated_model([1000], growth_rate=[0.01]),
+            recombination_rate=1e-8,
+            sequence_length=5e7,
+            num_replicates=300,
+            discrete_genome=True,
+        )
+
+    def test_smck_vs_smckapprox_1_pop_shrink(self):
+        initial_size = 1000
+        demography = msprime.Demography.isolated_model(
+            [initial_size], growth_rate=[-0.01]
+        )
+        demography.events.append(
+            msprime.PopulationParametersChange(
+                time=200, initial_size=initial_size, growth_rate=0.01, population=0
+            )
+        )
+        self._run(
+            samples=10,
+            demography=demography,
+            recombination_rate=1e-8,
+            sequence_length=5e7,
+            num_replicates=300,
+            discrete_genome=True,
+        )
+
+    def test_smck_vs_smckapprox_multiple_bottleneck(self):
+        demography = msprime.Demography.isolated_model([1000, 1000])
+        demography.events = [
+            msprime.PopulationParametersChange(
+                time=100, initial_size=100, growth_rate=-0.01, population=0
+            ),
+            msprime.PopulationParametersChange(
+                time=200, initial_size=100, growth_rate=-0.01, population=1
+            ),
+            msprime.PopulationParametersChange(
+                time=300, initial_size=1000, growth_rate=0.01, population=0
+            ),
+            msprime.PopulationParametersChange(
+                time=400, initial_size=1000, growth_rate=0.01, population=1
+            ),
+            msprime.PopulationParametersChange(
+                time=500, initial_size=100, growth_rate=0, population=0
+            ),
+            msprime.PopulationParametersChange(
+                time=600, initial_size=100, growth_rate=0, population=1
+            ),
+            msprime.MigrationRateChange(time=700, rate=0.1, matrix_index=(0, 1)),
+        ]
+        self._run(
+            samples={0: 5, 1: 5},
+            demography=demography,
+            num_replicates=400,
+            recombination_rate=1e-8,
+            sequence_length=5e7,
+        )
+
+    def test_out_of_africa_migration_model(self):
+        s_no = 1
+        samples = {
+            "YRI": s_no,
+            "CEU": s_no,
+            "CHB": s_no,
+            "OOA": s_no,
+            "AMH": s_no,
+            "ANC": s_no,
+        }
+        recombination_map = msprime.RateMap(
+            position=[0, 50, 250, 450, 600, 750, 1000],
+            rate=[0.00001, 0, 0.0002, 0.00005, 0, 0.001],
+        )
+
+        big_df = pd.DataFrame()
+        for model, model_cls in self.models.items():
+            tss = msprime.sim_ancestry(
+                samples=samples,
+                recombination_rate=recombination_map,
+                discrete_genome=True,
+                demography=msprime.Demography._ooa_model(),
+                record_migrations=True,
+                num_replicates=20,
+                model=model_cls,
+            )
+
+            for i, ts in enumerate(tss):
+                migrations_dic = ts.tables.migrations.asdict()
+
+                # to make the migration dict have the same number of
+                # rows, for df initialization
+                del migrations_dic["metadata_schema"]
+                del migrations_dic["metadata"]
+                del migrations_dic["metadata_offset"]
+                df = pd.DataFrame(migrations_dic)
+
+                df = df.groupby(["source", "dest"]).size().reset_index(name="count")
+
+                df["model"] = model
+                df["replicate"] = i
+                big_df = pd.concat([big_df, df], ignore_index=True)
+
+        smc_df = big_df[big_df["model"] == "smc"]
+        smck_df = big_df[big_df["model"] == "SmcKApprox"]
+
+        plot_qq(smc_df["count"], smck_df["count"])
+        f = self.output_dir / "qq.png"
+        pyplot.savefig(f, dpi=72)
+        pyplot.close("all")
+
     def test_simulate_from_single_locus(self):
         num_replicates = 1000
 
@@ -4839,6 +5313,184 @@ class SimulateFrom(Test):
             filename = self.output_dir / f"num_mig_events_t={t}.png"
             pyplot.savefig(filename, dpi=72)
             pyplot.close("all")
+
+
+class SimulateAboveRoot(Test):
+
+    colors = list(mcolors.TABLEAU_COLORS.values())
+
+    def run_above_root_stats(self, **kwargs):
+        kwargs = kwargs.copy()
+        df_list = []
+
+        for stop_at_local_mrca in [True, False]:
+            kwargs["stop_at_local_mrca"] = stop_at_local_mrca
+
+            logging.debug(f"Running: {kwargs}")
+            data = collections.defaultdict(list)
+            replicates = msprime.sim_ancestry(**kwargs)
+            for ts in replicates:
+
+                # we also simplify when the flag is True for consistency
+                ts = ts.simplify()
+
+                t_mrca = np.zeros(ts.num_trees)
+                for tree in ts.trees():
+                    if kwargs.get("model") == "fixed_pedigree":
+                        t_mrca[tree.index] = tree.time(tree.roots[-1])
+                    else:
+                        t_mrca[tree.index] = tree.time(tree.root)
+
+                data["tmrca_mean"].append(np.mean(t_mrca))
+                data["num_trees"].append(ts.num_trees)
+                data["num_nodes"].append(ts.num_nodes)
+                data["num_edges"].append(ts.num_edges)
+                data["stop_at_local_mrca"].append(stop_at_local_mrca)
+            df_list.append(pd.DataFrame(data))
+        return pd.concat(df_list)
+
+    def plot_above_root_stats(self, df):
+        df_above_root = df[~df.stop_at_local_mrca]
+        df_stop_at_local_mrca = df[df.stop_at_local_mrca]
+        for stat in ["tmrca_mean", "num_trees", "num_nodes", "num_edges"]:
+            plot_qq(df_above_root[stat], df_stop_at_local_mrca[stat])
+            f = self.output_dir / f"{stat}.png"
+            pyplot.savefig(f, dpi=72)
+            pyplot.close("all")
+
+    def _run(self, **kwargs):
+        df = self.run_above_root_stats(**kwargs)
+        self.plot_above_root_stats(df)
+
+    def test_above_root_single_locus(self):
+        self._run(samples=10, population_size=1000, num_replicates=300)
+
+    def test_above_root_gc(self):
+        self._run(
+            samples=10,
+            population_size=1000,
+            num_replicates=10_000,
+            sequence_length=100,
+            gene_conversion_rate=0.00001,
+            gene_conversion_tract_length=5,
+        )
+
+    def test_above_root_recomb_hotspots(self):
+        recombination_map = msprime.RateMap(
+            position=[0, 100, 500, 900, 1200, 1500, 2000],
+            rate=[0.00001, 0, 0.0002, 0.00005, 0, 0.001],
+        )
+        self._run(
+            samples=10,
+            population_size=1000,
+            recombination_rate=recombination_map,
+            num_replicates=500,
+            discrete_genome=True,
+        )
+
+    def test_above_root_recombination(self):
+        self._run(
+            samples=10,
+            population_size=1000,
+            num_replicates=500,
+            recombination_rate=0.0001,
+            sequence_length=100,
+        )
+
+    def test_above_root_continuous_migration(self):
+        demography = msprime.Demography()
+        demography.add_population(name="A", initial_size=1000)
+        demography.add_population(name="B", initial_size=1000)
+        demography.set_symmetric_migration_rate(["A", "B"], rate=1e-4)
+
+        self._run(
+            samples={"A": 5, "B": 5},
+            num_replicates=300,
+            recombination_rate=1e-8,
+            sequence_length=10**6,
+            demography=demography,
+        )
+
+    def test_above_root_continoues_genome(self):
+        self._run(
+            samples=10,
+            population_size=1000,
+            num_replicates=500,
+            recombination_rate=1e-8,
+            sequence_length=100,
+            discrete_genome=False,
+            gene_conversion_rate=0.00001,
+            gene_conversion_tract_length=5,
+        )
+
+    def test_above_root_smck(self):
+        self._run(
+            samples=10,
+            sequence_length=100,
+            recombination_rate=0.1,
+            model=msprime.SMCK(k=0.0),
+            num_replicates=300,
+        )
+
+    def test_above_root_dtwf(self):
+        self._run(
+            samples=4,
+            sequence_length=100,
+            population_size=100,
+            model=msprime.DiscreteTimeWrightFisher(),
+            recombination_rate=0.001,
+            num_replicates=500,
+        )
+
+    def test_above_root_smc(self):
+        self._run(
+            samples=10,
+            sequence_length=100,
+            recombination_rate=0.1,
+            model="smc",
+            num_replicates=500,
+        )
+
+    def test_above_root_smc_prime(self):
+        self._run(
+            samples=10,
+            sequence_length=100,
+            recombination_rate=0.1,
+            model="smc_prime",
+            num_replicates=500,
+        )
+
+    def test_above_root_BetaCoalescent(self):
+        self._run(
+            samples=10,
+            sequence_length=100,
+            recombination_rate=0.01,
+            model=msprime.BetaCoalescent(alpha=1.5),
+            num_replicates=500,
+        )
+
+    def test_above_root_DiracCoalescent(self):
+        self._run(
+            samples=10,
+            sequence_length=100,
+            recombination_rate=0.1,
+            model=msprime.DiracCoalescent(psi=0.9, c=10),
+            num_replicates=500,
+        )
+
+    def test_above_root_fixed_pedigree(self):
+        pedigree = pedigrees.sim_pedigree(
+            population_size=10, end_time=1000, direction="forward"
+        )
+        pedigree.sequence_length = 100
+
+        self._run(
+            initial_state=pedigree,
+            recombination_rate=0.01,
+            model="fixed_pedigree",
+            stop_at_local_mrca=False,
+            num_replicates=300,
+        )
 
 
 class MutationStatsTest(Test):
@@ -5346,8 +5998,8 @@ class MutationTest(Test):
         for row, p in zip(transitions, transition_matrix):
             not_zeros = p > 0
             if sum(not_zeros) > 1:
-                chisq = scipy.stats.chisquare(row[not_zeros], p[not_zeros])
-                tm_chisq.append(chisq.statistic)
+                chisq = chisquare_stat(row[not_zeros], p[not_zeros])
+                tm_chisq.append(chisq)
             else:
                 tm_chisq.append(None)
 
@@ -5449,9 +6101,10 @@ class SeqGenTest(MutationTest):
         newick = tree.newick()
         cmd = self._seq_gen_executable + args
         num_sequences = 2 * ts.num_samples - 1
-        with tempfile.TemporaryFile("w+") as in_file, tempfile.TemporaryFile(
-            "w+"
-        ) as out_file:
+        with (
+            tempfile.TemporaryFile("w+") as in_file,
+            tempfile.TemporaryFile("w+") as out_file,
+        ):
             in_file.write(newick)
             in_file.seek(0)
             subprocess.call(cmd, stdin=in_file, stdout=out_file)
@@ -5615,16 +6268,16 @@ class SeqGenTest(MutationTest):
             )
             # in Seq-Gen the ancestral sequence is determined first
             expected_num_ancestral_states_sg = root_distribution * num_sites
-            root_chisq_sg = scipy.stats.chisquare(
+            root_chisq_sg = chisquare_stat(
                 observed_ancestral_sg, expected_num_ancestral_states_sg
-            ).statistic
+            )
 
             tm_chisq_ts = self._transition_matrix_chi_sq(
                 observed_transitions_ts, expected_ts
             )
-            root_chisq_ts = scipy.stats.chisquare(
+            root_chisq_ts = chisquare_stat(
                 obs_ancestral_states_ts, expected_ancestral_states_ts
-            ).statistic
+            )
             ts_results["root_distribution"].append(root_chisq_ts)
             sg_results["root_distribution"].append(root_chisq_sg)
 
@@ -5802,17 +6455,17 @@ class PyvolveTest(MutationTest):
             )
 
             expected_num_ancestral_states_py = root_distribution * num_sites
-            root_chisq_py = scipy.stats.chisquare(
+            root_chisq_py = chisquare_stat(
                 observed_ancestral_py, expected_num_ancestral_states_py
-            ).statistic
+            )
 
             tm_chisq_ts = self._transition_matrix_chi_sq(
                 observed_transitions_ts, expected
             )
 
-            root_chisq_ts = scipy.stats.chisquare(
+            root_chisq_ts = chisquare_stat(
                 obs_ancestral_states_ts, expected_ancestral_states_ts
-            ).statistic
+            )
 
             c_ts = self.get_allele_counts(ts_mutated)
             pi_ts = allel.sequence_diversity(pos, c_ts)

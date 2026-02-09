@@ -252,10 +252,7 @@ def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_pat
     else:
         # unbundle (alternatively, we could call build/linux/unbundle/replace_gn_files.py --system-libraries icu)
         (PDFIUM_3RDPARTY/"icu").mkdir(exist_ok=True)
-        shutil.copyfile(
-            PDFIUM_DIR_build/"linux"/"unbundle"/"icu.gn",
-            PDFIUM_3RDPARTY/"icu"/"BUILD.gn"
-        )
+        shutil.copyfile(PDFIUM_DIR_build/"linux"/"unbundle"/"icu.gn", PDFIUM_3RDPARTY/"icu"/"BUILD.gn")
     
     if "freetype" in vendor_deps:
         _fetch_dep(deps_info, "freetype", PDFIUM_3RDPARTY/"freetype"/"src")
@@ -301,7 +298,7 @@ def setup_compiler(config, compiler, clang_ver, clang_path):
 
 def build(build_dir, config_dict, with_tests, n_jobs):
     
-    # Create target dir (or reuse existing) and write build config
+    # Create target dir, or reuse existing
     mkdir(build_dir)
     
     # Remove existing libraries from the build dir, to avoid packing unnecessary DLLs when a single-lib build is done after a separate-libs build. This also ensures we really built a new DLL in the end.
@@ -326,9 +323,10 @@ def build(build_dir, config_dict, with_tests, n_jobs):
     run_cmd(["ninja", *ninja_args, "-C", str(build_dir_rel), *targets], cwd=PDFIUM_DIR)
 
 
-def test(build_dir):
+def test(build_dir, vendor_deps):
     # FlateModule.Encode may fail with older zlib (generates different results)
-    os.environ["GTEST_FILTER"] = "*-FlateModule.Encode"
+    if "zlib" not in vendor_deps:
+        os.environ["GTEST_FILTER"] = "*-FlateModule.Encode"
     run_cmd([build_dir/"pdfium_unittests"], cwd=PDFIUM_DIR, check=False)
 
 
@@ -363,7 +361,7 @@ def main(build_ver=None, with_tests=False, n_jobs=None, compiler=None, clang_pat
     setup_compiler(config, compiler, clang_ver, clang_path)
     build(build_dir, config, with_tests, n_jobs)
     if with_tests:
-        test(build_dir)
+        test(build_dir, vendor_deps)
     
     return pack_sourcebuild(PDFIUM_DIR, build_dir, "native", full_ver, build_ver)
 
@@ -371,7 +369,13 @@ def main(build_ver=None, with_tests=False, n_jobs=None, compiler=None, clang_pat
 def parse_args(argv):
     
     parser = argparse.ArgumentParser(
-        description = "Build PDFium from source natively with system tools/libraries. This does not use Google's binary toolchain, so it should be portable across different Linux architectures. Whether this might also work on other OSes depends on PDFium's build system and the availability of a Linux-like system library environment.",
+        formatter_class = argparse.RawTextHelpFormatter,
+        description = """\
+Build PDFium from source natively with a self-managed checkout and system tools/libraries (depending on config).
+This does not use Google's binary toolchain, so it should be portable across different Linux architectures.
+Whether this might also work on other OSes depends on PDFium's build system and the availability of a Linux-like system library environment.
+For instance, it should also work on Android (Termux) natively. See the notes in pypdfium2's README.md for more information.\
+""",
     )
     if ExtendAction is not None:  # from base.py
         parser.register("action", "extend", ExtendAction)
@@ -385,7 +389,8 @@ def parse_args(argv):
         "--test",
         dest = "with_tests",
         action = "store_true",
-        help = "Whether to build and run tests. Recommended, except on very slow hosts.",
+        default = bool(int( os.environ.get("TEST_PDFIUM", 0) )),
+        help = "Whether to build and run tests. Recommended, except on very slow hosts. (Defaults to the value of $TEST_PDFIUM, for passthrough with cibuildwheel.)",
     )
     parser.add_argument(
         "-j", "--jobs",
@@ -408,7 +413,7 @@ def parse_args(argv):
     parser.add_argument(
         "--clang-path",
         type = lambda p: Path(p).expanduser().resolve(),
-        help = "Path to clang release folder, if `--compiler clang` is used. By default, we try '/usr' or similar, but your system's folder structure might not match the layout expected by pdfium. Consider creating symlinks as described in pypdfium2's README.md.",
+        help = "Path to clang release folder, if `--compiler clang` is used. By default, we try `/usr` or similar, but your system's folder structure might not match the layout expected by pdfium. Consider creating symlinks as described in pypdfium2's README.md.",
     )
     parser.add_argument(
         "--no-libclang-rt",

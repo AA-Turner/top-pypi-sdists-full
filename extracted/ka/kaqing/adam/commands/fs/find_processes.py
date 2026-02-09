@@ -1,8 +1,8 @@
 from adam.commands import extract_options, validate_args
 from adam.commands.command import Command
-from adam.commands.fs.utils_fs import ProcessInfo, find_pids_for_cluster
+from adam.utils_job.utils_fs import ProcessInfo, find_pids_for_cluster
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import log2
+from adam.utils_log import log2
 
 class FindProcesses(Command):
     COMMAND = 'find processes'

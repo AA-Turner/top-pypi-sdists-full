@@ -1,60 +1,62 @@
 # std imports
-import asyncio
+import logging
 import collections
-import struct
 
 # 3rd party
 import pytest
 
 # local
-from telnetlib3.stream_writer import (
-    TelnetWriter,
-    TelnetWriterUnicode,
-    Option,
-    _escape_environ,
-    _unescape_environ,
-    _encode_env_buf,
-    _decode_env_buf,
-)
 from telnetlib3 import slc
 from telnetlib3.telopt import (
-    IAC,
+    DM,
+    DO,
+    GA,
+    IS,
     SB,
     SE,
-    IS,
-    SEND,
-    REQUEST,
-    ACCEPTED,
-    REJECTED,
-    DO,
+    TM,
+    ESC,
+    IAC,
+    NOP,
+    SGA,
+    VAR,
     DONT,
+    ECHO,
+    GMCP,
+    INFO,
+    NAWS,
+    SEND,
     WILL,
     WONT,
-    GA,
-    NOP,
-    DM,
-    ECHO,
-    SGA,
-    BINARY,
-    LINEMODE,
     LFLOW,
-    LFLOW_OFF,
-    LFLOW_ON,
-    STATUS,
     TTYPE,
-    TSPEED,
-    XDISPLOC,
-    SNDLOC,
-    NEW_ENVIRON,
-    INFO,
-    CHARSET,
-    NAWS,
-    GMCP,
-    COM_PORT_OPTION,
+    VALUE,
+    BINARY,
     LOGOUT,
-    TM,
+    SNDLOC,
+    STATUS,
+    TSPEED,
+    CHARSET,
+    REQUEST,
+    USERVAR,
+    ACCEPTED,
+    LINEMODE,
+    REJECTED,
+    XDISPLOC,
+    LFLOW_OFF,
     TTABLE_IS,
+    NEW_ENVIRON,
+    COM_PORT_OPTION,
     theNULL,
+)
+from telnetlib3.stream_writer import (
+    Option,
+    TelnetWriter,
+    TelnetWriterUnicode,
+    _decode_env_buf,
+    _encode_env_buf,
+    _escape_environ,
+    _unescape_environ,
 )
 
 
@@ -112,12 +114,12 @@ def test_close_idempotent_and_cleanup():
     assert w._transport is None
     assert w._protocol is None
     assert t._closing is True
-    assert w._closed_fut.done()
+    assert w._closed_fut is None or w._closed_fut.done()
     # callbacks cleared
-    assert w._ext_callback == {}
-    assert w._ext_send_callback == {}
-    assert w._slc_callback == {}
-    assert w._iac_callback == {}
+    assert not w._ext_callback
+    assert not w._ext_send_callback
+    assert not w._slc_callback
+    assert not w._iac_callback
     # connection_lost was invoked
     assert p.conn_lost_called is True
     # idempotent
@@ -128,7 +130,51 @@ def test_close_idempotent_and_cleanup():
     w2 = TelnetWriter(t2, p2, server=True)
     w2.close()
     w2.write(b"ignored")
-    assert t2.writes == []
+    assert not t2.writes
+
+
+def test_send_iac_skipped_when_closing():
+    """send_iac() drops writes when transport is closing."""
+    w, t, _ = new_writer(server=True)
+    t._closing = True
+    w.send_iac(IAC + NOP)
+    assert not t.writes
+
+
+def test_send_iac_skipped_when_closed():
+    """send_iac() drops writes after close()."""
+    w, t, _ = new_writer(server=True)
+    w.close()
+    w.send_iac(IAC + NOP)
+    assert not t.writes
+
+
+def test_forwardmask_skipped_when_closing():
+    """request_forwardmask() drops writes when transport is closing."""
+    w, t, _ = new_writer(server=True)
+    w.remote_option[LINEMODE] = True
+    t._closing = True
+    w.request_forwardmask()
+    assert not t.writes
+
+
+def test_send_linemode_skipped_when_closing():
+    """send_linemode() drops writes when transport is closing."""
+    w, t, _ = new_writer(server=True)
+    w.remote_option[LINEMODE] = True
+    t._closing = True
+    w.send_linemode()
+    assert not t.writes
+
+
+def test_slc_end_skipped_when_closing():
+    """_slc_end() drops writes when closing, buffer still cleared."""
+    w, t, _ = new_writer(server=True)
+    w._slc_buffer = [b"\x03\x03\x04"]
+    t._closing = True
+    w._slc_end()
+    assert not t.writes
+    assert not w._slc_buffer
 
 
 def test_get_extra_info_merges_protocol_and_transport():
@@ -204,7 +250,7 @@ def test_handle_logout_paths():
     # server DONT -> no write, no crash
     ws2, ts2, _ = new_writer(server=True)
     ws2.handle_logout(DONT)
-    assert ts2.writes == []
+    assert not ts2.writes
     # client WILL -> send DONT LOGOUT
     wc, tc, _ = new_writer(server=False, client=True)
     wc.handle_logout(WILL)
@@ -212,14 +258,14 @@ def test_handle_logout_paths():
     # client WONT -> just logs
     wc2, tc2, _ = new_writer(server=False, client=True)
     wc2.handle_logout(WONT)
-    assert tc2.writes == []
+    assert not tc2.writes
 
 
 def test_handle_do_variants_and_tm_and_logout():
-    # server receiving forbidden DO -> ValueError
-    ws, *_ = new_writer(server=True)
-    with pytest.raises(ValueError, match="cannot recv DO LINEMODE"):
-        ws.handle_do(LINEMODE)
+    # server receiving reversed DO LINEMODE -> WONT refusal
+    ws, ts, _ = new_writer(server=True)
+    ws.handle_do(LINEMODE)
+    assert ts.writes[-1] == IAC + WONT + LINEMODE
     # client receiving DO LOGOUT -> ValueError
     wc, *_ = new_writer(server=False, client=True)
     with pytest.raises(ValueError, match="cannot recv DO LOGOUT"):
@@ -256,10 +302,10 @@ def test_handle_will_invalid_cases_and_else_unhandled():
     ws, *_ = new_writer(server=True)
     with pytest.raises(ValueError, match="cannot recv WILL ECHO"):
         ws.handle_will(ECHO)
-    # client WILL NAWS invalid
-    wc, *_ = new_writer(server=False, client=True)
-    with pytest.raises(ValueError, match="cannot recv WILL NAWS on client end"):
-        wc.handle_will(NAWS)
+    # client receiving reversed WILL NAWS -> DONT refusal
+    wc, tc, _ = new_writer(server=False, client=True)
+    wc.handle_will(NAWS)
+    assert tc.writes[-1] == IAC + DONT + NAWS
     # WILL TM requires pending DO TM
     wtm, *_ = new_writer(server=True)
     with pytest.raises(ValueError, match="cannot recv WILL TM"):
@@ -270,14 +316,24 @@ def test_handle_will_invalid_cases_and_else_unhandled():
     w3.set_ext_callback(LOGOUT, lambda cmd: seen.setdefault("v", cmd))
     w3.handle_will(LOGOUT)
     assert seen["v"] == WILL
-    # ELSE branch (unhandled) -> DONT sent, options set -1, pending cleared
+    # ELSE branch (unhandled) -> DONT sent, pending cleared, rejected tracked
     w4, t4, _ = new_writer(server=True)
-    w4.pending_option[DO + GMCP] = True
-    w4.handle_will(GMCP)
-    assert t4.writes[-1] == IAC + DONT + GMCP
-    assert w4.remote_option[GMCP] == -1
-    assert w4.local_option[GMCP] == -1
-    assert not w4.pending_option.get(DO + GMCP, False)
+    w4.pending_option[DO + COM_PORT_OPTION] = True
+    w4.handle_will(COM_PORT_OPTION)
+    assert t4.writes[-1] == IAC + DONT + COM_PORT_OPTION
+    assert not w4.pending_option.get(DO + COM_PORT_OPTION, False)
+    assert COM_PORT_OPTION in w4.rejected_will
+
+
+def test_handle_will_then_do_unsupported_sends_both_dont_and_wont():
+    """WILL then DO for unsupported option must send DONT and WONT."""
+    w, t, _ = new_writer(server=True)
+    w.handle_will(COM_PORT_OPTION)
+    assert t.writes[-1] == IAC + DONT + COM_PORT_OPTION
+    assert COM_PORT_OPTION in w.rejected_will
+    w.handle_do(COM_PORT_OPTION)
+    assert t.writes[-1] == IAC + WONT + COM_PORT_OPTION
+    assert COM_PORT_OPTION in w.rejected_do
 
 
 def test_handle_wont_tm_and_logout_paths():
@@ -380,9 +436,7 @@ def test_handle_sb_tspeed_wrong_side_asserts_and_send_and_is():
     ws2.set_ext_callback(TSPEED, lambda rx, tx: seen.setdefault("v", (rx, tx)))
     payload = b"57600,115200"
     ws2._handle_sb_tspeed(
-        collections.deque(
-            [TSPEED, IS] + [payload[i : i + 1] for i in range(len(payload))]
-        )
+        collections.deque([TSPEED, IS] + [payload[i : i + 1] for i in range(len(payload))])
     )
     assert seen["v"] == (57600, 115200)
 
@@ -502,8 +556,6 @@ def test_option_enabled_and_setitem_debug_path():
 
 def test_escape_unescape_and_env_encode_decode_roundtrip():
     # escaping VAR/USERVAR
-    from telnetlib3.telopt import VAR, USERVAR, ESC, VALUE
-
     buf = b"A" + VAR + b"B" + USERVAR + b"C"
     esc = _escape_environ(buf)
     assert VAR in esc and USERVAR in esc and esc.count(ESC) == 2
@@ -514,6 +566,41 @@ def test_escape_unescape_and_env_encode_decode_roundtrip():
     enc = _encode_env_buf(env)
     dec = _decode_env_buf(enc)
     assert dec == {"USER": "root", "LANG": "C.UTF-8"}
+
+
+def test_decode_env_buf_bare_delimiters():
+    """Bare VAR/USERVAR delimiters produce empty-string keys."""
+    payload = VAR + USERVAR
+    result = _decode_env_buf(payload)
+    assert result == {"": ""}
+
+
+def test_handle_sb_environ_bare_var_uservar_sends_empty():
+    """SEND with bare VAR/USERVAR passes [''] to callback; security policy returns {}."""
+    wc, tc, _ = new_writer(server=False, client=True)
+    received_keys = []
+    wc.set_ext_send_callback(NEW_ENVIRON, lambda keys: (received_keys.extend(keys), {})[1])
+    payload = VAR + USERVAR
+    wc._handle_sb_environ(collections.deque([NEW_ENVIRON, SEND, payload]))
+    assert received_keys == [""]
+
+
+def test_decode_env_buf_ebcdic():
+    """EBCDIC-encoded env data decoded when encoding=cp037."""
+    ebcdic_user = "USER".encode("cp037")
+    ebcdic_root = "root".encode("cp037")
+    payload = VAR + ebcdic_user + VALUE + ebcdic_root
+    result = _decode_env_buf(payload, encoding="cp037")
+    assert result == {"USER": "root"}
+
+
+def test_decode_env_buf_non_ascii_replace():
+    """Non-ASCII bytes with default ascii encoding use replacement chars."""
+    payload = VAR + b"\x93\x96\x87\x89\x95" + VALUE + b"\xff\xfe"
+    result = _decode_env_buf(payload)
+    assert len(result) == 1
+    key = list(result.keys())[0]
+    assert "\ufffd" in key
 
 
 def test_transport_property_write_eof_can_write_eof_and_is_closing():
@@ -596,9 +683,7 @@ def test_tspeed_is_malformed_values_logged_and_ignored():
     w, t, p = new_writer(server=True)
     w.set_ext_callback(TSPEED, lambda rx, tx: seen.setdefault("v", (rx, tx)))
     payload = b"x,y"  # not integers, triggers ValueError path
-    buf = collections.deque(
-        [TSPEED, IS] + [payload[i : i + 1] for i in range(len(payload))]
-    )
+    buf = collections.deque([TSPEED, IS] + [payload[i : i + 1] for i in range(len(payload))])
     w._handle_sb_tspeed(buf)
     assert "v" not in seen
 
@@ -747,7 +832,7 @@ def test_unicode_writer_write_after_close_noop():
     wu.close()
     wu.write("ignored")
     # no writes performed after close
-    assert t.writes == []
+    assert not t.writes
 
 
 def test_handle_sb_forwardmask_server_will_and_client_do():
@@ -758,11 +843,42 @@ def test_handle_sb_forwardmask_server_will_and_client_do():
     opt = SB + LINEMODE + slc.LMODE_FORWARDMASK
     assert ws.remote_option[opt] is True
 
-    # client DO path currently asserts that bytes must follow DO (pre-check)
+    # client DO path -> forwardmask logged, local_option set
     wc, tc, pc = new_writer(server=False, client=True)
     wc.local_option[LINEMODE] = True
-    with pytest.raises(AssertionError):
-        wc._handle_sb_forwardmask(DO, collections.deque([b"x"]))
+    wc._handle_sb_forwardmask(DO, collections.deque([b"x"]))
+    assert wc.local_option[opt] is True
+
+
+def test_handle_sb_forwardmask_server_without_linemode():
+    ws, ts, ps = new_writer(server=True)
+    ws._handle_sb_forwardmask(WILL, collections.deque())
+    opt = SB + LINEMODE + slc.LMODE_FORWARDMASK
+    assert ws.remote_option[opt] is True
+
+
+def test_handle_sb_forwardmask_server_rejects_do_dont():
+    ws, ts, ps = new_writer(server=True)
+    ws.remote_option[LINEMODE] = True
+    ws._handle_sb_forwardmask(DO, collections.deque())
+    opt = SB + LINEMODE + slc.LMODE_FORWARDMASK
+    assert opt not in ws.remote_option
+
+
+def test_handle_sb_forwardmask_client_without_linemode():
+    wc, tc, pc = new_writer(server=False, client=True)
+    wc._handle_sb_forwardmask(DONT, collections.deque())
+    opt = SB + LINEMODE + slc.LMODE_FORWARDMASK
+    assert wc.local_option[opt] is False
+
+
+def test_handle_sb_linemode_passes_opt_to_forwardmask():
+    ws, ts, ps = new_writer(server=True)
+    ws.remote_option[LINEMODE] = True
+    buf = collections.deque([LINEMODE, WONT, slc.LMODE_FORWARDMASK])
+    ws._handle_sb_linemode(buf)
+    opt = SB + LINEMODE + slc.LMODE_FORWARDMASK
+    assert ws.remote_option[opt] is False
 
 
 def test_slc_add_buffer_full_raises():
@@ -851,7 +967,28 @@ def test_handle_send_server_and_client_charset_returns():
     ws, ts, ps = new_writer(server=True)
     assert ws.handle_send_server_charset() == ["UTF-8"]
     wc, tc, pc = new_writer(server=False, client=True)
-    assert wc.handle_send_client_charset(["UTF-8", "ASCII"]) == ""
+    assert not wc.handle_send_client_charset(["UTF-8", "ASCII"])
+
+
+def test_charset_accepted_updates_environ_encoding():
+    """CHARSET ACCEPTED updates environ_encoding for NEW_ENVIRON decoding."""
+    ws, ts, ps = new_writer(server=True)
+    assert ws.environ_encoding == "ascii"
+    ws.set_ext_callback(CHARSET, lambda c: None)
+    buf = collections.deque([CHARSET, ACCEPTED, b"UTF-8"])
+    ws._handle_sb_charset(buf)
+    assert ws.environ_encoding == "UTF-8"
+
+
+def test_charset_request_accepted_updates_environ_encoding():
+    """Client accepting CHARSET REQUEST updates environ_encoding."""
+    wc, tc, pc = new_writer(server=False, client=True)
+    assert wc.environ_encoding == "ascii"
+    wc.set_ext_send_callback(CHARSET, lambda offers: "UTF-8")
+    sep = b";"
+    buf = collections.deque([CHARSET, REQUEST, sep, b"UTF-8;ASCII"])
+    wc._handle_sb_charset(buf)
+    assert wc.environ_encoding == "UTF-8"
 
 
 def test_iac_wont_and_dont_suppressed_when_remote_false():
@@ -883,7 +1020,7 @@ def test_handle_sb_linemode_forwardmask_wrong_sb_opt_raises():
 def test_handle_sb_environ_info_warning_path():
     seen = []
     ws, ts, ps = new_writer(server=True)
-    ws.set_ext_callback(NEW_ENVIRON, lambda env: seen.append(env))
+    ws.set_ext_callback(NEW_ENVIRON, seen.append)
     # First IS sets pending_option[SB + NEW_ENVIRON] = False
     is_payload = _encode_env_buf({"USER": "root"})
     ws._handle_sb_environ(collections.deque([NEW_ENVIRON, IS, is_payload]))
@@ -913,9 +1050,9 @@ def test_handle_will_tm_success_sets_remote_option_and_calls_cb():
 
 def test_handle_send_helpers_return_values():
     w, t, p = new_writer(server=True)
-    assert w.handle_send_xdisploc() == ""
-    assert w.handle_send_ttype() == ""
-    assert w.handle_send_server_environ() == []
+    assert not w.handle_send_xdisploc()
+    assert not w.handle_send_ttype()
+    assert not w.handle_send_server_environ()
     assert w.handle_send_naws() == (80, 24)
 
 
@@ -936,3 +1073,51 @@ def test_miscellaneous_handle_logs_cover_remaining_handlers():
     ws.handle_ew(b"\x00")
     ws.handle_xon(b"\x00")
     ws.handle_xoff(b"\x00")
+
+
+def test_sb_interrupted_logs_warning_with_context(caplog):
+    """SB interruption logs WARNING (not ERROR) with option name and byte count."""
+    w, t, _ = new_writer(server=True)
+    # Enter SB mode: IAC SB CHARSET <payload bytes>
+    w.feed_byte(IAC)
+    w.feed_byte(SB)
+    w.feed_byte(CHARSET)
+    w.feed_byte(b"\x01")
+    w.feed_byte(b"\x02")
+    # Interrupt with IAC WONT (instead of IAC SE)
+    with caplog.at_level(logging.WARNING):
+        w.feed_byte(IAC)
+        w.feed_byte(WONT)
+    assert any("SB CHARSET (3 bytes) interrupted by IAC WONT" in r.message for r in caplog.records)
+    assert all(r.levelno != logging.ERROR for r in caplog.records)
+    # The WONT command is still parsed: next byte is its option
+    w.feed_byte(ECHO)
+
+
+def test_sb_begin_logged(caplog):
+    """Entering SB mode logs the option name at DEBUG level."""
+    w, t, _ = new_writer(server=True)
+    with caplog.at_level(logging.DEBUG):
+        w.feed_byte(IAC)
+        w.feed_byte(SB)
+        w.feed_byte(TTYPE)
+    assert any("begin sub-negotiation SB TTYPE" in r.message for r in caplog.records)
+
+
+def test_name_option_distinguishes_commands_from_options():
+    """name_option renders IAC command bytes as repr, not their command names."""
+    # local
+    from telnetlib3.telopt import name_option, name_command
+
+    assert name_option(WONT) == repr(WONT)
+    assert name_option(DO) == repr(DO)
+    assert name_option(DONT) == repr(DONT)
+    assert name_option(WILL) == repr(WILL)
+    assert name_option(IAC) == repr(IAC)
+    assert name_option(SB) == repr(SB)
+    assert name_option(SE) == repr(SE)
+    assert name_option(SGA) == "SGA"
+    assert name_option(TTYPE) == "TTYPE"
+    assert name_option(NAWS) == "NAWS"
+    assert name_command(WONT) == "WONT"
+    assert name_command(SGA) == "SGA"

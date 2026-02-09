@@ -4,8 +4,9 @@ import time
 import requests
 
 from adam.config import Config
-from adam.utils import OffloadHandler, debug, log2, log_exc, offload
+from adam.utils_log import debug, log2, log_exc
 from adam.utils_athena import Athena
+from adam.utils_concurrent import OffloadHandler, ThreadPool, offload
 from adam.utils_net import get_my_host
 
 class AuditMeta:
@@ -98,5 +99,5 @@ class Audits:
 
         return f"y = '{y}' and m = '{m}' and d >= '{d}' or y = '{y}' and m > '{m}' or y > '{y}'"
 
-   def offload() -> OffloadHandler:
-       return offload(max_workers=Config().get('audit.workers', 3))
+def audit() -> OffloadHandler:
+   return offload(pool=ThreadPool(name='audit', workers=Config().get('audit.workers', 3)))

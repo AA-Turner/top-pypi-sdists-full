@@ -138,6 +138,9 @@ async def create_task(request: Union[CompletionRequest, VideoRequest, SoraVideoR
                 }
             ]
         }
+        if request.generate_audio is not None and request.model.startswith("doubao-seedance-1-5"):
+            payload["generate_audio"] = request.generate_audio
+
         if request.first_frame_image:
             payload["content"] += [
                 {
@@ -393,7 +396,6 @@ if __name__ == "__main__":
     ids = arun(get_tasks(return_ids=True))
 
     # ids = ['cgt-20260126144127-hghhr']
-
 
     arun(get_task_from_feishu(ids, tokens))
 

@@ -150,16 +150,14 @@ class BaseHandler:
 
         # add extended theme templates
         extended_templates_dirs = self.get_extended_templates_dirs(self.name)
-        for templates_dir in extended_templates_dirs:
-            paths.append(templates_dir / self.theme)
+        paths.extend(templates_dir / self.theme for templates_dir in extended_templates_dirs)
 
         # add fallback theme templates
         if self.fallback_theme and self.fallback_theme != self.theme:
             paths.append(themes_dir / self.fallback_theme)
 
             # add fallback theme of extended templates
-            for templates_dir in extended_templates_dirs:
-                paths.append(templates_dir / self.fallback_theme)
+            paths.extend(templates_dir / self.fallback_theme for templates_dir in extended_templates_dirs)
 
         for path in paths:
             css_path = path / "style.css"
@@ -361,24 +359,24 @@ class BaseHandler:
         global _markdown_conversion_layer  # noqa: PLW0603
         _markdown_conversion_layer += 1
         treeprocessors = self.md.treeprocessors
-        treeprocessors[HeadingShiftingTreeprocessor.name].shift_by = heading_level  # type: ignore[attr-defined]
-        treeprocessors[IdPrependingTreeprocessor.name].id_prefix = html_id and html_id + "--"  # type: ignore[attr-defined]
-        treeprocessors[ParagraphStrippingTreeprocessor.name].strip = strip_paragraph  # type: ignore[attr-defined]
+        treeprocessors[HeadingShiftingTreeprocessor.name].shift_by = heading_level
+        treeprocessors[IdPrependingTreeprocessor.name].id_prefix = html_id and html_id + "--"
+        treeprocessors[ParagraphStrippingTreeprocessor.name].strip = strip_paragraph
         if BacklinksTreeProcessor.name in treeprocessors:
-            treeprocessors[BacklinksTreeProcessor.name].initial_id = html_id  # type: ignore[attr-defined]
+            treeprocessors[BacklinksTreeProcessor.name].initial_id = html_id
         if autoref_hook and AutorefsInlineProcessor.name in self.md.inlinePatterns:
-            self.md.inlinePatterns[AutorefsInlineProcessor.name].hook = autoref_hook  # type: ignore[attr-defined]
+            self.md.inlinePatterns[AutorefsInlineProcessor.name].hook = autoref_hook  # ty: ignore[unresolved-attribute]
 
         try:
             return Markup(self.md.convert(text))
         finally:
-            treeprocessors[HeadingShiftingTreeprocessor.name].shift_by = 0  # type: ignore[attr-defined]
-            treeprocessors[IdPrependingTreeprocessor.name].id_prefix = ""  # type: ignore[attr-defined]
-            treeprocessors[ParagraphStrippingTreeprocessor.name].strip = False  # type: ignore[attr-defined]
+            treeprocessors[HeadingShiftingTreeprocessor.name].shift_by = 0
+            treeprocessors[IdPrependingTreeprocessor.name].id_prefix = ""
+            treeprocessors[ParagraphStrippingTreeprocessor.name].strip = False
             if BacklinksTreeProcessor.name in treeprocessors:
-                treeprocessors[BacklinksTreeProcessor.name].initial_id = None  # type: ignore[attr-defined]
+                treeprocessors[BacklinksTreeProcessor.name].initial_id = None
             if AutorefsInlineProcessor.name in self.md.inlinePatterns:
-                self.md.inlinePatterns[AutorefsInlineProcessor.name].hook = None  # type: ignore[attr-defined]
+                self.md.inlinePatterns[AutorefsInlineProcessor.name].hook = None
             self.md.reset()
             _markdown_conversion_layer -= 1
 
@@ -475,8 +473,12 @@ class BaseHandler:
         # MkDocs adds its own (required) extension that's not part of the config. Propagate it.
         if "relpath" in md.treeprocessors:
             relpath = md.treeprocessors["relpath"]
-            new_relpath = type(relpath)(relpath.file, relpath.files, relpath.config)  # type: ignore[attr-defined,call-arg]
+            new_relpath = type(relpath)(relpath.file, relpath.files, relpath.config)
             new_md.treeprocessors.register(new_relpath, "relpath", priority=0)
+        elif "zrelpath" in md.treeprocessors:
+            zrelpath = md.treeprocessors["zrelpath"]
+            new_zrelpath = type(zrelpath)(new_md, zrelpath.path, zrelpath.use_directory_urls)
+            new_md.treeprocessors.register(new_zrelpath, "zrelpath", priority=0)
 
         self._md = new_md
 
@@ -599,7 +601,7 @@ class Handlers:
         for handler_name, conf in self._handlers_config.items():
             handler = self.get_handler(handler_name)
 
-            if handler.get_inventory_urls.__func__ is BaseHandler.get_inventory_urls:  # type: ignore[attr-defined]
+            if handler.get_inventory_urls.__func__ is BaseHandler.get_inventory_urls:
                 if inv_configs := conf.pop("import", ()):
                     warn(
                         "mkdocstrings v1 will stop handling 'import' in handlers configuration. "
@@ -641,7 +643,7 @@ class Handlers:
             for fut, (handler, url, conf) in reversed(self._inv_futures.items()):
                 try:
                     yield from handler.load_inventory(BytesIO(fut.result()), url, **conf)
-                except Exception as error:  # noqa: BLE001
+                except Exception as error:  # noqa: BLE001,PERF203
                     _logger.error("Couldn't load inventory %s through handler '%s': %s", url, handler.name, error)  # noqa: TRY400
             self._inv_futures = {}
 

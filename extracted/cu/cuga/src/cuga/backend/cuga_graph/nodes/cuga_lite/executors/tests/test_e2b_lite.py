@@ -165,6 +165,7 @@ class TestEvalWithToolsAsyncE2B:
             with patch.object(CodeExecutor, '_get_e2b_executor') as mock_get_executor:
                 mock_settings.advanced_features.e2b_sandbox = True
                 mock_settings.advanced_features.code_executor_keep_last_n = -1
+                mock_settings.advanced_features.execution_output_max_length = 10000
 
                 mock_executor = MagicMock()
                 mock_executor.execute_for_cuga_lite = AsyncMock(return_value=("42", {'result': 42}))
@@ -202,6 +203,7 @@ class TestEvalWithToolsAsyncE2B:
         ) as mock_settings:
             mock_settings.advanced_features.e2b_sandbox = False
             mock_settings.advanced_features.code_executor_keep_last_n = -1
+            mock_settings.advanced_features.execution_output_max_length = 10000
 
             code = "y = 20"
             _locals = {}
@@ -313,6 +315,7 @@ print("Done")  # Prevent auto-print of last line
             with patch.object(CodeExecutor, '_get_e2b_executor') as mock_get_executor:
                 mock_settings.advanced_features.e2b_sandbox = True
                 mock_settings.advanced_features.code_executor_keep_last_n = -1
+                mock_settings.advanced_features.execution_output_max_length = 10000
 
                 # Mock E2B executor
                 mock_executor = MagicMock()

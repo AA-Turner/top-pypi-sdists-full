@@ -1,7 +1,6 @@
 from kubernetes import client, config
 
-from adam.config import Config
-from adam.utils import debug
+from adam.utils_log import debug
 
 # utility collection on service accounts; methods are all static
 class ServiceAccounts:

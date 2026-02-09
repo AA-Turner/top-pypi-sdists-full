@@ -3,6 +3,7 @@ import inspect
 import sys
 
 from approvaltests import (
+    DiffReporter,
     ReporterForTesting,
     approvals,
     combination_approvals,  # noqa: F401
@@ -12,7 +13,6 @@ from approvaltests import (
 )
 from approvaltests.core.options import Options
 from approvaltests.reporters import MultiReporter, ReportByCreatingDiffFile
-from approvaltests.reporters.report_with_beyond_compare import ReportWithPycharm
 from approvaltests.utilities import command_line_approvals  # noqa: F401
 from approvaltests.utilities.logger import simple_logger_approvals  # noqa: F401
 from approvaltests.utilities.logging import logging_approvals  # noqa: F401
@@ -20,8 +20,9 @@ from approvaltests.utilities.logging import logging_approvals  # noqa: F401
 _approvals_modules = list(
     sorted(
         filter(
-            lambda name: name.startswith("approvaltests.")
-            and name.endswith("approvals"),
+            lambda name: (
+                name.startswith("approvaltests.") and name.endswith("approvals")
+            ),
             sys.modules.keys(),
         )
     )
@@ -88,31 +89,20 @@ def test_file_extensions() -> None:
     verify(content, options=Options().for_file.with_extension("md"))
 
 
-def test_add_reporter() -> None:
+def test_overwrite_reporter() -> None:
     # current behaviour, override
     options0 = (
         Options()
         .with_reporter(ReportByCreatingDiffFile())
-        .with_reporter(ReportWithPycharm())
+        .with_reporter(DiffReporter())
     )
-    assert type(options0.reporter) == ReportWithPycharm
+    assert type(options0.reporter) == DiffReporter
 
-    # current work around, create a MultiReporter
-    options_multi = Options().with_reporter(
-        MultiReporter(ReportByCreatingDiffFile(), ReportWithPycharm())
-    )
-    assert (
-        str(options_multi.reporter)
-        == "MultiReporter(ReportByCreatingDiffFile, ReportWithPycharm)"
-    )
 
-    # new behaviour, append
-    options0 = (
-        Options()
-        .with_reporter(ReportByCreatingDiffFile())
-        .add_reporter(ReportWithPycharm())
-    )
-    assert (
-        str(options_multi.reporter)
-        == "MultiReporter(ReportByCreatingDiffFile, ReportWithPycharm)"
-    )
+def test_add_reporter() -> None:
+    reporter1 = ReportByCreatingDiffFile()
+    reporter2 = DiffReporter()
+    handmade = MultiReporter(reporter1, reporter2)
+
+    options0 = Options().with_reporter(reporter1).add_reporter(reporter2)
+    assert str(options0.reporter) == str(handmade)

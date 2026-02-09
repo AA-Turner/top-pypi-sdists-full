@@ -18,6 +18,9 @@ class TypeSim(Enum):
     HYDRO = 'Hydrophone'
     """Hydrophone acquisition."""
 
+    SIMPLE_SIM = 'SimpleSim'
+    """Simple simulation for testing purposes."""
+
 class Dim(Enum):
     """
     Enum for the dimension of the acoustic field.

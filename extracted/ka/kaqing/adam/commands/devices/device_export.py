@@ -3,7 +3,7 @@ from adam.commands.devices.device import Device
 from adam.commands.export.export_databases import ExportDatabases, export_db
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import log2, wait_log
+from adam.utils_log import log2, wait_log
 from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 

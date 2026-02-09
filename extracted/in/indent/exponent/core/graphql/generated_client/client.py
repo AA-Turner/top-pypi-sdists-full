@@ -2,6 +2,7 @@
 # Source: exponent/core/graphql/operations
 
 from typing import Any, Optional, Union
+from uuid import UUID
 
 from .base_client import AsyncBaseClient
 from .base_model import UNSET, UnsetType
@@ -62,12 +63,12 @@ class IndentGraphQLClient(AsyncBaseClient):
 
     async def create_cloud_chat_from_repository(
         self,
-        repository_uuid: str,
+        repository_uuid: UUID,
         provider: Union[Optional[SandboxProvider], UnsetType] = UNSET,
         **kwargs: Any
     ) -> CreateCloudChatFromRepository:
         query = gql("""
-            mutation CreateCloudChatFromRepository($repositoryUuid: String!, $provider: SandboxProvider) {
+            mutation CreateCloudChatFromRepository($repositoryUuid: UUID!, $provider: SandboxProvider) {
               createCloudChat(repositoryUuid: $repositoryUuid, provider: $provider) {
                 __typename
                 ... on Chat {
@@ -105,7 +106,7 @@ class IndentGraphQLClient(AsyncBaseClient):
     ) -> EnableCloudRepository:
         query = gql("""
             mutation EnableCloudRepository($repositories: [RepositoryInput!]!) {
-              enableCloudRepository(repositories: $repositories) {
+              enableCloudRepository(input: {repositories: $repositories}) {
                 __typename
                 ... on EnableCloudRepositoriesResult {
                   results {
@@ -171,10 +172,10 @@ class IndentGraphQLClient(AsyncBaseClient):
         data = self.get_data(response)
         return GithubRepositories.model_validate(data)
 
-    async def halt_chat_stream(self, chat_uuid: Any, **kwargs: Any) -> HaltChatStream:
+    async def halt_chat_stream(self, chat_uuid: UUID, **kwargs: Any) -> HaltChatStream:
         query = gql("""
             mutation HaltChatStream($chatUuid: UUID!) {
-              haltChatStream(chatUuid: $chatUuid) {
+              haltChatStream(input: {chatUuid: $chatUuid}) {
                 __typename
                 ... on Chat {
                   chatUuid
@@ -201,11 +202,11 @@ class IndentGraphQLClient(AsyncBaseClient):
         return HaltChatStream.model_validate(data)
 
     async def rebuild_cloud_repository(
-        self, org_name: str, repo_name: str, **kwargs: Any
+        self, repository_uuid: UUID, **kwargs: Any
     ) -> RebuildCloudRepository:
         query = gql("""
-            mutation RebuildCloudRepository($orgName: String!, $repoName: String!) {
-              rebuildCloudRepository(orgName: $orgName, repoName: $repoName) {
+            mutation RebuildCloudRepository($repositoryUuid: UUID!) {
+              rebuildCloudRepository(repositoryUuid: $repositoryUuid) {
                 __typename
                 ... on ContainerImages {
                   images {
@@ -228,7 +229,7 @@ class IndentGraphQLClient(AsyncBaseClient):
               }
             }
             """)
-        variables: dict[str, object] = {"orgName": org_name, "repoName": repo_name}
+        variables: dict[str, object] = {"repositoryUuid": repository_uuid}
         response = await self.execute(
             query=query,
             operation_name="RebuildCloudRepository",

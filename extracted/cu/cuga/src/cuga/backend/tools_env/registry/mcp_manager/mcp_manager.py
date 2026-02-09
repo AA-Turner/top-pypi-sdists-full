@@ -858,14 +858,35 @@ class MCPManager:
                                 result_text = json.dumps(result_text)
                             return [TextContent(text=result_text, type='text')]
                         else:
+                            try:
+                                result = await response.json()
+                            except Exception:
+                                result = await response.text()
+
+                            error_detail = {
+                                "status_code": response.status,
+                                "url": str(response.url),
+                                "method": "POST",
+                                "response_body": result,
+                            }
+
                             error_msg = f"MCP server call failed with status {response.status}"
-                            structured_content = result.get('structured_content', None)
+                            logger.error(f"MCP server call error: {error_detail}")
+                            print("MCP server call error:")
+                            print(f"  Status Code: {error_detail['status_code']}")
+                            print(f"  URL: {error_detail['url']}")
+                            print(f"  Method: {error_detail['method']}")
+                            print(f"  Response Body: {error_detail['response_body']}")
+
+                            structured_content = (
+                                result.get('structured_content', None) if isinstance(result, dict) else None
+                            )
                             result_text = (
                                 structured_content
                                 if structured_content
                                 else (
                                     result.get('content', [{}])[0].get('text', '')
-                                    if result.get('content')
+                                    if isinstance(result, dict) and result.get('content')
                                     else str(result)
                                 )
                             )

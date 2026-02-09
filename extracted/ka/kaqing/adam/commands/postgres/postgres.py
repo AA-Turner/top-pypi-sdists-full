@@ -10,7 +10,8 @@ from adam.utils_context import Context
 from .postgres_ls import PostgresLs
 from .postgres_preview import PostgresPreview
 from adam.repl_state import ReplState
-from adam.utils import ExecResult, log, log2, log_timing
+from adam.utils import ExecResult
+from adam.utils_log import log, log2, log_timing
 
 class Postgres(IntermediateCommand):
     COMMAND = 'pg'

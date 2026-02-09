@@ -659,9 +659,9 @@ class floss:
 
             self._M_T[:-1] = self._M_T[1:]
             self._Σ_T[:-1] = self._Σ_T[1:]
-            self._M_T[-1], self._Σ_T[-1] = core.compute_mean_std(
-                self._T[-self._m :], self._m
-            )
+
+            M_T, Σ_T = core.compute_mean_std(self._T[-self._m :], self._m)
+            self._M_T[-1], self._Σ_T[-1] = M_T.item(), Σ_T.item()
 
             D = core.mass(
                 self._finite_Q,

@@ -36,9 +36,9 @@ import re
 import sys
 import textwrap
 import warnings
+from collections.abc import MutableMapping
 from typing import Any
 from typing import ClassVar
-from typing import MutableMapping
 
 import demes
 import numpy as np
@@ -223,7 +223,9 @@ class Population:
     """
 
     def asdict(self):
-        return dataclasses.asdict(self)
+        d = dataclasses.asdict(self)
+        d["__class__"] = f"{self.__module__}.{self.__class__.__name__}"
+        return d
 
     def validate(self):
         if self.initial_size < 0:
@@ -269,6 +271,19 @@ class Demography(collections.abc.Mapping):
         if self.migration_matrix is None:
             N = self.num_populations
             self.migration_matrix = np.zeros((N, N))
+        else:
+            # convert to a numpy array if it's not already
+            if not isinstance(self.migration_matrix, np.ndarray):
+                self.migration_matrix = np.array(self.migration_matrix)
+        if self.migration_matrix.shape != (self.num_populations, self.num_populations):
+            raise ValueError(
+                "Migration matrix must be square and match the number of populations"
+            )
+        if self.events is not None:
+            for event in self.events:
+                if not isinstance(event, DemographicEvent):
+                    raise TypeError("Events must be instances of DemographicEvent")
+                event.demography = self
 
         # People might get cryptic errors from passing in copies of the same
         # population, so check for it.
@@ -277,10 +292,10 @@ class Demography(collections.abc.Mapping):
 
         # Assign the IDs and default names, if needed.
         for j, population in enumerate(self.populations):
-            if population.id is not None:
+            if population.id is not None and population.id != j:
                 raise ValueError(
-                    "Population ID should not be set before using to create "
-                    "a Demography"
+                    "Population ID should be unset or set to its index within"
+                    f" the Demography (expected None or {j}, got {population.id})"
                 )
             population.id = j
             if population.name is None:
@@ -1196,6 +1211,7 @@ class Demography(collections.abc.Mapping):
             "populations": [pop.asdict() for pop in self.populations],
             "events": [event.asdict() for event in self.events],
             "migration_matrix": self.migration_matrix.tolist(),
+            "__class__": f"{self.__module__}.{self.__class__.__name__}",
         }
 
     def debug(self):
@@ -2882,6 +2898,7 @@ class PopulationConfiguration:
             initial_size=self.initial_size,
             growth_rate=self.growth_rate,
             metadata=self.metadata,
+            __class__=f"{self.__module__}.{self.__class__.__name__}",
         )
 
 
@@ -2914,11 +2931,14 @@ class DemographicEvent:
         raise NotImplementedError()
 
     def asdict(self):
-        return {
+        deprecated = {"population_id", "matrix_index", "destination"}
+        d = {
             key: getattr(self, key)
             for key in inspect.signature(self.__init__).parameters.keys()
-            if hasattr(self, key)
+            if hasattr(self, key) and key not in deprecated
         }
+        d["__class__"] = f"{self.__module__}.{self.__class__.__name__}"
+        return d
 
     def _convert_id(self, population_ref):
         """
@@ -3002,9 +3022,7 @@ class PopulationParametersChange(ParameterChangeEvent):
             raise ValueError("Cannot have a population size < 0")
         self.population = -1 if self.population is None else self.population
 
-    def get_ll_representation(self, num_populations=None):
-        # We need to keep the num_populations argument until stdpopsim 0.2 is out
-        # https://github.com/tskit-dev/msprime/issues/1037
+    def get_ll_representation(self):
         ret = {
             "type": "population_parameters_change",
             "time": self.time,
@@ -3082,9 +3100,7 @@ class MigrationRateChange(ParameterChangeEvent):
             self.source = self.matrix_index[0]
             self.dest = self.matrix_index[1]
 
-    def get_ll_representation(self, num_populations=None):
-        # We need to keep the num_populations argument until stdpopsim 0.1 is out
-        # https://github.com/tskit-dev/msprime/issues/1037
+    def get_ll_representation(self):
         return {
             "type": "migration_rate_change",
             "time": self.time,
@@ -3123,9 +3139,7 @@ class SymmetricMigrationRateChange(ParameterChangeEvent):
         default="Symmetric migration rate change", repr=False
     )
 
-    def get_ll_representation(self, num_populations=None):
-        # We need to keep the num_populations argument until stdpopsim 0.1 is out
-        # https://github.com/tskit-dev/msprime/issues/1037
+    def get_ll_representation(self):
         return {
             "type": "symmetric_migration_rate_change",
             "time": self.time,
@@ -3217,9 +3231,7 @@ class MassMigration(LineageMovementEvent):
         if self.destination is not None:
             self.dest = self.destination
 
-    def get_ll_representation(self, num_populations=None):
-        # We need to keep the num_populations argument until stdpopsim 0.1 is out
-        # https://github.com/tskit-dev/msprime/issues/1037
+    def get_ll_representation(self):
         return {
             "type": "mass_migration",
             "time": self.time,
@@ -3276,9 +3288,7 @@ class ActivatePopulationEvent(DemographicEvent):
         default="Activate population event", repr=False
     )
 
-    def get_ll_representation(self, num_populations=None):
-        # We need to keep the num_populations argument until stdpopsim 0.1 is out
-        # https://github.com/tskit-dev/msprime/issues/1037
+    def get_ll_representation(self):
         return {
             "type": "activate_population_event",
             "time": self.time,
@@ -3307,9 +3317,7 @@ class PopulationSplit(LineageMovementEvent):
 
     _type_str: ClassVar[str] = dataclasses.field(default="Population Split", repr=False)
 
-    def get_ll_representation(self, num_populations=None):
-        # We need to keep the num_populations argument until stdpopsim 0.1 is out
-        # https://github.com/tskit-dev/msprime/issues/1037
+    def get_ll_representation(self):
         return {
             "type": "population_split",
             "time": self.time,
@@ -3369,9 +3377,7 @@ class Admixture(LineageMovementEvent):
     def num_ancestral(self):
         return len(self.ancestral)
 
-    def get_ll_representation(self, num_populations=None):
-        # We need to keep the num_populations argument until stdpopsim 0.1 is out
-        # https://github.com/tskit-dev/msprime/issues/1037
+    def get_ll_representation(self):
         return {
             "type": "admixture",
             "time": self.time,
@@ -3424,9 +3430,7 @@ class SimpleBottleneck(StateChangeEvent):
     population: int
     proportion: float = 1.0
 
-    def get_ll_representation(self, num_populations=None):
-        # We need to keep the num_populations argument until stdpopsim 0.1 is out
-        # https://github.com/tskit-dev/msprime/issues/1037
+    def get_ll_representation(self):
         return {
             "type": "simple_bottleneck",
             "time": self.time,
@@ -3454,9 +3458,7 @@ class InstantaneousBottleneck(StateChangeEvent):
     population: int
     strength: float = 1.0
 
-    def get_ll_representation(self, num_populations=None):
-        # We need to keep the num_populations argument until stdpopsim 0.1 is out
-        # https://github.com/tskit-dev/msprime/issues/1037
+    def get_ll_representation(self):
         return {
             "type": "instantaneous_bottleneck",
             "time": self.time,
@@ -3497,9 +3499,7 @@ class CensusEvent(DemographicEvent):
 
     _type_str: ClassVar[str] = dataclasses.field(default="Census", repr=False)
 
-    def get_ll_representation(self, num_populations=None):
-        # We need to keep the num_populations argument until stdpopsim 0.1 is out
-        # https://github.com/tskit-dev/msprime/issues/1037
+    def get_ll_representation(self):
         return {
             "type": "census_event",
             "time": self.time,
@@ -4219,7 +4219,7 @@ class DemographyDebugger:
                 double_step_validation=False,
             )
             m2 = mean_time(steps, P2)
-            keep_steps = np.in1d(steps, last_steps)
+            keep_steps = np.isin(steps, last_steps)
             p_diff = max(np.abs(P1 - P2[keep_steps]))
             m_diff = np.abs(m1 - m2) / m2
             last_P = P2[-1]

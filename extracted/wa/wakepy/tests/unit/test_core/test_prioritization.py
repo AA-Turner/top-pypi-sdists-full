@@ -5,8 +5,7 @@ import typing
 
 import pytest
 
-from wakepy.core import PlatformType
-from wakepy.core.constants import WAKEPY_FAKE_SUCCESS
+from wakepy.core.constants import WAKEPY_FAKE_SUCCESS_METHOD
 from wakepy.core.prioritization import (
     _check_methods_priority,
     _order_set_of_methods_by_priority,
@@ -14,6 +13,7 @@ from wakepy.core.prioritization import (
     order_methods_by_priority,
 )
 from wakepy.core.registry import get_methods
+from wakepy.methods import gnome, macos, windows
 
 if typing.TYPE_CHECKING:
     from typing import List, Type
@@ -21,26 +21,8 @@ if typing.TYPE_CHECKING:
     from wakepy import Method
 
 
-@pytest.fixture
-def set_current_platform_to_linux(monkeypatch):
-
-    monkeypatch.setattr(
-        "wakepy.core.prioritization.CURRENT_PLATFORM", PlatformType.LINUX
-    )
-
-
-@pytest.fixture
-def set_current_platform_to_windows(monkeypatch):
-
-    monkeypatch.setattr(
-        "wakepy.core.prioritization.CURRENT_PLATFORM",
-        PlatformType.WINDOWS,
-    )
-
-
 @pytest.mark.usefixtures("provide_methods_different_platforms")
 class TestOrderMethodsByPriority:
-
     @pytest.mark.usefixtures("set_current_platform_to_linux")
     def test_one_method_after_everything_else(self):
         LinuxA, LinuxB, LinuxC, MultiPlatformA = get_methods(
@@ -137,7 +119,7 @@ class TestOrderMethodsByPriority:
     @pytest.mark.usefixtures("set_current_platform_to_linux")
     def test_fake_success_prioritized_first_asterisk(self):
         WindowsA, LinuxA, LinuxB, WakepyFakeSuccess = get_methods(
-            ["WinA", "LinuxA", "LinuxB", WAKEPY_FAKE_SUCCESS]
+            ["WinA", "LinuxA", "LinuxB", WAKEPY_FAKE_SUCCESS_METHOD]
         )
         # If WAKEPY_FAKE_SUCCESS is used, it is *always* prioritized the
         # highest
@@ -154,7 +136,7 @@ class TestOrderMethodsByPriority:
     @pytest.mark.usefixtures("set_current_platform_to_linux")
     def test_fake_success_prioritized_first_set_before_asterisk(self):
         WindowsA, LinuxA, LinuxB, WakepyFakeSuccess = get_methods(
-            ["WinA", "LinuxA", "LinuxB", WAKEPY_FAKE_SUCCESS]
+            ["WinA", "LinuxA", "LinuxB", WAKEPY_FAKE_SUCCESS_METHOD]
         )
         # If WAKEPY_FAKE_SUCCESS is used, it is *always* prioritized the
         # highest
@@ -171,7 +153,6 @@ class TestOrderMethodsByPriority:
 
 @pytest.mark.usefixtures("provide_methods_a_f")
 class TestSortMethodsToPriorityGroups:
-
     def test_two_names_and_asterisk(self):
         # Case: Select some methods as more important, with '*'
         methods = get_methods(["A", "B", "C", "D", "E", "F"])
@@ -282,7 +263,6 @@ class TestSortMethodsToPriorityGroups:
 
 @pytest.mark.usefixtures("provide_methods_a_f")
 class TestCheckMethodsPriority:
-
     @staticmethod
     @pytest.fixture
     def methods() -> List[Type[Method]]:
@@ -371,7 +351,6 @@ class TestCheckMethodsPriority:
 
 @pytest.mark.usefixtures("provide_methods_different_platforms")
 class TestOrderSetOfMethodsByPriority:
-
     @pytest.mark.usefixtures("set_current_platform_to_linux")
     def test_on_linux(self):
         WindowsA, WindowsB, WindowsC, LinuxA, LinuxB, LinuxC, MultiPlatformA = (
@@ -396,3 +375,18 @@ class TestOrderSetOfMethodsByPriority:
         assert _order_set_of_methods_by_priority(
             {WindowsA, WindowsB, WindowsC, LinuxA, LinuxB, LinuxC, MultiPlatformA}
         ) == [MultiPlatformA, WindowsA, WindowsB, WindowsC, LinuxA, LinuxB, LinuxC]
+
+    @pytest.mark.usefixtures("set_current_platform_to_linux")
+    def test_on_linux_2(self):
+        # This has failed previously.
+        # See: https://github.com/wakepy/wakepy/issues/428
+
+        ordered = _order_set_of_methods_by_priority(
+            {
+                gnome.GnomeSessionManagerNoIdle,
+                macos.CaffeinateKeepPresenting,
+                windows.WindowsKeepPresenting,
+            }
+        )
+
+        assert ordered[0] == gnome.GnomeSessionManagerNoIdle

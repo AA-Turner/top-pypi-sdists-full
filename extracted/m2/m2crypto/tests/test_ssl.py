@@ -19,6 +19,7 @@ Others:
 - ThreadingSSLServer
 """
 import gc
+import http.client
 import logging
 import os
 import os.path
@@ -49,7 +50,9 @@ from tests.fips import fips_mode
 
 log = logging.getLogger("test_SSL")
 
-OPENSSL111 = m2.OPENSSL_VERSION_NUMBER > 0x10101000
+IS_DEBIAN=os.path.exists('/etc/debian_version')
+
+IS_DEBIAN=os.path.exists('/etc/debian_version')
 
 # FIXME
 # It would be probably better if the port was randomly selected.
@@ -198,7 +201,7 @@ class HttpslibSSLClientTestCase(BaseSSLClientTestCase):
             self.stop_server(pid)
         self.assertIn(self.test_output, data.decode())
 
-    @unittest.skipIf(OPENSSL111, "Doesn't work with OpenSSL 1.1.1")
+    @unittest.skip("Doesn't work with OpenSSL 1.1.1")
     def test_HTTPSConnection_resume_session(self):
         pid = self.start_server(self.args)
         try:
@@ -268,6 +271,78 @@ class HttpslibSSLClientTestCase(BaseSSLClientTestCase):
     def test_HTTPSConnection_illegalkeywordarg(self):
         with self.assertRaises(ValueError):
             httpslib.HTTPSConnection("example.org", badKeyword=True)
+
+
+class ProxyHTTPSConnectionTestCase(unittest.TestCase):
+    """Test case for ProxyHTTPSConnection with mocked connections.
+
+    This tests the fix for the bug where ProxyHTTPSConnection.connect()
+    would establish the proxy connection twice.
+    See: https://todo.sr.ht/~mcepl/m2crypto/229
+    """
+
+    def setUp(self):
+        self.ctx = SSL.Context()
+
+    def tearDown(self):
+        self.ctx.close()
+
+    def test_proxy_connect_not_called_twice(self):
+        """Test that connect() is not called twice on ProxyHTTPSConnection.
+
+        This tests the fix for issue #229 where using ProxyHTTPSConnection
+        would try to connect to the proxy twice.
+        """
+        from unittest.mock import patch, MagicMock
+
+        conn = httpslib.ProxyHTTPSConnection(
+            "proxy.example.com", 8080, ssl_context=self.ctx
+        )
+
+        # Set up the _real_host and _real_port that would normally
+        # be set by putrequest()
+        conn._real_host = "target.example.com"
+        conn._real_port = 443
+
+        # Create a mock for the SSL connection
+        mock_ssl_conn = MagicMock()
+        mock_ssl_conn.get_session.return_value = None
+
+        # Track how many times HTTPConnection.connect is called
+        http_connect_call_count = [0]
+
+        def mock_http_connect(self_inner):
+            http_connect_call_count[0] += 1
+            # Set up a mock socket with a proper file-like interface for HTTPResponse
+            mock_sock = MagicMock()
+            # HTTPResponse expects to read status line first, then headers, then empty line
+            mock_fp = MagicMock()
+            mock_fp.readline.side_effect = [
+                b"HTTP/1.1 200 Connection established\r\n",  # Status line
+                b"\r\n",  # Empty line to end headers
+            ]
+            mock_sock.makefile.return_value = mock_fp
+            self_inner.sock = mock_sock
+
+        with patch.object(http.client.HTTPConnection, "connect", mock_http_connect):
+            with patch.object(conn, "_ssl_conn_cls", return_value=mock_ssl_conn):
+                with patch.object(
+                    conn,
+                    "_get_connect_msg",
+                    return_value=b"CONNECT target.example.com:443 HTTP/1.1\r\n\r\n",
+                ):
+                    # Call connect() twice - this should only establish
+                    # the connection once
+                    conn.connect()
+                    conn.connect()
+
+        # Verify that HTTPConnection.connect was only called once
+        self.assertEqual(
+            http_connect_call_count[0],
+            1,
+            "HTTPConnection.connect() should be called exactly once, not %d times"
+            % http_connect_call_count[0],
+        )
 
 
 @unittest.skipIf(sys.platform == "win32", "Test doesn't work on Windows")
@@ -460,6 +535,7 @@ class MiscSSLClientTestCase(BaseSSLClientTestCase):
 
     # TLS is required in FIPS mode
     @unittest.skipIf(fips_mode, "Can't be run in FIPS mode")
+    @unittest.skipIf(IS_DEBIAN, "Can't be run Debian-derived disrtribution")
     def test_tls1_nok(self):
         self.args.append("-no_tls1")
         pid = self.start_server(self.args)
@@ -489,6 +565,7 @@ class MiscSSLClientTestCase(BaseSSLClientTestCase):
             s.close()
         finally:
             self.stop_server(pid)
+        log.debug("data:\n%s", data)
         self.assertIn(self.test_output, data)
 
     def test_cipher_mismatch(self):
@@ -498,11 +575,6 @@ class MiscSSLClientTestCase(BaseSSLClientTestCase):
             ctx = SSL.Context()
             s = SSL.Connection(ctx)
             s.set_cipher_list("AES128-SHA")
-            if not OPENSSL111:
-                with self.assertRaisesRegex(
-                    SSL.SSLError, "sslv3 alert handshake failure"
-                ):
-                    s.connect(self.srv_addr)
             s.close()
         finally:
             self.stop_server(pid)
@@ -514,20 +586,13 @@ class MiscSSLClientTestCase(BaseSSLClientTestCase):
             ctx = SSL.Context()
             s = SSL.Connection(ctx)
             s.set_cipher_list("EXP-RC2-MD5")
-            if not OPENSSL111:
-                with self.assertRaisesRegex(SSL.SSLError, "no ciphers available"):
-                    s.connect(self.srv_addr)
             s.close()
         finally:
             self.stop_server(pid)
 
     def test_cipher_ok(self):
-        if OPENSSL111:
-            TCIPHER = "TLS_AES_256_GCM_SHA384"
-            self.args = self.args + ["-ciphersuites", TCIPHER]
-        else:
-            TCIPHER = "AES128-SHA"
-            self.args = self.args + ["-cipher", TCIPHER]
+        TCIPHER = "TLS_AES_256_GCM_SHA384"
+        self.args = self.args + ["-ciphersuites", TCIPHER]
 
         pid = self.start_server(self.args)
         try:
@@ -546,10 +611,6 @@ class MiscSSLClientTestCase(BaseSSLClientTestCase):
                 cipher_stack[0].name(),
             )
 
-            if not OPENSSL111:
-                with self.assertRaises(IndexError):
-                    cipher_stack.__getitem__(2)
-
             # For some reason there are 2 entries in the stack
             # self.assertEqual(len(cipher_stack), 1, len(cipher_stack))
             self.assertEqual(s.get_cipher_list(), TCIPHER, s.get_cipher_list())
@@ -558,14 +619,6 @@ class MiscSSLClientTestCase(BaseSSLClientTestCase):
             i = 0
             for cipher in cipher_stack:
                 i += 1
-                if not OPENSSL111:
-                    cipname = cipher.name()
-                    self.assertEqual(
-                        cipname,
-                        "AES128-SHA",
-                        '"%s" (%s)' % (cipname, type(cipname)),
-                    )
-                    self.assertEqual("AES128-SHA-128", str(cipher))
             # For some reason there are 2 entries in the stack
             # self.assertEqual(i, 1, i)
             self.assertEqual(i, len(cipher_stack))
@@ -870,9 +923,6 @@ class MiscSSLClientTestCase(BaseSSLClientTestCase):
             ctx.set_verify(SSL.verify_peer | SSL.verify_fail_if_no_peer_cert, 9)
             ctx.load_verify_locations("tests/ca.pem")
             s = SSL.Connection(ctx)
-            if not OPENSSL111:
-                with self.assertRaises(SSL.SSLError):
-                    s.connect(self.srv_addr)
             s.close()
         finally:
             self.stop_server(pid)
@@ -1113,33 +1163,116 @@ class Urllib2SSLClientTestCase(BaseSSLClientTestCase):
             self.stop_server(pid)
 
 
+import ssl
+import socket
+import threading
+
+
+class ChunkedHTTPSServer(threading.Thread):
+    """Simple HTTPS server that sends a chunked response."""
+
+    def __init__(self, host, port, certfile, keyfile):
+        super().__init__(daemon=True)
+        self.host = host
+        self.port = port
+        self.certfile = certfile
+        self.keyfile = keyfile
+        self.ready = threading.Event()
+        self.stop_event = threading.Event()
+
+        # Create and bind the socket
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.server_socket.bind((self.host, self.port))
+        self.server_socket.listen(1)
+        self.server_socket.settimeout(0.5)
+
+    def run(self):
+        self.ready.set()
+
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ssl_context.load_cert_chain(self.certfile, self.keyfile)
+
+        while not self.stop_event.is_set():
+            try:
+                conn, addr = self.server_socket.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+
+            try:
+                ssl_conn = ssl_context.wrap_socket(conn, server_side=True)
+
+                # Read the request
+                request = ssl_conn.recv(4096)
+
+                # Send properly formatted chunked response
+                response = (
+                    b"HTTP/1.1 200 OK\r\n"
+                    b"Content-Type: text/plain\r\n"
+                    b"Transfer-Encoding: chunked\r\n"
+                    b"\r\n"
+                    b"4\r\n"      # Chunk size: 4 bytes
+                    b"foo\n\r\n"  # Data: "foo\n"
+                    b"7\r\n"      # Chunk size: 7 bytes
+                    b"foobar\n\r\n"  # Data: "foobar\n"
+                    b"0\r\n"      # Last chunk (size 0)
+                    b"\r\n"       # Final CRLF
+                )
+                ssl_conn.sendall(response)
+                ssl_conn.close()
+            except Exception as e:
+                log.debug("ChunkedHTTPSServer error: %s", e)
+            finally:
+                if conn:
+                    try:
+                        conn.close()
+                    except:
+                        pass
+
+    def stop(self):
+        self.stop_event.set()
+        try:
+            self.server_socket.close()
+        except:
+            pass
+
+
 class Urllib2TEChunkedSSLClientTestCase(BaseSSLClientTestCase):
     """Test a response with "Transfer-Encoding: chunked"."""
 
     def setUp(self):
-        super(Urllib2TEChunkedSSLClientTestCase, self).setUp()
-        self.args = [
-            "s_server",
-            "-quiet",
-            "-HTTP",
-            "-accept",
-            str(self.srv_port),
-        ]
+        # Don't call parent setUp - we manage our own server
+        self.srv_host = srv_host
+        self.srv_port = allocate_srv_port()
+
+        # Start our custom chunked server
+        self.server = ChunkedHTTPSServer(
+            self.srv_host,
+            self.srv_port,
+            certfile="tests/server.pem",
+            keyfile="tests/server_key.pem",
+        )
+        self.server.start()
+
+        # Wait for server to be ready
+        if not self.server.ready.wait(timeout=5):
+            self.fail("Chunked HTTPS server failed to start")
+
+    def tearDown(self):
+        self.server.stop()
+        self.server.join(timeout=2)
 
     def test_transfer_encoding_chunked(self):
-        pid = self.start_server(self.args)
-        try:
-            url = "https://%s:%s/te_chunked_response.txt" % (
-                srv_host,
-                self.srv_port,
-            )
-            o = m2urllib2.build_opener()
-            u = o.open(url)
-            data = u.read()
-            self.assertEqual(b"foo\nfoobar\n", data)
-        finally:
-            self.stop_server(pid)
+        """Test that chunked transfer encoding is handled correctly."""
+        url = "https://%s:%s/" % (self.srv_host, self.srv_port)
+        o = m2urllib2.build_opener()
+        u = o.open(url)
+        data = u.read()
+        u.close()
 
+        self.assertEqual(b"foo\nfoobar\n", data)
 
 @unittest.skip("Twisted integration has been temporarily switched off.")
 class TwistedSSLClientTestCase(BaseSSLClientTestCase):
@@ -1313,6 +1446,9 @@ def suite():
         unittest.TestLoader().loadTestsFromTestCase(HttpslibSSLClientTestCase)
     )
     suite.addTest(
+        unittest.TestLoader().loadTestsFromTestCase(ProxyHTTPSConnectionTestCase)
+    )
+    suite.addTest(
         unittest.TestLoader().loadTestsFromTestCase(HttpslibSSLSNIClientTestCase)
     )
     suite.addTest(unittest.TestLoader().loadTestsFromTestCase(Urllib2SSLClientTestCase))
@@ -1363,6 +1499,7 @@ if __name__ == "__main__":
         zap_servers()
 
     if report_leaks:
-        from tests import alltests
+        from tests import dump_garbage
 
-        alltests.dump_garbage()
+        dump_garbage()
+        pass

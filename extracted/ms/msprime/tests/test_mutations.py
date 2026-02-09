@@ -26,6 +26,7 @@ import functools
 import itertools
 import json
 import struct
+import sys
 from typing import Any
 
 import numpy as np
@@ -366,6 +367,9 @@ class TestMatrixMutationModel:
         self.validate_model(model)
         self.validate_stationary(model)
 
+    @pytest.mark.skipif(
+        sys.platform.startswith("win"), reason="Windows BLAS issue #2349"
+    )
     @pytest.mark.parametrize(
         "p, m, lo, hi",
         [
@@ -2141,9 +2145,11 @@ class PythonMutationGenerator:
                     parent=parent_id,
                     metadata=mutation.metadata,
                     # Not sure why, but sometimes the time is a single-element array
-                    time=mutation.time[0]
-                    if isinstance(mutation.time, np.ndarray)
-                    else mutation.time,
+                    time=(
+                        mutation.time[0]
+                        if isinstance(mutation.time, np.ndarray)
+                        else mutation.time
+                    ),
                 )
                 assert mutation_id > parent_id
                 mutation.id = mutation_id

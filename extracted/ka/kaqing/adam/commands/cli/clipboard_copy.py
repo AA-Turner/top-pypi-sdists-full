@@ -7,7 +7,7 @@ from adam.commands.cli.cli_commands import CliCommands
 from adam.commands.command import Command, InvalidArgumentsException
 from adam.commands.command_helpers import ClusterOrPodCommandHelper
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import log, log2
+from adam.utils_log import log, log2
 from adam.utils_tabulize import tabulize
 
 class ClipboardCopy(Command):

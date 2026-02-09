@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from langchain_core.tools import StructuredTool
 from cuga.backend.cuga_graph.nodes.cuga_lite.tool_provider_interface import AppDefinition
 from cuga.backend.llm.utils.helpers import create_chat_prompt_from_templates
+import os
 
 
 class Tool(BaseModel):
@@ -415,6 +416,9 @@ def create_mcp_prompt(
         enable_find_tools: If True, includes find_tools instructions in the prompt
     """
     processed_tools = []
+    if special_instructions is None:
+        special_instructions = os.getenv("CUGA_POLICIES_CONTENT", "")
+
     for tool in tools:
         tool_name = tool.name if hasattr(tool, 'name') else str(tool)
         tool_desc = tool.description if hasattr(tool, 'description') else "No description"

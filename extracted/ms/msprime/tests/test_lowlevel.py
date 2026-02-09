@@ -440,7 +440,7 @@ class TestModule:
     def test_tsk_library_version(self):
         tsk_version = _msprime.get_tskit_c_version()
         # Update this when the tskit C library version changes
-        assert tsk_version == (1, 0, 0)
+        assert tsk_version == (1, 3, 0)
 
 
 def get_random_population_models(n):
@@ -782,6 +782,9 @@ class TestSimulationState(LowLevelTestCase):
         """
         if model is None:
             model = get_simulation_model()
+        # using hudson as the init_model keeps the simulation
+        # logic consistent with `sim_ancestry()`
+        init_model = get_simulation_model()
         # These tests don't work for n == 2
         assert n > 2
         random_seed = random.randint(0, 2**31)
@@ -794,9 +797,10 @@ class TestSimulationState(LowLevelTestCase):
             segment_block_size=1000,
             avl_node_block_size=1000,
             node_mapping_block_size=1000,
-            model=model,
+            model=init_model,
         )
         for _ in range(3):
+            sim.model = model
             # Run the sim for a tiny amount of time and check.
             if sim.run(1e-9) != _msprime.EXIT_COALESCENCE:
                 self.verify_running_simulation(sim)
@@ -829,6 +833,8 @@ class TestSimulationState(LowLevelTestCase):
         )
         self.verify_simulation(3, 10, 1.0, model=get_simulation_model("smc"))
         self.verify_simulation(4, 10, 2.0, model=get_simulation_model("smc_prime"))
+        self.verify_simulation(4, 10, 2.0, model=get_simulation_model("smc_prime"))
+        self.verify_simulation(3, 10, 1.0, model=get_simulation_model("smc_k", k=0.0))
 
     def test_event_by_event(self):
         n = 10
@@ -1317,6 +1323,24 @@ class TestSimulator(LowLevelTestCase):
             sim = make_sim(model=model)
             assert sim.model == model
 
+    def test_smck_simulation_model(self):
+        # set model to hudson for initialisation
+        for bad_type in [None, str, "sdf"]:
+            model = get_simulation_model("smc_k", k=bad_type)
+            sim = make_sim(model=get_simulation_model())
+            with pytest.raises(TypeError):
+                sim.model = model
+        for bad_k in [-1, -1e-6]:
+            sim = make_sim(model=get_simulation_model())
+            model = get_simulation_model("smc_k", k=bad_k)
+            with pytest.raises(ValueError):
+                sim.model = model
+        for k in [0.0, 1.1e-4, 2.5]:
+            model = get_simulation_model("smc_k", k=k)
+            sim = make_sim(model=get_simulation_model())
+            sim.model = model
+            assert sim.model == model
+
     def test_dirac_simulation_model(self):
         for bad_type in [None, str, "sdf"]:
             model = get_simulation_model("dirac", psi=bad_type, c=1.0)
@@ -1484,10 +1508,10 @@ class TestSimulator(LowLevelTestCase):
         status = sim.run()
         assert status == _msprime.EXIT_COALESCENCE
         t_before = sim.time
-        for _ in range(100):
+        for _ in range(10):
             model = get_sweep_genic_selection_model(position=5)
             sim.model = model
-            assert sim.run() == _msprime.EXIT_COALESCENCE
+            assert sim.run() == _msprime.EXIT_MODEL_COMPLETE
             assert t_before == sim.time
 
     def test_store_migrations(self):

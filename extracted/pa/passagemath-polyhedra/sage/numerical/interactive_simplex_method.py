@@ -203,7 +203,7 @@ from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
-from sage.structure.all import SageObject
+from sage.structure.sage_object import SageObject
 
 
 # We produce rather complicated LaTeX code which needs some tweaks to be
@@ -296,11 +296,12 @@ def _latex_product(coefficients, variables,
 
     TESTS::
 
+        sage: # needs sage.symbolic
         sage: from sage.numerical.interactive_simplex_method import \
         ....:       _latex_product
-        sage: var("x, y")                                                               # needs sage.symbolic
+        sage: var("x, y")
         (x, y)
-        sage: print(_latex_product([-1, 3], [x, y]))                                    # needs sage.symbolic
+        sage: print(_latex_product([-1, 3], [x, y]))
         - \mspace{-6mu}&\mspace{-6mu} x \mspace{-6mu}&\mspace{-6mu} + \mspace{-6mu}&\mspace{-6mu} 3 y
         sage: var("x, y, z")
         (x, y, z)
@@ -1174,14 +1175,15 @@ class InteractiveLPProblem(SageObject):
             defined as the convex hull of 4 vertices
             sage: F.backend()
             'ppl'
-            sage: F_cdd = P.feasible_set(backend='cdd'); F_cdd
+            sage: F_cdd = P.feasible_set(backend='cdd'); F_cdd                          # needs cddexec_gmp
             A 2-dimensional polyhedron in QQ^2
             defined as the convex hull of 4 vertices
-            sage: F_cdd.backend()
+            sage: F_cdd.backend()                                                       # needs cddexec_gmp
             'cdd'
 
         An algebraic polyhedron::
 
+            sage: # needs sage.symbolic
             sage: A = ([1, sqrt(2)], [sqrt(3), 1])
             sage: b = (1000, 1500)
             sage: c = (10, 5)
@@ -1220,7 +1222,7 @@ class InteractiveLPProblem(SageObject):
             return Polyhedron(ieqs=ieqs, eqns=eqns, backend=backend)
         return Polyhedron(ieqs=ieqs, eqns=eqns)
 
-    def is_bounded(self):
+    def is_bounded(self) -> bool:
         r"""
         Check if ``self`` is bounded.
 
@@ -1246,7 +1248,7 @@ class InteractiveLPProblem(SageObject):
         """
         return self.optimal_solution() is not None or not self.is_feasible()
 
-    def is_feasible(self, *x):
+    def is_feasible(self, *x) -> bool:
         r"""
         Check if ``self`` or given solution is feasible.
 
@@ -1283,7 +1285,7 @@ class InteractiveLPProblem(SageObject):
             return self.feasible_set().contains(self._solution(x))
         return self.optimal_value() is not None
 
-    def is_negative(self):
+    def is_negative(self) -> bool:
         r"""
         Return ``True`` when the problem is of type ``'-max'`` or ``'-min'``.
 
@@ -1301,7 +1303,7 @@ class InteractiveLPProblem(SageObject):
         """
         return self._is_negative
 
-    def is_primal(self):
+    def is_primal(self) -> bool:
         r"""
         Check if we consider this problem to be primal or dual.
 
@@ -1322,7 +1324,7 @@ class InteractiveLPProblem(SageObject):
         """
         return self._is_primal
 
-    def is_optimal(self, *x):
+    def is_optimal(self, *x) -> bool:
         r"""
         Check if given solution is feasible.
 
@@ -2649,6 +2651,7 @@ class InteractiveLPProblemStandardForm(InteractiveLPProblem):
 
         Using constants in the symbolic ring::
 
+            sage: # needs sage.symbolic
             sage: A = Matrix(([1, 1], [3, 1], [-1, -1])) * pi
             sage: b = vector((1000, 1500, -400)) * pi
             sage: c = vector((10, 5)) * pi
@@ -3140,7 +3143,7 @@ class LPAbstractDictionary(SageObject):
                              "its coefficients")
         return self.column_coefficients(self._entering)
 
-    def is_dual_feasible(self):
+    def is_dual_feasible(self) -> bool:
         r"""
         Check if ``self`` is dual feasible.
 
@@ -3164,7 +3167,7 @@ class LPAbstractDictionary(SageObject):
         """
         return all(ci <= 0 for ci in self.objective_coefficients())
 
-    def is_feasible(self):
+    def is_feasible(self) -> bool:
         r"""
         Check if ``self`` is feasible.
 
@@ -3188,7 +3191,7 @@ class LPAbstractDictionary(SageObject):
         """
         return all(bi >= 0 for bi in self.constant_terms())
 
-    def is_optimal(self):
+    def is_optimal(self) -> bool:
         r"""
         Check if ``self`` is optimal.
 

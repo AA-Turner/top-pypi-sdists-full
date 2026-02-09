@@ -84,7 +84,7 @@ class Highlighter(Highlight):
         self._css_class = config.pop("css_class", "highlight")
         super().__init__(**{name: opt for name, opt in config.items() if name in self._highlight_config_keys})
 
-    def highlight(
+    def highlight(  # ty: ignore[invalid-method-override]
         self,
         src: str,
         language: str | None = None,
@@ -113,7 +113,7 @@ class Highlighter(Highlight):
             src = textwrap.dedent(src)
 
         kwargs.setdefault("css_class", self._css_class)
-        old_linenums = self.linenums  # type: ignore[has-type]
+        old_linenums = self.linenums
         if linenums is not None:
             self.linenums = linenums
         try:
@@ -240,7 +240,7 @@ class _HeadingReportingTreeprocessor(Treeprocessor):
 
     def run(self, root: Element) -> None:
         """Record all heading elements encountered in the document."""
-        permalink_class = self.md.treeprocessors["toc"].permalink_class  # type: ignore[attr-defined]
+        permalink_class = self.md.treeprocessors["toc"].permalink_class
         for el in root.iter():
             if self.regex.fullmatch(el.tag):
                 el = copy.copy(el)  # noqa: PLW2901

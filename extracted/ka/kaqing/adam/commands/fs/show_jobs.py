@@ -1,8 +1,8 @@
-from adam.commands.fs.utils_fs import show_last_results_for_background_jobs
 from adam.commands.command import Command
 from adam.repl_state import ReplState
-from adam.utils_async_job import AsyncJobs
+from adam.utils_job.job import Job
 from adam.utils_context import Context
+from adam.utils_job.utils_job_results import show_last_results_for_background_jobs, show_last_results_with_local_log
 
 class ShowJobs(Command):
     COMMAND = 'show jobs'
@@ -26,8 +26,11 @@ class ShowJobs(Command):
         if not self.args(cmd):
             return super().run(cmd, state)
 
-        if cmd_info := AsyncJobs.show_restarts_command():
-            show_last_results_for_background_jobs(state, cmd_info, ctx=Context.new(show_out=True))
+        if job := Job.show_restarts_command():
+            ctx = self.context()
+
+            show_last_results_with_local_log(state, job, ctx=ctx)
+            show_last_results_for_background_jobs(state, job, ctx=ctx)
 
         return state
 

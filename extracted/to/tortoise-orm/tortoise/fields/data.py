@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import datetime
 import functools
 import json
@@ -7,7 +8,7 @@ import warnings
 from collections.abc import Callable
 from decimal import Decimal
 from enum import Enum, IntEnum
-from typing import TYPE_CHECKING, Any, TypeVar, Union
+from typing import TYPE_CHECKING, Any, TypeVar
 from uuid import UUID, uuid4
 
 from pypika_tortoise import functions
@@ -54,7 +55,7 @@ T = TypeVar("T")
 
 # Doing this we can replace json dumps/loads with different implementations
 JsonDumpsFunc = Callable[[Any], str]
-JsonLoadsFunc = Callable[[Union[str, bytes]], Any]
+JsonLoadsFunc = Callable[[str | bytes], Any]
 JSON_DUMPS: JsonDumpsFunc = functools.partial(json.dumps, separators=(",", ":"))
 JSON_LOADS: JsonLoadsFunc = json.loads
 
@@ -62,7 +63,10 @@ try:
     # Use orjson as an optional accelerator
     import orjson
 
-    JSON_DUMPS = lambda x: orjson.dumps(x).decode()  # noqa: E731
+    def _orjson_dumps(obj: Any) -> str:
+        return orjson.dumps(obj).decode()
+
+    JSON_DUMPS = _orjson_dumps
     JSON_LOADS = orjson.loads
 except ImportError:  # pragma: nocoverage
     pass
@@ -231,7 +235,15 @@ class TextField(Field[str], str):  # type: ignore
             raise ConfigurationError(
                 "TextField doesn't support unique indexes, consider CharField or another strategy"
             )
-        if db_index or kwargs.get("index"):
+        if (index := kwargs.pop("index", None)) is not None:
+            warnings.warn(
+                "`index` is deprecated, please use `db_index` instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if index or db_index:
+                raise ConfigurationError("TextField can't be indexed, consider CharField")
+        elif db_index:
             raise ConfigurationError("TextField can't be indexed, consider CharField")
 
         super().__init__(primary_key=primary_key, **kwargs)
@@ -265,7 +277,7 @@ class BooleanField(Field[bool]):
         SQL_TYPE = "NUMBER(1)"
 
 
-class DecimalField(Field[Decimal], Decimal):
+class DecimalField(Field[Decimal], Decimal):  # type: ignore
     """
     Accurate decimal field.
 
@@ -312,6 +324,7 @@ class DecimalField(Field[Decimal], Decimal):
 DatetimeFieldQueryValueType = TypeVar(
     "DatetimeFieldQueryValueType", datetime.datetime, int, float, str
 )
+DateFieldQueryValueType = TypeVar("DateFieldQueryValueType", datetime.date, int, float, str)
 
 
 class DatetimeField(Field[datetime.datetime], datetime.datetime):
@@ -346,7 +359,7 @@ class DatetimeField(Field[datetime.datetime], datetime.datetime):
             raise ConfigurationError("You can choose only 'auto_now' or 'auto_now_add'")
         super().__init__(**kwargs)
         self.auto_now = auto_now
-        self.auto_now_add = auto_now | auto_now_add
+        self.auto_now_add = auto_now_add
 
     def to_python_value(self, value: Any) -> datetime.datetime | None:
         if value is not None:
@@ -356,10 +369,17 @@ class DatetimeField(Field[datetime.datetime], datetime.datetime):
                 value = datetime.datetime.fromtimestamp(value)
             else:
                 value = parse_datetime(value)
-            if timezone.is_naive(value):
-                value = timezone.make_aware(value, get_timezone())
+            if get_use_tz():
+                # When use_tz=True, ensure all datetimes are timezone-aware
+                if timezone.is_naive(value):
+                    value = timezone.make_aware(value, get_timezone())
+                else:
+                    value = localtime(value)
             else:
-                value = localtime(value)
+                # When use_tz=False, ensure all datetimes are naive
+                # Some backends (PostgreSQL TIMESTAMPTZ) return aware datetimes natively
+                if timezone.is_aware(value):
+                    value = value.replace(tzinfo=None)
         return value
 
     def to_db_value(
@@ -371,7 +391,9 @@ class DatetimeField(Field[datetime.datetime], datetime.datetime):
             or (self.auto_now_add and getattr(instance, self.model_field_name) is None)
         ):
             now = timezone.now()
-            setattr(instance, self.model_field_name, now)
+            # Convert to match what would be read from DB (apply timezone conversion)
+            now_python = self.to_python_value(now)
+            setattr(instance, self.model_field_name, now_python)
             return now  # type:ignore[return-value]
         if value is not None:
             if isinstance(value, datetime.datetime) and get_use_tz():
@@ -388,7 +410,7 @@ class DatetimeField(Field[datetime.datetime], datetime.datetime):
     @property
     def constraints(self) -> dict:
         data = {}
-        if self.auto_now_add:
+        if self.auto_now_add or self.auto_now:
             data["readOnly"] = True
         return data
 
@@ -413,10 +435,11 @@ class DateField(Field[datetime.date], datetime.date):
         return value
 
     def to_db_value(
-        self, value: datetime.date | str | None, instance: type[Model] | Model
-    ) -> datetime.date | None:
-        if value is not None and not isinstance(value, datetime.date):
-            value = parse_datetime(value).date()
+        self, value: DateFieldQueryValueType | None, instance: type[Model] | Model
+    ) -> DateFieldQueryValueType | None:
+        if value is not None and isinstance(value, str) and len(value) > 4:
+            with contextlib.suppress(ValueError):
+                value = parse_datetime(value).date()  # type: ignore[assignment]
         self.validate(value)
         return value
 
@@ -437,7 +460,7 @@ class TimeField(Field[datetime.time], datetime.time):
             raise ConfigurationError("You can choose only 'auto_now' or 'auto_now_add'")
         super().__init__(**kwargs)
         self.auto_now = auto_now
-        self.auto_now_add = auto_now | auto_now_add
+        self.auto_now_add = auto_now_add
 
     def to_python_value(self, value: Any) -> datetime.time | datetime.timedelta | None:
         if value is not None:
@@ -445,8 +468,12 @@ class TimeField(Field[datetime.time], datetime.time):
                 value = datetime.time.fromisoformat(value)
             if isinstance(value, datetime.timedelta):
                 return value
-            if timezone.is_naive(value):
-                value = value.replace(tzinfo=get_default_timezone())
+            if get_use_tz():
+                if timezone.is_naive(value):
+                    value = value.replace(tzinfo=get_default_timezone())
+            else:
+                if timezone.is_aware(value):
+                    value = value.replace(tzinfo=None)
         return value
 
     def to_db_value(
@@ -460,7 +487,9 @@ class TimeField(Field[datetime.time], datetime.time):
             or (self.auto_now_add and getattr(instance, self.model_field_name) is None)
         ):
             now = timezone.now().time()
-            setattr(instance, self.model_field_name, now)
+            # Convert to match what would be read from DB (apply timezone conversion)
+            now_python = self.to_python_value(now)
+            setattr(instance, self.model_field_name, now_python)
             return now
         if value is not None:
             if isinstance(value, datetime.timedelta):

@@ -27,7 +27,6 @@ def _warn_on_deprecated_short_flags() -> None:
         "-P": "--check-property-returns",
         "-i": "--ignore-no-params",
         "-a": "--ignore-args",
-        "-k": "--ignore-kwargs",
     }
     raw_args = _sys.argv[1:]
     expanded_flags = []
@@ -59,27 +58,6 @@ def main() -> str | int:
     _warn_on_deprecated_short_flags()
     a = _parse_args()
     _excepthook(a.no_ansi)
-    return _docsig(
-        *a.path,
-        string=a.string,
-        list_checks=a.list_checks,
-        check_class=a.check_class,
-        check_class_constructor=a.check_class_constructor,
-        check_dunders=a.check_dunders,
-        check_protected_class_methods=a.check_protected_class_methods,
-        check_nested=a.check_nested,
-        check_overridden=a.check_overridden,
-        check_protected=a.check_protected,
-        check_property_returns=a.check_property_returns,
-        include_ignored=a.include_ignored,
-        ignore_no_params=a.ignore_no_params,
-        ignore_args=a.ignore_args,
-        ignore_kwargs=a.ignore_kwargs,
-        ignore_typechecker=a.ignore_typechecker,
-        no_ansi=a.no_ansi,
-        verbose=a.verbose,
-        target=a.target,
-        disable=a.disable,
-        exclude=a.exclude,
-        excludes=a.excludes,
-    )
+    kwargs = vars(a)
+    path = kwargs.pop("path")
+    return _docsig(*path, **kwargs)

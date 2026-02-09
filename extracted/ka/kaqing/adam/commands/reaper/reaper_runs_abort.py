@@ -2,7 +2,7 @@ from adam.commands.command import Command
 from adam.commands.reaper.utils_reaper import reaper
 from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import log2
+from adam.utils_log import log2
 
 class ReaperRunsAbort(Command):
     COMMAND = 'reaper abort runs'

@@ -9,10 +9,7 @@ from typing import List, Optional
 from abstra_internals.cloud_api.http_client import HTTPClient
 from abstra_internals.consts.filepaths import EXECUTIONS_DIR_PATH
 from abstra_internals.entities.execution import Execution, ExecutionStatus
-from abstra_internals.repositories.multiprocessing import MPContext
-from abstra_internals.repositories.producer import (
-    WebEditorControlProducerRepository,
-)
+from abstra_internals.repositories.producer import WebEditorControlProducerRepository
 from abstra_internals.services.sql_storage import SqlStorage
 
 
@@ -102,10 +99,8 @@ class ExecutionRepository(ABC):
 
 
 class LocalExecutionRepository(ExecutionRepository):
-    def __init__(self, mp_context: MPContext):
-        self.fs_storage = SqlStorage(
-            mp_context, directory=EXECUTIONS_DIR_PATH, model=Execution
-        )
+    def __init__(self):
+        self.fs_storage = SqlStorage(directory=EXECUTIONS_DIR_PATH, model=Execution)
 
     def create(self, execution: Execution) -> None:
         self.fs_storage.save(execution.id, execution)
@@ -196,8 +191,8 @@ class LocalExecutionRepository(ExecutionRepository):
 
 
 class WebEditorExecutionRepository(LocalExecutionRepository):
-    def __init__(self, mp_context: MPContext, rabbitmq_uri: str):
-        super().__init__(mp_context)
+    def __init__(self, rabbitmq_uri: str):
+        super().__init__()
         self.control_producer = WebEditorControlProducerRepository(rabbitmq_uri)
 
     def stop_execution(self, execution_id: str) -> None:

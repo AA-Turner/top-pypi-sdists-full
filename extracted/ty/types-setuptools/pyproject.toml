@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-setuptools"
-version = "80.10.0.20260124"
+version = "81.0.0.20260209"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for setuptools"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`setuptools`](https://github.com/pypa/setuptools) package. It can be used by type checkers
 to check code that uses `setuptools`. This version of
 `types-setuptools` aims to provide accurate annotations for
-`setuptools==80.10.*`.
+`setuptools==81.0.*`.
 
 Given that `pkg_resources` is typed since `setuptools >= 71.1`, it is no longer included with `types-setuptools`.
 
@@ -31,7 +31,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`507b51f833850c4cac9e618c968f6b6ff56c26d2`](https://github.com/python/typeshed/commit/507b51f833850c4cac9e618c968f6b6ff56c26d2).
+[`29a8b8c51a9f7b32c81a2b30cd60ddc0d032f03e`](https://github.com/python/typeshed/commit/29a8b8c51a9f7b32c81a2b30cd60ddc0d032f03e).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

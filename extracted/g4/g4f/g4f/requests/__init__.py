@@ -28,16 +28,14 @@ try:
 except ImportError:
     has_webview = False
 try:
-    import nodriver
-    from nodriver.cdp.network import CookieParam
-    from nodriver.core.config import find_chrome_executable
-    from nodriver import Browser, Tab, util
-
+    import zendriver as nodriver
+    from zendriver.cdp.network import CookieParam
+    from zendriver.core.config import find_executable
+    from zendriver import Browser, Tab, util
     has_nodriver = True
 except ImportError:
     from typing import Type as Browser
     from typing import Type as Tab
-
     has_nodriver = False
 try:
     from platformdirs import user_config_dir
@@ -84,7 +82,7 @@ async def get_args_from_webview(url: str) -> dict:
 
 
 def get_cookie_params_from_dict(cookies: Cookies, url: str = None, domain: str = None) -> list[CookieParam]:
-    [CookieParam.from_json({
+    return [CookieParam.from_json({
         "name": key,
         "value": value,
         "url": url,
@@ -106,7 +104,7 @@ async def get_args_from_nodriver(
     if browser is None:
         browser, stop_browser = await get_nodriver(proxy=proxy, timeout=timeout, user_data_dir=user_data_dir, browser_args=browser_args)
     else:
-        def stop_browser():
+        async def stop_browser():
             pass
     try:
         debug.log(f"Open nodriver with url: {url}")
@@ -117,7 +115,7 @@ async def get_args_from_nodriver(
             await browser.cookies.set_all(get_cookie_params_from_dict(cookies, url=url, domain=domain))
         page = await browser.get(url)
         user_agent = await page.evaluate("window.navigator.userAgent", return_by_value=True)
-        while not await page.evaluate("document.querySelector('body:not(.no-js)')"):
+        while not await page.evaluate("!!document.querySelector('body:not(.no-js)')"):
             await asyncio.sleep(1)
         if wait_for is not None:
             await page.wait_for(wait_for, timeout=timeout)
@@ -125,7 +123,7 @@ async def get_args_from_nodriver(
             await callback(page)
         for c in await page.send(nodriver.cdp.network.get_cookies([url])):
             cookies[c.name] = c.value
-        stop_browser()
+        await stop_browser()
         return {
             "impersonate": "chrome",
             "cookies": cookies,
@@ -137,7 +135,7 @@ async def get_args_from_nodriver(
             "proxy": proxy,
         }
     except:
-        stop_browser()
+        await stop_browser()
         raise
 
 
@@ -166,13 +164,13 @@ async def get_nodriver(
 ) -> tuple[Browser, callable]:
     if not has_nodriver:
         raise MissingRequirementsError(
-            'Install "nodriver" and "platformdirs" package | pip install -U nodriver platformdirs')
+            'Install "zendriver" and "platformdirs" package | pip install -U zendriver platformdirs')
     user_data_dir = user_config_dir(f"g4f-{user_data_dir}") if user_data_dir and has_platformdirs else None
     if browser_executable_path is None:
         browser_executable_path = BrowserConfig.browser_executable_path
     if browser_executable_path is None:
         try:
-            browser_executable_path = find_chrome_executable()
+            browser_executable_path = find_executable()
         except FileNotFoundError:
             # Default to Edge if Chrome is not available.
             browser_executable_path = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
@@ -203,7 +201,7 @@ async def get_nodriver(
                         raise TimeoutError("Nodriver is already in use, please try again later.")
             else:
                 debug.log(f"Nodriver: Browser was opened {time_open} secs ago, closing it.")
-                BrowserConfig.stop_browser()
+                await BrowserConfig.stop_browser()
                 lock_file.unlink(missing_ok=True)
         lock_file.write_text(str(time.time()))
         debug.log(f"Open nodriver with user_dir: {user_data_dir}")
@@ -229,10 +227,10 @@ async def get_nodriver(
         else:
             raise
 
-    def on_stop():
+    async def on_stop():
         try:
             if BrowserConfig.port is None and browser.connection:
-                browser.stop()
+                await browser.stop()
         except:
             pass
         finally:
@@ -247,7 +245,7 @@ async def get_nodriver(
 async def get_nodriver_session(**kwargs):
     browser, stop_browser = await get_nodriver(**kwargs)
     yield browser
-    stop_browser()
+    await stop_browser()
 
 
 async def sse_stream(iter_lines: AsyncIterator[bytes]) -> AsyncIterator[dict]:

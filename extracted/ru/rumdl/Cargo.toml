@@ -1,6 +1,6 @@
 [package]
 name = "rumdl"
-version = "0.1.13"
+version = "0.1.15"
 edition = "2024"
 rust-version = "1.91.0"
 description = "A fast Markdown linter written in Rust (Ru(st) MarkDown Linter)"
@@ -28,7 +28,7 @@ path = "src/main.rs"
 [profile.release]
 lto = true           # Enable Link-Time Optimization
 strip = true         # Strip symbols from binary
-opt-level = "z"      # Optimize for size (alternative: "s" for small, "3" for speed)
+opt-level = 3        # Optimize for speed
 codegen-units = 1    # Better optimization but slower compile times
 
 [profile.profiling]
@@ -65,7 +65,6 @@ toml_edit = "0.24"
 dyn-clone = "1"
 url = { version = "2", features = ["serde"] }
 unicode-normalization = "0.1"
-memmap2 = "0.9"
 schemars = "1.1"
 unicode-width = "0.2"
 titlecase = "3"

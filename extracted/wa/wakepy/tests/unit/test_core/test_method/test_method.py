@@ -6,12 +6,12 @@ import sys
 import pytest
 
 from tests.unit.test_core.testmethods import TestMethod
+from wakepy import Method, MethodInfo
 from wakepy.core import DBusMethodCall, PlatformType
 from wakepy.core.method import (
-    Method,
+    DBusCallError,
     MethodOutcome,
     MethodOutcomeValue,
-    _check_supported_platforms,
     has_enter,
     has_exit,
     has_heartbeat,
@@ -29,7 +29,7 @@ if typing.TYPE_CHECKING:
 
 def test_overridden_methods_autodiscovery():
     """The enter_mode, heartbeat and exit_mode methods by default do nothing
-    (on the Method base class). In subclasses, these are usually overriden.
+    (on the Method base class). In subclasses, these are usually overridden.
     Check that detecting the overridden methods works correctly
     """
 
@@ -133,16 +133,36 @@ def test_method_string_representations():
     assert method.__repr__() == f"<wakepy Method: MethodB at {hex(id(method))}>"
 
 
-def test_process_dbus_call(dbus_method: DBusMethod):
-    method = Method()
-    # when there is no dbus adapter..
-    assert method.dbus_adapter is None
-    # we get RuntimeError
-    with pytest.raises(
-        RuntimeError,
-        match=".*cannot process dbus method call.*as it does not have a DBusAdapter",
-    ):
-        assert method.process_dbus_call(DBusMethodCall(dbus_method))
+class TestProcessDBusCall:
+    def test_missing_dbus_adapter(self, dbus_method: DBusMethod):
+        method = Method()
+        # when there is no dbus adapter..
+        assert method.dbus_adapter is None
+        # we get RuntimeError
+        with pytest.raises(
+            RuntimeError,
+            match=".*cannot process dbus method call.*as it does not have a DBusAdapter",  # noqa: E501
+        ):
+            assert method.process_dbus_call(DBusMethodCall(dbus_method))
+
+    def test_error_when_calling_dbus_methods(self, dbus_method: DBusMethod):
+        method = Method()
+
+        class MockedDBusAdapter:
+            def process(self, _: DBusMethodCall) -> object:
+                raise RuntimeError("Error from mocked DBusAdapter")
+
+        method.dbus_adapter = MockedDBusAdapter()  # type: ignore[assignment]
+
+        # When there's an error while calling a D-Bus method,
+        # we get DBusCallError with message telling what went wrong
+        with pytest.raises(
+            DBusCallError,
+            match=re.escape(
+                "DBus call of method 'test-method' on interface '/foo' with args () failed with message: Error from mocked DBusAdapter"  # noqa: E501
+            ),
+        ):
+            assert method.process_dbus_call(DBusMethodCall(dbus_method))
 
 
 def test_methodoutcome(assert_strenum_values):
@@ -151,19 +171,47 @@ def test_methodoutcome(assert_strenum_values):
 
 class TestCheckSupportedPlatforms:
     def test_wrong_type_of_supported_platforms(self):
+        class BadMethod(TestMethod):
+            supported_platforms = "x"  # type: ignore
 
         with pytest.raises(
             ValueError,
-            match="The supported_platforms of someclass must be a tuple of PlatformType!",  # noqa: E501
+            match="The supported_platforms of BadMethod must be a tuple of PlatformType!",  # noqa: E501
         ):
-            _check_supported_platforms("x", "someclass")  # type: ignore
+            BadMethod()
 
     def test_wrong_type_of_a_single_platform(self):
-        supported_platforms = (PlatformType.UNIX_LIKE_FOSS, "foo", PlatformType.WINDOWS)
+        class BadMethod(TestMethod):
+            supported_platforms = (
+                PlatformType.UNIX_LIKE_FOSS,
+                "foo",  # type: ignore
+                PlatformType.WINDOWS,
+            )
+
         with pytest.raises(
             ValueError,
             match=re.escape(
-                "The supported_platforms of someclass must be a tuple of PlatformType! One item (foo) is of type \"<class 'str'>\""  # noqa: E501
+                "The supported_platforms of BadMethod must be a tuple of PlatformType! One item (foo) is of type \"<class 'str'>\""  # noqa: E501
             ),
         ):
-            _check_supported_platforms(supported_platforms, "someclass")  # type: ignore
+            BadMethod()
+
+
+class TestMethodInfo:
+    class SomeMethod(TestMethod):
+        name = "SomeMethod"
+        mode_name = "SomeMode"
+        supported_platforms = (PlatformType.WINDOWS,)
+
+    def test_method_info(self):
+        method_info = MethodInfo._from_method(self.SomeMethod())
+
+        assert method_info.name == "SomeMethod"
+        assert method_info.mode_name == "SomeMode"
+        assert method_info.supported_platforms == (PlatformType.WINDOWS,)
+
+        # Check that the string representation is correct
+        assert str(method_info) == "SomeMethod"
+        assert repr(method_info).startswith(
+            "MethodInfo(name='SomeMethod', mode_name='SomeMode', "
+        )

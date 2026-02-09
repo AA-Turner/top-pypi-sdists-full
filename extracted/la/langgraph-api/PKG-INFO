@@ -1,20 +1,20 @@
 Metadata-Version: 2.4
 Name: langgraph-api
-Version: 0.7.24
+Version: 0.7.28
 Author-email: Will Fu-Hinthorn <will@langchain.dev>, Josh Rogers <josh@langchain.dev>, Parker Rule <parker@langchain.dev>
 License: Elastic-2.0
 License-File: LICENSE
 Requires-Python: >=3.11
 Requires-Dist: cloudpickle>=3.0.0
 Requires-Dist: cryptography<47.0,>=42.0.0
-Requires-Dist: grpcio-health-checking<2.0.0,>=1.75.0
-Requires-Dist: grpcio-tools==1.75.1
-Requires-Dist: grpcio<2.0.0,>=1.75.0
+Requires-Dist: grpcio-health-checking<1.77.0,>=1.76.0
+Requires-Dist: grpcio-tools==1.76.0
+Requires-Dist: grpcio<1.77.0,>=1.76.0
 Requires-Dist: httpx>=0.25.0
 Requires-Dist: jsonschema-rs<0.30,>=0.20.0
 Requires-Dist: langchain-core>=0.3.64
 Requires-Dist: langgraph-checkpoint<5,>=3.0.1
-Requires-Dist: langgraph-runtime-inmem<0.24.0,>=0.23.0
+Requires-Dist: langgraph-runtime-inmem<0.25.0,>=0.24.0
 Requires-Dist: langgraph-sdk>=0.3.0
 Requires-Dist: langgraph<2,>=0.4.10
 Requires-Dist: langsmith[otel]>=0.6.3

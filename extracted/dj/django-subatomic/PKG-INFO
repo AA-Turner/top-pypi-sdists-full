@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-subatomic
-Version: 0.2.0
+Version: 0.2.1
 Summary: Fine-grained database transaction control for Django.
 Author-email: Charlie Denton <charlie@meshy.co.uk>
 Maintainer-email: Charlie Denton <charlie@meshy.co.uk>, Lily <code@lilyf.org>, Samuel Searles-Bryant <sam@samueljsb.co.uk>

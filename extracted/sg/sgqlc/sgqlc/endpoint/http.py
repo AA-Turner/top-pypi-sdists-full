@@ -35,7 +35,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from .base import BaseEndpoint, add_query_to_url
+from .base import BaseEndpoint, JSONEncoder, add_query_to_url
 
 
 class HTTPEndpoint(BaseEndpoint):
@@ -210,12 +210,13 @@ class HTTPEndpoint(BaseEndpoint):
                 'query': query,
                 'variables': variables,
                 'operationName': operation_name,
-            }
+            },
+            cls=JSONEncoder,
         ).encode('utf-8')
         headers.update(
             {
                 'Content-Type': 'application/json; charset=utf-8',
-                'Content-Length': len(post_data),
+                'Content-Length': str(len(post_data)),
             }
         )
         return urllib.request.Request(
@@ -228,7 +229,7 @@ class HTTPEndpoint(BaseEndpoint):
             params['operationName'] = operation_name
 
         if variables:
-            params['variables'] = json.dumps(variables)
+            params['variables'] = json.dumps(variables, cls=JSONEncoder)
 
         url = add_query_to_url(self.url, params)
         return urllib.request.Request(url=url, headers=headers, method='GET')

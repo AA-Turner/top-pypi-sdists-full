@@ -1,7 +1,7 @@
 """
 ToolUniverse Tools
 
-Type-safe Python interface to 1191 scientific tools.
+Type-safe Python interface to 1229 scientific tools.
 Each tool is in its own module for minimal import overhead.
 
 Usage:
@@ -51,8 +51,10 @@ from .AdverseEventPredictionQuestionGenerator import (
 from .AdverseEventPredictionQuestionGeneratorWithContext import (
     AdverseEventPredictionQuestionGeneratorWithContext,
 )
+from .AlphaMissense_get_protein_scores import AlphaMissense_get_protein_scores
 from .AlphaMissense_get_residue_scores import AlphaMissense_get_residue_scores
 from .AlphaMissense_get_variant_score import AlphaMissense_get_variant_score
+from .ArXiv_get_pdf_snippets import ArXiv_get_pdf_snippets
 from .ArXiv_search_papers import ArXiv_search_papers
 from .ArgumentDescriptionOptimizer import ArgumentDescriptionOptimizer
 from .BLAST_nucleotide_search import BLAST_nucleotide_search
@@ -73,7 +75,7 @@ from .BioModels_download_model import BioModels_download_model
 from .BioModels_get_model import BioModels_get_model
 from .BioModels_list_files import BioModels_list_files
 from .BioModels_search_parameters import BioModels_search_parameters
-from .BioRxiv_search_preprints import BioRxiv_search_preprints
+from .BioRxiv_get_preprint import BioRxiv_get_preprint
 from .BiomarkerDiscoveryWorkflow import BiomarkerDiscoveryWorkflow
 from .CADD_get_position_scores import CADD_get_position_scores
 from .CADD_get_range_scores import CADD_get_range_scores
@@ -86,6 +88,7 @@ from .CELLxGENE_get_expression_data import CELLxGENE_get_expression_data
 from .CELLxGENE_get_gene_metadata import CELLxGENE_get_gene_metadata
 from .CELLxGENE_get_presence_matrix import CELLxGENE_get_presence_matrix
 from .CMA_Guidelines_Search import CMA_Guidelines_Search
+from .CORE_get_fulltext_snippets import CORE_get_fulltext_snippets
 from .CORE_search_papers import CORE_search_papers
 from .COSMIC_get_mutations_by_gene import COSMIC_get_mutations_by_gene
 from .COSMIC_search_mutations import COSMIC_search_mutations
@@ -135,6 +138,8 @@ from .ClinGen_search_dosage_sensitivity import ClinGen_search_dosage_sensitivity
 from .ClinGen_search_gene_validity import ClinGen_search_gene_validity
 from .ClinicalTrialDesignAgent import ClinicalTrialDesignAgent
 from .CodeQualityAnalyzer import CodeQualityAnalyzer
+from .ComplexPortal_get_complex import ComplexPortal_get_complex
+from .ComplexPortal_search_complexes import ComplexPortal_search_complexes
 from .CompoundDiscoveryAgent import CompoundDiscoveryAgent
 from .ComprehensiveDrugDiscoveryPipeline import ComprehensiveDrugDiscoveryPipeline
 from .Crossref_get_funder import Crossref_get_funder
@@ -151,6 +156,11 @@ from .DGIdb_get_gene_druggability import DGIdb_get_gene_druggability
 from .DGIdb_get_gene_info import DGIdb_get_gene_info
 from .DOAJ_search_articles import DOAJ_search_articles
 from .DailyMed_get_spl_by_setid import DailyMed_get_spl_by_setid
+from .DailyMed_parse_adverse_reactions import DailyMed_parse_adverse_reactions
+from .DailyMed_parse_clinical_pharmacology import DailyMed_parse_clinical_pharmacology
+from .DailyMed_parse_contraindications import DailyMed_parse_contraindications
+from .DailyMed_parse_dosing import DailyMed_parse_dosing
+from .DailyMed_parse_drug_interactions import DailyMed_parse_drug_interactions
 from .DailyMed_search_spls import DailyMed_search_spls
 from .DataAnalysisValidityReviewer import DataAnalysisValidityReviewer
 from .DeepGO_predict_function import DeepGO_predict_function
@@ -158,6 +168,7 @@ from .DepMap_get_cell_line import DepMap_get_cell_line
 from .DepMap_get_cell_lines import DepMap_get_cell_lines
 from .DepMap_get_gene_dependencies import DepMap_get_gene_dependencies
 from .DepMap_search_cell_lines import DepMap_search_cell_lines
+from .DepMap_search_genes import DepMap_search_genes
 from .DescriptionAnalyzer import DescriptionAnalyzer
 from .DescriptionQualityEvaluator import DescriptionQualityEvaluator
 from .DiseaseAnalyzerAgent import DiseaseAnalyzerAgent
@@ -187,9 +198,18 @@ from .Enamine_search_smiles import Enamine_search_smiles
 from .EthicalComplianceReviewer import EthicalComplianceReviewer
 from .EuropePMC_Guidelines_Search import EuropePMC_Guidelines_Search
 from .EuropePMC_get_citations import EuropePMC_get_citations
+from .EuropePMC_get_fulltext import EuropePMC_get_fulltext
+from .EuropePMC_get_fulltext_snippets import EuropePMC_get_fulltext_snippets
 from .EuropePMC_get_references import EuropePMC_get_references
 from .EuropePMC_search_articles import EuropePMC_search_articles
 from .ExperimentalDesignScorer import ExperimentalDesignScorer
+from .ExpressionAtlas_get_baseline import ExpressionAtlas_get_baseline
+from .ExpressionAtlas_get_experiment import ExpressionAtlas_get_experiment
+from .ExpressionAtlas_search_differential import ExpressionAtlas_search_differential
+from .ExpressionAtlas_search_experiments import ExpressionAtlas_search_experiments
+from .FAERS_analyze_temporal_trends import FAERS_analyze_temporal_trends
+from .FAERS_calculate_disproportionality import FAERS_calculate_disproportionality
+from .FAERS_compare_drugs import FAERS_compare_drugs
 from .FAERS_count_additive_administration_routes import (
     FAERS_count_additive_administration_routes,
 )
@@ -219,6 +239,8 @@ from .FAERS_count_reportercountry_by_drug_event import (
     FAERS_count_reportercountry_by_drug_event,
 )
 from .FAERS_count_seriousness_by_drug_event import FAERS_count_seriousness_by_drug_event
+from .FAERS_filter_serious_events import FAERS_filter_serious_events
+from .FAERS_rollup_meddra_hierarchy import FAERS_rollup_meddra_hierarchy
 from .FAERS_search_adverse_event_reports import FAERS_search_adverse_event_reports
 from .FAERS_search_reports_by_drug_and_indication import (
     FAERS_search_reports_by_drug_and_indication,
@@ -233,6 +255,15 @@ from .FAERS_search_reports_by_drug_combination import (
     FAERS_search_reports_by_drug_combination,
 )
 from .FAERS_search_serious_reports_by_drug import FAERS_search_serious_reports_by_drug
+from .FAERS_stratify_by_demographics import FAERS_stratify_by_demographics
+from .FDA_OrangeBook_check_generic_availability import (
+    FDA_OrangeBook_check_generic_availability,
+)
+from .FDA_OrangeBook_get_approval_history import FDA_OrangeBook_get_approval_history
+from .FDA_OrangeBook_get_exclusivity import FDA_OrangeBook_get_exclusivity
+from .FDA_OrangeBook_get_patent_info import FDA_OrangeBook_get_patent_info
+from .FDA_OrangeBook_get_te_code import FDA_OrangeBook_get_te_code
+from .FDA_OrangeBook_search_drug import FDA_OrangeBook_search_drug
 from .FDA_get_DEA_schedule_info_by_drug_name import (
     FDA_get_DEA_schedule_info_by_drug_name,
 )
@@ -658,6 +689,10 @@ from .HypothesisGenerator import HypothesisGenerator
 from .IMGT_get_gene_info import IMGT_get_gene_info
 from .IMGT_get_sequence import IMGT_get_sequence
 from .IMGT_search_genes import IMGT_search_genes
+from .IMPC_get_gene_phenotype_hits import IMPC_get_gene_phenotype_hits
+from .IMPC_get_gene_summary import IMPC_get_gene_summary
+from .IMPC_get_phenotypes_by_gene import IMPC_get_phenotypes_by_gene
+from .IMPC_search_genes import IMPC_search_genes
 from .IntentAnalyzerAgent import IntentAnalyzerAgent
 from .InterProScan_get_job_results import InterProScan_get_job_results
 from .InterProScan_get_job_status import InterProScan_get_job_status
@@ -674,7 +709,7 @@ from .LiteratureSynthesisAgent import LiteratureSynthesisAgent
 from .MGnify_list_analyses import MGnify_list_analyses
 from .MGnify_search_studies import MGnify_search_studies
 from .MPD_get_phenotype_data import MPD_get_phenotype_data
-from .MedRxiv_search_preprints import MedRxiv_search_preprints
+from .MedRxiv_get_preprint import MedRxiv_get_preprint
 from .MedicalLiteratureReviewer import MedicalLiteratureReviewer
 from .MedicalTermNormalizer import MedicalTermNormalizer
 from .MedlinePlus_connect_lookup_by_code import MedlinePlus_connect_lookup_by_code
@@ -701,6 +736,9 @@ from .MetabolomicsWorkbench_search_compound_by_name import (
     MetabolomicsWorkbench_search_compound_by_name,
 )
 from .MethodologyRigorReviewer import MethodologyRigorReviewer
+from .Monarch_get_gene_diseases import Monarch_get_gene_diseases
+from .Monarch_get_gene_phenotypes import Monarch_get_gene_phenotypes
+from .Monarch_search_gene import Monarch_search_gene
 from .MultiAgentLiteratureSearch import MultiAgentLiteratureSearch
 from .MyChem_get_chemical_annotation import MyChem_get_chemical_annotation
 from .MyChem_query_chemicals import MyChem_query_chemicals
@@ -817,6 +855,9 @@ from .OpenTargets_get_drug_trade_names_by_chemblId import (
 )
 from .OpenTargets_get_drug_warnings_by_chemblId import (
     OpenTargets_get_drug_warnings_by_chemblId,
+)
+from .OpenTargets_get_evidence_by_datasource import (
+    OpenTargets_get_evidence_by_datasource,
 )
 from .OpenTargets_get_gene_ontology_terms_by_goID import (
     OpenTargets_get_gene_ontology_terms_by_goID,
@@ -1009,6 +1050,7 @@ from .STITCH_get_interaction_partners import STITCH_get_interaction_partners
 from .STITCH_resolve_identifier import STITCH_resolve_identifier
 from .STRING_get_protein_interactions import STRING_get_protein_interactions
 from .ScientificTextSummarizer import ScientificTextSummarizer
+from .SemanticScholar_get_pdf_snippets import SemanticScholar_get_pdf_snippets
 from .SemanticScholar_search_papers import SemanticScholar_search_papers
 from .SpliceAI_get_max_delta import SpliceAI_get_max_delta
 from .SpliceAI_predict_pangolin import SpliceAI_predict_pangolin
@@ -1690,8 +1732,10 @@ __all__ = [
     "AdverseEventICDMapper",
     "AdverseEventPredictionQuestionGenerator",
     "AdverseEventPredictionQuestionGeneratorWithContext",
+    "AlphaMissense_get_protein_scores",
     "AlphaMissense_get_residue_scores",
     "AlphaMissense_get_variant_score",
+    "ArXiv_get_pdf_snippets",
     "ArXiv_search_papers",
     "ArgumentDescriptionOptimizer",
     "BLAST_nucleotide_search",
@@ -1712,7 +1756,7 @@ __all__ = [
     "BioModels_get_model",
     "BioModels_list_files",
     "BioModels_search_parameters",
-    "BioRxiv_search_preprints",
+    "BioRxiv_get_preprint",
     "BiomarkerDiscoveryWorkflow",
     "CADD_get_position_scores",
     "CADD_get_range_scores",
@@ -1725,6 +1769,7 @@ __all__ = [
     "CELLxGENE_get_gene_metadata",
     "CELLxGENE_get_presence_matrix",
     "CMA_Guidelines_Search",
+    "CORE_get_fulltext_snippets",
     "CORE_search_papers",
     "COSMIC_get_mutations_by_gene",
     "COSMIC_search_mutations",
@@ -1772,6 +1817,8 @@ __all__ = [
     "ClinGen_search_gene_validity",
     "ClinicalTrialDesignAgent",
     "CodeQualityAnalyzer",
+    "ComplexPortal_get_complex",
+    "ComplexPortal_search_complexes",
     "CompoundDiscoveryAgent",
     "ComprehensiveDrugDiscoveryPipeline",
     "Crossref_get_funder",
@@ -1788,6 +1835,11 @@ __all__ = [
     "DGIdb_get_gene_info",
     "DOAJ_search_articles",
     "DailyMed_get_spl_by_setid",
+    "DailyMed_parse_adverse_reactions",
+    "DailyMed_parse_clinical_pharmacology",
+    "DailyMed_parse_contraindications",
+    "DailyMed_parse_dosing",
+    "DailyMed_parse_drug_interactions",
     "DailyMed_search_spls",
     "DataAnalysisValidityReviewer",
     "DeepGO_predict_function",
@@ -1795,6 +1847,7 @@ __all__ = [
     "DepMap_get_cell_lines",
     "DepMap_get_gene_dependencies",
     "DepMap_search_cell_lines",
+    "DepMap_search_genes",
     "DescriptionAnalyzer",
     "DescriptionQualityEvaluator",
     "DiseaseAnalyzerAgent",
@@ -1824,9 +1877,18 @@ __all__ = [
     "EthicalComplianceReviewer",
     "EuropePMC_Guidelines_Search",
     "EuropePMC_get_citations",
+    "EuropePMC_get_fulltext",
+    "EuropePMC_get_fulltext_snippets",
     "EuropePMC_get_references",
     "EuropePMC_search_articles",
     "ExperimentalDesignScorer",
+    "ExpressionAtlas_get_baseline",
+    "ExpressionAtlas_get_experiment",
+    "ExpressionAtlas_search_differential",
+    "ExpressionAtlas_search_experiments",
+    "FAERS_analyze_temporal_trends",
+    "FAERS_calculate_disproportionality",
+    "FAERS_compare_drugs",
     "FAERS_count_additive_administration_routes",
     "FAERS_count_additive_adverse_reactions",
     "FAERS_count_additive_event_reports_by_country",
@@ -1842,12 +1904,21 @@ __all__ = [
     "FAERS_count_reactions_by_drug_event",
     "FAERS_count_reportercountry_by_drug_event",
     "FAERS_count_seriousness_by_drug_event",
+    "FAERS_filter_serious_events",
+    "FAERS_rollup_meddra_hierarchy",
     "FAERS_search_adverse_event_reports",
     "FAERS_search_reports_by_drug_and_indication",
     "FAERS_search_reports_by_drug_and_outcome",
     "FAERS_search_reports_by_drug_and_reaction",
     "FAERS_search_reports_by_drug_combination",
     "FAERS_search_serious_reports_by_drug",
+    "FAERS_stratify_by_demographics",
+    "FDA_OrangeBook_check_generic_availability",
+    "FDA_OrangeBook_get_approval_history",
+    "FDA_OrangeBook_get_exclusivity",
+    "FDA_OrangeBook_get_patent_info",
+    "FDA_OrangeBook_get_te_code",
+    "FDA_OrangeBook_search_drug",
     "FDA_get_DEA_schedule_info_by_drug_name",
     "FDA_get_abuse_dependence_info_by_drug_name",
     "FDA_get_abuse_info_by_drug_name",
@@ -2073,6 +2144,10 @@ __all__ = [
     "IMGT_get_gene_info",
     "IMGT_get_sequence",
     "IMGT_search_genes",
+    "IMPC_get_gene_phenotype_hits",
+    "IMPC_get_gene_summary",
+    "IMPC_get_phenotypes_by_gene",
+    "IMPC_search_genes",
     "IntentAnalyzerAgent",
     "InterProScan_get_job_results",
     "InterProScan_get_job_status",
@@ -2089,7 +2164,7 @@ __all__ = [
     "MGnify_list_analyses",
     "MGnify_search_studies",
     "MPD_get_phenotype_data",
-    "MedRxiv_search_preprints",
+    "MedRxiv_get_preprint",
     "MedicalLiteratureReviewer",
     "MedicalTermNormalizer",
     "MedlinePlus_connect_lookup_by_code",
@@ -2108,6 +2183,9 @@ __all__ = [
     "MetabolomicsWorkbench_search_by_mz",
     "MetabolomicsWorkbench_search_compound_by_name",
     "MethodologyRigorReviewer",
+    "Monarch_get_gene_diseases",
+    "Monarch_get_gene_phenotypes",
+    "Monarch_search_gene",
     "MultiAgentLiteratureSearch",
     "MyChem_get_chemical_annotation",
     "MyChem_query_chemicals",
@@ -2165,6 +2243,7 @@ __all__ = [
     "OpenTargets_get_drug_synonyms_by_chemblId",
     "OpenTargets_get_drug_trade_names_by_chemblId",
     "OpenTargets_get_drug_warnings_by_chemblId",
+    "OpenTargets_get_evidence_by_datasource",
     "OpenTargets_get_gene_ontology_terms_by_goID",
     "OpenTargets_get_known_drugs_by_drug_chemblId",
     "OpenTargets_get_parent_child_molecules_by_chembl_ID",
@@ -2294,6 +2373,7 @@ __all__ = [
     "STITCH_resolve_identifier",
     "STRING_get_protein_interactions",
     "ScientificTextSummarizer",
+    "SemanticScholar_get_pdf_snippets",
     "SemanticScholar_search_papers",
     "SpliceAI_get_max_delta",
     "SpliceAI_predict_pangolin",

@@ -78,7 +78,7 @@ class IqTimeout(XMPPError):
 
     """
     An exception which indicates that an IQ request response has not been
-    received within the alloted time window.
+    received within the allotted time window.
     """
 
     def __init__(self, iq):

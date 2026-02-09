@@ -1,13 +1,18 @@
+from __future__ import annotations
+
 import base64
 import gzip
 import os
 import re
 import urllib.parse
 import urllib.request
-from collections.abc import Mapping
-from typing import BinaryIO, Optional
+from typing import TYPE_CHECKING, BinaryIO
 
 from mkdocstrings._internal.loggers import get_logger
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
 
 _logger = get_logger("mkdocstrings")
 
@@ -25,11 +30,11 @@ def _download_url_with_gz(url: str) -> bytes:
     with urllib.request.urlopen(req) as resp:  # noqa: S310
         content: BinaryIO = resp
         if "gzip" in resp.headers.get("content-encoding", ""):
-            content = gzip.GzipFile(fileobj=resp)  # type: ignore[assignment]
+            content = gzip.GzipFile(fileobj=resp)  # ty: ignore[invalid-assignment]
         return content.read()
 
 
-def _expand_env_vars(credential: str, url: str, env: Optional[Mapping[str, str]] = None) -> str:
+def _expand_env_vars(credential: str, url: str, env: Mapping[str, str] | None = None) -> str:
     """A safe implementation of environment variable substitution.
 
     It only supports the following forms: `${ENV_VAR}`.

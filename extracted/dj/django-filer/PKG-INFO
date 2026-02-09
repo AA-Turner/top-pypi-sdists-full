@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-filer
-Version: 3.4.3
+Version: 3.4.4
 Summary: A file management application for django that makes handling of files and images a breeze.
 Author-email: Divio AG <info@divio.ch>
 Maintainer-email: Django CMS Association and contributors <info@django-cms.org>

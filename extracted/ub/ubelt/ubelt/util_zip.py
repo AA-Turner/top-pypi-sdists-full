@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Abstractions for working with zipfiles and archives
 
@@ -13,15 +15,25 @@ without the user needing to worry about extracting it first. When possible it
 will read it directly from the archive, but in some cases it may extract it to
 a temporary directory first.
 """
+
 import io
 import os
+import typing
 from os.path import exists, join
+
 from ubelt.util_mixins import NiceRepr
+
+if typing.TYPE_CHECKING:
+    from types import TracebackType
+    from typing import Type
 
 __all__ = ['zopen', 'split_archive']
 
 
-def split_archive(fpath, ext='.zip'):
+def split_archive(
+    fpath: str | os.PathLike,
+    ext: str = '.zip',
+) -> tuple[str | None, str | None]:
     """
     If fpath specifies a file inside a zipfile, it breaks it into two parts the
     path to the zipfile and the internal path in the zipfile.
@@ -53,6 +65,7 @@ def split_archive(fpath, ext='.zip'):
         ('/a/b/foo.zip/baz.pt', 'bar.zip/bar.zip')
     """
     import re
+
     fpath = os.fspath(fpath)
     # fpath = os.fspath(fpath)
     pat = '({}[{}/:])'.format(re.escape(ext), re.escape(os.path.sep))
@@ -230,7 +243,19 @@ class zopen(NiceRepr):
         >>> self._handle = None
         >>> dir(self)
     """
-    def __init__(self, fpath, mode='r', seekable=False, ext='.zip'):
+
+    name: str | os.PathLike
+    fpath: str | os.PathLike
+    ext: str
+    mode: str
+
+    def __init__(
+        self,
+        fpath: str | os.PathLike,
+        mode: str = 'r',
+        seekable: bool = False,
+        ext: str = '.zip',
+    ) -> None:
         """
         Args:
             fpath (str | PathLike):
@@ -272,7 +297,9 @@ class zopen(NiceRepr):
         """
         if self._zfile_read is None:
             import zipfile
+
             archivefile, internal = self._split_archive()
+            assert archivefile is not None
             myzip = zipfile.ZipFile(archivefile, 'r')
             self._zfile_read = myzip
         return self._zfile_read
@@ -289,7 +316,9 @@ class zopen(NiceRepr):
         if self._zfpath is None:
             return 'handle={}, mode={}'.format(str(self._handle), self.mode)
         else:
-            return 'handle={} in zipfpath={}, mode={}'.format(self._handle, self._zfpath, self.mode)
+            return 'handle={} in zipfpath={}, mode={}'.format(
+                self._handle, self._zfpath, self.mode
+            )
 
     def __getattr__(self, key):
         # Expose attributes of wrapped handle
@@ -322,9 +351,10 @@ class zopen(NiceRepr):
         if self._temp_dpath and exists(self._temp_dpath):
             # os.unlink(self._temp_dpath)
             from ubelt.util_io import delete
+
             delete(self._temp_dpath)
 
-    def __del__(self):
+    def __del__(self) -> None:
         self._cleanup()
 
     def _split_archive(self):
@@ -355,9 +385,11 @@ class zopen(NiceRepr):
             _handle = open(fpath, self.mode)
         elif self.ext + '/' in fpath or self.ext + os.path.sep in fpath:
             archivefile, internal = self._split_archive()
+            assert internal is not None
             myzip = self.zfile
             if self._seekable:
                 import tempfile
+
                 # If we need data to be seekable, then we must extract it to a
                 # temporary file first.
                 self._temp_dpath = tempfile.mkdtemp(prefix='zopen_')
@@ -384,7 +416,12 @@ class zopen(NiceRepr):
     def __enter__(self):
         return self
 
-    def __exit__(self, ex_type, ex_value, ex_traceback):
+    def __exit__(
+        self,
+        ex_type: Type[BaseException] | None,
+        ex_value: BaseException | None,
+        ex_traceback: TracebackType | None,
+    ) -> bool | None:
         """
         Args:
             ex_type (Type[BaseException] | None):

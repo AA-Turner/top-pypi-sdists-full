@@ -9,12 +9,21 @@ The :class:`TeeStringIO` does the same thing but for arbitrary streams. It is
 how the former is implemented.
 
 """
-import sys
+
+from __future__ import annotations
+
 import io
+import sys
+import typing
+
+if typing.TYPE_CHECKING:
+    from types import TracebackType
+    from typing import TextIO, Type
 
 __all__ = [
     'TeeStringIO',
     'CaptureStdout',
+    'CaptureStderr',
     'CaptureStream',
 ]
 
@@ -35,27 +44,29 @@ class TeeStringIO(io.StringIO):
         >>> assert self.getvalue() == 'spam'
         >>> assert redirect.getvalue() == 'spam'
     """
-    def __init__(self, redirect=None):
+
+    def __init__(self, redirect: io.IOBase | None = None) -> None:
         """
         Args:
             redirect (io.IOBase): The other stream to write to.
         """
-        self.redirect = redirect  # type: io.IOBase
+        self.redirect: io.IOBase | None = redirect
         super().__init__()
 
         # Logic taken from prompt_toolkit/output/vt100.py version 3.0.5 in
         # flush I don't have a full understanding of what the buffer
         # attribute is supposed to be capturing here, but this seems to
         # allow us to embed in IPython while still capturing and Teeing
-        # stdout
-        if hasattr(redirect, 'buffer'):
-            self.buffer = redirect.buffer  # Py3.
+        # stdout.
+        if redirect is not None:
+            self.buffer = getattr(redirect, 'buffer', redirect)  # type: ignore[invalid-assignment]
         else:
-            self.buffer = redirect
+            self.buffer = None  # type: ignore[invalid-assignment]
+
         # Note: mypy doesn't like this type
         # buffer (io.BufferedIOBase | io.IOBase | None): the redirected buffer attribute
 
-    def isatty(self):  # nocover
+    def isatty(self) -> bool:  # nocover
         """
         Returns true of the redirect is a terminal.
 
@@ -69,10 +80,13 @@ class TeeStringIO(io.StringIO):
         Returns:
             bool
         """
-        return (self.redirect is not None and
-                hasattr(self.redirect, 'isatty') and self.redirect.isatty())
+        return (
+            self.redirect is not None
+            and hasattr(self.redirect, 'isatty')
+            and self.redirect.isatty()
+        )
 
-    def fileno(self):
+    def fileno(self) -> int:
         """
         Returns underlying file descriptor of the redirected IOBase object
         if one exists.
@@ -116,7 +130,7 @@ class TeeStringIO(io.StringIO):
         Gets the encoding of the `redirect` IO object
 
         FIXME:
-            My complains that this violates the Liskov substitution principle
+            Mypy complains that this violates the Liskov substitution principle
             because the return type can be str or None, whereas the parent
             class always returns a None. In the future we may raise an exception
             instead of returning None.
@@ -138,16 +152,16 @@ class TeeStringIO(io.StringIO):
         # Returns:
         #     None | str
         if self.redirect is not None:
-            return self.redirect.encoding
+            return self.redirect.encoding  # type: ignore[possibly-missing-attribute]
         else:
             return super().encoding
 
     @encoding.setter
     def encoding(self, value):
         # Adding a setter to make mypy happy
-        raise Exception('Cannot set encoding attribute')
+        raise AttributeError('encoding is read-only on TeeStringIO')
 
-    def write(self, msg):
+    def write(self, msg: str):
         """
         Write to this and the redirected stream
 
@@ -172,7 +186,7 @@ class TeeStringIO(io.StringIO):
             self.redirect.write(msg)
         return super().write(msg)
 
-    def flush(self):  # nocover
+    def flush(self):
         """
         Flush to this and the redirected stream
 
@@ -186,8 +200,128 @@ class TeeStringIO(io.StringIO):
 
 class CaptureStream:
     """
-    Generic class for capturing streaming output from stdout or stderr
+    Generic context manager for capturing a global text stream (stdout/stderr),
+    with optional tee/suppress behavior and incremental reads.
+
+    Subclasses must override ``_get_stream()`` and ``_set_stream(value)`` to
+    read/write the process-global stream they manage.
+
+    Attributes:
+        text (str | None): most recent captured chunk from :meth:`log_part`.
+        parts (list[str]): all captured chunks appended by :meth:`log_part`.
+        cap_stream (None | TeeStringIO): proxy stream used while capturing.
+        orig_stream (TextIO | None): original global stream restored on stop.
+        suppress (bool): if True, do not tee to the original stream while capturing.
+        enabled (bool): if False, acts as a no-op context manager.
+        started (bool): True while the capture is active.
     """
+
+    # ----- hooks required by subclasses -----
+    def _get_stream(self) -> TextIO:  # pragma: no cover - abstract-ish
+        raise NotImplementedError
+
+    def _set_stream(self, value: TextIO) -> None:  # pragma: no cover
+        raise NotImplementedError
+
+    # ----- implementation -----
+    def __init__(self, suppress: bool = True, enabled: bool = True) -> None:
+        self.text: str | None = None
+        self._pos: int = 0
+        self.parts: list[str] = []
+        self.started: bool = False
+        self.enabled: bool = enabled
+        self.suppress: bool = suppress
+        self.cap_stream: TeeStringIO | None = None
+        self.orig_stream: TextIO | None = None
+
+    def _make_proxy(self) -> TeeStringIO:
+        """
+        Create a fresh `TeeStringIO` proxy with appropriate redirect target
+        depending on `suppress`. Called at start of each capture.
+        """
+        redirect = None if self.suppress else self._get_stream()
+        return TeeStringIO(redirect)  # type: ignore[invalid-argument-type]
+
+    def log_part(self) -> None:
+        """Log what has been captured since the last call to :meth:`log_part`."""
+        if self.cap_stream is None:  # nocover
+            return
+        self.cap_stream.seek(self._pos)
+        text = self.cap_stream.read()
+        self._pos = self.cap_stream.tell()
+        self.parts.append(text)
+        self.text = text
+
+    def start(self) -> None:
+        """
+        Begin capturing. Swaps the global stream to our `TeeStringIO`.
+        """
+        if not self.enabled or self.started:  # pragma: nobranch
+            return
+        self.text = ''
+        self.started = True
+        self.orig_stream = self._get_stream()
+        self.cap_stream = self._make_proxy()
+        self._set_stream(self.cap_stream)
+
+    def stop(self) -> None:
+        """
+        Stop capturing. Restores the original global stream.
+        """
+        if not self.enabled or not self.started:  # nocover
+            return
+        self.started = False
+        if self.orig_stream is not None:  # pragma: nobranch
+            self._set_stream(self.orig_stream)
+        # keep cap_stream alive for reading until close/__exit__
+
+    def close(self) -> None:
+        """Close and drop the proxy buffer to release memory."""
+        if self.cap_stream is not None:  # pragma: nobranch
+            try:
+                self.cap_stream.close()
+            finally:
+                self.cap_stream = None
+
+    def __enter__(self) -> CaptureStream:
+        self.start()
+        return self
+
+    def __exit__(
+        self,
+        ex_type: Type[BaseException] | None,
+        ex_value: BaseException | None,
+        ex_traceback: TracebackType | None,
+    ) -> bool | None:
+        """
+        On exit, append the final part, stop, and close the proxy.
+
+        Args:
+            ex_type (Type[BaseException] | None):
+            ex_value (BaseException | None):
+            ex_traceback (TracebackType | None):
+
+        Returns:
+            bool | None
+        """
+        if self.enabled:
+            try:
+                self.log_part()
+            finally:
+                self.stop()
+                self.close()
+        if ex_traceback is not None:
+            return False  # propagate exception
+
+    def __del__(self):  # nocover
+        # Be robust during interpreter shutdown
+        try:
+            if getattr(self, 'started', False):
+                self.stop()
+            if getattr(self, 'cap_stream', None) is not None:
+                self.close()
+        except Exception:
+            pass
 
 
 class CaptureStdout(CaptureStream):
@@ -236,84 +370,44 @@ class CaptureStdout(CaptureStream):
         ...     print('dont capture')
         >>> assert self.text is None
     """
-    def __init__(self, suppress=True, enabled=True):
-        """
-        Args:
-            suppress (bool):
-                if True, stdout is not printed while captured.
-                Defaults to True.
 
-            enabled (bool):
-                does nothing if this is False. Defaults to True.
-        """
-        self.text = None
-        self._pos = 0  # keep track of how much has been logged
-        self.parts = []
-        self.started = False
-        self.cap_stdout = None
-        self.enabled = enabled
-        self.suppress = suppress
-        self.orig_stdout = sys.stdout
+    # ---- required hooks for CaptureStream ----
+    def _get_stream(self) -> TextIO:
+        return sys.stdout
 
-        if suppress:
-            redirect = None
-        else:
-            redirect = self.orig_stdout
-        self.cap_stdout = TeeStringIO(redirect)
+    def _set_stream(self, value: TextIO) -> None:
+        sys.stdout = value
 
-    def log_part(self):
-        """ Log what has been captured so far """
-        self.cap_stdout.seek(self._pos)
-        text = self.cap_stdout.read()
-        self._pos = self.cap_stdout.tell()
-        self.parts.append(text)
-        self.text = text
+    # Backward-compat aliases expected by existing code/tests
 
-    def start(self):
-        if self.enabled:
-            self.text = ''
-            self.started = True
-            sys.stdout = self.cap_stdout
+    @property
+    def cap_stdout(self) -> TeeStringIO | None:
+        """Backward-compatibility alias for cap_stream."""
+        return self.cap_stream
 
-    def stop(self):
-        """
-        Example:
-            >>> import ubelt as ub
-            >>> ub.CaptureStdout(enabled=False).stop()
-            >>> ub.CaptureStdout(enabled=True).stop()
-        """
-        if self.enabled:
-            self.started = False
-            sys.stdout = self.orig_stdout
+    @property
+    def orig_stdout(self) -> TextIO | None:
+        """Backward-compatibility alias for orig_stream."""
+        return self.orig_stream
 
-    def __enter__(self):
-        self.start()
-        return self
 
-    def __del__(self):  # nocover
-        if self.started:
-            self.stop()
-        if self.cap_stdout is not None:
-            self.close()
+class CaptureStderr(CaptureStream):
+    r"""
+    Context manager that captures **stderr** and stores it in an internal stream.
 
-    def close(self):
-        self.cap_stdout.close()
-        self.cap_stdout = None
+    Behavior mirrors :class:`CaptureStdout`, but for ``sys.stderr``.
 
-    def __exit__(self, ex_type, ex_value, ex_traceback):
-        """
-        Args:
-            ex_type (Type[BaseException] | None):
-            ex_value (BaseException | None):
-            ex_traceback (TracebackType | None):
+    Example:
+        >>> import sys
+        >>> self = CaptureStderr(suppress=True)
+        >>> with self:
+        ...     print('to stdout (not captured)')
+        ...     print('to stderr (captured)', file=sys.stderr)
+        >>> assert 'to stderr (captured)' in (self.text or '')
+    """
 
-        Returns:
-            bool | None
-        """
-        if self.enabled:
-            try:
-                self.log_part()
-            finally:
-                self.stop()
-        if ex_traceback is not None:
-            return False  # return a falsey value on error
+    def _get_stream(self) -> TextIO:
+        return sys.stderr
+
+    def _set_stream(self, value: TextIO) -> None:
+        sys.stderr = value

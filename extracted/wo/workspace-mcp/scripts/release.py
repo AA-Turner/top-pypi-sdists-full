@@ -1,5 +1,6 @@
 # ruff: noqa
 
+import json
 import subprocess
 import sys
 import re
@@ -42,6 +43,8 @@ import tomlkit
 
 # --- Configuration ---
 PYPROJECT_PATH = Path(__file__).parent.parent / "pyproject.toml"
+SERVER_JSON_PATH = Path(__file__).parent.parent / "server.json"
+README_PATH = Path(__file__).parent.parent / "README.md"
 DIST_DIR = Path(__file__).parent.parent / "dist"
 
 # --- Helper Functions ---
@@ -96,6 +99,55 @@ def update_pyproject_version(new_version):
     with open(PYPROJECT_PATH, "w") as f:
         tomlkit.dump(data, f)
     print(f"✅ Version updated to {new_version} in pyproject.toml")
+
+
+def update_server_json_version(new_version):
+    """Updates the version fields in server.json."""
+    if not SERVER_JSON_PATH.exists():
+        print(f"❌ Error: server.json not found at {SERVER_JSON_PATH}", file=sys.stderr)
+        sys.exit(1)
+
+    with open(SERVER_JSON_PATH, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    server_name = data.get("name", "").strip()
+    if not server_name:
+        print("❌ Error: server.json is missing a valid 'name' field.", file=sys.stderr)
+        sys.exit(1)
+
+    data["version"] = new_version
+
+    packages = data.get("packages", [])
+    if isinstance(packages, list):
+        for package in packages:
+            if package.get("registryType") == "pypi":
+                package["version"] = new_version
+
+    with open(SERVER_JSON_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+
+    print(f"✅ Version updated to {new_version} in server.json")
+    return server_name
+
+
+def verify_readme_mcp_marker(server_name):
+    """Ensure README contains the mcp-name ownership marker for PyPI validation."""
+    if not README_PATH.exists():
+        print(f"❌ Error: README.md not found at {README_PATH}", file=sys.stderr)
+        sys.exit(1)
+
+    expected_marker = f"mcp-name: {server_name}"
+    readme_content = README_PATH.read_text(encoding="utf-8")
+    if expected_marker not in readme_content:
+        print(
+            "❌ Error: README.md is missing the required MCP ownership marker.",
+            file=sys.stderr,
+        )
+        print(f"Expected to find: {expected_marker}", file=sys.stderr)
+        sys.exit(1)
+
+    print("✅ README.md contains MCP ownership marker.")
 
 
 def get_next_versions(current_version):
@@ -159,9 +211,11 @@ def main():
     current_version = get_current_version()
     new_version = select_version(current_version)
 
-    # 3. Update pyproject.toml
+    # 3. Update release metadata
     print("\n--- 3. Updating Version ---")
     update_pyproject_version(new_version)
+    server_name = update_server_json_version(new_version)
+    verify_readme_mcp_marker(server_name)
 
     # 4. Build the project
     print("\n--- 4. Building Project ---")
@@ -176,7 +230,7 @@ def main():
     # 5. Git commit and tag
     print("\n--- 5. Committing and Tagging ---")
     tag_name = f"v{new_version}"
-    run_command(["git", "add", str(PYPROJECT_PATH)])
+    run_command(["git", "add", str(PYPROJECT_PATH), str(SERVER_JSON_PATH)])
     run_command(["git", "commit", "-m", f"chore: release {tag_name}"])
     run_command(["git", "tag", "-a", tag_name, "-m", f"Release {tag_name}"])
     print(f"✅ Committed and tagged release {tag_name}")
@@ -195,8 +249,17 @@ def main():
     )
     print("✅ Successfully uploaded to PyPI (or skipped if already present).")
 
-    # 8. Create GitHub Release
-    print("\n--- 8. Creating GitHub Release ---")
+    # 8. Publish to MCP Registry
+    print("\n--- 8. Publishing to MCP Registry ---")
+    run_command(["mcp-publisher", "--version"])
+    print(
+        "🔑 Ensure you're authenticated (run 'mcp-publisher login github' once if needed)."
+    )
+    run_command(["mcp-publisher", "publish"], interactive=True)
+    print("✅ Successfully published to MCP Registry.")
+
+    # 9. Create GitHub Release
+    print("\n--- 9. Creating GitHub Release ---")
     print("📝 Creating a draft release on GitHub...")
 
     # Get the list of distribution files

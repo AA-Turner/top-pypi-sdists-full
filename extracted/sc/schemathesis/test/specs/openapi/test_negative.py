@@ -1,6 +1,7 @@
 import uuid
 from urllib.parse import urlparse
 
+import jsonschema_rs
 import pytest
 import requests
 from flask import Flask, jsonify
@@ -8,7 +9,6 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from hypothesis_jsonschema import from_schema
 from hypothesis_jsonschema._canonicalise import FALSEY, canonicalish
-from jsonschema import Draft4Validator, Draft202012Validator
 
 import schemathesis
 from schemathesis.config import GenerationConfig
@@ -57,7 +57,9 @@ INTEGER_SCHEMA = {
 }
 
 
-validate_schema = Draft4Validator.check_schema
+def validate_schema(schema):
+    """Validate schema by constructing a Draft4Validator (which validates the schema on construction)."""
+    jsonschema_rs.Draft4Validator(schema)
 
 
 @pytest.mark.parametrize(
@@ -77,7 +79,7 @@ def test_top_level_strategy(data, location, schema):
         # It always comes this way from Schemathesis
         schema["additionalProperties"] = False
     validate_schema(schema)
-    validator = Draft4Validator(schema)
+    validator = jsonschema_rs.Draft4Validator(schema)
     result = data.draw(
         negative_schema(
             schema,
@@ -86,12 +88,14 @@ def test_top_level_strategy(data, location, schema):
             media_type="application/json",
             custom_formats=get_default_format_strategies(),
             generation_config=GenerationConfig(),
-            validator_cls=Draft4Validator,
+            validator_cls=jsonschema_rs.Draft4Validator,
         )
     )
     assert isinstance(result, GeneratedValue)
     instance = result.value
-    assert not validator.is_valid(instance)
+    # bytes are never valid JSON, so they're always invalid
+    if not isinstance(instance, bytes):
+        assert not validator.is_valid(instance)
     if location.is_in_header:
         assert is_valid_header(instance)
 
@@ -214,7 +218,7 @@ def test_change_type_urlencoded(data):
 @settings(deadline=None, suppress_health_check=SUPPRESSED_HEALTH_CHECKS, max_examples=MAX_EXAMPLES)
 def test_successful_mutations(data, mutation, schema):
     validate_schema(schema)
-    validator = Draft4Validator(schema)
+    validator = jsonschema_rs.Draft4Validator(schema)
     schema = deepclone(schema)
     # When mutation can be applied
     # Then it returns "success"
@@ -266,7 +270,7 @@ def test_successful_mutations(data, mutation, schema):
 @given(data=st.data())
 @settings(deadline=None, suppress_health_check=SUPPRESSED_HEALTH_CHECKS, max_examples=MAX_EXAMPLES)
 def test_path_parameters_are_string(data, schema):
-    validator = Draft4Validator(schema)
+    validator = jsonschema_rs.Draft4Validator(schema)
     new_schema = deepclone(schema)
     # When path parameters are mutated
     new_schema, _ = data.draw(
@@ -331,10 +335,16 @@ def test_mutation_result_success(left, right, expected):
 @pytest.mark.parametrize(
     "schema, validator_cls",
     [
-        ({"minimum": 5, "exclusiveMinimum": True}, Draft4Validator),
-        ({"maximum": 5, "exclusiveMaximum": True}, Draft4Validator),
-        ({"maximum": 5, "exclusiveMaximum": True, "minimum": 1, "exclusiveMinimum": True}, Draft4Validator),
-        ({"type": "integer", "maximum": 365.0, "exclusiveMinimum": 0.0, "title": "Nights"}, Draft202012Validator),
+        ({"minimum": 5, "exclusiveMinimum": True}, jsonschema_rs.Draft4Validator),
+        ({"maximum": 5, "exclusiveMaximum": True}, jsonschema_rs.Draft4Validator),
+        (
+            {"maximum": 5, "exclusiveMaximum": True, "minimum": 1, "exclusiveMinimum": True},
+            jsonschema_rs.Draft4Validator,
+        ),
+        (
+            {"type": "integer", "maximum": 365.0, "exclusiveMinimum": 0.0, "title": "Nights"},
+            jsonschema_rs.Draft202012Validator,
+        ),
     ],
 )
 @given(data=st.data())
@@ -354,7 +364,8 @@ def test_negate_constraints_keep_dependencies(data, schema, validator_cls):
         schema,
     )
     # Then it should always produce valid schemas
-    validator_cls.check_schema(schema)
+    # Creating a validator validates the schema
+    validator_cls(schema)
     # E.g. `exclusiveMaximum` / `exclusiveMinimum` only work when `maximum` / `minimum` are present in the same schema
 
 
@@ -453,7 +464,7 @@ def test_negative_query_respects_allow_extra_parameter_toggle(data):
             location=ParameterLocation.QUERY,
             media_type=None,
             custom_formats=get_default_format_strategies(),
-            validator_cls=Draft4Validator,
+            validator_cls=jsonschema_rs.Draft4Validator,
             generation_config=GenerationConfig(allow_extra_parameters=False),
         )
     )
@@ -697,6 +708,55 @@ def test_multiple_mutations_clear_description():
             assert metadata.description != "Schema mutated"
 
     test()
+
+
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        "([\\u0009\\u000A\\u000D\\u0020-\\u007E\\u00A1-\\u00FF]){1,51200}",
+        "^([^\\x00-\\x1F\\x7F-\\x9F]){1,100000}$",
+        "(?!^.*--)(?!^[0-9]+$)(?!^-)(?!.*-$)^[A-Za-z0-9-]+$",
+        "^[0-9a-z\\.\\-]*(?<!\\.)$",
+    ],
+    ids=["unicode_extended_range", "hex_escape", "negative_lookahead", "negative_lookbehind"],
+)
+@pytest.mark.hypothesis_nested
+def test_ecma_regex_patterns(pattern):
+    # Large quantifiers can exceed jsonschema_rs's default compiled regex size limit
+    schema = schemathesis.openapi.from_dict(
+        {
+            "openapi": "3.0.2",
+            "info": {"title": "Test", "version": "1.0"},
+            "paths": {
+                "/test": {
+                    "post": {
+                        "requestBody": {
+                            "required": True,
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "value": {"type": "string", "pattern": pattern},
+                                        },
+                                    }
+                                }
+                            },
+                        },
+                        "responses": {"200": {"description": "OK"}},
+                    }
+                }
+            },
+        }
+    )
+    operation = schema["/test"]["POST"]
+
+    @given(case=operation.as_strategy(generation_mode=GenerationMode.NEGATIVE))
+    @settings(deadline=None, max_examples=10, suppress_health_check=SUPPRESSED_HEALTH_CHECKS)
+    def inner(case):
+        pass
+
+    inner()
 
 
 @pytest.mark.hypothesis_nested

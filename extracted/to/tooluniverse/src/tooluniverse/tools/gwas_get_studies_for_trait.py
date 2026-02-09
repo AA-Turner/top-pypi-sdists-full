@@ -11,6 +11,8 @@ from ._shared_client import get_shared_client
 def gwas_get_studies_for_trait(
     disease_trait: Optional[str] = None,
     efo_uri: Optional[str] = None,
+    efo_id: Optional[str] = None,
+    efo_trait: Optional[str] = None,
     cohort: Optional[str] = None,
     gxe: Optional[bool] = None,
     full_pvalue_set: Optional[bool] = None,
@@ -30,6 +32,10 @@ def gwas_get_studies_for_trait(
         Disease or trait name for text-based search (e.g., 'diabetes', 'alzheimer dis...
     efo_uri : str
         Full EFO ontology URI (e.g., 'http://www.ebi.ac.uk/efo/EFO_0001645')
+    efo_id : str
+        EFO/OBA term ID (e.g., 'EFO_0001645', 'OBA_2050062'). Recommended for reliabl...
+    efo_trait : str
+        Exact EFO trait label. Use when you know the canonical trait string.
     cohort : str
         Cohort name (e.g., 'UKB' for UK Biobank)
     gxe : bool
@@ -59,6 +65,8 @@ def gwas_get_studies_for_trait(
             "arguments": {
                 "disease_trait": disease_trait,
                 "efo_uri": efo_uri,
+                "efo_id": efo_id,
+                "efo_trait": efo_trait,
                 "cohort": cohort,
                 "gxe": gxe,
                 "full_pvalue_set": full_pvalue_set,

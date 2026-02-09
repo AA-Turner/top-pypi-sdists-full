@@ -366,8 +366,11 @@ def _from_shm(obj, unlink=True):
             block.unlink()
         # Convert back to tensor if it was originally a tensor
         if obj.get("__was_tensor__"):
-            import torch
-            return torch.from_numpy(arr)
+            try:
+                import torch
+                return torch.from_numpy(arr)
+            except Exception:
+                pass
         return arr
 
     # trimesh (pickled to preserve visual, metadata, normals)
@@ -598,8 +601,8 @@ try:
     import torch.multiprocessing as mp
     mp.set_sharing_strategy("file_system")
     wlog("[worker] PyTorch sharing strategy set to file_system")
-except ImportError:
-    wlog("[worker] PyTorch not available")
+except Exception as e:
+    wlog(f"[worker] PyTorch not available: {e}")
 
 
 # Tensor keeper - holds tensor references to prevent GC before parent reads shared memory
@@ -689,14 +692,21 @@ def _to_shm(obj, registry, visited=None):
         visited[obj_id] = result
         return result
 
-    # ndarray -> convert to tensor, use PyTorch's native shared memory
+    # ndarray -> prefer torch native shm, fallback to plain shm
     if t == 'ndarray':
-        import torch
         arr = np.ascontiguousarray(obj)
-        tensor = torch.from_numpy(arr)
-        result = _serialize_tensor_native(tensor, registry)
-        result["__was_numpy__"] = True
-        result["numpy_dtype"] = str(arr.dtype)
+        try:
+            import torch
+            tensor = torch.from_numpy(arr)
+            result = _serialize_tensor_native(tensor, registry)
+            result["__was_numpy__"] = True
+            result["numpy_dtype"] = str(arr.dtype)
+        except Exception:
+            block = shm.SharedMemory(create=True, size=arr.nbytes)
+            np.ndarray(arr.shape, arr.dtype, buffer=block.buf)[:] = arr
+            registry.append(block)
+            result = {"__shm_np__": block.name, "shape": list(arr.shape), "dtype": str(arr.dtype),
+                       "__was_tensor__": True}
         visited[obj_id] = result
         return result
 
@@ -811,8 +821,11 @@ def _from_shm(obj):
             print(f"[comfy-env] DESERIALIZED arr shape: {arr.shape}", file=sys.stderr, flush=True)
         # Convert back to tensor if it was originally a tensor
         if obj.get("__was_tensor__"):
-            import torch
-            return torch.from_numpy(arr)
+            try:
+                import torch
+                return torch.from_numpy(arr)
+            except Exception:
+                pass
         return arr
 
     # trimesh (pickled)
@@ -1070,8 +1083,8 @@ def main():
         import torch
         _HAS_TORCH = True
         wlog(f"[worker] Torch imported: {torch.__version__}")
-    except ImportError:
-        wlog("[worker] Torch not available, using pickle for serialization")
+    except Exception as e:
+        wlog(f"[worker] Torch not available: {e}")
 
     # Setup log forwarding to host
     # This makes print() and logging statements in node code visible to the user
@@ -1271,9 +1284,7 @@ class SubprocessWorker(Worker):
         self._socket_addr: Optional[str] = None
         self._transport: Optional[SocketTransport] = None
 
-        # Stderr buffer for crash diagnostics
-        self._stderr_buffer: List[str] = []
-        self._stderr_lock = threading.Lock()
+        # Stderr inherits from parent (no pipe — avoids tqdm/\r deadlock)
 
         # Write worker script to temp file
         self._worker_script = self._temp_dir / "persistent_worker.py"
@@ -1366,52 +1377,9 @@ class SubprocessWorker(Worker):
         # Create server socket for IPC
         self._server_socket, self._socket_addr = _create_server_socket()
 
-        # Set up environment
-        env = os.environ.copy()
-        env.update(self.extra_env)
-        env["COMFYUI_ISOLATION_WORKER"] = "1"
-
-        # For conda/pixi environments, add lib dir to LD_LIBRARY_PATH
-        # This ensures libraries like libstdc++ from the env are used
-        lib_dir = self.python.parent.parent / "lib"
-        if lib_dir.is_dir():
-            existing = env.get("LD_LIBRARY_PATH", "")
-            # Also include system library paths so apt-installed libs (OpenGL, etc.) are found
-            system_libs = "/usr/lib/x86_64-linux-gnu:/usr/lib:/lib/x86_64-linux-gnu"
-            env["LD_LIBRARY_PATH"] = f"{lib_dir}:{system_libs}:{existing}" if existing else f"{lib_dir}:{system_libs}"
-
-        # On Windows, pass host Python directory so worker can add it via os.add_dll_directory()
-        # This fixes "DLL load failed" errors for packages like opencv-python-headless
-        if sys.platform == "win32":
-            env["COMFYUI_HOST_PYTHON_DIR"] = str(Path(sys.executable).parent)
-
-            # For pixi environments with MKL, add Library/bin to PATH for DLL loading
-            # MKL DLLs are in .pixi/envs/default/Library/bin/
-            # Pixi has python.exe directly in env dir, not in Scripts/
-            env_dir = self.python.parent
-            library_bin = env_dir / "Library" / "bin"
-
-            # COMPLETE DLL ISOLATION: Build minimal PATH from scratch
-            # Only include Windows system directories + pixi environment
-            # This prevents DLL conflicts from mingw, conda, etc.
-            windir = os.environ.get("WINDIR", r"C:\Windows")
-            minimal_path_parts = [
-                str(env_dir),  # Pixi env (python.exe location)
-                str(env_dir / "Scripts"),  # Pixi Scripts
-                str(env_dir / "Lib" / "site-packages" / "bpy"),  # bpy DLLs
-                f"{windir}\\System32",  # Core Windows DLLs
-                f"{windir}",  # Windows directory
-                f"{windir}\\System32\\Wbem",  # WMI tools
-            ]
-            if library_bin.is_dir():
-                minimal_path_parts.insert(1, str(library_bin))  # MKL DLLs
-
-            env["PATH"] = ";".join(minimal_path_parts)
-            env["COMFYUI_PIXI_LIBRARY_BIN"] = str(library_bin) if library_bin.is_dir() else ""
-            # Allow duplicate OpenMP libraries (MKL's libiomp5md.dll + PyTorch's libomp.dll)
-            env["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-            # Use UTF-8 encoding for stdout/stderr to handle Unicode symbols
-            env["PYTHONIOENCODING"] = "utf-8"
+        # Set up environment (shared with metadata scan)
+        from ..wrap import build_isolation_env
+        env = build_isolation_env(self.python, self.extra_env)
 
         # Find ComfyUI base and add to sys_path for real folder_paths/comfy modules
         # This works because comfy.options.args_parsing=False by default, so folder_paths
@@ -1426,6 +1394,9 @@ class SubprocessWorker(Worker):
             all_sys_path.append(str(comfyui_base))
         all_sys_path.append(str(self.working_dir))
         all_sys_path.extend(self.sys_path)
+
+        print(f"[{self.name}] python: {self.python}", flush=True)
+        print(f"[{self.name}] sys_path sent to worker: {all_sys_path}", flush=True)
 
         # Launch subprocess with the venv Python, passing socket address
         # For pixi environments, use "pixi run python" to get proper environment activation
@@ -1480,50 +1451,23 @@ class SubprocessWorker(Worker):
         self._process = subprocess.Popen(
             cmd,
             stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,  # DEVNULL to prevent pipe buffer deadlock
-            stderr=subprocess.PIPE,  # Capture stderr separately for crash diagnostics
+            stdout=subprocess.DEVNULL,
+            stderr=None,  # Inherit parent stderr (avoids pipe deadlock with tqdm)
             cwd=str(self.working_dir),
             env=launch_env,
         )
-
-        # Clear stderr buffer for new process
-        with self._stderr_lock:
-            self._stderr_buffer.clear()
-
-        # Start stderr capture thread (buffer for crash diagnostics)
-        def capture_stderr():
-            try:
-                for line in self._process.stderr:
-                    if isinstance(line, bytes):
-                        line = line.decode('utf-8', errors='replace')
-                    # Print to terminal AND buffer for crash reporting
-                    sys.stderr.write(f"  [stderr] {line}")
-                    sys.stderr.flush()
-                    with self._stderr_lock:
-                        self._stderr_buffer.append(line.rstrip())
-                        # Keep last 50 lines
-                        if len(self._stderr_buffer) > 50:
-                            self._stderr_buffer.pop(0)
-            except:
-                pass
-        self._stderr_thread = threading.Thread(target=capture_stderr, daemon=True)
-        self._stderr_thread.start()
 
         # Accept connection from worker with timeout
         self._server_socket.settimeout(60)
         try:
             client_sock, _ = self._server_socket.accept()
         except socket.timeout:
-            # Collect stderr from buffer
-            time.sleep(0.2)  # Give stderr thread time to capture
-            with self._stderr_lock:
-                stderr = "\n".join(self._stderr_buffer) if self._stderr_buffer else "(no stderr captured)"
             try:
                 self._process.kill()
                 self._process.wait(timeout=5)
             except:
                 pass
-            raise RuntimeError(f"{self.name}: Worker failed to connect (timeout).\nStderr:\n{stderr}")
+            raise RuntimeError(f"{self.name}: Worker failed to connect (timeout). Check stderr output above.")
         finally:
             self._server_socket.settimeout(None)
 
@@ -1581,27 +1525,20 @@ class SubprocessWorker(Worker):
         except ConnectionError as e:
             # Socket closed - check if worker process died
             self._shutdown = True
-            time.sleep(0.2)  # Give process time to fully exit and stderr to flush
             exit_code = None
             if self._process:
                 exit_code = self._process.poll()
 
-            # Get captured stderr
-            with self._stderr_lock:
-                stderr_output = "\n".join(self._stderr_buffer) if self._stderr_buffer else "(no stderr captured)"
-
             if exit_code is not None:
                 raise RuntimeError(
                     f"{self.name}: Worker process died with exit code {exit_code}. "
-                    f"This usually indicates a crash in native code (CGAL, pymeshlab, etc.).\n"
-                    f"Stderr:\n{stderr_output}"
+                    f"This usually indicates a crash in native code (CGAL, pymeshlab, etc.). "
+                    f"Check stderr output above."
                 ) from e
             else:
-                # Process still alive but socket closed - something weird
                 raise RuntimeError(
                     f"{self.name}: Socket closed but worker process still running. "
-                    f"This may indicate a protocol error or worker bug.\n"
-                    f"Stderr:\n{stderr_output}"
+                    f"This may indicate a protocol error or worker bug."
                 ) from e
 
         if response is None:
@@ -1772,8 +1709,11 @@ class SubprocessWorker(Worker):
             try:
                 self._process.wait(timeout=5)
             except subprocess.TimeoutExpired:
-                self._process.kill()
-                self._process.wait(timeout=2)
+                try:
+                    self._process.kill()
+                    self._process.wait(timeout=5)
+                except Exception:
+                    pass
 
         shutil.rmtree(self._temp_dir, ignore_errors=True)
 

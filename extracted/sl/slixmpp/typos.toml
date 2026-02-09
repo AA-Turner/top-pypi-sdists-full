@@ -1,0 +1,8 @@
+[files]
+extend-exclude = ["docs/howto/make_plugin_extension_for_message_and_iq.pl.rst"]
+
+[default.extend-words]
+datas = "datas"
+fpr = "fpr"
+muc = "muc"
+parms = "parms"

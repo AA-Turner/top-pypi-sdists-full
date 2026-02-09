@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2025, ETH Zurich and NVIDIA CORPORATION
+# Copyright (c) 2021-2026, ETH Zurich and NVIDIA CORPORATION
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -19,7 +19,7 @@ class NeptuneSummaryWriter(SummaryWriter):
     """Summary writer for Neptune."""
 
     def __init__(self, log_dir: str, flush_secs: int, cfg: dict) -> None:
-        super().__init__(log_dir, flush_secs)
+        super().__init__(log_dir, flush_secs=flush_secs)
 
         # Get the run name
         run_name = os.path.split(log_dir)[-1]
@@ -54,13 +54,11 @@ class NeptuneSummaryWriter(SummaryWriter):
         }
 
     def store_config(self, env_cfg: dict | object, train_cfg: dict) -> None:
-        self.run["runner_cfg"] = train_cfg
-        self.run["policy_cfg"] = train_cfg["policy"]
-        self.run["alg_cfg"] = train_cfg["algorithm"]
+        self.run["train_cfg"] = train_cfg
         try:
-            self.run["env_cfg"] = env_cfg.to_dict()
+            self.run["env_cfg"] = env_cfg.to_dict()  # type: ignore
         except Exception:
-            self.run["env_cfg"] = asdict(env_cfg)
+            self.run["env_cfg"] = asdict(env_cfg)  # type: ignore
 
     def add_scalar(
         self,

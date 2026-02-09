@@ -2686,8 +2686,6 @@ def mk_config():
             CPPFLAGS     = '%s -DZ3DEBUG -D_DEBUG' % CPPFLAGS
         else:
             CXXFLAGS     = '%s -O3' % CXXFLAGS
-            if GPROF:
-                CXXFLAGS     += '-fomit-frame-pointer'
             CPPFLAGS     = '%s -DNDEBUG -D_EXTERNAL_RELEASE' % CPPFLAGS
         if is_CXX_clangpp():
             CXXFLAGS   = '%s -Wno-unknown-pragmas -Wno-overloaded-virtual -Wno-unused-value' % CXXFLAGS
@@ -2716,6 +2714,10 @@ def mk_config():
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -mimpure-text' % SLIBEXTRAFLAGS
+        elif sysname  == 'AIX':
+            SO_EXT         = '.so'
+            SLIBFLAGS      = '-shared'
+            SLIBEXTRAFLAGS = '%s' % LDFLAGS
         elif sysname.startswith('CYGWIN'):
             SO_EXT         = '.dll'
             SLIBFLAGS      = '-shared'
@@ -2747,7 +2749,7 @@ def mk_config():
             CXXFLAGS = '%s -arch arm64' % CXXFLAGS
             LDFLAGS = '%s -arch arm64' % LDFLAGS
             SLIBEXTRAFLAGS = '%s -arch arm64' % SLIBEXTRAFLAGS
-        if IS_OSX and is_ml_enabled():
+        if IS_OSX:
             SLIBFLAGS += ' -Wl,-headerpad_max_install_names'
 
         config.write('PREFIX=%s\n' % PREFIX)

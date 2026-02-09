@@ -6274,6 +6274,14 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    def shift_right_logical_narrowing_saturate_even(value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def shift_right_logical_narrowing_saturate_odd(even: System.Numerics.Vector[int], value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
     def shift_right_logical_rounded(value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
         ...
 

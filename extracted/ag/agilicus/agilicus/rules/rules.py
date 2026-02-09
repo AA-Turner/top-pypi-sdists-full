@@ -30,6 +30,8 @@ ConditionTypes = Enum(
         "scope_condition",
         "network_protocol_condition",
         "compound_rule_condition",
+        "always_match_condition",
+        "timeframe_condition",
     ],
 )
 
@@ -1056,6 +1058,98 @@ def add_agilicus_default_database_allow(
         scopes=["urn:agilicus:database:*"],
         **kwargs,
     )
+
+
+def add_timeframe_condition_rule(
+    ctx,
+    name,
+    actions,
+    start_time,
+    end_time,
+    purpose=None,
+    standalone_rule_policy_id=None,
+    **kwargs,
+):
+    token = context.get_token(ctx)
+    apiclient = context.get_apiclient(ctx, token)
+    kwargs = strip_none(kwargs)
+
+    cond = agilicus.TimeframeCondition(
+        condition_type=ConditionTypes.timeframe_condition.name,
+        start_time=start_time,
+        end_time=end_time,
+    )
+    extended_cond = agilicus.RuleCondition(condition=cond, negated=False)
+
+    rule = agilicus.RuleConfig(
+        name=name,
+        extended_condition=extended_cond,
+        actions=[agilicus.RuleAction(action=action) for action in actions],
+    )
+
+    org_id = get_org_from_input_or_ctx(ctx, **kwargs)
+    kwargs["org_id"] = org_id
+    spec = agilicus.StandaloneRuleSpec(org_id=org_id, rule=rule)
+    if purpose is not None:
+        spec.purpose = purpose
+
+    if standalone_rule_policy_id is not None:
+        spec.standalone_rule_policy_id = standalone_rule_policy_id
+
+    req = agilicus.StandaloneRule(spec=spec)
+    result, _ = create_or_update(
+        req,
+        lambda obj: apiclient.rules_api.create_standalone_rule(obj),
+        lambda guid, obj: apiclient.rules_api.replace_standalone_rule(
+            guid, standalone_rule=obj
+        ),
+    )
+    return result
+
+
+def add_always_match_condition_rule(
+    ctx,
+    name,
+    actions,
+    condition_result,
+    purpose=None,
+    standalone_rule_policy_id=None,
+    **kwargs,
+):
+    token = context.get_token(ctx)
+    apiclient = context.get_apiclient(ctx, token)
+    kwargs = strip_none(kwargs)
+
+    cond = agilicus.AlwaysMatchCondition(
+        condition_type=ConditionTypes.always_match_condition.name,
+        condition_result=condition_result,
+    )
+    extended_cond = agilicus.RuleCondition(condition=cond, negated=False)
+
+    rule = agilicus.RuleConfig(
+        name=name,
+        extended_condition=extended_cond,
+        actions=[agilicus.RuleAction(action=action) for action in actions],
+    )
+
+    org_id = get_org_from_input_or_ctx(ctx, **kwargs)
+    kwargs["org_id"] = org_id
+    spec = agilicus.StandaloneRuleSpec(org_id=org_id, rule=rule)
+    if purpose is not None:
+        spec.purpose = purpose
+
+    if standalone_rule_policy_id is not None:
+        spec.standalone_rule_policy_id = standalone_rule_policy_id
+
+    req = agilicus.StandaloneRule(spec=spec)
+    result, _ = create_or_update(
+        req,
+        lambda obj: apiclient.rules_api.create_standalone_rule(obj),
+        lambda guid, obj: apiclient.rules_api.replace_standalone_rule(
+            guid, standalone_rule=obj
+        ),
+    )
+    return result
 
 
 def add_agilicus_default_policy(

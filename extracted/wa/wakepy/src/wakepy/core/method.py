@@ -8,17 +8,23 @@ Method
 from __future__ import annotations
 
 import datetime as dt
+import logging
 import sys
 import typing
 from abc import ABC
+from dataclasses import dataclass
 from typing import Type, cast
 
 from .activationresult import MethodActivationResult
-from .constants import PlatformType, StageName
+from .constants import (
+    PlatformType,
+    StageName,
+)
 from .heartbeat import Heartbeat
 from .platform import CURRENT_PLATFORM, get_platform_supported
 from .registry import register_method
 from .strenum import StrEnum, auto
+from .utils import is_env_var_truthy
 
 if sys.version_info < (3, 8):  # pragma: no-cover-if-py-gte-38
     from typing_extensions import Literal
@@ -27,11 +33,12 @@ else:  # pragma: no-cover-if-py-lt-38
 
 
 if typing.TYPE_CHECKING:
-    from typing import Any, Optional, Tuple
+    from typing import Any, Optional, Tuple, Type
 
     from wakepy.core import DBusAdapter, DBusMethodCall
 
-    from .constants import ModeName, PlatformType
+    from .constants import IdentifiedPlatformType, ModeName
+
 
 MethodCls = Type["Method"]
 
@@ -48,10 +55,24 @@ MethodOutcomeValue = Literal["NOT_IMPLEMENTED", "SUCCESS", "FAILURE"]
 unnamed = "__unnamed__"
 """Constant for defining unnamed Method(s)"""
 
+logger = logging.getLogger(__name__)
+
+
+class DBusCallError(RuntimeError):
+    """Raised when a Method's D-Bus call fails."""
+
 
 class Method(ABC):
-    """Methods are objects that are used to switch modes. The phases for
-    changing and being in a Mode is:
+    """Methods are objects that are used to implement modes. The
+    :class:`Method` class is an advanced topic in wakepy and typically users of
+    wakepy do not need to interact with it directly. Instead, users will
+    interact with the read-only :class:`MethodInfo` instances.
+
+    The subclassing of :class:`Method` is the way to implement a new Methods
+    (and Modes) in wakepy.
+
+    The different phases of using a Method for activating / keeping /
+    deactivating a Mode are:
 
     1) enter into a mode by calling :meth:`enter_mode`
     2) keep into a mode by calling :meth:`heartbeat` periodically
@@ -63,11 +84,12 @@ class Method(ABC):
     """
 
     mode_name: ModeName | str
-    """The name of the mode which the Method implements. Each Method subclass
-    implements a single mode, but multiple Methods may implement the same mode.
-    Setting ``Method.mode_name`` to `foo` on one or more ``Method`` subclasses
-    defines the Mode `foo` (:class:`Mode` classes are themselves not defined or
-    registered anywhere)"""
+    """A name for the mode which the Method implements. The name can be
+    basically anything, and is typically used when you create :class:`Mode`
+    instances using the :meth:`Mode._from_name`. For example: "keep.running".
+    Each Method subclass implements a single mode, but multiple Methods may
+    implement the same mode. Setting ``Method.mode_name`` to "foo" on one or
+    more ``Method`` subclasses defines and registers a mode called "foo"."""
 
     supported_platforms: Tuple[PlatformType, ...] = (PlatformType.ANY,)
     r"""Lists the platforms the Method supports. If the current platform is not
@@ -100,8 +122,8 @@ class Method(ABC):
     if the Method should not be listed anywhere (e.g. when Method is meant to
     be subclassed)."""
 
-    # waits for https://github.com/fohrloop/wakepy/issues/256
-    # method_kwargs: Dict[str, object]
+    # waits for https://github.com/wakepy/wakepy/issues/256
+    # method_kwargs: Dict[str, object] # noqa: ERA001
     """The method arguments. This is created from two parts
 
     1) The common_method_kwargs (if any)
@@ -118,9 +140,9 @@ class Method(ABC):
         # only on methods using D-Bus.
         self.dbus_adapter = cast("DBusAdapter | None", kwargs.pop("dbus_adapter", None))
 
-        # waits for https://github.com/fohrloop/wakepy/issues/256
-        # self.method_kwargs = kwargs
-        _check_supported_platforms(self.supported_platforms, self.__class__.__name__)
+        # waits for https://github.com/wakepy/wakepy/issues/256
+        # self.method_kwargs = kwargs # noqa: ERA001
+        self._check_supported_platforms()
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         register_method(cls)
@@ -183,7 +205,7 @@ class Method(ABC):
         Raises
         ------
         Exception
-            If entering the mode was not succesful.
+            If entering the mode was not successful.
         """
 
         # Notes for subclassing
@@ -194,11 +216,11 @@ class Method(ABC):
         # Errors
         # -------
         # If the mode enter was not successful, raise an Exception of any type.
-        # This is catched by the mode activation process and handled.
+        # This is caught by the mode activation process and handled.
         #
-        # Note: The .enter_mode() should always leave anything in a clean in
-        # case of errors; When subclassing, make sure that in case of any
-        # exceptions, everything is cleaned; everything should be left in
+        # Note: The .enter_mode() should always leave everything in a clean
+        # state in case of errors. When subclassing, make sure that in case of
+        # any exceptions, everything is cleaned; everything should be left in
         # a state which does not require .exit_mode() to be called.
         #
         return
@@ -215,7 +237,7 @@ class Method(ABC):
         Raises
         ------
         Exception
-            If exiting the mode was not succesful.
+            If exiting the mode was not successful.
         """
 
         # Notes for subclassing
@@ -244,7 +266,7 @@ class Method(ABC):
 
         **NOTE** Heartbeat support is not yet implemented.
 
-        Ticket: https://github.com/fohrloop/wakepy/issues/109
+        Ticket: https://github.com/wakepy/wakepy/issues/109
 
         Returns
         -------
@@ -269,10 +291,17 @@ class Method(ABC):
         # subclass, either. Typically one would *not* override this method.
         if self.dbus_adapter is None:
             raise RuntimeError(
-                f'{self.__class__.__name__ } cannot process dbus method call "{call}" '
+                f'{self.__class__.__name__} cannot process dbus method call "{call}" '
                 "as it does not have a DBusAdapter."
             )
-        return self.dbus_adapter.process(call)
+        try:
+            return self.dbus_adapter.process(call)
+        except Exception as exc:
+            raise DBusCallError(
+                f"DBus call of method '{call.method.name}' on interface "
+                f"'{call.method.interface}' with args {call.args} failed with message: "
+                f"{exc}"
+            ) from exc
 
     def __str__(self) -> str:
         return f"<wakepy Method: {self.__class__.__name__}>"
@@ -291,25 +320,36 @@ class Method(ABC):
         """
         return cls.name == unnamed
 
+    def _check_supported_platforms(self) -> None:
+        """Check that supported_platforms is a tuple of PlatformType.
 
-def _check_supported_platforms(
-    supported_platforms: Tuple[PlatformType, ...], classname: str
-) -> None:
-    err_supported_platforms = (
-        f"The supported_platforms of {classname} must be a tuple of PlatformType!"
-    )
+        Raises
+        ------
+        ValueError
+            If supported_platforms is not a tuple or contains non-PlatformType
+            items.
+        """
+        err_supported_platforms = (
+            f"The supported_platforms of {self.__class__.__name__} must be "
+            "a tuple of PlatformType!"
+        )
 
-    if not isinstance(supported_platforms, tuple):
-        raise ValueError(err_supported_platforms)
-    for p in supported_platforms:
-        if not isinstance(p, PlatformType):
-            raise ValueError(
-                err_supported_platforms + f' One item ({p}) is of type "{type(p)}"'
-            )
+        if not isinstance(self.supported_platforms, tuple):
+            raise ValueError(err_supported_platforms)
+        for p in self.supported_platforms:
+            if not isinstance(p, PlatformType):
+                raise ValueError(
+                    err_supported_platforms + f' One item ({p}) is of type "{type(p)}"'
+                )
 
 
 def activate_method(method: Method) -> Tuple[MethodActivationResult, Heartbeat | None]:
     """Activates a mode defined by a single Method.
+
+    Parameters
+    ----------
+    method:
+        The wakepy Method to activate
 
     Returns
     -------
@@ -318,32 +358,84 @@ def activate_method(method: Method) -> Tuple[MethodActivationResult, Heartbeat |
     heartbeat:
         If the `method` has method.heartbeat() implemented, and activation
         succeeds, this is a Heartbeat object. Otherwise, this is None.
+
+
+    Notes
+    -----
+    Setting WAKEPY_FORCE_FAILURE environment variable to a truthy value can be
+    used to force failure of the method activation. This is useful for testing
+    purposes.
     """
+
     if method.is_unnamed():
         raise ValueError("Methods without a name may not be used to activate modes!")
 
-    result = MethodActivationResult(
-        success=False, method_name=method.name, mode_name=method.mode_name
+    method_info = MethodInfo._from_method(method)
+    result = MethodActivationResult(method=method_info, success=False)
+
+    logger.debug(
+        'Entering "%s" mode implemented with %s', method.mode_name, method.name
     )
 
+    force_failure = is_env_var_truthy("WAKEPY_FORCE_FAILURE")
+    if force_failure:
+        logger.debug(
+            (
+                'Forcing failure of wakepy Method "%s" (mode: "%s") due to '
+                "WAKEPY_FORCE_FAILURE environment variable"
+            ),
+            method.mode_name,
+            method.name,
+        )
+        result.failure_stage = StageName.WAKEPY_FORCE_FAILURE
+        result.failure_reason = (
+            "Forced failure due to WAKEPY_FORCE_FAILURE environment variable"
+        )
+        return result, None
+
     if get_platform_supported(CURRENT_PLATFORM, method.supported_platforms) is False:
+        logger.debug(
+            'Failed entering "%s" mode with "%s" at platform check stage',
+            method.mode_name,
+            method.name,
+        )
         result.failure_stage = StageName.PLATFORM_SUPPORT
+        result.failure_reason = _get_platform_unsupported_message(
+            CURRENT_PLATFORM, method.supported_platforms
+        )
         return result, None
 
     requirements_fail, err_message = caniuse_fails(method)
     if requirements_fail:
+        logger.debug(
+            'Failed entering "%s" mode with "%s" at requirements check stage. Error message: %s',  # noqa: E501
+            method.mode_name,
+            method.name,
+            err_message,
+        )
         result.failure_stage = StageName.REQUIREMENTS
         result.failure_reason = err_message
         return result, None
 
     success, err_message, heartbeat_call_time = try_enter_and_heartbeat(method)
     if not success:
+        logger.debug(
+            'Failed entering "%s" mode with "%s" during activation. Error message: %s',
+            method.mode_name,
+            method.name,
+            err_message,
+        )
         result.failure_stage = StageName.ACTIVATION
         result.failure_reason = err_message
         return result, None
 
     result.success = True
 
+    logger.debug(
+        'Entered "%s" mode with "%s" successfully',
+        method.mode_name,
+        method.name,
+    )
     if not heartbeat_call_time:
         # Success, using just enter_mode(); no heartbeat()
         return result, None
@@ -354,6 +446,17 @@ def activate_method(method: Method) -> Tuple[MethodActivationResult, Heartbeat |
     return result, heartbeat
 
 
+def _get_platform_unsupported_message(
+    platform: IdentifiedPlatformType, supported_platforms: Tuple[PlatformType, ...]
+) -> str:
+    platform_name = str(platform)
+    supported_names = ", ".join(str(p) for p in supported_platforms)
+    return (
+        f"Current platform ({platform_name}) is not in supported platforms: "
+        f"{supported_names}"
+    )
+
+
 def deactivate_method(method: Method, heartbeat: Optional[Heartbeat] = None) -> None:
     """Deactivates a mode defined by method
 
@@ -361,8 +464,12 @@ def deactivate_method(method: Method, heartbeat: Optional[Heartbeat] = None) -> 
     ------
     RuntimeError, if the deactivation was not successful.
     """
-
-    heartbeat_stopped = heartbeat.stop() if heartbeat is not None else True
+    logger.debug('Exiting "%s" mode implemented with %s', method.mode_name, method.name)
+    if heartbeat is not None:
+        logger.info("Stopping heartbeat of %s", method.name)
+        heartbeat_stopped = heartbeat.stop()
+    else:
+        heartbeat_stopped = True
 
     if has_exit(method):
         errortxt = (
@@ -381,7 +488,16 @@ def deactivate_method(method: Method, heartbeat: Optional[Heartbeat] = None) -> 
             retval = method.exit_mode()  # type: ignore[func-returns-value]
             if retval is not None:
                 raise ValueError("exit_mode returned a value other than None!")
-        except Exception as e:
+            else:
+                logger.info(
+                    'Exited "%s" mode implemented with %s',
+                    method.mode_name,
+                    method.name,
+                )
+        except Exception as e:  # noqa: BLE001
+            # Skipping BLE001 as the Method.exit_mode() call might literally
+            # cause any type of Exception (Method can also be subclassed by
+            # users)
             raise RuntimeError(errortxt + "Original error: " + str(e))
 
     if heartbeat_stopped is not True:
@@ -406,12 +522,14 @@ def caniuse_fails(method: Method) -> tuple[bool, str]:
 
         If Method.caniuse() return False, or a string, the requirements check
         fails, and this function returns (True, message), where message is
-        either the string returned by .caniuse() or emptry string.
+        either the string returned by .caniuse() or empty string.
     """
 
     try:
         canuse = method.caniuse()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
+        # Skipping BLE001 as the Method.caniuse() call might literally cause
+        # any type of Exception (Method can also be subclassed by users)
         return True, str(exc)
 
     fail = False if (canuse is True or canuse is None) else True
@@ -448,7 +566,7 @@ def try_enter_and_heartbeat(method: Method) -> Tuple[bool, str, Optional[dt.date
 
     M: Missing implementation
     F: Failed attempt
-    S: Succesful attempt
+    S: Successful attempt
 
     There are total of 7 different outcomes (3*3 possibilities, minus two from
     not checking heartbeat if enter_mode fails), marked as
@@ -547,7 +665,9 @@ def _try_method_call(method: Method, mthdname: str) -> Tuple[MethodOutcome, str]
             )
         outcome = MethodOutcome.SUCCESS
         err_message = ""
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
+        # Skipping BLE001 as the Method call might literally cause any type
+        # of Exception (Method can also be subclassed by users)
         err_message = repr(exc)
         outcome = MethodOutcome.FAILURE
     return outcome, err_message
@@ -594,3 +714,53 @@ def has_exit(method: Method) -> bool:
 
 def has_heartbeat(method: Method) -> bool:
     return type(method).heartbeat is not Method.heartbeat
+
+
+@dataclass(frozen=True)
+class MethodInfo:
+    """MethodInfo is a read-only object which contains information about the
+    used wakepy :class:`Method`. You'll most likely bump into this through the
+    :attr:`Mode.active_method` or :attr:`Mode.method` when using one of
+    the :ref:`wakepy-modes`. For example::
+
+        >>> with keep.running() as m:
+        ...      print('Used method:', m.method)
+        ...      print(type(m.method))
+        ...
+        Used method: org.gnome.SessionManager
+        <class 'wakepy.core.method.MethodInfo'>
+
+
+    .. seealso::
+
+        See :ref:`wakepy-methods` for a full listing of the available Methods.
+
+    .. versionadded:: 1.0.0
+    """
+
+    name: str
+    """Name of the :class:`Method`. See full listing of different methods at
+    :ref:`wakepy-methods`. Examples: "SetThreadExecutionState", "caffeinate".
+    """
+
+    mode_name: str
+    """The name of the mode the method implements. Examples: "keep.running"
+    for the :func:`keep.running <wakepy.keep.running>` mode and
+    "keep.presenting" for the :func:`keep.presenting <wakepy.keep.presenting>`
+    mode.
+    """
+
+    supported_platforms: Tuple[PlatformType, ...]
+    """The list the platforms the Method supports."""
+
+    @classmethod
+    def _from_method(cls, method: Method) -> MethodInfo:
+        """Creates a MethodInfo from a Method instance."""
+        return cls(
+            name=method.name,
+            mode_name=str(method.mode_name),
+            supported_platforms=method.supported_platforms,
+        )
+
+    def __str__(self) -> str:
+        return self.name

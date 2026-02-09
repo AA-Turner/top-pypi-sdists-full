@@ -2,7 +2,7 @@ from adam.commands import extract_options, extract_trailing_options
 from adam.commands.command import Command
 from adam.commands.export.exporter import export
 from adam.repl_state import ReplState, RequiredState
-from adam.utils_async_job import AsyncJobs
+from adam.utils_job.job import Job
 from adam.utils_context import Context
 
 class ExportTables(Command):

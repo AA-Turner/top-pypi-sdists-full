@@ -1,9 +1,11 @@
 import yaml
 
-from adam.utils import ExecResult, log_exc
+from adam.utils import ExecResult
+from adam.utils_log import log_exc
 from adam.utils_context import Context
+from adam.utils_error import ErrorAware
 
-class PodExecResult(ExecResult):
+class PodExecResult(ExecResult, ErrorAware):
     # {
     #   'metadata': {},
     #   'status': 'Failure',
@@ -62,8 +64,14 @@ class PodExecResult(ExecResult):
         if not self.stdout and not self.stderr:
             ctx.log(self.error if self.exit_code() else 'OK')
 
+    def __repr__(self):
+        return f'PodExecResult(has_error={self.has_error()})'
+
     def __str__(self):
         return f'{"OK" if self.exit_code() == 0 else self.exit_code()} {self.command}'
 
     def __audit_extra__(self):
         return self.log_file if self.log_file else None
+
+    def has_error(self) -> bool:
+        return self.client_err or self.exit_code() != 0

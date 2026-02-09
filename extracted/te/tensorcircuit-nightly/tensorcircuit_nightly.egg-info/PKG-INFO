@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tensorcircuit-nightly
-Version: 1.4.0.dev20260205
+Version: 1.5.0.dev20260208
 Summary: High performance unified quantum computing framework for the NISQ era
 Author-email: TensorCircuit Authors <znfesnpbh@gmail.com>
 License-Expression: Apache-2.0
@@ -70,9 +70,26 @@ TensorCircuit-NG is the only actively maintained official version and a [fully c
 
 Please begin with [Quick Start](/docs/source/quickstart.rst) in the [full documentation](https://tensorcircuit-ng.readthedocs.io/).
 
-For more information on software usage, sota algorithm implementation and engineer paradigm demonstration, please refer to 100+ [example scripts](/examples) and 40+ [tutorial notebooks](https://tensorcircuit-ng.readthedocs.io/en/latest/#tutorials). API docstrings and test cases in [tests](/tests) are also informative. One can also refer to AI-native docs for tensorcircuit-ng: [Devin Deepwiki](https://deepwiki.com/tensorcircuit/tensorcircuit-ng) and [Context7 MCP](https://context7.com/tensorcircuit/tensorcircuit-ng).
+For more information on software usage, sota algorithm implementation and engineer paradigm demonstration, please refer to 130+ [example scripts](/examples) and 40+ [tutorial notebooks](https://tensorcircuit-ng.readthedocs.io/en/latest/#tutorials). API docstrings and test cases in [tests](/tests) are also informative. One can also refer to AI-native docs for tensorcircuit-ng: [Devin Deepwiki](https://deepwiki.com/tensorcircuit/tensorcircuit-ng) and [Context7 MCP](https://context7.com/tensorcircuit/tensorcircuit-ng).
 
 For beginners, please refer to [quantum computing lectures with TC-NG](https://github.com/sxzgroup/qc_lecture) to learn both quantum computing basics and representative usage of TensorCircuit-NG.
+
+### AI-Assisted Development (Recommended)
+
+To write TC-NG scripts and applications efficiently with AI coding agents (e.g., Claude Code, Cursor, Antigravity), we strongly recommend **working directly within the local tensorcircuit-ng repository** rather than an empty folder.
+
+1.  **Rich Context:** The 100+ scripts in `examples/` and extensive test cases in `tests/` provide essential references that significantly reduce AI hallucinations.
+2.  **Built-in Rules:** We provide a dedicated [AGENTS.md](/AGENTS.md) file. It serves as the "handbook" (i.e. `CLAUDE.md`) for AI agents, defining coding standards and best practices to ensure the generated code is idiomatic.
+
+**Recommended Workflow:**
+
+1.  Clone the repository: `git clone https://github.com/tensorcircuit/tensorcircuit-ng.git`
+2.  Switch to a local playground branch: `git checkout -b my-playground` in case messing up with the original repository.
+3.  Open the repository folder in your AI IDE. And you are ready to start writing TC-NG-based scripts.
+
+Now, enjoy implementing quantum algorithms entirely through natural language!
+
+### Quick Demos
 
 The following are some minimal demos.
 
@@ -197,13 +214,11 @@ We also have [Docker support](/docker).
 - HPC native, distributed simulation enabled, multiple devices/hosts support
 
 - Efficiency
-
   - Time: 10 to 10^6+ times acceleration compared to TensorFlow Quantum, Pennylane or Qiskit
 
   - Space: 600+ qubits 1D VQE workflow (converged energy inaccuracy: < 1%)
 
 - Elegance
-
   - Flexibility: customized contraction, multiple ML backend/interface choices, multiple dtype precisions, multiple QPU providers
 
   - API design: quantum for humans, less code, more power
@@ -217,7 +232,7 @@ We also have [Docker support](/docker).
 
   - Support **noisy simulation** with both Monte Carlo and density matrix (tensor network powered) modes.
 
-  - Support **stabilizer circuit simulation** with stim backend
+  - Support **stabilizer circuit simulation** with stim backend.
 
   - Support **approximate simulation** with MPS-TEBD modes.
 
@@ -227,7 +242,7 @@ We also have [Docker support](/docker).
 
   - Support **qudits simulation** for tensor network and MPS approximation modes.
 
-  - Support **parallel** quantum circuit evaluation across **multiple GPUs**.
+  - Support **parallel** quantum circuit evaluation across **multiple GPUs** and **multiple hosts**.
 
   - Highly customizable **noise model** with gate error and scalable readout error.
 
@@ -248,6 +263,8 @@ We also have [Docker support](/docker).
   - **Machine learning interface/layer/model** abstraction in both TensorFlow, PyTorch and Jax for both numerical simulation and real QPU experiments.
 
   - Support time evolution simulation with **exact, ODE, Krylov, Trotter, Chebyshev solvers**.
+
+  - Support Heisenberg picture-based Pauli propagation approximation simulation for circuits.
 
   - Circuit sampling supports both final state sampling and perfect sampling from tensor networks.
 

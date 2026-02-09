@@ -1099,7 +1099,7 @@ def loop_select(
 ) -> None:
     """Select a loop of connected edges
 
-    :param delimit_edge_loop: Boundary Delimit, Delimit edge loop selection
+    :param delimit_edge_loop: Delimit, Delimit edge loop selection
     :param delimit_face_loop: Face Loop Delimit, Delimit face loop selection
     :param extend: Extend Select, Extend the selection
     :param deselect: Deselect, Remove from the selection
@@ -2165,26 +2165,21 @@ def rip_edge(
     undo: bool | None = None,
     /,
     *,
-    mirror: bool | None = False,
-    use_proportional_edit: bool | None = False,
-    proportional_edit_falloff: bpy.stub_internal.rna_enums.ProportionalFalloffItems
-    | None = "SMOOTH",
-    proportional_size: float | None = 1.0,
-    use_proportional_connected: bool | None = False,
-    use_proportional_projected: bool | None = False,
-    release_confirm: bool | None = False,
-    use_accurate: bool | None = False,
+    location: collections.abc.Sequence[float] | mathutils.Vector | None = (
+        0.0,
+        0.0,
+        0.0,
+    ),
+    direction: collections.abc.Sequence[float] | mathutils.Vector | None = (
+        0.0,
+        0.0,
+        0.0,
+    ),
 ) -> None:
     """Extend vertices along the edge closest to the cursor
 
-    :param mirror: Mirror Editing
-    :param use_proportional_edit: Proportional Editing
-    :param proportional_edit_falloff: Proportional Falloff, Falloff type for proportional editing mode
-    :param proportional_size: Proportional Size
-    :param use_proportional_connected: Connected
-    :param use_proportional_projected: Projected (2D)
-    :param release_confirm: Confirm on Release, Always confirm operation when releasing button
-    :param use_accurate: Accurate, Use accurate transformation
+    :param location: Location, World-space ray origin for extending vertices
+    :param direction: Direction, World-space direction vector for extending vertices
     """
 
 def rip_edge_move(
@@ -2310,7 +2305,7 @@ def select_edge_loop_multi(
 ) -> None:
     """Select loops of connected edges from each selected edge
 
-    :param delimit_edge_loop: Boundary Delimit, Delimit edge loop selection
+    :param delimit_edge_loop: Delimit, Delimit edge loop selection
     """
 
 def select_edge_ring_multi(

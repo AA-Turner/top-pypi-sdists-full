@@ -38,13 +38,9 @@ from pypdf.generic import (
     TextStringObject,
 )
 
-from . import get_data_from_url, is_sublist
+from . import RESOURCE_ROOT, SAMPLE_ROOT, get_data_from_url, is_sublist
 from .test_images import image_similarity
 
-TESTS_ROOT = Path(__file__).parent.resolve()
-PROJECT_ROOT = TESTS_ROOT.parent
-RESOURCE_ROOT = PROJECT_ROOT / "resources"
-SAMPLE_ROOT = Path(PROJECT_ROOT) / "sample-files"
 GHOSTSCRIPT_BINARY = shutil.which("gs")
 
 
@@ -1510,7 +1506,7 @@ def test_named_dest_page_number():
     assert len(writer.root_object["/Names"]["/Dests"]["/Names"]) == 6
 
 
-def test_update_form_fields(tmp_path):
+def test_update_form_fields(caplog, tmp_path):
     write_data_here = tmp_path / "out.pdf"
     writer = PdfWriter(clone_from=RESOURCE_ROOT / "FormTestFromOo.pdf")
     writer.update_page_form_field_values(
@@ -1576,10 +1572,11 @@ def test_update_form_fields(tmp_path):
     del writer.root_object["/AcroForm"]["/Fields"][1].get_object()["/DR"]["/Font"]
     writer.update_page_form_field_values(
         [writer.pages[0], writer.pages[1]],
-        {"Text1": "my Text1", "Text2": "ligne1\nligne2\nligne3"},
+        {"Text1": "!مرحبا بالعالم", "Text2": "ligne1\nligne2\nligne3"},
         auto_regenerate=False,
     )
-    assert b"/Helv " in writer.pages[1]["/Annots"][1]["/AP"]["/N"].get_data()
+    assert b"/Helvetica " in writer.pages[1]["/Annots"][1]["/AP"]["/N"].get_data()
+    assert "Text string '!مرحبا بالعالم' contains characters not supported by font encoding." in caplog.text
     writer.update_page_form_field_values(
         None,
         {"Text1": "my Text1", "Text2": "ligne1\nligne2\nligne3"},
@@ -1650,7 +1647,7 @@ def test_merge_content_stream_to_page():
 
 
 @pytest.mark.enable_socket
-def test_update_form_fields2():
+def test_update_form_fields2(caplog):
     my_files = {
         "test1": {
             "name": "Test1 Form",
@@ -1683,7 +1680,7 @@ def test_update_form_fields2():
                     "Initial": "JSS",
                     # "p2 I DO NOT Agree": "null",
                     "p2 Last Name": "Smith",
-                    "p3 First Name": "John",
+                    "p3 First Name": "شهرزاد",
                     "p3 Middle Name": "R",
                     "p3 MM": "01",
                     "p3 DD": "25",
@@ -1722,12 +1719,13 @@ def test_update_form_fields2():
         "test2.Initial": "JSS",
         "test2.p2 I DO NOT Agree": None,
         "test2.p2 Last Name": "Smith",
-        "test2.p3 First Name": "John",
+        "test2.p3 First Name": "شهرزاد",
         "test2.p3 Middle Name": "R",
         "test2.p3 MM": "01",
         "test2.p3 DD": "25",
         "test2.p3 YY": "21",
     }
+    assert "Text string 'شهرزاد' contains characters not supported by font encoding." in caplog.text
 
 
 @pytest.mark.enable_socket
@@ -2415,7 +2413,7 @@ def test_selfont():
 
 
 @pytest.mark.enable_socket
-def test_no_resource_for_14_std_fonts(caplog):
+def test_no_resource_for_14_std_fonts():
     """Cf #2670"""
     url = "https://github.com/py-pdf/pypdf/files/15405390/f1040.pdf"
     name = "iss2670.pdf"
@@ -2427,7 +2425,7 @@ def test_no_resource_for_14_std_fonts(caplog):
             writer.update_page_form_field_values(
                 p, {a["/T"]: "Brooks"}, auto_regenerate=False
             )
-    assert "Font dictionary for /Helvetica not found; defaulting to Helvetica." in caplog.text
+            assert "/Helvetica" in a["/AP"]["/N"]["/Resources"]["/Font"]
 
 
 @pytest.mark.enable_socket
@@ -2439,7 +2437,7 @@ def test_field_box_upside_down():
     writer.update_page_form_field_values(None, {"FreightTrainMiles": "0"})
     assert writer.pages[0]["/Annots"][13].get_object()["/AP"]["/N"].get_data() == (
         b"q\n/Tx BMC \nq\n2 1 102.29520000000001 9.835000000000036 re\n"
-        b"W\nBT\n/Helv 8.0 Tf 0 g\n2 3.0455000000000183 Td\n(0) Tj\nET\n"
+        b"W\nBT\n/Arial 8.0 Tf 0 g\n2 3.0455000000000183 Td\n(0) Tj\nET\n"
         b"Q\nEMC\nQ\n"
     )
     box = writer.pages[0]["/Annots"][13].get_object()["/AP"]["/N"]["/BBox"]
@@ -2917,3 +2915,11 @@ def test_merge_with_null_acroform_does_not_raise_typeerror():
     target.merge(0, source)
 
     assert "/AcroForm" not in target.root_object
+
+
+def test_compress_identical_objects__info_is_none():
+    writer = PdfWriter(clone_from=RESOURCE_ROOT / "crazyones.pdf")
+    writer.compress_identical_objects()
+
+    writer.metadata = None
+    writer.compress_identical_objects()

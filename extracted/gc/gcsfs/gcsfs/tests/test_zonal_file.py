@@ -126,7 +126,7 @@ def test_zonal_file_flush(extended_gcsfs, zonal_write_mocks, file_path):
         f.flush()
 
     if zonal_write_mocks:
-        zonal_write_mocks["aaow"].simple_flush.assert_awaited()
+        zonal_write_mocks["aaow"].flush.assert_awaited()
 
 
 def test_zonal_file_commit(extended_gcsfs, zonal_write_mocks, file_path):
@@ -179,12 +179,17 @@ def test_zonal_file_flush_after_finalize_logs_warning(
         )
 
 
-def test_zonal_file_double_finalize_error(extended_gcsfs, zonal_write_mocks, file_path):
+def test_zonal_file_double_finalize_warning(
+    extended_gcsfs, zonal_write_mocks, file_path
+):
     """Test that finalizing a file twice raises a ValueError."""
     with extended_gcsfs.open(file_path, "wb") as f:
         f.commit()
-        with pytest.raises(ValueError, match="This file has already been finalized"):
+        with mock.patch("gcsfs.zonal_file.logger") as mock_logger:
             f.commit()
+        mock_logger.warning.assert_called_once_with(
+            "This file has already been finalized."
+        )
 
 
 def test_zonal_file_discard(extended_gcsfs, zonal_write_mocks, file_path):

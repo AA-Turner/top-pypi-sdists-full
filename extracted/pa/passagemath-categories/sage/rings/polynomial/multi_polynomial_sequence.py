@@ -165,13 +165,13 @@ Classes
 from sage.misc.persist import register_unpickle_override
 from sage.misc.cachefunc import cached_method
 from sage.misc.converting_dict import KeyConvertingDict
+from sage.misc.lazy_import import lazy_import
 from sage.rings.finite_rings.finite_field_base import FiniteField
 from sage.rings.finite_rings.finite_field_constructor import FiniteField as GF
 from sage.rings.infinity import Infinity
-from sage.rings.polynomial.multi_polynomial_ideal import MPolynomialIdeal
+from sage.rings.polynomial.multi_polynomial_ideal import MPolynomialIdeal, NCPolynomialIdeal
 from sage.rings.polynomial.multi_polynomial_ring import MPolynomialRing_base
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
-from sage.rings.polynomial.infinite_polynomial_ring import InfinitePolynomialRing_sparse
 from sage.rings.quotient_ring import QuotientRing_nc
 from sage.structure.sequence import Sequence_generic
 
@@ -184,6 +184,9 @@ except ImportError:
     def singular_gb_standard_options(func):
         return func
     libsingular_gb_standard_options = singular_gb_standard_options
+
+lazy_import("sage.rings.polynomial.infinite_polynomial_ring", "InfinitePolynomialRing_sparse")
+lazy_import("sage.rings.polynomial.plural", "NCPolynomialRing_plural")
 
 
 def is_PolynomialSequence(F):
@@ -299,11 +302,12 @@ def PolynomialSequence(arg1, arg2=None, immutable=False, cr=False, cr_str=None):
     A ``PolynomialSequence`` can be created from elements of an
     ``InfinitePolynomialRing``::
 
+        sage: # needs sage.modules
         sage: R.<a> = InfinitePolynomialRing(QQ)
-        sage: s = PolynomialSequence([a[i]-a[i+1] for i in range(3)])
+        sage: s = PolynomialSequence([a[i] - a[i+1] for i in range(3)])
         sage: s
         [-a_1 + a_0, -a_2 + a_1, -a_3 + a_2]
-        sage: s.coefficients_monomials()                                                # needs sage.modules
+        sage: s.coefficients_monomials()
         (
         [ 0  0 -1  1]
         [ 0 -1  1  0]
@@ -318,6 +322,7 @@ def PolynomialSequence(arg1, arg2=None, immutable=False, cr=False, cr_str=None):
 
     def is_ring(r):
         return (isinstance(r, (MPolynomialRing_base,
+                               NCPolynomialRing_plural,
                                BooleanMonomialMonoid,
                                InfinitePolynomialRing_sparse))
                 or (isinstance(r, QuotientRing_nc)
@@ -332,7 +337,7 @@ def PolynomialSequence(arg1, arg2=None, immutable=False, cr=False, cr_str=None):
     elif isinstance(arg1, Matrix):
         ring, gens = arg1.base_ring(), arg1.list()
 
-    elif isinstance(arg1, MPolynomialIdeal):
+    elif isinstance(arg1, (MPolynomialIdeal, NCPolynomialIdeal)):
         ring, gens = arg1.ring(), arg1.gens()
     else:
         gens = list(arg1)
@@ -1317,7 +1322,7 @@ class PolynomialSequence_generic(Sequence_generic):
         if isinstance(right, PolynomialSequence_generic) and right.ring() == self.ring():
             return PolynomialSequence(self.ring(), self.parts() + right.parts())
 
-        elif isinstance(right, (tuple, list)) and all((x.parent() == self.ring() for x in right)):
+        elif isinstance(right, (tuple, list)) and all(x.parent() == self.ring() for x in right):
             return PolynomialSequence(self.ring(), self.parts() + (right,))
 
         elif isinstance(right, MPolynomialIdeal) and (right.ring() is self.ring() or right.ring() == self.ring()):

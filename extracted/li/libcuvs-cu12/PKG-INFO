@@ -1,16 +1,16 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: libcuvs-cu12
-Version: 25.12.0
+Version: 26.2.0
 Summary: cuVS: Vector Search on the GPU (C++)
 Author: NVIDIA Corporation
-License: Apache-2.0
+License-Expression: Apache-2.0
 Classifier: Intended Audience :: Developers
 Project-URL: Homepage, https://github.com/rapidsai/cuvs
 Project-URL: Documentation, https://docs.rapids.ai/api/cuvs/stable/
 Requires-Python: >=3.10
 Requires-Dist: cuda-toolkit[cublas,curand,cusolver,cusparse]==12.*
-Requires-Dist: libraft-cu12==25.12.*
-Requires-Dist: librmm-cu12==25.12.*
+Requires-Dist: libraft-cu12==26.2.*
+Requires-Dist: librmm-cu12==26.2.*
 Requires-Dist: nvidia-nccl-cu12>=2.19
 Description-Content-Type: text/markdown
 
@@ -122,10 +122,10 @@ If installing a version that has not yet been released, the `rapidsai` channel c
 
 ```bash
 # CUDA 13
-conda install -c rapidsai-nightly -c conda-forge cuvs=25.12 cuda-version=13.0
+conda install -c rapidsai-nightly -c conda-forge cuvs=26.02 cuda-version=13.1
 
 # CUDA 12
-conda install -c rapidsai-nightly -c conda-forge cuvs=25.12 cuda-version=12.9
+conda install -c rapidsai-nightly -c conda-forge cuvs=26.02 cuda-version=12.9
 ```
 
 > [!NOTE]
@@ -188,7 +188,7 @@ cuvsCagraIndexParamsDestroy(index_params);
 cuvsResourcesDestroy(res);
 ```
 
-For more code examples of the C APIs, including drop-in Cmake project templates, please refer to the [C examples](https://github.com/rapidsai/cuvs/tree/release/25.12/examples/c)
+For more code examples of the C APIs, including drop-in Cmake project templates, please refer to the [C examples](https://github.com/rapidsai/cuvs/tree/release/26.02/examples/c)
 
 ### Rust API
 
@@ -251,7 +251,7 @@ fn cagra_example() -> Result<()> {
 }
 ```
 
-For more code examples of the Rust APIs, including a drop-in project templates, please refer to the [Rust examples](https://github.com/rapidsai/cuvs/tree/release/25.12/examples/rust).
+For more code examples of the Rust APIs, including a drop-in project templates, please refer to the [Rust examples](https://github.com/rapidsai/cuvs/tree/release/26.02/examples/rust).
 
 ## Contributing
 

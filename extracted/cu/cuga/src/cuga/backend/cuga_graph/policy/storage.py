@@ -2,7 +2,8 @@
 
 import json
 import os
-from typing import Callable, Dict, List, Optional
+import uuid
+from typing import Any, Callable, Dict, List, Optional
 
 from loguru import logger
 from pymilvus import Collection, CollectionSchema, DataType, FieldSchema, connections, utility
@@ -22,6 +23,9 @@ from cuga.backend.cuga_graph.policy.models import (
 
 class PolicyStorage:
     """Storage and retrieval of policies using Milvus vector database."""
+
+    # Class-level cache for embedding models (shared across all instances)
+    _embedding_model_cache: Dict[str, Any] = {}
 
     def __init__(
         self,
@@ -58,29 +62,51 @@ class PolicyStorage:
         self._connected = False
         self._embedding_function: Optional[Callable] = None
         self._embedding_initialized = False
+        # Use unique connection alias to avoid conflicts when multiple instances exist
+        self._connection_alias = f"policy_storage_{uuid.uuid4().hex[:8]}"
 
     def connect(self):
         """Connect to Milvus server or use Milvus Lite for local testing."""
+        # If milvus_uri is a .db file, skip server connection and use Milvus Lite directly
+        # This saves ~10 seconds per connection by avoiding server connection timeout
+        if self.milvus_uri and self.milvus_uri.endswith('.db'):
+            logger.info(f"Using Milvus Lite (embedded mode) at {self.milvus_uri}")
+            try:
+                connections.connect(
+                    alias=self._connection_alias,
+                    uri=self.milvus_uri,
+                )
+                self._connected = True
+                logger.info(
+                    f"Connected to Milvus Lite at {self.milvus_uri} (alias: {self._connection_alias})"
+                )
+                return
+            except Exception as lite_error:
+                logger.error(f"Failed to connect to Milvus Lite: {lite_error}")
+                raise
+
+        # Otherwise, try to connect to Milvus server first
         try:
-            # Try to connect to Milvus server first
             connections.connect(
-                alias="default",
+                alias=self._connection_alias,
                 host=self.host,
                 port=self.port,
             )
             self._connected = True
-            logger.info(f"Connected to Milvus at {self.host}:{self.port}")
+            logger.info(f"Connected to Milvus at {self.host}:{self.port} (alias: {self._connection_alias})")
         except Exception as e:
             # Fall back to Milvus Lite (embedded) for testing
             logger.warning(f"Failed to connect to Milvus server: {e}")
             logger.info(f"Attempting to use Milvus Lite (embedded mode) at {self.milvus_uri}")
             try:
                 connections.connect(
-                    alias="default",
+                    alias=self._connection_alias,
                     uri=self.milvus_uri,
                 )
                 self._connected = True
-                logger.info(f"Connected to Milvus Lite at {self.milvus_uri}")
+                logger.info(
+                    f"Connected to Milvus Lite at {self.milvus_uri} (alias: {self._connection_alias})"
+                )
             except Exception as lite_error:
                 logger.error(f"Failed to connect to Milvus Lite: {lite_error}")
                 raise
@@ -88,15 +114,15 @@ class PolicyStorage:
     def disconnect(self):
         """Disconnect from Milvus server."""
         if self._connected:
-            connections.disconnect(alias="default")
+            connections.disconnect(alias=self._connection_alias)
             self._connected = False
-            logger.info("Disconnected from Milvus")
+            logger.info(f"Disconnected from Milvus (alias: {self._connection_alias})")
 
     def _create_collection(self):
         """Create the Milvus collection schema."""
-        if utility.has_collection(self.collection_name):
+        if utility.has_collection(self.collection_name, using=self._connection_alias):
             logger.info(f"Collection {self.collection_name} already exists")
-            self.collection = Collection(self.collection_name)
+            self.collection = Collection(self.collection_name, using=self._connection_alias)
 
             # Check if the existing collection has the correct embedding dimension
             for field in self.collection.schema.fields:
@@ -105,7 +131,7 @@ class PolicyStorage:
                         f"⚠️  Collection '{self.collection_name}' has embedding dim={field.params.get('dim')}, "
                         f"but storage expects dim={self.embedding_dim}. Dropping and recreating collection."
                     )
-                    utility.drop_collection(self.collection_name)
+                    utility.drop_collection(self.collection_name, using=self._connection_alias)
                     logger.info(f"Dropped collection '{self.collection_name}'")
                     break
             else:
@@ -125,7 +151,7 @@ class PolicyStorage:
         ]
 
         schema = CollectionSchema(fields=fields, description="CUGA Policy Storage")
-        self.collection = Collection(name=self.collection_name, schema=schema)
+        self.collection = Collection(name=self.collection_name, schema=schema, using=self._connection_alias)
 
         # Create index for vector search
         index_params = {
@@ -166,25 +192,35 @@ class PolicyStorage:
             return None
 
     async def _create_local_embedding_function(self, model_name: str = "all-MiniLM-L6-v2"):
-        """Create a local embedding function using PyMilvus's built-in model support."""
+        """Create a local embedding function using PyMilvus's built-in model support with caching."""
         try:
             from pymilvus import model
             import torch
 
-            logger.info(f"Loading local embedding model: {model_name}")
+            # Check if model is already cached
+            cache_key = f"{model_name}"
+            if cache_key in PolicyStorage._embedding_model_cache:
+                logger.info(f"Using cached embedding model: {model_name}")
+                embedding_fn = PolicyStorage._embedding_model_cache[cache_key]
+                embedding_dim = embedding_fn.dim
+            else:
+                logger.info(f"Loading local embedding model: {model_name}")
+                device = "cuda" if torch.cuda.is_available() else "cpu"
 
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+                # Create PyMilvus sentence transformer embedding function
+                embedding_fn = model.dense.SentenceTransformerEmbeddingFunction(
+                    model_name=model_name, device=device
+                )
 
-            # Create PyMilvus sentence transformer embedding function
-            embedding_fn = model.dense.SentenceTransformerEmbeddingFunction(
-                model_name=model_name, device=device
-            )
+                embedding_dim = embedding_fn.dim
 
-            embedding_dim = embedding_fn.dim
+                # Cache the model for future use
+                PolicyStorage._embedding_model_cache[cache_key] = embedding_fn
 
-            logger.info(f"✅ Local embedding model loaded on {device}")
-            logger.info(f"   Model: {model_name}")
-            logger.info(f"   Dimensions: {embedding_dim}")
+                logger.info(f"✅ Local embedding model loaded on {device}")
+                logger.info(f"   Model: {model_name}")
+                logger.info(f"   Dimensions: {embedding_dim}")
+                logger.info("   Cached for reuse across PolicyStorage instances")
 
             async def embed_text(text: str) -> List[float]:
                 # PyMilvus encode_queries is synchronous, so we run it in executor

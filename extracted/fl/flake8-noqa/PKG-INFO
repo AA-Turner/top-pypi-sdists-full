@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: flake8-noqa
-Version: 1.4.0
+Version: 1.5.0
 Summary: Flake8 noqa comment validation
 Author-email: Peter Linss <pypi@linss.com>
 License: GNU Lesser General Public License v3
@@ -12,22 +12,21 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: COPYING.LESSER
-Requires-Dist: flake8<8.0,>=3.8.0
-Requires-Dist: importlib_metadata<5.0.0,>=4.0.0; python_version < "3.8.0"
+Requires-Dist: flake8<8.0,>=5.0.0
 Requires-Dist: typing_extensions>=3.7.4.2
 Provides-Extra: dev
-Requires-Dist: mypy; extra == "dev"
 Requires-Dist: flake8<6.0.0,>=3.8.0; extra == "dev"
 Requires-Dist: flake8-annotations; extra == "dev"
 Requires-Dist: flake8-bandit; extra == "dev"
@@ -47,8 +46,10 @@ Requires-Dist: flake8-requirements; extra == "dev"
 Requires-Dist: flake8-typechecking-import; extra == "dev"
 Requires-Dist: flake8-use-fstring; extra == "dev"
 Requires-Dist: pep8-naming; extra == "dev"
+Requires-Dist: ty; extra == "dev"
 Provides-Extra: test
 Requires-Dist: flake8-docstrings; extra == "test"
+Dynamic: license-file
 
 [flake8-noqa](https://github.com/plinss/flake8-noqa)
 ==========

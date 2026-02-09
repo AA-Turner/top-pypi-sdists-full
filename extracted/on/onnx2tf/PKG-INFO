@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onnx2tf
-Version: 1.29.24
+Version: 2.0.5
 Summary: Self-Created Tools to convert ONNX files (NCHW) to TensorFlow/TFLite/Keras format (NHWC). The purpose of this tool is to solve the massive Transpose extrapolation problem in onnx-tensorflow (onnx-tf).
 Keywords: onnx,tensorflow,tflite,keras,deep-learning,machine-learning
 Author: Katsuya Hyodo
@@ -13,31 +13,32 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Dist: requests==2.32.5
 Requires-Dist: numpy==1.26.4
-Requires-Dist: onnx==1.19.1
-Requires-Dist: onnxruntime==1.23.0
+Requires-Dist: onnx==1.20.1
+Requires-Dist: onnxruntime==1.24.1
 Requires-Dist: opencv-python==4.11.0.86
-Requires-Dist: onnxsim==0.4.36
+Requires-Dist: onnxsim-prebuilt==0.4.39.post2
 Requires-Dist: onnxoptimizer==0.4.2
-Requires-Dist: ai-edge-litert==2.1.0
+Requires-Dist: ai-edge-litert==2.1.2
 Requires-Dist: tensorflow==2.19.0
 Requires-Dist: tf-keras==2.19.0
-Requires-Dist: onnx-graphsurgeon==0.5.8
-Requires-Dist: simple-onnx-processing-tools==1.1.32
+Requires-Dist: sne4onnx==2.0.0
+Requires-Dist: sng4onnx==2.0.0
 Requires-Dist: psutil==5.9.5
 Requires-Dist: protobuf==4.25.5
-Requires-Dist: h5py==3.11.0
+Requires-Dist: h5py==3.12.1
 Requires-Dist: ml-dtypes==0.5.1
 Requires-Dist: flatbuffers==25.12.19
-Requires-Python: >=3.10.12
+Requires-Dist: onnx-graphsurgeon==0.5.8 ; extra == 'dev'
+Requires-Python: >=3.12
 Project-URL: Homepage, https://github.com/PINTO0309/onnx2tf
 Project-URL: Repository, https://github.com/PINTO0309/onnx2tf
 Project-URL: Documentation, https://github.com/PINTO0309/onnx2tf#readme
 Project-URL: Issues, https://github.com/PINTO0309/onnx2tf/issues
+Provides-Extra: dev
 Description-Content-Type: text/markdown
 
 # onnx2tf
@@ -311,15 +312,16 @@ Video speed is adjusted approximately 50 times slower than actual speed.
 
 ## Environment
 - Linux / Windows
-- onnx==1.19.0
-- onnxruntime==1.23.0
-- onnxsim==0.4.36
+- onnx==1.20.1
+- onnxruntime==1.24.1
+- onnxsim-prebuilt==0.4.39.post2
 - onnxoptimizer==0.4.2
-- onnx_graphsurgeon==0.5.8
-- simple_onnx_processing_tools==1.1.32
+- sne4onnx>=2.0.0
+- sng4onnx>=2.0.0
 - tensorflow==2.19.0
 - tf-keras==2.19.0
-- ai-edge-litert==1.2.0
+- ai-edge-litert==2.1.2
+- h5py==3.12.1
 - psutil==5.9.5
 - ml_dtypes==0.5.1
 - flatbuffers-compiler (Optional, Only when using the `-coion` option. Executable file named `flatc`.)
@@ -348,6 +350,8 @@ Video speed is adjusted approximately 50 times slower than actual speed.
 
 **2. The latest onnx2tf implementation is based on Keras API 3 and will not work properly if you install TensorFlow v2.15.0 or earlier.**
 
+**3. Starting with onnx2tf v2.0.0, due to onnxruntime issues, onnx2tf will no longer support environments older than Python 3.10. Accordingly, the Docker Image has been upgraded to Ubuntu 24.04. The dependency on onnx-graphsurgeon has also been completely removed. onnxruntime v1.24.1: https://github.com/microsoft/onnxruntime/releases/tag/v1.24.1**
+
 - HostPC
   <details><summary>Click to expand</summary><div>
 
@@ -365,7 +369,7 @@ Video speed is adjusted approximately 50 times slower than actual speed.
   docker run --rm -it \
   -v `pwd`:/workdir \
   -w /workdir \
-  ghcr.io/pinto0309/onnx2tf:1.29.24
+  ghcr.io/pinto0309/onnx2tf:2.0.5
 
   or
 
@@ -373,64 +377,42 @@ Video speed is adjusted approximately 50 times slower than actual speed.
   docker run --rm -it \
   -v `pwd`:/workdir \
   -w /workdir \
-  docker.io/pinto0309/onnx2tf:1.29.24
+  docker.io/pinto0309/onnx2tf:2.0.5
 
   or
 
-  pip install -U onnx==1.19.1 \
-  && pip install -U onnx-graphsurgeon==0.5.8 \
-  && pip install -U onnxruntime==1.23.0 \
-  && pip install -U onnxsim==0.4.36 \
-  && pip install -U onnxoptimizer==0.4.2 \
-  && pip install -U simple_onnx_processing_tools==1.1.32 \
-  && pip install -U sne4onnx==1.0.15 \
-  && pip install -U sng4onnx==1.0.5 \
-  && pip install -U ai_edge_litert==1.2.0 \
-  && pip install -U tensorflow==2.19.0 \
-  && pip install -U protobuf==3.20.3 \
-  && pip install -U onnx2tf \
-  && pip install -U h5py==3.11.0 \
-  && pip install -U psutil==5.9.5 \
-  && pip install -U ml_dtypes==0.5.1 \
-  && pip install -U tf-keras==2.19.0 \
-  && pip install flatbuffers>=23.5.26
+  pip install -U onnx2tf
+
+  or
+
+  uv python install 3.12.12
+  uv venv -p 3.12.12 .venv
+  source .venv/bin/activate
+  uv sync
 
   or
 
   pip install -e .
-  ```
 
-  </div></details>
+  or
 
-or
+  docker buildx build \
+  --platform linux/amd64 \
+  --build-arg BUILD_ARCH=linux/amd64 \
+  --progress=plain \
+  -t onnx2tf:amd64 \
+  --load \
+  .
 
-- Google Colaboratory Python3.10
-  <details><summary>Click to expand</summary><div>
+  or
 
-  ```
-  !sudo apt-get -y update
-  !sudo apt-get -y install python3-pip
-  !sudo apt-get -y install python-is-python3
-  !wget https://github.com/PINTO0309/onnx2tf/releases/download/1.16.31/flatc.tar.gz \
-    && tar -zxvf flatc.tar.gz \
-    && sudo chmod +x flatc \
-    && sudo mv flatc /usr/bin/
-  !pip install -U pip \
-    && pip install tensorflow==2.19.0 \
-    && pip install ai_edge_litert==1.2.0 \
-    && pip install -U onnx==1.19.0 \
-    && python -m pip install onnx_graphsurgeon \
-          --index-url https://pypi.ngc.nvidia.com \
-    && pip install -U onnxruntime==1.18.1 \
-    && pip install -U onnxsim==0.4.33 \
-    && pip install -U simple_onnx_processing_tools \
-    && pip install -U onnx2tf \
-    && pip install -U protobuf==3.20.3 \
-    && pip install -U h5py==3.11.0 \
-    && pip install -U psutil==5.9.5 \
-    && pip install -U ml_dtypes==0.5.1 \
-    && pip install -U tf-keras==2.19.0 \
-    && pip install flatbuffers>=23.5.26
+  docker buildx build \
+  --platform linux/arm64 \
+  --build-arg BUILD_ARCH=linux/arm64 \
+  --progress=plain \
+  -t onnx2tf:arm64 \
+  --load \
+  .
   ```
 
   </div></details>

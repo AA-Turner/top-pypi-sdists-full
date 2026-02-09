@@ -3,7 +3,7 @@ Type annotations for bedrock-data-automation-runtime service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_data_automation_runtime/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -150,6 +150,7 @@ class TagResourceRequestTypeDef(TypedDict):
     tags: Sequence[TagTypeDef]
 
 class InvokeDataAutomationResponseTypeDef(TypedDict):
+    outputConfiguration: OutputConfigurationTypeDef
     semanticModality: SemanticModalityType
     outputSegments: list[OutputSegmentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -163,6 +164,7 @@ class InvokeDataAutomationRequestTypeDef(TypedDict):
     dataAutomationConfiguration: NotRequired[DataAutomationConfigurationTypeDef]
     blueprints: NotRequired[Sequence[BlueprintTypeDef]]
     encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
+    outputConfiguration: NotRequired[OutputConfigurationTypeDef]
 
 class VideoAssetProcessingConfigurationTypeDef(TypedDict):
     segmentConfiguration: NotRequired[VideoSegmentConfigurationTypeDef]

@@ -68,8 +68,8 @@ class AcousticField(ABC):
 
         self.medium = medium
         self.params = params
-
-        self._generate_burst_signal()
+        if self.params.acoustic['typeSim'] != TypeSim.SIMPLE_SIM.value:
+            self._generate_burst_signal()
         if self.params.acoustic["dim"] == Dim.D3 and self.params.general["Yrange"] is None:
             raise ValueError("Yrange must be provided for 3D fields.")
             
@@ -98,6 +98,8 @@ class AcousticField(ABC):
             logging.getLogger('root').setLevel(logging.ERROR)
             if self.params.acoustic['typeSim'] == TypeSim.FIELD2.value:
                 raise NotImplementedError("FIELD2 simulation is not implemented yet.")
+            elif self.params.acoustic['typeSim'] == TypeSim.SIMPLE_SIM.value:
+                self.field = self._generate_acoustic_field_SIMPLE_SIM(show_log)
             elif self.params.acoustic['typeSim'] == TypeSim.KWAVE.value:
                 if self.params.acoustic["dim"] == Dim.D2.value:
                     try:
@@ -149,7 +151,7 @@ class AcousticField(ABC):
 
             if self.params.acoustic['typeSim'] == TypeSim.FIELD2.value:
                 raise NotImplementedError("FIELD2 simulation is not implemented yet.")
-            elif self.params.acoustic['typeSim'] == TypeSim.KWAVE.value:
+            elif self.params.acoustic['typeSim'] == TypeSim.KWAVE.value or self.params.acoustic['typeSim'] == TypeSim.SIMPLE_SIM.value:
                 if formatSave.value == FormatSave.HDR_IMG.value: 
                     if self.params.acoustic["dim"] == Dim.D2.value:
                         self._load_fieldKWAVE_XZ(os.path.join(folderPath,self.getName_field()+formatSave.value))
@@ -346,6 +348,10 @@ class AcousticField(ABC):
             raise
 
     ## PRIVATE METHODS ##
+
+    @abstractmethod
+    def _generate_acoustic_field_SIMPLE_SIM(self, show_log=False):
+        pass
 
     def _generate_burst_signal(self):
         if self.params.acoustic['typeSim'] == TypeSim.FIELD2.value:

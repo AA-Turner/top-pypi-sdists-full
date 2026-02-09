@@ -6,7 +6,7 @@
  *                                                                         *
  * Copyright 2000 - 2009 Alex Martelli                                     *
  *                                                                         *
- * Copyright 2008 - 2024 Case Van Horsen                                   *
+ * Copyright 2008 - 2025 Case Van Horsen                                   *
  *                                                                         *
  * This file is part of GMPY2.                                             *
  *                                                                         *
@@ -59,6 +59,7 @@ static PyObject * GMPy_MPZ_Method_IsProbabPrime(PyObject *self, PyObject *const 
 static PyObject * GMPy_MPZ_Method_IsEven(PyObject *self, PyObject *other);
 static PyObject * GMPy_MPZ_Method_IsOdd(PyObject *self, PyObject *other);
 static PyObject * GMPy_MP_Method_Conjugate(PyObject *self, PyObject *args);
+static PyObject * GMPy_MPZ_Method_Array(PyObject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames);
 
 static PyObject * GMPy_MPZ_Function_NumDigits(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
 static PyObject * GMPy_MPZ_Function_Iroot(PyObject *self, PyObject *const *args, Py_ssize_t nargs);

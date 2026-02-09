@@ -132,14 +132,18 @@ def test_frt_exception_handling(
     mapp.upload_file_pypi("hello-1.0.zip", content1, "hello", "1.0")
     replica_xom.thread_pool.start_one(replica_xom.replica_thread)
     tries = 0
-    while replica_xom.replica_thread.replica_in_sync_at is None and tries < 100:
+    while (
+        replica_xom.replica_thread.replica_metadata_in_sync_at is None and tries < 100
+    ):
         time.sleep(0.1)
         tries += 1
     # test exception during initial connection
     with monkeypatch.context() as m:
+        from devpi_server.httpclient import HTTPClient
+
         stream_mock = mock.Mock()
         stream_mock.side_effect = httpx.RemoteProtocolError("foo")
-        m.setattr(replica_xom.frt.http.http.client, "stream", stream_mock)
+        m.setattr(HTTPClient, "stream", stream_mock)
         assert not replica_xom.frt.shared_data.queue.empty()
         assert replica_xom.frt.shared_data.error_queue.empty()
         replica_xom.frt.shared_data.process_next(replica_xom.frt.handler)
@@ -149,6 +153,8 @@ def test_frt_exception_handling(
         assert replica_xom.frt.shared_data.error_queue.unfinished_tasks == 1
         ((k, v),) = replica_xom.frt.shared_data.errors.errors.items()
         assert "hello-1.0.zip" in k
+        assert "error on connection" in v["message"]
+        assert "RemoteProtocolError" in v["message"]
         assert "foo" in v["message"]
     # test exception during streaming
     with monkeypatch.context() as m:
@@ -162,6 +168,8 @@ def test_frt_exception_handling(
         assert replica_xom.frt.shared_data.error_queue.unfinished_tasks == 1
         ((k, v),) = replica_xom.frt.shared_data.errors.errors.items()
         assert "hello-1.0.zip" in k
+        assert "error while downloading" in v["message"]
+        assert "RemoteProtocolError" in v["message"]
         assert "foo" in v["message"]
     # now with no errors
     replica_xom.frt.shared_data.process_next(replica_xom.frt.handler)

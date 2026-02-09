@@ -75,9 +75,11 @@ class AlphaMissenseTool(BaseTool):
 
     def _get_protein_scores(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Get all AlphaMissense scores for a protein by UniProt ID.
+        Get AlphaMissense scores for a protein by UniProt ID.
 
-        Returns mean pathogenicity score and all residue-level data.
+        Note: The AlphaMissense API requires querying individual residue positions.
+        This method demonstrates access to the data by sampling the first position.
+        For complete protein-wide analysis, use get_residue_scores for each position.
         """
         uniprot_id = arguments.get("uniprot_id")
 
@@ -85,9 +87,9 @@ class AlphaMissenseTool(BaseTool):
             return {"status": "error", "error": "uniprot_id parameter is required"}
 
         try:
-            # Query the API for protein data
+            # Sample query at position 1 to verify protein exists and get format
             url = f"{ALPHAMISSENSE_BASE_URL}/hotspotapi"
-            params = {"uid": uniprot_id, "resi": 1}  # Start at residue 1
+            params = {"uid": uniprot_id, "resi": 1}
 
             response = requests.get(url, params=params, timeout=self.timeout)
 
@@ -98,24 +100,39 @@ class AlphaMissenseTool(BaseTool):
                     "message": f"No AlphaMissense data found for UniProt ID: {uniprot_id}",
                 }
 
+            # For 400 errors, try a few different positions as protein might not start at position 1
+            if response.status_code == 400:
+                # Try position 10 as some proteins don't have data at position 1
+                for test_pos in [10, 50, 100]:
+                    params = {"uid": uniprot_id, "resi": test_pos}
+                    response = requests.get(url, params=params, timeout=self.timeout)
+                    if response.status_code == 200:
+                        break
+
+                # If still failing after trying multiple positions
+                if response.status_code != 200:
+                    return {
+                        "status": "error",
+                        "error": f"AlphaMissense API returned 400 Bad Request. The UniProt ID '{uniprot_id}' may not be available in AlphaMissense database, or the protein sequence may have no annotated residues.",
+                    }
+
             response.raise_for_status()
             data = response.json()
 
-            # Try to get summary info by accessing the structure endpoint
-            structure_url = f"{ALPHAMISSENSE_BASE_URL}/structure/{uniprot_id}"
-            try:
-                struct_response = requests.get(structure_url, timeout=self.timeout)
-                if struct_response.status_code == 200:
-                    # Parse mean score from page if available
-                    pass
-            except Exception:
-                pass
+            # Get structure file info for comprehensive data access
+            pdb_url = f"{ALPHAMISSENSE_BASE_URL}/pdb/AF-{uniprot_id}-F1-AM_v4.pdb"
 
             return {
                 "status": "success",
                 "data": {
                     "uniprot_id": uniprot_id,
-                    "residue_data": data,
+                    "sample_residue": data.get("resi", params["resi"]),
+                    "sample_data": data,
+                    "access_info": {
+                        "note": "AlphaMissense API requires per-residue queries. Use AlphaMissense_get_residue_scores for specific positions.",
+                        "pdb_download": pdb_url,
+                        "api_endpoint": f"{ALPHAMISSENSE_BASE_URL}/hotspotapi?uid={uniprot_id}&resi=POSITION",
+                    },
                     "thresholds": {
                         "pathogenic": f"> {self.PATHOGENIC_THRESHOLD}",
                         "ambiguous": f"{self.BENIGN_THRESHOLD} - {self.PATHOGENIC_THRESHOLD}",

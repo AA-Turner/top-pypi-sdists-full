@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: finbourne-horizon-sdk
-Version: 2.3.2
+Version: 2.3.3
 Summary: FINBOURNE Horizon API
 License: MIT
 Keywords: OpenAPI,OpenAPI-Generator,FINBOURNE Horizon API,finbourne-horizon-sdk
@@ -131,6 +131,7 @@ Class | Method | HTTP request | Description
  - [PagedResourceListOfProcessUpdateResult](docs/PagedResourceListOfProcessUpdateResult.md)
  - [PagedResourceListOfVendorProduct](docs/PagedResourceListOfVendorProduct.md)
  - [PermIdData](docs/PermIdData.md)
+ - [PostProcessTask](docs/PostProcessTask.md)
  - [ProcessInformation](docs/ProcessInformation.md)
  - [ProcessSummary](docs/ProcessSummary.md)
  - [ProcessUpdateResult](docs/ProcessUpdateResult.md)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: quack-kernels
-Version: 0.2.6.post1
+Version: 0.2.8
 Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: nvidia-cutlass-dsl>=4.4.0.dev1

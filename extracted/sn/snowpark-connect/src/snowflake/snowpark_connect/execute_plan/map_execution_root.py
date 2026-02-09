@@ -33,7 +33,7 @@ from snowflake.snowpark_connect.relation.read.metadata_utils import (
     without_internal_columns,
 )
 from snowflake.snowpark_connect.type_mapping import (
-    map_snowpark_types_to_pyarrow_types,
+    SnowparkToArrowMapper,
     snowpark_to_proto_type,
 )
 
@@ -159,10 +159,8 @@ def map_execution_root(
             else:
                 # return query id and serialized schemas
                 arrow_schema = pa.schema(
-                    map_snowpark_types_to_pyarrow_types(
-                        snowpark_schema,
-                        pa.struct(first_arrow_table.schema),
-                        rename_struct_columns=True,
+                    SnowparkToArrowMapper().map_schema(
+                        snowpark_schema, pa.struct(first_arrow_table.schema)
                     )
                 )
                 serialized_arrow_schema = arrow_schema.serialize().to_pybytes()

@@ -36,21 +36,18 @@ AUTHORS:
 #                  https://www.gnu.org/licenses/
 # ****************************************************************************
 
+import sage.rings.infinity
+from sage.categories.enumerated_sets import EnumeratedSets
+from sage.categories.finite_enumerated_sets import FiniteEnumeratedSets
+from sage.categories.sets_cat import Sets
+from sage.misc.cachefunc import cached_method
+from sage.misc.classcall_metaclass import ClasscallMetaclass
 from sage.misc.latex import latex
 from sage.misc.prandom import choice
-from sage.misc.cachefunc import cached_method
-
 from sage.structure.category_object import CategoryObject
 from sage.structure.element import Element
 from sage.structure.parent import Parent, Set_generic
-from sage.structure.richcmp import richcmp_method, richcmp, rich_to_bool
-from sage.misc.classcall_metaclass import ClasscallMetaclass
-
-from sage.categories.sets_cat import Sets
-from sage.categories.enumerated_sets import EnumeratedSets
-from sage.categories.finite_enumerated_sets import FiniteEnumeratedSets
-
-import sage.rings.infinity
+from sage.structure.richcmp import rich_to_bool, richcmp, richcmp_method
 
 
 def has_finite_length(obj) -> bool:
@@ -173,7 +170,7 @@ def Set(X=None, category=None):
 
     TESTS::
 
-        sage: Set(Primes())
+        sage: Set(Primes())                                                             # needs sage.libs.pari
         Set of all prime numbers: 2, 3, 5, 7, ...
         sage: Set(Subsets([1,2,3])).cardinality()
         8
@@ -539,7 +536,7 @@ class Set_object(Set_generic, Set_base, Set_boolean_operators, Set_add_sub_opera
 
         ::
 
-            sage: print(latex(Primes()))
+            sage: print(latex(Primes()))                                                # needs sage.libs.pari
             \text{\texttt{Set{ }of{ }all{ }prime{ }numbers:{ }2,{ }3,{ }5,{ }7,{ }...}}
             sage: print(latex(Set([1,1,1,5,6])))
             \left\{1, 5, 6\right\}
@@ -772,7 +769,7 @@ class Set_object(Set_generic, Set_base, Set_boolean_operators, Set_add_sub_opera
             sage: X.object()
             Rational Field
             sage: X = Primes()
-            sage: X.object()
+            sage: X.object()                                                            # needs sage.libs.pari
             Set of all prime numbers: 2, 3, 5, 7, ...
         """
         return self.__object
@@ -900,9 +897,19 @@ class Set_object_enumerated(Set_object):
 
             sage: Set([1,1]).cardinality()
             1
+            sage: Set(GF(998244353)).cardinality()                                      # needs sage.rings.finite_rings
+            998244353
         """
         from sage.rings.integer import Integer
-        return Integer(len(self.set()))
+        o = self.object()
+        if o is self:
+            return Integer(len(self.set()))
+        if isinstance(o, (list, tuple, set, frozenset)):
+            return Integer(len(o))
+        try:
+            return o.cardinality()
+        except (AttributeError, NotImplementedError):
+            return Integer(len(self.set()))
 
     def __len__(self):
         """
@@ -958,7 +965,23 @@ class Set_object_enumerated(Set_object):
 
             sage: Set()
             {}
+            sage: Set(GF(998244353))                                                    # needs sage.rings.finite_rings
+            Set of elements of Finite Field of size 998244353 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+                10, 11, 12, 13, 14, 15, 16, 17, 18, 19, …}
         """
+        try:
+            if self.cardinality() > 20:
+                from itertools import islice
+                o = self.object()
+                l = list(islice(o, 0, 20))
+                s = "{" + ", ".join(map(repr, l)) + ", …}"
+                assert len(l) == 20, (f"incorrect cardinality {self.cardinality()} "
+                                      f"reported for object type {type(self)} containing {l}")
+                if o is not self:  # safeguard infinite loop if subclass is weird
+                    s = f"Set of elements of {o!r} = {s}"
+                return s
+        except NotImplementedError:
+            pass
         py_set = self.set()
         if not py_set:
             return "{}"
@@ -1086,6 +1109,30 @@ class Set_object_enumerated(Set_object):
             return rich_to_bool(op, 0)
         return rich_to_bool(op, -1)
 
+    def isdisjoint(self, other):
+        """
+        Return whether ``self`` and ``other`` are disjoint.
+
+        INPUT:
+
+        - ``other`` -- a finite Set
+
+        EXAMPLES::
+
+            sage: X = Set([1,2,3])
+            sage: Y = Set([2,4,6])
+            sage: Z = Set([4,5,6])
+            sage: X.isdisjoint(Y)
+            False
+            sage: X.isdisjoint(Z)
+            True
+            sage: Y.isdisjoint(Z)
+            False
+        """
+        return self.set().isdisjoint(other)
+
+    is_disjoint = isdisjoint
+
     def issubset(self, other):
         r"""
         Return whether ``self`` is a subset of ``other``.
@@ -1110,9 +1157,9 @@ class Set_object_enumerated(Set_object):
             sage: len([Z for Z in Y.subsets() if Z.issubset(X)])
             8
         """
-        if not isinstance(other, Set_object_enumerated):
-            raise NotImplementedError
-        return self.set().issubset(other.set())
+        return self.set().issubset(other)
+
+    is_subset = issubset
 
     def issuperset(self, other):
         r"""
@@ -1138,9 +1185,9 @@ class Set_object_enumerated(Set_object):
             sage: len([Z for Z in Y.subsets() if Z.issuperset(X)])
             4
         """
-        if not isinstance(other, Set_object_enumerated):
-            raise NotImplementedError
-        return self.set().issuperset(other.set())
+        return self.set().issuperset(other)
+
+    is_superset = issuperset
 
     def union(self, other):
         """
@@ -1583,12 +1630,12 @@ class Set_object_intersection(Set_object_binary):
             25
             sage: X.category()
             Category of finite enumerated sets
-            sage: TestSuite(X).run()
+            sage: TestSuite(X).run()                                                    # needs sage.libs.pari
 
             sage: X = Set(Primes(), category=Sets()).intersection(Set(IntegerRange(200)))
             sage: X.cardinality()
             46
-            sage: TestSuite(X).run()
+            sage: TestSuite(X).run()                                                    # needs sage.libs.pari
         """
         if category is None:
             category = Sets()

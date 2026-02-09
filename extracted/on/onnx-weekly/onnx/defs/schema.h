@@ -44,7 +44,7 @@ struct FunctionBodyBuildContextImpl : public FunctionBodyBuildContext {
   // will not be sufficient for functions that do use the type-context.
   explicit FunctionBodyBuildContextImpl(const NodeProto& node_proto, const std::vector<TypeProto>& input_types = {})
       : node_proto_(node_proto), input_types_(input_types) {
-    for (auto& attr : node_proto.attribute()) {
+    for (const auto& attr : node_proto.attribute()) {
       attributesByName_[attr.name()] = &attr;
     }
   }
@@ -331,7 +331,7 @@ class OpSchema final {
   }
 
   // Check if input and output types fall into valid set and match each other
-  ONNX_API void CheckInputOutputType(struct InferenceContext&) const;
+  ONNX_API void CheckInputOutputType(struct InferenceContext& /*ctx*/) const;
 
   /**
    * @brief Verifies if a NodeProto matches the pattern specified in
@@ -465,6 +465,9 @@ class OpSchema final {
   ATTR_SETTER_WITH_DEFAULT_VALUE(int64_t)
   ATTR_SETTER_WITH_DEFAULT_VALUE(float)
   ATTR_SETTER_WITH_DEFAULT_VALUE(std::string)
+  // Overload for const char* default value to prevent implicit conversion to bool
+  OpSchema&
+  Attr(const char* name, const char* description, AttributeProto::AttributeType type, const char* defaultValue);
   ATTR_SETTER_WITH_DEFAULT_VALUE(TensorProto)
   ATTR_SETTER_WITH_DEFAULT_VALUE(GraphProto)
   ATTR_SETTER_WITH_DEFAULT_VALUE(TypeProto)
@@ -809,7 +812,7 @@ class OpSchema final {
   }
 
   ONNX_API OpSchema& SetContextDependentFunctionBodyBuilder(
-      ContextDependentFunctionBodyBuilder,
+      ContextDependentFunctionBodyBuilder /*functionBuilder*/,
       int opset_version = kUninitializedSinceVersion);
 
   ONNX_API bool BuildContextDependentFunction(
@@ -831,7 +834,7 @@ class OpSchema final {
 
  private:
   void ParseAndSetTypes(
-      /*out*/ std::vector<OpSchema::FormalParameter>* formalParameters);
+      /*out*/ std::vector<OpSchema::FormalParameter>* formal_parameters);
   bool ValidateReferencedOpsInFunction(
       const FunctionProto* function,
       int requested_opset_version,
@@ -1035,8 +1038,8 @@ class OpSchemaRegistry final : public ISchemaRegistry {
     OpSchemaRegisterImpl(OpSchema&& op_schema, int opset_version_to_load = 0, bool fail_duplicate_schema = true) {
       op_schema.Finalize();
       auto& m = GetMapWithoutEnsuringRegistration();
-      auto& op_name = op_schema.Name();
-      auto& op_domain = op_schema.domain();
+      const auto& op_name = op_schema.Name();
+      const auto& op_domain = op_schema.domain();
       auto& schema_ver_map = m[op_name][op_domain];
       auto ver = op_schema.SinceVersion();
       if (OpSchema::kUninitializedSinceVersion == ver) {

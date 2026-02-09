@@ -10,7 +10,8 @@ from adam.utils_k8s.app_clusters import AppClusters
 from adam.utils_k8s.app_pods import AppPods
 from adam.utils_k8s.kube_context import KubeContext
 from adam.utils_k8s.secrets import Secrets
-from adam.utils import display_help, log2, random_alphanumeric
+from adam.utils_log import log2
+from adam.utils import display_help, random_alphanumeric
 
 class BashSession:
     def __init__(self, device: str = None):
@@ -42,11 +43,19 @@ class ReplState:
     ANY = [A, C, L, P, X]
     NON_L = [A, C, P, X]
 
-    def __init__(self, device: str = None,
-                 sts: str = None, pod: str = None, namespace: str = None, ns_sts: str = None,
+    def __init__(self,
+                 device: str = None,
+                 sts: str = None,
+                 pod: str = None,
+                 namespace: str = None,
+                 ns_sts: str = None,
                  pg_path: str = None,
-                 app_env: str = None, app_app: str = None, app_pod: str = None,
-                 in_repl = False, bash_session: BashSession = None, remote_dir = None):
+                 app_env: str = None,
+                 app_app: str = None,
+                 app_pod: str = None,
+                 in_repl = False,
+                 bash_session: BashSession = None,
+                 remote_dir = None):
         self.namespace = KubeContext.in_cluster_namespace()
 
         self.device = device
@@ -443,6 +452,12 @@ class ReplState:
         state1.namespace = namespace
 
         return state1
+
+    # def device(self):
+    #     ReplState.devices.device(self)
+
+    # def all_devices(self):
+    #     ReplState.devices.all_devices(self)
 
 class DevicePodService:
     def __init__(self, handler: 'DeviceExecHandler'):

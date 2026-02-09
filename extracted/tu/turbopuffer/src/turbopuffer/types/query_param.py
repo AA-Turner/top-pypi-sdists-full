@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Dict
-from typing_extensions import TypedDict
+from typing import Dict, Union
+from typing_extensions import TypeAlias, TypedDict
 
 # Without this seemingly unnecessary import of `RankByText`, calling
 # `multi_query` fails at runtime claiming `RankByText` is unknown. It seems to
@@ -11,10 +11,13 @@ from typing_extensions import TypedDict
 # recursive).
 from .custom import Filter, RankBy, RankByText as RankByText, AggregateBy
 from .._types import SequenceNotStr
+from .limit_param import LimitParam
 from .distance_metric import DistanceMetric
 from .include_attributes_param import IncludeAttributesParam
 
-__all__ = ["QueryParam"]
+__all__ = ["QueryParam", "Limit"]
+
+Limit: TypeAlias = Union[int, LimitParam]
 
 
 class QueryParam(TypedDict, total=False):
@@ -49,6 +52,9 @@ class QueryParam(TypedDict, total=False):
 
     include_attributes: IncludeAttributesParam
     """Whether to include attributes in the response."""
+
+    limit: Limit
+    """Limits the documents returned by a query."""
 
     rank_by: RankBy
     """How to rank the documents in the namespace."""

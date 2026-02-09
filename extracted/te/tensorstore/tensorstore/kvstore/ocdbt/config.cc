@@ -18,9 +18,11 @@
 
 #include <atomic>
 #include <string_view>
+#include <tuple>
 #include <type_traits>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
 #include <nlohmann/json.hpp>
 #include "riegeli/zstd/zstd_writer.h"
@@ -112,9 +114,9 @@ absl::Status ValidateConfig(const Config& config,
   const auto validate = [&](const char* name, const auto& config_value,
                             const auto& constraint_value) -> absl::Status {
     if (constraint_value && *constraint_value != config_value) {
-      return absl::FailedPreconditionError(tensorstore::StrCat(
-          "Configuration mismatch on ", name, ": expected ",
-          ::nlohmann::json(*constraint_value).dump(), " but received ",
+      return absl::FailedPreconditionError(absl::StrFormat(
+          "Configuration mismatch on %s: expected %s but received %s", name,
+          ::nlohmann::json(*constraint_value).dump(),
           ::nlohmann::json(config_value).dump()));
     }
     return absl::OkStatus();
@@ -252,6 +254,15 @@ ConfigConstraints ConfigState::GetConstraints() const {
     return constraints_;
   }
   return constraints_;
+}
+
+bool operator==(const ConfigConstraints& lhs, const ConfigConstraints& rhs) {
+  return std::tie(lhs.uuid, lhs.manifest_kind, lhs.max_inline_value_bytes,
+                  lhs.max_decoded_node_bytes, lhs.version_tree_arity_log2,
+                  lhs.compression) ==
+         std::tie(rhs.uuid, rhs.manifest_kind, rhs.max_inline_value_bytes,
+                  rhs.max_decoded_node_bytes, rhs.version_tree_arity_log2,
+                  rhs.compression);
 }
 
 }  // namespace internal_ocdbt

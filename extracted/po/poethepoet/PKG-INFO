@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: poethepoet
-Version: 0.40.0
+Version: 0.41.0
 Summary: A task runner that works well with poetry and uv.
 License-Expression: MIT
 License-File: LICENSE
@@ -56,7 +56,7 @@ Description-Content-Type: text/markdown
 
 - ✅ Tasks are run in poetry or uv's virtualenv ([or another env](https://poethepoet.natn.io/index.html#usage-without-poetry) you specify)
 
-- ✅ [Shell completion of task names](https://poethepoet.natn.io/installation.html#shell-completion) (and global options too for zsh)
+- ✅ [Shell completion of task names and arguments](https://poethepoet.natn.io/installation.html#shell-completion)
 
 - ✅ The poe CLI can be used standalone, or as a [plugin for poetry](https://poethepoet.natn.io/poetry_plugin.html)
 

@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING, Any, TypedDict, TypeVar, cast
 from pypika_tortoise import Order, Query, Table
 from pypika_tortoise.terms import Term
 
-from tortoise import connections
 from tortoise.backends.base.client import BaseDBAsyncClient
+from tortoise.connection import get_connection
 from tortoise.exceptions import (
     ConfigurationError,
     DoesNotExist,
@@ -61,6 +61,7 @@ if TYPE_CHECKING:
         from typing_extensions import Self
 
 MODEL = TypeVar("MODEL", bound="Model")
+PRIMARY_KEY = TypeVar("PRIMARY_KEY")
 EMPTY = object()
 
 
@@ -286,7 +287,7 @@ class MetaInfo:
             raise ConfigurationError(
                 f"default_connection for the model {self._model} cannot be None"
             )
-        return connections.get(self.default_connection)
+        return get_connection(self.default_connection)
 
     @property
     def ordering(self) -> tuple[tuple[str, Order], ...]:
@@ -309,6 +310,12 @@ class MetaInfo:
         self._generate_filters()
         self._generate_lazy_fk_m2m_fields()
         self._generate_db_fields()
+        self._resolve_index_expressions()
+
+    def _resolve_index_expressions(self) -> None:
+        for index in self.indexes:
+            if isinstance(index, Index):
+                index.resolve_expressions(self._model)
 
     def finalise_fields(self) -> None:
         self.db_fields = set(self.fields_db_projection.values())
@@ -472,7 +479,9 @@ class MetaInfo:
     def _generate_filters(self) -> None:
         get_overridden_filter_func = self.db.executor_class.get_overridden_filter_func
         for key, filter_info in self._filters.items():
-            overridden_operator = get_overridden_filter_func(filter_func=filter_info["operator"])
+            overridden_operator = get_overridden_filter_func(
+                filter_func=filter_info["operator"], filter_info=filter_info
+            )
             if overridden_operator:
                 filter_info = copy(filter_info)
                 filter_info["operator"] = overridden_operator
@@ -500,6 +509,8 @@ class ModelMeta(type):
         fields_map, filters, fk_fields, m2m_fields, o2o_fields = cls._dispatch_fields(
             attrs, fields_db_projection, is_abstract
         )
+        if name != "Model":
+            cls._check_field_name_conflicts(fields_map, name)
 
         # Clean the class attributes
         for slot in fields_map:
@@ -519,11 +530,12 @@ class ModelMeta(type):
         for field in meta.fields_map.values():
             field.model = new_class  # type: ignore
 
-        for fname, comment in _get_comments(new_class).items():  # type: ignore
-            if fname in fields_map:
-                fields_map[fname].docstring = comment
-                if fields_map[fname].description is None:
-                    fields_map[fname].description = comment.split("\n")[0]
+        if not attrs.get("_no_comments"):
+            for fname, comment in _get_comments(new_class).items():  # type: ignore
+                if fname in fields_map:
+                    fields_map[fname].docstring = comment
+                    if fields_map[fname].description is None:
+                        fields_map[fname].description = comment.split("\n")[0]
 
         if new_class.__doc__ and not meta.table_description:
             meta.table_description = inspect.cleandoc(new_class.__doc__).split("\n")[0]
@@ -645,6 +657,18 @@ class ModelMeta(type):
         return (fields_map, filters, fk_fields, m2m_fields, o2o_fields)
 
     @staticmethod
+    def _check_field_name_conflicts(fields_map: dict[str, Field], name: str) -> None:
+        reserved_names = {key for key in Model.__dict__ if not key.startswith("__")}
+        reserved_names.update(key for key in ModelMeta.__dict__ if not key.startswith("__"))
+        conflicts = sorted(set(fields_map).intersection(reserved_names))
+        if conflicts:
+            conflict_list = ", ".join(conflicts)
+            raise ConfigurationError(
+                f"Model {name} has field name(s) that conflict with default Model attributes: "
+                f"{conflict_list}"
+            )
+
+    @staticmethod
     def build_meta(
         meta_class: Model.Meta,
         fields_map: dict[str, Field],
@@ -711,7 +735,11 @@ class Model(metaclass=ModelMeta):
             elif callable(field_default):
                 setattr(self, key, field_default())
             else:
-                setattr(self, key, deepcopy(field_object.default))
+                default = field_object.default
+                if default is None or isinstance(default, (int, float, str, bool, bytes)):
+                    setattr(self, key, default)
+                else:
+                    setattr(self, key, deepcopy(default))
 
     def __setattr__(self, key, value) -> None:
         # set field value override async default function
@@ -759,6 +787,11 @@ class Model(metaclass=ModelMeta):
         return passed_fields
 
     @classmethod
+    def get_table(cls) -> Table:
+        """Return a PyPika table for this model."""
+        return Table(name=cls._meta.db_table, schema=cls._meta.schema)
+
+    @classmethod
     def _init_from_db(cls: type[MODEL], **kwargs: Any) -> MODEL:
         self = cls.__new__(cls)
         self._partial = False
@@ -767,44 +800,40 @@ class Model(metaclass=ModelMeta):
         self._await_when_save = {}
 
         meta = self._meta
-        inited_keys: set[str] = set()
+        _setattr = object.__setattr__  # bypass __setattr__ override for performance
         try:
             # This is like so for performance reasons.
             #  We want to avoid conditionals and calling .to_python_value()
             # Native fields are fields that are already converted to/from python to DB type
             #  by the DB driver
             for key, model_field, field in meta.db_native_fields:
-                setattr(self, model_field, kwargs[key])
-                inited_keys.add(key)
+                _setattr(self, model_field, kwargs[key])
             # Fields that don't override .to_python_value() are converted without a call
             #  as we already know what we will be doing.
             for key, model_field, field in meta.db_default_fields:
                 if (value := kwargs[key]) is not None:
                     value = field.field_type(value)
-                setattr(self, model_field, value)
-                inited_keys.add(key)
+                _setattr(self, model_field, value)
             # These fields need manual .to_python_value()
             for key, model_field, field in meta.db_complex_fields:
-                setattr(self, model_field, field.to_python_value(kwargs[key]))
-                inited_keys.add(key)
+                _setattr(self, model_field, field.to_python_value(kwargs[key]))
         except KeyError:
+            # Partial model (.only() query) — slower but correct fallback
             self._partial = True
-            native_fields: list[Field] = [f for *_, f in meta.db_native_fields]
-            default_fields = complex_fields = None
+            native_keys = {k for k, _, _ in meta.db_native_fields}
+            default_keys = {k for k, _, _ in meta.db_default_fields}
             for key, value in kwargs.items():
-                if key in inited_keys or key not in meta.fields_map:
+                if key not in meta.fields_map:
                     continue
-                if (field := meta.fields_map[key]) not in native_fields:
-                    if default_fields is None:
-                        default_fields = [f for *_, f in meta.db_default_fields]
-                    if field in default_fields:
+                field = meta.fields_map[key]
+                if key not in native_keys:
+                    if key in default_keys:
                         if value is not None:
                             value = field.field_type(value)
                     else:
-                        if complex_fields is None:
-                            complex_fields = [f for *_, f in meta.db_complex_fields]
                         value = field.to_python_value(value)
-                setattr(self, key, value)
+                model_field = meta.fields_db_projection_reverse.get(key, key)
+                _setattr(self, model_field, value)
 
         return self
 
@@ -1251,10 +1280,10 @@ class Model(metaclass=ModelMeta):
     @classmethod
     async def in_bulk(
         cls: type[MODEL],
-        id_list: Iterable[str | int],
+        id_list: Iterable[PRIMARY_KEY],
         field_name: str = "pk",
         using_db: BaseDBAsyncClient | None = None,
-    ) -> dict[str, MODEL]:
+    ) -> dict[PRIMARY_KEY, MODEL]:
         """
         Return a dictionary mapping each of the given IDs to the object with
         that ID. If `id_list` isn't provided, evaluate the entire QuerySet.

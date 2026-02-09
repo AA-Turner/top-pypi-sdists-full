@@ -1,8 +1,10 @@
-from cuga.backend.memory.agentic_memory.utils.logging import Logging
-from sentence_transformers import SentenceTransformer
-from pymilvus import MilvusClient
-from dotenv import load_dotenv
 import re
+
+from dotenv import load_dotenv
+from pymilvus import MilvusClient
+from sentence_transformers import SentenceTransformer
+
+from cuga.backend.memory.agentic_memory.utils.logging import Logging
 
 load_dotenv()
 
@@ -49,8 +51,12 @@ def get_chat_model(model_settings, max_tokens=None):
 
         model_settings = _ModelSettingsWrapper(model_settings)
 
+    # Add max_tokens to model_settings if not already present
+    if 'max_tokens' not in model_settings:
+        model_settings['max_tokens'] = effective_max_tokens
+
     manager = LLMManager()
-    return manager.get_model(model_settings, max_tokens=effective_max_tokens)
+    return manager.get_model(model_settings)
 
 
 def get_embedding_model(model_name) -> SentenceTransformer:

@@ -207,7 +207,7 @@ def _format_jid(
 
     :param string local: Optional. The local portion of the JID.
     :param string domain: Required. The domain name portion of the JID.
-    :param strin resource: Optional. The resource portion of the JID.
+    :param string resource: Optional. The resource portion of the JID.
 
     :return: A full or bare JID string.
     """
@@ -330,6 +330,9 @@ class JID:
             self._resource = jid._resource if not bare else ''
         self._update_bare_full()
 
+    def __bool__(self) -> bool:
+        return self._domain != ''
+
     def unescape(self):
         """Return an unescaped JID object.
 
@@ -419,7 +422,9 @@ class JID:
 
     def __repr__(self):
         """Use the full JID as the representation."""
-        return self._full
+        if self._domain != '':
+            return f"JID('{self._full}')"
+        return "JID()"
 
     # pylint: disable=W0212
     def __eq__(self, other):

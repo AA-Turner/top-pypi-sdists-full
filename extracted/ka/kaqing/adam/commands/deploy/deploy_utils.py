@@ -1,5 +1,5 @@
 from adam.app_session import AppSession
-from adam.utils import ing
+from adam.utils_log import ing
 from adam.utils_k8s.ingresses import Ingresses
 from adam.utils_k8s.services import Services
 

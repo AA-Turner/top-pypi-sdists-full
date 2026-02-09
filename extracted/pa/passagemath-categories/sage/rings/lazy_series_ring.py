@@ -677,7 +677,7 @@ class LazySeriesRing(UniqueRepresentation, Parent):
 
         EXAMPLES::
 
-            sage: # needs sage.combinat sage.modules
+            sage: # needs sage.combinat sage.libs.flint sage.modules
             sage: s = SymmetricFunctions(ZZ).s()
             sage: L = LazySymmetricFunctions(s)
             sage: m = L._terms_of_degree(3, ZZ); m
@@ -713,6 +713,7 @@ class LazySeriesRing(UniqueRepresentation, Parent):
             sage: F
             -1 + 1/2*z^2 - 1/24*z^4 + 1/720*z^6 + O(z^7)
 
+            sage: # needs sage.modules
             sage: L.<z> = LazyPowerSeriesRing(QQ)
             sage: f = L.undefined(0)
             sage: L.define_implicitly([f], [2*z*f(z^3) + z*f^3 - 3*f + 3])
@@ -754,7 +755,7 @@ class LazySeriesRing(UniqueRepresentation, Parent):
         We solve the recurrence relation in (3.12) of Prellberg and Brak
         :doi:`10.1007/BF02183685`::
 
-            sage: # needs sage.modules
+            sage: # needs sage.modules, known bug: windows (hangs - https://github.com/passagemath/passagemath/issues/1892#issuecomment-3844228165)
             sage: q, y = QQ['q,y'].fraction_field().gens()
             sage: L.<x> = LazyPowerSeriesRing(q.parent())
             sage: R = L.undefined()
@@ -829,7 +830,6 @@ class LazySeriesRing(UniqueRepresentation, Parent):
             5*z^-1 + 2 + 2*z + 2*z^3 + O(z^6)
             sage: 2 + z*f(z^2) - f
             O(z^6)
-
             sage: g = L.undefined(-2)
             sage: L.define_implicitly([(g, [5])], [2+z*g(z^2) - g])
             sage: g
@@ -3616,7 +3616,7 @@ class LazyCompletionGradedAlgebra(LazySeriesRing):
 
         EXAMPLES::
 
-            sage: # needs sage.combinat sage.modules
+            sage: # needs sage.combinat sage.libs.flint sage.modules
             sage: s = SymmetricFunctions(ZZ).s()
             sage: L = LazySymmetricFunctions(s)
             sage: m = L._terms_of_degree(3, QQ["x"]); m
@@ -4084,9 +4084,7 @@ class LazyDirichletSeriesRing(LazySeriesRing):
             sage: L.has_coerce_map_from(QQ)
             False
         """
-        if self.base_ring().has_coerce_map_from(S):
-            return True
-        return False
+        return self.base_ring().has_coerce_map_from(S)
 
     def _element_constructor_(self, x=None, valuation=None, degree=None, constant=None, coefficients=None):
         r"""

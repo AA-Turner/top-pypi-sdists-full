@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cuga
-Version: 0.2.8
+Version: 0.2.9
 Summary: CUGA is an open-source generalist agent for the enterprise, supporting complex task execution on web and APIs, OpenAPI/MCP integrations, composable architecture, reasoning modes, and policy-aware features.
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://cuga.dev
@@ -8,8 +8,8 @@ Project-URL: Repository, https://github.com/cuga-project/cuga-agent
 Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: langchain
-Requires-Dist: langchain-ibm<1.0.0,>=0.3.9
+Requires-Dist: langchain>=1.0
+Requires-Dist: langchain-ibm>=0.3.9
 Requires-Dist: langchain-openai
 Requires-Dist: langchain-core
 Requires-Dist: aiohttp
@@ -29,16 +29,19 @@ Requires-Dist: mcp[cli]>=1.23.0
 Requires-Dist: psutil>=7.0.0
 Requires-Dist: typer>=0.15.3
 Requires-Dist: fastmcp
-Requires-Dist: langchain-mcp-adapters==0.1.14
+Requires-Dist: langchain-mcp-adapters
 Requires-Dist: pyyaml>=6.0.3
 Requires-Dist: pymilvus[milvus-lite,model]>=2.6.4
 Requires-Dist: langchain-groq>=0.3.8
 Requires-Dist: tavily-python
-Requires-Dist: e2b-code-interpreter>=2.4.1
-Requires-Dist: torch>=2.9.1
+Requires-Dist: torch>=2.2.2
 Requires-Dist: sentence-transformers>=5.1.2
 Provides-Extra: evaluation
 Requires-Dist: rapidfuzz; extra == "evaluation"
+Provides-Extra: e2b
+Requires-Dist: e2b-code-interpreter>=2.4.1; extra == "e2b"
+Provides-Extra: memory
+Requires-Dist: mem0ai[extras]; extra == "memory"
 Dynamic: license-file
 
 <picture>
@@ -788,7 +791,7 @@ instruction_set = "default"  # or any instruction set above
 <details>
 <summary><em style="color: #666;"> 📹 Optional: Run with memory</em></summary>
 
-1. Install memory dependencies `uv sync --group memory`
+1. Install memory dependencies `uv sync --extra memory`
 1. Change `enable_memory = true` in `setting.toml`
 2. Run `cuga start memory`
 

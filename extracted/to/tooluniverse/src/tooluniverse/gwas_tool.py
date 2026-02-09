@@ -24,6 +24,46 @@ class GWASRESTTool(BaseTool):
         except requests.exceptions.RequestException as e:
             return {"error": f"Request failed: {str(e)}"}
 
+    def _coerce_str(self, value: Any) -> Optional[str]:
+        """Return a stripped string, or None."""
+        if not isinstance(value, str):
+            return None
+        s = value.strip()
+        return s or None
+
+    def _coerce_int(self, value: Any) -> Optional[int]:
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _efo_id_from_uri_or_id(self, value: Any) -> Optional[str]:
+        """
+        Best-effort normalize an EFO/OBA/etc identifier.
+
+        Accepts either a full URI (e.g., 'http://www.ebi.ac.uk/efo/OBA_2050062')
+        or a bare ID (e.g., 'OBA_2050062' or 'OBA:2050062').
+
+        Note: The GWAS Catalog v2 REST API supports filtering by `efo_id` (and
+        sometimes `efo_trait`) on associations/studies endpoints. Passing a full
+        URI via `efo_uri` is not consistently supported; we normalize to `efo_id`.
+        """
+        s = self._coerce_str(value)
+        if not s:
+            return None
+        if s.startswith(("http://", "https://")):
+            s = s.rstrip("/").rsplit("/", 1)[-1]
+        # Support CURIE-style IDs like "EFO:0001645" or "OBA:2050062" by converting
+        # ":" to "_" (GWAS Catalog expects underscore form, e.g., "EFO_0001645").
+        if ":" in s and "/" not in s and " " not in s:
+            left, right = s.split(":", 1)
+            if left and right:
+                s = f"{left}_{right}"
+        s = s.strip()
+        return s or None
+
     def _extract_embedded_data(
         self, data: Dict[str, Any], data_type: str
     ) -> Dict[str, Any]:
@@ -72,22 +112,44 @@ class GWASAssociationSearch(GWASRESTTool):
         params = {}
 
         # Handle various search parameters
-        if "disease_trait" in arguments:
-            params["disease_trait"] = arguments["disease_trait"]
-        if "efo_uri" in arguments:
-            params["efo_uri"] = arguments["efo_uri"]
-        if "rs_id" in arguments:
-            params["rs_id"] = arguments["rs_id"]
-        if "accession_id" in arguments:
-            params["accession_id"] = arguments["accession_id"]
-        if "sort" in arguments:
-            params["sort"] = arguments["sort"]
-        if "direction" in arguments:
-            params["direction"] = arguments["direction"]
-        if "size" in arguments:
-            params["size"] = arguments["size"]
-        if "page" in arguments:
-            params["page"] = arguments["page"]
+        disease_trait = self._coerce_str(arguments.get("disease_trait"))
+        if disease_trait:
+            params["disease_trait"] = disease_trait
+
+        # Prefer efo_id filtering. If user provided efo_uri, normalize to efo_id.
+        efo_id = self._efo_id_from_uri_or_id(arguments.get("efo_id"))
+        if not efo_id:
+            efo_id = self._efo_id_from_uri_or_id(arguments.get("efo_uri"))
+        if efo_id:
+            params["efo_id"] = efo_id
+
+        efo_trait = self._coerce_str(arguments.get("efo_trait"))
+        if efo_trait:
+            params["efo_trait"] = efo_trait
+
+        rs_id = self._coerce_str(arguments.get("rs_id"))
+        if rs_id:
+            params["rs_id"] = rs_id
+
+        accession_id = self._coerce_str(arguments.get("accession_id"))
+        if accession_id:
+            params["accession_id"] = accession_id
+
+        sort = self._coerce_str(arguments.get("sort"))
+        if sort:
+            params["sort"] = sort
+
+        direction = self._coerce_str(arguments.get("direction"))
+        if direction:
+            params["direction"] = direction
+
+        size = self._coerce_int(arguments.get("size"))
+        if size is not None:
+            params["size"] = size
+
+        page = self._coerce_int(arguments.get("page"))
+        if page is not None:
+            params["page"] = page
 
         data = self._make_request(self.endpoint, params)
         return self._extract_embedded_data(data, "associations")
@@ -105,20 +167,35 @@ class GWASStudySearch(GWASRESTTool):
         """Search for studies with optional filters."""
         params = {}
 
-        if "disease_trait" in arguments:
-            params["disease_trait"] = arguments["disease_trait"]
-        if "efo_uri" in arguments:
-            params["efo_uri"] = arguments["efo_uri"]
-        if "cohort" in arguments:
-            params["cohort"] = arguments["cohort"]
-        if "gxe" in arguments:
-            params["gxe"] = arguments["gxe"]
-        if "full_pvalue_set" in arguments:
-            params["full_pvalue_set"] = arguments["full_pvalue_set"]
-        if "size" in arguments:
-            params["size"] = arguments["size"]
-        if "page" in arguments:
-            params["page"] = arguments["page"]
+        disease_trait = self._coerce_str(arguments.get("disease_trait"))
+        if disease_trait:
+            params["disease_trait"] = disease_trait
+
+        efo_id = self._efo_id_from_uri_or_id(arguments.get("efo_id"))
+        if not efo_id:
+            efo_id = self._efo_id_from_uri_or_id(arguments.get("efo_uri"))
+        if efo_id:
+            params["efo_id"] = efo_id
+
+        efo_trait = self._coerce_str(arguments.get("efo_trait"))
+        if efo_trait:
+            params["efo_trait"] = efo_trait
+
+        cohort = self._coerce_str(arguments.get("cohort"))
+        if cohort:
+            params["cohort"] = cohort
+
+        if arguments.get("gxe") is not None:
+            params["gxe"] = bool(arguments.get("gxe"))
+        if arguments.get("full_pvalue_set") is not None:
+            params["full_pvalue_set"] = bool(arguments.get("full_pvalue_set"))
+
+        size = self._coerce_int(arguments.get("size"))
+        if size is not None:
+            params["size"] = size
+        page = self._coerce_int(arguments.get("page"))
+        if page is not None:
+            params["page"] = page
 
         data = self._make_request(self.endpoint, params)
         return self._extract_embedded_data(data, "studies")
@@ -212,18 +289,27 @@ class GWASVariantsForTrait(GWASRESTTool):
 
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get variants for a trait with pagination support."""
-        if "disease_trait" not in arguments and "efo_uri" not in arguments:
-            return {"error": "disease_trait or efo_uri is required"}
+        disease_trait = self._coerce_str(arguments.get("disease_trait"))
+        efo_id = self._efo_id_from_uri_or_id(
+            arguments.get("efo_id")
+        ) or self._efo_id_from_uri_or_id(arguments.get("efo_uri"))
+        efo_trait = self._coerce_str(arguments.get("efo_trait"))
+        if not disease_trait and not efo_id and not efo_trait:
+            return {
+                "error": "Provide at least one of: disease_trait, efo_id (or efo_uri), efo_trait."
+            }
 
         params = {
             "size": arguments.get("size", 200),
             "page": arguments.get("page", 0),
         }
 
-        if "disease_trait" in arguments:
-            params["disease_trait"] = arguments["disease_trait"]
-        if "efo_uri" in arguments:
-            params["efo_uri"] = arguments["efo_uri"]
+        if disease_trait:
+            params["disease_trait"] = disease_trait
+        if efo_id:
+            params["efo_id"] = efo_id
+        if efo_trait:
+            params["efo_trait"] = efo_trait
 
         data = self._make_request(self.endpoint, params)
         return self._extract_embedded_data(data, "associations")
@@ -239,8 +325,15 @@ class GWASAssociationsForTrait(GWASRESTTool):
 
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get associations for a trait, sorted by significance."""
-        if "disease_trait" not in arguments and "efo_uri" not in arguments:
-            return {"error": "disease_trait or efo_uri is required"}
+        disease_trait = self._coerce_str(arguments.get("disease_trait"))
+        efo_id = self._efo_id_from_uri_or_id(
+            arguments.get("efo_id")
+        ) or self._efo_id_from_uri_or_id(arguments.get("efo_uri"))
+        efo_trait = self._coerce_str(arguments.get("efo_trait"))
+        if not disease_trait and not efo_id and not efo_trait:
+            return {
+                "error": "Provide at least one of: disease_trait, efo_id (or efo_uri), efo_trait."
+            }
 
         params = {
             "sort": "p_value",
@@ -249,10 +342,12 @@ class GWASAssociationsForTrait(GWASRESTTool):
             "page": arguments.get("page", 0),
         }
 
-        if "disease_trait" in arguments:
-            params["disease_trait"] = arguments["disease_trait"]
-        if "efo_uri" in arguments:
-            params["efo_uri"] = arguments["efo_uri"]
+        if disease_trait:
+            params["disease_trait"] = disease_trait
+        if efo_id:
+            params["efo_id"] = efo_id
+        if efo_trait:
+            params["efo_trait"] = efo_trait
 
         data = self._make_request(self.endpoint, params)
         return self._extract_embedded_data(data, "associations")
@@ -268,19 +363,22 @@ class GWASAssociationsForSNP(GWASRESTTool):
 
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get associations for a SNP."""
-        if "rs_id" not in arguments:
+        rs_id = self._coerce_str(arguments.get("rs_id"))
+        if not rs_id:
             return {"error": "rs_id is required"}
 
         params = {
-            "rs_id": arguments["rs_id"],
-            "size": arguments.get("size", 200),
-            "page": arguments.get("page", 0),
+            "rs_id": rs_id,
+            "size": self._coerce_int(arguments.get("size")) or 200,
+            "page": self._coerce_int(arguments.get("page")) or 0,
         }
 
-        if "sort" in arguments:
-            params["sort"] = arguments["sort"]
-        if "direction" in arguments:
-            params["direction"] = arguments["direction"]
+        sort = self._coerce_str(arguments.get("sort"))
+        if sort:
+            params["sort"] = sort
+        direction = self._coerce_str(arguments.get("direction"))
+        if direction:
+            params["direction"] = direction
 
         data = self._make_request(self.endpoint, params)
         return self._extract_embedded_data(data, "associations")
@@ -296,24 +394,35 @@ class GWASStudiesForTrait(GWASRESTTool):
 
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get studies for a trait with optional filters."""
-        if "disease_trait" not in arguments and "efo_uri" not in arguments:
-            return {"error": "disease_trait or efo_uri is required"}
+        disease_trait = self._coerce_str(arguments.get("disease_trait"))
+        efo_id = self._efo_id_from_uri_or_id(
+            arguments.get("efo_id")
+        ) or self._efo_id_from_uri_or_id(arguments.get("efo_uri"))
+        efo_trait = self._coerce_str(arguments.get("efo_trait"))
+        if not disease_trait and not efo_id and not efo_trait:
+            return {
+                "error": "Provide at least one of: disease_trait, efo_id (or efo_uri), efo_trait."
+            }
 
         params = {
-            "size": arguments.get("size", 200),
-            "page": arguments.get("page", 0),
+            "size": self._coerce_int(arguments.get("size")) or 200,
+            "page": self._coerce_int(arguments.get("page")) or 0,
         }
 
-        if "disease_trait" in arguments:
-            params["disease_trait"] = arguments["disease_trait"]
-        if "efo_uri" in arguments:
-            params["efo_uri"] = arguments["efo_uri"]
-        if "cohort" in arguments:
-            params["cohort"] = arguments["cohort"]
-        if "gxe" in arguments:
-            params["gxe"] = arguments["gxe"]
-        if "full_pvalue_set" in arguments:
-            params["full_pvalue_set"] = arguments["full_pvalue_set"]
+        if disease_trait:
+            params["disease_trait"] = disease_trait
+        if efo_id:
+            params["efo_id"] = efo_id
+        if efo_trait:
+            params["efo_trait"] = efo_trait
+
+        cohort = self._coerce_str(arguments.get("cohort"))
+        if cohort:
+            params["cohort"] = cohort
+        if arguments.get("gxe") is not None:
+            params["gxe"] = bool(arguments.get("gxe"))
+        if arguments.get("full_pvalue_set") is not None:
+            params["full_pvalue_set"] = bool(arguments.get("full_pvalue_set"))
 
         data = self._make_request(self.endpoint, params)
         return self._extract_embedded_data(data, "studies")

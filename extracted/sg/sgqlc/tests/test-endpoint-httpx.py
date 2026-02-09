@@ -104,7 +104,7 @@ def check_request_headers(req, base_headers, extra_headers):
         accept_header = 'application/json; charset=utf-8'
     assert req.headers['Accept'] == accept_header
     if req.method == 'POST':
-        assert req.headers['Content-type'] == 'application/json'
+        assert req.headers['Content-type'] == 'application/json; charset=utf-8'
     check_request_headers_(req, base_headers, 'base')
     check_request_headers_(req, extra_headers, 'extra')
 
@@ -116,7 +116,18 @@ def check_request_variables(req, variables):
     else:
         received = json.loads(req.url.params.get('variables', 'null'))
 
-    assert received == variables
+    if not variables:
+        assert received == variables
+        return
+
+    # Convert Input types to their JSON representation for comparison
+    expected = {}
+    for k, v in variables.items():
+        if hasattr(v, '__json_data__'):
+            expected[k] = v.__json_data__
+        else:
+            expected[k] = v
+    assert received == expected
 
 
 def check_request_operation_name(req, operation_name):
@@ -552,7 +563,7 @@ def test_server_http_non_conforming_json(respx_mock):
     check_respx_route(route)
 
 
-def test_server_http_transport_error(respx_mock):
+async def test_server_http_transport_error(respx_mock):
     'Test if a transport error will get passed back to the caller'
 
     route = respx_mock.route(name='graphql', method='POST', url=test_url).mock(
@@ -563,6 +574,13 @@ def test_server_http_transport_error(respx_mock):
 
     with pytest.raises(httpx.RemoteProtocolError):
         endpoint(graphql_query)
+
+    check_respx_route(route)
+
+    endpoint = HTTPXEndpoint(test_url, client=httpx.AsyncClient())
+
+    with pytest.raises(httpx.RemoteProtocolError):
+        await endpoint(graphql_query)
 
     check_respx_route(route)
 
@@ -715,3 +733,52 @@ def test_server_http_error_list_message(respx_mock):
 
     assert data == expected_data
     check_respx_route(route)
+
+
+def test_variables_with_input_type(respx_mock):
+    'Test if variables with sgqlc.types.Input are properly serialized'
+    from sgqlc.types import Input
+
+    schema = Schema()
+
+    # MyInput may be declared if doctests were processed by pytest
+    if 'MyInput' in schema:
+        schema -= schema.MyInput
+
+    class MyInput(Input):
+        __schema__ = schema
+        a_str = str
+        a_int = int
+
+    route = respx_mock.route(name='graphql', method='POST', url=test_url).mock(
+        return_value=httpx.Response(
+            200, json=graphql_response_ok, headers=graphql_headers_ok
+        )
+    )
+
+    variables = {'input': MyInput(a_str='hello', a_int=42)}
+
+    endpoint = HTTPXEndpoint(test_url)
+    data = endpoint(graphql_query, variables)
+    assert data == graphql_response_ok
+    check_respx_route(route, variables=variables)
+
+
+def test_variables_with_bogus_type(respx_mock):
+    'Test if variables with non-serializable types raise TypeError'
+
+    class BogusType:
+        pass
+
+    route = respx_mock.route(name='graphql', method='POST', url=test_url).mock(
+        return_value=httpx.Response(
+            200, json=graphql_response_ok, headers=graphql_headers_ok
+        )
+    )
+
+    variables = {'input': BogusType()}
+
+    endpoint = HTTPXEndpoint(test_url)
+    with pytest.raises(TypeError):
+        endpoint(graphql_query, variables)
+    assert not route.called

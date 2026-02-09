@@ -26,16 +26,16 @@ class XEP_0077(BasePlugin):
 
     ::
 
-        user_register           -- After succesful validation and add to the user store
+        user_register           -- After successful validation and add to the user store
                                    in api["user_validate"]
-        user_unregister         -- After succesful user removal in api["user_remove"]
+        user_unregister         -- After successful user removal in api["user_remove"]
 
     Config:
 
     ::
 
         form_fields are only form_instructions are only used for component registration
-        in case api["make_registration_form"] is not overriden.
+        in case api["make_registration_form"] is not overridden.
 
     API:
 

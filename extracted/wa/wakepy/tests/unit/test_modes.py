@@ -4,6 +4,7 @@ import pytest
 
 from wakepy import ActivationError, ActivationWarning
 from wakepy.core import ActivationResult, DBusAdapter, Method, Mode, ModeName
+from wakepy.core.mode import UnrecognizedMethodNames
 from wakepy.modes import keep
 
 
@@ -59,7 +60,7 @@ class TestKeepRunninAndPresenting:
 
         mode = function_under_test()
         # All the methods for the mode are selected automatically
-        assert set(mode.method_classes) == {
+        assert set(mode._selected_method_classes) == {
             methods["MethodA"],
             methods["MethodB"],
             methods["MethodC"],
@@ -68,12 +69,18 @@ class TestKeepRunninAndPresenting:
     def test_omit_parameter(self, name_prefix, function_under_test, methods):
         # Case: Test "omit" parameter
         mode = function_under_test(omit=[f"{name_prefix}A"])
-        assert set(mode.method_classes) == {methods["MethodB"], methods["MethodC"]}
+        assert set(mode._selected_method_classes) == {
+            methods["MethodB"],
+            methods["MethodC"],
+        }
 
     def test_methods_parameter(self, name_prefix, function_under_test, methods):
         # Case: Test "methods" parameter
         mode = function_under_test(methods=[f"{name_prefix}A", f"{name_prefix}B"])
-        assert set(mode.method_classes) == {methods["MethodA"], methods["MethodB"]}
+        assert set(mode._selected_method_classes) == {
+            methods["MethodA"],
+            methods["MethodB"],
+        }
 
     def test_methods_priority_parameter(
         self, name_prefix, function_under_test, methods
@@ -82,7 +89,7 @@ class TestKeepRunninAndPresenting:
         methods_priority = [f"{name_prefix}A", f"{name_prefix}B"]
         mode = function_under_test(methods_priority=methods_priority)
         assert mode.methods_priority == methods_priority
-        assert set(mode.method_classes) == {
+        assert set(mode._selected_method_classes) == {
             methods["MethodA"],
             methods["MethodB"],
             methods["MethodC"],
@@ -107,10 +114,10 @@ def test_keep_running_with_fake_success(monkeypatch, fake_dbus_adapter):
     with mode as m:
         assert mode is m
         assert m.active is True
-        assert m.activation_result.success is True
+        assert m.result.success is True
 
     assert m.active is False
-    assert isinstance(m.activation_result, ActivationResult)
+    assert isinstance(m.result, ActivationResult)
 
 
 def test_keep_presenting(monkeypatch, fake_dbus_adapter):
@@ -118,7 +125,7 @@ def test_keep_presenting(monkeypatch, fake_dbus_adapter):
     monkeypatch.setenv("WAKEPY_FAKE_SUCCESS", "1")
     with keep.presenting(dbus_adapter=fake_dbus_adapter) as m:
         assert isinstance(m, Mode)
-        assert m.activation_result.success is True
+        assert m.result.success is True
 
 
 @pytest.mark.parametrize(
@@ -132,22 +139,26 @@ class TestOnFail:
     """Test failure handling for keep.presenting and keep.running. (the on_fail
     parameter)"""
 
+    @pytest.mark.filterwarnings("ignore:.*:wakepy.core.mode.NoMethodsWarning")
     def test_on_fail_pass(self, mode_under_test, expected_name):
         with mode_under_test(methods=[], on_fail="pass") as m:
             self._assertions_for_activation_failure(m, expected_name)
 
+    @pytest.mark.filterwarnings("ignore:.*:wakepy.core.mode.NoMethodsWarning")
     def test_on_fail_warn(self, mode_under_test, expected_name):
-        err_txt = f'Could not activate Mode "{expected_name}"!'
+        err_txt = f'Could not activate wakepy Mode "{expected_name}"!'
         with pytest.warns(ActivationWarning, match=re.escape(err_txt)):
             with mode_under_test(methods=[], on_fail="warn") as m:
                 self._assertions_for_activation_failure(m, expected_name)
 
+    @pytest.mark.filterwarnings("ignore:.*:wakepy.core.mode.NoMethodsWarning")
     def test_on_fail_error(self, mode_under_test, expected_name):
-        err_txt = f'Could not activate Mode "{expected_name}"!'
+        err_txt = f'Could not activate wakepy Mode "{expected_name}"!'
         with pytest.raises(ActivationError, match=re.escape(err_txt)):
             with mode_under_test(methods=[], on_fail="error") as m:
                 self._assertions_for_activation_failure(m, expected_name)
 
+    @pytest.mark.filterwarnings("ignore:.*:wakepy.core.mode.NoMethodsWarning")
     def test_on_fail_callable(self, mode_under_test, expected_name):
         called = False
 
@@ -165,4 +176,19 @@ class TestOnFail:
         assert m.active is False
         assert isinstance(m, Mode)
         assert m.name == expected_name
-        assert m.activation_result.mode_name == expected_name
+        assert m.result.mode_name == expected_name
+
+
+class TestWithBadMethodName:
+    def test_with_bad_method_name(self):
+        with pytest.raises(
+            UnrecognizedMethodNames,
+            match=re.escape(
+                'The following Methods are not part of the "keep.running" Mode: '
+                "['bad_method']. Please check that the Methods are correctly "
+                'spelled and that the Methods are part of the "keep.running" Mode. '
+                "You may refer to full Methods listing at "
+                "https://wakepy.readthedocs.io/stable/methods-reference.html."
+            ),
+        ):
+            keep.running(methods=["bad_method"])

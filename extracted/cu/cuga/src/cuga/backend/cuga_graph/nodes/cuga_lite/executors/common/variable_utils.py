@@ -44,21 +44,29 @@ class VariableUtils:
         return False
 
     @staticmethod
-    def filter_new_variables(all_locals: dict[str, Any], original_keys: Set[str]) -> dict[str, Any]:
+    def filter_new_variables(
+        all_locals: dict[str, Any], original_keys: Set[str], always_include_keys: Set[str] | None = None
+    ) -> dict[str, Any]:
         """Filter and return only new, serializable variables.
 
         Args:
             all_locals: Dictionary of all local variables
             original_keys: Set of keys that existed before execution
+            always_include_keys: Set of variable names to always include even if they existed before
+                                (useful for variables that should be updated when reassigned)
 
         Returns:
             Dictionary of new serializable variables (preserves insertion order)
         """
+        if always_include_keys is None:
+            always_include_keys = set()
+
         new_keys = set(all_locals.keys()) - original_keys
         new_vars = {}
 
         for key in all_locals.keys():
-            if key not in new_keys:
+            # Include if it's a new key OR if it's in always_include_keys
+            if key not in new_keys and key not in always_include_keys:
                 continue
             if key.startswith('_'):
                 continue

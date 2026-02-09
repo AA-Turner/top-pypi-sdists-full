@@ -101,8 +101,8 @@ see https://www.gnu.org/licenses/.  */
    make use of that.  Probably more trouble than it's worth.  */
 
 #if defined (__GNUC__)
-#define __GMP_DECLSPEC_EXPORT  __declspec(__dllexport__)
-#define __GMP_DECLSPEC_IMPORT  __declspec(__dllimport__)
+#define __GMP_DECLSPEC_EXPORT
+#define __GMP_DECLSPEC_IMPORT
 #endif
 #if defined (_MSC_VER) || defined (__BORLANDC__)
 #define __GMP_DECLSPEC_EXPORT  __declspec(dllexport)
@@ -143,11 +143,7 @@ typedef unsigned long int	mp_limb_t;
 typedef long int		mp_limb_signed_t;
 #endif
 #endif
-#if defined(_WIN64)
-typedef unsigned long long int	mp_bitcnt_t;
-#else
 typedef unsigned long int	mp_bitcnt_t;
-#endif
 
 /* For reference, note that the name __mpz_struct gets into C++ mangled
    function names, which means although the "__" suggests an internal, we

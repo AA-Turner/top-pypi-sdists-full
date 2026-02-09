@@ -83,12 +83,11 @@ async def rebuild_cloud_repository(
     api_key: str,
     base_api_url: str,
     base_ws_url: str,
-    org_name: str,
-    repo_name: str,
+    repository_uuid: str,
 ) -> dict[str, Any]:
     graphql_client = GraphQLClient(api_key=api_key, base_api_url=base_api_url, base_ws_url=base_ws_url)
 
-    result = await graphql_client.rebuild_cloud_repository(org_name, repo_name)
+    result = await graphql_client.rebuild_cloud_repository(repository_uuid=repository_uuid)
 
     # Convert typed response to dict for backward compatibility
     rebuild_result = result.rebuild_cloud_repository
@@ -243,22 +242,15 @@ def enable_repo(
 
 @cloud_cli.command(hidden=True)
 @click.option(
-    "--org-name",
-    help="GitHub organization name",
-    required=True,
-)
-@click.option(
-    "--repo-name",
-    help="GitHub repository name",
+    "--repository-uuid",
+    help="Repository UUID",
     required=True,
 )
 @use_settings
 def rebuild(
     settings: Settings,
-    org_name: str,
-    repo_name: str,
+    repository_uuid: str,
 ) -> None:
-    """Test utility for full rebuild of cloud repository."""
     check_exponent_version_and_upgrade(settings)
 
     if not settings.api_key:
@@ -270,11 +262,11 @@ def rebuild(
     base_ws_url = settings.get_base_ws_url()
 
     try:
-        result = asyncio.run(rebuild_cloud_repository(api_key, base_api_url, base_ws_url, org_name, repo_name))
+        result = asyncio.run(rebuild_cloud_repository(api_key, base_api_url, base_ws_url, repository_uuid))
 
         if result["__typename"] == "ContainerImage":
             click.secho(
-                f"✓ Successfully triggered rebuild for {org_name}/{repo_name}",
+                f"Successfully triggered rebuild for {repository_uuid}",
                 fg="green",
             )
             click.echo(f"  Build ref: {result.get('buildRef', 'N/A')}")
@@ -282,13 +274,13 @@ def rebuild(
             click.echo(f"  Updated at: {result.get('updatedAt', 'N/A')}")
         else:
             click.secho(
-                f"✗ Failed to trigger rebuild: {result.get('message', 'Unknown error')}",
+                f"Failed to trigger rebuild: {result.get('message', 'Unknown error')}",
                 fg="red",
             )
             click.echo(f"  Error type: {result['__typename']}")
 
     except Exception as e:
-        click.secho(f"✗ Error triggering rebuild: {e!s}", fg="red")
+        click.secho(f"Error triggering rebuild: {e!s}", fg="red")
         sys.exit(1)
 
 

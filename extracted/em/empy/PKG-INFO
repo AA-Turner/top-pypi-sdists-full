@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: empy
-Version: 4.2
+Version: 4.2.1
 Summary: A templating system for Python.
 Home-page: http://www.alcyone.com/software/empy/
 Author: Erik Max Francis
@@ -15,6 +15,11 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 2
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: IronPython
+Classifier: Programming Language :: Python :: Implementation :: Jython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: Python :: Implementation :: Stackless
 Classifier: Topic :: Software Development :: Interpreters
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Pre-processors

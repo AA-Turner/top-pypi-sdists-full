@@ -8,7 +8,7 @@ import uuid
 from typing import Dict, Any, AsyncIterator
 
 try:
-    import nodriver
+    import zendriver as nodriver
 except ImportError:
     pass
 
@@ -118,7 +118,7 @@ class Grok(AsyncAuthedProvider, ProviderModelMixin):
                 auth_result.cookies[c.name] = c.value
             await page.close()
         finally:
-            stop_browser()
+            await stop_browser()
         yield auth_result
 
     @classmethod

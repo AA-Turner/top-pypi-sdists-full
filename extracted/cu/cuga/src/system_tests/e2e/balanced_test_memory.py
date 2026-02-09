@@ -16,8 +16,12 @@ class TestServerStreamBalancedMemory(BaseTestServerStream):
     test_env_vars = {
         "DYNACONF_FEATURES__CUGA_MODE": "balanced",
         "DYNACONF_ADVANCED_FEATURES__ENABLE_MEMORY": "true",
+        "DYNACONF_FEATURES__MEMORY_PROVIDER": "http",
     }
     enable_memory_service = True
+    memory_service_env_vars = {
+        "DYNACONF_FEATURES__MEMORY_PROVIDER": "mem0",
+    }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -34,7 +38,9 @@ class TestServerStreamBalancedMemory(BaseTestServerStream):
         self.assertTrue(runs, "No memory run folder created in trajectory data directory.")
 
         memory = Memory()
-        run = memory.get_run(namespace_id="memory", run_id=runs[-1])
+        memory_runs = memory.list_runs(namespace_id="memory", limit=1)
+        self.assertTrue(memory_runs, "No memory runs found in memory service.")
+        run = memory.get_run(namespace_id="memory", run_id=memory_runs[0].id)
         self.assertGreater(
             len(run.steps or []),
             0,
@@ -52,7 +58,9 @@ class TestServerStreamBalancedMemory(BaseTestServerStream):
         self.assertTrue(runs, "No memory run folder created in trajectory data directory.")
 
         memory = Memory()
-        run = memory.get_run(namespace_id="memory", run_id=runs[-1])
+        memory_runs = memory.list_runs(namespace_id="memory", limit=1)
+        self.assertTrue(memory_runs, "No memory runs found in memory service.")
+        run = memory.get_run(namespace_id="memory", run_id=memory_runs[0].id)
         self.assertGreater(
             len(run.steps or []),
             0,
@@ -70,7 +78,9 @@ class TestServerStreamBalancedMemory(BaseTestServerStream):
         self.assertTrue(runs, "No memory run folder created in trajectory data directory.")
 
         memory = Memory()
-        run = memory.get_run(namespace_id="memory", run_id=runs[-1])
+        memory_runs = memory.list_runs(namespace_id="memory", limit=1)
+        self.assertTrue(memory_runs, "No memory runs found in memory service.")
+        run = memory.get_run(namespace_id="memory", run_id=memory_runs[0].id)
         self.assertGreater(
             len(run.steps or []),
             0,
@@ -79,5 +89,4 @@ class TestServerStreamBalancedMemory(BaseTestServerStream):
 
 
 if __name__ == "__main__":
-    unittest.main()
     unittest.main()

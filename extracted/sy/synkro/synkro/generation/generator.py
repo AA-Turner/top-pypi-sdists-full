@@ -144,10 +144,14 @@ class Generator:
         self.grading_model = grading_model
 
         # Create LLM clients
-        self.generation_llm = LLM(
-            model=generation_model, base_url=base_url, temperature=temperature
-        )
+        # Grading LLM is created first so it can be used as validation_model
         self.grading_llm = LLM(model=grading_model, base_url=base_url)
+        self.generation_llm = LLM(
+            model=generation_model,
+            base_url=base_url,
+            temperature=temperature,
+            validation_model=self.grading_llm,  # Use grading model for repairs
+        )
 
         # Create factory for component creation
         self.factory = ComponentFactory(

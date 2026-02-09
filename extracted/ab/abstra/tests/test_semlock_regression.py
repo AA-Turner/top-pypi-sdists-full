@@ -117,7 +117,6 @@ class TestSemLockRegression(unittest.TestCase):
             )
             processes.append(p)
             p.start()
-            time.sleep(0.05)
 
         # Wait for all processes
         for p in processes:

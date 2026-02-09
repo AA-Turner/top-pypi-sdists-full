@@ -3006,6 +3006,7 @@ class CreateJobRequestTypeDef(TypedDict):
     sourceJobId: NotRequired[str]
     nameOverride: NotRequired[str]
     descriptionOverride: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
 
 
 SearchGroupedFilterExpressionsTypeDef = TypedDict(

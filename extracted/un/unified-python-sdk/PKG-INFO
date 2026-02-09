@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Unified-python-sdk
-Version: 0.57.0
+Version: 0.57.1
 Summary: Python Client SDK for Unified.to
 License-File: LICENSE.md
 Author: Unified API Inc.
@@ -500,11 +500,17 @@ asyncio.run(main())
 ### [Campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/campaign/README.md)
 
 * [create_ads_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/campaign/README.md#create_ads_campaign) - Create a campaign
+* [create_martech_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/campaign/README.md#create_martech_campaign) - Create a campaign
 * [get_ads_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/campaign/README.md#get_ads_campaign) - Retrieve a campaign
+* [get_martech_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/campaign/README.md#get_martech_campaign) - Retrieve a campaign
 * [list_ads_campaigns](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/campaign/README.md#list_ads_campaigns) - List all campaigns
+* [list_martech_campaigns](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/campaign/README.md#list_martech_campaigns) - List all campaigns
 * [patch_ads_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/campaign/README.md#patch_ads_campaign) - Update a campaign
+* [patch_martech_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/campaign/README.md#patch_martech_campaign) - Update a campaign
 * [remove_ads_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/campaign/README.md#remove_ads_campaign) - Remove a campaign
+* [remove_martech_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/campaign/README.md#remove_martech_campaign) - Remove a campaign
 * [update_ads_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/campaign/README.md#update_ads_campaign) - Update a campaign
+* [update_martech_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/campaign/README.md#update_martech_campaign) - Update a campaign
 
 ### [Candidate](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/candidate/README.md)
 
@@ -1171,16 +1177,23 @@ asyncio.run(main())
 
 ### [Martech](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md)
 
+* [create_martech_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md#create_martech_campaign) - Create a campaign
 * [create_martech_list](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md#create_martech_list) - Create a list
 * [create_martech_member](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md#create_martech_member) - Create a member
+* [get_martech_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md#get_martech_campaign) - Retrieve a campaign
 * [get_martech_list](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md#get_martech_list) - Retrieve a list
 * [get_martech_member](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md#get_martech_member) - Retrieve a member
+* [list_martech_campaigns](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md#list_martech_campaigns) - List all campaigns
 * [list_martech_lists](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md#list_martech_lists) - List all lists
 * [list_martech_members](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md#list_martech_members) - List all members
+* [list_martech_reports](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md#list_martech_reports) - List all reports
+* [patch_martech_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md#patch_martech_campaign) - Update a campaign
 * [patch_martech_list](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md#patch_martech_list) - Update a list
 * [patch_martech_member](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md#patch_martech_member) - Update a member
+* [remove_martech_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md#remove_martech_campaign) - Remove a campaign
 * [remove_martech_list](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md#remove_martech_list) - Remove a list
 * [remove_martech_member](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md#remove_martech_member) - Remove a member
+* [update_martech_campaign](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md#update_martech_campaign) - Update a campaign
 * [update_martech_list](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md#update_martech_list) - Update a list
 * [update_martech_member](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/martech/README.md#update_martech_member) - Update a member
 
@@ -1431,6 +1444,7 @@ asyncio.run(main())
 * [get_accounting_report](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/report/README.md#get_accounting_report) - Retrieve a report
 * [list_accounting_reports](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/report/README.md#list_accounting_reports) - List all reports
 * [list_ads_reports](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/report/README.md#list_ads_reports) - List all reports
+* [list_martech_reports](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/report/README.md#list_martech_reports) - List all reports
 
 ### [Repository](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/repository/README.md)
 

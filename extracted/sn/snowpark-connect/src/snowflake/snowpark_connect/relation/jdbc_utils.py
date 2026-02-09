@@ -32,8 +32,8 @@ import jpype
 # Module interface version
 apilevel = "2.0"
 
-# Thread safety level: 2 = Threads may share the module and connections
-threadsafety = 2
+# Thread safety level: 1 = Threads may share the module, but not connections
+threadsafety = 1
 
 # Parameter marker style
 paramstyle = "qmark"
@@ -222,6 +222,48 @@ class NotSupportedError(DatabaseError):
 
 
 # =============================================================================
+# DB-API 2.0 Constructors
+# =============================================================================
+
+
+def Date(year: int, month: int, day: int) -> datetime.date:
+    """Construct a date value."""
+    return datetime.date(year, month, day)
+
+
+def Time(hour: int, minute: int, second: int) -> datetime.time:
+    """Construct a time value."""
+    return datetime.time(hour, minute, second)
+
+
+def Timestamp(
+    year: int, month: int, day: int, hour: int, minute: int, second: int
+) -> datetime.datetime:
+    """Construct a timestamp value."""
+    return datetime.datetime(year, month, day, hour, minute, second)
+
+
+def DateFromTicks(ticks: float) -> datetime.date:
+    """Construct a date value from a POSIX timestamp."""
+    return datetime.date.fromtimestamp(ticks)
+
+
+def TimeFromTicks(ticks: float) -> datetime.time:
+    """Construct a time value from a POSIX timestamp."""
+    return datetime.datetime.fromtimestamp(ticks).time()
+
+
+def TimestampFromTicks(ticks: float) -> datetime.datetime:
+    """Construct a timestamp value from a POSIX timestamp."""
+    return datetime.datetime.fromtimestamp(ticks)
+
+
+def Binary(data: bytes) -> bytes:
+    """Construct a binary value."""
+    return bytes(data)
+
+
+# =============================================================================
 # Internal State - JDBC Type Mappings
 # =============================================================================
 
@@ -247,6 +289,18 @@ class Connection:
     """
     DB-API 2.0 Connection object wrapping a JDBC Connection.
     """
+
+    # DB-API 2.0 exception attributes on Connection class
+    Error = Error
+    Warning = Warning
+    InterfaceError = InterfaceError
+    DatabaseError = DatabaseError
+    DataError = DataError
+    OperationalError = OperationalError
+    IntegrityError = IntegrityError
+    InternalError = InternalError
+    ProgrammingError = ProgrammingError
+    NotSupportedError = NotSupportedError
 
     def __init__(self, jdbc_connection) -> None:
         """
@@ -277,12 +331,19 @@ class Connection:
         self._timeout = value if value is not None else 0
 
     def close(self) -> None:
-        """Close the connection."""
-        if not self._closed and self._jdbc_conn is not None:
-            try:
+        """
+        Close the connection.
+
+        Raises Error if connection is already closed.
+        """
+        if self._closed:
+            raise Error("Connection is already closed")
+        try:
+            if self._jdbc_conn is not None:
                 self._jdbc_conn.close()
-            except Exception:
-                pass  # Ignore errors during close
+        except Exception:
+            pass  # Ignore errors during close
+        finally:
             self._closed = True
 
     def commit(self) -> None:
@@ -327,6 +388,11 @@ class Connection:
 class Cursor:
     """
     DB-API 2.0 Cursor object wrapping a JDBC Statement/ResultSet.
+
+    This implementation provides compatible attribute aliases:
+    - _prep: alias for the JDBC PreparedStatement/Statement
+    - _rs: alias for the JDBC ResultSet
+    - _meta: alias for the JDBC ResultSetMetaData
     """
 
     def __init__(self, connection: Connection) -> None:
@@ -339,12 +405,46 @@ class Cursor:
         self._connection = connection
         self._jdbc_stmt = None
         self._jdbc_rs = None
+        self._jdbc_meta = None  # Store ResultSetMetaData
         self._description = None
         self._rowcount = -1
         self._closed = False
         self._arraysize = 1
         self._column_converters = None
 
+    # -------------------------------------------------------------------------
+    # DB-API compatible attribute aliases
+    # -------------------------------------------------------------------------
+    @property
+    def _prep(self):
+        """Alias for the JDBC Statement/PreparedStatement."""
+        return self._jdbc_stmt
+
+    @_prep.setter
+    def _prep(self, value):
+        self._jdbc_stmt = value
+
+    @property
+    def _rs(self):
+        """Alias for the JDBC ResultSet."""
+        return self._jdbc_rs
+
+    @_rs.setter
+    def _rs(self, value):
+        self._jdbc_rs = value
+
+    @property
+    def _meta(self):
+        """Alias for the JDBC ResultSetMetaData."""
+        return self._jdbc_meta
+
+    @_meta.setter
+    def _meta(self, value):
+        self._jdbc_meta = value
+
+    # -------------------------------------------------------------------------
+    # DB-API 2.0 properties
+    # -------------------------------------------------------------------------
     @property
     def description(self) -> Optional[Tuple[Tuple, ...]]:
         """
@@ -373,8 +473,26 @@ class Cursor:
         if self._closed:
             return
         self._closed = True
-        self._close_resultset()
-        self._close_statement()
+        self._close_last()
+
+    def _close_last(self) -> None:
+        """
+        Close the current ResultSet and Statement.
+        """
+        if self._jdbc_rs is not None:
+            try:
+                self._jdbc_rs.close()
+            except Exception:
+                pass
+            self._jdbc_rs = None
+        if self._jdbc_stmt is not None:
+            try:
+                self._jdbc_stmt.close()
+            except Exception:
+                pass
+            self._jdbc_stmt = None
+        self._jdbc_meta = None
+        self._description = None
 
     def _close_resultset(self) -> None:
         """Close the current ResultSet if any."""
@@ -384,6 +502,7 @@ class Cursor:
             except Exception:
                 pass
             self._jdbc_rs = None
+            self._jdbc_meta = None
 
     def _close_statement(self) -> None:
         """Close the current Statement if any."""
@@ -445,6 +564,7 @@ class Cursor:
 
             if has_result:
                 self._jdbc_rs = self._jdbc_stmt.getResultSet()
+                self._jdbc_meta = self._jdbc_rs.getMetaData()
                 self._build_description()
             else:
                 self._rowcount = self._jdbc_stmt.getUpdateCount()
@@ -460,6 +580,8 @@ class Cursor:
         """
         Execute a database operation multiple times with different parameters.
 
+        Uses JDBC batch execution for better performance.
+
         Args:
             operation: SQL query or command to execute
             seq_of_parameters: Sequence of parameter sequences
@@ -468,8 +590,37 @@ class Cursor:
             self
         """
         self._check_closed()
-        for parameters in seq_of_parameters:
-            self.execute(operation, parameters)
+        self._close_resultset()
+        self._close_statement()
+        self._description = None
+        self._rowcount = -1
+        self._column_converters = None
+
+        if not seq_of_parameters:
+            return self
+
+        try:
+            jdbc_conn = self._connection._jdbc_conn
+
+            # Use PreparedStatement with batch execution
+            self._jdbc_stmt = jdbc_conn.prepareStatement(operation)
+
+            # Set timeout if specified
+            if self._connection.timeout > 0:
+                self._jdbc_stmt.setQueryTimeout(self._connection.timeout)
+
+            # Add each parameter set to the batch
+            for parameters in seq_of_parameters:
+                self._set_parameters(parameters)
+                self._jdbc_stmt.addBatch()
+
+            # Execute the batch and sum up affected rows
+            update_counts = self._jdbc_stmt.executeBatch()
+            self._rowcount = sum(int(count) for count in update_counts)
+
+        except Exception as e:
+            _handle_sql_exception_from(e)
+
         return self
 
     def fetchone(self) -> Optional[Tuple]:
@@ -499,6 +650,10 @@ class Cursor:
 
         Returns:
             A list of tuples
+
+        Note:
+            This method sets the fetch size hint on the ResultSet before fetching
+            rows and resets it to 0 afterwards.
         """
         self._check_closed()
         if self._jdbc_rs is None:
@@ -509,11 +664,17 @@ class Cursor:
 
         rows = []
         try:
+            # Set fetch size hint on ResultSet
+            self._jdbc_rs.setFetchSize(size)
+
             for _ in range(size):
                 if self._jdbc_rs.next():
                     rows.append(self._fetch_row())
                 else:
                     break
+
+            # Reset fetch size
+            self._jdbc_rs.setFetchSize(0)
         except Exception as e:
             _handle_sql_exception_from(e)
 
@@ -701,25 +862,11 @@ def _jdbc_connect(jclassname, url, driver_args, jars, libs):
     """Internal function to create a JDBC connection using JPype."""
     global _java_array_byte
 
-    # Start JVM if not already started
+    # JVM must already be started by SCOS
     if not jpype.isJVMStarted():
-        class_path = []
-        jvm_args = []
-
-        if jars:
-            class_path.extend(jars)
-        class_path.extend(_get_java_classpath())
-
-        if class_path:
-            jvm_args.append("-Djava.class.path=%s" % os.path.pathsep.join(class_path))
-
-        if libs:
-            libs_path = os.path.pathsep.join(libs)
-            jvm_args.append("-Djava.library.path=%s" % libs_path)
-
-        jvm_path = jpype.getDefaultJVMPath()
-        jpype.startJVM(
-            jvm_path, *jvm_args, ignoreUnrecognized=True, convertStrings=True
+        raise InterfaceError(
+            "JVM is not started. SCOS should have already started the JVM before "
+            "calling jdbc_utils. Please ensure the JVM is initialized first."
         )
 
     # Attach thread to JVM if not already attached

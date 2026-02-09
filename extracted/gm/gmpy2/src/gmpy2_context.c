@@ -6,7 +6,7 @@
  *                                                                         *
  * Copyright 2000 - 2009 Alex Martelli                                     *
  *                                                                         *
- * Copyright 2008 - 2024 Case Van Horsen                                   *
+ * Copyright 2008 - 2025 Case Van Horsen                                   *
  *                                                                         *
  * This file is part of GMPY2.                                             *
  *                                                                         *
@@ -83,18 +83,18 @@ GMPy_CTXT_New(void)
         result->token = NULL;
     }
     return (PyObject*)result;
-};
+}
 
 static void
 GMPy_CTXT_Dealloc(CTXT_Object *self)
 {
     PyObject_Free(self);
-};
+}
 
 /* Begin support for context vars. */
 
 PyDoc_STRVAR(GMPy_doc_get_context,
-"get_context() -> context\n\n"
+"get_context($module)\n--\n\n"
 "Return a reference to the current context.");
 
 static inline PyObject *
@@ -131,7 +131,7 @@ GMPy_CTXT_Get(PyObject *self, PyObject *args)
 }
 
 PyDoc_STRVAR(GMPy_doc_set_context,
-"set_context(context, /) -> None\n\n"
+"set_context($module, context, /)\n--\n\n"
 "Activate a context object controlling gmpy2 arithmetic.\n");
 
 /* Set the thread local context to a new context, decrement old reference */
@@ -156,7 +156,6 @@ GMPy_CTXT_Set(PyObject *self, PyObject *v)
     Py_RETURN_NONE;
 }
 
-#if 1
 static PyObject *
 GMPy_CTXT_Enter(PyObject *self, PyObject *args)
 {
@@ -193,13 +192,16 @@ GMPy_CTXT_Exit(PyObject *self, PyObject *args)
     }
     Py_RETURN_NONE;
 }
-#endif
 
 PyDoc_STRVAR(GMPy_doc_context_ieee,
-"ieee(size, /, subnormalize=True) -> context\n\n"
-"Return a new context corresponding to a standard IEEE floating point\n"
+"ieee($module, size, /, subnormalize=True)\n--\n\n"
+"Return a new context corresponding to a standard IEEE floating-point\n"
 "format. The supported sizes are 16, 32, 64, 128, and multiples of\n"
-"32 greater than 128.");
+"32 greater than 128.\n\n"
+"Note that `context.emax`/`context.emin` of the IEEE contexts have\n"
+"different meaning wrt the IEEE 754 standard: emax = e + 1 and\n"
+"emin = 4 - emax - precision, where e - maximum exponent\n"
+"in IEEE terms.");
 
 static PyObject *
 GMPy_CTXT_ieee(PyObject *self, PyObject *args, PyObject *kwargs)
@@ -369,7 +371,7 @@ GMPy_CTXT_Repr_Slot(CTXT_Object *self)
 }
 
 PyDoc_STRVAR(GMPy_doc_context_copy,
-"context.copy() -> context\n\n"
+"copy($self)\n--\n\n"
 "Return a copy of a context.");
 
 static PyObject *
@@ -538,7 +540,7 @@ PyDoc_STRVAR(GMPy_doc_local_context,
 "local_context(context, /, **kwargs) -> context\n\n"
 "Return a new context for controlling gmpy2 arithmetic, based either\n"
 "on the current context or on a ctx value.  Context options additionally\n"
-"can be overriden by keyword arguments.");
+"can be overridden by keyword arguments.");
 
 static PyObject *
 GMPy_CTXT_Local(PyObject *self, PyObject *args, PyObject *kwargs)
@@ -593,7 +595,7 @@ PyDoc_STRVAR(GMPy_doc_context,
 "context(ctx, /, **kwargs)\n\n"
 "Return a new context for controlling gmpy2 arithmetic, based either\n"
 "on the default context or on a given by ctx value.  Context options\n"
-"additionally can be overriden by keyword arguments.");
+"additionally can be overridden by keyword arguments.");
 
 static PyObject *
 GMPy_CTXT_Context(PyTypeObject *type, PyObject *args, PyObject *kwargs)
@@ -632,7 +634,7 @@ GMPy_CTXT_Context(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 }
 
 PyDoc_STRVAR(GMPy_doc_context_clear_flags,
-"clear_flags() -> None\n\n"
+"clear_flags($self)\n--\n\n"
 "Clear all MPFR exception flags.");
 
 static PyObject *
@@ -654,7 +656,7 @@ static PyObject * \
 GMPy_CTXT_Get_##NAME(CTXT_Object *self, void *closure) \
 { \
     return PyBool_FromLong(self->ctx.NAME); \
-}; \
+} \
 static int \
 GMPy_CTXT_Set_##NAME(CTXT_Object *self, PyObject *value, void *closure) \
 { \
@@ -675,7 +677,7 @@ static PyObject * \
 GMPy_CTXT_Get_##NAME(CTXT_Object *self, void *closure) \
 { \
     return PyBool_FromLong(self->ctx.traps & TRAP); \
-}; \
+} \
 static int \
 GMPy_CTXT_Set_##NAME(CTXT_Object *self, PyObject *value, void *closure) \
 { \
@@ -690,28 +692,28 @@ GMPy_CTXT_Set_##NAME(CTXT_Object *self, PyObject *value, void *closure) \
     return 0; \
 }
 
-GETSET_BOOLEAN(subnormalize);
-GETSET_BOOLEAN(underflow);
-GETSET_BOOLEAN(overflow);
-GETSET_BOOLEAN(inexact);
-GETSET_BOOLEAN(invalid);
-GETSET_BOOLEAN(erange);
-GETSET_BOOLEAN(divzero);
-GETSET_BOOLEAN_BIT(trap_underflow, TRAP_UNDERFLOW);
-GETSET_BOOLEAN_BIT(trap_overflow, TRAP_OVERFLOW);
-GETSET_BOOLEAN_BIT(trap_inexact, TRAP_INEXACT);
-GETSET_BOOLEAN_BIT(trap_invalid, TRAP_INVALID);
-GETSET_BOOLEAN_BIT(trap_erange, TRAP_ERANGE);
-GETSET_BOOLEAN_BIT(trap_divzero, TRAP_DIVZERO);
+GETSET_BOOLEAN(subnormalize)
+GETSET_BOOLEAN(underflow)
+GETSET_BOOLEAN(overflow)
+GETSET_BOOLEAN(inexact)
+GETSET_BOOLEAN(invalid)
+GETSET_BOOLEAN(erange)
+GETSET_BOOLEAN(divzero)
+GETSET_BOOLEAN_BIT(trap_underflow, TRAP_UNDERFLOW)
+GETSET_BOOLEAN_BIT(trap_overflow, TRAP_OVERFLOW)
+GETSET_BOOLEAN_BIT(trap_inexact, TRAP_INEXACT)
+GETSET_BOOLEAN_BIT(trap_invalid, TRAP_INVALID)
+GETSET_BOOLEAN_BIT(trap_erange, TRAP_ERANGE)
+GETSET_BOOLEAN_BIT(trap_divzero, TRAP_DIVZERO)
 GETSET_BOOLEAN(allow_complex)
 GETSET_BOOLEAN(rational_division)
 GETSET_BOOLEAN(allow_release_gil)
 
 PyDoc_STRVAR(GMPy_doc_CTXT_subnormalize,
-"The usual IEEE-754 floating point representation supports gradual\n"
+"The usual IEEE-754 floating-point representation supports gradual\n"
 "underflow when the minimum exponent is reached.  The MFPR library\n"
 "does not enable gradual underflow by default but it can be enabled\n"
-"to precisely mimic the results of IEEE-754 floating point operations.");
+"to precisely mimic the results of IEEE-754 floating-point operations.");
 
 PyDoc_STRVAR(GMPy_doc_CTXT_trap_underflow,
 "If set to `False`, a result that is smaller than the smallest possible\n"
@@ -1006,7 +1008,8 @@ GMPy_CTXT_Set_imag_round(CTXT_Object *self, PyObject *value, void *closure)
 
 PyDoc_STRVAR(GMPy_doc_CTXT_emin,
 "This attribute controls the minimum allowed exponent of an `mpfr`\n"
-"result.  The minimum exponent is platform dependent and can be\n"
+"result, the smallest positive value of a floating-point variable is\n"
+"0.5*2**emin.  The minimum exponent is platform dependent and can be\n"
 "retrieved with `get_emin_min()`.");
 
 static PyObject *
@@ -1039,7 +1042,9 @@ GMPy_CTXT_Set_emin(CTXT_Object *self, PyObject *value, void *closure)
 
 PyDoc_STRVAR(GMPy_doc_CTXT_emax,
 "This attribute controls the maximum allowed exponent of an `mpfr`\n"
-"result.  The maximum exponent is platform dependent and can be\n"
+"result, the largest positive value of floating-point variable is\n"
+"(1 - ε)*2**emax, where ε depends on precision of the variable.\n"
+"The maximum exponent is platform dependent and can be\n"
 "retrieved with `get_emax_max()`.");
 
 static PyObject *
@@ -1220,10 +1225,6 @@ static PyMethodDef GMPyContext_methods[] =
     { "tan", GMPy_Context_Tan, METH_O, GMPy_doc_context_tan },
     { "tanh", GMPy_Context_Tanh, METH_O, GMPy_doc_context_tanh },
     { "trunc", GMPy_Context_Trunc, METH_O, GMPy_doc_context_trunc },
-#ifdef VECTOR
-    { "vector", GMPy_Context_Vector, METH_O, GMPy_doc_context_vector },
-    { "vector2", GMPy_Context_Vector2, METH_VARARGS, GMPy_doc_context_vector2 },
-#endif
     { "yn", GMPy_Context_Yn, METH_VARARGS, GMPy_doc_context_yn },
     { "y0", GMPy_Context_Y0, METH_O, GMPy_doc_context_y0 },
     { "y1", GMPy_Context_Y1, METH_O, GMPy_doc_context_y1 },

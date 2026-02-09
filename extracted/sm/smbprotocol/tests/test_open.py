@@ -42,6 +42,7 @@ from smbprotocol.open import (
     FilePipePrinterAccessMask,
     ImpersonationLevel,
     InfoType,
+    LockFlags,
     Open,
     ReadWriteChannel,
     RequestedOplockLevel,
@@ -52,6 +53,9 @@ from smbprotocol.open import (
     SMB2CreateResponse,
     SMB2FlushRequest,
     SMB2FlushResponse,
+    SMB2LockElement,
+    SMB2LockRequest,
+    SMB2LockResponse,
     SMB2QueryDirectoryRequest,
     SMB2QueryDirectoryResponse,
     SMB2QueryInfoRequest,
@@ -102,7 +106,7 @@ class TestSMB2CreateRequest:
             b"\x20\x00\x00\x00"
             b"\x5c\x00\x5c\x00\x73\x00\x65\x00"
             b"\x72\x00\x76\x00\x65\x00\x72\x00"
-            b"\x5C\x00\x73\x00\x68\x00\x61\x00"
+            b"\x5c\x00\x73\x00\x68\x00\x61\x00"
             b"\x72\x00\x65\x00"
             b"\x00\x00\x00\x00"
             b"\x00\x00\x00\x00"
@@ -146,7 +150,7 @@ class TestSMB2CreateRequest:
             b"\x00\x00\x00\x00"
             b"\x5c\x00\x5c\x00\x73\x00\x65\x00"
             b"\x72\x00\x76\x00\x65\x00\x72\x00"
-            b"\x5C\x00\x73\x00\x68\x00\x61\x00"
+            b"\x5c\x00\x73\x00\x68\x00\x61\x00"
             b"\x72\x00\x65\x00"
         )
         actual = message.pack()
@@ -173,7 +177,7 @@ class TestSMB2CreateRequest:
             b"\x20\x00\x00\x00"
             b"\x5c\x00\x5c\x00\x73\x00\x65\x00"
             b"\x72\x00\x76\x00\x65\x00\x72\x00"
-            b"\x5C\x00\x73\x00\x68\x00\x61\x00"
+            b"\x5c\x00\x73\x00\x68\x00\x61\x00"
             b"\x72\x00\x65\x00"
             b"\x00\x00\x00\x00"
             b"\x00\x00\x00\x00"
@@ -241,7 +245,7 @@ class TestSMB2CreateRequest:
             b"\x00\x00\x00\x00"
             b"\x5c\x00\x5c\x00\x73\x00\x65\x00"
             b"\x72\x00\x76\x00\x65\x00\x72\x00"
-            b"\x5C\x00\x73\x00\x68\x00\x61\x00"
+            b"\x5c\x00\x73\x00\x68\x00\x61\x00"
             b"\x72\x00\x65\x00"
         )
         data = actual.unpack(data)
@@ -499,10 +503,10 @@ class TestSMB2CloseResponse:
             b"\x3c\x00"
             b"\x00\x00"
             b"\x00\x00\x00\x00"
-            b"\x00\x80\x3E\xD5\xDE\xB1\x9D\x01"
-            b"\x00\x80\x3E\xD5\xDE\xB1\x9D\x01"
-            b"\x00\x80\x3E\xD5\xDE\xB1\x9D\x01"
-            b"\x00\x80\x3E\xD5\xDE\xB1\x9D\x01"
+            b"\x00\x80\x3e\xd5\xde\xb1\x9d\x01"
+            b"\x00\x80\x3e\xd5\xde\xb1\x9d\x01"
+            b"\x00\x80\x3e\xd5\xde\xb1\x9d\x01"
+            b"\x00\x80\x3e\xd5\xde\xb1\x9d\x01"
             b"\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00"
@@ -517,10 +521,10 @@ class TestSMB2CloseResponse:
             b"\x3c\x00"
             b"\x00\x00"
             b"\x00\x00\x00\x00"
-            b"\x00\x80\x3E\xD5\xDE\xB1\x9D\x01"
-            b"\x00\x80\x3E\xD5\xDE\xB1\x9D\x01"
-            b"\x00\x80\x3E\xD5\xDE\xB1\x9D\x01"
-            b"\x00\x80\x3E\xD5\xDE\xB1\x9D\x01"
+            b"\x00\x80\x3e\xd5\xde\xb1\x9d\x01"
+            b"\x00\x80\x3e\xd5\xde\xb1\x9d\x01"
+            b"\x00\x80\x3e\xd5\xde\xb1\x9d\x01"
+            b"\x00\x80\x3e\xd5\xde\xb1\x9d\x01"
             b"\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00"
@@ -888,20 +892,20 @@ class TestSMB2QueryDirectoryRequest:
     def test_create_message(self):
         message = SMB2QueryDirectoryRequest()
         message["file_information_class"] = FileInformationClass.FILE_NAMES_INFORMATION
-        message["file_id"] = b"\xB6\x73\xE4\x65\x00\x00\x00\x00" b"\x68\xBD\xA1\xCE\x00\x00\x00\x00"
+        message["file_id"] = b"\xb6\x73\xe4\x65\x00\x00\x00\x00" b"\x68\xbd\xa1\xce\x00\x00\x00\x00"
         message["output_buffer_length"] = 65536
         message["buffer"] = "*".encode("utf-16-le")
         expected = (
             b"\x21\x00"
-            b"\x0C"
+            b"\x0c"
             b"\x00"
             b"\x00\x00\x00\x00"
-            b"\xB6\x73\xE4\x65\x00\x00\x00\x00"
-            b"\x68\xBD\xA1\xCE\x00\x00\x00\x00"
+            b"\xb6\x73\xe4\x65\x00\x00\x00\x00"
+            b"\x68\xbd\xa1\xce\x00\x00\x00\x00"
             b"\x60\x00"
             b"\x02\x00"
             b"\x00\x00\x01\x00"
-            b"\x2A\x00"
+            b"\x2a\x00"
         )
         actual = message.pack()
         assert len(message) == 34
@@ -911,15 +915,15 @@ class TestSMB2QueryDirectoryRequest:
         actual = SMB2QueryDirectoryRequest()
         data = (
             b"\x21\x00"
-            b"\x0C"
+            b"\x0c"
             b"\x00"
             b"\x00\x00\x00\x00"
-            b"\xB6\x73\xE4\x65\x00\x00\x00\x00"
-            b"\x68\xBD\xA1\xCE\x00\x00\x00\x00"
+            b"\xb6\x73\xe4\x65\x00\x00\x00\x00"
+            b"\x68\xbd\xa1\xce\x00\x00\x00\x00"
             b"\x60\x00"
             b"\x02\x00"
             b"\x00\x00\x01\x00"
-            b"\x2A\x00"
+            b"\x2a\x00"
         )
         data = actual.unpack(data)
         assert len(actual) == 34
@@ -928,7 +932,7 @@ class TestSMB2QueryDirectoryRequest:
         assert actual["file_information_class"].get_value() == FileInformationClass.FILE_NAMES_INFORMATION
         assert actual["flags"].get_value() == 0
         assert actual["file_index"].get_value() == 0
-        assert actual["file_id"].get_value() == b"\xB6\x73\xE4\x65\x00\x00\x00\x00" b"\x68\xBD\xA1\xCE\x00\x00\x00\x00"
+        assert actual["file_id"].get_value() == b"\xb6\x73\xe4\x65\x00\x00\x00\x00" b"\x68\xbd\xa1\xce\x00\x00\x00\x00"
         assert actual["file_name_offset"].get_value() == 96
         assert actual["file_name_length"].get_value() == 2
         assert actual["output_buffer_length"].get_value() == 65536
@@ -938,13 +942,13 @@ class TestSMB2QueryDirectoryRequest:
 class TestSMB2QueryDirectoryResponse:
     def test_create_message(self):
         message = SMB2QueryDirectoryResponse()
-        message["buffer"] = b"\x10\x00\x00\x00\x00\x00\x00\x00" b"\x02\x00\x00\x00\x2E\x00\x00\x00"
+        message["buffer"] = b"\x10\x00\x00\x00\x00\x00\x00\x00" b"\x02\x00\x00\x00\x2e\x00\x00\x00"
         expected = (
             b"\x09\x00"
             b"\x48\x00"
             b"\x10\x00\x00\x00"
             b"\x10\x00\x00\x00\x00\x00\x00\x00"
-            b"\x02\x00\x00\x00\x2E\x00\x00\x00"
+            b"\x02\x00\x00\x00\x2e\x00\x00\x00"
         )
         actual = message.pack()
         assert len(message) == 24
@@ -957,7 +961,7 @@ class TestSMB2QueryDirectoryResponse:
             b"\x48\x00"
             b"\x10\x00\x00\x00"
             b"\x10\x00\x00\x00\x00\x00\x00\x00"
-            b"\x02\x00\x00\x00\x2E\x00\x00\x00"
+            b"\x02\x00\x00\x00\x2e\x00\x00\x00"
         )
         data = actual.unpack(data)
         assert len(actual) == 24
@@ -965,7 +969,7 @@ class TestSMB2QueryDirectoryResponse:
         assert actual["structure_size"].get_value() == 9
         assert actual["output_buffer_offset"].get_value() == 72
         assert actual["output_buffer_length"].get_value() == 16
-        assert actual["buffer"].get_value() == b"\x10\x00\x00\x00\x00\x00\x00\x00" b"\x02\x00\x00\x00\x2E\x00\x00\x00"
+        assert actual["buffer"].get_value() == b"\x10\x00\x00\x00\x00\x00\x00\x00" b"\x02\x00\x00\x00\x2e\x00\x00\x00"
 
 
 class TestSMB2QueryInfoRequest:
@@ -1159,6 +1163,78 @@ class TestSMB2SetInfoResponse:
         assert data == b""
 
         assert actual["structure_size"].get_value() == 2
+
+
+class TestSMB2LockRequest:
+    def test_create_message(self):
+        lock = SMB2LockElement()
+        lock["offset"] = b"\x11" * 8
+        lock["length"] = -1
+        lock["flags"] = LockFlags.SMB2_LOCKFLAG_EXCLUSIVE_LOCK
+
+        message = SMB2LockRequest()
+        message["file_id"] = b"\xff" * 16
+        message["locks"] = [lock]
+        expected = (
+            b"\x30\x00"
+            b"\x01\x00"
+            b"\x00\x00\x00\x00"
+            b"\xff\xff\xff\xff\xff\xff\xff\xff"
+            b"\xff\xff\xff\xff\xff\xff\xff\xff"
+            b"\x11\x11\x11\x11\x11\x11\x11\x11"
+            b"\xff\xff\xff\xff\xff\xff\xff\xff"
+            b"\x02\x00\x00\x00"
+            b"\x00\x00\x00\x00"
+        )
+        actual = message.pack()
+        assert len(message) == 48
+        assert actual == expected
+
+    def test_parse_message(self):
+        actual = SMB2LockRequest()
+        data = (
+            b"\x30\x00"
+            b"\x01\x00"
+            b"\x00\x00\x00\x00"
+            b"\xff\xff\xff\xff\xff\xff\xff\xff"
+            b"\xff\xff\xff\xff\xff\xff\xff\xff"
+            b"\x11\x11\x11\x11\x11\x11\x11\x11"
+            b"\xff\xff\xff\xff\xff\xff\xff\xff"
+            b"\x02\x00\x00\x00"
+            b"\x00\x00\x00\x00"
+        )
+        actual.unpack(data)
+        assert len(actual) == 48
+        assert actual["structure_size"].get_value() == 48
+        assert actual["lock_count"].get_value() == 1
+        assert actual["lock_sequence"].get_value() == 0
+        assert actual["file_id"].pack() == b"\xff" * 16
+
+        locks = actual["locks"].get_value()
+        assert isinstance(locks, list)
+        assert len(locks) == 1
+
+        assert locks[0]["offset"].pack() == b"\x11" * 8
+        assert locks[0]["length"].get_value() == -1
+        assert locks[0]["flags"].get_value() == LockFlags.SMB2_LOCKFLAG_EXCLUSIVE_LOCK
+        assert locks[0]["reserved"].get_value() == 0
+
+
+class TestSMB2LockResponse:
+    def test_create_message(self):
+        message = SMB2LockResponse()
+        expected = b"\x04\x00" b"\x00\x00"
+        actual = message.pack()
+        assert len(message) == 4
+        assert actual == expected
+
+    def test_parse_message(self):
+        actual = SMB2LockResponse()
+        data = b"\x04\x00" b"\x00\x00"
+        actual.unpack(data)
+        assert len(actual) == 4
+        assert actual["structure_size"].get_value() == 4
+        assert actual["reserved"].get_value() == 0
 
 
 class TestOpen:
@@ -2398,5 +2474,63 @@ class TestOpen:
             # Make the file smaller
             truncate(open, 3)
             assert read_and_eof(open) == (b"\x01\x02\x03", 3)
+        finally:
+            connection.disconnect(True)
+
+    def test_lock_file(self, smb_real):
+        connection = Connection(uuid.uuid4(), smb_real[2], smb_real[3])
+        connection.connect()
+        session = Session(connection, smb_real[0], smb_real[1])
+        tree = TreeConnect(session, smb_real[4])
+        open = Open(tree, "lock-file.txt")
+
+        try:
+            session.connect()
+            tree.connect()
+
+            open.create(
+                ImpersonationLevel.Impersonation,
+                FilePipePrinterAccessMask.MAXIMUM_ALLOWED,
+                FileAttributes.FILE_ATTRIBUTE_NORMAL,
+                0,
+                CreateDisposition.FILE_OVERWRITE_IF,
+                CreateOptions.FILE_NON_DIRECTORY_FILE,
+            )
+
+            def do_lock(open, locks, send=True):
+                if send:
+                    response = open.lock(locks, send=True)
+                else:
+                    req, resp = open.lock(locks, send=False)
+                    request = open.connection.send(
+                        req, open.tree_connect.session.session_id, open.tree_connect.tree_connect_id
+                    )
+                    response = resp(request)
+                assert isinstance(response, SMB2LockResponse)
+
+            def lock(open, offset, length, send=True):
+                lockelem = SMB2LockElement()
+                lockelem["offset"] = offset
+                lockelem["length"] = length
+                lockelem["flags"] = LockFlags.SMB2_LOCKFLAG_EXCLUSIVE_LOCK
+
+                return do_lock(open, [lockelem], send=send)
+
+            def unlock(open, offset, length, send=True):
+                lockelem = SMB2LockElement()
+                lockelem["offset"] = offset
+                lockelem["length"] = length
+                lockelem["flags"] = LockFlags.SMB2_LOCKFLAG_UNLOCK
+
+                return do_lock(open, [lockelem], send=send)
+
+            # Lock and unlock the entire file
+            lock(open, 0, -1)
+            unlock(open, 0, -1)
+
+            # Lock and unlock the entire file deferring send
+            lock(open, 0, -1, False)
+            unlock(open, 0, -1, False)
+
         finally:
             connection.disconnect(True)

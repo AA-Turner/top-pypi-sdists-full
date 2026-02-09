@@ -17,7 +17,7 @@ from tests.unit.test_core.testmethods import (
     combinations_of_test_methods,
     get_test_method_class,
 )
-from wakepy.core import Method, MethodActivationResult, PlatformType
+from wakepy.core import Method, PlatformType
 from wakepy.core.constants import IdentifiedPlatformType, StageName, StageNameValue
 from wakepy.core.heartbeat import Heartbeat
 from wakepy.core.method import (
@@ -46,7 +46,7 @@ class TestActivateMethod:
         ):
             activate_method(method)
 
-    @patch("wakepy.core.method.CURRENT_PLATFORM", IdentifiedPlatformType.WINDOWS)
+    @pytest.mark.usefixtures("set_current_platform_to_windows")
     def test_method_without_platform_support(self):
         UnsupportedMethod = get_test_method_class(
             supported_platforms=(PlatformType.LINUX,),
@@ -60,6 +60,10 @@ class TestActivateMethod:
         assert res.failure_stage == StageName.PLATFORM_SUPPORT
         assert res.success is False
         assert heartbeat is None
+        assert (
+            res.failure_reason
+            == "Current platform (WINDOWS) is not in supported platforms: LINUX"
+        )
 
     def test_with_unknown_platform_support_any(self):
         SupportedMethod = get_test_method_class(
@@ -70,7 +74,7 @@ class TestActivateMethod:
         res, _ = activate_method(unsupported_method)
         assert res.success is True
 
-    @patch("wakepy.core.method.CURRENT_PLATFORM", IdentifiedPlatformType.UNKNOWN)
+    @pytest.mark.usefixtures("set_current_platform_to_unknown")
     def test_with_unknown_platform_support_just_linux(self):
         # This is otherwise supported method, so it works also on the UNKNOWN
         # system. Only the platform support check should return None ("I don't
@@ -130,7 +134,7 @@ class TestActivateMethod:
         assert res.failure_stage is None
         assert res.failure_reason == ""
         # We get a Heartbeat instance on success, as the used Method does has a
-        # heartbeat()
+        # heartbeat() # noqa: ERA001
         assert isinstance(heartbeat, Heartbeat)
 
 
@@ -143,7 +147,7 @@ class TestTryEnterAndHeartbeat:
 
     M: Missing implementation
     F: Failed attempt (with or without message)
-    S: Succesful attempt
+    S: Successful attempt
 
     Methods   Expected result
     -------   ---------------------------------------------------------
@@ -315,7 +319,7 @@ class TestTryEnterAndHeartbeat:
 
     def test_enter_mode_returns_bad_balue(self):
         # Case: returning bad value (None return value accepted)
-        method = get_test_method_class(**{"enter_mode": 132})()
+        method = get_test_method_class(enter_mode=132)()
         success, err_message, heartbeat_call_time = try_enter_and_heartbeat(method)
 
         assert success is False
@@ -324,7 +328,7 @@ class TestTryEnterAndHeartbeat:
 
     def test_heartbeat_returns_bad_balue(self):
         # Case: returning bad value (None return value accepted)
-        method = get_test_method_class(**{"heartbeat": 132})()
+        method = get_test_method_class(heartbeat=132)()
         success, err_message, heartbeat_call_time = try_enter_and_heartbeat(method)
 
         assert success is False
@@ -377,72 +381,7 @@ class TestCanIUseFails:
         assert caniuse_fails(method) == (True, str(err))
 
 
-@pytest.mark.parametrize(
-    "success, failure_stage, method_name, mode_name, message, expected_string_representation",  # noqa: E501
-    [
-        (
-            False,
-            StageName.PLATFORM_SUPPORT,
-            "fail-platform",
-            "some-mode",
-            "Platform XYZ not supported!",
-            '(FAIL @PLATFORM_SUPPORT, fail-platform, "Platform XYZ not supported!")',
-        ),
-        (
-            False,
-            StageName.REQUIREMENTS,
-            "other-fail-method",
-            "some-mode",
-            "Need SW X version >= 8.9!",
-            '(FAIL @REQUIREMENTS, other-fail-method, "Need SW X version >= 8.9!")',
-        ),
-        (
-            True,
-            None,
-            "successfulMethod",
-            "some-mode",
-            "",
-            # Succesful methods do not print empty message
-            "(SUCCESS, successfulMethod)",
-        ),
-        (
-            None,
-            None,
-            "SomeMethod",
-            "some-mode",
-            "",
-            # Unused methods do not print empty message
-            "(UNUSED, SomeMethod)",
-        ),
-    ],
-)
-def test_method_activation_result(
-    success,
-    failure_stage,
-    method_name,
-    mode_name,
-    message,
-    expected_string_representation,
-):
-    mur = MethodActivationResult(
-        success=success,
-        mode_name=mode_name,
-        failure_stage=failure_stage,
-        method_name=method_name,
-        failure_reason=message,
-    )
-    # These attributes are available
-    assert mur.method_name == method_name
-    assert mur.mode_name == mode_name
-    assert mur.success == success
-    assert mur.failure_stage == failure_stage
-    assert mur.failure_reason == message
-
-    assert str(mur) == expected_string_representation
-
-
 class TestDeactivateMethod:
-
     def test_success_no_heartbeat(self):
         method = get_test_method_class(enter_mode=None, exit_mode=None)()
         deactivate_method(method)
@@ -484,7 +423,6 @@ class TestDeactivateMethod:
             deactivate_method(method)
 
     def test_fail_deactivation_heartbeat_not_stopping(self, heartbeat2_bad):
-
         method = get_test_method_class(enter_mode=None, exit_mode=None)()
         with pytest.raises(
             RuntimeError,
@@ -501,4 +439,5 @@ def test_stagename(assert_strenum_values):
     assert StageName.PLATFORM_SUPPORT == "PLATFORM_SUPPORT"
     assert StageName.ACTIVATION == "ACTIVATION"
     assert StageName.REQUIREMENTS == "REQUIREMENTS"
+    assert StageName.WAKEPY_FORCE_FAILURE == "WAKEPY_FORCE_FAILURE"
     assert_strenum_values(StageName, StageNameValue)

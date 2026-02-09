@@ -14,22 +14,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS Library event helper module."""
-from eiffellib.events import EiffelActivityTriggeredEvent
-from eiffellib.events import EiffelActivityStartedEvent
-from eiffellib.events import EiffelActivityFinishedEvent
-from eiffellib.events import EiffelActivityCanceledEvent
-from eiffellib.events import EiffelAnnouncementPublishedEvent
-from eiffellib.events import EiffelConfidenceLevelModifiedEvent
-from eiffellib.events import EiffelEnvironmentDefinedEvent
-from eiffellib.events import EiffelTestSuiteStartedEvent
-from eiffellib.events import EiffelTestSuiteFinishedEvent
-from eiffellib.events import EiffelTestExecutionRecipeCollectionCreatedEvent
-from eiffellib.events import EiffelTestCaseTriggeredEvent
-from eiffellib.events import EiffelTestCaseStartedEvent
-from eiffellib.events import EiffelTestCaseFinishedEvent
-from eiffellib.events import EiffelArtifactCreatedEvent
-from eiffellib.events import EiffelArtifactPublishedEvent
-from eiffellib.events import EiffelCompositionDefinedEvent
+
+from eiffellib.events import (
+    EiffelActivityCanceledEvent,
+    EiffelActivityFinishedEvent,
+    EiffelActivityStartedEvent,
+    EiffelActivityTriggeredEvent,
+    EiffelAnnouncementPublishedEvent,
+    EiffelArtifactCreatedEvent,
+    EiffelArtifactPublishedEvent,
+    EiffelCompositionDefinedEvent,
+    EiffelConfidenceLevelModifiedEvent,
+    EiffelEnvironmentDefinedEvent,
+    EiffelTestCaseFinishedEvent,
+    EiffelTestCaseStartedEvent,
+    EiffelTestCaseTriggeredEvent,
+    EiffelTestExecutionRecipeCollectionCreatedEvent,
+    EiffelTestSuiteFinishedEvent,
+    EiffelTestSuiteStartedEvent,
+)
+from opentelemetry import context
+
 from .debug import Debug
 
 
@@ -45,7 +50,7 @@ class Events:
         """Delete reference to eiffel publisher."""
         self.publisher = None
 
-    def send(self, event, links, data):
+    def send(self, event, links, data, ctx: context.Context | None = None):
         """Build an event and send it with an eiffel publisher.
 
         :param event: Initialized event to send.
@@ -54,6 +59,8 @@ class Events:
         :type links: dict
         :param data: Dictionary of data to add to event.
         :type data: dict
+        :param ctx: Custom opentelemetry context to use for tracing.
+        :type ctx: :obj:`opentelemetry.context.Context` or None
         :return: The event that was created with data and links added.
         :rtype: :obj:`eiffel.events.base_event.BaseEvent`
         """
@@ -69,10 +76,12 @@ class Events:
         self.debug.events_published.append(event)
         event.tag = self.debug.routing_key_tag
         if not self.debug.disable_sending_events:
-            self.publisher.send_event(event)
+            self.publisher.send_event(event, context=ctx)
         return event
 
-    def send_activity_triggered(self, name, links=None, **optional):
+    def send_activity_triggered(
+        self, name, links=None, ctx: context.Context | None = None, **optional
+    ):
         """Send activity triggered event.
 
         https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelActivityTriggeredEvent.md
@@ -81,6 +90,8 @@ class Events:
         :type name: str
         :param links: Optional links to add to event.
         :type links: dict
+        :param ctx: Custom opentelemetry context to use for tracing.
+        :type ctx: :obj:`opentelemetry.context.Context` or None
         :param optional: Dictionary of optional data to add.
         :type optional: dict
         :return: The event that was created with data and links added.
@@ -89,9 +100,11 @@ class Events:
         links = links if links is not None else {}
         data = {"name": name}
         data.update(**optional)
-        return self.send(EiffelActivityTriggeredEvent(), links, data)
+        return self.send(EiffelActivityTriggeredEvent(), links, data, ctx)
 
-    def send_activity_canceled(self, triggered, links=None, **optional):
+    def send_activity_canceled(
+        self, triggered, links=None, ctx: context.Context | None = None, **optional
+    ):
         """Send activity canceled event.
 
         https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelActivityCanceledEvent.md
@@ -100,15 +113,19 @@ class Events:
         :type triggered: str
         :param links: Optional links to add to event.
         :type links: dict
+        :param ctx: Custom opentelemetry context to use for tracing.
+        :type ctx: :obj:`opentelemetry.context.Context` or None
         :param optional: Dictionary of optional data to add.
         :type optional: dict
         """
         links = links if links is not None else {}
         links.update({"ACTIVITY_EXECUTION": triggered})
         data = optional
-        return self.send(EiffelActivityCanceledEvent(), links, data)
+        return self.send(EiffelActivityCanceledEvent(), links, data, ctx)
 
-    def send_activity_started(self, triggered, links=None, **optional):
+    def send_activity_started(
+        self, triggered, links=None, ctx: context.Context | None = None, **optional
+    ):
         """Send activity started event.
 
         https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelActivityStartedEvent.md
@@ -117,15 +134,24 @@ class Events:
         :type triggered: str
         :param links: Optional links to add to event.
         :type links: dict
+        :param ctx: Custom opentelemetry context to use for tracing.
+        :type ctx: :obj:`opentelemetry.context.Context` or None
         :param optional: Dictionary of optional data to add.
         :type optional: dict
         """
         links = links if links is not None else {}
         links.update({"ACTIVITY_EXECUTION": triggered})
         data = optional
-        return self.send(EiffelActivityStartedEvent(), links, data)
+        return self.send(EiffelActivityStartedEvent(), links, data, ctx)
 
-    def send_activity_finished(self, triggered, outcome, links=None, **optional):
+    def send_activity_finished(
+        self,
+        triggered,
+        outcome,
+        links=None,
+        ctx: context.Context | None = None,
+        **optional,
+    ):
         """Send activity finished event.
 
         https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelActivityFinishedEvent.md
@@ -136,6 +162,8 @@ class Events:
         :type outcome: dict
         :param links: Optional links to add to event.
         :type links: dict
+        :param ctx: Custom opentelemetry context to use for tracing.
+        :type ctx: :obj:`opentelemetry.context.Context` or None
         :param optional: Dictionary of optional data to add.
         :type optional: dict
         """
@@ -143,9 +171,11 @@ class Events:
         links.update({"ACTIVITY_EXECUTION": triggered})
         data = {"outcome": outcome}
         data.update(**optional)
-        return self.send(EiffelActivityFinishedEvent(), links, data)
+        return self.send(EiffelActivityFinishedEvent(), links, data, ctx)
 
-    def send_environment_defined(self, name, links=None, **optional):
+    def send_environment_defined(
+        self, name, links=None, ctx: context.Context | None = None, **optional
+    ):
         """Send environment defined event.
 
         https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelEnvironmentDefinedEvent.md
@@ -154,6 +184,8 @@ class Events:
         :type name: str
         :param links: Optional links to add to event.
         :type links: dict
+        :param ctx: Custom opentelemetry context to use for tracing.
+        :type ctx: :obj:`opentelemetry.context.Context` or None
         :param optional: Dictionary of optional data to add.
         :type optional: dict
         """
@@ -166,9 +198,11 @@ class Events:
         links = links if links is not None else {}
         data = {"name": name}
         data.update(**optional)
-        return self.send(EiffelEnvironmentDefinedEvent(), links, data)
+        return self.send(EiffelEnvironmentDefinedEvent(), links, data, ctx)
 
-    def send_test_suite_started(self, name, links=None, **optional):
+    def send_test_suite_started(
+        self, name, links=None, ctx: context.Context | None = None, **optional
+    ):
         """Publish a test suite started event.
 
         https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelTestSuiteStartedEvent.md
@@ -177,15 +211,19 @@ class Events:
         :type name: str
         :param links: Optional links to add to event.
         :type links: dict
+        :param ctx: Custom opentelemetry context to use for tracing.
+        :type ctx: :obj:`opentelemetry.context.Context` or None
         :param optional: Dictionary of optional data to add.
         :type optional: dict
         """
         links = links if links is not None else {}
         data = {"name": name}
         data.update(**optional)
-        return self.send(EiffelTestSuiteStartedEvent(), links, data)
+        return self.send(EiffelTestSuiteStartedEvent(), links, data, ctx)
 
-    def send_test_suite_finished(self, test_suite, links=None, **optional):
+    def send_test_suite_finished(
+        self, test_suite, links=None, ctx: context.Context | None = None, **optional
+    ):
         """Publish a test suite finished event.
 
         https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelTestSuiteFinishedEvent.md
@@ -194,15 +232,26 @@ class Events:
         :type test_suite: :obj:`eiffel.events.base_event.BaseEvent`
         :param links: Optional links to add to event.
         :type links: dict
+        :param ctx: Custom opentelemetry context to use for tracing.
+        :type ctx: :obj:`opentelemetry.context.Context` or None
         :param optional: Dictionary of optional data to add.
         :type optional: dict
         """
         links = links if links is not None else {}
         links.update({"TEST_SUITE_EXECUTION": test_suite})
         data = optional
-        return self.send(EiffelTestSuiteFinishedEvent(), links, data)
+        return self.send(EiffelTestSuiteFinishedEvent(), links, data, ctx)
 
-    def send_announcement_published(self, heading, body, severity, links=None, **optional):
+    # pylint:disable=too-many-arguments,too-many-positional-arguments
+    def send_announcement_published(
+        self,
+        heading,
+        body,
+        severity,
+        links=None,
+        ctx: context.Context | None = None,
+        **optional,
+    ):
         """Publish an announcement event.
 
         https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelAnnouncementPublishedEvent.md
@@ -215,16 +264,22 @@ class Events:
         :type severity: str
         :param links: Optional links to add to event.
         :type links: dict
+        :param ctx: Custom opentelemetry context to use for tracing.
+        :type ctx: :obj:`opentelemetry.context.Context` or None
         :param optional: Dictionary of optional data to add.
         :type optional: dict
         """
         links = links if links is not None else {}
         data = {"heading": heading, "body": body, "severity": severity}
         data.update(**optional)
-        return self.send(EiffelAnnouncementPublishedEvent(), links, data)
+        return self.send(EiffelAnnouncementPublishedEvent(), links, data, ctx)
 
     def send_test_execution_recipe_collection_created(
-        self, selection_strategy, links=None, **optional
+        self,
+        selection_strategy,
+        links=None,
+        ctx: context.Context | None = None,
+        **optional,
     ):
         """Publish a TERCC event.
 
@@ -234,6 +289,8 @@ class Events:
         :type selection_strategy: dict
         :param links: Optional links to add to event.
         :type links: dict
+        :param ctx: Custom opentelemetry context to use for tracing.
+        :type ctx: :obj:`opentelemetry.context.Context` or None
         :param optional: Dictionary of optional data to add.
         :type optional: dict
         """
@@ -242,9 +299,11 @@ class Events:
         links = links if links is not None else {}
         data = {"selectionStrategy": selection_strategy}
         data.update(**optional)
-        return self.send(EiffelTestExecutionRecipeCollectionCreatedEvent(), links, data)
+        return self.send(EiffelTestExecutionRecipeCollectionCreatedEvent(), links, data, ctx)
 
-    def send_confidence_level_modified(self, name, value, links=None, **optional):
+    def send_confidence_level_modified(
+        self, name, value, links=None, ctx: context.Context | None = None, **optional
+    ):
         """Publish a confidence level event.
 
         https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelConfidenceLevelModifiedEvent.md
@@ -255,15 +314,19 @@ class Events:
         :type value: str
         :param links: Optional links to add to event.
         :type links: dict
+        :param ctx: Custom opentelemetry context to use for tracing.
+        :type ctx: :obj:`opentelemetry.context.Context` or None
         :param optional: Dictionary of optional data to add.
         :type optional: dict
         """
         links = links if links is not None else {}
         data = {"name": name, "value": value}
         data.update(**optional)
-        return self.send(EiffelConfidenceLevelModifiedEvent(), links, data)
+        return self.send(EiffelConfidenceLevelModifiedEvent(), links, data, ctx)
 
-    def send_test_case_triggered(self, test_case, iut, links=None, **optional):
+    def send_test_case_triggered(
+        self, test_case, iut, links=None, ctx: context.Context | None = None, **optional
+    ):
         """Publish a confidence level event.
 
         https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelTestCaseTriggeredEvent.md
@@ -274,6 +337,8 @@ class Events:
         :type iut: :obj:`eiffel.events.base_event.BaseEvent`
         :param links: Optional links to add to event.
         :type links: dict
+        :param ctx: Custom opentelemetry context to use for tracing.
+        :type ctx: :obj:`opentelemetry.context.Context` or None
         :param optional: Dictionary of optional data to add.
         :type optional: dict
         """
@@ -281,9 +346,11 @@ class Events:
         links.update({"IUT": iut})
         data = {"testCase": test_case}
         data.update(**optional)
-        return self.send(EiffelTestCaseTriggeredEvent(), links, data)
+        return self.send(EiffelTestCaseTriggeredEvent(), links, data, ctx)
 
-    def send_test_case_started(self, test_case, links=None, **optional):
+    def send_test_case_started(
+        self, test_case, links=None, ctx: context.Context | None = None, **optional
+    ):
         """Publish a confidence level event.
 
         https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelTestCaseStartedEvent.md
@@ -292,15 +359,24 @@ class Events:
         :type test_case: :obj:`eiffel.events.base_event.BaseEvent`
         :param links: Optional links to add to event.
         :type links: dict
+        :param ctx: Custom opentelemetry context to use for tracing.
+        :type ctx: :obj:`opentelemetry.context.Context` or None
         :param optional: Dictionary of optional data to add.
         :type optional: dict
         """
         links = links if links is not None else {}
         links.update({"TEST_CASE_EXECUTION": test_case})
         data = optional
-        return self.send(EiffelTestCaseStartedEvent(), links, data)
+        return self.send(EiffelTestCaseStartedEvent(), links, data, ctx)
 
-    def send_test_case_finished(self, test_case, outcome, links=None, **optional):
+    def send_test_case_finished(
+        self,
+        test_case,
+        outcome,
+        links=None,
+        ctx: context.Context | None = None,
+        **optional,
+    ):
         """Publish a confidence level event.
 
         https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelTestCaseFinishedEvent.md
@@ -311,6 +387,8 @@ class Events:
         :type outcome: dict
         :param links: Optional links to add to event.
         :type links: dict
+        :params ctx: Custom opentelemetry context to use for tracing.
+        :type ctx: :obj:`opentelemetry.context.Context` or None
         :param optional: Dictionary of optional data to add.
         :type optional: dict
         """
@@ -318,9 +396,11 @@ class Events:
         links.update({"TEST_CASE_EXECUTION": test_case})
         data = {"outcome": outcome}
         data.update(**optional)
-        return self.send(EiffelTestCaseFinishedEvent(), links, data)
+        return self.send(EiffelTestCaseFinishedEvent(), links, data, ctx)
 
-    def send_artifact_created_event(self, identity, links=None, **optional):
+    def send_artifact_created_event(
+        self, identity, links=None, ctx: context.Context | None = None, **optional
+    ):
         """Publish an artifact created event.
 
         https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelArtifactCreatedEvent.md
@@ -329,15 +409,24 @@ class Events:
         :type identity: str
         :param links: Optional links to add to event.
         :type links: dict
+        :param ctx: Custom opentelemtry context to use for tracing.
+        :type ctx: :obj:`opentelemetry.context.Context` or None
         :param optional: Dictionary of optional data to add.
         :type optional: dict
         """
         links = links if links is not None else {}
         data = {"identity": identity}
         data.update(**optional)
-        return self.send(EiffelArtifactCreatedEvent(), links, data)
+        return self.send(EiffelArtifactCreatedEvent(), links, data, ctx)
 
-    def send_artifact_published_event(self, locations, artifact, links=None, **optional):
+    def send_artifact_published_event(
+        self,
+        locations,
+        artifact,
+        links=None,
+        ctx: context.Context | None = None,
+        **optional,
+    ):
         """Publish an artifact created event.
 
         https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelArtifactPublishedEvent.md
@@ -348,6 +437,8 @@ class Events:
         :type artifact: :obj:`eiffel.events.base_event.BaseEvent`
         :param links: Optional links to add to event.
         :type links: dict
+        :param ctx: Custom opentelemetry context to use for tracing.
+        :type ctx: :obj:`opentelemetry.context.Context` or None
         :param optional: Dictionary of optional data to add.
         :type optional: dict
         """
@@ -355,9 +446,11 @@ class Events:
         links.update({"ARTIFACT": artifact})
         data = {"locations": locations}
         data.update(**optional)
-        return self.send(EiffelArtifactPublishedEvent(), links, data)
+        return self.send(EiffelArtifactPublishedEvent(), links, data, ctx)
 
-    def send_composition_defined_event(self, name, links=None, **optional):
+    def send_composition_defined_event(
+        self, name, links=None, ctx: context.Context | None = None, **optional
+    ):
         """Publish a composition defined event.
 
         https://github.com/eiffel-community/eiffel/blob/master/eiffel-vocabulary/EiffelCompositionDefinedEvent.md
@@ -366,10 +459,12 @@ class Events:
         :type name: str
         :param links: Optional links to add to event.
         :type links: dict
+        :param ctx: Custom opentelemetry context to use for tracing.
+        :type ctx: :obj:`opentelemetry.context.Context` or None
         :param optional: Dictionary of optional data to add.
         :type optional: dict
         """
         links = links if links is not None else {}
         data = {"name": name}
         data.update(**optional)
-        return self.send(EiffelCompositionDefinedEvent(), links, data)
+        return self.send(EiffelCompositionDefinedEvent(), links, data, ctx)

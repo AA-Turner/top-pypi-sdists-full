@@ -58,7 +58,7 @@ NAME = "netius"
 identification of both the clients and the services this
 value may be prefixed or suffixed """
 
-VERSION = "1.20.7"
+VERSION = "1.21.0"
 """ The version value that identifies the version of the
 current infra-structure, all of the services and clients
 may share this value """
@@ -575,6 +575,41 @@ class AbstractBase(observer.Observable):
     def delay(
         self, callable, timeout=None, immediately=False, verify=False, safe=False
     ):
+        """
+        Schedules a callable to be executed in the main event loop, either
+        on the next tick or after an optional timeout period.
+
+        This is the primary mechanism to insert deferred operations into the
+        event loop. The callable is pushed into a heap-based priority queue
+        ordered by target execution time. When the safe flag is set and the
+        current thread is not the main one, the operation is delegated to
+        the thread-safe version (`delay_s()`) instead.
+
+        :type callable: Function
+        :param callable: The callable to be inserted into the delayed
+        queue for later execution in the event loop.
+        :type timeout: int
+        :param timeout: The timeout in seconds for the callable to be called,
+        if set the target time is calculated as the current time plus this
+        value, otherwise the callable is scheduled for the next tick.
+        :type immediately: bool
+        :param immediately: If the callable should be called as soon as
+        possible, taking priority over other delayed callables by using
+        a target time of -1.
+        :type verify: bool
+        :param verify: If the delayed sequences should be verified for
+        possible duplicates, if the callable is already present in the
+        delayed queue the insertion is skipped.
+        :type safe: bool
+        :param safe: If set and the current thread is not the main one,
+        the callable is inserted using the thread-safe `delay_s()` method
+        instead of direct queue manipulation.
+        :rtype: Tuple
+        :return: The callable tuple containing the target time, delay
+        identifier, callable, loop identifier and options, that can be
+        used for later control of the delayed operation (eg: cancellation).
+        """
+
         # in case the safe flag is set and the thread trying to add
         # delayed elements is not the main the proper (safe) method
         # is used meaning a safe execution is targeted
@@ -636,7 +671,7 @@ class AbstractBase(observer.Observable):
 
         This method should only be used from different threads as there's
         a huge performance impact created from using this method instead of
-        the local event loop one (delay()).
+        the local event loop one (`delay()`).
 
         :type callable: Function
         :param callable: The callable that should be called on the next tick
@@ -3014,14 +3049,14 @@ class AbstractBase(observer.Observable):
         if not connection.status == OPEN:
             return
 
-        # in case the connection is under the connecting state
-        # the socket must be verified for errors and in case
-        # there's none the connection must proceed, for example
-        # the SSL connection handshake must be performed/retried
-        if connection.connecting:
-            self._connectf(connection)
-
         try:
+            # in case the connection is under the connecting state
+            # the socket must be verified for errors and in case
+            # there's none the connection must proceed, for example
+            # the SSL connection handshake must be performed/retried
+            if connection.connecting:
+                self._connectf(connection)
+
             connection._send()
         except ssl.SSLError as error:
             error_v = error.args[0] if error.args else None
@@ -4074,7 +4109,8 @@ class AbstractBase(observer.Observable):
         this should be done in certain steps of the connection.
 
         The process of finishing the connecting process should include
-        the SSL handshaking process.
+        the SSL handshaking process, meaning that SSL or other connection
+        related errors may be raised.
 
         :type connection: Connection
         :param connection: The connection that should have the connect
@@ -4106,7 +4142,8 @@ class AbstractBase(observer.Observable):
         # runs the starter process (initial kick-off) so that all the starters
         # registered for the connection may start to be executed, note that if
         # the SSL handshake starter has been registered its first execution is
-        # going to be triggered by this call
+        # going to be triggered by this call, meaning that SSL or other connection
+        # related errors may be raised.
         connection.run_starter()
 
     def _socket_keepalive(self, _socket, timeout=None, interval=None, count=None):

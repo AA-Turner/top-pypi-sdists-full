@@ -2632,6 +2632,373 @@ mod regression_tests {
         let warnings = lint_mkdocs(content);
         assert!(warnings.is_empty(), "Emoji shortcodes should work: {warnings:?}");
     }
+
+    // =========================================================================
+    // Real-world validation regression tests
+    // Found during multi-project validation against mkdocs-material, FastAPI,
+    // Pydantic, MkDocs, mkdocs-macros-plugin, and mkdocstrings
+    // =========================================================================
+
+    #[test]
+    fn test_md038_indented_fenced_code_in_admonition() {
+        // Indented fenced code blocks inside admonitions are misinterpreted by
+        // pulldown-cmark as multi-line code spans. MD038 should not flag these.
+        // Found in: mkdocstrings docs/usage/index.md
+        let content = concat!(
+            "# Test\n\n",
+            "!!! example\n",
+            "    ```yaml title=\"mkdocs.yml\"\n",
+            "    plugins:\n",
+            "    - mkdocstrings:\n",
+            "        enabled: true\n",
+            "    ```\n",
+        );
+        let warnings = lint_mkdocs(content);
+        let md038: Vec<_> = warnings
+            .iter()
+            .filter(|w| w.rule_name.as_deref() == Some("MD038"))
+            .collect();
+        assert!(
+            md038.is_empty(),
+            "Indented fenced code in admonition should not trigger MD038: {md038:?}"
+        );
+    }
+
+    #[test]
+    fn test_md038_indented_fenced_code_in_tabs() {
+        // Tabbed content with indented fenced code blocks
+        // Found in: mkdocstrings docs/usage/index.md
+        let content = concat!(
+            "# Test\n\n",
+            "=== \"Markdown\"\n",
+            "    ```md\n",
+            "    See [installer.records][] to learn about records.\n",
+            "    ```\n\n",
+            "=== \"Result (HTML)\"\n",
+            "    ```html\n",
+            "    <p>See <a href=\"url\">installer.records</a></p>\n",
+            "    ```\n",
+        );
+        let warnings = lint_mkdocs(content);
+        let md038: Vec<_> = warnings
+            .iter()
+            .filter(|w| w.rule_name.as_deref() == Some("MD038"))
+            .collect();
+        assert!(
+            md038.is_empty(),
+            "Indented fenced code in tabs should not trigger MD038: {md038:?}"
+        );
+    }
+
+    #[test]
+    fn test_md038_real_issue_still_caught_in_admonition() {
+        // Real MD038 violations inside admonitions should still be detected
+        let content = "# Test\n\n!!! note\n    Use `  code  ` in your config.\n";
+        let warnings = lint_mkdocs(content);
+        let md038: Vec<_> = warnings
+            .iter()
+            .filter(|w| w.rule_name.as_deref() == Some("MD038"))
+            .collect();
+        assert!(
+            !md038.is_empty(),
+            "Real MD038 violations in admonitions should still be caught"
+        );
+    }
+
+    #[test]
+    fn test_md051_blockquote_headings_generate_anchors() {
+        // Headings inside blockquotes should generate valid anchors
+        // Found in: mkdocs docs/dev-guide/themes.md (> #### locale)
+        // and mkdocs docs/user-guide/configuration.md
+        let content = concat!(
+            "# Main\n\n",
+            "> #### locale\n",
+            ">\n",
+            "> A code representing the language.\n\n",
+            "[link](#locale)\n",
+        );
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let rule = rumdl_lib::MD051LinkFragments::new();
+        let warnings = rule.check(&ctx).unwrap();
+        let md051: Vec<_> = warnings.iter().filter(|w| w.message.contains("locale")).collect();
+        assert!(
+            md051.is_empty(),
+            "Blockquote heading anchor '#locale' should be recognized: {md051:?}"
+        );
+    }
+
+    #[test]
+    fn test_md051_blockquote_heading_with_custom_id() {
+        // Blockquote headings with custom IDs should also work
+        let content = concat!(
+            "# Main\n\n",
+            "> ## Settings {#my-settings}\n\n",
+            "[link](#my-settings)\n",
+        );
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let rule = rumdl_lib::MD051LinkFragments::new();
+        let warnings = rule.check(&ctx).unwrap();
+        assert!(
+            warnings.is_empty(),
+            "Blockquote heading custom anchor should be recognized: {warnings:?}"
+        );
+    }
+
+    #[test]
+    fn test_md051_nested_blockquote_heading() {
+        // Headings inside nested blockquotes
+        let content = concat!("# Main\n\n", ">> ### deep-heading\n\n", "[link](#deep-heading)\n",);
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let rule = rumdl_lib::MD051LinkFragments::new();
+        let warnings = rule.check(&ctx).unwrap();
+        assert!(
+            warnings.is_empty(),
+            "Nested blockquote heading anchor should be recognized: {warnings:?}"
+        );
+    }
+
+    #[test]
+    fn test_md051_mkdocs_duplicate_heading_underscore_dedup() {
+        // Python-Markdown uses _N suffix for duplicate headings, not -N
+        // Found in: mkdocstrings docs/usage/handlers.md (#templates_1)
+        let content = concat!(
+            "# Main\n\n",
+            "## Templates\n\n",
+            "First section.\n\n",
+            "## Templates\n\n",
+            "Second section.\n\n",
+            "[first](#templates)\n",
+            "[second-github](#templates-1)\n",
+            "[second-mkdocs](#templates_1)\n",
+        );
+        let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
+        let rule = rumdl_lib::MD051LinkFragments::with_anchor_style(
+            rumdl_lib::utils::anchor_styles::AnchorStyle::PythonMarkdown,
+        );
+        let warnings = rule.check(&ctx).unwrap();
+        assert!(
+            warnings.is_empty(),
+            "MkDocs _1 dedup suffix should be accepted: {warnings:?}"
+        );
+    }
+
+    #[test]
+    fn test_md051_standard_flavor_no_underscore_dedup() {
+        // Without MkDocs flavor, _N suffix should NOT be accepted
+        let content = concat!(
+            "# Main\n\n",
+            "## Templates\n\n",
+            "First section.\n\n",
+            "## Templates\n\n",
+            "Second section.\n\n",
+            "[second-mkdocs](#templates_1)\n",
+        );
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let rule = rumdl_lib::MD051LinkFragments::new();
+        let warnings = rule.check(&ctx).unwrap();
+        assert!(
+            !warnings.is_empty(),
+            "Standard flavor should NOT accept _1 dedup suffix"
+        );
+    }
+
+    #[test]
+    fn test_md051_mkdocs_triple_duplicate_heading() {
+        // Three duplicate headings: original, _1, _2
+        let content = concat!(
+            "# Main\n\n",
+            "## API\n\n",
+            "First.\n\n",
+            "## API\n\n",
+            "Second.\n\n",
+            "## API\n\n",
+            "Third.\n\n",
+            "[first](#api)\n",
+            "[second](#api_1)\n",
+            "[third](#api_2)\n",
+        );
+        let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
+        let rule = rumdl_lib::MD051LinkFragments::with_anchor_style(
+            rumdl_lib::utils::anchor_styles::AnchorStyle::PythonMarkdown,
+        );
+        let warnings = rule.check(&ctx).unwrap();
+        assert!(
+            warnings.is_empty(),
+            "MkDocs triple duplicate dedup should work: {warnings:?}"
+        );
+    }
+
+    #[test]
+    fn test_md051_blockquote_heading_with_closing_hashes() {
+        // CommonMark allows closing hash sequences: > ## Heading ##
+        // The trailing ## should be stripped when generating the anchor
+        let content = concat!("# Main\n\n", "> ## Settings ##\n\n", "[link](#settings)\n",);
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let rule = rumdl_lib::MD051LinkFragments::new();
+        let warnings = rule.check(&ctx).unwrap();
+        assert!(
+            warnings.is_empty(),
+            "Blockquote heading with closing hashes should generate correct anchor: {warnings:?}"
+        );
+    }
+
+    #[test]
+    fn test_md051_blockquote_heading_closing_hashes_different_count() {
+        // Closing hash count doesn't need to match opening hash count
+        let content = concat!("# Main\n\n", "> ### Info ###########\n\n", "[link](#info)\n",);
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let rule = rumdl_lib::MD051LinkFragments::new();
+        let warnings = rule.check(&ctx).unwrap();
+        assert!(
+            warnings.is_empty(),
+            "Closing hashes with different count should still generate correct anchor: {warnings:?}"
+        );
+    }
+
+    #[test]
+    fn test_md051_blockquote_heading_hash_in_text_not_stripped() {
+        // A hash that's part of the heading text (not preceded by space) should NOT be stripped
+        let content = concat!("# Main\n\n", "> ## C# Language\n\n", "[link](#c-language)\n",);
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let rule = rumdl_lib::MD051LinkFragments::new();
+        let warnings = rule.check(&ctx).unwrap();
+        assert!(
+            warnings.is_empty(),
+            "Hash in heading text (C#) should not be treated as closing sequence: {warnings:?}"
+        );
+    }
+
+    #[test]
+    fn test_md051_blockquote_heading_only_closing_hashes() {
+        // Edge case: heading text is entirely closing hashes (should result in empty after strip)
+        // This is degenerate but shouldn't crash
+        let content = concat!("# Main\n\n", "> ## ##\n\n",);
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let rule = rumdl_lib::MD051LinkFragments::new();
+        // Should not crash
+        let _warnings = rule.check(&ctx).unwrap();
+    }
+
+    #[test]
+    fn test_md038_indented_fenced_code_in_pymdown_block() {
+        // PyMdown blocks (///) with indented fenced code inside
+        let content = concat!(
+            "# Test\n\n",
+            "/// details | Summary\n",
+            "    ```python\n",
+            "    def foo():\n",
+            "        pass\n",
+            "    ```\n",
+            "///\n",
+        );
+        let warnings = lint_mkdocs(content);
+        let md038: Vec<_> = warnings
+            .iter()
+            .filter(|w| w.rule_name.as_deref() == Some("MD038"))
+            .collect();
+        assert!(
+            md038.is_empty(),
+            "Indented fenced code in PyMdown block should not trigger MD038: {md038:?}"
+        );
+    }
+
+    #[test]
+    fn test_md051_mkdocs_slash_in_heading_collapses_separators() {
+        // Python-Markdown collapses consecutive separators caused by removed punctuation
+        // Found in: mkdocstrings docs/usage/index.md
+        // Heading: "### Cross-references to other projects / inventories"
+        // The `/` is removed and the resulting double space collapsed to single `-`
+        let content = concat!(
+            "# Main\n\n",
+            "### Cross-references to other projects / inventories\n\n",
+            "[link](#cross-references-to-other-projects-inventories)\n",
+        );
+        let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
+        let rule = rumdl_lib::MD051LinkFragments::with_anchor_style(
+            rumdl_lib::utils::anchor_styles::AnchorStyle::PythonMarkdown,
+        );
+        let warnings = rule.check(&ctx).unwrap();
+        assert!(
+            warnings.is_empty(),
+            "MkDocs slash-in-heading should collapse separators: {warnings:?}"
+        );
+    }
+
+    #[test]
+    fn test_md051_mkdocs_via_lint_mkdocs_auto_anchor_style() {
+        // Verify that lint_mkdocs() automatically uses PythonMarkdown anchor style
+        let content = concat!(
+            "# Main\n\n",
+            "### Cross-references to other projects / inventories\n\n",
+            "[link](#cross-references-to-other-projects-inventories)\n",
+        );
+        let warnings = lint_mkdocs(content);
+        let md051: Vec<_> = warnings
+            .iter()
+            .filter(|w| w.rule_name.as_deref() == Some("MD051"))
+            .collect();
+        assert!(
+            md051.is_empty(),
+            "lint_mkdocs should auto-use PythonMarkdown anchor style: {md051:?}"
+        );
+    }
+
+    #[test]
+    fn test_md051_mkdocs_cjk_heading_generates_underscore_anchor() {
+        // Python-Markdown: CJK-only headings produce empty slug → unique() gives _1, _2, _3
+        let content = concat!(
+            "# Main\n\n",
+            "## 你好世界\n\n",
+            "## こんにちは\n\n",
+            "## 안녕하세요\n\n",
+            "[first](#_1)\n",
+            "[second](#_2)\n",
+            "[third](#_3)\n",
+        );
+        let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
+        let rule = rumdl_lib::MD051LinkFragments::with_anchor_style(
+            rumdl_lib::utils::anchor_styles::AnchorStyle::PythonMarkdown,
+        );
+        let warnings = rule.check(&ctx).unwrap();
+        assert!(
+            warnings.is_empty(),
+            "MkDocs CJK headings should generate _1, _2, _3 anchors: {warnings:?}"
+        );
+    }
+
+    #[test]
+    fn test_md051_standard_cjk_heading_preserves_unicode() {
+        // GitHub style preserves Unicode characters in anchors
+        let content = concat!("# Main\n\n", "## 你好世界\n\n", "[link](#你好世界)\n",);
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let rule = rumdl_lib::MD051LinkFragments::new();
+        let warnings = rule.check(&ctx).unwrap();
+        assert!(
+            warnings.is_empty(),
+            "GitHub style should preserve CJK anchors: {warnings:?}"
+        );
+    }
+
+    #[test]
+    fn test_md051_blockquote_empty_heading_text() {
+        // CommonMark: `> ## ` is a valid empty heading
+        // Python-Markdown generates _1 for it
+        let content = concat!(
+            "# Main\n\n",
+            "> ## \n\n",
+            "> ## Real Heading\n\n",
+            "[link](#real-heading)\n",
+        );
+        let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
+        let rule = rumdl_lib::MD051LinkFragments::with_anchor_style(
+            rumdl_lib::utils::anchor_styles::AnchorStyle::PythonMarkdown,
+        );
+        let warnings = rule.check(&ctx).unwrap();
+        assert!(
+            warnings.is_empty(),
+            "Empty blockquote heading should not break subsequent anchor generation: {warnings:?}"
+        );
+    }
 }
 
 // =============================================================================
@@ -3533,6 +3900,421 @@ $$
         assert!(
             warnings.len() <= 3,
             "Complete test should have minimal warnings: {warnings:?}"
+        );
+    }
+}
+
+// =============================================================================
+// PART 7: PER-EXTENSION REGRESSION TESTS
+// Each extension gets a dedicated test verifying:
+// 1. Zero warnings from lint (check mode)
+// 2. Content unchanged after fix (round-trip safety)
+// =============================================================================
+
+mod per_extension_regression {
+    use super::*;
+
+    /// Apply all fixable rules and return the fixed content.
+    /// Verifies round-trip: valid content should not change after fix.
+    fn assert_check_and_fix_roundtrip(content: &str, extension_name: &str) {
+        // Step 1: Lint should produce zero warnings
+        let warnings = lint_mkdocs(content);
+        assert!(
+            warnings.is_empty(),
+            "{extension_name}: expected zero warnings but got {}: {warnings:?}",
+            warnings.len()
+        );
+
+        // Step 2: Fix should not modify valid content (round-trip safety)
+        let config = create_mkdocs_config();
+        let rules = all_rules(&config);
+        let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
+        // MD054 intentionally returns Err (doesn't support auto-fix)
+        let unfixable_rules: &[&str] = &["MD054"];
+        for rule in &rules {
+            match rule.fix(&ctx) {
+                Ok(fixed) => {
+                    assert_eq!(
+                        fixed,
+                        content,
+                        "{extension_name}: rule {} modified valid content during fix",
+                        rule.name()
+                    );
+                }
+                Err(_) => {
+                    assert!(
+                        unfixable_rules.contains(&rule.name()),
+                        "{extension_name}: unexpected Err from rule {} fix()",
+                        rule.name()
+                    );
+                }
+            }
+        }
+    }
+
+    // ---- Python-Markdown Extensions ----
+
+    #[test]
+    fn test_abbr_roundtrip() {
+        let content = "# Abbreviations\n\nThe HTML specification is maintained by the W3C.\n\n*[HTML]: Hyper Text Markup Language\n*[W3C]: World Wide Web Consortium\n";
+        assert_check_and_fix_roundtrip(content, "abbr");
+    }
+
+    #[test]
+    fn test_admonition_roundtrip() {
+        let content = "# Admonitions\n\n!!! note \"Custom Title\"\n    This is a note admonition with a custom title.\n\n!!! warning\n    This is a warning.\n";
+        assert_check_and_fix_roundtrip(content, "admonition");
+    }
+
+    #[test]
+    fn test_attr_list_roundtrip() {
+        // Attribute lists on headings and paragraphs
+        let content = "# Attributes { #custom-id .special }\n\nA paragraph with attributes.\n{ .highlight }\n\nAnother paragraph.\n{ #other-id data-value=\"test\" }\n";
+        assert_check_and_fix_roundtrip(content, "attr_list");
+    }
+
+    #[test]
+    fn test_def_list_roundtrip() {
+        let content = "# Definitions\n\nTerm 1\n:   Definition for term 1.\n\nTerm 2\n:   Definition for term 2.\n";
+        assert_check_and_fix_roundtrip(content, "def_list");
+    }
+
+    #[test]
+    fn test_footnotes_roundtrip() {
+        let content = "# Footnotes\n\nText with a footnote reference.[^1]\n\nAnother reference.[^note]\n\n[^1]: First footnote definition.\n\n[^note]: Named footnote definition.\n";
+        assert_check_and_fix_roundtrip(content, "footnotes");
+    }
+
+    #[test]
+    fn test_md_in_html_roundtrip() {
+        let content = "# HTML with Markdown\n\n<div markdown>\n\nThis is **markdown** inside HTML.\n\n- List item 1\n- List item 2\n\n</div>\n";
+        assert_check_and_fix_roundtrip(content, "md_in_html");
+    }
+
+    #[test]
+    fn test_toc_roundtrip() {
+        let content =
+            "# Table of Contents\n\n[TOC]\n\n## Section One\n\nContent here.\n\n## Section Two\n\nMore content.\n";
+        assert_check_and_fix_roundtrip(content, "toc");
+    }
+
+    #[test]
+    fn test_tables_roundtrip() {
+        let content = "# Tables\n\n| Header 1 | Header 2 |\n| -------- | -------- |\n| Cell 1   | Cell 2   |\n| Cell 3   | Cell 4   |\n";
+        assert_check_and_fix_roundtrip(content, "tables");
+    }
+
+    #[test]
+    fn test_meta_roundtrip() {
+        let content = "---\ntitle: Test Document\ntags:\n  - test\n  - mkdocs\n---\n\n# Meta Extension\n\nContent after frontmatter.\n";
+        assert_check_and_fix_roundtrip(content, "meta");
+    }
+
+    #[test]
+    fn test_fenced_code_roundtrip() {
+        let content =
+            "# Fenced Code\n\n```python\nprint(\"hello\")\n```\n\n```yaml title=\"config.yml\"\nkey: value\n```\n";
+        assert_check_and_fix_roundtrip(content, "fenced_code");
+    }
+
+    // ---- PyMdown Extensions ----
+
+    #[test]
+    fn test_arithmatex_roundtrip() {
+        let content =
+            "# Math\n\nInline math: $E = mc^2$\n\nBlock math:\n\n$$\n\\frac{n!}{k!(n-k)!} = \\binom{n}{k}\n$$\n";
+        assert_check_and_fix_roundtrip(content, "arithmatex");
+    }
+
+    #[test]
+    fn test_caret_roundtrip() {
+        let content = "# Caret\n\nThis is ^^inserted text^^ and H^2^O is water.\n";
+        assert_check_and_fix_roundtrip(content, "caret");
+    }
+
+    #[test]
+    fn test_mark_roundtrip() {
+        let content = "# Mark\n\nThis is ==marked text== for highlighting.\n";
+        assert_check_and_fix_roundtrip(content, "mark");
+    }
+
+    #[test]
+    fn test_tilde_roundtrip() {
+        let content = "# Tilde\n\nThis is ~~deleted text~~ and H~2~O is water.\n";
+        assert_check_and_fix_roundtrip(content, "tilde");
+    }
+
+    #[test]
+    fn test_details_roundtrip() {
+        let content = "# Details\n\n??? note \"Collapsible\"\n    This content is hidden by default.\n\n???+ tip \"Open by Default\"\n    This content is visible.\n";
+        assert_check_and_fix_roundtrip(content, "details");
+    }
+
+    #[test]
+    fn test_emoji_roundtrip() {
+        let content = "# Emoji\n\nA thumbs up :thumbsup: and a :material-check: icon.\n";
+        assert_check_and_fix_roundtrip(content, "emoji");
+    }
+
+    #[test]
+    fn test_inlinehilite_roundtrip() {
+        let content = "# Inline Highlight\n\nUse `#!python print(\"hello\")` for inline code.\n";
+        assert_check_and_fix_roundtrip(content, "inlinehilite");
+    }
+
+    #[test]
+    fn test_keys_roundtrip() {
+        let content = "# Keys\n\nPress ++ctrl+alt+del++ to open task manager.\n";
+        assert_check_and_fix_roundtrip(content, "keys");
+    }
+
+    #[test]
+    fn test_smartsymbols_roundtrip() {
+        let content = "# Smart Symbols\n\nCopyright (c) and trademark (tm) and arrows -->.\n";
+        assert_check_and_fix_roundtrip(content, "smartsymbols");
+    }
+
+    #[test]
+    fn test_snippets_roundtrip() {
+        let content = "# Snippets\n\nContent before snippet.\n\n--8<-- \"path/to/file.md\"\n\nContent after snippet.\n";
+        assert_check_and_fix_roundtrip(content, "snippets");
+    }
+
+    #[test]
+    fn test_superfences_roundtrip() {
+        let content =
+            "# SuperFences\n\n```python hl_lines=\"2 3\"\ndef hello():\n    print(\"hello\")\n    return True\n```\n";
+        assert_check_and_fix_roundtrip(content, "superfences");
+    }
+
+    #[test]
+    fn test_tabbed_roundtrip() {
+        let content = "# Tabs\n\n=== \"Python\"\n\n    ```python\n    print(\"hello\")\n    ```\n\n=== \"JavaScript\"\n\n    ```javascript\n    console.log(\"hello\")\n    ```\n";
+        assert_check_and_fix_roundtrip(content, "tabbed");
+    }
+
+    #[test]
+    fn test_tasklist_roundtrip() {
+        let content = "# Tasks\n\n- [x] Completed task\n- [ ] Pending task\n- [x] Another done\n";
+        assert_check_and_fix_roundtrip(content, "tasklist");
+    }
+
+    #[test]
+    fn test_betterem_roundtrip() {
+        let content = "# BetterEm\n\nThis is *emphasized* text and **strong** text.\n\nNested: ***bold and italic***\n";
+        assert_check_and_fix_roundtrip(content, "betterem");
+    }
+
+    #[test]
+    fn test_critic_roundtrip() {
+        let content = "# Critic Markup\n\nThis is {++added text++} and {--removed text--}.\n\nThis is {~~old~>new~~} replacement.\n\n{==highlighted text==} and {>>comment text<<}.\n";
+        assert_check_and_fix_roundtrip(content, "critic");
+    }
+
+    #[test]
+    fn test_pymdown_blocks_details_roundtrip() {
+        let content =
+            "# PyMdown Blocks\n\n/// details | Click to expand\n    type: warning\n\nDetailed content inside.\n\n///\n";
+        assert_check_and_fix_roundtrip(content, "pymdown_blocks_details");
+    }
+
+    #[test]
+    fn test_pymdown_blocks_admonition_roundtrip() {
+        let content =
+            "# PyMdown Blocks\n\n/// admonition | Important Notice\n    type: note\n\nAdmonition content.\n\n///\n";
+        assert_check_and_fix_roundtrip(content, "pymdown_blocks_admonition");
+    }
+
+    #[test]
+    fn test_pymdown_blocks_caption_roundtrip() {
+        let content = "# PyMdown Blocks\n\n/// caption\nFigure 1: Diagram description\n///\n";
+        assert_check_and_fix_roundtrip(content, "pymdown_blocks_caption");
+    }
+
+    #[test]
+    fn test_pymdown_blocks_html_roundtrip() {
+        let content =
+            "# PyMdown Blocks\n\n/// html | div.custom-class\n\nCustom HTML content with **markdown**.\n\n///\n";
+        assert_check_and_fix_roundtrip(content, "pymdown_blocks_html");
+    }
+
+    // ---- mkdocstrings ----
+
+    #[test]
+    fn test_mkdocstrings_roundtrip() {
+        let content =
+            "# API Reference\n\n::: my_module.MyClass\n    options:\n      show_source: true\n      heading_level: 2\n";
+        assert_check_and_fix_roundtrip(content, "mkdocstrings");
+    }
+
+    #[test]
+    fn test_mkdocstrings_cross_references_roundtrip() {
+        // Dotted paths are recognized as MkDocs auto-references by MD052
+        let content = "# Cross References\n\nSee [my_module.MyClass][] and [my_module.function][] for details.\n";
+        assert_check_and_fix_roundtrip(content, "mkdocstrings_cross_references");
+    }
+
+    // ---- MD051 footnote anchor handling ----
+
+    #[test]
+    fn test_md051_footnote_anchors_no_false_positive() {
+        let content = "# Footnote Anchors\n\nSee the footnote.[^1]\n\n[:arrow_down: Jump to footnote](#fn:1)\n\n[:arrow_down: Jump to ref](#fnref:1)\n\n[^1]: The footnote content.\n";
+        let warnings = lint_mkdocs(content);
+        let md051_warnings: Vec<_> = warnings
+            .iter()
+            .filter(|w| w.rule_name.as_deref() == Some("MD051"))
+            .collect();
+        assert!(
+            md051_warnings.is_empty(),
+            "MD051 should not flag MkDocs footnote anchors: {md051_warnings:?}"
+        );
+    }
+
+    #[test]
+    fn test_md051_option_anchors_no_false_positive() {
+        let content = "# Option Anchors\n\nSee the [abstract](#+type:abstract) type.\n\nConfigure [option](#+config.theme.name) in mkdocs.yml.\n";
+        let warnings = lint_mkdocs(content);
+        let md051_warnings: Vec<_> = warnings
+            .iter()
+            .filter(|w| w.rule_name.as_deref() == Some("MD051"))
+            .collect();
+        assert!(
+            md051_warnings.is_empty(),
+            "MD051 should not flag MkDocs option anchors: {md051_warnings:?}"
+        );
+    }
+
+    // ---- MD051 negative tests: invalid fragments SHOULD still warn ----
+
+    #[test]
+    fn test_md051_still_flags_invalid_fragments_in_mkdocs() {
+        let content =
+            "# Valid Heading\n\n## Another Heading\n\n[link](#nonexistent-heading)\n\n[link](#also-not-real)\n";
+        let warnings = lint_mkdocs(content);
+        let md051_warnings: Vec<_> = warnings
+            .iter()
+            .filter(|w| w.rule_name.as_deref() == Some("MD051"))
+            .collect();
+        assert_eq!(
+            md051_warnings.len(),
+            2,
+            "MD051 should flag invalid fragments even in MkDocs mode: {md051_warnings:?}"
+        );
+    }
+
+    #[test]
+    fn test_md051_footnote_skip_only_applies_to_fn_prefix() {
+        // #fn: and #fnref: are skipped, but #function or #fnord are NOT
+        let content = "# Heading\n\n[link](#function)\n\n[link](#fnord)\n";
+        let warnings = lint_mkdocs(content);
+        let md051_warnings: Vec<_> = warnings
+            .iter()
+            .filter(|w| w.rule_name.as_deref() == Some("MD051"))
+            .collect();
+        assert_eq!(
+            md051_warnings.len(),
+            2,
+            "MD051 should only skip #fn: and #fnref: prefixes, not #function or #fnord: {md051_warnings:?}"
+        );
+    }
+
+    #[test]
+    fn test_md051_option_skip_requires_dot_or_colon() {
+        // #+type:abstract and #+toc.slugify are skipped (Material option refs)
+        // but #+plain (no dot or colon) should still be flagged
+        let content = "# Heading\n\n[link](#+plain)\n\n[link](#+also-invalid)\n";
+        let warnings = lint_mkdocs(content);
+        let md051_warnings: Vec<_> = warnings
+            .iter()
+            .filter(|w| w.rule_name.as_deref() == Some("MD051"))
+            .collect();
+        assert_eq!(
+            md051_warnings.len(),
+            2,
+            "MD051 should flag #+fragments without dot or colon: {md051_warnings:?}"
+        );
+    }
+
+    // ---- End-to-end fmt test ----
+
+    #[test]
+    fn test_fmt_preserves_all_extensions() {
+        // Document with fixable issues (trailing spaces, extra blanks) alongside
+        // every category of MkDocs extension syntax
+        let content = "# Format Test\n\n\
+!!! note \"Important\"\n\
+    Content with trailing spaces.   \n\n\
+=== \"Tab 1\"\n\n\
+    Tab content.\n\n\
+::: my_module.Class\n\
+    options:\n\
+      show_source: true\n\n\
+/// details | Summary\n\
+    type: note\n\n\
+Details content.\n\n\
+///\n\n\n\
+Text with ==mark== and ^^caret^^ and ++ctrl+c++.\n\n\
+$E = mc^2$\n\n\
+[^1]: A footnote.\n";
+
+        let config = create_mkdocs_config();
+        let rules = all_rules(&config);
+        let warnings = lint(content, &rules, false, MarkdownFlavor::MkDocs, None).unwrap();
+
+        // Verify the test document triggers the expected rules
+        let md009_count = warnings
+            .iter()
+            .filter(|w| w.rule_name.as_deref() == Some("MD009"))
+            .count();
+        let md012_count = warnings
+            .iter()
+            .filter(|w| w.rule_name.as_deref() == Some("MD012"))
+            .count();
+        assert!(md009_count > 0, "Test document should trigger MD009 (trailing spaces)");
+        assert!(md012_count > 0, "Test document should trigger MD012 (multiple blanks)");
+
+        // Apply fixes using FixCoordinator (same path as real rumdl fmt)
+        let coordinator = rumdl_lib::fix_coordinator::FixCoordinator::new();
+        let mut fixed_content = content.to_string();
+        let result = coordinator
+            .apply_fixes_iterative(&rules, &warnings, &mut fixed_content, &config, 10, None)
+            .expect("Fix should succeed");
+        assert!(result.rules_fixed > 0, "Should have fixed some issues");
+
+        // Verify all extension constructs are preserved
+        assert!(fixed_content.contains("!!! note"), "Admonitions preserved");
+        assert!(fixed_content.contains("=== \"Tab 1\""), "Tabs preserved");
+        assert!(fixed_content.contains("::: my_module.Class"), "mkdocstrings preserved");
+        assert!(fixed_content.contains("/// details"), "PyMdown blocks preserved");
+        assert!(fixed_content.contains("==mark=="), "Mark preserved");
+        assert!(fixed_content.contains("^^caret^^"), "Caret preserved");
+        assert!(fixed_content.contains("++ctrl+c++"), "Keys preserved");
+        assert!(fixed_content.contains("$E = mc^2$"), "Math preserved");
+        assert!(fixed_content.contains("[^1]:"), "Footnotes preserved");
+
+        // Verify fixes were actually applied
+        assert!(!fixed_content.contains("   \n"), "Trailing spaces should be removed");
+
+        // Re-lint the fixed content - rules that were fixed should produce zero warnings
+        let re_warnings = lint(&fixed_content, &rules, false, MarkdownFlavor::MkDocs, None).unwrap();
+
+        // MD009 (trailing spaces) and MD012 (multiple blanks) should be fully resolved
+        let trailing_space_warnings: Vec<_> = re_warnings
+            .iter()
+            .filter(|w| w.rule_name.as_deref() == Some("MD009"))
+            .collect();
+        assert!(
+            trailing_space_warnings.is_empty(),
+            "MD009 should produce zero warnings after fix: {trailing_space_warnings:?}"
+        );
+
+        let multiple_blank_warnings: Vec<_> = re_warnings
+            .iter()
+            .filter(|w| w.rule_name.as_deref() == Some("MD012"))
+            .collect();
+        assert!(
+            multiple_blank_warnings.is_empty(),
+            "MD012 should produce zero warnings after fix: {multiple_blank_warnings:?}"
         );
     }
 }

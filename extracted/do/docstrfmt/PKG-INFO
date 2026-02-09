@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docstrfmt
-Version: 2.0.1
+Version: 2.0.2
 Summary: docstrfmt: A formatter for Sphinx flavored reStructuredText.
 Keywords: black,docutils,autoformatter,formatter,lint,restructuredtext,rst,sphinx
 Author-email: Joel Payne <lilspazjoekp@gmail.com>

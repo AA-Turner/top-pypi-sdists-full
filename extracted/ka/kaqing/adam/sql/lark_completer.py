@@ -7,7 +7,8 @@ from prompt_toolkit.document import Document
 from adam.config import Config
 from adam.sql.async_executor import AsyncExecutor
 from adam.sql.lark_parser import LarkParser
-from adam.utils import debug, log_timing, offload
+from adam.utils_log import debug, log_timing
+from adam.utils_concurrent import offload
 from adam.utils_repl.appendable_completer import AppendableCompleter
 from adam.utils_repl.repl_completer import merge_completions
 
@@ -125,7 +126,10 @@ class LarkCompleter(Completer, AppendableCompleter):
             } | common_contexts
 
             if variant == 'p':
-                contexts_by_path = bash_contexts | contexts_by_path
+                contexts_by_path = {
+                    'vacuum_statement.vacuum_tables.vacuum_table.path.identifier_ref': 'tables',
+                    'vacuum_statement.vacuum_tables.vacuum_table.column_name_list.column_name': 'column-names',
+                } | bash_contexts | contexts_by_path
             elif variant == 'c':
                 contexts_by_path = {
                     'export_table.path.identifier_ref': 'tables',
@@ -165,9 +169,12 @@ class LarkCompleter(Completer, AppendableCompleter):
 
                 grammar = grammar.replace('select_clause: "SELECT"i hint_comment? projection', 'select_clause: ("SELECT"i | "XELECT"i) hint_comment? projection')
 
-            with offload():
-                with open('/tmp/grammar.lark', 'wt') as f:
-                    f.write(grammar)
+            with offload() as submit:
+                def log_grammar():
+                    with open('/tmp/grammar.lark', 'wt') as f:
+                        f.write(grammar)
+
+                submit(log_grammar)
 
             return LarkParser(grammar, contexts_by_path)
 

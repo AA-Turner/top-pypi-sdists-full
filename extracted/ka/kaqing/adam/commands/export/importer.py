@@ -3,7 +3,7 @@ from abc import abstractmethod
 from adam.commands.export.utils_export import csv_dir, fs_exec, table_log_dir
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import ing
+from adam.utils_log import ing
 from adam.utils_context import Context
 
 class Importer:

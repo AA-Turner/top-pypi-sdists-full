@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unstructured_ingest
-Version: 1.2.40
+Version: 1.3.1
 Summary: Local ETL data pipeline to get data RAG ready
 Author-email: Unstructured Technologies <devops@unstructuredai.io>
 License-Expression: Apache-2.0
@@ -12,12 +12,10 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: <3.13,>=3.10
-Requires-Dist: certifi>=2025.7.14
+Requires-Python: <3.13,>=3.12
+Requires-Dist: certifi>=2026.1.4
 Requires-Dist: click
 Requires-Dist: opentelemetry-sdk
 Requires-Dist: pydantic>=2.7
@@ -38,7 +36,7 @@ Requires-Dist: aioboto3; extra == 'bedrock'
 Requires-Dist: aiobotocore[boto3]!=2.24.2; extra == 'bedrock'
 Requires-Dist: boto3; extra == 'bedrock'
 Provides-Extra: biomed
-Requires-Dist: bs4; extra == 'biomed'
+Requires-Dist: beautifulsoup4; extra == 'biomed'
 Requires-Dist: requests; extra == 'biomed'
 Provides-Extra: box
 Requires-Dist: boxfs; extra == 'box'
@@ -56,7 +54,7 @@ Provides-Extra: databricks-delta-tables
 Requires-Dist: databricks-sql-connector; extra == 'databricks-delta-tables'
 Requires-Dist: pandas; extra == 'databricks-delta-tables'
 Provides-Extra: databricks-volumes
-Requires-Dist: databricks-sdk>=0.70.0; extra == 'databricks-volumes'
+Requires-Dist: databricks-sdk>=0.85.0; extra == 'databricks-volumes'
 Provides-Extra: delta-table
 Requires-Dist: boto3; extra == 'delta-table'
 Requires-Dist: deltalake; extra == 'delta-table'
@@ -80,7 +78,7 @@ Requires-Dist: elasticsearch[async]<9.0.0; extra == 'elasticsearch'
 Provides-Extra: epub
 Requires-Dist: unstructured[epub]; extra == 'epub'
 Provides-Extra: gcs
-Requires-Dist: bs4; extra == 'gcs'
+Requires-Dist: beautifulsoup4; extra == 'gcs'
 Requires-Dist: fsspec; extra == 'gcs'
 Requires-Dist: gcsfs; extra == 'gcs'
 Provides-Extra: github
@@ -121,8 +119,6 @@ Provides-Extra: mixedbreadai
 Requires-Dist: mixedbread; extra == 'mixedbreadai'
 Provides-Extra: mongodb
 Requires-Dist: pymongo; extra == 'mongodb'
-Provides-Extra: msg
-Requires-Dist: unstructured[msg]; extra == 'msg'
 Provides-Extra: neo4j
 Requires-Dist: cymple; extra == 'neo4j'
 Requires-Dist: neo4j-rust-ext; extra == 'neo4j'
@@ -226,7 +222,7 @@ Provides-Extra: xlsx
 Requires-Dist: unstructured[xlsx]; extra == 'xlsx'
 Provides-Extra: zendesk
 Requires-Dist: aiofiles; extra == 'zendesk'
-Requires-Dist: bs4; extra == 'zendesk'
+Requires-Dist: beautifulsoup4; extra == 'zendesk'
 Requires-Dist: httpx; extra == 'zendesk'
 Description-Content-Type: text/markdown
 

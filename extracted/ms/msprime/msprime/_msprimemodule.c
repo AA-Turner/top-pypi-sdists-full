@@ -1,6 +1,6 @@
 // clang-format off
 /*
-** Copyright (C) 2014-2020 University of Oxford
+** Copyright (C) 2014-2025 University of Oxford
 **
 ** This file is part of msprime.
 **
@@ -1072,15 +1072,16 @@ Simulator_parse_simulation_model(Simulator *self, PyObject *py_model)
     PyObject *hudson_s = NULL;
     PyObject *smc_s = NULL;
     PyObject *smc_prime_s = NULL;
+    PyObject *smc_k_s = NULL;
     PyObject *dtwf_s = NULL;
     PyObject *fixed_pedigree_s = NULL;
     PyObject *dirac_s = NULL;
     PyObject *beta_s = NULL;
     PyObject *sweep_genic_selection_s = NULL;
     PyObject *value;
-    int is_hudson, is_dtwf, is_smc, is_smc_prime, is_dirac, is_beta,
+    int is_hudson, is_dtwf, is_smc, is_smc_prime, is_smc_k, is_dirac, is_beta,
         is_sweep_genic_selection, is_fixed_pedigree;
-    double psi, c, alpha, truncation_point;
+    double psi, c, alpha, truncation_point, hull_offset;
 
     hudson_s = Py_BuildValue("s", "hudson");
     if (hudson_s == NULL) {
@@ -1100,6 +1101,10 @@ Simulator_parse_simulation_model(Simulator *self, PyObject *py_model)
     }
     smc_prime_s = Py_BuildValue("s", "smc_prime");
     if (smc_prime_s == NULL) {
+        goto out;
+    }
+    smc_k_s = Py_BuildValue("s", "smc_k");
+    if (smc_k_s == NULL) {
         goto out;
     }
     dirac_s = Py_BuildValue("s", "dirac");
@@ -1162,6 +1167,23 @@ Simulator_parse_simulation_model(Simulator *self, PyObject *py_model)
         err = msp_set_simulation_model_smc_prime(self->sim);
     }
 
+    is_smc_k = PyObject_RichCompareBool(py_name, smc_k_s, Py_EQ);
+    if (is_smc_k == -1) {
+        goto out;
+    }
+    if (is_smc_k) {
+        value = get_dict_number(py_model, "k");
+        if (value == NULL) {
+            goto out;
+        }
+        hull_offset = PyFloat_AsDouble(value);
+        if (hull_offset < 0.0) {
+            PyErr_SetString(PyExc_ValueError, "Must have k >= 0.0");
+            goto out;
+        }
+        err = msp_set_simulation_model_smc_k(self->sim, hull_offset);
+    }
+
     is_dirac = PyObject_RichCompareBool(py_name, dirac_s, Py_EQ);
     if (is_dirac == -1) {
         goto out;
@@ -1220,7 +1242,7 @@ Simulator_parse_simulation_model(Simulator *self, PyObject *py_model)
         }
     }
 
-    if (! (is_hudson || is_dtwf || is_smc || is_smc_prime || is_dirac
+    if (! (is_hudson || is_dtwf || is_smc || is_smc_prime || is_smc_k || is_dirac
                 || is_beta || is_sweep_genic_selection || is_fixed_pedigree)) {
         PyErr_SetString(PyExc_ValueError, "Unknown simulation model");
         goto out;
@@ -1236,6 +1258,7 @@ out:
     Py_XDECREF(fixed_pedigree_s);
     Py_XDECREF(smc_s);
     Py_XDECREF(smc_prime_s);
+    Py_XDECREF(smc_k_s);
     Py_XDECREF(beta_s);
     Py_XDECREF(dirac_s);
     Py_XDECREF(sweep_genic_selection_s);
@@ -1767,8 +1790,8 @@ Simulator_init(Simulator *self, PyObject *args, PyObject *kwds)
         "demographic_events", "model", "avl_node_block_size", "segment_block_size",
         "node_mapping_block_size", "store_migrations", "start_time",
         "additional_nodes", "coalescing_segments_only",
-        "num_labels", "gene_conversion_rate", "gene_conversion_tract_length", 
-        "discrete_genome", "ploidy", NULL};
+        "num_labels", "gene_conversion_rate", "gene_conversion_tract_length",
+        "discrete_genome", "ploidy", "stop_at_local_mrca", NULL};
     PyObject *migration_matrix = NULL;
     PyObject *population_configuration = NULL;
     PyObject *demographic_events = NULL;
@@ -1790,11 +1813,13 @@ Simulator_init(Simulator *self, PyObject *args, PyObject *kwds)
     double gene_conversion_rate = 0;
     double gene_conversion_tract_length = 1.0;
     int ploidy = 2;
+    int stop_at_local_mrca = true;
+
 
     self->sim = NULL;
     self->random_generator = NULL;
     if (!PyArg_ParseTupleAndKeywords(args, kwds,
-            "O!O!|O!O!OO!O!nnnidkinddii", kwlist,
+            "O!O!|O!O!OO!O!nnnidkinddiii", kwlist,
             &LightweightTableCollectionType, &tables,
             &RandomGeneratorType, &random_generator,
             /* optional */
@@ -1807,7 +1832,7 @@ Simulator_init(Simulator *self, PyObject *args, PyObject *kwds)
             &node_mapping_block_size, &store_migrations, &start_time,
             &additional_nodes, &coalescing_segments_only, &num_labels,
             &gene_conversion_rate, &gene_conversion_tract_length,
-            &discrete_genome, &ploidy)) {
+            &discrete_genome, &ploidy, &stop_at_local_mrca)) {
         goto out;
     }
     self->random_generator = random_generator;
@@ -1928,7 +1953,8 @@ Simulator_init(Simulator *self, PyObject *args, PyObject *kwds)
     }
     msp_set_additional_nodes(self->sim, (uint32_t) additional_nodes);
     msp_set_coalescing_segments_only(self->sim, coalescing_segments_only);
-    
+    msp_set_stop_at_local_mrca(self->sim, stop_at_local_mrca);
+
     sim_ret = msp_initialise(self->sim);
     if (sim_ret != 0) {
         handle_input_error("initialise", sim_ret);
@@ -2001,6 +2027,16 @@ Simulator_get_model(Simulator *self, void *closure)
         Py_DECREF(value);
         value = NULL;
         /* TODO fill in the parameters for the different types of trajectories. */
+    } else if (model->type == MSP_MODEL_SMC_K) {
+        value = Py_BuildValue("d", model->params.smc_k_coalescent.hull_offset);
+        if (value == NULL) {
+            goto out;
+        }
+        if (PyDict_SetItemString(d, "k", value) != 0) {
+            goto out;
+        }
+        Py_DECREF(value);
+        value = NULL;
     }
     ret = d;
     d = NULL;
@@ -2437,7 +2473,9 @@ Simulator_individual_to_python(Simulator *self, segment_t *ind)
     PyObject *t = NULL;
     size_t num_segments, j;
     segment_t *u;
+    lineage_t *lin = ind->lineage;
 
+    assert(lin != NULL);
     num_segments = 0;
     u = ind;
     while (u != NULL) {
@@ -2452,7 +2490,7 @@ Simulator_individual_to_python(Simulator *self, segment_t *ind)
     j = 0;
     while (u != NULL) {
         t = Py_BuildValue("(d,d,I,I)", u->left, u->right, u->value,
-                u->population);
+                lin->population);
         if (t == NULL) {
             Py_DECREF(l);
             goto out;

@@ -8,7 +8,7 @@ import typing
 from contextlib import suppress
 from datetime import datetime
 from functools import cache
-from typing import Union
+from typing import List, Union
 
 import jpype
 import pyarrow as pa
@@ -40,7 +40,6 @@ from snowflake.snowpark_connect.expression.map_sql_expression import (
 )
 from snowflake.snowpark_connect.utils.context import (
     get_is_evaluating_sql,
-    get_is_python_client,
     get_jpype_jclass_lock,
 )
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
@@ -65,6 +64,8 @@ SNOWPARK_TYPE_NAME_TO_PYSPARK_TYPE_NAME = {
     snowpark.types.StructType.__name__: pyspark.sql.types.StructType.typeName(),
     snowpark.types.TimestampType.__name__: pyspark.sql.types.TimestampType.typeName(),
 }
+
+_MAX_DECIMAL_PRECISION = 38
 
 
 @cache
@@ -481,150 +482,217 @@ def proto_to_snowpark_type(
             return map_simple_types(data_type.WhichOneof("kind"))
 
 
-def map_snowpark_types_to_pyarrow_types(
-    snowpark_type: snowpark.types.DataType,
-    pa_type: pa.DataType,
-    rename_struct_columns: bool = False,
-    for_empty_table: bool = False,
-) -> pa.lib.DataType:
+class SnowparkToArrowMapper:
     """
-    Map a Snowpark data type to a pyarrow data type.
+    Base mapper for converting Snowpark types to PyArrow types.
+
+    Subclass and override hook methods to customize mapping behavior.
     """
-    assert pa_type is not None, "arrow type can't be None"
 
-    # for structured types, we validate the pa_type matches snowpark_type,
-    # with a exception for empty tables (schema might be inferred from data, and thus be null type)
-    allow_null_pa_type = pa.types.is_null(pa_type) and for_empty_table
+    def map_schema(
+        self,
+        snowpark_schema: snowpark.types.StructType,
+        pa_schema: pa.DataType,
+    ) -> List[pa.Field]:
+        """
+        Map a top-level Snowpark schema to PyArrow fields.
 
-    match type(snowpark_type):
-        case snowpark.types.ArrayType:
-            if (
-                not snowpark_type.structured
-                or snowpark_type.element_type is None
-                or pa_type == pa.string()
-            ):
-                # in the case of unstructured & semi-structured types, e.g. semi-structured array's element_type is None.
-                # Before structured type is fully supported, we fall back to string type.
-                return pa.string()
-            if pa.types.is_list(pa_type) or allow_null_pa_type:
-                return pa.list_(
-                    map_snowpark_types_to_pyarrow_types(
-                        snowpark_type.element_type,
-                        pa.null() if allow_null_pa_type else pa_type.value_type,
-                        for_empty_table=for_empty_table,
-                    )
-                )
-            else:
-                exception = AnalysisException(
-                    f"Unsupported arrow type {pa_type} for snowpark ArrayType."
-                )
-                attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_TYPE)
-                raise exception
-        case snowpark.types.BinaryType:
-            return pa.binary()
-        case snowpark.types.BooleanType:
-            return pa.bool_()
-        case snowpark.types.ByteType:
-            return pa.int8()
-        case snowpark.types.DateType:
-            return pa.date32()
-        case snowpark.types.DecimalType:
-            # PyArrow optimizes storage for decimal types with scale=0:
-            # - Decimals with scale=0 and precision≤18 are stored as int64
-            # - Decimals with scale=0 and 18<precision≤38 use int128
-            # When attempting to cast int64 to Decimal128(precision,0), PyArrow requires
-            # precision ≥ 19 regardless of actual value magnitude, including NULL values and it leads to casting error for None.
-            # For Java/Scala, we want to preserve the Decimal since the client won't accept different type during deserialization.
-            if snowpark_type.scale == 0 and get_is_python_client():
-                if snowpark_type.precision <= 18:
-                    return pa.int64()
-            return pa.decimal128(snowpark_type.precision, snowpark_type.scale)
-        case snowpark.types.DoubleType:
-            return pa.float64()
-        case snowpark.types.FloatType:
-            return pa.float32()
-        case snowpark.types.IntegerType:
-            return pa.int32()
-        case snowpark.types.LongType:
-            return pa.int64()
-        case snowpark.types.MapType:
-            if not snowpark_type.structured:
-                # semi-structured value
-                return pa.string()
-            if pa.types.is_map(pa_type) or pa.types.is_null(pa_type):
-                return pa.map_(
-                    key_type=map_snowpark_types_to_pyarrow_types(
-                        snowpark_type.key_type,
-                        pa.null() if allow_null_pa_type else pa_type.key_type,
-                        for_empty_table=for_empty_table,
-                    ),
-                    item_type=map_snowpark_types_to_pyarrow_types(
-                        snowpark_type.value_type,
-                        pa.null() if allow_null_pa_type else pa_type.item_type,
-                        for_empty_table=for_empty_table,
-                    ),
-                )
-            else:
-                exception = AnalysisException(
-                    f"Unsupported arrow type {pa_type} for snowpark MapType."
-                )
-                attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_TYPE)
-                raise exception
-        case snowpark.types.NullType:
-            return pa.string()
-        case snowpark.types.ShortType:
-            return pa.int16()
-        case snowpark.types.StringType:
-            return pa.string()
-        case snowpark.types.StructType:
-            if not snowpark_type.structured:
-                # semi-structured value
-                return pa.string()
-            if pa.types.is_struct(pa_type) or pa.types.is_null(pa_type):
-                return pa.struct(
-                    [
-                        pa.field(
-                            field.name if not rename_struct_columns else str(i),
-                            map_snowpark_types_to_pyarrow_types(
-                                field.datatype,
-                                pa.null() if allow_null_pa_type else pa_type[i].type,
-                                for_empty_table=for_empty_table,
-                            ),
-                            nullable=True,
-                        )
-                        for i, field in enumerate(snowpark_type.fields)
-                    ]
-                )
-            else:
-                exception = AnalysisException(
-                    f"Unsupported arrow type {pa_type} for snowpark StructType."
-                )
-                attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_TYPE)
-                raise exception
-        case snowpark.types.TimestampType:
-            # Check if pa_type has unit attribute (it should be a timestamp type)
-            unit = pa_type.unit if hasattr(pa_type, "unit") else "us"
-            tz = pa_type.tz if hasattr(pa_type, "tz") else None
-
-            # Spark truncates nanosecond precision to microseconds
-            if unit == "ns":
-                unit = "us"
-
-            return pa.timestamp(unit, tz=tz)
-        case snowpark.types.VariantType:
-            return pa.string()
-        case snowpark.types.YearMonthIntervalType:
-            # Return string type so formatted intervals are preserved in display
-            return pa.string()
-        case snowpark.types.DayTimeIntervalType:
-            # Return string type so formatted intervals are preserved in display
-            return pa.string()
-        case _:
-            exception = SnowparkConnectNotImplementedError(
-                f"Unsupported snowpark data type: {snowpark_type}"
+        This is the entry point for external callers. Top-level columns are
+        renamed to indices ("0", "1", "2", ...).
+        """
+        return [
+            pa.field(
+                str(i),
+                self.map(
+                    field.datatype,
+                    pa.null()
+                    if self._allow_null_pa_type(pa_schema)
+                    else pa_schema[i].type,
+                ),
+                nullable=True,
             )
-            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-            raise exception
+            for i, field in enumerate(snowpark_schema.fields)
+        ]
+
+    def map(
+        self,
+        snowpark_type_arg: snowpark.types.DataType,
+        pa_type: pa.DataType,
+    ) -> pa.lib.DataType:
+        """Map a Snowpark data type to a PyArrow data type."""
+        assert pa_type is not None, "arrow type can't be None"
+
+        allow_null_pa_type = self._allow_null_pa_type(pa_type)
+
+        match type(snowpark_type_arg):
+            case snowpark.types.ArrayType:
+                if (
+                    not snowpark_type_arg.structured
+                    or snowpark_type_arg.element_type is None
+                    or pa_type == pa.string()
+                ):
+                    return pa.string()
+                if pa.types.is_list(pa_type) or allow_null_pa_type:
+                    return pa.list_(
+                        self.map(
+                            snowpark_type_arg.element_type,
+                            pa.null() if allow_null_pa_type else pa_type.value_type,
+                        )
+                    )
+                else:
+                    exception = AnalysisException(
+                        f"Unsupported arrow type {pa_type} for snowpark ArrayType."
+                    )
+                    attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_TYPE)
+                    raise exception
+
+            case snowpark.types.BinaryType:
+                return pa.binary()
+
+            case snowpark.types.BooleanType:
+                return pa.bool_()
+
+            case snowpark.types.ByteType:
+                return pa.int8()
+
+            case snowpark.types.DateType:
+                return pa.date32()
+
+            case snowpark.types.DecimalType:
+                return self._map_decimal(snowpark_type_arg, pa_type)
+
+            case snowpark.types.DoubleType:
+                return pa.float64()
+
+            case snowpark.types.FloatType:
+                return pa.float32()
+
+            case snowpark.types.IntegerType:
+                return pa.int32()
+
+            case snowpark.types.LongType:
+                return pa.int64()
+
+            case snowpark.types.MapType:
+                if not snowpark_type_arg.structured:
+                    return pa.string()
+                if pa.types.is_map(pa_type) or pa.types.is_null(pa_type):
+                    return pa.map_(
+                        key_type=self.map(
+                            snowpark_type_arg.key_type,
+                            pa.null() if allow_null_pa_type else pa_type.key_type,
+                        ),
+                        item_type=self.map(
+                            snowpark_type_arg.value_type,
+                            pa.null() if allow_null_pa_type else pa_type.item_type,
+                        ),
+                    )
+                else:
+                    exception = AnalysisException(
+                        f"Unsupported arrow type {pa_type} for snowpark MapType."
+                    )
+                    attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_TYPE)
+                    raise exception
+
+            case snowpark.types.NullType:
+                return pa.string()
+
+            case snowpark.types.ShortType:
+                return pa.int16()
+
+            case snowpark.types.StringType:
+                return pa.string()
+
+            case snowpark.types.StructType:
+                if not snowpark_type_arg.structured:
+                    return pa.string()
+                if pa.types.is_struct(pa_type) or pa.types.is_null(pa_type):
+                    return pa.struct(
+                        [
+                            pa.field(
+                                field.name,
+                                self.map(
+                                    field.datatype,
+                                    pa.null()
+                                    if allow_null_pa_type
+                                    else pa_type[i].type,
+                                ),
+                                nullable=True,
+                            )
+                            for i, field in enumerate(snowpark_type_arg.fields)
+                        ]
+                    )
+                else:
+                    exception = AnalysisException(
+                        f"Unsupported arrow type {pa_type} for snowpark StructType."
+                    )
+                    attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_TYPE)
+                    raise exception
+
+            case snowpark.types.TimestampType:
+                unit = pa_type.unit if hasattr(pa_type, "unit") else "us"
+                tz = pa_type.tz if hasattr(pa_type, "tz") else None
+                if unit == "ns":
+                    unit = "us"
+                return pa.timestamp(unit, tz=tz)
+
+            case snowpark.types.VariantType:
+                return pa.string()
+
+            case snowpark.types.YearMonthIntervalType:
+                return pa.string()
+
+            case snowpark.types.DayTimeIntervalType:
+                return pa.string()
+
+            case _:
+                exception = SnowparkConnectNotImplementedError(
+                    f"Unsupported snowpark data type: {snowpark_type_arg}"
+                )
+                attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+                raise exception
+
+    # Hook methods for subclasses to override
+
+    def _allow_null_pa_type(self, pa_type: pa.DataType) -> bool:
+        """Override to allow null pa_type in certain contexts."""
+        return False
+
+    def _map_decimal(
+        self, snowpark_type_arg: snowpark.types.DecimalType, pa_type: pa.DataType
+    ) -> pa.DataType:
+        """Override to customize decimal mapping."""
+        return pa.decimal128(snowpark_type_arg.precision, snowpark_type_arg.scale)
+
+
+class SnowparkToArrowTempSchemaMapper(SnowparkToArrowMapper):
+    """
+    Mapper for temp schemas.
+
+    Uses max precision for decimals when pa_type is integer, to avoid
+    casting errors when the actual precision is too small for the int type.
+    """
+
+    def _map_decimal(
+        self, snowpark_type_arg: snowpark.types.DecimalType, pa_type: pa.DataType
+    ) -> pa.DataType:
+        precision = (
+            _MAX_DECIMAL_PRECISION
+            if pa.types.is_integer(pa_type)
+            else snowpark_type_arg.precision
+        )
+        return pa.decimal128(precision, snowpark_type_arg.scale)
+
+
+class SnowparkToArrowEmptyTableMapper(SnowparkToArrowMapper):
+    """
+    Mapper for empty tables.
+
+    Allows null pa_type since schema may be inferred from data and be null.
+    """
+
+    def _allow_null_pa_type(self, pa_type: pa.DataType) -> bool:
+        return pa.types.is_null(pa_type)
 
 
 def map_pyarrow_to_snowpark_types(pa_type: pa.DataType) -> snowpark.types.DataType:

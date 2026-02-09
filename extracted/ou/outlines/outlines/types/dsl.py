@@ -29,8 +29,6 @@ from typing import (
 )
 import jsonschema
 from genson import SchemaBuilder
-# TODO: change this once the import issue is fixed in outlines_core
-from outlines_core import outlines_core
 from pydantic import (
     BaseModel,
     GetCoreSchemaHandler,
@@ -39,6 +37,7 @@ from pydantic import (
 )
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import core_schema as cs
+from outlines_core.json_schema import build_regex_from_schema
 
 import outlines.types as types
 from outlines import grammars
@@ -332,11 +331,9 @@ class JsonSchema(Term):
                 + "specification"
             )
 
+        jsonschema.Draft7Validator.check_schema(json.loads(schema_str))
         self.schema = schema_str
         self.whitespace_pattern = whitespace_pattern
-
-    def __post_init__(self):
-        jsonschema.Draft7Validator.check_schema(json.loads(self.schema))
 
     @classmethod
     def is_json_schema(cls, obj: Any) -> bool:
@@ -831,9 +828,10 @@ def _handle_union(args: tuple, recursion_depth: int) -> Alternatives:
 
 
 def _handle_list(args: tuple, recursion_depth: int) -> Sequence:
-    if args is None or len(args) > 1:
+    if args is None or len(args) != 1:
         raise TypeError(
-            f"Only homogeneous lists are supported. Got multiple type arguments {args}."
+            "Only homogeneous lists are supported. You should provide exactly "
+            + "one argument to `List`, got {args}."
         )
     item_type = python_types_to_terms(args[0], recursion_depth + 1)
     return Sequence(
@@ -917,7 +915,7 @@ def to_regex(term: Term) -> str:
     elif isinstance(term, Regex):
         return f"({term.pattern})"
     elif isinstance(term, JsonSchema):
-        regex_str = outlines_core.json_schema.build_regex_from_schema(term.schema, term.whitespace_pattern)
+        regex_str = build_regex_from_schema(term.schema, term.whitespace_pattern)
         return f"({regex_str})"
     elif isinstance(term, Choice):
         regexes = [to_regex(python_types_to_terms(item)) for item in term.items]

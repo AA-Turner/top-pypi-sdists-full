@@ -13,8 +13,16 @@ arguments and returns the subset of a configuration dictionary that agrees with
 that signature.
 """
 
+from __future__ import annotations
 
-def identity(arg=None, *args, **kwargs):
+import typing
+
+
+def identity(
+    arg: typing.Any | None = None,
+    *args: typing.Any,
+    **kwargs: typing.Any,
+) -> typing.Any:
     """
     Return the value of the first argument unchanged.
 
@@ -56,7 +64,11 @@ def identity(arg=None, *args, **kwargs):
     return arg
 
 
-def inject_method(self, func, name=None):
+def inject_method(
+    self,
+    func: typing.Callable[..., typing.Any],
+    name: str | None = None,
+) -> None:
     """
     Injects a function into an object instance as a bound method
 
@@ -92,13 +104,24 @@ def inject_method(self, func, name=None):
         >>> assert self.bar() == 'baz'
     """
     # TODO: if func is a bound method we should probably unbind it
-    new_method = func.__get__(self, self.__class__)
+    new_method = func.__get__(self, self.__class__)  # type: ignore[unresolved-attribute]
     if name is None:
-        name = func.__name__
+        name = getattr(func, '__name__', None)
+        if name is None:
+            raise ValueError(
+                'func must have a __name__ attribute if name is not specified'
+            )
+    if typing.TYPE_CHECKING:
+        assert isinstance(name, str)
     setattr(self, name, new_method)
 
 
-def compatible(config, func, start=0, keywords=True):
+def compatible(
+    config: dict[str, typing.Any],
+    func: typing.Callable,
+    start: int = 0,
+    keywords: bool | typing.Iterable[str] = True,
+) -> dict[str, typing.Any]:
     """
     Take the "compatible" subset of a dictionary that a function will accept as
     keyword arguments.
@@ -196,6 +219,7 @@ def compatible(config, func, start=0, keywords=True):
         ub.udict(report_config) & (sig.parameters)
     """
     import inspect
+
     sig = inspect.signature(func)
     argnames = []
     has_kwargs = False
@@ -206,8 +230,10 @@ def compatible(config, func, start=0, keywords=True):
             pass  # Ignore variadic positional args
         elif arg.kind == inspect.Parameter.POSITIONAL_ONLY:
             pass  # Ignore positional only arguments
-        elif arg.kind in {inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                          inspect.Parameter.KEYWORD_ONLY}:
+        elif arg.kind in {
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+        }:
             argnames.append(arg.name)
         else:  # nocover
             raise TypeError(arg.kind)
@@ -226,8 +252,9 @@ def compatible(config, func, start=0, keywords=True):
         # kwargs could be anything, so keep everything
         common = config
     else:
-        common = {k: config[k] for k in argnames[start:]
-                  if k in config}  # dict-intersection
+        common = {
+            k: config[k] for k in argnames[start:] if k in config
+        }  # dict-intersection
     return common
 
 

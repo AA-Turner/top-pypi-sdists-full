@@ -2,24 +2,29 @@
 name = "wakepy"
 dynamic = ["version"]
 description = "wakelock / keep-awake / stay-awake"
+
 authors = [
     {name = "Niko Föhr", email = "fohrloop@gmail.com"},
 ]
 dependencies = [
-    # For using the D-Bus based methods. All Unix-öike FOSS desktop operating
+    # For using the D-Bus based methods. All Unix-like FOSS desktop operating
     # systems should be listed here (as they might use Gnome, XFCE, etc.)
     # Full list of the environment markers at https://peps.python.org/pep-0508/
     "jeepney >= 0.7.1;platform_system=='Linux' or platform_system=='FreeBSD' or platform_system=='OpenBSD' or platform_system=='NetBSD' or platform_system=='DragonFly' or platform_system=='SunOS' or platform_system=='AIX' or platform_system=='Minix'",
-    # The typing.Literal was introduced in Python 3.8. Need to install
-    # typing-extensions for Python 3.7 support.
-    'typing-extensions; python_version < "3.8.0"',
+    # typing.Literal and typing.TypedDict were introduced in Python 3.8
+    # typing.ParamsSpec was introduced in Python 3.10. This is needed for
+    #   making typing of functions decorated with @keep.running work.
+    'typing-extensions; python_version < "3.10.0"',
 ]
 
 # Python 3.7 introduces from __future__ import annotations
 requires-python = ">=3.7"
 readme = "README.md"
 license = { file = "LICENSE.txt"}
+
 classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
     "License :: OSI Approved :: MIT License",
     "Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows",
@@ -40,14 +45,114 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: Free Threading",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Utilities",
+    "Typing :: Typed",
 ]
 
+[tool.uv]
+default-groups = ["dev"]
+
+[dependency-groups]
+
+dev = [
+    {include-group = "test"},
+    {include-group = "docs"},
+    {include-group = "check"},
+    # On Windows, cannot use later version of sphinx-autobuild until
+    # https://github.com/sphinx-doc/sphinx-autobuild/issues/197 is resolved.
+    # See also: https://github.com/wakepy/wakepy/issues/444
+    "sphinx-autobuild==2024.4.16",
+    "IPython",
+    "zizmor>=1.16.3",
+    "codespell>=2.4.1",
+]
+docs = [
+    # Requirements for building the documentation.
+    "accessible-pygments",
+    "alabaster",
+    "Babel",
+    "beautifulsoup4",
+    # Need the build in order to get the _version.py
+    "build",
+    "certifi",
+    "charset-normalizer",
+    "docutils",
+    "idna",
+    "imagesize",
+    "Jinja2",
+    "markdown-it-py",
+    "MarkupSafe",
+    "mdit-py-plugins",
+    "mdurl",
+    "myst-parser==2.0.0",
+    "numpydoc==1.7.0",
+    "packaging",
+    "pydata-sphinx-theme==0.15.3",
+    "Pygments",
+    "pyproject_hooks",
+    "PyYAML",
+    "requests",
+    "snowballstemmer",
+    "soupsieve",
+    "Sphinx==7.2.6",
+    "sphinx-book-theme==1.1.2",
+    "sphinx-copybutton==0.5.2",
+    "sphinx_design==0.5.0",
+    "sphinxcontrib-applehelp==1.0.8",
+    "sphinxcontrib-devhelp==1.0.6",
+    "sphinxcontrib-htmlhelp==2.0.5",
+    "sphinxcontrib-jsmath==1.0.1",
+    "sphinxcontrib-qthelp==1.0.7",
+    "sphinxcontrib-serializinghtml==1.1.10",
+    "tabulate",
+    "tomli",
+    "typing_extensions",
+    "urllib3",
+]
+
+check = [
+    {include-group = "mypy"},
+    "ruff==0.6.5",
+]
+
+mypy = [
+    {include-group = "pytest"},
+    # Last mypy version to support Python 3.7
+    "mypy==1.4.1; python_version=='3.7'",
+    # This only supports Python 3.8+
+    "mypy==1.11.2; python_version>='3.8'",
+]
+test = [
+    {include-group = "pytest"},
+    # Python 3.7 support dropped in pytest-cov 5.0.0
+    "pytest-cov==4.1.0; python_version=='3.7'",
+    "pytest-cov==5.0.0; python_version>='3.8'",
+    "coverage-conditional-plugin>=0.9.0",
+    # Jeepney is used in the integration tests for creating a D-Bus server
+    "jeepney==0.8.0;sys_platform=='linux'",
+]
+pytest =[
+    # There are problems with pytest <=8.3.4 on certain builds of CPython
+    # (e.g. python-build-standalone, versions 3.13.0..3.13.7 and 3.14.0)
+    # See: https://github.com/wakepy/wakepy/issues/510 and https://github.com/pytest-dev/pytest/issues/12888
+    "pytest>=8.3.5; python_version>='3.13.0'",
+]
+
+[tool.uv.dependency-groups]
+docs = {requires-python = ">=3.9"}
+dev = {requires-python = ">=3.9"}
+check = {requires-python = ">=3.9"}
+test = {requires-python = ">=3.7"}
 
 [project.urls]
-Homepage = "https://github.com/fohrloop/wakepy"
-"Source Code" = "https://github.com/fohrloop/wakepy"
-"Issue Tracker" = "https://github.com/fohrloop/wakepy/issues"
+Homepage = "https://github.com/wakepy/wakepy"
+"Source Code" = "https://github.com/wakepy/wakepy"
+"Issue Tracker" = "https://github.com/wakepy/wakepy/issues"
 Documentation = "https://wakepy.readthedocs.io/"
 Changelog = "https://wakepy.readthedocs.io/stable/changelog.html"
 
@@ -61,8 +166,9 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools_scm]
 version_file = "src/wakepy/_version.py"
 
+
 [tool.mypy]
-exclude = ['venv/*', '.venv/*', 'docs/*', '.tox/*']
+exclude = ['venv/*', '.venv/*', 'docs/*']
 check_untyped_defs = true
 disallow_any_generics = true
 no_implicit_optional = true
@@ -80,17 +186,13 @@ disallow_any_unimported = true
 [[tool.mypy.overrides]]
 module = [
     'jeepney.*',
-    'tox.*'
 ]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ['tests.*', 'tasks']
+module = ['tests.*']
 disallow_untyped_defs = false
 
-[[tool.mypy.overrides]]
-module = ['toxfile']
-disallow_any_unimported = false
 
 [tool.coverage.run]
 plugins = ["coverage_conditional_plugin"]
@@ -99,8 +201,8 @@ omit = [
 ]
 [tool.coverage.paths]
 source = [
-    # This makes the coverage report paths shorter for the tox results, which
-    # otherwise are of the format: .tox/py311/lib/python3.11/site-packages/wakepy/somefile.py
+    # This makes the coverage report paths shorter in case wakepy is installed
+    # in a virtual environment
     "src/wakepy",
     "**/site-packages/wakepy"
 ]
@@ -119,14 +221,15 @@ exclude_lines = [
 "platform_system != 'Linux'" = "**/wakepy/dbus_adapters/*.py"
 # Windows methods only need to be tested on Windows
 "platform_system != 'Windows'" = "**/wakepy/methods/windows.py"
+# MacOS methods only need to be tested on MacOS
+"platform_system != 'Darwin'" = "**/wakepy/methods/macos.py"
 
 [tool.coverage.coverage_conditional_plugin.rules]
 no-cover-if-no-dbus = "platform_system != 'Linux'"
 no-cover-if-py-gte-38 = "sys_version_info >= (3, 8)"
 no-cover-if-py-lt-38 = "sys_version_info < (3, 8)"
-
-[tool.isort]
-profile = "black"
+no-cover-if-py-gte-310 = "sys_version_info >= (3, 10)"
+no-cover-if-py-lt-310 = "sys_version_info < (3, 10)"
 
 [tool.ruff]
 # Same as Black.
@@ -139,7 +242,6 @@ exclude = [
     ".git",
     ".mypy_cache",
     ".ruff_cache",
-    ".tox",
     "__pypackages__",
     "_build",
     "build",
@@ -152,26 +254,50 @@ exclude = [
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 select = [
+    # BLE: blind-except: https://docs.astral.sh/ruff/rules/blind-except/
+    "BLE",
     # E: pycodestyle
     "E",
+    # ERA: eradicate (commented out code)
+    "ERA",
     # F: Pyflakes
     "F",
-    # W505: doc-line-too-long. Ref: https://docs.astral.sh/ruff/rules/doc-line-too-long/
-    "W505",
-    # W291: trailing-whitespace. Ref: https://docs.astral.sh/ruff/rules/trailing-whitespace/
-    "W291",
     # Disallow TODO (these should be either fixed before merging, or
     # alternatively, use a LATER tag. In addition, disallow XXX, FIXME and HACK
     "FIX001",
     "FIX002",
     "FIX003",
     "FIX004",
+    # FBT: flake8-boolean-trap
+    "FBT",
+    # I: isort: https://docs.astral.sh/ruff/rules/#isort-i
+    "I",
+    # S: flake8-bandit. Listings are in two places: (Tests and Blacklists)
+    # 1) https://bandit.readthedocs.io/en/latest/plugins/index.html#complete-test-plugin-listing
+    # 2) https://bandit.readthedocs.io/en/latest/blacklists/index.html
+    "S", 
+    # W505: doc-line-too-long. Ref: https://docs.astral.sh/ruff/rules/doc-line-too-long/
+    "W505",
+    # W291: trailing-whitespace. Ref: https://docs.astral.sh/ruff/rules/trailing-whitespace/
+    "W291",
 ]
+
 ignore = []
 # Allow autofix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
 unfixable = []
 
+[tool.ruff.lint.per-file-ignores]
+"tests/**.py" = [
+    "S101", # flake8-bandit should not check for asserts in test files
+    "BLE",
+    "FBT",
+]
+
 [tool.ruff.lint.pycodestyle]
 # limits docstring and comments to 79 characters.
 max-doc-length = 79
+
+[tool.codespell]
+skip = "./docs/build,./htmlcov,./dist,./.venv,./venv,*.egg-info*/**"
+ignore-words-list = "MethodA,MethodB,MethodC,MethodD,MethodE"

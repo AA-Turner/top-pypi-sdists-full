@@ -1,6 +1,6 @@
 """This module is contains classes and functions related to D-Bus, which is
 a message bus for communication between processes operating systems like
-Linux and DSD.
+Linux and BSD.
 
 When creating a subclass of wakepy.Method, which uses D-Bus methods, one needs
 to create DBusMethodCall, and use the Method.process_dbus_call to get the
@@ -16,6 +16,7 @@ adapter instance.
 from __future__ import annotations
 
 import gc
+import logging
 import typing
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type, Union
 
@@ -27,6 +28,8 @@ DBusAdapterSeq = typing.Union[List["DBusAdapter"], Tuple["DBusAdapter", ...]]
 DBusAdapterTypeSeq = typing.Union[
     List[Type["DBusAdapter"]], Tuple[Type["DBusAdapter"], ...]
 ]
+
+logger = logging.getLogger(__name__)
 
 
 class DBusAddress(NamedTuple):
@@ -183,7 +186,7 @@ class DBusMethod(NamedTuple):
 
 class DBusMethodCall:
     """Represents a DBus method call with its arguments. Has basic validation
-    for the number of arguments (compare args agains the DBusMethod.params, if
+    for the number of arguments (compare args against the DBusMethod.params, if
     the DBusMethod.params are defined).
 
     Note: Does not check for validity of args against the input parameter
@@ -214,7 +217,6 @@ class DBusMethodCall:
         (self.method) does not have params defined, returns None."""
         if self.method.params is None:
             return None
-        assert isinstance(self.method.params, tuple)
 
         return {p: arg for p, arg in zip(self.method.params, self.args)}
 
@@ -229,7 +231,9 @@ class DBusMethodCall:
             self.__check_args_length(args, method)
             return args
 
-        assert isinstance(args, dict), "args may only be tuple, list or dict"
+        if not isinstance(args, dict):
+            raise ValueError(f"args may only be tuple, list or dict. Got: {type(args)}")
+
         return self.__dict_args_as_tuple(args, method)
 
     def __check_args_length(self, args: Tuple[Any, ...], method: DBusMethod) -> None:
@@ -331,7 +335,7 @@ class DBusAdapter:  # pragma: no-cover-if-no-dbus
             # it still makes Gnome freeze if activating and deactivating the
             # keepawake repeatedly. This is a bit ugly but it's required until
             # there's a better solution.
-            # See: https://github.com/fohrloop/wakepy/issues/277
+            # See: https://github.com/wakepy/wakepy/issues/277
             gc.collect()
 
     def close_connection(self, connection: object) -> None:
@@ -357,7 +361,11 @@ def get_dbus_adapter(
         try:
             adapter = adapter_cls()
             return adapter
-        except Exception:
+        except Exception:  # noqa: BLE001
+            # Skipping BLE001 as we don't care about the type of exception
+            # and we also support any DBusAdapter subclass, which may raise
+            # arbitrary exceptions.
+            logger.debug("Could not initialize DBusAdapter: %s", adapter_cls.__name__)
             continue
     return None
 

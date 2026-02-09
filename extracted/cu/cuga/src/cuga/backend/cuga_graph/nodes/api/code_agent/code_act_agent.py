@@ -269,7 +269,7 @@ def create_codeact(
 
             # 📝 Code Execution Result
             logger.debug(
-                f"\n\n------\n\n📝 Execution output:\n\n {output.strip()[:2000]}{'...' if len(output.strip()) > 2000 else ''} \n\n------\n\n"
+                f"\n\n------\n\n📝 Execution output:\n\n {output.strip()[: settings.advanced_features.execution_output_max_length]}{'...' if len(output.strip()) > settings.advanced_features.execution_output_max_length else ''} \n\n------\n\n"
             )
 
             # ──────────────────────────────────────────────────────────────
@@ -286,7 +286,7 @@ def create_codeact(
             tracker.collect_step(
                 step=Step(
                     name="User_return",
-                    data=f"Execution output preview:\n{output.strip()[:2500]}{'...' if len(output.strip()) > 2500 else ''} Execution output:\n{output}",
+                    data=f"Execution output:\n{output.strip()[: settings.advanced_features.execution_output_max_length]}{'...' if len(output.strip()) > settings.advanced_features.execution_output_max_length else ''}",
                 )
             )
 
@@ -294,7 +294,7 @@ def create_codeact(
                 "messages": [
                     {
                         "role": "user",
-                        "content": f"Execution output preview:\n{output.strip()[:2500]}{'...' if len(output.strip()) > 2500 else ''} Execution output:\n{output}",
+                        "content": f"Execution output:\n{output.strip()[: settings.advanced_features.execution_output_max_length]}{'...' if len(output.strip()) > settings.advanced_features.execution_output_max_length else ''}",
                     }
                 ],
                 "context": new_context,

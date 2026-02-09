@@ -28,9 +28,14 @@ impl MD065BlanksAroundHorizontalRules {
         let prev_line = lines[line_index - 1].trim();
 
         // Setext markers are only - or = (not * or _)
-        // And the previous line must have content
+        // And the previous line must have content (not blank, not itself an HR)
         // CommonMark: setext underlines can have leading/trailing spaces but NO internal spaces
         if prev_line.is_empty() {
+            return false;
+        }
+
+        // If the previous line is itself a horizontal rule, this cannot be a setext heading
+        if crate::lint_context::is_horizontal_rule_line(prev_line) {
             return false;
         }
 
@@ -101,7 +106,7 @@ impl Rule for MD065BlanksAroundHorizontalRules {
             return Ok(Vec::new());
         }
 
-        let lines: Vec<&str> = content.lines().collect();
+        let lines = ctx.raw_lines();
 
         for (i, line_info) in ctx.lines.iter().enumerate() {
             // Use pre-computed is_horizontal_rule from LineInfo
@@ -111,12 +116,12 @@ impl Rule for MD065BlanksAroundHorizontalRules {
             }
 
             // Skip if this is actually a setext heading marker
-            if Self::is_setext_heading_marker(&lines, i) {
+            if Self::is_setext_heading_marker(lines, i) {
                 continue;
             }
 
             // Check for blank line before HR (unless at start of document)
-            if i > 0 && Self::count_blank_lines_before(&lines, i) == 0 {
+            if i > 0 && Self::count_blank_lines_before(lines, i) == 0 {
                 let bq_prefix = ctx.blockquote_prefix_for_blank_line(i);
                 warnings.push(LintWarning {
                     rule_name: Some(self.name().to_string()),
@@ -134,7 +139,7 @@ impl Rule for MD065BlanksAroundHorizontalRules {
             }
 
             // Check for blank line after HR (unless at end of document)
-            if i < lines.len() - 1 && Self::count_blank_lines_after(&lines, i) == 0 {
+            if i < lines.len() - 1 && Self::count_blank_lines_after(lines, i) == 0 {
                 let bq_prefix = ctx.blockquote_prefix_for_blank_line(i);
                 warnings.push(LintWarning {
                     rule_name: Some(self.name().to_string()),
@@ -163,7 +168,7 @@ impl Rule for MD065BlanksAroundHorizontalRules {
             return Ok(content.to_string());
         }
 
-        let lines: Vec<&str> = content.lines().collect();
+        let lines = ctx.raw_lines();
         let mut result = Vec::new();
 
         for (i, line) in lines.iter().enumerate() {
@@ -772,10 +777,22 @@ More text.";
         let result = rule.check(&ctx).unwrap();
 
         // Consecutive HRs need blanks between them
-        // *** -> --- missing blank after ***
-        // --- could be setext if *** had text, but *** is not text
-        // Actually --- after *** (not text) is still HR
+        // --- after *** is also an HR (not setext), since *** is an HR not text
         assert!(result.len() >= 2);
+    }
+
+    #[test]
+    fn test_hr_after_hr_not_setext() {
+        // Regression: --- after *** should be treated as HR, not setext heading
+        let rule = MD065BlanksAroundHorizontalRules;
+        let content = "***\n---\n# ";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+
+        // Both *** and --- are HRs, both need blanks
+        let fixed = rule.fix(&ctx).unwrap();
+        let ctx2 = LintContext::new(&fixed, crate::config::MarkdownFlavor::Standard, None);
+        let fixed2 = rule.fix(&ctx2).unwrap();
+        assert_eq!(fixed, fixed2, "MD065 fix should be idempotent for consecutive HRs");
     }
 
     #[test]

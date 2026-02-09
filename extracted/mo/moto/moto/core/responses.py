@@ -112,6 +112,8 @@ def _get_method_urls(service_name: str, region: str) -> dict[str, dict[str, str]
         if service_name == "opensearch" and request_uri.endswith("/tags/"):
             # AWS GO SDK behaves differently from other SDK's, does not send a trailing slash
             request_uri += "?"
+        if service_name == "backup" and request_uri.endswith("/"):
+            request_uri += "?"
         uri_regexp = BaseResponse.uri_to_regexp(request_uri)
         method_urls[_method][uri_regexp] = op_model.name
 
@@ -273,32 +275,6 @@ class BaseResponse(_TemplateEnvironmentMixin, ActionAuthenticatorMixin):
     @classmethod
     def dispatch(cls, *args: Any, **kwargs: Any) -> Any:  # type: ignore[misc]
         return cls()._dispatch(*args, **kwargs)
-
-    @classmethod
-    def method_dispatch(  # type: ignore[misc]
-        cls, to_call: Callable[[ResponseShape, Any, str, Any], TYPE_RESPONSE]
-    ) -> Callable[[Any, str, Any], TYPE_RESPONSE]:
-        """
-        Takes a given unbound function (part of a Response class) and executes it for a new instance of this
-        response class.
-        Can be used wherever we want to specify different methods for dispatching in urls.py
-        :param to_call: Unbound method residing in this Response class
-        :return: A wrapper executing the given method on a new instance of this class
-        """
-
-        @functools.wraps(to_call)  # type: ignore
-        def _inner(request: Any, full_url: str, headers: Any) -> TYPE_RESPONSE:  # type: ignore[misc]
-            response = getattr(cls(), to_call.__name__)(request, full_url, headers)
-            if isinstance(response, str):
-                status = 200
-                body = response
-                headers = {}
-            else:
-                status, headers, body = response
-            headers, body = cls._enrich_response(headers, body)
-            return status, headers, body
-
-        return _inner
 
     def setup_class(
         self, request: Any, full_url: str, headers: Any, use_raw_body: bool = False

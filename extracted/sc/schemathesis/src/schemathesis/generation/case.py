@@ -4,6 +4,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from jsonschema_rs import Validator
+
 from schemathesis import transport
 from schemathesis.checks import CHECKS, CheckContext, CheckFunction, load_all_checks, run_checks
 from schemathesis.core import NOT_SET, SCHEMATHESIS_TEST_CASE_HEADER, NotSet, curl
@@ -34,6 +36,17 @@ def _default_headers() -> CaseInsensitiveDict:
 
 
 _NOTSET_HASH = 0x7F3A9B2C
+
+
+def _contains_bytes(value: Any) -> bool:
+    """Check if value contains bytes anywhere in nested structure."""
+    if isinstance(value, bytes):
+        return True
+    if isinstance(value, dict):
+        return any(_contains_bytes(v) for v in value.values())
+    if isinstance(value, list):
+        return any(_contains_bytes(item) for item in value)
+    return False
 
 
 @dataclass
@@ -248,18 +261,24 @@ class Case:
         self,
         location: ParameterLocation,
         value: Any,
-        validator_cls: type,
+        validator_cls: type[Validator],
     ) -> bool:
         """Validate a component value against its schema."""
+        from requests.structures import CaseInsensitiveDict
+
         if location == ParameterLocation.BODY:
             # Validate body against media type schema
             if isinstance(value, NotSet) or value is None:
                 return False
             for alternative in self.operation.body:
+                if _contains_bytes(value):
+                    return False
                 if alternative.media_type == self.media_type:
                     return validator_cls(alternative.optimized_schema).is_valid(value)
         # Validate other locations against container schema
         container = getattr(self.operation, location.container_name)
+        if isinstance(value, CaseInsensitiveDict):
+            value = dict(value)
         return validator_cls(container.schema).is_valid(value)
 
     def _hash_container(self, value: Any) -> int:

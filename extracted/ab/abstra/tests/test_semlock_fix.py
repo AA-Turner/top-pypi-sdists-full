@@ -1,5 +1,4 @@
 import shutil
-import time
 import unittest
 from dataclasses import dataclass
 from pathlib import Path
@@ -135,7 +134,6 @@ class TestSemLockFix(unittest.TestCase):
 
             processes.append(process)
             process.start()
-            time.sleep(0.1)  # Stagger process starts to reduce contention
 
         # Wait for all processes
         for process in processes:

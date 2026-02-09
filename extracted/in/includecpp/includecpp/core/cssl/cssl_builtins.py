@@ -241,6 +241,7 @@ class CSSLBuiltins:
         self._functions['bool'] = self.builtin_bool
         self._functions['list'] = self.builtin_list
         self._functions['dict'] = self.builtin_dict
+        self._functions['cast'] = self.builtin_cast  # v4.9.13: Type casting
 
         # Type checking
         self._functions['typeof'] = self.builtin_typeof
@@ -902,6 +903,212 @@ class CSSLBuiltins:
             return dict(value)
         raise CSSLBuiltinError(f"Cannot convert {type(value).__name__} to dict")
 
+    def builtin_cast(self, value: Any, target_type: str = None) -> Any:
+        """Cast value to target type with validation.
+
+        v4.9.13: Type casting with supported conversion paths.
+
+        Syntax:
+            cast(value, type)           // Explicit type
+            float cast(n) floated_n;    // Type-inferred from declaration
+
+        Supported conversions:
+            int    -> float, string, byte, bit, bool
+            float  -> int, string, bool
+            string -> list, byte (UTF-8), bool
+            list   -> tuple, stack, string (join), array, vector
+            tuple  -> list, stack, array, vector
+            stack  -> list, tuple, array, vector
+            array  -> list, tuple, stack, vector
+            vector -> list, tuple, stack, array
+            dict   -> json, list (items)
+            json   -> dict
+            byte   -> int, string, bit, list
+            bit    -> byte, int, bool
+            bool   -> int, string
+
+        Example:
+            int n = 100;
+            float f = cast(n, float);     // 100.0
+            string s = cast(n, string);   // "100"
+            byte b = cast(n, byte);       // b'\\x64'
+
+            list items = [1, 2, 3];
+            tuple t = cast(items, tuple); // (1, 2, 3)
+            string s = cast(items, string); // "1, 2, 3"
+        """
+        from .cssl_types import (
+            Stack, Vector, Array, List as CSSLList, Dictionary,
+            ByteArrayed, Byte, Bit
+        )
+
+        if target_type is None:
+            raise CSSLBuiltinError("cast() requires target type: cast(value, type)")
+
+        # Normalize type name
+        target = target_type.lower() if isinstance(target_type, str) else str(target_type).lower()
+        source_type = type(value).__name__.lower()
+
+        # Get CSSL type name for better error messages
+        cssl_source = self.builtin_typeof(value)
+
+        # Define valid conversion paths
+        valid_casts = {
+            # From int
+            ('int', 'float'): lambda v: float(v),
+            ('int', 'string'): lambda v: str(v),
+            ('int', 'str'): lambda v: str(v),
+            ('int', 'byte'): lambda v: Byte(1, v % 256),  # CSSL Byte with base=1, weight=value
+            ('int', 'bit'): lambda v: Bit(v) if v in (0, 1) else [Bit(int(b)) for b in bin(v)[2:]],  # CSSL Bit type or list of bits
+            ('int', 'bool'): lambda v: bool(v),
+
+            # From float
+            ('float', 'int'): lambda v: int(v),
+            ('float', 'string'): lambda v: str(v),
+            ('float', 'str'): lambda v: str(v),
+            ('float', 'bool'): lambda v: bool(v),
+
+            # From string
+            ('string', 'list'): lambda v: list(v),
+            ('str', 'list'): lambda v: list(v),
+            ('string', 'byte'): lambda v: Byte(1, v.encode('utf-8')[0]) if v else Byte(0, 0),  # First byte of UTF-8 encoding
+            ('str', 'byte'): lambda v: Byte(1, v.encode('utf-8')[0]) if v else Byte(0, 0),  # First byte of UTF-8 encoding
+            ('string', 'bytes'): lambda v: [Byte(1, b) for b in v.encode('utf-8')],  # Full string as byte list
+            ('str', 'bytes'): lambda v: [Byte(1, b) for b in v.encode('utf-8')],  # Full string as byte list
+            ('string', 'bool'): lambda v: v.lower() not in ('', '0', 'false', 'no', 'null', 'none'),
+            ('str', 'bool'): lambda v: v.lower() not in ('', '0', 'false', 'no', 'null', 'none'),
+            ('string', 'int'): lambda v: int(v) if v.lstrip('-').isdigit() else None,
+            ('str', 'int'): lambda v: int(v) if v.lstrip('-').isdigit() else None,
+            ('string', 'float'): lambda v: float(v),
+            ('str', 'float'): lambda v: float(v),
+
+            # From bool
+            ('bool', 'int'): lambda v: int(v),
+            ('bool', 'string'): lambda v: str(v).lower(),
+            ('bool', 'str'): lambda v: str(v).lower(),
+
+            # From list
+            ('list', 'tuple'): lambda v: tuple(v),
+            ('list', 'stack'): lambda v: self._list_to_stack(v),
+            ('list', 'array'): lambda v: self._list_to_array(v),
+            ('list', 'vector'): lambda v: self._list_to_vector(v),
+            ('list', 'string'): lambda v: ', '.join(str(x) for x in v),
+            ('list', 'str'): lambda v: ', '.join(str(x) for x in v),
+            ('list', 'dict'): lambda v: dict(enumerate(v)),
+
+            # From tuple
+            ('tuple', 'list'): lambda v: list(v),
+            ('tuple', 'stack'): lambda v: self._list_to_stack(list(v)),
+            ('tuple', 'array'): lambda v: self._list_to_array(list(v)),
+            ('tuple', 'vector'): lambda v: self._list_to_vector(list(v)),
+            ('tuple', 'string'): lambda v: ', '.join(str(x) for x in v),
+            ('tuple', 'str'): lambda v: ', '.join(str(x) for x in v),
+
+            # From stack
+            ('stack', 'list'): lambda v: list(v),
+            ('stack', 'tuple'): lambda v: tuple(v),
+            ('stack', 'array'): lambda v: self._list_to_array(list(v)),
+            ('stack', 'vector'): lambda v: self._list_to_vector(list(v)),
+
+            # From array
+            ('array', 'list'): lambda v: list(v),
+            ('array', 'tuple'): lambda v: tuple(v),
+            ('array', 'stack'): lambda v: self._list_to_stack(list(v)),
+            ('array', 'vector'): lambda v: self._list_to_vector(list(v)),
+
+            # From vector
+            ('vector', 'list'): lambda v: list(v),
+            ('vector', 'tuple'): lambda v: tuple(v),
+            ('vector', 'stack'): lambda v: self._list_to_stack(list(v)),
+            ('vector', 'array'): lambda v: self._list_to_array(list(v)),
+
+            # From dict
+            ('dict', 'json'): lambda v: v,  # dict is JSON in CSSL
+            ('dict', 'list'): lambda v: list(v.items()),
+            ('dictionary', 'json'): lambda v: dict(v),
+            ('dictionary', 'list'): lambda v: list(v.items()),
+            ('dictionary', 'dict'): lambda v: dict(v),
+
+            # JSON is dict
+            ('json', 'dict'): lambda v: v,
+            ('json', 'list'): lambda v: list(v.items()),
+
+            # From bytes (Python bytes)
+            ('bytes', 'int'): lambda v: int.from_bytes(v, 'big'),
+            ('bytes', 'string'): lambda v: v.decode('utf-8', errors='replace'),
+            ('bytes', 'str'): lambda v: v.decode('utf-8', errors='replace'),
+            ('bytes', 'bit'): lambda v: [Bit(int(b)) for b in ''.join(format(byte, '08b') for byte in v)],  # List of bits
+            ('bytes', 'list'): lambda v: [Byte(1, b) for b in v],
+
+            # From CSSL Byte
+            ('byte', 'int'): lambda v: v.value() if isinstance(v, Byte) else (int.from_bytes(v, 'big') if isinstance(v, bytes) else v),
+            ('byte', 'string'): lambda v: chr(v.weight) if isinstance(v, Byte) else (v.decode('utf-8', errors='replace') if isinstance(v, bytes) else chr(v)),
+            ('byte', 'str'): lambda v: chr(v.weight) if isinstance(v, Byte) else (v.decode('utf-8', errors='replace') if isinstance(v, bytes) else chr(v)),
+            ('byte', 'bit'): lambda v: [Bit(int(b)) for b in format(v.weight, '08b')] if isinstance(v, Byte) else ([Bit(int(b)) for b in ''.join(format(byte, '08b') for byte in v)] if isinstance(v, bytes) else [Bit(int(b)) for b in format(v, '08b')]),
+            ('byte', 'list'): lambda v: [v] if isinstance(v, Byte) else ([Byte(1, b) for b in v] if isinstance(v, bytes) else [v]),
+
+            # From CSSL Bit
+            ('bit', 'byte'): lambda v: Byte(1, v.value) if isinstance(v, Bit) else (Byte(1, sum(b.value << (7-i) for i, b in enumerate(v[:8]))) if isinstance(v, list) else Byte(1, int(str(v).replace('0b', ''), 2) % 256)),
+            ('bit', 'int'): lambda v: v.value if isinstance(v, Bit) else int(str(v).replace('0b', ''), 2),
+            ('bit', 'bool'): lambda v: bool(v.value) if isinstance(v, Bit) else bool(int(str(v).replace('0b', ''), 2)),
+        }
+
+        # Try to find conversion
+        # First try with actual Python type name
+        key = (source_type, target)
+        if key in valid_casts:
+            result = valid_casts[key](value)
+            if result is None:
+                raise CSSLBuiltinError(f"Cannot cast '{value}' to {target_type}: invalid value")
+            return result
+
+        # Try with CSSL type name
+        key = (cssl_source, target)
+        if key in valid_casts:
+            result = valid_casts[key](value)
+            if result is None:
+                raise CSSLBuiltinError(f"Cannot cast '{value}' to {target_type}: invalid value")
+            return result
+
+        # Check for same-type cast (no-op)
+        if source_type == target or cssl_source == target:
+            return value
+
+        # Invalid cast
+        raise CSSLBuiltinError(
+            f"Invalid cast: cannot convert {cssl_source} to {target_type}. "
+            f"Supported casts from {cssl_source}: {self._get_valid_cast_targets(cssl_source, valid_casts)}"
+        )
+
+    def _list_to_stack(self, items: list) -> 'Stack':
+        """Helper to convert list to Stack"""
+        from .cssl_types import Stack
+        s = Stack('dynamic')
+        for item in items:
+            s.push(item)
+        return s
+
+    def _list_to_array(self, items: list) -> 'Array':
+        """Helper to convert list to Array"""
+        from .cssl_types import Array
+        a = Array('dynamic')
+        a.extend(items)
+        return a
+
+    def _list_to_vector(self, items: list) -> 'Vector':
+        """Helper to convert list to Vector"""
+        from .cssl_types import Vector
+        v = Vector('dynamic')
+        v.extend(items)
+        return v
+
+    def _get_valid_cast_targets(self, source_type: str, valid_casts: dict) -> str:
+        """Get list of valid cast targets for a source type"""
+        targets = [target for (src, target) in valid_casts.keys() if src == source_type]
+        if not targets:
+            return "none"
+        return ', '.join(sorted(set(targets)))
+
     # ============= Type Checking =============
 
     def builtin_typeof(self, value: Any) -> str:
@@ -1540,6 +1747,7 @@ class CSSLBuiltins:
 
         try:
             from .cssl_parser import parse_cssl_program
+            from .cssl_runtime import CSSLReturn
 
             # Parse the code
             ast = parse_cssl_program(code)
@@ -1554,15 +1762,16 @@ class CSSLBuiltins:
             # Execute each statement
             result = None
             for node in ast.children:
-                result = self.runtime._execute_node(node)
-                # Check for early return
-                if self.runtime._return_triggered:
-                    result = self.runtime._return_value
-                    self.runtime._return_triggered = False
-                    self.runtime._return_value = None
-                    break
+                try:
+                    result = self.runtime._execute_node(node)
+                except CSSLReturn as ret:
+                    # v4.9.13: Handle return via exception (not flag)
+                    return ret.value
 
             return result
+        except CSSLReturn as ret:
+            # Return triggered outside loop
+            return ret.value
         except Exception as e:
             # Return error info instead of raising
             return {'error': str(e), 'type': type(e).__name__}
@@ -4929,11 +5138,18 @@ class CSSLBuiltins:
         return PythonizedCSSLInstance(cssl_instance, self.runtime)
 
     def builtin_python_csslize(self, python_obj: Any) -> Any:
-        """Convert a Python object (class instance or function) to a CSSL-compatible wrapper.
+        """Convert a Python object to a CSSL-compatible type or wrapper.
 
         Syntax:
             cssl_obj <== python::csslize($python_instance);
             cssl_func <== python::csslize($python_function);
+            cssl_list <== python::csslize($python_list);
+
+        v4.9.13: Now properly converts basic Python types to CSSL types:
+            - Python list -> CSSL list (CSSLList)
+            - Python dict -> CSSL dictionary (Dictionary)
+            - Python primitives (int, float, str, bool) -> returned as-is
+            - Python class instances/functions -> CSSLizedPythonObject wrapper
 
         Example:
             # In Python:
@@ -4950,6 +5166,11 @@ class CSSLBuiltins:
                 printl(py_obj.greet());  // "Hello, World!"
             ''')
 
+        For lists from C++ modules:
+            sorted = fast_list.fast_sort([1, 2, 3])
+            csslized = python::csslize(sorted)
+            // Now [!list]*[fallback]csslized works correctly
+
         For class inheritance:
             py_class <== python::csslize($MyPythonClass);
             class MyExtended : extends py_class {
@@ -4957,10 +5178,10 @@ class CSSLBuiltins:
             }
 
         Args:
-            python_obj: A Python object (class instance, function, or class)
+            python_obj: A Python object (class instance, function, class, list, dict, or primitive)
 
         Returns:
-            CSSLizedPythonObject - A CSSL-compatible wrapper
+            CSSL-compatible type or CSSLizedPythonObject wrapper
         """
         if python_obj is None:
             return None
@@ -4969,7 +5190,35 @@ class CSSLBuiltins:
         if isinstance(python_obj, CSSLizedPythonObject):
             return python_obj
 
-        # Wrap the Python object
+        # v4.9.13: Handle basic Python types - convert to CSSL types
+        # Import here to avoid circular imports
+        from .cssl_types import List as CSSLList, Dictionary
+
+        # Python list -> CSSL CSSLList (cssl_types.List)
+        # Note: List.__init__ takes element_type, not data - must create and extend
+        if isinstance(python_obj, list):
+            cssl_list = CSSLList('dynamic')
+            cssl_list.extend(python_obj)
+            return cssl_list
+
+        # Python dict -> CSSL Dictionary
+        # Note: Dictionary.__init__ takes element_type, not data - must create and update
+        if isinstance(python_obj, dict):
+            cssl_dict = Dictionary('dynamic')
+            cssl_dict.update(python_obj)
+            return cssl_dict
+
+        # Python tuple -> CSSL CSSLList (tuples become lists in CSSL)
+        if isinstance(python_obj, tuple):
+            cssl_list = CSSLList('dynamic')
+            cssl_list.extend(python_obj)
+            return cssl_list
+
+        # Primitives (int, float, str, bool) - return as-is, they're already compatible
+        if isinstance(python_obj, (int, float, str, bool)):
+            return python_obj
+
+        # For complex objects (class instances, functions, classes), wrap in CSSLizedPythonObject
         return CSSLizedPythonObject(python_obj, self.runtime)
 
     # =========================================================================

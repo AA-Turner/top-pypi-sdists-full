@@ -3,7 +3,7 @@ from abc import abstractmethod
 from adam.commands.command import Command
 from adam.commands.command_helpers import ClusterCommandHelper
 from adam.repl_state import ReplState
-from adam.utils import log2
+from adam.utils_log import log2
 from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 

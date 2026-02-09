@@ -1,9 +1,8 @@
 from adam.commands import extract_options, extract_trailing_options
 from adam.commands.command import Command
-from adam.commands.cql.utils_cql import cassandra
 from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import Color
+from adam.utils_cassandra.table_renderer import renderer
 from adam.utils_context import Context
 
 class ShowStorage(Command):
@@ -24,22 +23,24 @@ class ShowStorage(Command):
     def required(self):
         return RequiredState.CLUSTER_OR_POD
 
+    def aliases(self):
+        return ['st']
+
     def run(self, cmd: str, state: ReplState):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
             with extract_trailing_options(args, '&') as (args, background):
-                with extract_options(args, ['-s', '--show']) as (args, verbose):
-                    cols = Config().get('storage.columns', 'pod,volume_root,volume_cassandra,snapshots,data,compactions')
-                    header = Config().get('storage.header', 'POD_NAME,VOLUME /,VOLUME CASS,SNAPSHOTS,DATA,COMPACTIONS')
-                    with cassandra(state) as pods:
-                        pods.display_table(cols, header, ctx=Context.new(cmd, background=background, show_verbose=verbose))
+                cols = Config().get('storage.columns', 'pod,volume_root,volume_cassandra,snapshots,data,compactions')
+                header = Config().get('storage.header', 'POD_NAME,VOLUME /,VOLUME CASS,SNAPSHOTS,DATA,COMPACTIONS')
+                with renderer(state) as pods:
+                    pods.display_table(cols, header, ctx=Context.new(cmd, background=background))
 
-                    return state
+                return state
 
     def completion(self, state: ReplState):
-        return super().completion(state, {'-s': {'&': None}, '&': None})
+        return super().completion(state, {'&': None})
 
     def help(self, state: ReplState):
-        return super().help(state, 'show storage overview  -s show processing details', args='[-s]')
+        return super().help(state, 'show storage overview  & background', args='[&]')

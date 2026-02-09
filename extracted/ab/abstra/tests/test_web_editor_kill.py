@@ -27,7 +27,7 @@ class TestWebEditorKill(unittest.TestCase):
         mock_connection.return_value.__enter__.return_value = mock_conn_instance
 
         # Initialize repository
-        repo = WebEditorExecutionRepository(MagicMock(), self.rabbitmq_uri)
+        repo = WebEditorExecutionRepository(self.rabbitmq_uri)
 
         # Action
         execution_id = "test-exec-id"

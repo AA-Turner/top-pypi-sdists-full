@@ -198,7 +198,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let tparams = self.get_class_tparams(class);
         TArgs::new(
             tparams.dupe(),
-            tparams.quantifieds().map(|q| q.clone().to_type()).collect(),
+            tparams
+                .quantifieds()
+                .map(|q| q.clone().to_type(self.heap))
+                .collect(),
         )
     }
 
@@ -225,7 +228,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let tparams = TParams::new(vec![TParam {
             quantified: quantified.clone(),
         }]);
-        let tuple_ty = Type::Tuple(Tuple::Unpacked(Box::new((
+        let tuple_ty = self.heap.mk_tuple(Tuple::Unpacked(Box::new((
             Vec::new(),
             self.heap.mk_quantified(quantified),
             Vec::new(),
@@ -326,9 +329,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn type_of_instance(&self, cls: &Class, targs: TArgs) -> Type {
         let metadata = self.get_metadata_for_class(cls);
         if metadata.is_typed_dict() {
-            Type::TypedDict(TypedDict::new(cls.dupe(), targs))
+            self.heap.mk_typed_dict(TypedDict::new(cls.dupe(), targs))
         } else {
-            Type::ClassType(ClassType::new(cls.dupe(), targs))
+            self.heap.mk_class_type(ClassType::new(cls.dupe(), targs))
         }
     }
 
@@ -477,7 +480,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 Type::Unpack(t) => {
                     if !suffix.is_empty() {
-                        middle.push(Type::unbounded_tuple(self.unions(suffix)));
+                        middle.push(self.heap.mk_unbounded_tuple(self.unions(suffix)));
                         suffix = Vec::new();
                     } else {
                         middle.push((**t).clone())
@@ -503,8 +506,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
         match middle.as_slice() {
-            [] => Type::concrete_tuple(prefix),
-            [middle] => Type::unpacked_tuple(prefix, middle.clone(), suffix),
+            [] => self.heap.mk_concrete_tuple(prefix),
+            [middle] => self.heap.mk_unpacked_tuple(prefix, middle.clone(), suffix),
             // We can't precisely model unpacking two unbounded iterables, so we'll keep any
             // concrete prefix and suffix elements and merge everything in between into an unbounded tuple
             _ => {
@@ -515,9 +518,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             .unwrap_or(self.stdlib.object().clone().to_type())
                     })
                     .collect();
-                Type::unpacked_tuple(
+                self.heap.mk_unpacked_tuple(
                     prefix,
-                    Type::unbounded_tuple(self.unions(middle_types)),
+                    self.heap.mk_unbounded_tuple(self.unions(middle_types)),
                     suffix,
                 )
             }
@@ -526,7 +529,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn create_paramspec_value(&self, targs: &[Type]) -> Type {
         let params: Vec<Param> = targs.map(|t| Param::PosOnly(None, t.clone(), Required::Required));
-        Type::ParamSpecValue(ParamList::new(params))
+        self.heap.mk_param_spec_value(ParamList::new(params))
     }
 
     fn create_next_paramspec_arg(
@@ -540,7 +543,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else if arg.is_any() {
             // Any is the universal type that is compatible with any ParamSpec.
             // Convert it to Ellipsis, which is the gradual type for ParamSpec.
-            Type::Ellipsis
+            self.heap.mk_ellipsis()
         } else {
             self.error(
                 errors,
@@ -551,7 +554,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.for_display(arg.clone())
                 ),
             );
-            Type::Ellipsis
+            self.heap.mk_ellipsis()
         }
     }
 
@@ -642,7 +645,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     } else {
                         // The default refers to the value of a TypeVar that isn't in scope. We've
                         // already logged an error in TParams::new(); return a sensible default.
-                        Type::any_implicit()
+                        self.heap.mk_any_implicit()
                     }
                 }
             })

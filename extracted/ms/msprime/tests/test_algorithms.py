@@ -1,6 +1,4 @@
-"""
-Tests for the algorithms.py script.
-"""
+# Tests for the algorithms.py script.
 import pathlib
 import platform
 import tempfile
@@ -114,14 +112,16 @@ class TestAlgorithms:
         assert ts.num_trees > 1
         assert has_discrete_genome(ts)
 
-    def test_dtwf(self):
-        ts = self.run_script("10 --model=dtwf")
+    @pytest.mark.parametrize("options", ["", "--continue-after-local-mrca"])
+    def test_dtwf(self, options):
+        ts = self.run_script(f"10 --model=dtwf {options}")
         assert ts.num_trees > 1
         assert not has_discrete_genome(ts)
         assert ts.sequence_length == 100
 
-    def test_dtwf_migration(self):
-        ts = self.run_script("10 -r 0 --model=dtwf -p 2 -g 0.1")
+    @pytest.mark.parametrize("options", ["", "--continue-after-local-mrca"])
+    def test_dtwf_migration(self, options):
+        ts = self.run_script(f"10 -r 0 --model=dtwf -p 2 -g 0.1 {options}")
         assert ts.num_trees == 1
         assert ts.sequence_length == 100
         assert ts.num_populations == 2
@@ -131,10 +131,11 @@ class TestAlgorithms:
         assert ts.num_trees > 1
         assert has_discrete_genome(ts)
 
-    def test_full_arg(self):
+    @pytest.mark.parametrize("options", ["", "--continue-after-local-mrca"])
+    def test_full_arg(self, options):
         node_value = sum(2**i for i in (17, 18, 19, 21))
         ts = self.run_script(
-            f"30 -L 200 --additional-nodes {node_value} --all-segments"
+            f"30 -L 200 --additional-nodes {node_value} --all-segments {options}"
         )
         assert ts.num_trees > 1
         node_flags = ts.tables.nodes.flags
@@ -158,21 +159,27 @@ class TestAlgorithms:
         assert ts.sequence_length == 100
         verify_unary(ts)
 
-    def test_store_unary_dtwf(self):
+    @pytest.mark.parametrize("options", ["", "--continue-after-local-mrca"])
+    def test_store_unary_dtwf(self, options):
         node_value = 1 << 18 | 1 << 22
-        ts = self.run_script(
-            f"10 --all-segments -d --additional-nodes {node_value} --model=dtwf"
+        cmd = (
+            f"10 --all-segments -d --additional-nodes {node_value} "
+            f"--model=dtwf {options}"
         )
+        ts = self.run_script(cmd)
         assert ts.num_samples == 10
         assert ts.num_trees > 1
         assert ts.sequence_length == 100
         verify_dtwf_unary(ts)
 
-    def test_store_unary_dtwf_re(self):
+    @pytest.mark.parametrize("options", ["", "--continue-after-local-mrca"])
+    def test_store_unary_dtwf_re(self, options):
         node_value = 1 << 17 | 1 << 18 | 1 << 22
-        ts = self.run_script(
-            f"10 --all-segments -d --additional-nodes {node_value} --model=dtwf"
+        cmd = (
+            f"10 --all-segments -d --additional-nodes {node_value} "
+            f"--model=dtwf {options}"
         )
+        ts = self.run_script(cmd)
         assert ts.num_samples == 10
         assert ts.num_trees > 1
         assert ts.sequence_length == 100
@@ -268,6 +275,23 @@ class TestAlgorithms:
         node_flags = ts.tables.nodes.flags
         assert np.sum(node_flags == msprime.NODE_IS_CA_EVENT) > 0
         assert np.sum(node_flags == msprime.NODE_IS_RE_EVENT) > 0
+
+    @pytest.mark.parametrize("model", ["hudson", "smc_k", "dtwf"])
+    def test_continue_after_local_mrca_multi_tree(self, model):
+        r = 0.1
+        ts = self.run_script(f"10 --continue-after-local-mrca -r {r} --model={model}")
+        assert ts.num_trees >= 2
+        # All roots should have the same time
+        root_times = []
+        for tree in ts.trees():
+            root_times.append(tree.time(tree.root))
+        assert len(set(root_times)) == 1
+
+    @pytest.mark.parametrize("model", ["hudson", "smc_k", "dtwf"])
+    def test_continue_after_local_mrca_single_tree(self, model):
+        ts = self.run_script(f"10 --continue-after-local-mrca -r 0 --model={model}")
+        root_times = [tree.time(tree.root) for tree in ts.trees()]
+        assert len(set(root_times)) == 1
 
     def test_gc(self):
         ts = self.run_script("10 -c 0.4 2 -d")
@@ -423,6 +447,36 @@ class TestAlgorithms:
         input_tables.nodes.assert_equals(output_tables.nodes[: len(input_tables.nodes)])
         assert len(output_tables.edges) >= 2
 
+    @pytest.mark.parametrize("r", [0, 0.1, 1])
+    def test_pedigree_internal_sample(self, r):
+        input_tables = simulate_pedigree(num_founders=4, num_generations=4)
+        flags = input_tables.nodes.flags
+        flags[8:12] = tskit.NODE_IS_SAMPLE  # Make inds 4 and 5 samples
+        input_tables.nodes.flags = flags
+        with tempfile.TemporaryDirectory() as tmpdir:
+            ts_path = pathlib.Path(tmpdir) / "pedigree.trees"
+            input_tables.dump(ts_path)
+            ts = self.run_script(f"0 --from-ts {ts_path} -r {r} --model=fixed_pedigree")
+        output_tables = ts.dump_tables()
+        input_tables.individuals.assert_equals(output_tables.individuals)
+        input_tables.nodes.assert_equals(output_tables.nodes[: len(input_tables.nodes)])
+        assert len(output_tables.edges) >= 2
+
+    @pytest.mark.parametrize("r", [0, 0.1, 1])
+    def test_pedigree_only_internal_samples(self, r):
+        input_tables = simulate_pedigree(
+            num_founders=4, num_generations=4, sample_gen=[1]
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            ts_path = pathlib.Path(tmpdir) / "pedigree.trees"
+            input_tables.dump(ts_path)
+            ts = self.run_script(f"0 --from-ts {ts_path} -r {r} --model=fixed_pedigree")
+        output_tables = ts.dump_tables()
+        input_tables.individuals.assert_equals(output_tables.individuals)
+        input_tables.nodes.assert_equals(output_tables.nodes[: len(input_tables.nodes)])
+        assert np.all(ts.nodes_time[ts.samples()] == 1)
+        assert len(output_tables.edges) >= 2
+
     @pytest.mark.parametrize("num_founders", [1, 2, 20])
     def test_one_gen_pedigree(self, num_founders):
         tables = simulate_pedigree(num_founders=num_founders, num_generations=1)
@@ -431,3 +485,20 @@ class TestAlgorithms:
             tables.dump(ts_path)
             ts = self.run_script(f"0 --from-ts {ts_path} -r 1 --model=fixed_pedigree")
         assert len(ts.dump_tables().edges) == 0
+
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            "10 -L 1000 -d -r 0.01 --model smc_k",
+            "10 -L 1000 -r 0.01 --model smc_k",
+            "10 -L 1000 -r 0.01 --model smc_k --offset 0.50",
+            "10 -L 1000 -d -r 0.01 --model smc_k -p 2 -g 0.1",
+            "10 -L 1000 -d -c 0.04 2  --model smc_k",
+            "10 -L 1000 -c 0.04 2  --model smc_k --offset 0.75",
+        ],
+    )
+    def test_smck(self, cmd):
+        ts = self.run_script(cmd)
+        assert ts.num_trees > 1
+        for tree in ts.trees():
+            assert tree.num_roots == 1

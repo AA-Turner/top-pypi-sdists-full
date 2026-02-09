@@ -23,6 +23,7 @@ from tortoise.utils import chunk
 
 if TYPE_CHECKING:  # pragma: nocoverage
     from tortoise.backends.base.client import BaseDBAsyncClient
+    from tortoise.filters import FilterInfoDict
     from tortoise.models import Model
     from tortoise.query_utils import Prefetch
     from tortoise.queryset import QuerySet
@@ -107,6 +108,8 @@ class BaseExecutor:
     ) -> list:
         _, raw_results = await self.db.execute_query(sql, values)
         instance_list = []
+        if self.select_related_idx:
+            _split_cache: dict[str, str] = {}
         for row_idx, row in enumerate(raw_results):
             if row_idx != 0 and row_idx % CHUNK_SIZE == 0:
                 # Forcibly yield to the event loop to avoid blocking the event loop
@@ -122,7 +125,13 @@ class BaseExecutor:
                     (*path, attr) = full_path
                     related_items = row_items[current_idx : current_idx + index]
                     if any(v for _, v in related_items):
-                        obj = model._init_from_db(**{k.split(".")[1]: v for k, v in related_items})
+                        related_kwargs = {}
+                        for k, v in related_items:
+                            fname = _split_cache.get(k)
+                            if fname is None:
+                                fname = _split_cache[k] = k.split(".", 1)[1]
+                            related_kwargs[fname] = v
+                        obj = model._init_from_db(**related_kwargs)
                     elif index == 0:
                         # 0 signals that an empty "filler" object should be created in the case
                         # where a field of related model is selected but model itself isn't,
@@ -132,7 +141,7 @@ class BaseExecutor:
                         obj = None
                     target = instances.get(tuple(path))
                     if target is not None:
-                        setattr(target, f"_{attr}", obj)
+                        object.__setattr__(target, f"_{attr}", obj)
                     if obj is not None:
                         instances[(*path, attr)] = obj
                     current_idx += index
@@ -140,7 +149,7 @@ class BaseExecutor:
                 instance = self.model._init_from_db(**row)
             if custom_fields:
                 for field in custom_fields:
-                    setattr(instance, field, row[field])
+                    object.__setattr__(instance, field, row[field])
             instance_list.append(instance)
         await self._execute_prefetch_queries(instance_list)
         return instance_list
@@ -249,6 +258,10 @@ class BaseExecutor:
         for field in update_fields or self.model._meta.fields_db_projection.keys():
             db_column = self.model._meta.fields_db_projection[field]
             field_object = self.model._meta.fields_map[field]
+            if field_object.generated:
+                if update_fields:
+                    raise OperationalError(f"Can't update generated field {field}")
+                continue
             if not field_object.pk:
                 if field not in expressions.keys():
                     query = query.set(db_column, self.parameter(parameter_idx))
@@ -287,6 +300,10 @@ class BaseExecutor:
                     raise OperationalError(
                         f"Can't update pk field, use `{self.model.__name__}.create` instead."
                     )
+                continue
+            if field_obj.generated:
+                if update_fields:
+                    raise OperationalError(f"Can't update generated field {field}")
                 continue
             instance_field = getattr(instance, field)
             if isinstance(instance_field, Expression):
@@ -402,7 +419,7 @@ class BaseExecutor:
 
         field_object: ManyToManyFieldInstance = self.model._meta.fields_map[field]  # type: ignore
 
-        through_table = Table(field_object.through)
+        through_table = Table(field_object.through, schema=field_object.through_schema)
 
         subquery = (
             self.db.query_class.from_(through_table)
@@ -582,5 +599,7 @@ class BaseExecutor:
         return instance_list
 
     @classmethod
-    def get_overridden_filter_func(cls, filter_func: Callable) -> Callable | None:
+    def get_overridden_filter_func(
+        cls, filter_func: Callable, filter_info: FilterInfoDict | None = None
+    ) -> Callable | None:
         return cls.FILTER_FUNC_OVERRIDE.get(filter_func)

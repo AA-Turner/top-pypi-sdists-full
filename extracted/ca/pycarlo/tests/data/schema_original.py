@@ -2956,17 +2956,31 @@ class FieldValueFilterOperator(sgqlc.types.Enum):
     __choices__ = ("EXCLUDE", "INCLUDE")
 
 
+class FilterSpanComparisonOperator(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `EXACTLY`None
+    * `LESS_THAN`None
+    * `MORE_THAN`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("EXACTLY", "LESS_THAN", "MORE_THAN")
+
+
 class FilterType(sgqlc.types.Enum):
     """Enumeration Choices:
 
     * `BINARY`None
     * `GROUP`None
+    * `SPAN_OCCURRENCE`None
+    * `SPAN_RELATION`None
     * `SQL`None
     * `UNARY`None
     """
 
     __schema__ = schema
-    __choices__ = ("BINARY", "GROUP", "SQL", "UNARY")
+    __choices__ = ("BINARY", "GROUP", "SPAN_OCCURRENCE", "SPAN_RELATION", "SQL", "UNARY")
 
 
 class FilterValueType(sgqlc.types.Enum):
@@ -2975,11 +2989,12 @@ class FilterValueType(sgqlc.types.Enum):
     * `FIELD`None
     * `LITERAL`None
     * `MAP_KEY`None
+    * `SPAN_FIELD`None
     * `SQL`None
     """
 
     __schema__ = schema
-    __choices__ = ("FIELD", "LITERAL", "MAP_KEY", "SQL")
+    __choices__ = ("FIELD", "LITERAL", "MAP_KEY", "SPAN_FIELD", "SQL")
 
 
 class FivetranConnectorSetupStates(sgqlc.types.Enum):
@@ -4421,13 +4436,14 @@ class PredicateRequiredType(sgqlc.types.Enum):
 
     * `ANY`None
     * `DATE`None
+    * `NUMBER`None
     * `REGEX`None
     * `TEXT`None
     * `TIMESTAMP`None
     """
 
     __schema__ = schema
-    __choices__ = ("ANY", "DATE", "REGEX", "TEXT", "TIMESTAMP")
+    __choices__ = ("ANY", "DATE", "NUMBER", "REGEX", "TEXT", "TIMESTAMP")
 
 
 class Priority(sgqlc.types.Enum):
@@ -5034,6 +5050,19 @@ class SlackEngagementEventType(sgqlc.types.Enum):
     __choices__ = ("CHANNEL_COMMENT", "REACTION_ADDED", "REACTION_REMOVED", "THREAD_REPLY")
 
 
+class SpanPredicateArity(sgqlc.types.Enum):
+    """Arity types for span predicates.
+
+    Enumeration Choices:
+
+    * `SPAN_OCCURRENCE`None
+    * `SPAN_RELATION`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("SPAN_OCCURRENCE", "SPAN_RELATION")
+
+
 class SqlDialect(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -5331,22 +5360,30 @@ class TagAssignmentObjectType(sgqlc.types.Enum):
     * `BULK_MONITOR`None
     * `CUSTOM_RULE_MONITOR`None
     * `METRIC_MONITOR`None
+    * `MONITOR_EXCEPTION`None
     * `TABLE_MONITOR`None
     """
 
     __schema__ = schema
-    __choices__ = ("BULK_MONITOR", "CUSTOM_RULE_MONITOR", "METRIC_MONITOR", "TABLE_MONITOR")
+    __choices__ = (
+        "BULK_MONITOR",
+        "CUSTOM_RULE_MONITOR",
+        "METRIC_MONITOR",
+        "MONITOR_EXCEPTION",
+        "TABLE_MONITOR",
+    )
 
 
 class TagType(sgqlc.types.Enum):
     """Enumeration Choices:
 
     * `DATA_QUALITY_DIMENSION_TAG`None
+    * `MONITOR_EXCEPTION_TAG`None
     * `MONITOR_TAG`None
     """
 
     __schema__ = schema
-    __choices__ = ("DATA_QUALITY_DIMENSION_TAG", "MONITOR_TAG")
+    __choices__ = ("DATA_QUALITY_DIMENSION_TAG", "MONITOR_EXCEPTION_TAG", "MONITOR_TAG")
 
 
 class TasksPerformanceSummarySort(sgqlc.types.Enum):
@@ -6102,6 +6139,17 @@ class AIMessageInput(sgqlc.types.Input):
 
     mcons = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="mcons")
     """The mcons for the tables added in this message"""
+
+
+class AgentSpanConditionInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("conditions", "operator")
+    conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("FilterSpanUnionInput"))),
+        graphql_name="conditions",
+    )
+
+    operator = sgqlc.types.Field(BooleanOperator, graphql_name="operator")
 
 
 class AgentSpanFieldFilterInput(sgqlc.types.Input):
@@ -7257,13 +7305,25 @@ class CustomRuleSnoozeInput(sgqlc.types.Input):
 
 class CustomRuleSqlBlocksInput(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("alert_condition", "where_condition", "group_by")
+    __field_names__ = (
+        "alert_condition",
+        "where_condition",
+        "group_by",
+        "agent_span",
+        "agent_span_alert_condition",
+    )
     alert_condition = sgqlc.types.Field("FilterGroupInput", graphql_name="alertCondition")
 
     where_condition = sgqlc.types.Field("FilterGroupInput", graphql_name="whereCondition")
 
     group_by = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null("FilterValueUnionInput")), graphql_name="groupBy"
+    )
+
+    agent_span = sgqlc.types.Field("FilterGroupInput", graphql_name="agentSpan")
+
+    agent_span_alert_condition = sgqlc.types.Field(
+        AgentSpanConditionInput, graphql_name="agentSpanAlertCondition"
     )
 
 
@@ -7718,6 +7778,18 @@ class DeleteAgentTraceTableInput(sgqlc.types.Input):
     """UUID of the agent trace table to delete"""
 
 
+class ExceptionAttributeInput(sgqlc.types.Input):
+    """Input type for a single exception attribute update."""
+
+    __schema__ = schema
+    __field_names__ = ("name", "value")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Name of the attribute to update (e.g., 'assignee')"""
+
+    value = sgqlc.types.Field(String, graphql_name="value")
+    """Value for the attribute. If not provided, clears the attribute."""
+
+
 class ExtendedDataSourceInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = (
@@ -7897,6 +7969,49 @@ class FilterPredicateInput(sgqlc.types.Input):
     negated = sgqlc.types.Field(Boolean, graphql_name="negated")
 
 
+class FilterSpanInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("type", "id", "span_name", "workflow", "task")
+    type = sgqlc.types.Field(FilterValueType, graphql_name="type")
+
+    id = sgqlc.types.Field(String, graphql_name="id")
+
+    span_name = sgqlc.types.Field("FilterValueLiteralInput", graphql_name="spanName")
+
+    workflow = sgqlc.types.Field("FilterValueLiteralInput", graphql_name="workflow")
+
+    task = sgqlc.types.Field("FilterValueLiteralInput", graphql_name="task")
+
+
+class FilterSpanUnionInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "comparison_operator",
+        "count",
+        "related_span_fields",
+        "predicate",
+        "span_field",
+        "type",
+    )
+    comparison_operator = sgqlc.types.Field(
+        FilterSpanComparisonOperator, graphql_name="comparisonOperator"
+    )
+
+    count = sgqlc.types.Field(Int, graphql_name="count")
+
+    related_span_fields = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FilterSpanInput)), graphql_name="relatedSpanFields"
+    )
+
+    predicate = sgqlc.types.Field(
+        sgqlc.types.non_null(FilterPredicateInput), graphql_name="predicate"
+    )
+
+    span_field = sgqlc.types.Field(sgqlc.types.non_null(FilterSpanInput), graphql_name="spanField")
+
+    type = sgqlc.types.Field(sgqlc.types.non_null(FilterType), graphql_name="type")
+
+
 class FilterUnionInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = (
@@ -7935,6 +8050,30 @@ class FilterUnionInput(sgqlc.types.Input):
     type = sgqlc.types.Field(sgqlc.types.non_null(FilterType), graphql_name="type")
 
     id = sgqlc.types.Field(String, graphql_name="id")
+
+
+class FilterValueFieldInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("type", "id", "field", "table", "mcon")
+    type = sgqlc.types.Field(FilterValueType, graphql_name="type")
+
+    id = sgqlc.types.Field(String, graphql_name="id")
+
+    field = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="field")
+
+    table = sgqlc.types.Field(String, graphql_name="table")
+
+    mcon = sgqlc.types.Field(String, graphql_name="mcon")
+
+
+class FilterValueLiteralInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("type", "id", "literal")
+    type = sgqlc.types.Field(FilterValueType, graphql_name="type")
+
+    id = sgqlc.types.Field(String, graphql_name="id")
+
+    literal = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="literal")
 
 
 class FilterValueUnionInput(sgqlc.types.Input):
@@ -10415,6 +10554,16 @@ class ThresholdModifierInput(sgqlc.types.Input):
     """
 
 
+class TimeFilterInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("time_field", "lookback_in_hrs")
+    time_field = sgqlc.types.Field(
+        sgqlc.types.non_null(FilterValueFieldInput), graphql_name="timeField"
+    )
+
+    lookback_in_hrs = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="lookbackInHrs")
+
+
 class TimeRangeInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = (
@@ -11285,6 +11434,14 @@ class FilterInterface(sgqlc.types.Interface):
     id = sgqlc.types.Field(String, graphql_name="id")
 
 
+class FilterSpanInterface(sgqlc.types.Interface):
+    __schema__ = schema
+    __field_names__ = ("type", "id")
+    type = sgqlc.types.Field(sgqlc.types.non_null(FilterType), graphql_name="type")
+
+    id = sgqlc.types.Field(String, graphql_name="id")
+
+
 class FilterValueInterface(sgqlc.types.Interface):
     __schema__ = schema
     __field_names__ = ("type", "id")
@@ -11533,6 +11690,7 @@ class IMetricsMonitor(sgqlc.types.Interface):
         "select_expressions",
         "selected_metrics",
         "agg_time_interval",
+        "time_bucketed",
         "high_segment_count",
         "min_segment_size",
         "segment_count",
@@ -11601,6 +11759,11 @@ class IMetricsMonitor(sgqlc.types.Interface):
     agg_time_interval = sgqlc.types.Field(MonitorAggTimeInterval, graphql_name="aggTimeInterval")
     """For field health and dimension monitoring, the aggregation time
     interval to use. Either HOUR or DAY
+    """
+
+    time_bucketed = sgqlc.types.Field(Boolean, graphql_name="timeBucketed")
+    """Whether this monitor uses time-based bucketing. True if
+    monitor_time_axis_field_name is set, False for ALL_ROWS monitors.
     """
 
     high_segment_count = sgqlc.types.Field(Boolean, graphql_name="highSegmentCount")
@@ -13775,6 +13938,17 @@ class AgentMetadata(sgqlc.types.Type):
     """MCON of the trace table associated with this agent"""
 
 
+class AgentSpanCondition(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("conditions", "operator")
+    conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(FilterSpanInterface))),
+        graphql_name="conditions",
+    )
+
+    operator = sgqlc.types.Field(sgqlc.types.non_null(BooleanOperator), graphql_name="operator")
+
+
 class AgentSpanFieldFilter(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("value",)
@@ -15154,10 +15328,6 @@ class AuthorizationProvisioningOutput(sgqlc.types.Type):
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
                 ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-                (
-                    "timestamp__lt",
-                    sgqlc.types.Arg(DateTime, graphql_name="timestamp_Lt", default=None),
-                ),
             )
         ),
     )
@@ -15174,7 +15344,6 @@ class AuthorizationProvisioningOutput(sgqlc.types.Type):
     * `after` (`String`)None
     * `first` (`Int`)None
     * `last` (`Int`)None
-    * `timestamp__lt` (`DateTime`)None
     """
 
 
@@ -16404,6 +16573,13 @@ class BulkUpdateIncidents(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
+
+
+class BulkUpdateMonitorExceptions(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(Boolean, graphql_name="success")
+    """Whether the bulk update was successful"""
 
 
 class CaasCollectionNodeParameters(sgqlc.types.Type):
@@ -18029,6 +18205,21 @@ class CreateOrUpdateAgentTraceTable(sgqlc.types.Type):
     agent_trace_table = sgqlc.types.Field("AgentTraceTable", graphql_name="agentTraceTable")
 
 
+class CreateOrUpdateAgentTrajectory(sgqlc.types.Type):
+    """Create or update an agent trajectory monitor"""
+
+    __schema__ = schema
+    __field_names__ = ("agent_trajectory", "yaml", "queries")
+    agent_trajectory = sgqlc.types.Field("CustomRule", graphql_name="agentTrajectory")
+
+    yaml = sgqlc.types.Field(String, graphql_name="yaml")
+
+    queries = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="queries"
+    )
+    """SQL queries that will be run by the monitor on each execution."""
+
+
 class CreateOrUpdateAlationIntegration(sgqlc.types.Type):
     """Create or update Alation integration"""
 
@@ -19045,7 +19236,13 @@ class CustomRuleQueryEdge(sgqlc.types.Type):
 
 class CustomRuleSqlBlocks(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("alert_condition", "where_condition", "group_by")
+    __field_names__ = (
+        "alert_condition",
+        "where_condition",
+        "group_by",
+        "agent_span",
+        "agent_span_alert_condition",
+    )
     alert_condition = sgqlc.types.Field(
         sgqlc.types.non_null("FilterGroup"), graphql_name="alertCondition"
     )
@@ -19057,6 +19254,12 @@ class CustomRuleSqlBlocks(sgqlc.types.Type):
     group_by = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(FilterValueInterface))),
         graphql_name="groupBy",
+    )
+
+    agent_span = sgqlc.types.Field(sgqlc.types.non_null("FilterGroup"), graphql_name="agentSpan")
+
+    agent_span_alert_condition = sgqlc.types.Field(
+        sgqlc.types.non_null(AgentSpanCondition), graphql_name="agentSpanAlertCondition"
     )
 
 
@@ -23690,6 +23893,30 @@ class FieldOverviewResponse(sgqlc.types.Type):
     )
 
 
+class FieldPatternMatchResult(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("tables",)
+    tables = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("FieldPatternTableMatch"))),
+        graphql_name="tables",
+    )
+
+
+class FieldPatternTableMatch(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("table_name", "mcon", "full_table_id", "matching_fields")
+    table_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="tableName")
+
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+
+    full_table_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="fullTableId")
+
+    matching_fields = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="matchingFields",
+    )
+
+
 class FieldPatternType(sgqlc.types.Type):
     """Pattern for matching field names in bulk monitors"""
 
@@ -23796,6 +24023,20 @@ class FilterPredicate(sgqlc.types.Type):
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
 
     negated = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="negated")
+
+
+class FilterSpan(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("type", "id", "span_name", "workflow", "task")
+    type = sgqlc.types.Field(sgqlc.types.non_null(FilterValueType), graphql_name="type")
+
+    id = sgqlc.types.Field(String, graphql_name="id")
+
+    span_name = sgqlc.types.Field("FilterValueLiteral", graphql_name="spanName")
+
+    workflow = sgqlc.types.Field("FilterValueLiteral", graphql_name="workflow")
+
+    task = sgqlc.types.Field("FilterValueLiteral", graphql_name="task")
 
 
 class FivetranConnectorConnection(sgqlc.types.relay.Connection):
@@ -28076,6 +28317,7 @@ class MsTeamsInstallationList(sgqlc.types.Type):
 class Mutation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
+        "bulk_update_monitor_exceptions",
         "create_or_update_custom_dashboard",
         "create_or_update_custom_dashboard_from_json",
         "delete_custom_dashboard",
@@ -28108,6 +28350,7 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_tag_assignments",
         "create_or_update_data_operations_dashboard",
         "delete_data_operations_dashboard",
+        "create_or_update_agent_trajectory",
         "create_or_update_validation",
         "caas_link_collection_resources",
         "caas_update_collection_node_parameters",
@@ -28551,6 +28794,49 @@ class Mutation(sgqlc.types.Type):
         "update_account_secret",
         "delete_account_secret",
     )
+    bulk_update_monitor_exceptions = sgqlc.types.Field(
+        BulkUpdateMonitorExceptions,
+        graphql_name="bulkUpdateMonitorExceptions",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "attributes",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(
+                            sgqlc.types.list_of(sgqlc.types.non_null(ExceptionAttributeInput))
+                        ),
+                        graphql_name="attributes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "exception_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+                        graphql_name="exceptionIds",
+                        default=None,
+                    ),
+                ),
+                (
+                    "monitor_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Bulk update exception attributes, such as assignee
+
+    Arguments:
+
+    * `attributes` (`[ExceptionAttributeInput!]!`): List of attribute
+      updates with name and value
+    * `exception_ids` (`[UUID!]!`): List of exception UUIDs to update
+    * `monitor_uuid` (`UUID!`): UUID of the monitor (custom rule or
+      metric monitor) that the exceptions belong to.
+    """
+
     create_or_update_custom_dashboard = sgqlc.types.Field(
         CreateOrUpdateDashboard,
         graphql_name="createOrUpdateCustomDashboard",
@@ -29641,6 +29927,193 @@ class Mutation(sgqlc.types.Type):
 
     * `data_operations_dashboard_uuid` (`UUID`): UUID of the data
       operations dashboard to delete.
+    """
+
+    create_or_update_agent_trajectory = sgqlc.types.Field(
+        CreateOrUpdateAgentTrajectory,
+        graphql_name="createOrUpdateAgentTrajectory",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_span_alert_condition",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(AgentSpanConditionInput),
+                        graphql_name="agentSpanAlertCondition",
+                        default=None,
+                    ),
+                ),
+                (
+                    "agent_span_filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AgentSpanFilterInput)),
+                        graphql_name="agentSpanFilters",
+                        default=None,
+                    ),
+                ),
+                ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
+                (
+                    "custom_rule_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="customRuleUuid", default=None),
+                ),
+                (
+                    "data_quality_dimension",
+                    sgqlc.types.Arg(String, graphql_name="dataQualityDimension", default=None),
+                ),
+                (
+                    "data_source",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DataSourceUnionInput),
+                        graphql_name="dataSource",
+                        default=None,
+                    ),
+                ),
+                (
+                    "description",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="description", default=None
+                    ),
+                ),
+                (
+                    "domain_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="domainUuids",
+                        default=None,
+                    ),
+                ),
+                ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=False)),
+                (
+                    "dw_id",
+                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="dwId", default=None),
+                ),
+                (
+                    "event_rollup_count",
+                    sgqlc.types.Arg(Int, graphql_name="eventRollupCount", default=None),
+                ),
+                (
+                    "event_rollup_until_changed",
+                    sgqlc.types.Arg(Boolean, graphql_name="eventRollupUntilChanged", default=None),
+                ),
+                (
+                    "exception_primary_key_column",
+                    sgqlc.types.Arg(String, graphql_name="exceptionPrimaryKeyColumn", default=None),
+                ),
+                (
+                    "failure_audiences",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="failureAudiences",
+                        default=None,
+                    ),
+                ),
+                (
+                    "filters",
+                    sgqlc.types.Arg(FilterGroupInput, graphql_name="filters", default=None),
+                ),
+                (
+                    "interval_minutes",
+                    sgqlc.types.Arg(Int, graphql_name="intervalMinutes", default=None),
+                ),
+                ("is_draft", sgqlc.types.Arg(Boolean, graphql_name="isDraft", default=False)),
+                (
+                    "labels",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="labels", default=None
+                    ),
+                ),
+                ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
+                (
+                    "notify_rule_run_failure",
+                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=None),
+                ),
+                ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
+                (
+                    "schedule_config",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(ScheduleConfigInput),
+                        graphql_name="scheduleConfig",
+                        default=None,
+                    ),
+                ),
+                ("severity", sgqlc.types.Arg(String, graphql_name="severity", default="")),
+                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
+                (
+                    "tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(TagKeyValuePairInput), graphql_name="tags", default=None
+                    ),
+                ),
+                (
+                    "time_filter",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(TimeFilterInput),
+                        graphql_name="timeFilter",
+                        default=None,
+                    ),
+                ),
+                ("timeout", sgqlc.types.Arg(Int, graphql_name="timeout", default=None)),
+                ("timezone", sgqlc.types.Arg(String, graphql_name="timezone", default=None)),
+            )
+        ),
+    )
+    """(experimental) Create or update agent trajectory.
+
+    Arguments:
+
+    * `agent_span_alert_condition` (`AgentSpanConditionInput!`): Agent
+      span alert condition for filtering agent spans
+    * `agent_span_filters` (`[AgentSpanFilterInput!]`): Filter by
+      agent span fields (agent, workflow, task, span_name)
+    * `connection_id` (`UUID`): Specify a connection (e.g. query-
+      engine) to use
+    * `custom_rule_uuid` (`UUID`): UUID of custom rule, to update
+      existing rule
+    * `data_quality_dimension` (`String`): Data quality dimension on
+      the custom rule.
+    * `data_source` (`DataSourceUnionInput!`)None
+    * `description` (`String!`): Description of rule
+    * `domain_uuids` (`[UUID!]`): Please provide one and only one
+      valid domain uuid.
+    * `dry_run` (`Boolean`): Dry run the monitor creation or update
+      and return the MaC YAML and queries. (default: `false`)
+    * `dw_id` (`UUID!`): Warehouse UUID
+    * `event_rollup_count` (`Int`): The number of events to roll up
+      into a single incident
+    * `event_rollup_until_changed` (`Boolean`): If true, roll up
+      events until the value changes
+    * `exception_primary_key_column` (`String`): Specifies the column
+      which contains the primary key for sampled data used in
+      exception management.
+    * `failure_audiences` (`[String!]`): The audiences to notify on
+      failure
+    * `filters` (`FilterGroupInput`): Structured SQL filtering
+      conditions to apply to query
+    * `interval_minutes` (`Int`): How often to run scheduled custom
+      rule check (DEPRECATED, use schedule instead)
+    * `is_draft` (`Boolean`): Make target a draft monitor. (default:
+      `false`)
+    * `labels` (`[String]`): The monitor labels
+    * `notes` (`String`): Additional context for the monitor (default:
+      `""`)
+    * `notify_rule_run_failure` (`Boolean`): DEPRECATED: Completely
+      ignored. This field has no effect on anything. Use
+      `failure_audiences` to determine who is notified when run
+      failures occur.
+    * `priority` (`String`): The default priority for alerts involving
+      this monitor
+    * `schedule_config` (`ScheduleConfigInput!`): Schedule of the
+      agent trajectory monitor
+    * `severity` (`String`): DEPRECATED. Use priority instead. The
+      default severity for incidents involving this monitor (default:
+      `""`)
+    * `start_time` (`DateTime`): Start time of schedule (DEPRECATED,
+      use schedule instead)
+    * `tags` (`[TagKeyValuePairInput]`): The monitor tags.
+    * `time_filter` (`TimeFilterInput!`): Filter by time filter for
+      trajectory evaluation
+    * `timeout` (`Int`): Timeout for the SQL query
+    * `timezone` (`String`): Timezone (DEPRECATED, use timezone in
+      scheduleConfig instead
     """
 
     create_or_update_validation = sgqlc.types.Field(
@@ -48453,6 +48926,7 @@ class Predicate(sgqlc.types.Type):
         "supported_connections",
         "mc_sql_supported",
         "python_eval",
+        "right_required_type",
     )
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
 
@@ -48508,6 +48982,8 @@ class Predicate(sgqlc.types.Type):
     )
 
     python_eval = sgqlc.types.Field(String, graphql_name="pythonEval")
+
+    right_required_type = sgqlc.types.Field(PredicateRequiredType, graphql_name="rightRequiredType")
 
 
 class PrimaryRcaData(sgqlc.types.Type):
@@ -48690,6 +49166,7 @@ class Query(sgqlc.types.Type):
         "evaluate_sql_blocks",
         "generate_mc_sql",
         "get_sql_predicates",
+        "get_span_predicates",
         "get_transform_functions",
         "get_warehouse_supported_llm_models",
         "run_custom_query",
@@ -49135,6 +49612,7 @@ class Query(sgqlc.types.Type):
         "get_data_export_url",
         "get_generate_report_status",
         "evaluate_asset_selection",
+        "evaluate_field_pattern_matches",
         "get_account_audit_logs",
         "get_monitor_audit_logs",
         "get_monitored_rules_audit_logs",
@@ -50103,6 +50581,13 @@ class Query(sgqlc.types.Type):
     get_sql_predicates = sgqlc.types.Field(
         sgqlc.types.list_of(Predicate), graphql_name="getSqlPredicates"
     )
+
+    get_span_predicates = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("SpanPredicate")), graphql_name="getSpanPredicates"
+    )
+    """(experimental) Gets all available span predicates for agent
+    trajectory monitors
+    """
 
     get_transform_functions = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null("TransformFunction")),
@@ -66446,6 +66931,62 @@ class Query(sgqlc.types.Type):
     * `offset` (`Int`)None (default: `0`)
     """
 
+    evaluate_field_pattern_matches = sgqlc.types.Field(
+        FieldPatternMatchResult,
+        graphql_name="evaluateFieldPatternMatches",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="warehouseUuid", default=None
+                    ),
+                ),
+                (
+                    "asset_selection",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(AssetSelectionInput),
+                        graphql_name="assetSelection",
+                        default=None,
+                    ),
+                ),
+                (
+                    "field_pattern",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(FieldPatternInput),
+                        graphql_name="fieldPattern",
+                        default=None,
+                    ),
+                ),
+                ("metric", sgqlc.types.Arg(String, graphql_name="metric", default=None)),
+                (
+                    "domain_restrictions",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="domainRestrictions",
+                        default=None,
+                    ),
+                ),
+                ("search", sgqlc.types.Arg(String, graphql_name="search", default=None)),
+            )
+        ),
+    )
+    """(experimental) Evaluates a field pattern against tables from an
+    asset selection and returns matching tables with their matched
+    fields.
+
+    Arguments:
+
+    * `warehouse_uuid` (`UUID!`)None
+    * `asset_selection` (`AssetSelectionInput!`)None
+    * `field_pattern` (`FieldPatternInput!`)None
+    * `metric` (`String`): Optional metric to filter by compatible
+      field types
+    * `domain_restrictions` (`[UUID!]`)None
+    * `search` (`String`): Optional search term to filter tables by
+      name
+    """
+
     get_account_audit_logs = sgqlc.types.Field(
         GetAccountAuditLogsResponse,
         graphql_name="getAccountAuditLogs",
@@ -66515,15 +67056,15 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 ("change_field", sgqlc.types.Arg(String, graphql_name="changeField", default=None)),
+                (
+                    "timestamp__lt",
+                    sgqlc.types.Arg(DateTime, graphql_name="timestamp_Lt", default=None),
+                ),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
                 ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-                (
-                    "timestamp__lt",
-                    sgqlc.types.Arg(DateTime, graphql_name="timestamp_Lt", default=None),
-                ),
             )
         ),
     )
@@ -66534,12 +67075,13 @@ class Query(sgqlc.types.Type):
     * `monitor_uuid` (`UUID!`): UUID of monitor
     * `change_field` (`String`): Filter logs by specific field that
       was changed
+    * `timestamp__lt` (`DateTime`): Filter logs with timestamp less
+      than this value
     * `offset` (`Int`)None
     * `before` (`String`)None
     * `after` (`String`)None
     * `first` (`Int`)None
     * `last` (`Int`)None
-    * `timestamp__lt` (`DateTime`)None
     """
 
     get_monitored_rules_audit_logs = sgqlc.types.Field(
@@ -66554,10 +67096,6 @@ class Query(sgqlc.types.Type):
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
                 ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-                (
-                    "timestamp__lt",
-                    sgqlc.types.Arg(DateTime, graphql_name="timestamp_Lt", default=None),
-                ),
             )
         ),
     )
@@ -66574,7 +67112,6 @@ class Query(sgqlc.types.Type):
     * `after` (`String`)None
     * `first` (`Int`)None
     * `last` (`Int`)None
-    * `timestamp__lt` (`DateTime`)None
     """
 
     get_assigned_assets = sgqlc.types.Field(
@@ -70226,6 +70763,40 @@ class SourceColumn(sgqlc.types.Type):
     """Type of the source column"""
 
 
+class SpanPredicate(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "name",
+        "description",
+        "arity",
+        "allow_many_right",
+        "allow_negation",
+        "negated_description",
+        "category",
+        "supported_connections",
+    )
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+
+    description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
+
+    arity = sgqlc.types.Field(sgqlc.types.non_null(SpanPredicateArity), graphql_name="arity")
+
+    allow_many_right = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="allowManyRight"
+    )
+
+    allow_negation = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="allowNegation")
+
+    negated_description = sgqlc.types.Field(String, graphql_name="negatedDescription")
+
+    category = sgqlc.types.Field(String, graphql_name="category")
+
+    supported_connections = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="supportedConnections",
+    )
+
+
 class SplitAlert(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("alert_uuid",)
@@ -72841,6 +73412,16 @@ class TimeAxisMetadata(sgqlc.types.Type):
 
     suggested = sgqlc.types.Field(String, graphql_name="suggested")
     """Field most likely to be the time axis"""
+
+
+class TimeFilter(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("time_field", "lookback_in_hrs")
+    time_field = sgqlc.types.Field(
+        sgqlc.types.non_null("FilterValueField"), graphql_name="timeField"
+    )
+
+    lookback_in_hrs = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="lookbackInHrs")
 
 
 class TimeRangeOutput(sgqlc.types.Type):
@@ -79161,6 +79742,10 @@ class CustomRule(sgqlc.types.Type, Node):
         "is_migrated_from_field_quality",
         "connection_id",
         "timeout",
+        "agent_span_filters",
+        "agent_span_alert_condition",
+        "filters",
+        "time_filter",
         "mc_sql",
         "tags",
         "data_quality_dimension",
@@ -79460,6 +80045,22 @@ class CustomRule(sgqlc.types.Type, Node):
 
     timeout = sgqlc.types.Field(Int, graphql_name="timeout")
     """Timeout for the SQL query"""
+
+    agent_span_filters = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AgentSpanFilter)), graphql_name="agentSpanFilters"
+    )
+    """Agent span filters for agent trajectory monitors"""
+
+    agent_span_alert_condition = sgqlc.types.Field(
+        AgentSpanCondition, graphql_name="agentSpanAlertCondition"
+    )
+    """Agent span alert condition for agent trajectory monitors"""
+
+    filters = sgqlc.types.Field("FilterGroup", graphql_name="filters")
+    """WHERE condition filters for agent trajectory monitors"""
+
+    time_filter = sgqlc.types.Field(TimeFilter, graphql_name="timeFilter")
+    """Time filter for agent trajectory monitors"""
 
     mc_sql = sgqlc.types.Field(String, graphql_name="mcSql")
     """SQL query for the monitor"""
@@ -82046,6 +82647,33 @@ class FilterGroup(sgqlc.types.Type, FilterInterface):
     operator = sgqlc.types.Field(sgqlc.types.non_null(BooleanOperator), graphql_name="operator")
 
 
+class FilterSpanOccurrence(sgqlc.types.Type, FilterSpanInterface):
+    __schema__ = schema
+    __field_names__ = ("predicate", "span_field", "comparison_operator", "count")
+    predicate = sgqlc.types.Field(sgqlc.types.non_null(FilterPredicate), graphql_name="predicate")
+
+    span_field = sgqlc.types.Field(sgqlc.types.non_null(FilterSpan), graphql_name="spanField")
+
+    comparison_operator = sgqlc.types.Field(
+        sgqlc.types.non_null(FilterSpanComparisonOperator), graphql_name="comparisonOperator"
+    )
+
+    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
+
+
+class FilterSpanRelation(sgqlc.types.Type, FilterSpanInterface):
+    __schema__ = schema
+    __field_names__ = ("predicate", "span_field", "related_span_fields")
+    predicate = sgqlc.types.Field(sgqlc.types.non_null(FilterPredicate), graphql_name="predicate")
+
+    span_field = sgqlc.types.Field(sgqlc.types.non_null(FilterSpan), graphql_name="spanField")
+
+    related_span_fields = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(FilterSpan))),
+        graphql_name="relatedSpanFields",
+    )
+
+
 class FilterSql(sgqlc.types.Type, FilterInterface):
     __schema__ = schema
     __field_names__ = ("sql",)
@@ -82745,6 +83373,7 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "timeout",
         "domain_uuids",
         "is_agent_trace_aggregation",
+        "time_bucketed",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
 
@@ -82985,6 +83614,11 @@ class MetricMonitoring(sgqlc.types.Type, Node):
 
     is_agent_trace_aggregation = sgqlc.types.Field(Boolean, graphql_name="isAgentTraceAggregation")
     """If True, aggregate spans by trace_id for agent metric monitors."""
+
+    time_bucketed = sgqlc.types.Field(Boolean, graphql_name="timeBucketed")
+    """Whether this monitor uses time-based bucketing. True if
+    time_axis_field_name is set, False for ALL_ROWS monitors.
+    """
 
 
 class Monitor(

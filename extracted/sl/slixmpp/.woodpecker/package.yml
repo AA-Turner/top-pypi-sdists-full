@@ -1,0 +1,50 @@
+when:
+  - event: [ push ]
+    path: [ "pyproject.toml", "**/*.py", "README*", ".woodpecker/package.yml" ]
+    branch: master
+  - event: tag
+    branch: master
+
+matrix:
+  PYTHON_VERSION:
+    - "3.11"
+    - "3.12"
+    - "3.13"
+    - "3.14"
+  ARCH:
+    - amd64
+    - arm64
+  TARGET:
+    - musllinux
+    - manylinux
+
+labels:
+  platform: linux/${ARCH}
+
+clone:
+  - name: clone-deep
+    image: woodpeckerci/plugin-git
+    settings:
+      tags: true
+      partial: false
+
+steps:
+  build:
+    image: codeberg.org/poezio/slixmpp:${TARGET}-${ARCH}
+    commands:
+      - uv build --python ${PYTHON_VERSION}
+      - auditwheel repair dist/*.whl  # for some reason the wheels are sometimes not "manylinux", this fixes it
+      - ls -l wheelhouse/
+
+  publish:
+    image: codeberg.org/poezio/slixmpp:${TARGET}-${ARCH}
+    when:
+      event: [ push, tag ]
+      branch: master
+    environment:
+      TOKEN:
+        from_secret: codeberg_package_nicoco
+    commands:
+      - uv publish --token $TOKEN --publish-url https://codeberg.org/api/packages/poezio/pypi/ wheelhouse/*
+      # uploading the sdist will fail after the first matrix job has sent it, it's expected
+      - uv publish --token $TOKEN --publish-url https://codeberg.org/api/packages/poezio/pypi/ dist/*.tar.gz || true

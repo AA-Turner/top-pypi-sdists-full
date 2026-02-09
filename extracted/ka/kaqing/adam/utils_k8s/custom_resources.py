@@ -4,7 +4,7 @@ from kubernetes import client
 
 from adam.config import Config
 from .kube_context import KubeContext
-from adam.utils import log2, log_exc
+from adam.utils_log import log2, log_exc
 
 
 # utility collection; methods are all static

@@ -230,7 +230,7 @@ class XEP_0060(BasePlugin):
                     ifrom=None, callback=None,
                     timeout=None):
         """
-        Unubscribe from updates from a pubsub node.
+        Unsubscribe from updates from a pubsub node.
 
         The rules for determining the JID that is unsubscribing
         from the node are:

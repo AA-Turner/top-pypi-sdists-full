@@ -6,7 +6,7 @@ from flask import Flask, jsonify
 from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
-from schemathesis.specs.openapi.patterns import translate_to_python_regex, update_quantifier
+from schemathesis.specs.openapi.patterns import normalize_regex, update_quantifier
 
 SKIP_BEFORE_PY11 = pytest.mark.skipif(
     sys.version_info < (3, 11), reason="Possessive repeat is only available in Python 3.11+"
@@ -179,8 +179,8 @@ def test_update_quantifier_invalid_pattern():
         (r"\p{Script=Latin}", None),
     ],
 )
-def test_translate_to_python_regex(pattern, expected):
-    assert translate_to_python_regex(pattern) == expected
+def test_normalize_regex(pattern, expected):
+    assert normalize_regex(pattern) == expected
     if expected:
         re.compile(expected)
 
@@ -388,3 +388,97 @@ def test_response_schema_is_not_mutated(cli, app_runner, snapshot_cli):
     port = app_runner.run_flask_app(app)
 
     assert cli.run(f"http://127.0.0.1:{port}/openapi.json", "-call", "--phases=fuzzing", "-n 1") == snapshot_cli
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_unicode_surrogate_pattern_in_query_parameter(cli, ctx, app_runner, snapshot_cli):
+    # Pattern from amazonaws.com/cleanrooms schema - surrogate code points are invalid in regex
+    invalid_pattern = "([\\u0020-\\uD7FF\\uE000-\\uFFFD\\uD800\\uDBFF-\\uDC00\\uDFFF\\t\\r\\n]){0,255}"
+
+    schema = ctx.openapi.build_schema(
+        {
+            "/test": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "description",
+                            "in": "query",
+                            "schema": {"type": "string", "pattern": invalid_pattern},
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    app = Flask(__name__)
+
+    @app.route("/openapi.json")
+    def openapi():
+        return jsonify(schema)
+
+    @app.route("/test")
+    def test_endpoint():
+        return jsonify({"status": "ok"})
+
+    port = app_runner.run_flask_app(app)
+
+    assert (
+        cli.run(
+            f"http://127.0.0.1:{port}/openapi.json",
+            "--max-examples=10",
+            "--phases=fuzzing",
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_unicode_surrogate_pattern_in_request_body(cli, ctx, app_runner, snapshot_cli):
+    # Surrogate code point range - invalid in regex engine
+    invalid_pattern = "[\\uD800-\\uDBFF]"
+
+    schema = ctx.openapi.build_schema(
+        {
+            "/test": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {"type": "string", "pattern": invalid_pattern},
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    app = Flask(__name__)
+
+    @app.route("/openapi.json")
+    def openapi():
+        return jsonify(schema)
+
+    @app.route("/test", methods=["POST"])
+    def test_endpoint():
+        return jsonify({"status": "ok"})
+
+    port = app_runner.run_flask_app(app)
+
+    assert (
+        cli.run(
+            f"http://127.0.0.1:{port}/openapi.json",
+            "--max-examples=10",
+            "--phases=fuzzing",
+        )
+        == snapshot_cli
+    )

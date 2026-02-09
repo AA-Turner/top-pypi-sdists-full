@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 
@@ -30,6 +31,25 @@ async def test_reject(server, runtime_mode):
                 pass
 
     assert exc.value.response.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('runtime_mode', ['mt', 'st'])
+async def test_asgi_server_close(asgi_server, runtime_mode, tmp_path):
+    target = tmp_path / 'ws_result'
+
+    async with asgi_server(runtime_mode) as port:
+        async with websockets.connect(f'ws://localhost:{port}/ws_close') as ws:
+            await ws.send(str(target.resolve()))
+            try:
+                await ws.recv()
+            except Exception:
+                pass
+
+        # reduce flakyness
+        await asyncio.sleep(0.1)
+
+    assert target.exists()
 
 
 @pytest.mark.asyncio

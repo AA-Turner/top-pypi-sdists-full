@@ -59,6 +59,7 @@ from typing import Any, Optional, Sequence, Dict, List, Tuple
 from loguru import logger
 from pydantic import BaseModel, Field
 
+
 from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import StructuredTool
 from langchain_core.runnables import RunnableConfig
@@ -68,6 +69,7 @@ from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
 
+from cuga.backend.cuga_graph.nodes.task_decomposition_planning.analyze_task import TaskAnalyzer
 from cuga.backend.activity_tracker.tracker import ActivityTracker, Step
 from cuga.backend.llm.models import LLMManager
 from cuga.backend.cuga_graph.state.agent_state import AgentState
@@ -307,7 +309,7 @@ class Todo(BaseModel):
     text: str = Field(..., description="The task description")
     status: str = Field(
         default="pending",
-        description="Status of the todo: 'pending' or 'completed'",
+        description="Status of the todo: 'pending', 'in_progress', or 'completed'",
     )
 
 
@@ -343,7 +345,7 @@ async def create_find_tools_tool(
         """Search for relevant tools from the connected applications based on a natural language query.
 
         Args:
-            query: Natural language description of what you want to accomplish
+            query: Natural language query describing what tools are needed to accomplish the task can include also which parameters are needed or the output expected
             app_name: Name of a specific app to filter tools from. Only searches tools from that app.
 
         Returns:
@@ -373,14 +375,17 @@ async def create_find_tools_tool(
     )
 
 
-async def create_update_todos_tool() -> StructuredTool:
+async def create_update_todos_tool(agent_state: Optional['AgentState'] = None) -> StructuredTool:
     """Create a create_update_todos StructuredTool for managing task todos.
+
+    Args:
+        agent_state: Optional AgentState to store todos for prompt updates
 
     Returns:
         StructuredTool configured for creating and updating todos
     """
 
-    async def create_update_todos_func(input_data) -> TodosOutput:
+    async def create_update_todos_func(input_data) -> str:
         """Create or update a list of todos for complex multi-step tasks.
 
         Use this tool when you have a complex task that requires multiple steps.
@@ -393,7 +398,7 @@ async def create_update_todos_tool() -> StructuredTool:
                        - A list directly: [...] (will be wrapped in {"todos": [...]})
 
         Returns:
-            The current list of todos with their status
+            Simple confirmation message
         """
         # Handle different input types
         if isinstance(input_data, TodosInput):
@@ -422,13 +427,20 @@ async def create_update_todos_tool() -> StructuredTool:
                 # Last resort: wrap in a list
                 todos_list = [Todo(**input_data) if isinstance(input_data, dict) else input_data]
 
-        return TodosOutput(todos=todos_list)
+        # Store todos in agent_state if available
+        logger.info(
+            f"🔍 DEBUG create_update_todos: agent_state type = {type(agent_state).__name__ if agent_state else 'None'}"
+        )
+        logger.info(f"🔍 DEBUG create_update_todos: agent_state exists = {agent_state is not None}")
+
+        return "Todos have been updated"
 
     return StructuredTool.from_function(
         func=create_update_todos_func,
         name="create_update_todos",
-        description="Create or update a list of todos for complex multi-step tasks. Use this when you have a task that requires more than one step. You can pass either: (1) A list directly: create_update_todos([{'text': '...', 'status': 'pending'}, ...]) or (2) A dict with 'todos' key: create_update_todos({'todos': [{'text': '...', 'status': 'pending'}, ...]}). Each todo dict should have 'text' (task description) and 'status' ('pending' or 'completed').",
+        description="Create or update a list of todos for complex multi-step tasks. Use this when you have a task that requires more than one step. You can pass either: (1) A list directly: create_update_todos([{'text': '...', 'status': 'pending'}, ...]) or (2) A dict with 'todos' key: create_update_todos({'todos': [{'text': '...', 'status': 'pending'}, ...]}). Each todo dict should have 'text' (task description) and 'status' ('pending', 'in_progress', or 'completed'). Returns a simple confirmation message.",
         args_schema=TodosInput,
+        return_direct=False,
     )
 
 
@@ -528,11 +540,26 @@ def create_cuga_lite_graph(
             if state.sub_task_app:
                 # Specific app selected - filter tools to only this app
                 all_apps = await base_tool_provider.get_apps()
-                apps_for_prompt = [app for app in all_apps if app.name == state.sub_task_app]
+                # add here the implementation of force_
+                force_lite_apps = getattr(settings.advanced_features, 'force_lite_mode_apps', [])
+                if force_lite_apps:
+                    allowed_apps_names = list(set([state.sub_task_app] + force_lite_apps))
+                    # call authenticate_apps for the allowed apps
+                    if settings.advanced_features.benchmark == "appworld":
+                        await TaskAnalyzer.call_authenticate_apps(force_lite_apps)
+                    apps_for_prompt = [app for app in all_apps if app.name in allowed_apps_names]
+                else:
+                    apps_for_prompt = [app for app in all_apps if app.name == state.sub_task_app]
                 # Get only tools for this specific app
-                tools_for_execution = await base_tool_provider.get_tools(state.sub_task_app)
-                app_to_tools_map[state.sub_task_app] = tools_for_execution
-                logger.info(f"Filtered to {len(tools_for_execution)} tools for app '{state.sub_task_app}'")
+                tools_for_execution = []
+                for app in apps_for_prompt:
+                    current_tools_for_execution = await base_tool_provider.get_tools(app.name)
+                    app_to_tools_map[app.name] = current_tools_for_execution
+                    tools_for_execution.extend(current_tools_for_execution)
+
+                logger.info(
+                    f"Filtered to {len(tools_for_execution)} tools for {len(apps_for_prompt)} identified apps"
+                )
             elif state.api_intent_relevant_apps:
                 # Filter to API apps
                 all_apps = await base_tool_provider.get_apps()
@@ -583,17 +610,30 @@ def create_cuga_lite_graph(
                 tools_for_prompt = [find_tool]
                 # Add find_tools to tools context for sandbox execution
                 # Wrap to make awaitable (agent always uses await)
-                tools_context_dict['find_tools'] = make_tool_awaitable(find_tool.func)
+                # Prefer coroutine over func to avoid run_in_executor issues
+                find_tool_func = (
+                    find_tool.coroutine
+                    if hasattr(find_tool, 'coroutine') and find_tool.coroutine
+                    else find_tool.func
+                )
+                tools_context_dict['find_tools'] = make_tool_awaitable(find_tool_func)
                 logger.info(
                     "Exposing only find_tools in prompt (all tools + find_tools available in execution context)"
                 )
 
             # Add create_update_todos tool for complex task management if enabled
             if settings.advanced_features.enable_todos:
-                todos_tool = await create_update_todos_tool()
+                # Pass the CugaLiteState so todos updates are reflected in the graph state
+                todos_tool = await create_update_todos_tool(agent_state=state)
                 tools_for_prompt.append(todos_tool)
                 # Add to tools context for sandbox execution
-                tools_context_dict['create_update_todos'] = make_tool_awaitable(todos_tool.func)
+                # Prefer coroutine over func to avoid run_in_executor issues
+                todos_tool_func = (
+                    todos_tool.coroutine
+                    if hasattr(todos_tool, 'coroutine') and todos_tool.coroutine
+                    else todos_tool.func
+                )
+                tools_context_dict['create_update_todos'] = make_tool_awaitable(todos_tool_func)
 
             # Apply tool guide if guides exist in metadata and haven't been applied yet
             # Guides should apply regardless of whether a playbook matched
@@ -623,11 +663,14 @@ def create_cuga_lite_graph(
             # Wrap to make awaitable (agent always uses await)
             for tool in tools_for_execution:
                 # Extract tool function - StructuredTool may use .func, .coroutine, or ._run
+                # IMPORTANT: Prefer coroutine over func to avoid run_in_executor issues
+                # with tools that have async implementations (like MCP tools)
                 tool_func = None
-                if hasattr(tool, 'func') and tool.func:
-                    tool_func = tool.func
-                elif hasattr(tool, 'coroutine') and tool.coroutine:
+                if hasattr(tool, 'coroutine') and tool.coroutine:
+                    # Prefer async coroutine - avoids run_in_executor timeout issues
                     tool_func = tool.coroutine
+                elif hasattr(tool, 'func') and tool.func:
+                    tool_func = tool.func
                 else:
                     tool_func = getattr(tool, '_run', None)
 
@@ -638,6 +681,7 @@ def create_cuga_lite_graph(
 
             # Create prompt dynamically
             dynamic_prompt = prompt
+
             if not dynamic_prompt:
                 dynamic_prompt = create_mcp_prompt(
                     tools_for_prompt,
@@ -942,9 +986,8 @@ def create_cuga_lite_graph(
                 tracker.collect_step(step=Step(name="User_output", data=output))
                 tracker.collect_step(step=Step(name="User_output_variables", data=json.dumps(new_vars)))
 
-                logger.debug(
-                    f"\n\n------\n\n📝 Execution output:\n\n {output.strip()[:2000]}{'...' if len(output.strip()) > 2000 else ''} \n\n------\n\n"
-                )
+                # Output is already formatted and trimmed by code_executor
+                logger.debug(f"\n\n------\n\n📝 Execution output:\n\n{output}\n\n------\n\n")
 
                 # Update variables using CugaLiteState's variables_manager
                 # This automatically updates state.variables_storage
@@ -991,9 +1034,12 @@ def create_cuga_lite_graph(
                         logger.warning(f"Reflection failed: {e}")
                         reflection_output = ""
 
-                execution_message_content = f"Execution output preview:\n{output.strip()[:2500]}{'...' if len(output.strip()) > 2500 else ''} Execution output:\n{output}"
+                # Output is already formatted by code_executor
+                execution_message_content = f"Execution output:\n{output}"
                 if reflection_output:
-                    execution_message_content = f"{reflection_output}\n\n{execution_message_content}"
+                    execution_message_content = (
+                        f"{execution_message_content}\n\n---\n\nSummary:\n{reflection_output}"
+                    )
 
                 tracker.collect_step(
                     step=Step(

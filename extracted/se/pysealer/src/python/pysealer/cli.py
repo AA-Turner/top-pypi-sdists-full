@@ -22,6 +22,7 @@ from .add_decorators import add_decorators, add_decorators_to_folder
 from .check_decorators import check_decorators, check_decorators_in_folder
 from .remove_decorators import remove_decorators, remove_decorators_from_folder
 from .git_diff import is_git_available
+from .git_pre_commit import install_hook, get_hook_status, is_git_repository
 
 app = typer.Typer(
     name="pysealer",
@@ -78,7 +79,15 @@ def init(
     github_token: Annotated[
         str,
         typer.Option("--github-token", help="GitHub personal access token for uploading public key to repository secrets.")
-    ] = None
+    ] = None,
+    hook_mode: Annotated[
+        str,
+        typer.Option("--hook-mode", help="Hook mode: 'mandatory' (block commits on error) or 'optional' (warn only).")
+    ] = "mandatory",
+    hook_pattern: Annotated[
+        str,
+        typer.Option("--hook-pattern", help="File pattern for hook to process (e.g., '**/*.py' or 'src/**/*.py').")
+    ] = "**/*.py"
 ):
     """Initialize pysealer with an .env file and optionally upload public key to GitHub."""
     try:
@@ -110,6 +119,30 @@ def init(
                 typer.echo(typer.style(f"⚠️  Warning: Failed to upload to GitHub: {e}", fg=typer.colors.YELLOW))
                 typer.echo("   You can manually add the PYSEALER_PUBLIC_KEY to GitHub secrets later.")
         
+        # Git hook installation (automatic if in git repository)
+        if not is_git_repository():
+            typer.echo(typer.style("⚠️  Warning: Not a git repository. Skipping hook installation.", fg=typer.colors.YELLOW))
+            typer.echo("   Initialize git first with 'git init', then run 'pysealer hook install'")
+        else:
+            # Check if hook is already installed
+            is_installed, _, _ = get_hook_status()
+            
+            if is_installed:
+                typer.echo(typer.style("✓ Git pre-commit hook already installed", fg=typer.colors.GREEN))
+            else:
+                typer.echo(typer.style("Installing Pysealer git pre-commit hook...", fg=typer.colors.BLUE, bold=True))
+                success, message = install_hook(mode=hook_mode, target_pattern=hook_pattern)
+                
+                if success:
+                    typer.echo(typer.style(f"✓ {message}", fg=typer.colors.GREEN))
+                    typer.echo(f"   Mode: {hook_mode}")
+                    typer.echo(f"   Pattern: {hook_pattern}")
+                    typer.echo("   The hook will automatically lock files before each commit.")
+                    typer.echo("   To bypass: git commit --no-verify")
+                else:
+                    typer.echo(typer.style(f"⚠️  Warning: {message}", fg=typer.colors.YELLOW))
+                    typer.echo("   You can manually install it by editing .git/hooks/pre-commit")
+        
     except Exception as e:
         typer.echo(typer.style(f"Error during initialization: {e}", fg=typer.colors.RED, bold=True), err=True)
         raise typer.Exit(code=1)
@@ -118,7 +151,7 @@ def init(
 def lock(
     file_path: Annotated[
         str,
-        typer.Argument(help="Path to the Python file or folder to decorate")
+        typer.Argument(help="Path to the Python file or folder to lock")
     ]
 ):
     """Add decorators to all functions and classes in a Python file or all Python files in a folder."""
@@ -333,28 +366,14 @@ def remove(
             typer.echo(typer.style(f"Successfully removed decorators from {len(modified_files)} {file_word}:", fg=typer.colors.BLUE, bold=True))
             for file in modified_files:
                 typer.echo(f"  {typer.style('✓', fg=typer.colors.GREEN)} {file}")
-        
-        # Handle file path
+        # Handle single file
         else:
-            
             resolved_path = str(path.resolve())
-            modified_code, found = remove_decorators(resolved_path)
-            
-            with open(resolved_path, 'w') as f:
-                f.write(modified_code)
-            
-            if found:
-                typer.echo(typer.style(f"Successfully removed decorators from 1 file:", fg=typer.colors.BLUE, bold=True))
-                typer.echo(f"  {typer.style('✓', fg=typer.colors.GREEN)} {resolved_path}")
-            else:
-                typer.echo(typer.style(f"No pysealer decorators found in 1 file:", fg=typer.colors.YELLOW, bold=True))
-                typer.echo(f"  {typer.style('⊘', fg=typer.colors.YELLOW)} {resolved_path}")
-    
-    except (FileNotFoundError, NotADirectoryError, ValueError) as e:
-        typer.echo(typer.style(f"Error: {e}", fg=typer.colors.RED, bold=True), err=True)
-        raise typer.Exit(code=1)
+            modified_content, _ = remove_decorators(resolved_path)
+            typer.echo(typer.style(f"✓ Successfully removed decorators from: {resolved_path}", fg=typer.colors.GREEN))
+
     except Exception as e:
-        typer.echo(typer.style(f"Unexpected error while removing decorators: {e}", fg=typer.colors.RED, bold=True), err=True)
+        typer.echo(typer.style(f"Error removing decorators: {e}", fg=typer.colors.RED, bold=True), err=True)
         raise typer.Exit(code=1)
 
 
@@ -363,5 +382,5 @@ def main():
     app()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

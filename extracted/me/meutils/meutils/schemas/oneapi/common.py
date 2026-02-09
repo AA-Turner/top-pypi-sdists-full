@@ -891,7 +891,8 @@ MODEL_RATIO = {
     "glm-4.5v": 1,
     "glm-4.6": 2,
     "glm-4.6v": 0.5,
-    "glm-4.7": 1.5,
+    "glm-4.7": 1,
+    "glm-4-7-251222": 1,
 
     "longcat-flash-chat": 1,
     "longcat-flash-thinking": 2,
@@ -1260,6 +1261,8 @@ MODEL_RATIO = {
     "claude-opus-4-5": 2.5,
     "claude-opus-4-5-20251101": 2.5,
     "claude-opus-4-5-20251101-thinking": 2.5,
+    "claude-opus-4-6": 2.5,
+    "claude-opus-4-6-thinking": 2.5,
 
     "deepclaude": 1.5,
     "deep-claude": 1.5,
@@ -1407,6 +1410,7 @@ MODEL_RATIO = {
 
     "gpt-5.2": 0.875,
     "gpt-5.2-codex": 0.875,
+    "gpt-5.3-codex": 0.875,
 
     "gpt-5-2025-08-07": 0.625,
     "gpt-5-chat-latest": 0.625,
@@ -1625,6 +1629,7 @@ COMPLETION_RATIO = {
 
     "gpt-5.2": 8,
     "gpt-5.2-codex": 8,
+    "gpt-5.3-codex": 8,
 
     # claude
     "claude-3-5-haiku-20241022": 5,
@@ -1656,6 +1661,8 @@ COMPLETION_RATIO = {
     "claude-opus-4-5": 5,
     "claude-opus-4-5-20251101": 5,
     "claude-opus-4-5-20251101-thinking": 5,
+    "claude-opus-4-6": 5,
+    "claude-opus-4-6-thinking": 5,
 
     "llama-3.1-70b-instruct": 2,
     "meta-llama/Meta-Llama-3.1-70B-Instruct": 2,
@@ -2001,7 +2008,8 @@ COMPLETION_RATIO = {
     "glm-4.5v": 3,
     "glm-4.6": 4,
     "glm-4.6v": 3,
-    "glm-4.7": 4.7,
+    "glm-4.7": 4,
+    "glm-4-7-251222": 4,
 
     "step-1-flash": 5,
     "step-1-8k": 5,

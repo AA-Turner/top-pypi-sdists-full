@@ -159,7 +159,7 @@ class TestSqlStorageConcurrency(unittest.TestCase):
 
     def test_concurrent_executions(self):
         """Test 2: Multiple simultaneous executions."""
-        num_workers = 2
+        num_workers = 10
         test_dir = self._get_test_dir("2_concurrent")
         test_dir.mkdir(exist_ok=True)
         Settings.set_root_path(str(test_dir))
@@ -176,10 +176,6 @@ class TestSqlStorageConcurrency(unittest.TestCase):
                 )
                 processes.append(process)
                 process.start()
-                # Small delay to prevent race condition when multiple processes
-                # simultaneously create SqlStorage and access the same files.
-                # threading.RLock only protects threads within same process.
-                time.sleep(0.1)
 
             # Wait for all processes
             for process in processes:
@@ -363,7 +359,6 @@ class TestSqlStorageConcurrency(unittest.TestCase):
                 )
                 processes.append(process)
                 process.start()
-                time.sleep(0.1)  # Stagger process starts to reduce contention
 
             # Wait for all processes
             for process in processes:
@@ -376,8 +371,10 @@ class TestSqlStorageConcurrency(unittest.TestCase):
             all_tasks = repositories.tasks.get_all_tasks()
             expected = num_workers * tasks_per_worker
 
-            self.assertGreaterEqual(
-                len(all_tasks), expected * 0.7, "Should have created most tasks"
+            self.assertEqual(
+                len(all_tasks),
+                expected,
+                "Should have created all tasks without data loss",
             )
 
         finally:

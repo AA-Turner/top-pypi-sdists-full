@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use crate::common::{TestContext, cmd_snapshot, git_cmd};
 use assert_fs::fixture::ChildPath;
-use prek_consts::MANIFEST_FILE;
+use prek_consts::PRE_COMMIT_HOOKS_YAML;
 
 fn create_hook_repo(context: &TestContext, repo_name: &str) -> Result<PathBuf> {
     let repo_dir = context.home_dir().child(format!("test-repos/{repo_name}"));
@@ -35,7 +35,9 @@ fn create_hook_repo(context: &TestContext, repo_name: &str) -> Result<PathBuf> {
         .assert()
         .success();
 
-    repo_dir.child(MANIFEST_FILE).write_str(indoc::indoc! {r#"
+    repo_dir
+        .child(PRE_COMMIT_HOOKS_YAML)
+        .write_str(indoc::indoc! {r#"
         - id: test-hook
           name: Test Hook
           entry: echo
@@ -90,7 +92,9 @@ fn create_failing_hook_repo(context: &TestContext, repo_name: &str) -> Result<Pa
         .assert()
         .success();
 
-    repo_dir.child(MANIFEST_FILE).write_str(indoc::indoc! {r#"
+    repo_dir
+        .child(PRE_COMMIT_HOOKS_YAML)
+        .write_str(indoc::indoc! {r#"
         - id: failing-hook
           name: Always Fail
           entry: "false"
@@ -120,22 +124,24 @@ fn try_repo_basic() -> Result<()> {
     let repo_path = create_hook_repo(&context, "try-repo-basic")?;
 
     let mut filters = context.filters();
-    filters.extend([(r"[a-f0-9]{40}", "[COMMIT_SHA]")]);
+    filters.extend([(r"[a-f0-9]{40}", "[COMMIT_SHA]"), ("'", "\"")]);
 
-    cmd_snapshot!(filters, context.try_repo().arg(&repo_path).arg("--skip").arg("another-hook"), @r"
+    cmd_snapshot!(filters, context.try_repo().arg(&repo_path).arg("--skip").arg("another-hook"), @r#"
     success: true
     exit_code: 0
     ----- stdout -----
-    Using config:
-    repos:
-      - repo: [HOME]/test-repos/try-repo-basic
-        rev: [COMMIT_SHA]
-        hooks:
-          - id: test-hook
+    Using generated `prek.toml`:
+    [[repos]]
+    repo = "[HOME]/test-repos/try-repo-basic"
+    rev = "[COMMIT_SHA]"
+    hooks = [
+      { id = "test-hook" },
+    ]
+
     Test Hook................................................................Passed
 
     ----- stderr -----
-    ");
+    "#);
 
     Ok(())
 }
@@ -151,24 +157,26 @@ fn try_repo_failing_hook() -> Result<()> {
     let repo_path = create_failing_hook_repo(&context, "try-repo-failing")?;
 
     let mut filters = context.filters();
-    filters.extend([(r"[a-f0-9]{40}", "[COMMIT_SHA]")]);
+    filters.extend([(r"[a-f0-9]{40}", "[COMMIT_SHA]"), ("'", "\"")]);
 
-    cmd_snapshot!(filters, context.try_repo().arg(&repo_path), @r"
+    cmd_snapshot!(filters, context.try_repo().arg(&repo_path), @r#"
     success: false
     exit_code: 1
     ----- stdout -----
-    Using config:
-    repos:
-      - repo: [HOME]/test-repos/try-repo-failing
-        rev: [COMMIT_SHA]
-        hooks:
-          - id: failing-hook
+    Using generated `prek.toml`:
+    [[repos]]
+    repo = "[HOME]/test-repos/try-repo-failing"
+    rev = "[COMMIT_SHA]"
+    hooks = [
+      { id = "failing-hook" },
+    ]
+
     Always Fail..............................................................Failed
     - hook id: failing-hook
     - exit code: 1
 
     ----- stderr -----
-    ");
+    "#);
 
     Ok(())
 }
@@ -184,22 +192,24 @@ fn try_repo_specific_hook() -> Result<()> {
     context.git_add(".");
 
     let mut filters = context.filters();
-    filters.extend([(r"[a-f0-9]{40}", "[COMMIT_SHA]")]);
+    filters.extend([(r"[a-f0-9]{40}", "[COMMIT_SHA]"), ("'", "\"")]);
 
-    cmd_snapshot!(filters, context.try_repo().arg(&repo_path).arg("another-hook"), @r"
+    cmd_snapshot!(filters, context.try_repo().arg(&repo_path).arg("another-hook"), @r#"
     success: true
     exit_code: 0
     ----- stdout -----
-    Using config:
-    repos:
-      - repo: [HOME]/test-repos/try-repo-specific-hook
-        rev: [COMMIT_SHA]
-        hooks:
-          - id: another-hook
+    Using generated `prek.toml`:
+    [[repos]]
+    repo = "[HOME]/test-repos/try-repo-specific-hook"
+    rev = "[COMMIT_SHA]"
+    hooks = [
+      { id = "another-hook" },
+    ]
+
     Another Hook.............................................................Passed
 
     ----- stderr -----
-    ");
+    "#);
 
     Ok(())
 }
@@ -223,7 +233,7 @@ fn try_repo_specific_rev() -> Result<()> {
 
     // Make a new commit
     ChildPath::new(&repo_path)
-        .child(MANIFEST_FILE)
+        .child(PRE_COMMIT_HOOKS_YAML)
         .write_str(indoc::indoc! {r"
         - id: new-hook
           name: New Hook
@@ -242,26 +252,29 @@ fn try_repo_specific_rev() -> Result<()> {
     filters.extend([
         (r"[a-f0-9]{40}", "[COMMIT_SHA]"),
         (&initial_rev, "[COMMIT_SHA]"),
+        ("'", "\""),
     ]);
 
     cmd_snapshot!(filters, context.try_repo().arg(&repo_path)
         .arg("--ref")
-        .arg(&initial_rev), @r"
+        .arg(&initial_rev), @r#"
     success: true
     exit_code: 0
     ----- stdout -----
-    Using config:
-    repos:
-      - repo: [HOME]/test-repos/try-repo-specific-rev
-        rev: [COMMIT_SHA]
-        hooks:
-          - id: test-hook
-          - id: another-hook
+    Using generated `prek.toml`:
+    [[repos]]
+    repo = "[HOME]/test-repos/try-repo-specific-rev"
+    rev = "[COMMIT_SHA]"
+    hooks = [
+      { id = "test-hook" },
+      { id = "another-hook" },
+    ]
+
     Test Hook................................................................Passed
     Another Hook.............................................................Passed
 
     ----- stderr -----
-    ");
+    "#);
 
     Ok(())
 }
@@ -275,7 +288,7 @@ fn try_repo_uncommitted_changes() -> Result<()> {
 
     // Make uncommitted changes
     ChildPath::new(&repo_path)
-        .child(MANIFEST_FILE)
+        .child(PRE_COMMIT_HOOKS_YAML)
         .write_str(indoc::indoc! {r"
         - id: uncommitted-hook
           name: Uncommitted Hook
@@ -298,23 +311,26 @@ fn try_repo_uncommitted_changes() -> Result<()> {
     filters.extend([
         (r"try-repo-[^/\\]+", "[REPO]"),
         (r"[a-f0-9]{40}", "[COMMIT_SHA]"),
+        ("'", "\""),
     ]);
 
-    cmd_snapshot!(filters, context.try_repo().arg(&repo_path), @r"
+    cmd_snapshot!(filters, context.try_repo().arg(&repo_path), @r#"
     success: true
     exit_code: 0
     ----- stdout -----
-    Using config:
-    repos:
-      - repo: [HOME]/scratch/[REPO]/shadow-repo
-        rev: [COMMIT_SHA]
-        hooks:
-          - id: uncommitted-hook
+    Using generated `prek.toml`:
+    [[repos]]
+    repo = "[HOME]/scratch/[REPO]/shadow-repo"
+    rev = "[COMMIT_SHA]"
+    hooks = [
+      { id = "uncommitted-hook" },
+    ]
+
     Uncommitted Hook.........................................................Passed
 
     ----- stderr -----
     warning: Creating temporary repo with uncommitted changes...
-    ");
+    "#);
 
     Ok(())
 }
@@ -333,22 +349,24 @@ fn try_repo_relative_path() -> Result<()> {
     let mut filters = context.filters();
     filters.extend([(r"[a-f0-9]{40}", "[COMMIT_SHA]")]);
 
-    cmd_snapshot!(filters, context.try_repo().arg(&relative_path), @r"
+    cmd_snapshot!(filters, context.try_repo().arg(&relative_path), @r#"
     success: true
     exit_code: 0
     ----- stdout -----
-    Using config:
-    repos:
-      - repo: ../home/test-repos/try-repo-relative
-        rev: [COMMIT_SHA]
-        hooks:
-          - id: test-hook
-          - id: another-hook
+    Using generated `prek.toml`:
+    [[repos]]
+    repo = "../home/test-repos/try-repo-relative"
+    rev = "[COMMIT_SHA]"
+    hooks = [
+      { id = "test-hook" },
+      { id = "another-hook" },
+    ]
+
     Test Hook................................................................Passed
     Another Hook.............................................................Passed
 
     ----- stderr -----
-    ");
+    "#);
 
     Ok(())
 }

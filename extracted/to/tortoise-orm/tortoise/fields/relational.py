@@ -2,15 +2,7 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import AsyncGenerator, Generator, Iterator
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Generic,
-    Literal,
-    Optional,
-    TypeVar,
-    overload,
-)
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, overload
 
 from pypika_tortoise import Table
 
@@ -204,7 +196,7 @@ class ManyToManyRelation(ReverseRelation[MODEL]):
                 raise OperationalError(f"You should first call .save() on {instance_to_add}")
             pk_f = related_pk_formatting_func(instance_to_add.pk, instance_to_add)
             pks_f.append(pk_f)
-        through_table = Table(self.field.through)
+        through_table = Table(self.field.through, schema=self.field.through_schema)
         backward_key, forward_key = self.field.backward_key, self.field.forward_key
         backward_field, forward_field = through_table[backward_key], through_table[forward_key]
         select_query = (
@@ -249,7 +241,7 @@ class ManyToManyRelation(ReverseRelation[MODEL]):
         using_db: BaseDBAsyncClient | None = None,
     ) -> None:
         db = using_db or self.remote_model._meta.db
-        through_table = Table(self.field.through)
+        through_table = Table(self.field.through, schema=self.field.through_schema)
         pk_formatting_func = type(self.instance)._meta.pk.to_db_value
 
         condition = through_table[self.field.backward_key] == pk_formatting_func(
@@ -306,8 +298,16 @@ class RelationalField(Field[MODEL]):
         return desc
 
     @classmethod
-    def validate_model_name(cls, model_name: str) -> None:
-        if len(model_name.split(".")) != 2:
+    def validate_model_name(cls, model_name: str | type[Model]) -> None:
+        if not isinstance(model_name, str):
+            model_class: type[Model] = model_name
+            try:
+                model_class._meta
+            except AttributeError:
+                raise ConfigurationError(
+                    f"{cls.__name__}({model_name!r}) is invalid. model_name must be string or type[tortoise.models.Model]"
+                ) from None
+        elif len(model_name.split(".")) != 2:
             field_type = cls.__name__.replace("Instance", "")
             raise ConfigurationError(f'{field_type} accepts model name in format "app.Model"')
 
@@ -315,7 +315,7 @@ class RelationalField(Field[MODEL]):
 class ForeignKeyFieldInstance(RelationalField[MODEL]):
     def __init__(
         self,
-        model_name: str,
+        model_name: type[Model] | str,
         related_name: str | None | Literal[False] = None,
         on_delete: OnDelete = CASCADE,
         **kwargs: Any,
@@ -358,12 +358,18 @@ class BackwardFKRelation(RelationalField[MODEL]):
 class OneToOneFieldInstance(ForeignKeyFieldInstance[MODEL]):
     def __init__(
         self,
-        model_name: str,
+        model_name: type[Model] | str,
         related_name: str | None | Literal[False] = None,
         on_delete: OnDelete = CASCADE,
         **kwargs: Any,
     ) -> None:
         super().__init__(model_name, related_name, on_delete, unique=True, **kwargs)
+
+    def deconstruct(self) -> tuple[str, list[Any], dict[str, Any]]:
+        path, args, kwargs = super().deconstruct()
+        # unique=True is set implicitly by OneToOneField.__init__
+        kwargs.pop("unique", None)
+        return path, args, kwargs
 
 
 class BackwardOneToOneRelation(BackwardFKRelation[MODEL]):
@@ -375,7 +381,7 @@ class ManyToManyFieldInstance(RelationalField[MODEL]):
 
     def __init__(
         self,
-        model_name: str,
+        model_name: type[Model] | str,
         through: str | None = None,
         forward_key: str | None = None,
         backward_key: str = "",
@@ -396,17 +402,28 @@ class ManyToManyFieldInstance(RelationalField[MODEL]):
             unique = kwargs.pop("create_unique_index")
         super().__init__(field_type, unique=unique, **kwargs)
         self.validate_model_name(model_name)
-        self.model_name: str = model_name
+        self.model_name = model_name
         self.related_name: str = related_name
-        self.forward_key: str = forward_key or f"{model_name.split('.')[1].lower()}_id"
+        if not forward_key:
+            if not isinstance(model_name, str):
+                forward_key = f"{model_name.__name__.lower()}_id"
+            else:
+                forward_key = f"{model_name.split('.')[1].lower()}_id"
+        self.forward_key: str = forward_key
         self.backward_key: str = backward_key
         self.through: str = through  # type: ignore
+        self.through_schema: str | None = None
         self._generated: bool = False
         self.on_delete = on_delete
 
     def describe(self, serializable: bool) -> dict:
         desc = super().describe(serializable)
-        desc["model_name"] = self.model_name
+        if isinstance(self.model_name, str):
+            model_name = self.model_name
+        else:
+            model: type[Model] = self.model_name
+            model_name = f"{model._meta.app}.{model.__name__}"
+        desc["model_name"] = model_name
         desc["related_name"] = self.related_name
         desc["forward_key"] = self.forward_key
         desc["backward_key"] = self.backward_key
@@ -418,7 +435,7 @@ class ManyToManyFieldInstance(RelationalField[MODEL]):
 
 @overload
 def OneToOneField(
-    model_name: str,
+    to: type[Model] | str,
     related_name: str | None | Literal[False] = None,
     on_delete: OnDelete = CASCADE,
     db_constraint: bool = True,
@@ -430,7 +447,7 @@ def OneToOneField(
 
 @overload
 def OneToOneField(
-    model_name: str,
+    to: type[Model] | str,
     related_name: str | None | Literal[False] = None,
     on_delete: OnDelete = CASCADE,
     db_constraint: bool = True,
@@ -440,7 +457,7 @@ def OneToOneField(
 
 
 def OneToOneField(
-    model_name: str,
+    to: type[Model] | str,
     related_name: str | None | Literal[False] = None,
     on_delete: OnDelete = CASCADE,
     db_constraint: bool = True,
@@ -456,8 +473,8 @@ def OneToOneField(
 
     You must provide the following:
 
-    ``model_name``:
-        The name of the related model in a :samp:`'{app}.{model}'` format.
+    ``to``:
+        The related model or name of the related model in a :samp:`'{app}.{model}'` format.
 
     The following is optional:
 
@@ -487,13 +504,13 @@ def OneToOneField(
     """
 
     return OneToOneFieldInstance(
-        model_name, related_name, on_delete, db_constraint=db_constraint, null=null, **kwargs
+        to, related_name, on_delete, db_constraint=db_constraint, null=null, **kwargs
     )
 
 
 @overload
 def ForeignKeyField(
-    model_name: str,
+    to: type[Model] | str,
     related_name: str | None | Literal[False] = None,
     on_delete: OnDelete = CASCADE,
     db_constraint: bool = True,
@@ -505,7 +522,7 @@ def ForeignKeyField(
 
 @overload
 def ForeignKeyField(
-    model_name: str,
+    to: type[Model] | str,
     related_name: str | None | Literal[False] = None,
     on_delete: OnDelete = CASCADE,
     db_constraint: bool = True,
@@ -515,7 +532,7 @@ def ForeignKeyField(
 
 
 def ForeignKeyField(
-    model_name: str,
+    to: type[Model] | str,
     related_name: str | None | Literal[False] = None,
     on_delete: OnDelete = CASCADE,
     db_constraint: bool = True,
@@ -531,8 +548,8 @@ def ForeignKeyField(
 
     You must provide the following:
 
-    ``model_name``:
-        The name of the related model in a :samp:`'{app}.{model}'` format.
+    ``to``:
+        The related model or name of the related model in a :samp:`'{app}.{model}'` format.
 
     The following is optional:
 
@@ -562,12 +579,12 @@ def ForeignKeyField(
     """
 
     return ForeignKeyFieldInstance(
-        model_name, related_name, on_delete, db_constraint=db_constraint, null=null, **kwargs
+        to, related_name, on_delete, db_constraint=db_constraint, null=null, **kwargs
     )
 
 
 def ManyToManyField(
-    model_name: str,
+    to: type[Model] | str,
     through: str | None = None,
     forward_key: str | None = None,
     backward_key: str = "",
@@ -586,8 +603,8 @@ def ManyToManyField(
 
     You must provide the following:
 
-    ``model_name``:
-        The name of the related model in a :samp:`'{app}.{model}'` format.
+    ``to``:
+        The related model or name of the related model in a :samp:`'{app}.{model}'` format.
 
     The following is optional:
 
@@ -625,7 +642,7 @@ def ManyToManyField(
         The default is True. If you want to allow repeat records, set this to False.
     """
     return ManyToManyFieldInstance(  # type: ignore
-        model_name,
+        to,
         through,
         forward_key,
         backward_key,
@@ -637,7 +654,7 @@ def ManyToManyField(
     )
 
 
-OneToOneNullableRelation = Optional[OneToOneFieldInstance[MODEL]]
+OneToOneNullableRelation = OneToOneFieldInstance[MODEL] | None
 """
 Type hint for the result of accessing the :func:`.OneToOneField` field in the model
 when obtained model can be nullable.
@@ -648,7 +665,7 @@ OneToOneRelation = OneToOneFieldInstance[MODEL]
 Type hint for the result of accessing the :func:`.OneToOneField` field in the model.
 """
 
-ForeignKeyNullableRelation = Optional[ForeignKeyFieldInstance[MODEL]]
+ForeignKeyNullableRelation = ForeignKeyFieldInstance[MODEL] | None
 """
 Type hint for the result of accessing the :func:`.ForeignKeyField` field in the model
 when obtained model can be nullable.

@@ -887,14 +887,14 @@ class StreamClient(Client):
         if not connection.status == OPEN:
             return
 
-        # in case the connection is under the connecting state
-        # the socket must be verified for errors and in case
-        # there's none the connection must proceed, for example
-        # the SSL connection handshake must be performed/retried
-        if connection.connecting:
-            self._connectf(connection)
-
         try:
+            # in case the connection is under the connecting state
+            # the socket must be verified for errors and in case
+            # there's none the connection must proceed, for example
+            # the SSL connection handshake must be performed/retried
+            if connection.connecting:
+                self._connectf(connection)
+
             connection._send()
         except ssl.SSLError as error:
             error_v = error.args[0] if error.args else None
@@ -989,7 +989,8 @@ class StreamClient(Client):
         this should be done in certain steps of the connection.
 
         The process of finishing the connecting process should include
-        the SSL handshaking process.
+        the SSL handshaking process, meaning that SSL or other connection
+        related errors may be raised.
 
         :type connection: Connection
         :param connection: The connection that should have the connect
@@ -1021,7 +1022,8 @@ class StreamClient(Client):
         # runs the starter process (initial kick-off) so that all the starters
         # registered for the connection may start to be executed, note that if
         # the SSL handshake starter has been registered its first execution is
-        # going to be triggered by this call
+        # going to be triggered by this call, meaning that SSL or other connection
+        # related errors may be raised.
         connection.run_starter()
 
     def _connects(self):

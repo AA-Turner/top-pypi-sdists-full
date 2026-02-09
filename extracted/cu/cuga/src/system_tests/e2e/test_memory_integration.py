@@ -8,26 +8,31 @@ These tests verify the full end-to-end functionality of the memory system
 including Milvus vector store, SQLite metadata, and tips extraction.
 """
 
-import unittest
-import time
 import os
+import time
+import unittest
 
 os.environ['DYNACONF_ADVANCED_FEATURES__ENABLE_MEMORY'] = 'true'
-from cuga.backend.memory.agentic_memory.main import app
-from cuga.backend.memory.memory import Memory
-from cuga.backend.memory.agentic_memory.schema import Namespace, RecordedFact, Run
-from cuga.backend.memory.agentic_memory.client.exceptions import NamespaceNotFoundException
-from cuga.config import DBS_DIR
-from fastapi.testclient import TestClient
+os.environ['DYNACONF_ADVANCED_FEATURES__ENABLE_FACT'] = 'true'
 from pathlib import Path
 from unittest import mock
 
+from fastapi.testclient import TestClient
+
+from cuga.backend.memory.agentic_memory.main import app
+from cuga.backend.memory.agentic_memory.schema import Namespace, RecordedFact, Run
+from cuga.backend.memory.agentic_memory.utils.exceptions import (
+    NamespaceNotFoundException,
+)
+from cuga.backend.memory.memory import Memory
+from cuga.config import DBS_DIR
+
 test_env = {
-    "WXO_MILVUS_URI": str(Path(DBS_DIR) / "milvus.db"),
+    "WXO_MILVUS_URI": str(Path(DBS_DIR) / "milvus_memory.db"),
     "MEM0_HISTORY_DB_PATH": str(Path(DBS_DIR) / "mem0_history.db"),
     "MILVUS_DB": str(Path(DBS_DIR) / "test_memory.db"),
     "AGENTIC_DB": str(Path(DBS_DIR) / "agentic.db"),
-    "MODEL_NAME": "Azure/gpt-4o",
+    # "MODEL_NAME": "Azure/gpt-4o",
 }
 
 
@@ -52,7 +57,7 @@ class TestMemoryOperations(unittest.TestCase):
         Path(test_env["AGENTIC_DB"]).unlink(missing_ok=True)
 
     @mock.patch.dict(os.environ, test_env)
-    def test_full(self):
+    async def test_full(self):
         """End-to-end test of memory CRUD operations."""
         namespace_id = f"test_namespace_{int(time.time() * 1000)}"
 
@@ -78,15 +83,22 @@ class TestMemoryOperations(unittest.TestCase):
 
         # Add fact
         self.client.create_and_store_fact(
-            namespace_id, "Python is a programming language", {"topic": "programming", "user_id": "test_user"}
+            namespace_id,
+            "Python is a programming language",
+            {"topic": "programming", "user_id": "test_user"},
+            enable_conflict_resolution=False,
         )
         self.client.create_and_store_fact(
             namespace_id,
             "JavaScript is used for web development",
             {"topic": "programming", "user_id": "test_user"},
+            enable_conflict_resolution=False,
         )
         self.client.create_and_store_fact(
-            namespace_id, "Machine learning uses neural networks", {"topic": "AI", "user_id": "test_user"}
+            namespace_id,
+            "Machine learning uses neural networks",
+            {"topic": "AI", "user_id": "test_user"},
+            enable_conflict_resolution=False,
         )
 
         facts = self.client.search_for_facts(
@@ -127,7 +139,7 @@ class TestMemoryOperations(unittest.TestCase):
         self.assertGreaterEqual(len(run.steps), 2)
 
         # End the run
-        self.client.end_run(namespace_id, run.id)
+        await self.client.end_run(namespace_id, run.id)
 
         retrieved_run = self.client.get_run(namespace_id, run.id)
         self.assertTrue(retrieved_run.ended)

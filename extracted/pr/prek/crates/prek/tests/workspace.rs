@@ -4,7 +4,7 @@ use anyhow::Result;
 use assert_cmd::assert::OutputAssertExt;
 use assert_fs::fixture::{FileWriteStr, PathChild};
 use indoc::indoc;
-use prek_consts::{CONFIG_FILE, env_vars::EnvVars};
+use prek_consts::env_vars::EnvVars;
 
 use crate::common::{TestContext, cmd_snapshot, git_cmd};
 
@@ -812,14 +812,18 @@ fn skips() -> Result<()> {
     context.git_add(".");
 
     // Should error out because of the invalid config
-    cmd_snapshot!(context.filters(), context.run(), @r"
+    cmd_snapshot!(context.filters(), context.run(), @"
     success: false
     exit_code: 2
     ----- stdout -----
 
     ----- stderr -----
     error: Failed to parse `project3/.pre-commit-config.yaml`
-      caused by: did not find expected node content at line 2 column 1, while parsing a flow node
+      caused by: error: line 1 column 15: unclosed bracket '[' at line 1, column 15
+     --> <input>:1:15
+      |
+    1 | invalid_yaml: [
+      |               ^ unclosed bracket '[' at line 1, column 15
     ");
 
     // Should skip the invalid config
@@ -863,7 +867,7 @@ fn workspace_no_projects() {
     ----- stdout -----
 
     ----- stderr -----
-    error: No `.pre-commit-config.yaml` found in the current directory or parent directories.
+    error: No `prek.toml` or `.pre-commit-config.yaml` found in the current directory or parent directories.
 
     hint: If you just added one, rerun your command with the `--refresh` flag to rescan the workspace.
     ");
@@ -1054,7 +1058,7 @@ fn submodule_discovery() -> Result<()> {
     ----- stdout -----
 
     ----- stderr -----
-    error: No `.pre-commit-config.yaml` found in the current directory or parent directories.
+    error: No `prek.toml` or `.pre-commit-config.yaml` found in the current directory or parent directories.
 
     hint: If you just added one, rerun your command with the `--refresh` flag to rescan the workspace.
     ");
@@ -1294,7 +1298,7 @@ fn orphan_projects() -> Result<()> {
 #[test]
 fn relative_repo_path_resolution() -> Result<()> {
     use assert_fs::fixture::PathCreateDir;
-    use prek_consts::MANIFEST_FILE;
+    use prek_consts::{PRE_COMMIT_CONFIG_YAML, PRE_COMMIT_HOOKS_YAML};
 
     let context = TestContext::new();
     context.init_project();
@@ -1320,7 +1324,7 @@ fn relative_repo_path_resolution() -> Result<()> {
         .assert()
         .success();
 
-    hook_repo.child(MANIFEST_FILE).write_str(indoc! {r"
+    hook_repo.child(PRE_COMMIT_HOOKS_YAML).write_str(indoc! {r"
         - id: test-hook
           name: Test Hook
           entry: echo test
@@ -1345,7 +1349,7 @@ fn relative_repo_path_resolution() -> Result<()> {
 
     // From subproject/, ../hook-repo should resolve to the hook-repo at root
     subproject
-        .child(CONFIG_FILE)
+        .child(PRE_COMMIT_CONFIG_YAML)
         .write_str(&indoc::formatdoc! {r"
         repos:
           - repo: ../hook-repo

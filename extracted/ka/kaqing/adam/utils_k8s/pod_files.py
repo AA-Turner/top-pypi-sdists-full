@@ -8,7 +8,8 @@ from adam.config import Config
 from adam.repl_session import ReplSession
 from adam.utils_context import Context
 from adam.utils_k8s.pods import Pods
-from adam.utils import GeneratorStream, PodLogFile, log_exc
+from adam.utils import GeneratorStream
+from adam.utils_log import PodLogFile, log_exc
 from adam.utils_local import local_downloads_dir, local_exec
 
 from websocket._core import WebSocket

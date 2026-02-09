@@ -1578,6 +1578,39 @@ class SEQUENCER_PT_sequencer_overlay_strips(_bpy_types.Panel):
         :param context:
         """
 
+class SEQUENCER_PT_sequencer_overlay_thumbnails(_bpy_types.Panel):
+    bl_label: typing.Any
+    bl_parent_id: typing.Any
+    bl_region_type: typing.Any
+    bl_rna: typing.Any
+    bl_space_type: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+    @classmethod
+    def poll(cls, context) -> None:
+        """
+
+        :param context:
+        """
+
 class SEQUENCER_PT_sequencer_overlay_waveforms(_bpy_types.Panel):
     bl_label: typing.Any
     bl_parent_id: typing.Any

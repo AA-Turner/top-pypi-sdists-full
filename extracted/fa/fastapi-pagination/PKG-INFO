@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastapi-pagination
-Version: 0.15.9
+Version: 0.15.10
 Summary: FastAPI pagination
 Project-URL: Repository, https://github.com/uriyyo/fastapi-pagination
 Author-email: Yurii Karabas <1998uriyyo@gmail.com>

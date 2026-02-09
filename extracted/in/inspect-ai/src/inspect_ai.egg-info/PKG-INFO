@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_ai
-Version: 0.3.170
+Version: 0.3.173
 Summary: Framework for large language model evaluations
 Author: UK AI Security Institute
 License: MIT License
@@ -91,7 +91,7 @@ Requires-Dist: pytest-mock; extra == "dev"
 Requires-Dist: pytest-watcher; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: ruff==0.9.6; extra == "dev"
-Requires-Dist: together; extra == "dev"
+Requires-Dist: together>=2.0.0; extra == "dev"
 Requires-Dist: textual-dev>=0.86.2; extra == "dev"
 Requires-Dist: trio; extra == "dev"
 Requires-Dist: pandas-stubs; extra == "dev"

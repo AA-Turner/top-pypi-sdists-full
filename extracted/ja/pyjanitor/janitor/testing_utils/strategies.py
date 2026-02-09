@@ -6,6 +6,14 @@ import numpy as np
 from hypothesis import strategies as st
 from hypothesis.extra.pandas import column, data_frames, range_indexes, series
 
+# Text strategy that excludes surrogate characters (U+D800-U+DFFF),
+# which are invalid in UTF-8 and not supported by pyarrow's string type
+# (the default string backend in pandas 3.0+).
+_valid_text = st.text(
+    alphabet=st.characters(blacklist_categories=("Cs",)),
+    max_size=10,
+)
+
 
 def nulldf_strategy():
     return data_frames(
@@ -36,8 +44,8 @@ def df_strategy():
             column("a", elements=st.integers()),
             column("Bell__Chart", elements=st.floats()),
             column("decorated-elephant", elements=st.integers()),
-            column("animals@#$%^", elements=st.text()),
-            column("cities", st.text()),
+            column("animals@#$%^", elements=_valid_text),
+            column("cities", elements=_valid_text),
         ],
         index=range_indexes(min_size=1, max_size=20),
     )
@@ -71,13 +79,16 @@ def names_strategy():
     return st.lists(elements=st.sampled_from(names))
 
 
-def conditional_df():
+def conditional_df(allow_nan: bool = True, allow_infinity=None):
     """Dataframe used in tests_conditional_join."""
     return data_frames(
         [
             column(name="A", dtype=int),
-            column(name="B", elements=st.floats(allow_nan=True)),
-            column(name="C", elements=st.text(max_size=10)),
+            column(
+                name="B",
+                elements=st.floats(allow_nan=allow_nan, allow_infinity=allow_infinity),
+            ),
+            column(name="C", elements=_valid_text, dtype=object),
             column(name="D", dtype=bool),
             column(name="E", dtype="datetime64[ns]"),
         ],
@@ -90,14 +101,17 @@ def conditional_series():
     return series(dtype=int, index=range_indexes(min_size=1, max_size=10))
 
 
-def conditional_right():
+def conditional_right(allow_nan: bool = True, allow_infinity=None):
     """Dataframe used in tests_conditional_join."""
     return data_frames(
         [
             column(name="Integers", dtype=int),
-            column(name="Numeric", elements=st.floats(allow_nan=True)),
+            column(
+                name="Numeric",
+                elements=st.floats(allow_nan=allow_nan, allow_infinity=allow_infinity),
+            ),
             column(name="Floats", elements=st.floats(max_value=10)),
-            column(name="Strings", dtype=str),
+            column(name="Strings", elements=_valid_text, dtype=object),
             column(name="Booleans", dtype=np.bool_),
             column(name="Dates", dtype="datetime64[ns]"),
             column(name="Dates_Right", dtype="datetime64[ns]"),

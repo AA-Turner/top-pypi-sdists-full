@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2025, ETH Zurich and NVIDIA CORPORATION
+# Copyright (c) 2021-2026, ETH Zurich and NVIDIA CORPORATION
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import pathlib
 from dataclasses import asdict
 from torch.utils.tensorboard import SummaryWriter
 
@@ -19,7 +20,7 @@ class WandbSummaryWriter(SummaryWriter):
     """Summary writer for Weights and Biases."""
 
     def __init__(self, log_dir: str, flush_secs: int, cfg: dict) -> None:
-        super().__init__(log_dir, flush_secs)
+        super().__init__(log_dir, flush_secs=flush_secs)
 
         # Get the run name
         run_name = os.path.split(log_dir)[-1]
@@ -35,17 +36,23 @@ class WandbSummaryWriter(SummaryWriter):
             entity = None
 
         # Initialize wandb
-        wandb.init(project=project, entity=entity, name=run_name)
-        wandb.config.update({"log_dir": log_dir})
+        wandb.init(
+            project=project,
+            entity=entity,
+            name=run_name,
+            config={"log_dir": log_dir},
+            settings=wandb.Settings(start_method="thread"),  # TODO check performance impact
+        )
+
+        # Initialize set to keep track of logged videos
+        self.logged_videos: set[str] = set()
 
     def store_config(self, env_cfg: dict | object, train_cfg: dict) -> None:
-        wandb.config.update({"runner_cfg": train_cfg})
-        wandb.config.update({"policy_cfg": train_cfg["policy"]})
-        wandb.config.update({"alg_cfg": train_cfg["algorithm"]})
+        wandb.config.update({"train_cfg": train_cfg})
         try:
-            wandb.config.update({"env_cfg": env_cfg.to_dict()})
+            wandb.config.update({"env_cfg": env_cfg.to_dict()})  # type: ignore
         except Exception:
-            wandb.config.update({"env_cfg": asdict(env_cfg)})
+            wandb.config.update({"env_cfg": asdict(env_cfg)})  # type: ignore
 
     def add_scalar(
         self,
@@ -72,3 +79,8 @@ class WandbSummaryWriter(SummaryWriter):
 
     def save_file(self, path: str) -> None:
         wandb.save(path, base_path=os.path.dirname(path))
+
+    def save_video(self, video: pathlib.Path, it: int) -> None:
+        if video.name not in self.logged_videos:
+            wandb.log({"video": wandb.Video(str(video), format="mp4")}, step=it)
+            self.logged_videos.add(video.name)

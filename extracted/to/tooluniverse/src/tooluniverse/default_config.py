@@ -88,6 +88,8 @@ default_tool_files = {
     ),
     "adverse_event": os.path.join(current_dir, "data", "adverse_event_tools.json"),
     "dailymed": os.path.join(current_dir, "data", "dailymed_tools.json"),
+    "fda_orange_book": os.path.join(current_dir, "data", "fda_orange_book_tools.json"),
+    "faers_analytics": os.path.join(current_dir, "data", "faers_analytics_tools.json"),
     "cdc": os.path.join(current_dir, "data", "cdc_tools.json"),
     "nhanes": os.path.join(current_dir, "data", "nhanes_tools.json"),
     "health_disparities": os.path.join(
@@ -327,6 +329,14 @@ default_tool_files = {
     "clingen": os.path.join(current_dir, "data", "clingen_tools.json"),
     # SpliceAI - Deep Learning Splice Prediction
     "spliceai": os.path.join(current_dir, "data", "spliceai_tools.json"),
+    # IMPC - International Mouse Phenotyping Consortium (mouse KO phenotypes)
+    "impc": os.path.join(current_dir, "data", "impc_tools.json"),
+    # Complex Portal - Curated protein complexes (includes CORUM mammalian complexes)
+    "complex_portal": os.path.join(current_dir, "data", "complex_portal_tools.json"),
+    # Expression Atlas - EBI GXA baseline + differential gene expression
+    "expression_atlas": os.path.join(
+        current_dir, "data", "expression_atlas_tools.json"
+    ),
 }
 
 # Auto-load any user-provided tools from ~/.tooluniverse/user_tools/

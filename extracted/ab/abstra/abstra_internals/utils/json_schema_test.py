@@ -497,3 +497,43 @@ class TestValidateType(TestCase):
         schema = {"type": "object", "additionalProperties": {"type": "integer"}}
         self.assertTrue(validate_type({"a": 1, "b": 2}, schema))
         self.assertFalse(validate_type({"a": 1, "b": "foo"}, schema))
+
+    def test_object_with_additional_properties_empty_schema(self):
+        """
+        Test that additionalProperties: {} (empty schema) allows any additional properties.
+
+        This is a regression test for a bug where `if not additional:` incorrectly
+        treated empty dict {} as falsy, causing nested objects to be rejected.
+        The fix was to use `if additional is False:` instead.
+        """
+        # Empty schema {} means "any" - allows any value
+        schema = {"type": "object", "additionalProperties": {}}
+
+        # Should accept nested objects
+        self.assertTrue(validate_type({"nested": {"key": "value"}}, schema))
+        self.assertTrue(
+            validate_type({"task_schema": {"type": "object", "properties": {}}}, schema)
+        )
+
+        # Should accept any value types
+        self.assertTrue(validate_type({"a": 1}, schema))
+        self.assertTrue(validate_type({"a": "string"}, schema))
+        self.assertTrue(validate_type({"a": [1, 2, 3]}, schema))
+        self.assertTrue(validate_type({"a": None}, schema))
+        self.assertTrue(validate_type({"a": True}, schema))
+
+        # Should accept multiple keys with mixed types
+        self.assertTrue(
+            validate_type(
+                {
+                    "string_key": "value",
+                    "int_key": 42,
+                    "nested_key": {"deep": {"deeper": "value"}},
+                    "array_key": [1, "mixed", {"obj": True}],
+                },
+                schema,
+            )
+        )
+
+        # Empty object should also be valid
+        self.assertTrue(validate_type({}, schema))

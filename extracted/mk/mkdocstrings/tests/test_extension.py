@@ -99,7 +99,7 @@ def test_no_double_toc(ext_markdown: Markdown, expect_permalink: str) -> None:
     )
     assert output.count(expect_permalink) == 5
     assert 'id="tests.fixtures.headings--foo"' in output
-    assert ext_markdown.toc_tokens == [  # type: ignore[attr-defined]  # the member gets populated only with 'toc' extension
+    assert ext_markdown.toc_tokens == [  # ty: ignore[unresolved-attribute]
         {
             "level": 1,
             "id": "aa",
@@ -154,10 +154,10 @@ def test_use_custom_handler(ext_markdown: Markdown) -> None:
 
 def test_register_every_identifier_alias(plugin: MkdocstringsPlugin, ext_markdown: Markdown) -> None:
     """Assert that we don't preemptively register all identifiers of a rendered object."""
-    handler = plugin._handlers.get_handler("python")  # type: ignore[union-attr]
+    handler = plugin._handlers.get_handler("python")  # ty: ignore[possibly-missing-attribute]
     ids = ("id1", "id2", "id3")
-    handler.get_aliases = lambda _: ids  # type: ignore[method-assign]
-    autorefs = ext_markdown.parser.blockprocessors["mkdocstrings"]._autorefs  # type: ignore[attr-defined]
+    handler.get_aliases = lambda _: ids  # ty: ignore[invalid-assignment]
+    autorefs = ext_markdown.parser.blockprocessors["mkdocstrings"]._autorefs
 
     class Page:
         url = "foo"

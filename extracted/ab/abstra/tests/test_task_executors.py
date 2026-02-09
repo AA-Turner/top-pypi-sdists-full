@@ -1895,3 +1895,520 @@ class TaskExecutorTest(BaseTest):
         # Should go to module form (input stage)
         call_args = self.mock_tasks_repo.send_task.call_args[1]
         self.assertEqual(call_args["target_stage_id"], "mod-form")
+
+    # ==================== TASK SCHEMA VALIDATION TESTS ====================
+
+    def test_send_task_to_stage_without_schema_succeeds(self):
+        """
+        Case 1: Any task to stage without schema should succeed.
+        Stage without task_schema accepts any task type and payload.
+        """
+        project = self.repositories.project.load()
+
+        form = FormStage(
+            id="form-1",
+            path="form1",
+            title="Form 1",
+            file="form1.py",
+            workflow_position=(0, 0),
+            workflow_transitions=[
+                WorkflowTransition(
+                    id="trans-1",
+                    target_id="script-1",
+                    target_type="scripts",
+                    type="task",
+                )
+            ],
+            notification_trigger=NotificationTrigger(
+                variable_name="assignee_emails", enabled=False
+            ),
+            task_schema=None,  # No schema
+        )
+
+        script = ScriptStage(
+            id="script-1",
+            file="script1.py",
+            title="Script 1",
+            workflow_position=(100, 0),
+            workflow_transitions=[],
+            task_schema=None,  # No schema on target
+        )
+
+        project.forms.append(form)
+        project.scripts.append(script)
+        self.repositories.project.save(project)
+
+        # Mock
+        mock_task = self.create_mock_task("script-1")
+        self.mock_tasks_repo.send_task = Mock(return_value=mock_task)
+
+        # Execute - should succeed with any payload
+        self.get_executor().send_task(
+            type="any_type",
+            current_stage=form,
+            payload={"anything": "goes", "random": 123},
+            execution=None,
+        )
+
+        # Task should be sent
+        self.mock_tasks_repo.send_task.assert_called_once()
+
+    def test_send_task_with_correct_schema_succeeds(self):
+        """
+        Case 2: Correct task to stage with schema should succeed.
+        Task type matches and payload validates against schema.
+        """
+
+        project = self.repositories.project.load()
+
+        form = FormStage(
+            id="form-1",
+            path="form1",
+            title="Form 1",
+            file="form1.py",
+            workflow_position=(0, 0),
+            workflow_transitions=[
+                WorkflowTransition(
+                    id="trans-1",
+                    target_id="script-1",
+                    target_type="scripts",
+                    type="task",
+                )
+            ],
+            notification_trigger=NotificationTrigger(
+                variable_name="assignee_emails", enabled=False
+            ),
+        )
+
+        script = ScriptStage(
+            id="script-1",
+            file="script1.py",
+            title="Script 1",
+            workflow_position=(100, 0),
+            workflow_transitions=[],
+            task_schema={
+                "approved": {
+                    "type": "object",
+                    "properties": {
+                        "user_id": {"type": "string"},
+                        "amount": {"type": "number"},
+                    },
+                    "required": ["user_id"],
+                }
+            },
+        )
+
+        project.forms.append(form)
+        project.scripts.append(script)
+        self.repositories.project.save(project)
+
+        # Mock
+        mock_task = self.create_mock_task("script-1")
+        self.mock_tasks_repo.send_task = Mock(return_value=mock_task)
+
+        # Execute - should succeed with valid payload
+        self.get_executor().send_task(
+            type="approved",
+            current_stage=form,
+            payload={"user_id": "user-123", "amount": 100.50},
+            execution=None,
+        )
+
+        # Task should be sent
+        self.mock_tasks_repo.send_task.assert_called_once()
+
+    def test_send_task_with_wrong_type_fails(self):
+        """
+        Case 3: Task with wrong type to stage with schema should fail.
+        Task type not defined in stage's task_schema raises exception.
+        """
+        from abstra_internals.validators.task_schema import (
+            TaskSchemaValidationException,
+        )
+
+        project = self.repositories.project.load()
+
+        form = FormStage(
+            id="form-1",
+            path="form1",
+            title="Form 1",
+            file="form1.py",
+            workflow_position=(0, 0),
+            workflow_transitions=[
+                WorkflowTransition(
+                    id="trans-1",
+                    target_id="script-1",
+                    target_type="scripts",
+                    type="task",
+                )
+            ],
+            notification_trigger=NotificationTrigger(
+                variable_name="assignee_emails", enabled=False
+            ),
+        )
+
+        script = ScriptStage(
+            id="script-1",
+            file="script1.py",
+            title="Script 1",
+            workflow_position=(100, 0),
+            workflow_transitions=[],
+            task_schema={
+                "approved": {
+                    "type": "object",
+                    "properties": {"user_id": {"type": "string"}},
+                },
+                "rejected": {
+                    "type": "object",
+                    "properties": {"reason": {"type": "string"}},
+                },
+            },
+        )
+
+        project.forms.append(form)
+        project.scripts.append(script)
+        self.repositories.project.save(project)
+
+        # Execute - should fail because "unknown_type" not in schema
+        with self.assertRaises(TaskSchemaValidationException) as ctx:
+            self.get_executor().send_task(
+                type="unknown_type",
+                current_stage=form,
+                payload={"user_id": "123"},
+                execution=None,
+            )
+
+        # Verify error details
+        error = ctx.exception.error
+        self.assertEqual(error.task_type, "unknown_type")
+        self.assertIn("not defined in stage schema", error.message)
+        self.assertIn("approved", error.message)  # Should show available types
+
+        # Task should NOT be sent
+        self.mock_tasks_repo.send_task.assert_not_called()
+
+    def test_send_task_with_invalid_payload_fails(self):
+        """
+        Case 4: Task with invalid payload should fail.
+        Task type matches but payload doesn't validate against schema.
+        """
+        from abstra_internals.validators.task_schema import (
+            TaskSchemaValidationException,
+        )
+
+        project = self.repositories.project.load()
+
+        form = FormStage(
+            id="form-1",
+            path="form1",
+            title="Form 1",
+            file="form1.py",
+            workflow_position=(0, 0),
+            workflow_transitions=[
+                WorkflowTransition(
+                    id="trans-1",
+                    target_id="script-1",
+                    target_type="scripts",
+                    type="task",
+                )
+            ],
+            notification_trigger=NotificationTrigger(
+                variable_name="assignee_emails", enabled=False
+            ),
+        )
+
+        script = ScriptStage(
+            id="script-1",
+            file="script1.py",
+            title="Script 1",
+            workflow_position=(100, 0),
+            workflow_transitions=[],
+            task_schema={
+                "process": {
+                    "type": "object",
+                    "properties": {
+                        "count": {"type": "integer"},
+                        "name": {"type": "string"},
+                    },
+                    "required": ["count", "name"],
+                }
+            },
+        )
+
+        project.forms.append(form)
+        project.scripts.append(script)
+        self.repositories.project.save(project)
+
+        # Execute - should fail because "count" is missing
+        with self.assertRaises(TaskSchemaValidationException) as ctx:
+            self.get_executor().send_task(
+                type="process",
+                current_stage=form,
+                payload={"name": "test"},  # Missing required "count"
+                execution=None,
+            )
+
+        # Verify error
+        error = ctx.exception.error
+        self.assertEqual(error.task_type, "process")
+        self.assertIn("count", error.message)
+
+        # Task should NOT be sent
+        self.mock_tasks_repo.send_task.assert_not_called()
+
+    def test_send_task_to_multiple_stages_fails_if_any_fails(self):
+        """
+        Case 5: Task to multiple stages where any fails validation should fail.
+        Validation is done BEFORE any tasks are sent.
+        """
+        from abstra_internals.validators.task_schema import (
+            TaskSchemaValidationException,
+        )
+
+        project = self.repositories.project.load()
+
+        form = FormStage(
+            id="form-1",
+            path="form1",
+            title="Form 1",
+            file="form1.py",
+            workflow_position=(0, 0),
+            workflow_transitions=[
+                WorkflowTransition(
+                    id="trans-1",
+                    target_id="script-1",
+                    target_type="scripts",
+                    type="task",
+                ),
+                WorkflowTransition(
+                    id="trans-2",
+                    target_id="script-2",
+                    target_type="scripts",
+                    type="task",
+                ),
+            ],
+            notification_trigger=NotificationTrigger(
+                variable_name="assignee_emails", enabled=False
+            ),
+        )
+
+        # First script accepts the payload
+        script1 = ScriptStage(
+            id="script-1",
+            file="script1.py",
+            title="Script 1",
+            workflow_position=(100, 0),
+            workflow_transitions=[],
+            task_schema={
+                "process": {
+                    "type": "object",
+                    "properties": {"data": {"type": "string"}},
+                }
+            },
+        )
+
+        # Second script has different schema that will FAIL
+        script2 = ScriptStage(
+            id="script-2",
+            file="script2.py",
+            title="Script 2",
+            workflow_position=(100, 100),
+            workflow_transitions=[],
+            task_schema={
+                "process": {
+                    "type": "object",
+                    "properties": {"different_field": {"type": "integer"}},
+                    "required": ["different_field"],  # Will fail!
+                }
+            },
+        )
+
+        project.forms.append(form)
+        project.scripts.append(script1)
+        project.scripts.append(script2)
+        self.repositories.project.save(project)
+
+        # Execute - should fail because script-2 validation fails
+        with self.assertRaises(TaskSchemaValidationException) as ctx:
+            self.get_executor().send_task(
+                type="process",
+                current_stage=form,
+                payload={"data": "test"},  # Valid for script-1, invalid for script-2
+                execution=None,
+            )
+
+        # Verify error mentions script-2
+        error = ctx.exception.error
+        self.assertEqual(error.stage_id, "script-2")
+        self.assertIn("different_field", error.message)
+
+        # NO tasks should be sent (validation fails before any sending)
+        self.mock_tasks_repo.send_task.assert_not_called()
+
+    def test_send_task_to_stage_with_multiple_schemas_matches_one(self):
+        """
+        Case 6: Stage with multiple task type schemas should only validate
+        against the matching type (not all types).
+
+        If stage has {"approved": schemaA, "rejected": schemaB} and we send
+        type "approved", it should only validate against schemaA.
+        """
+        project = self.repositories.project.load()
+
+        form = FormStage(
+            id="form-1",
+            path="form1",
+            title="Form 1",
+            file="form1.py",
+            workflow_position=(0, 0),
+            workflow_transitions=[
+                WorkflowTransition(
+                    id="trans-1",
+                    target_id="script-1",
+                    target_type="scripts",
+                    type="task",
+                )
+            ],
+            notification_trigger=NotificationTrigger(
+                variable_name="assignee_emails", enabled=False
+            ),
+        )
+
+        script = ScriptStage(
+            id="script-1",
+            file="script1.py",
+            title="Script 1",
+            workflow_position=(100, 0),
+            workflow_transitions=[],
+            task_schema={
+                "approved": {
+                    "type": "object",
+                    "properties": {"approval_date": {"type": "string"}},
+                    "required": ["approval_date"],
+                },
+                "rejected": {
+                    "type": "object",
+                    "properties": {"rejection_reason": {"type": "string"}},
+                    "required": ["rejection_reason"],
+                },
+            },
+        )
+
+        project.forms.append(form)
+        project.scripts.append(script)
+        self.repositories.project.save(project)
+
+        # Mock
+        mock_task = self.create_mock_task("script-1")
+        self.mock_tasks_repo.send_task = Mock(return_value=mock_task)
+
+        # Execute with "approved" type - should only need approval_date
+        self.get_executor().send_task(
+            type="approved",
+            current_stage=form,
+            payload={"approval_date": "2024-01-15"},  # No rejection_reason needed!
+            execution=None,
+        )
+
+        # Task should be sent - validation passed
+        self.mock_tasks_repo.send_task.assert_called_once()
+
+        # Reset mock
+        self.mock_tasks_repo.send_task.reset_mock()
+        self.mock_tasks_repo.send_task = Mock(return_value=mock_task)
+
+        # Execute with "rejected" type - should only need rejection_reason
+        self.get_executor().send_task(
+            type="rejected",
+            current_stage=form,
+            payload={"rejection_reason": "Budget exceeded"},  # No approval_date needed!
+            execution=None,
+        )
+
+        # Task should be sent - validation passed
+        self.mock_tasks_repo.send_task.assert_called_once()
+
+    def test_send_task_validation_order_first_failure_wins(self):
+        """
+        Test that validation stops at first failure when multiple stages fail.
+        """
+        from abstra_internals.validators.task_schema import (
+            TaskSchemaValidationException,
+        )
+
+        project = self.repositories.project.load()
+
+        form = FormStage(
+            id="form-1",
+            path="form1",
+            title="Form 1",
+            file="form1.py",
+            workflow_position=(0, 0),
+            workflow_transitions=[
+                WorkflowTransition(
+                    id="trans-1",
+                    target_id="script-1",
+                    target_type="scripts",
+                    type="task",
+                ),
+                WorkflowTransition(
+                    id="trans-2",
+                    target_id="script-2",
+                    target_type="scripts",
+                    type="task",
+                ),
+            ],
+            notification_trigger=NotificationTrigger(
+                variable_name="assignee_emails", enabled=False
+            ),
+        )
+
+        # Both scripts will fail validation
+        script1 = ScriptStage(
+            id="script-1",
+            file="script1.py",
+            title="Script 1",
+            workflow_position=(100, 0),
+            workflow_transitions=[],
+            task_schema={
+                "process": {
+                    "type": "object",
+                    "required": ["field_a"],
+                }
+            },
+        )
+
+        script2 = ScriptStage(
+            id="script-2",
+            file="script2.py",
+            title="Script 2",
+            workflow_position=(100, 100),
+            workflow_transitions=[],
+            task_schema={
+                "process": {
+                    "type": "object",
+                    "required": ["field_b"],
+                }
+            },
+        )
+
+        project.forms.append(form)
+        project.scripts.append(script1)
+        project.scripts.append(script2)
+        self.repositories.project.save(project)
+
+        # Execute - should fail at first stage validation
+        with self.assertRaises(TaskSchemaValidationException) as ctx:
+            self.get_executor().send_task(
+                type="process",
+                current_stage=form,
+                payload={},  # Empty - fails all validations
+                execution=None,
+            )
+
+        # Should get error from first failing stage
+        error = ctx.exception.error
+        self.assertIn(error.stage_id, ["script-1", "script-2"])
+
+        # No tasks sent
+        self.mock_tasks_repo.send_task.assert_not_called()

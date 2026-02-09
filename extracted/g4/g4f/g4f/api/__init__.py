@@ -53,7 +53,7 @@ except ImportError:
     class Annotated:
         pass
 try:
-    from nodriver import util
+    from zendriver import util
     has_nodriver = True
 except ImportError:
     has_nodriver = False
@@ -103,7 +103,7 @@ async def lifespan(app: FastAPI):
     if has_nodriver:
         for browser in util.get_registered_instances():
             if browser.connection:
-                browser.stop()
+                await browser.stop()
         lock_file = os.path.join(get_cookies_dir(), ".nodriver_is_open")
         if os.path.exists(lock_file):
             try:

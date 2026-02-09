@@ -1109,12 +1109,33 @@ class CSSLParser:
 
             # Now we should be at the function name (identifier)
             if self._check(TokenType.IDENTIFIER):
+                func_name = self._current().value
                 self._advance()
 
                 # Check if followed by (
                 # IMPORTANT: Only a function declaration if we have modifiers OR type
                 # Plain identifier() is a function CALL, not a declaration
                 if self._check(TokenType.PAREN_START):
+                    # v4.9.13: Special case for type-inferred cast: "type cast(expr) varname;"
+                    # This is NOT a function declaration - it's a typed variable with cast
+                    if func_name == 'cast' and has_type:
+                        # Look ahead: after cast(...) should be an identifier (varname), not { or :
+                        verify_pos = self.pos
+                        self._advance()  # skip (
+                        paren_depth = 1
+                        while paren_depth > 0 and not self._is_at_end():
+                            if self._check(TokenType.PAREN_START):
+                                paren_depth += 1
+                            elif self._check(TokenType.PAREN_END):
+                                paren_depth -= 1
+                            self._advance()
+                        # After cast(...), if we see an identifier (varname), not { or :
+                        # then this is a typed variable declaration, not a function
+                        if self._check(TokenType.IDENTIFIER):
+                            self.pos = saved_pos
+                            return False  # Let _parse_typed_variable handle it
+                        self.pos = verify_pos
+
                     if has_modifiers or has_type:
                         self.pos = saved_pos
                         return True
@@ -1174,6 +1195,25 @@ class CSSLParser:
             # Check for identifier NOT followed by ( (that would be a function)
             # v4.9.4: Also accept 'this' keyword for class member declarations like: ptr this->member = value
             if self._check(TokenType.IDENTIFIER) or (self._check(TokenType.KEYWORD) and self._current().value == 'this'):
+                # v4.9.13: Special case for type-inferred cast: "type cast(expr) varname;"
+                if self._check(TokenType.IDENTIFIER) and self._current().value == 'cast':
+                    self._advance()  # skip 'cast'
+                    if self._check(TokenType.PAREN_START):
+                        self._advance()  # skip (
+                        paren_depth = 1
+                        while paren_depth > 0 and not self._is_at_end():
+                            if self._check(TokenType.PAREN_START):
+                                paren_depth += 1
+                            elif self._check(TokenType.PAREN_END):
+                                paren_depth -= 1
+                            self._advance()
+                        # After cast(...), if we see an identifier (varname), this IS a typed variable
+                        if self._check(TokenType.IDENTIFIER):
+                            self.pos = saved_pos
+                            return True
+                    self.pos = saved_pos
+                    return False
+
                 self._advance()
                 # If followed by '(' it's a function, not a variable
                 is_var = not self._check(TokenType.PAREN_START)
@@ -1697,6 +1737,22 @@ class CSSLParser:
         if self._match(TokenType.AT):
             is_global_ref = True
 
+        # v4.9.13: Check for type-inferred cast syntax: float cast(n) varname;
+        # This allows: float cast(n) floated_n;  // casts n to float
+        cast_value = None
+        if self._check(TokenType.IDENTIFIER) and self._current().value == 'cast':
+            self._advance()  # consume 'cast'
+            if self._match(TokenType.PAREN_START):
+                # Parse the value to cast
+                cast_expr = self._parse_expression()
+                self._expect(TokenType.PAREN_END)
+                # Create a cast call with inferred type from declaration
+                cast_value = ASTNode('call', value={
+                    'callee': ASTNode('identifier', value='cast'),
+                    'args': [cast_expr, ASTNode('literal', value=type_name)],
+                    'kwargs': {}
+                })
+
         # Get variable name - can be identifier or this->member
         # v4.9.2: Support this->member syntax for class member declarations
         is_this_member = False
@@ -1720,7 +1776,8 @@ class CSSLParser:
             var_name = '@' + var_name
 
         # Check for assignment or just declaration
-        value = None
+        # v4.9.13: Use cast_value if type-inferred cast syntax was used
+        value = cast_value  # Will be None if no cast syntax was used
         if self._match(TokenType.EQUALS):
             value = self._parse_expression()
 
@@ -1985,6 +2042,10 @@ class CSSLParser:
 
     def _check(self, token_type: TokenType) -> bool:
         return self._current().type == token_type
+
+    def _peek_ahead_is(self, token_type: TokenType, offset: int = 1) -> bool:
+        """Check if a future token is of the specified type without advancing."""
+        return self._peek(offset).type == token_type
 
     def _match(self, token_type: TokenType) -> bool:
         if self._check(token_type):
@@ -3349,8 +3410,12 @@ class CSSLParser:
             if self._match_keyword('open'):
                 param_info['open'] = True
 
-            # Handle type annotations (e.g., string, int, dynamic, python::list, etc.)
-            if self._check(TokenType.KEYWORD):
+            # Handle type annotations (e.g., string, int, dynamic, vector<T>, python::list, etc.)
+            # v4.9.13: Check for type keyword OR identifier followed by < (generic type)
+            is_type_keyword = self._check(TokenType.KEYWORD) and self._is_type_keyword(self._current().value)
+            is_generic_type = self._check(TokenType.IDENTIFIER) and self._peek_ahead_is(TokenType.COMPARE_LT)
+
+            if is_type_keyword or is_generic_type:
                 type_val = self._advance().value
                 # v4.9.8: Handle python::type composite types (python::list, python::dict, etc.)
                 if type_val == 'python' and self._check(TokenType.DOUBLE_COLON):
@@ -3359,6 +3424,30 @@ class CSSLParser:
                         type_val = 'python::' + self._advance().value
                     else:
                         type_val = 'python::object'
+                # v4.9.13: Handle generic types like vector<dynamic>, map<string, int>, etc.
+                if self._check(TokenType.COMPARE_LT):
+                    self._advance()  # consume <
+                    type_args = []
+                    depth = 1
+                    while depth > 0 and not self._is_at_end():
+                        if self._check(TokenType.COMPARE_LT):
+                            depth += 1
+                            type_args.append('<')
+                            self._advance()
+                        elif self._check(TokenType.COMPARE_GT):
+                            depth -= 1
+                            if depth > 0:
+                                type_args.append('>')
+                            self._advance()
+                        elif self._check(TokenType.COMMA):
+                            type_args.append(',')
+                            self._advance()
+                        elif self._check(TokenType.KEYWORD) or self._check(TokenType.IDENTIFIER) or self._check(TokenType.TYPE_LITERAL):
+                            type_args.append(self._advance().value)
+                        else:
+                            # Unknown token in generic, just grab its value
+                            type_args.append(str(self._advance().value))
+                    type_val = f"{type_val}<{''.join(type_args)}>"
                 param_info['type'] = type_val
 
             # Handle reference operator &
@@ -3439,10 +3528,13 @@ class CSSLParser:
                 # Handle 'open' keyword for open parameters
                 if self._match_keyword('open'):
                     param_info['open'] = True
-                # Handle type annotations (e.g., string, int, dynamic, python::list, etc.)
+                # Handle type annotations (e.g., string, int, dynamic, vector<T>, python::list, etc.)
                 # v4.9.2: Also handle TYPE_LITERAL (dict, list) which are tokenized differently
-                if (self._check(TokenType.KEYWORD) and self._is_type_keyword(self._current().value)) or \
-                   self._check(TokenType.TYPE_LITERAL):
+                # v4.9.13: Check for identifier followed by < (generic type like MyType<T>)
+                is_type_keyword = (self._check(TokenType.KEYWORD) and self._is_type_keyword(self._current().value))
+                is_type_literal = self._check(TokenType.TYPE_LITERAL)
+                is_generic_type = self._check(TokenType.IDENTIFIER) and self._peek_ahead_is(TokenType.COMPARE_LT)
+                if is_type_keyword or is_type_literal or is_generic_type:
                     type_val = self._advance().value
                     # v4.9.8: Handle python::type composite types
                     if type_val == 'python' and self._check(TokenType.DOUBLE_COLON):
@@ -3451,6 +3543,30 @@ class CSSLParser:
                             type_val = 'python::' + self._advance().value
                         else:
                             type_val = 'python::object'
+                    # v4.9.13: Handle generic types like vector<dynamic>, map<string, int>, etc.
+                    if self._check(TokenType.COMPARE_LT):
+                        self._advance()  # consume <
+                        type_args = []
+                        depth = 1
+                        while depth > 0 and not self._is_at_end():
+                            if self._check(TokenType.COMPARE_LT):
+                                depth += 1
+                                type_args.append('<')
+                                self._advance()
+                            elif self._check(TokenType.COMPARE_GT):
+                                depth -= 1
+                                if depth > 0:
+                                    type_args.append('>')
+                                self._advance()
+                            elif self._check(TokenType.COMMA):
+                                type_args.append(',')
+                                self._advance()
+                            elif self._check(TokenType.KEYWORD) or self._check(TokenType.IDENTIFIER) or self._check(TokenType.TYPE_LITERAL):
+                                type_args.append(self._advance().value)
+                            else:
+                                # Unknown token in generic, just grab its value
+                                type_args.append(str(self._advance().value))
+                        type_val = f"{type_val}<{''.join(type_args)}>"
                     param_info['type'] = type_val
                 # Handle reference operator &
                 if self._match(TokenType.AMPERSAND):
@@ -5384,8 +5500,41 @@ class CSSLParser:
                 })
 
         # v4.9.8: Negated condition: [!expr] — matches if value does NOT equal expr
+        # v4.9.13: [!type] — matches if value is NOT of specified type (list, string, int, etc.)
         if self._check(TokenType.NOT):
             self._advance()  # consume !
+
+            # Check if next token is a type keyword for negated type check
+            if self._check(TokenType.KEYWORD) and self._is_type_keyword(self._current().value):
+                type_name = self._advance().value
+                # Check for generic type: !list<int>, !vector<string>, etc.
+                element_type = None
+                if self._check(TokenType.COMPARE_LT):
+                    self._advance()  # consume <
+                    element_type = self._parse_generic_type_content()
+                return ASTNode('condition_negated_type', value={
+                    'type': type_name,
+                    'element_type': element_type
+                })
+
+            # Also check for identifier-based type names (e.g., custom class names or unquoted types)
+            if self._check(TokenType.IDENTIFIER):
+                type_name = self._current().value.lower()
+                # Check if it's a common type name
+                type_names = ('int', 'string', 'float', 'bool', 'void', 'json', 'array', 'vector', 'stack',
+                             'list', 'dictionary', 'dict', 'instance', 'map', 'null', 'none', 'dynamic')
+                if type_name in type_names:
+                    self._advance()  # consume type name
+                    element_type = None
+                    if self._check(TokenType.COMPARE_LT):
+                        self._advance()  # consume <
+                        element_type = self._parse_generic_type_content()
+                    return ASTNode('condition_negated_type', value={
+                        'type': type_name,
+                        'element_type': element_type
+                    })
+
+            # Otherwise parse as expression for value comparison
             inner = self._parse_condition_value()
             return ASTNode('condition_negated', value={'inner': inner})
 

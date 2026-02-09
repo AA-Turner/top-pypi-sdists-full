@@ -75,14 +75,15 @@ SETTING_DEFINITIONS: Dict[str, Dict] = {
         "name": "Verbosity",
         "description": "Controls response length. Low = concise, Medium = balanced, High = verbose.",
         "type": "choice",
-        "choices": ["low", "medium", "high"],
+        "choices": ["low", "medium", "high", "max"],
         "default": "medium",
     },
     "extended_thinking": {
         "name": "Extended Thinking",
-        "description": "Enable or disable extended thinking for supported models.",
-        "type": "boolean",
-        "default": True,
+        "description": "Controls extended thinking mode. 'enabled' = classic thinking with budget_tokens, 'adaptive' = model decides when/how much to think (no budget), 'off' = disabled.",
+        "type": "choice",
+        "choices": ["enabled", "adaptive", "off"],
+        "default": "enabled",
     },
     "budget_tokens": {
         "name": "Thinking Budget (tokens)",
@@ -118,6 +119,13 @@ SETTING_DEFINITIONS: Dict[str, Dict] = {
         "type": "choice",
         "choices": ["low", "high"],
         "default": "low",
+    },
+    "effort": {
+        "name": "Effort",
+        "description": "Controls how much effort the model spends on its response (Opus 4-6 only). Low = fast, Max = most thorough.",
+        "type": "choice",
+        "choices": ["low", "medium", "high", "max"],
+        "default": "high",
     },
 }
 
@@ -258,7 +266,11 @@ class ModelSettingsMenu:
 
     def _format_value(self, setting: str, value) -> str:
         """Format a setting value for display."""
-        setting_def = SETTING_DEFINITIONS[setting]
+        setting_def = SETTING_DEFINITIONS.get(setting)
+        if setting_def is None:
+            # Unknown/stale setting from saved config — just stringify it
+            return str(value) if value is not None else "(unknown)"
+
         if value is None:
             default = setting_def.get("default")
             if default is not None:
@@ -428,8 +440,8 @@ class ModelSettingsMenu:
                 for setting_key, value in model_settings.items():
                     setting_def = SETTING_DEFINITIONS.get(setting_key, {})
                     name = setting_def.get("name", setting_key)
-                    fmt = setting_def.get("format", "{:.2f}")
-                    lines.append(("fg:ansicyan", f"    {name}: {fmt.format(value)}"))
+                    display = self._format_value(setting_key, value)
+                    lines.append(("fg:ansicyan", f"    {name}: {display}"))
                     lines.append(("", "\n"))
             else:
                 lines.append(("fg:ansibrightblack", "  Using all default settings"))
@@ -907,5 +919,14 @@ def show_model_settings_summary(model_name: Optional[str] = None) -> None:
     for setting_key, value in settings.items():
         setting_def = SETTING_DEFINITIONS.get(setting_key, {})
         name = setting_def.get("name", setting_key)
-        fmt = setting_def.get("format", "{:.2f}")
-        emit_info(f"  {name}: {fmt.format(value)}")
+        setting_type = setting_def.get("type")
+        if setting_type in ("choice", "boolean"):
+            display = (
+                str(value)
+                if setting_type == "choice"
+                else ("Enabled" if value else "Disabled")
+            )
+        else:
+            fmt = setting_def.get("format", "{:.2f}")
+            display = fmt.format(value)
+        emit_info(f"  {name}: {display}")

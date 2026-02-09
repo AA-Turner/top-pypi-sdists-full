@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gcsfs
-Version: 2026.1.0
+Version: 2026.2.0
 Summary: Convenient Filesystem interface over GCS
 Home-page: https://github.com/fsspec/gcsfs
 Maintainer: Martin Durant
@@ -21,10 +21,10 @@ Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: aiohttp!=4.0.0a0,!=4.0.0a1
 Requires-Dist: decorator>4.1.2
-Requires-Dist: fsspec==2026.1.0
+Requires-Dist: fsspec==2026.2.0
 Requires-Dist: google-auth>=1.2
 Requires-Dist: google-auth-oauthlib
-Requires-Dist: google-cloud-storage>=3.7.0
+Requires-Dist: google-cloud-storage>=3.9.0
 Requires-Dist: google-cloud-storage-control
 Requires-Dist: requests
 Provides-Extra: gcsfuse

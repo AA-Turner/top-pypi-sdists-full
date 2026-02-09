@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: polars-runtime-32
-Version: 1.38.0
+Version: 1.38.1
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Science/Research

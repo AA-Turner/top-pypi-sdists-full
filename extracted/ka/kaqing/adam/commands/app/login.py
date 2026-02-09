@@ -9,7 +9,7 @@ from adam.sso.idp import Idp
 from adam.sso.idp_login import IdpLogin
 from adam.commands.command import Command
 from adam.repl_state import ReplState
-from adam.utils import log, log2, log_exc
+from adam.utils_log import log, log2, log_exc
 
 class Login(Command):
     COMMAND = 'login'

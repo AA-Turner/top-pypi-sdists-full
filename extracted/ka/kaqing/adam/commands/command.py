@@ -9,7 +9,7 @@ from typing import Union
 from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
 from adam.sql.lark_completer import LarkCompleter
-from adam.utils import log2
+from adam.utils_log import log2
 from adam.utils_context import Context
 
 repl_cmds: list['Command'] = []
@@ -233,8 +233,16 @@ class Command:
             cmd = s
         print()
 
-    def context(self, show_out=True):
+    def context(self, show_out=True) -> Context:
         return Context.new(self.command(), show_out=show_out)
+
+    def comma_separated_args(self, args: list[str]):
+        safe_args = []
+        for arg in args:
+            for a in arg.split(','):
+                if a:
+                    safe_args.append(a)
+        return safe_args
 
 class InvalidStateException(Exception):
     def __init__(self, state: ReplState):

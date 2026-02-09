@@ -1,8 +1,8 @@
 from adam.app_session import AppSession
 from adam.commands.command import Command
-from adam.commands.devices.devices import Devices
+from adam.commands.devices.devices import all_devices
 from adam.repl_state import ReplState
-from adam.utils import log, log_exc
+from adam.utils_log import log, log_exc
 from adam.utils_tabulize import tabulize
 
 class Pwd(Command):
@@ -30,7 +30,7 @@ class Pwd(Command):
                 app_session: AppSession = AppSession.create('c3', 'c3')
                 host = app_session.host
 
-            tabulize([device.pwd(state) for device in Devices.all()] + [
+            tabulize([device.pwd(state) for device in all_devices()] + [
                 f'',
                 f'HOST\t{host}',
                 f'NAMESPACE\t{state.namespace if state.namespace else "/"}',

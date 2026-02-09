@@ -5,7 +5,7 @@ import slixmpp.plugins.xep_0184 as xep_0184
 from slixmpp.xmlstream import register_stanza_plugin
 
 
-class TestReciept(SlixTest):
+class TestReceipt(SlixTest):
 
     def setUp(self):
         register_stanza_plugin(Message, xep_0184.Request)
@@ -38,4 +38,4 @@ class TestReciept(SlixTest):
         self.check(msg, received)
 
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestReciept)
+suite = unittest.TestLoader().loadTestsFromTestCase(TestReceipt)

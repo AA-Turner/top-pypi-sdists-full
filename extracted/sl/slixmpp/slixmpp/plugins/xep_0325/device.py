@@ -62,7 +62,7 @@ class Device(object):
         """
 
         if len(fields) > 0:
-            # Check availiability
+            # Check availability
             for name, typename, value in fields:
                 if not self.has_control_field(name, typename):
                     self._send_control_reject(session, name, "NotFound", callback)

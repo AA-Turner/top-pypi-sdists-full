@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlfluff-templater-dbt
-Version: 4.0.0
+Version: 4.0.4
 Summary: Lint your dbt project SQL
 Author-email: Alan Cruickshank <alan@designingoverload.com>
 License: MIT License
@@ -48,12 +48,13 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Utilities
 Classifier: Topic :: Software Development :: Quality Assurance
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
-Requires-Dist: sqlfluff==4.0.0
+Requires-Dist: sqlfluff==4.0.4
 Requires-Dist: dbt-core>=1.4.1
 Requires-Dist: jinja2-simple-tags>=0.3.1
 Dynamic: license-file

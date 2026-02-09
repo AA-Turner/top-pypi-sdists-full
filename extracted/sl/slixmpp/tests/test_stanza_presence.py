@@ -37,7 +37,7 @@ class TestPresenceStanzas(SlixTest):
 
     def testPresenceUnsolicitedOffline(self):
         """
-        Unsolicted offline presence does not spawn changed_status
+        Unsolicited offline presence does not spawn changed_status
         or update the roster.
         """
         p = self.Presence()
@@ -57,7 +57,7 @@ class TestPresenceStanzas(SlixTest):
             "changed_status event triggered for extra unavailable presence")
         roster = c.roster['crap@wherever']
         self.assertTrue(roster['bill@chadmore.com'].resources == {},
-            "Roster updated for superfulous unavailable presence")
+            "Roster updated for superfluous unavailable presence")
 
     def testNickPlugin(self):
         """Test presence/nick/nick stanza."""

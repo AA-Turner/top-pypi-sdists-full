@@ -2,7 +2,7 @@ from adam.commands import validate_args
 from adam.commands.command import Command
 from adam.commands.export.export_databases import export_db
 from adam.repl_state import ReplState
-from adam.utils import log2
+from adam.utils_log import log2
 
 class ExportUse(Command):
     COMMAND = 'use'

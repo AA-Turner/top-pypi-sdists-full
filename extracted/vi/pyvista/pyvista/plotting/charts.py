@@ -15,9 +15,9 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 import matplotlib.pyplot as plt
 import numpy as np
 
-import pyvista
-from pyvista import vtk_version_info
+import pyvista as pv
 from pyvista._deprecate_positional_args import _deprecate_positional_args
+from pyvista.core._vtk_utilities import DisableVtkSnakeCase
 from pyvista.core.utilities.misc import _NoNewAttrMixin
 from pyvista.core.utilities.misc import abstract_class
 
@@ -53,7 +53,7 @@ class _vtkWrapperMeta(type):  # noqa: N801
         return obj
 
 
-class _vtkWrapper(_vtk.DisableVtkSnakeCase, metaclass=_vtkWrapperMeta):  # noqa: N801
+class _vtkWrapper(DisableVtkSnakeCase, metaclass=_vtkWrapperMeta):  # noqa: N801
     def __getattribute__(self, item):
         unwrapped_attrs = ['_wrapped', '__class__', '__init__']
         wrapped = super().__getattribute__('_wrapped')
@@ -368,7 +368,7 @@ class Brush(_vtkWrapper, _vtk.vtkBrush):
             self._texture = None
             self.SetTexture(None)
         else:
-            self._texture = pyvista.Texture(val)  # type: ignore[abstract]
+            self._texture = pv.Texture(val)  # type: ignore[abstract]
             self.SetTexture(self._texture.to_image())
 
     @property
@@ -477,16 +477,10 @@ class Axis(_vtkWrapper, _vtk.vtkAxis):
         super().__init__()
         self._tick_locs = _vtk.vtkDoubleArray()
         self._tick_labels = _vtk.vtkStringArray()
-        if vtk_version_info < (9, 2, 0):  # pragma: no cover
-            # SetPen and SetGridPen methods are not available for older VTK versions,
-            # so fallback to using wrapper objects.
-            self._pen = Pen(color=(0, 0, 0), _wrap=self.GetPen())  # type: ignore[call-arg]
-            self._grid_pen = Pen(color=(0.95, 0.95, 0.95), _wrap=self.GetGridPen())  # type: ignore[call-arg]
-        else:
-            self._pen = Pen(color=(0, 0, 0))
-            self._grid_pen = Pen(color=(0.95, 0.95, 0.95))
-            self.SetPen(self._pen)
-            self.SetGridPen(self._grid_pen)
+        self._pen = Pen(color=(0, 0, 0))
+        self._grid_pen = Pen(color=(0.95, 0.95, 0.95))
+        self.SetPen(self._pen)
+        self.SetGridPen(self._grid_pen)
         self.label = label
         self._behavior = None  # Will be set by specifying the range below
         self.range = range
@@ -607,7 +601,7 @@ class Axis(_vtkWrapper, _vtk.vtkAxis):
         self.GetRange(r)
         return r
 
-    @range.setter
+    @range.setter  # noqa: A003
     def range(self, val) -> None:
         if val is None:
             self.behavior = 'auto'
@@ -1104,7 +1098,7 @@ class _CustomContextItem(_vtk.vtkPythonItem):
         return True
 
 
-class _ChartBackground(_vtk.DisableVtkSnakeCase, _CustomContextItem):
+class _ChartBackground(DisableVtkSnakeCase, _CustomContextItem):
     """Utility class for chart backgrounds."""
 
     def __init__(self, chart) -> None:
@@ -1127,13 +1121,6 @@ class _ChartBackground(_vtk.DisableVtkSnakeCase, _CustomContextItem):
             )
             l, b, w, h = self._chart._geometry
             painter.DrawRect(l, b, w, h)
-            if vtk_version_info < (9, 2, 0):  # pragma: no cover
-                # Following 'patch' is necessary for earlier VTK versions. Otherwise Pie plots
-                # will use the same opacity as the chart's background when their legend is hidden.
-                # As the default background is transparent, this will cause Pie charts to
-                # completely disappear.
-                painter.GetBrush().SetOpacity(255)
-                painter.GetBrush().SetTexture(None)
         return True
 
 
@@ -1666,11 +1653,11 @@ class _Chart(DocSubs):
         if dev_kwargs is None:
             dev_kwargs = {}
         if off_screen is None:
-            off_screen = pyvista.OFF_SCREEN
-        pl = pyvista.Plotter(window_size=window_size, notebook=notebook, off_screen=off_screen)
+            off_screen = pv.OFF_SCREEN
+        pl = pv.Plotter(window_size=window_size, notebook=notebook, off_screen=off_screen)
         pl.background_color = background
         pl.add_chart(self)
-        if interactive and (not off_screen or pyvista.BUILDING_GALLERY):  # pragma: no cover
+        if interactive and (not off_screen or pv.BUILDING_GALLERY):  # pragma: no cover
             pl.set_chart_interaction(self)
         return pl.show(
             screenshot=screenshot,
@@ -2127,7 +2114,7 @@ class _MultiCompPlot(_Plot):
         self.labels = None if val is None else [val]
 
 
-class LinePlot2D(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _Plot, _vtk.vtkPlotLine):
+class LinePlot2D(_NoNewAttrMixin, DisableVtkSnakeCase, _Plot, _vtk.vtkPlotLine):
     """Class representing a 2D line plot.
 
     Users should typically not directly create new plot instances, but use the dedicated 2D
@@ -2199,7 +2186,7 @@ class LinePlot2D(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _Plot, _vtk.vtkPlotL
     ) -> None:  # numpydoc ignore=PR01,RT01
         """Initialize a new 2D line plot instance."""
         super().__init__(chart)
-        self._table = pyvista.Table({'x': np.empty(0, np.float32), 'y': np.empty(0, np.float32)})
+        self._table = pv.Table({'x': np.empty(0, np.float32), 'y': np.empty(0, np.float32)})
         self.SetInputData(self._table, 'x', 'y')
         self.update(x, y)
         self.color = color
@@ -2286,7 +2273,7 @@ class LinePlot2D(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _Plot, _vtk.vtkPlotL
             self.visible = False
 
 
-class ScatterPlot2D(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _Plot, _vtk.vtkPlotPoints):
+class ScatterPlot2D(_NoNewAttrMixin, DisableVtkSnakeCase, _Plot, _vtk.vtkPlotPoints):
     """Class representing a 2D scatter plot.
 
     Users should typically not directly create new plot instances, but use the dedicated 2D
@@ -2373,7 +2360,7 @@ class ScatterPlot2D(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _Plot, _vtk.vtkPl
     ) -> None:  # numpydoc ignore=PR01,RT01
         """Initialize a new 2D scatter plot instance."""
         super().__init__(chart)
-        self._table = pyvista.Table({'x': np.empty(0, np.float32), 'y': np.empty(0, np.float32)})
+        self._table = pv.Table({'x': np.empty(0, np.float32), 'y': np.empty(0, np.float32)})
         self.SetInputData(self._table, 'x', 'y')
         self.update(x, y)
         self.color = color
@@ -2523,7 +2510,7 @@ class ScatterPlot2D(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _Plot, _vtk.vtkPl
             raise ValueError(msg)
 
 
-class AreaPlot(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _Plot, _vtk.vtkPlotArea):
+class AreaPlot(_NoNewAttrMixin, DisableVtkSnakeCase, _Plot, _vtk.vtkPlotArea):
     """Class representing a 2D area plot.
 
     Users should typically not directly create new plot instances, but use the dedicated 2D
@@ -2596,7 +2583,7 @@ class AreaPlot(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _Plot, _vtk.vtkPlotAre
     def __init__(self, chart, x, y1, y2=None, color='b', label='') -> None:  # noqa: PLR0917
         """Initialize a new 2D area plot instance."""
         super().__init__(chart)
-        self._table = pyvista.Table(
+        self._table = pv.Table(
             {
                 'x': np.empty(0, np.float32),
                 'y1': np.empty(0, np.float32),
@@ -2722,7 +2709,7 @@ class AreaPlot(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _Plot, _vtk.vtkPlotAre
             self.visible = False
 
 
-class BarPlot(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _MultiCompPlot, _vtk.vtkPlotBar):
+class BarPlot(_NoNewAttrMixin, DisableVtkSnakeCase, _MultiCompPlot, _vtk.vtkPlotBar):
     """Class representing a 2D bar plot.
 
     Users should typically not directly create new plot instances, but use the dedicated 2D
@@ -2814,7 +2801,7 @@ class BarPlot(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _MultiCompPlot, _vtk.vt
         if not isinstance(y[0], (Sequence, np.ndarray)):
             y = (y,)
         y_data = {f'y{i}': np.empty(0, np.float32) for i in range(len(y))}
-        self._table = pyvista.Table({'x': np.empty(0, np.float32), **y_data})
+        self._table = pv.Table({'x': np.empty(0, np.float32), **y_data})
         self.SetInputData(self._table, 'x', 'y0')
         for i in range(1, len(y)):
             self.SetInputArray(i + 1, f'y{i}')
@@ -2945,7 +2932,7 @@ class BarPlot(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _MultiCompPlot, _vtk.vt
             raise ValueError(msg)
 
 
-class StackPlot(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _MultiCompPlot, _vtk.vtkPlotStacked):
+class StackPlot(_NoNewAttrMixin, DisableVtkSnakeCase, _MultiCompPlot, _vtk.vtkPlotStacked):
     """Class representing a 2D stack plot.
 
     Users should typically not directly create new plot instances, but use the dedicated 2D
@@ -3025,7 +3012,7 @@ class StackPlot(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _MultiCompPlot, _vtk.
         if not isinstance(ys[0], (Sequence, np.ndarray)):
             ys = (ys,)
         y_data = {f'y{i}': np.empty(0, np.float32) for i in range(len(ys))}
-        self._table = pyvista.Table({'x': np.empty(0, np.float32), **y_data})
+        self._table = pv.Table({'x': np.empty(0, np.float32), **y_data})
         self.SetInputData(self._table, 'x', 'y0')
         for i in range(1, len(ys)):
             self.SetInputArray(i + 1, f'y{i}')
@@ -3121,7 +3108,7 @@ class StackPlot(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _MultiCompPlot, _vtk.
             self.visible = False
 
 
-class Chart2D(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _Chart, _vtk.vtkChartXY):
+class Chart2D(_NoNewAttrMixin, DisableVtkSnakeCase, _Chart, _vtk.vtkChartXY):
     """2D chart class similar to a ``matplotlib`` figure.
 
     Parameters
@@ -3962,7 +3949,7 @@ class Chart2D(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _Chart, _vtk.vtkChartXY
             axis.grid = False
 
 
-class BoxPlot(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _MultiCompPlot, _vtk.vtkPlotBox):
+class BoxPlot(_NoNewAttrMixin, DisableVtkSnakeCase, _MultiCompPlot, _vtk.vtkPlotBox):
     """Class representing a box plot.
 
     Users should typically not directly create new plot instances, but
@@ -4024,7 +4011,7 @@ class BoxPlot(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _MultiCompPlot, _vtk.vt
     ) -> None:
         """Initialize a new box plot instance."""
         super().__init__(chart)
-        self._table = pyvista.Table(
+        self._table = pv.Table(
             {f'data_{i}': np.asarray(d) for i, d in enumerate(data)},
         )
         self._quartiles = _vtk.vtkComputeQuartiles()
@@ -4075,7 +4062,7 @@ class BoxPlot(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _MultiCompPlot, _vtk.vt
            >>> chart.show()
 
         """
-        stats_table = pyvista.Table(self._quartiles.GetOutput())
+        stats_table = pv.Table(self._quartiles.GetOutput())
         return tuple(stats_table[f'data_{i}'] for i in range(stats_table.n_arrays))
 
     def update(self, data) -> None:
@@ -4111,7 +4098,7 @@ class BoxPlot(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _MultiCompPlot, _vtk.vt
         self._quartiles.Update()
 
 
-class ChartBox(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _Chart, _vtk.vtkChartBox):
+class ChartBox(_NoNewAttrMixin, DisableVtkSnakeCase, _Chart, _vtk.vtkChartBox):
     """Dedicated chart for drawing box plots.
 
     Parameters
@@ -4176,12 +4163,11 @@ class ChartBox(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _Chart, _vtk.vtkChartB
         loc=None,
     ) -> None:  # numpydoc ignore=PR01,RT01
         """Initialize a new chart containing box plots."""
-        if vtk_version_info >= (9, 2, 0):
-            self.SetAutoSize(False)  # We manually set the appropriate size
-            if size is None:
-                size = (1, 1)
-            if loc is None:
-                loc = (0, 0)
+        self.SetAutoSize(False)  # We manually set the appropriate size
+        if size is None:
+            size = (1, 1)
+        if loc is None:
+            loc = (0, 0)
         super().__init__(size, loc)
         self._plot = BoxPlot(self, data, colors=colors, labels=labels)
         self.SetPlot(self._plot)
@@ -4189,27 +4175,15 @@ class ChartBox(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _Chart, _vtk.vtkChartB
         self.legend_visible = True
 
     def _render_event(self, *args, **kwargs) -> None:
-        if vtk_version_info < (9, 2, 0):  # pragma: no cover
-            # In older VTK versions, ChartBox fills the entire scene, so
-            # no resizing is needed (nor possible).
-            pass
-        else:
-            super()._render_event(*args, **kwargs)
+        super()._render_event(*args, **kwargs)
 
     @property
     def _geometry(self):
-        if vtk_version_info < (9, 2, 0):  # pragma: no cover
-            return (0, 0, *self._renderer.GetSize())
-        else:
-            return _Chart._geometry.fget(self)  # type: ignore[attr-defined]
+        return _Chart._geometry.fget(self)  # type: ignore[attr-defined]
 
     @_geometry.setter
     def _geometry(self, value):
-        if vtk_version_info < (9, 2, 0):  # pragma: no cover
-            msg = f'Cannot set the geometry of {type(self).__class__}'
-            raise AttributeError(msg)
-        else:
-            _Chart._geometry.fset(self, value)  # type: ignore[attr-defined]
+        _Chart._geometry.fset(self, value)  # type: ignore[attr-defined]
 
     @property
     def plot(self):  # numpydoc ignore=RT01
@@ -4265,21 +4239,11 @@ class ChartBox(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _Chart, _vtk.vtkChartB
            >>> chart.show()
 
         """
-        if vtk_version_info < (9, 2, 0):  # pragma: no cover
-            return (1, 1)
-        else:
-            return _Chart.size.fget(self)  # type: ignore[attr-defined]
+        return _Chart.size.fget(self)  # type: ignore[attr-defined]
 
     @size.setter
     def size(self, val):
-        if vtk_version_info < (9, 2, 0):  # pragma: no cover
-            msg = (
-                'Cannot set ChartBox geometry, it fills up the entire viewport by default. '
-                'Upgrade to VTK v9.2 or newer.'
-            )
-            raise ValueError(msg)
-        else:
-            _Chart.size.fset(self, val)  # type: ignore[attr-defined]
+        _Chart.size.fset(self, val)  # type: ignore[attr-defined]
 
     @property
     def loc(self):  # numpydoc ignore=RT01
@@ -4308,21 +4272,11 @@ class ChartBox(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _Chart, _vtk.vtkChartB
            >>> chart.show()
 
         """
-        if vtk_version_info < (9, 2, 0):  # pragma: no cover
-            return (0, 0)
-        else:
-            return _Chart.loc.fget(self)  # type: ignore[attr-defined]
+        return _Chart.loc.fget(self)  # type: ignore[attr-defined]
 
     @loc.setter
     def loc(self, val):
-        if vtk_version_info < (9, 2, 0):  # pragma: no cover
-            msg = (
-                'Cannot set ChartBox geometry, it fills up the entire viewport by default. '
-                'Upgrade to VTK v9.2 or newer.'
-            )
-            raise ValueError(msg)
-        else:
-            _Chart.loc.fset(self, val)  # type: ignore[attr-defined]
+        _Chart.loc.fset(self, val)  # type: ignore[attr-defined]
 
 
 class PiePlot(_MultiCompPlot, _vtkWrapper, _vtk.vtkPlotPie):
@@ -4383,7 +4337,7 @@ class PiePlot(_MultiCompPlot, _vtkWrapper, _vtk.vtkPlotPie):
     ) -> None:
         """Initialize a new pie plot instance."""
         super().__init__(chart)
-        self._table = pyvista.Table(data)
+        self._table = pv.Table(data)
         self.SetInputData(self._table)
         self.SetInputArray(0, self._table.keys()[0])
         self.update(data)
@@ -4441,7 +4395,7 @@ class PiePlot(_MultiCompPlot, _vtkWrapper, _vtk.vtkPlotPie):
         self._table.update(data)
 
 
-class ChartPie(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _Chart, _vtk.vtkChartPie):
+class ChartPie(_NoNewAttrMixin, DisableVtkSnakeCase, _Chart, _vtk.vtkChartPie):
     """Dedicated chart for drawing pie plots.
 
     Parameters
@@ -4506,45 +4460,26 @@ class ChartPie(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _Chart, _vtk.vtkChartP
         loc=None,
     ) -> None:  # numpydoc ignore=PR01,RT01
         """Initialize a new chart containing a pie plot."""
-        if vtk_version_info >= (9, 2, 0):
-            self.SetAutoSize(False)  # We manually set the appropriate size
-            if size is None:
-                size = (1, 1)
-            if loc is None:
-                loc = (0, 0)
+        self.SetAutoSize(False)  # We manually set the appropriate size
+        if size is None:
+            size = (1, 1)
+        if loc is None:
+            loc = (0, 0)
         super().__init__(size, loc)
-        if vtk_version_info < (9, 2, 0):  # pragma: no cover
-            # SetPlot method is not available for older VTK versions,
-            # so fallback to using a wrapper object.
-            self.AddPlot(0)
-            self._plot = PiePlot(self, data, colors=colors, labels=labels, _wrap=self.GetPlot(0))  # type: ignore[call-arg]
-        else:
-            self._plot = PiePlot(self, data, colors=colors, labels=labels)
-            self.SetPlot(self._plot)
+        self._plot = PiePlot(self, data, colors=colors, labels=labels)
+        self.SetPlot(self._plot)
         self.legend_visible = True
 
     def _render_event(self, *args, **kwargs) -> None:
-        if vtk_version_info < (9, 2, 0):  # pragma: no cover
-            # In older VTK versions, ChartPie fills the entire scene, so
-            # no resizing is needed (nor possible).
-            pass
-        else:
-            super()._render_event(*args, **kwargs)
+        super()._render_event(*args, **kwargs)
 
     @property
     def _geometry(self):
-        if vtk_version_info < (9, 2, 0):  # pragma: no cover
-            return (0, 0, *self._renderer.GetSize())
-        else:
-            return _Chart._geometry.fget(self)  # type: ignore[attr-defined]
+        return _Chart._geometry.fget(self)  # type: ignore[attr-defined]
 
     @_geometry.setter
     def _geometry(self, value):
-        if vtk_version_info < (9, 2, 0):  # pragma: no cover
-            msg = f'Cannot set the geometry of {type(self).__class__}'
-            raise AttributeError(msg)
-        else:
-            _Chart._geometry.fset(self, value)  # type: ignore[attr-defined]
+        _Chart._geometry.fset(self, value)  # type: ignore[attr-defined]
 
     @property
     def plot(self):  # numpydoc ignore=RT01
@@ -4596,21 +4531,11 @@ class ChartPie(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _Chart, _vtk.vtkChartP
            >>> chart.show()
 
         """
-        if vtk_version_info < (9, 2, 0):  # pragma: no cover
-            return (1, 1)
-        else:
-            return _Chart.size.fget(self)  # type: ignore[attr-defined]
+        return _Chart.size.fget(self)  # type: ignore[attr-defined]
 
     @size.setter
     def size(self, val):
-        if vtk_version_info < (9, 2, 0):  # pragma: no cover
-            msg = (
-                'Cannot set ChartPie geometry, it fills up the entire viewport by default. '
-                'Upgrade to VTK v9.2 or newer.'
-            )
-            raise ValueError(msg)
-        else:
-            _Chart.size.fset(self, val)  # type: ignore[attr-defined]
+        _Chart.size.fset(self, val)  # type: ignore[attr-defined]
 
     @property
     def loc(self):  # numpydoc ignore=RT01
@@ -4639,24 +4564,14 @@ class ChartPie(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _Chart, _vtk.vtkChartP
            >>> chart.show()
 
         """
-        if vtk_version_info < (9, 2, 0):  # pragma: no cover
-            return (0, 0)
-        else:
-            return _Chart.loc.fget(self)  # type: ignore[attr-defined]
+        return _Chart.loc.fget(self)  # type: ignore[attr-defined]
 
     @loc.setter
     def loc(self, val):
-        if vtk_version_info < (9, 2, 0):  # pragma: no cover
-            msg = (
-                'Cannot set ChartPie geometry, it fills up the entire viewport by default. '
-                'Upgrade to VTK v9.2 or newer.'
-            )
-            raise ValueError(msg)
-        else:
-            _Chart.loc.fset(self, val)  # type: ignore[attr-defined]
+        _Chart.loc.fset(self, val)  # type: ignore[attr-defined]
 
 
-class ChartMPL(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _Chart, _vtk.vtkImageItem):
+class ChartMPL(_NoNewAttrMixin, DisableVtkSnakeCase, _Chart, _vtk.vtkImageItem):
     """Create new chart from an existing matplotlib figure.
 
     Parameters
@@ -4753,7 +4668,7 @@ class ChartMPL(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _Chart, _vtk.vtkImageI
         # once as a pyvista plot (fetched by the 'pyvista' scraper) and once as a
         # matplotlib figure (fetched by the 'matplotlib' scraper).
         # See #1999 and #2031.
-        if pyvista.BUILDING_GALLERY:  # pragma: no cover
+        if pv.BUILDING_GALLERY:  # pragma: no cover
             plt.close(self._fig)
 
     @property
@@ -4830,7 +4745,7 @@ class ChartMPL(_NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _Chart, _vtk.vtkImageI
             )  # Store figure data in numpy array
             w, h = self._canvas.get_width_height()
             img_arr = img.reshape([h, w, 4])
-            img_data = pyvista.Texture(img_arr).to_image()  # type: ignore[abstract] # Convert to vtkImageData
+            img_data = pv.Texture(img_arr).to_image()  # type: ignore[abstract] # Convert to vtkImageData
             self.SetImage(img_data)
 
     def _render_event(self, *_, plotter_render: bool = False, **__) -> None:

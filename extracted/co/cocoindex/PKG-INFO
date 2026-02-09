@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cocoindex
-Version: 0.3.28
+Version: 0.3.30
 Classifier: Development Status :: 3 - Alpha
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
@@ -11,6 +11,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing :: Indexing
 Classifier: Intended Audience :: Developers
@@ -27,9 +28,11 @@ Requires-Dist: sentence-transformers>=3.3.1 ; extra == 'all'
 Requires-Dist: colpali-engine ; extra == 'all'
 Requires-Dist: lancedb>=0.25.0 ; extra == 'all'
 Requires-Dist: pyarrow>=19.0.0 ; extra == 'all'
+Requires-Dist: chromadb>=0.4.0 ; extra == 'all'
 Requires-Dist: aiohttp>=3.8.0 ; extra == 'all'
 Requires-Dist: aiomysql>=0.2.0 ; extra == 'all'
 Requires-Dist: pymysql>=1.0.0 ; extra == 'all'
+Requires-Dist: chromadb>=0.4.0 ; extra == 'chromadb'
 Requires-Dist: colpali-engine ; extra == 'colpali'
 Requires-Dist: aiohttp>=3.8.0 ; extra == 'doris'
 Requires-Dist: aiomysql>=0.2.0 ; extra == 'doris'
@@ -38,6 +41,7 @@ Requires-Dist: sentence-transformers>=3.3.1 ; extra == 'embeddings'
 Requires-Dist: lancedb>=0.25.0 ; extra == 'lancedb'
 Requires-Dist: pyarrow>=19.0.0 ; extra == 'lancedb'
 Provides-Extra: all
+Provides-Extra: chromadb
 Provides-Extra: colpali
 Provides-Extra: doris
 Provides-Extra: embeddings
@@ -68,6 +72,7 @@ Project-URL: Homepage, https://cocoindex.io/
 [![CI](https://github.com/cocoindex-io/cocoindex/actions/workflows/CI.yml/badge.svg?event=push&color=5B5BD6)](https://github.com/cocoindex-io/cocoindex/actions/workflows/CI.yml)
 [![release](https://github.com/cocoindex-io/cocoindex/actions/workflows/release.yml/badge.svg?event=push&color=5B5BD6)](https://github.com/cocoindex-io/cocoindex/actions/workflows/release.yml)
 [![Link Check](https://github.com/cocoindex-io/cocoindex/actions/workflows/links.yml/badge.svg)](https://github.com/cocoindex-io/cocoindex/actions/workflows/links.yml)
+[![prek](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/j178/prek/master/docs/assets/badge-v0.json)](https://github.com/j178/prek)
 [![Discord](https://img.shields.io/discord/1314801574169673738?logo=discord&color=5B5BD6&logoColor=white)](https://discord.com/invite/zpA9S2DR7s)
 
 </div>

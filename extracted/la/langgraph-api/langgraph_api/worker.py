@@ -4,6 +4,7 @@ import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from typing import Any
 
 import structlog
 from langgraph.pregel.debug import CheckpointPayload, TaskResultPayload
@@ -79,13 +80,18 @@ async def worker(
     run: Run,
     attempt: int,
     main_loop: asyncio.AbstractEventLoop,
+    *,
+    encryption_context: dict[str, Any] | None = None,
 ) -> WorkerResult:
     run_id = run["run_id"]
     if attempt == 1:
         incr_runs()
 
     # Extract and set encryption context BEFORE decryption (decrypt_response strips this key)
-    encryption_context = extract_blob_encryption_context(run["kwargs"].get("config"))
+    if encryption_context is None:
+        encryption_context = extract_blob_encryption_context(
+            run["kwargs"].get("config")
+        )
     if encryption_context:
         set_encryption_context(encryption_context)
 

@@ -140,7 +140,7 @@ class MkdocstringsPlugin(BasePlugin[PluginConfig]):
         handlers = Handlers(
             default=self.config.default_handler,
             handlers_config=self.config.handlers,
-            theme=config.theme.name or os.path.dirname(config.theme.dirs[0]),
+            theme=config.theme.name or os.path.dirname(config.theme.dirs[0]),  # noqa: PTH120
             custom_templates=self.config.custom_templates,
             mdx=config.markdown_extensions,
             mdx_config=config.mdx_configs,
@@ -156,7 +156,7 @@ class MkdocstringsPlugin(BasePlugin[PluginConfig]):
         autorefs: AutorefsPlugin
         try:
             # If autorefs plugin is explicitly enabled, just use it.
-            autorefs = config.plugins["autorefs"]  # type: ignore[assignment]
+            autorefs = config.plugins["autorefs"]  # ty: ignore[invalid-assignment]
             _logger.debug("Picked up existing autorefs instance %r", autorefs)
         except KeyError:
             # Otherwise, add a limited instance of it that acts only on what's added through `register_anchor`.
@@ -167,7 +167,7 @@ class MkdocstringsPlugin(BasePlugin[PluginConfig]):
             _logger.debug("Added a subdued autorefs instance %r", autorefs)
 
         mkdocstrings_extension = MkdocstringsExtension(handlers, autorefs)
-        config.markdown_extensions.append(mkdocstrings_extension)  # type: ignore[arg-type]
+        config.markdown_extensions.append(mkdocstrings_extension)  # ty: ignore[invalid-argument-type]
 
         config.extra_css.insert(0, self.css_filename)  # So that it has lower priority than user files.
 
@@ -199,7 +199,7 @@ class MkdocstringsPlugin(BasePlugin[PluginConfig]):
     @event_priority(50)  # Early, before autorefs' starts applying cross-refs and collecting backlinks.
     def _on_env_load_inventories(self, env: Environment, config: MkDocsConfig, *args: Any, **kwargs: Any) -> None:  # noqa: ARG002
         if self.plugin_enabled and self._handlers:
-            register = config.plugins["autorefs"].register_url  # type: ignore[attr-defined]
+            register = config.plugins["autorefs"].register_url  # ty: ignore[possibly-missing-attribute]
             for identifier, url in self._handlers._yield_inventory_items():
                 register(identifier, url)
 
@@ -207,14 +207,14 @@ class MkdocstringsPlugin(BasePlugin[PluginConfig]):
     def _on_env_add_css(self, env: Environment, config: MkDocsConfig, *args: Any, **kwargs: Any) -> None:  # noqa: ARG002
         if self.plugin_enabled and self._handlers:
             css_content = "\n".join(handler.extra_css for handler in self.handlers.seen_handlers)
-            write_file(css_content.encode("utf-8"), os.path.join(config.site_dir, self.css_filename))
+            write_file(css_content.encode("utf-8"), os.path.join(config.site_dir, self.css_filename))  # noqa: PTH118
 
     @event_priority(-20)  # Late, not important.
     def _on_env_write_inventory(self, env: Environment, config: MkDocsConfig, *args: Any, **kwargs: Any) -> None:  # noqa: ARG002
         if self.plugin_enabled and self._handlers and self.inventory_enabled:
             _logger.debug("Creating inventory file objects.inv")
             inv_contents = self.handlers.inventory.format_sphinx()
-            write_file(inv_contents, os.path.join(config.site_dir, "objects.inv"))
+            write_file(inv_contents, os.path.join(config.site_dir, "objects.inv"))  # noqa: PTH118
 
     @event_priority(-100)  # Last, after autorefs has finished applying cross-refs and collecting backlinks.
     def _on_env_apply_backlinks(self, env: Environment, /, *, config: MkDocsConfig, files: Files) -> Environment:  # noqa: ARG002
@@ -226,12 +226,12 @@ class MkdocstringsPlugin(BasePlugin[PluginConfig]):
 
             # The handler doesn't implement backlinks,
             # return early to avoid computing them.
-            if handler.render_backlinks.__func__ is BaseHandler.render_backlinks:  # type: ignore[attr-defined]
+            if handler.render_backlinks.__func__ is BaseHandler.render_backlinks:
                 return ""
 
             identifier = match.group(1)
             aliases = handler.get_aliases(identifier)
-            backlinks = self._autorefs.get_backlinks(identifier, *aliases, from_url=file.page.url)  # type: ignore[union-attr]
+            backlinks = self._autorefs.get_backlinks(identifier, *aliases, from_url=file.page.url)
 
             # No backlinks, avoid calling the handler's method.
             if not backlinks:
@@ -240,7 +240,7 @@ class MkdocstringsPlugin(BasePlugin[PluginConfig]):
             if "locale" in signature(handler.render_backlinks).parameters:
                 render_backlinks = partial(handler.render_backlinks, locale=self.handlers._locale)
             else:
-                render_backlinks = handler.render_backlinks  # type: ignore[assignment]
+                render_backlinks = handler.render_backlinks
 
             return render_backlinks(backlinks)
 

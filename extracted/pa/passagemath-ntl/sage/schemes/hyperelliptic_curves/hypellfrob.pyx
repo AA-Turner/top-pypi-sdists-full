@@ -7,7 +7,7 @@
 # distutils: extra_compile_args = NTL_CFLAGS
 # distutils: library_dirs = NTL_LIBDIR
 # distutils: extra_link_args = NTL_LIBEXTRA
-# sage.doctest: needs sage.libs.ntl sage.modules sage.rings.padics sage.schemes
+# sage.doctest: needs sage.libs.ntl sage.libs.linbox sage.modules sage.rings.padics sage.schemes
 
 r"""
 Frobenius on Monsky-Washnitzer cohomology of a hyperelliptic curve
@@ -43,7 +43,8 @@ from cysignals.signals cimport sig_on, sig_off
 from libcpp.vector cimport vector
 
 from sage.libs.ntl.ntl_ZZ_pContext import ZZ_pContext_factory
-from sage.libs.ntl.all import ZZ, ZZX
+from sage.libs.ntl.ntl_ZZ import ntl_ZZ as ZZ
+from sage.libs.ntl.ntl_ZZX import ntl_ZZX as ZZX
 from sage.matrix.constructor import Matrix
 from sage.rings.padics.factory import Qp
 from sage.rings.big_oh import O as big_oh

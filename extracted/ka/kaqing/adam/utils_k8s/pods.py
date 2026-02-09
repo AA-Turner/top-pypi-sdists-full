@@ -1,6 +1,6 @@
 from collections.abc import Callable
+import re
 import subprocess
-import sys
 import time
 from typing import TypeVar
 from kubernetes import client
@@ -9,13 +9,12 @@ from kubernetes.stream.ws_client import ERROR_CHANNEL, WSClient
 import traceback
 from websocket._core import WebSocket
 
-from adam.config import Config
-from adam.utils import log_timing
+from adam.utils_color import Color
+from adam.utils_log import log_timing, PodLogFile, log2, debug, log_exc
 from adam.utils_context import Context
 from adam.utils_k8s.kube_context import KubeContext
 from adam.utils_k8s.volumes import ConfigMapMount
 from adam.utils_k8s.pod_exec_result import PodExecResult
-from adam.utils import Color, ParallelMapHandler, PodLogFile, log2, debug, log_exc
 
 T = TypeVar('T')
 _TEST_POD_EXEC_OUTS: PodExecResult = None
@@ -44,18 +43,6 @@ class Pods:
         for i in ret.items:
             v1.delete_namespaced_pod(name=i.metadata.name, namespace=namespace, grace_period_seconds=grace_period_seconds)
 
-    def parallelize(collection: list, max_workers: int = 0, samples = sys.maxsize, msg: str = None, collect = True, action: str = 'action'):
-        if not max_workers:
-            max_workers = Config().action_workers(action, 0)
-        if samples == sys.maxsize:
-            if not Config().action_node_always_parallelize(action, False):
-                samples = Config().action_node_samples(action, sys.maxsize)
-        elif samples == -1:
-            # override for calls from CassandraClusters
-            samples = sys.maxsize
-
-        return ParallelMapHandler(collection, max_workers, samples = samples, msg = msg, collect=collect, name=action)
-
     def get_command_printable(pod_name: str,
              container: str,
              namespace: str,
@@ -83,7 +70,7 @@ class Pods:
 
         ctx: Context = ctx.copy(show_out=KubeContext.show_out(ctx.show_out))
 
-        with log_timing(f'Pods.exec({pod_name})'):
+        with log_timing(f'Pods.exec({strip_pod_name(pod_name)}, "{strip_command(command)}")'):
             if command.endswith(' &') or ctx and ctx.background:
                 return Pods.exec_backgrounded_with_context(pod_name, container, namespace, command, shell, env_prefix, ctx=ctx)
 
@@ -149,7 +136,8 @@ class Pods:
                 if throw_err:
                     raise e
                 else:
-                    # traceback.print_exc()
+                    if ctx.debug:
+                        traceback.print_exc()
                     log2(e, text_color=text_color)
             finally:
                 resp.close()
@@ -190,10 +178,6 @@ class Pods:
         command = command.replace('"', '\\"')
 
         pid_command = f'& PID=$! && echo -n QING:$PID > {pid_file}; wait $PID; echo :$? >> {pid_file}'
-        if ctx.show_out:
-            cmd = f'kubectl exec {pod_name} -c {container} -- nohup {shell} -c "({command} {pid_command}) > {log_file} 2> {err_file} &"'
-            ctx.log2(cmd, ctx)
-
         pid_command = pid_command.replace('$', '\\$')
 
         cmd = f'kubectl exec {pod_name} -c {container} -- nohup {shell} -c "({command} {pid_command}) > {log_file} 2> {err_file} &"'
@@ -310,8 +294,14 @@ class Pods:
     def completed(namespace: str, pod_name: str):
         return Pods.get(namespace, pod_name).status.phase in ['Succeeded', 'Failed']
 
-    def pod_status(pod: client.V1Pod):
-        s = 'Unknown'
+    def pod_name(pod: client.V1Pod) -> str:
+        return pod.metadata.name
+
+    def pod_ip(pod: client.V1Pod) -> str:
+        return pod.status.pod_ip
+
+    def pod_status(pod: client.V1Pod, default = 'Unknown') -> str:
+        s = default
 
         try:
             s = pod.status.phase
@@ -321,3 +311,36 @@ class Pods:
             pass
 
         return s
+
+    def container_cnt(pod: client.V1Pod):
+        return len(pod.status.container_statuses)
+
+    def ready_container_cnt(pod: client.V1Pod):
+        ready = 0
+
+        if pod.status.container_statuses:
+            for container_status in pod.status.container_statuses:
+                if container_status.ready:
+                    ready += 1
+
+        return ready
+
+    def pod_ready(pod: client.V1Pod):
+        return f'{Pods.ready_container_cnt(pod)}/{Pods.container_cnt(pod)}'
+
+def strip_pod_name(pod_name: str):
+    if groups := re.match(r'.*-(.*-\d+)$', pod_name):
+        return groups[1]
+
+    return pod_name
+
+def strip_command(command: str):
+    if command.startswith('nodetool '):
+        tks = command.split(' ')
+        if len(tks) > 2:
+            return tks[0] + ' ... ' + tks[-1]
+
+    if len(command) > 23:
+        return command[:20] + '...'
+
+    return command

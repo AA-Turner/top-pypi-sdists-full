@@ -1,13 +1,12 @@
 from adam.commands import extract_options
 from adam.commands.command import Command
-from adam.utils_cassandra.cassandra_status import CassandraStatus
 from adam.utils_cassandra.node_restartability import NodeRestartability
-from adam.utils_cassandra.node_scheduler import NodeScheduler
-from adam.utils_context import Context
+from adam.utils_cassandra.node_schedules import NodeSchedules
 from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.statefulsets import StatefulSets
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import Color, log2
+from adam.utils_color import Color
+from adam.utils_log import log2
 
 class RestartCluster(Command):
     COMMAND = 'restart cluster'
@@ -33,7 +32,7 @@ class RestartCluster(Command):
 
         with self.validate(args, state) as (args, state):
             with extract_options(args, '--force') as (args, forced):
-                ctx = Context.new(show_out=True)
+                ctx = self.context()
 
                 log2(f'Restarting all pods from {state.sts}...')
                 for pod_name in StatefulSets.pod_names(state.sts, state.namespace):
@@ -41,7 +40,7 @@ class RestartCluster(Command):
                         ctx.log(f'[{pod_name}] Restarting...')
                     else:
                         ctx.log(f'[{pod_name}] Checking...')
-                        node: NodeRestartability = CassandraStatus.probe(state, pod_name, in_restartings=NodeScheduler.restartings(ctx=ctx), ctx=ctx.copy(show_out=False))
+                        node: NodeRestartability = NodeRestartability.probe(state, pod_name, in_restartings=NodeSchedules.restartings(ctx=ctx), ctx=ctx.copy(show_out=False))
                         if not node.restartable():
                             node.log(ctx=ctx.copy(text_color=Color.gray))
                             ctx.log2('Please add --force for restarting pod unsafely.')

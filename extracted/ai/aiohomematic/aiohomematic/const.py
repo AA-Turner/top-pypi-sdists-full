@@ -21,7 +21,7 @@ from typing import Any, Final, NamedTuple, Required, TypeAlias, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
-VERSION: Final = "2026.2.5"
+VERSION: Final = "2026.2.6"
 
 # Detect test speedup mode via environment
 _TEST_SPEEDUP: Final = (
@@ -813,6 +813,7 @@ class DataPointCategory(StrEnum):
     UNDEFINED = "undefined"
     UPDATE = "update"
     VALVE = "valve"
+    WEEK_PROFILE = "week_profile"
 
 
 class DataPointKey(NamedTuple):
@@ -1645,6 +1646,7 @@ CATEGORIES: Final[tuple[DataPointCategory, ...]] = (
     DataPointCategory.TEXT_DISPLAY,
     DataPointCategory.UPDATE,
     DataPointCategory.VALVE,
+    DataPointCategory.WEEK_PROFILE,
 )
 
 PRIMARY_CLIENT_CANDIDATE_INTERFACES: Final[frozenset[Interface]] = frozenset(
@@ -1918,7 +1920,7 @@ class SystemInformation:
     version: str = ""
     hostname: str = ""
     ccu_type: CCUType = CCUType.UNKNOWN
-    is_ha_addon: bool = False
+    is_ha_app: bool = False
 
     @property
     def has_backup(self) -> bool:
@@ -1930,10 +1932,10 @@ class SystemInformation:
         """
         Return True if backend supports system update functionality.
 
-        Note: HA-Addons do not support system updates through this integration
+        Note: HA-Apps do not support system updates through this integration
         as updates are managed by the HA Supervisor.
         """
-        return self.ccu_type == CCUType.OPENCCU and not self.is_ha_addon
+        return self.ccu_type == CCUType.OPENCCU and not self.is_ha_app
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -2222,6 +2224,14 @@ class ScheduleProfile(StrEnum):
     P4 = "P4"
     P5 = "P5"
     P6 = "P6"
+
+
+@unique
+class ScheduleType(StrEnum):
+    """Enum for schedule type identifiers."""
+
+    CLIMATE = "climate"
+    DEFAULT = "default"
 
 
 @unique

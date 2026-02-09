@@ -5,16 +5,16 @@
 # but it is not part of the install-requires.
 requires = [
     'setuptools >= 77.0.0',
-    'passagemath-conf ~= 10.6.48.0 ; sys_platform != "win32"',
-    'passagemath-setup ~= 10.6.48.0',
+    'passagemath-conf ~= 10.8.1.0 ; sys_platform != "win32"',
+    'passagemath-setup ~= 10.8.1.0',
     'jinja2',
     'pkgconfig',
-    'passagemath-environment ~= 10.6.48.0',
-    'passagemath-categories ~= 10.6.48.0',
+    'passagemath-environment ~= 10.8.1.0',
+    'passagemath-categories ~= 10.8.1.0',
     'mpmath >=1.1.0, <1.4',
-    'cython >=3.0.8, <3.3.0', 'cython >=3.0.8,<3.3.0',
-    'gmpy2 ~=2.1.b999',
-    'numpy >=1.19', 'numpy >=1.22.4',
+    'cython >=3.1.0,<3.3.0',
+    'gmpy2 ~=2.1.b999', 'gmpy2 ~=2.3.b1; sys_platform == "win32"',
+    'numpy >=1.25', 'numpy >=2.2.4',
     'cysignals !=1.12.4; sys_platform == "win32"', 'cysignals >=1.11.2, != 1.12.0',
     'memory_allocator <0.2',
 ]
@@ -24,11 +24,11 @@ build-backend = "setuptools.build_meta"
 name = "passagemath-modules"
 description = "passagemath: Vectors, matrices, tensors, vector spaces, affine spaces, modules and algebras, additive groups, quadratic forms, homology, coding theory, matroids"
 dependencies = [
-    'gmpy2 ~=2.1.b999',
+    'gmpy2 ~=2.1.b999', 'gmpy2 ~=2.3.b1; sys_platform == "win32"',
     'cysignals !=1.12.4; sys_platform == "win32"', 'cysignals >=1.11.2, != 1.12.0',
     'memory_allocator <0.2',
-    'passagemath-categories ~= 10.6.48.0',
-    'passagemath-environment ~= 10.6.48.0',
+    'passagemath-categories ~= 10.8.1.0',
+    'passagemath-environment ~= 10.8.1.0',
     'mpmath >=1.1.0, <1.4',
 ]
 dynamic = ["version"]
@@ -47,7 +47,6 @@ classifiers = [
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -55,7 +54,7 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
-requires-python = ">=3.10, <3.15"
+requires-python = ">=3.11, <3.15"
 
 [project.urls]
 "release notes" = "https://github.com/passagemath/passagemath/releases"
@@ -76,17 +75,17 @@ test    = ["passagemath-repl"]
 
 # extras by packages
 flint   = ["passagemath-flint"]
-fpylll  = ['fpylll >=0.5.9',]
+fpylll  = ['fpylll >=0.5.9; sys_platform != "win32"',]
 gsl     = []  # No extra needed
 linbox  = ["passagemath-linbox"]
-m4ri    = ['passagemath-m4ri-m4rie ~= 10.6.48.0',]
+m4ri    = ['passagemath-m4ri-m4rie ~= 10.8.1.0',]
 m4rie   = ["passagemath-modules[m4ri,pari]"]
 meataxe = ["passagemath-meataxe"]
 mpfi    = ["passagemath-modules[flint]"]
 mpfr    = []  # No extra needed
 mpmath  = []  # No extra needed
 ntl     = ["passagemath-ntl"]
-numpy   = ['numpy >=1.19', 'numpy >=1.22.4',]
+numpy   = ['numpy >=1.25', 'numpy >=2.2.4',]
 pari    = ["passagemath-pari"]
 
 # extras by rings

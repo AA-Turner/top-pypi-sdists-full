@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dao_treasury
-Version: 1.0.0
+Version: 1.0.1
 Summary: Produce comprehensive financial reports for your on-chain org
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
@@ -14,7 +14,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.10,<3.13
 Description-Content-Type: text/markdown
-Requires-Dist: eth-portfolio==0.5.11
+Requires-Dist: eth-portfolio==0.5.13
 Requires-Dist: psycopg2-binary==2.9.11
 Dynamic: classifier
 Dynamic: description

@@ -43,8 +43,8 @@ class TestInBandByteStreams(SlixTest):
 
         self.assertEqual(events, ['ibb_stream_start'])
 
-    def testAysncOpenStream(self):
-        """Test requesting a stream, aysnc"""
+    def testAsyncOpenStream(self):
+        """Test requesting a stream, async"""
 
         events = set()
 

@@ -18,6 +18,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
+from __future__ import annotations
+
 import os
 import os.path
 import re
@@ -26,19 +28,13 @@ from typing import (
     Any,
     AnyStr,
     BinaryIO,
-    Dict,
     Iterable,
     Iterator,
     Generator,
-    List,
     Match,
     NoReturn,
-    Optional,
     Pattern,
-    Text,
     TextIO,
-    Tuple,
-    Union,
 )
 
 try:
@@ -59,8 +55,7 @@ try:
     import _sha1    # type: ignore
     new_sha1 = _sha1.sha1
 except ImportError:
-    def new_sha1(*args):    # pylint: disable=unused-argument
-        # type: (bytes) -> str
+    def new_sha1(*args: bytes) -> str:    # pylint: disable=unused-argument
         raise NotImplementedError(
             "Built-in sha1 implementation not found; cannot use hashlib"
             " implementation because it depends on OpenSSL, which"
@@ -74,8 +69,7 @@ try:
     import _sha256    # type: ignore
     new_sha256 = _sha256.sha256
 except ImportError:
-    def new_sha256(*args):    # pylint: disable=unused-argument
-        # type: (bytes) -> str
+    def new_sha256(*args: bytes) -> str:    # pylint: disable=unused-argument
         raise NotImplementedError(
             "Built-in sha1 implementation not found; cannot use hashlib"
             " implementation because it depends on OpenSSL, which"
@@ -101,16 +95,15 @@ class ParseError(Exception):
     """
 
     def __init__(self,
-                 filename,     # type: str
-                 lineno,       # type: int
-                 msg           # type: str
-                 ):
-        # type: (...) -> None
+                 filename: str,
+                 lineno: int,
+                 msg: str
+                 ) -> None:
         assert isinstance(lineno, int)
         self.filename = filename
         self.lineno = lineno
         self.msg = msg
-        super(ParseError, self).__init__(self)
+        super().__init__(self)
 
     def __str__(self) -> str:
         return self.msg
@@ -120,14 +113,13 @@ class ParseError(Exception):
                                            self.lineno,
                                            self.msg)
 
-    def print_out(self, file):
-        # type: (TextIO) -> None
+    def print_out(self, file: TextIO) -> None:
         """Writes a machine-parsable error message to file."""
         file.write("%s:%d: %s\n" % (self.filename, self.lineno, self.msg))
         file.flush()
 
 
-class BaseVersion(object):
+class BaseVersion:
     """Base class for classes representing Debian versions
 
     It doesn't implement any comparison, but it does check for valid versions
@@ -151,14 +143,12 @@ class BaseVersion(object):
         'full_version', 'epoch', 'upstream_version',
         'debian_revision', 'debian_version')
 
-    def __init__(self, version):
-        # type: (Optional[Union[str, BaseVersion]]) -> None
+    def __init__(self, version: str | BaseVersion | None) -> None:
         if isinstance(version, BaseVersion):
             version = str(version)
         self.full_version = version
 
-    def _set_full_version(self, version):
-        # type: (str) -> None
+    def _set_full_version(self, version: str) -> None:
         m = self.re_valid_version.match(version)
         if not m:
             raise ValueError("Invalid version string %r" % version)
@@ -173,10 +163,9 @@ class BaseVersion(object):
         self.__upstream_version = m.group("upstream_version")
         self.__debian_revision = m.group("debian_revision")
 
-    def __setattr__(self, attr, value):
-        # type: (str, Optional[Text]) -> None
+    def __setattr__(self, attr: str, value: str | None) -> None:
         if attr not in self.magic_attrs:
-            super(BaseVersion, self).__setattr__(attr, value)
+            super().__setattr__(attr, value)
             return
 
         # For compatibility with the old changelog.Version class
@@ -200,10 +189,9 @@ class BaseVersion(object):
                 raise ValueError("Setting %s to %r results in invalid version"
                                  % (attr, value))
 
-    def __getattr__(self, attr):
-        # type: (str) -> Optional[str]
+    def __getattr__(self, attr: str) -> str | None:
         if attr not in self.magic_attrs:
-            return super(BaseVersion, self).__getattribute__(attr) # type: ignore
+            return super().__getattribute__(attr) # type: ignore
 
         # For compatibility with the old changelog.Version class
         if attr == "debian_version":
@@ -225,37 +213,30 @@ class BaseVersion(object):
         return self.full_version if self.full_version is not None else ""
 
     def __repr__(self) -> str:
-        return "%s('%s')" % (self.__class__.__name__, self)
+        return f"{self.__class__.__name__}('{self}')"
 
-    def _compare(self, other):
-        # type: (Any) -> int
+    def _compare(self, other: Any) -> int:
         raise NotImplementedError
 
     # TODO: Once we support only Python >= 2.7, we can simplify this using
     # @functools.total_ordering.
 
-    def __lt__(self, other):
-        # type: (Any) -> bool
+    def __lt__(self, other: Any) -> bool:
         return self._compare(other) < 0
 
-    def __le__(self, other):
-        # type: (Any) -> bool
+    def __le__(self, other: Any) -> bool:
         return self._compare(other) <= 0
 
-    def __eq__(self, other):
-        # type: (Any) -> bool
+    def __eq__(self, other: Any) -> bool:
         return self._compare(other) == 0
 
-    def __ne__(self, other):
-        # type: (Any) -> bool
+    def __ne__(self, other: Any) -> bool:
         return self._compare(other) != 0
 
-    def __ge__(self, other):
-        # type: (Any) -> bool
+    def __ge__(self, other: Any) -> bool:
         return self._compare(other) >= 0
 
-    def __gt__(self, other):
-        # type: (Any) -> bool
+    def __gt__(self, other: Any) -> bool:
         return self._compare(other) > 0
 
     def __hash__(self) -> int:
@@ -265,15 +246,13 @@ class BaseVersion(object):
 class AptPkgVersion(BaseVersion):
     """Represents a Debian package version, using apt_pkg.VersionCompare"""
 
-    def __init__(self, version):
-        # type: (Optional[Union[str, BaseVersion]]) -> None
+    def __init__(self, version: str | BaseVersion | None) -> None:
         if not _have_apt_pkg:
             raise NotImplementedError("apt_pkg not available; install the "
                                       "python-apt package")
-        super(AptPkgVersion, self).__init__(version)
+        super().__init__(version)
 
-    def _compare(self, other):
-        # type: (Any) -> int
+    def _compare(self, other: Any) -> int:
         return apt_pkg.version_compare(str(self), str(other))
 
 
@@ -287,8 +266,7 @@ class NativeVersion(BaseVersion):
     re_digit = re.compile(r"\d")
     re_alpha = re.compile("[A-Za-z]")
 
-    def _compare(self, other):
-        # type: (Any) -> int
+    def _compare(self, other: Any) -> int:
         # Convert other into an instance of BaseVersion if it's not already.
         # (All we need is epoch, upstream_version, and debian_revision
         # attributes, which BaseVersion gives us.) Requires other's string
@@ -319,8 +297,7 @@ class NativeVersion(BaseVersion):
                                       other.debian_revision or "0")
 
     @classmethod
-    def _order(cls, x):
-        # type: (str) -> int
+    def _order(cls, x: str) -> int:
         """Return an integer value for character x"""
         if x == '~':
             return -1
@@ -331,8 +308,7 @@ class NativeVersion(BaseVersion):
         return ord(x) + 256
 
     @classmethod
-    def _version_cmp_string(cls, va, vb):
-        # type: (str, str) -> int
+    def _version_cmp_string(cls, va: str, vb: str) -> int:
         la = [cls._order(x) for x in va]
         lb = [cls._order(x) for x in vb]
         while la or lb:
@@ -349,8 +325,7 @@ class NativeVersion(BaseVersion):
         return 0
 
     @classmethod
-    def _version_cmp_part(cls, va, vb):
-        # type: (str, str) -> int
+    def _version_cmp_part(cls, va: str, vb: str) -> int:
         la = cls.re_all_digits_or_not.findall(va)
         lb = cls.re_all_digits_or_not.findall(vb)
         while la or lb:
@@ -382,8 +357,7 @@ else:
         pass
 
 
-def version_compare(a, b):
-    # type: (Any, Any) -> int
+def version_compare(a: Any, b: Any) -> int:
     va = Version(a)
     vb = Version(b)
     if va < vb:
@@ -403,11 +377,10 @@ class PackageFile:
     re_continuation = re.compile(r'^\s+(?:\.|(\S.*?)\s*)$')
 
     def __init__(self,
-                 name,              # type: str
-                 file_obj=None,     # type: Optional[Union[TextIO, BinaryIO]]
-                 encoding="utf-8",  # type: str
-                 ):
-        # type: (...) -> None
+                 name: str,
+                 file_obj: TextIO | BinaryIO | None = None,
+                 encoding: str = "utf-8",
+                 ) -> None:
         """Creates a new package file object.
 
         name - the name of the file the data comes from
@@ -421,11 +394,10 @@ class PackageFile:
         self.lineno = 0
         self.encoding = encoding
 
-    def __iter__(self):
-        # type: () -> Generator[List[Tuple[str, str]], None, None]
+    def __iter__(self) -> Generator[list[tuple[str, str]]]:
         line = self._aux_read_line()
         self.lineno += 1
-        pkg = []   # type: List[Tuple[str, str]]
+        pkg: list[tuple[str, str]] = []
         while line:
             if line.strip(' \t') == '\n':
                 if not pkg:
@@ -436,7 +408,7 @@ class PackageFile:
                 self.lineno += 1
                 continue
 
-            match = self.re_field.match(line)  # type: Optional[Match[str]]
+            match: Match[str] | None = self.re_field.match(line)
             if not match:
                 self.raise_syntax_error("expected package field")
             (name, contents) = match.groups()
@@ -450,7 +422,7 @@ class PackageFile:
                     (ncontents,) = match.groups()
                     if ncontents is None:
                         ncontents = ""
-                    contents = "%s\n%s" % (contents, ncontents)
+                    contents = f"{contents}\n{ncontents}"
                 else:
                     break
             pkg.append((name, contents))
@@ -465,8 +437,7 @@ class PackageFile:
             return line.decode(self.encoding)
         return line
 
-    def raise_syntax_error(self, msg, lineno=None):
-        # type: (str, Optional[int]) -> NoReturn
+    def raise_syntax_error(self, msg: str, lineno: int | None = None) -> NoReturn:
         if lineno is None:
             lineno = self.lineno
         raise ParseError(self.name, lineno, msg)
@@ -475,14 +446,14 @@ class PackageFile:
 class PseudoEnum:
     """A base class for types which resemble enumeration types."""
     def __init__(self,
-                 name,     # type: str
-                 order,    # type: Any
+                 name: str,
+                 order: Any,
                  ):
         self._name = name
         self._order = order
 
     def __repr__(self) -> str:
-        return '%s(%r)' % (self.__class__.__name__, self._name)
+        return f'{self.__class__.__name__}({self._name!r})'
 
     def __str__(self) -> str:
         return self._name
@@ -490,28 +461,22 @@ class PseudoEnum:
     # TODO: Once we support only Python >= 2.7, we can simplify this using
     # @functools.total_ordering.
 
-    def __lt__(self, other):
-        # type: (Any) -> Any
+    def __lt__(self, other: Any) -> Any:
         return self._order < other._order
 
-    def __le__(self, other):
-        # type: (Any) -> Any
+    def __le__(self, other: Any) -> Any:
         return self._order <= other._order
 
-    def __eq__(self, other):
-        # type: (Any) -> Any
+    def __eq__(self, other: Any) -> Any:
         return self._order == other._order
 
-    def __ne__(self, other):
-        # type: (Any) -> Any
+    def __ne__(self, other: Any) -> Any:
         return self._order != other._order
 
-    def __ge__(self, other):
-        # type: (Any) -> Any
+    def __ge__(self, other: Any) -> Any:
         return self._order >= other._order
 
-    def __gt__(self, other):
-        # type: (Any) -> Any
+    def __gt__(self, other: Any) -> Any:
         return self._order > other._order
 
     def __hash__(self) -> int:
@@ -525,19 +490,18 @@ class Release(PseudoEnum):
 
     See https://www.debian.org/releases/
     """
-    releases = {}    # type: Dict[str, Release]
+    releases: dict[str, Release] = {}
 
     def __init__(self,
-                 name,         # type: str
-                 order,        # type: Any
-                 version=""    # type: str
+                 name: str,
+                 order: Any,
+                 version: str = ""
                  ):
-        super(Release, self).__init__(name, order)
+        super().__init__(name, order)
         self.version = version
 
 
-def list_releases():
-    # type: () -> Dict[str, Release]
+def list_releases() -> dict[str, Release]:
     """
      Returns dict of Debian releases
     """
@@ -572,8 +536,7 @@ def list_releases():
 _release_list = list_releases()
 
 
-def intern_release(name, releases=None):
-    # type: (str, Optional[Any]) -> Any
+def intern_release(name: str, releases: Any | None = None) -> Any:
     if releases is None:
         releases = _release_list
     return releases.get(name)
@@ -582,8 +545,7 @@ def intern_release(name, releases=None):
 del list_releases
 
 
-def read_lines_sha256(lines):
-    # type: (Union[List[bytes], List[str]]) -> str
+def read_lines_sha256(lines: list[bytes] | list[str]) -> str:
     m = new_sha256()
     for l in lines:
         if isinstance(l, bytes):
@@ -593,8 +555,7 @@ def read_lines_sha256(lines):
     return m.hexdigest()   # type: ignore
 
 
-def read_lines_sha1(lines):
-    # type: (Union[List[bytes], List[str]]) -> str
+def read_lines_sha1(lines: list[bytes] | list[str]) -> str:
     m = new_sha1()
     for l in lines:
         if isinstance(l, bytes):
@@ -605,15 +566,14 @@ def read_lines_sha1(lines):
 
 
 _patch_re_raw = r'^(\d+)(?:,(\d+))?([acd])$'
-_patch_re = re.compile(_patch_re_raw)  # type: Pattern[str]
-_patch_re_b = re.compile(_patch_re_raw.encode('UTF-8'))   # type: Pattern[bytes]
+_patch_re: Pattern[str] = re.compile(_patch_re_raw)
+_patch_re_b: Pattern[bytes] = re.compile(_patch_re_raw.encode('UTF-8'))
 
 
 def patches_from_ed_script(
-        source,       # type: Iterable[AnyStr]
-        re_cmd=None,  # type: Optional[Pattern[AnyStr]]
-    ):
-    # type: (...) -> Iterator[Tuple[int, int, List[AnyStr]]]
+        source: Iterable[AnyStr],
+        re_cmd: Pattern[AnyStr] | None = None,
+    ) -> Iterator[tuple[int, int, list[AnyStr]]]:
     """Converts source to a stream of patches.
 
     Patches are triples of line indexes:
@@ -670,17 +630,15 @@ def patches_from_ed_script(
 
 
 def patch_lines(
-        lines,        # type: List[AnyStr]
-        patches,      # type: Iterable[Tuple[int, int, List[AnyStr]]]
-    ):
-    # type: (...) -> None
+        lines: list[AnyStr],
+        patches: Iterable[tuple[int, int, list[AnyStr]]],
+    ) -> None:
     """Applies patches to lines.  Updates lines in place."""
     for (first, last, args) in patches:
         lines[first:last] = args
 
 
-def replace_file(lines, local, encoding="UTF-8"):
-    # type: (List[str], str, str) -> None
+def replace_file(lines: list[str], local: str, encoding: str = "UTF-8") -> None:
     local_new = local + '.new'
 
     try:
@@ -693,8 +651,7 @@ def replace_file(lines, local, encoding="UTF-8"):
             os.unlink(local_new)
 
 
-def download_gunzip_lines(remote):
-    # type: (str) -> List[str]
+def download_gunzip_lines(remote: str) -> list[str]:
     """Downloads a file from a remote location and gunzips it.
 
     Returns the lines in the file."""
@@ -707,8 +664,7 @@ def download_gunzip_lines(remote):
             return gfd.readlines()   # type: ignore
 
 
-def download_file(remote, local):
-    # type: (str, str) -> List[str]
+def download_file(remote: str, local: str) -> list[str]:
     """Copies a gzipped remote file to the local system.
 
     remote - URL, without the .gz suffix
@@ -720,23 +676,22 @@ def download_file(remote, local):
     return lines
 
 
-def update_file(remote, local, verbose=False):
-    # type: (str, str, bool) -> List[str]
+def update_file(remote: str, local: str, verbose: bool = False) -> list[str]:
     """Updates the local file by downloading a remote patch.
 
     Returns a list of lines in the local file.
     """
 
     try:
-        with open(local, 'r', encoding="UTF-8") as local_file:
+        with open(local, encoding="UTF-8") as local_file:
             lines = local_file.readlines()
-    except IOError:
+    except OSError:
         if verbose:
             print("update_file: no local copy, downloading full file")
         return download_file(remote, local)
 
-    patches_to_apply = []    # type: List[str]
-    patch_hashes = {}        # type: Dict[str, str]
+    patches_to_apply: list[str] = []
+    patch_hashes: dict[str, str] = {}
 
     # pylint: disable=import-outside-toplevel
     from urllib.request import urlopen
@@ -754,7 +709,7 @@ def update_file(remote, local, verbose=False):
         if verbose:
             print("update_file: could not interpret patch index file")
         return download_file(remote, local)
-    except IOError:
+    except OSError:
         if verbose:
             print("update_file: could not download patch index file")
         return download_file(remote, local)

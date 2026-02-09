@@ -1,6 +1,7 @@
 import filecmp
 import json
 import pathlib
+import re
 from typing import Any
 
 import dask.array as da
@@ -9,6 +10,14 @@ import pytest
 import zarr
 from dask import persist
 from numcodecs import Blosc
+from ome_zarr_models.v04 import HCS as Models04HCS
+from ome_zarr_models.v04 import Image as Models04Image
+from ome_zarr_models.v04 import Labels as Models04Labels
+from ome_zarr_models.v04 import Well as Models04Well
+from ome_zarr_models.v05.hcs import HCS as Models05HCS
+from ome_zarr_models.v05.image import Image as Models05Image
+from ome_zarr_models.v05.well import Well as Models05Well
+from skimage.data import binary_blobs
 from zarr.abc.codec import BytesBytesCodec
 from zarr.codecs import BloscCodec
 
@@ -19,13 +28,13 @@ from ome_zarr.format import (
     FormatV03,
     FormatV04,
     FormatV05,
+    format_from_version,
 )
-from ome_zarr.io import ZarrLocation, parse_url
-from ome_zarr.reader import Multiscales, Reader
 from ome_zarr.scale import Scaler
 from ome_zarr.writer import (
     _get_valid_axes,
     _retuple,
+    get_metadata,
     write_image,
     write_labels,
     write_multiscale,
@@ -49,14 +58,12 @@ class TestWriter:
     def initdir(self, tmpdir):
         self.path = pathlib.Path(tmpdir.mkdir("data"))
         # create zarr v2 group...
-        self.store = parse_url(self.path, mode="w", fmt=FormatV04()).store
-        self.root = zarr.group(store=self.store)
+        self.root = zarr.open_group(self.path, mode="w", zarr_format=2)
         self.group = self.root.create_group("test")
 
         # let's create zarr v3 group too...
         self.path_v3 = self.path / "v3"
-        store_v3 = parse_url(self.path_v3, mode="w").store
-        root_v3 = zarr.group(store=store_v3)
+        root_v3 = zarr.open_group(self.path_v3, mode="w", zarr_format=3)
         self.group_v3 = root_v3.create_group("test")
 
     def create_data(self, shape, dtype=np.uint8, mean_val=10):
@@ -99,10 +106,8 @@ class TestWriter:
         version = format_version()
 
         if version.version == "0.5":
-            group = self.group_v3
             grp_path = self.path_v3 / "test"
         else:
-            group = self.group
             grp_path = self.path / "test"
 
         data = self.create_data(shape)
@@ -123,7 +128,7 @@ class TestWriter:
             storage_options = [{"chunks": chunk} for chunk in chunks]
         write_image(
             image=data,
-            group=group,
+            group=str(grp_path),
             scaler=scaler,
             fmt=version,
             axes=axes,
@@ -132,27 +137,39 @@ class TestWriter:
         )
 
         # Verify
-        reader = Reader(parse_url(f"{grp_path}"))
-        node = next(iter(reader()))
-        assert Multiscales.matches(node.zarr)
+        out = zarr.open_group(grp_path)
+        node_metadata = out.attrs
+        if "ome" in node_metadata:
+            node_metadata = node_metadata["ome"]
+        assert "multiscales" in node_metadata
+        paths = [d["path"] for d in node_metadata["multiscales"][0]["datasets"]]
+        node_data = [da.from_zarr(out[path]) for path in paths]
         if version.version in ("0.1", "0.2"):
             # v0.1 and v0.2 MUST be 5D
-            assert node.data[0].ndim == 5
+            assert node_data[0].ndim == 5
         else:
-            assert node.data[0].shape == shape
-        print("node.metadata", node.metadata)
+            assert node_data[0].shape == shape
+        print("node.metadata", node_metadata)
         if version.version not in ("0.1", "0.2", "0.3"):
-            for transf, expected in zip(
-                node.metadata["coordinateTransformations"], transformations
-            ):
+            cts = [
+                d["coordinateTransformations"]
+                for d in node_metadata["multiscales"][0]["datasets"]
+            ]
+            for transf, expected in zip(cts, transformations):
                 assert transf == expected
-            assert len(node.metadata["coordinateTransformations"]) == len(node.data)
+            assert len(cts) == len(node_data)
         # check chunks for first 2 resolutions (before shape gets smaller than chunk)
-        for level, nd_array in enumerate(node.data[:2]):
+        for level, nd_array in enumerate(node_data[:2]):
             expected = chunks[level] if storage_options_list else chunks[0]
             first_chunk = [c[0] for c in nd_array.chunks]
             assert tuple(first_chunk) == _retuple(expected, nd_array.shape)
-        assert np.allclose(data, node.data[0][...].compute())
+        assert np.allclose(data, node_data[0][...].compute())
+
+        if version.version == "0.4":
+            # Validate with ome-zarr-models-py: only supports v0.4
+            Models04Image.from_zarr(out)
+        elif version.version == "0.5":
+            Models05Image.from_zarr(out)
 
     def test_mix_zarr_formats(self):
         # check group zarr v2 and v3 matches fmt
@@ -169,6 +186,26 @@ class TestWriter:
         with pytest.raises(ValueError, match=r"Group is zarr_format: 2"):
             write_well_metadata(self.group, [{"path": "0"}], fmt=CurrentFormat())
 
+    @pytest.mark.parametrize(
+        "omezarr_format",
+        [None, "0.4", "0.5"],
+    )
+    def test_group_from_path(self, omezarr_format):
+        fmt = format_from_version(omezarr_format) if omezarr_format else None
+        data = self.create_data((64, 64, 64))
+        path = str(self.path / "test_from_path.zarr")
+        write_multiscale([data], path, axes="zyx", fmt=fmt)
+        out = zarr.open_group(path)
+        if omezarr_format in (None, "0.5"):
+            assert out.info._zarr_format == 3
+            assert "multiscales" in out.attrs.get("ome", {})
+        else:
+            assert out.info._zarr_format == 2
+            assert "multiscales" in out.attrs
+        ds_path = get_metadata(path)["multiscales"][0]["datasets"][0]["path"]
+        arr = da.from_zarr(f"{path}/{ds_path}")
+        assert np.allclose(data, arr[...].compute())
+
     @pytest.mark.parametrize("zarr_format", [2, 3])
     @pytest.mark.parametrize("array_constructor", [np.array, da.from_array])
     def test_write_image_current(self, array_constructor, zarr_format):
@@ -184,7 +221,6 @@ class TestWriter:
             grp_path = self.path_v3 / "test"
 
         write_image(data, group, axes="zyx")
-        reader = Reader(parse_url(f"{grp_path}"))
 
         # manually check this is zarr v2 or v3
         if zarr_format == 2:
@@ -195,8 +231,15 @@ class TestWriter:
             attrs_json = json.loads(json_text).get("attributes", {}).get("ome", {})
         assert "multiscales" in attrs_json
 
-        image_node = next(iter(reader()))
-        for transfs in image_node.metadata["coordinateTransformations"]:
+        out = zarr.open_group(grp_path)
+        node_metadata = out.attrs
+        if "ome" in node_metadata:
+            node_metadata = node_metadata["ome"]
+        cts = [
+            d["coordinateTransformations"]
+            for d in node_metadata["multiscales"][0]["datasets"]
+        ]
+        for transfs in cts:
             assert len(transfs) == 1
             assert transfs[0]["type"] == "scale"
             assert len(transfs[0]["scale"]) == len(shape)
@@ -234,9 +277,9 @@ class TestWriter:
         if read_from_zarr:
             # write to zarr and re-read as dask...
             path = f"{grp_path}/temp/"
-            store = parse_url(path, mode="w", fmt=fmt).store
             # store and group will be zarr v2 or v3 depending on fmt
-            temp_group = zarr.group(store=store).create_group("to_dask")
+            root = zarr.open_group(store=path, mode="w", zarr_format=zarr_format)
+            temp_group = root.create_group("to_dask")
             assert temp_group.info._zarr_format == zarr_format
             write_image(
                 data_delayed,
@@ -246,11 +289,12 @@ class TestWriter:
                 name=NAME,
             )
             print("PATH", f"{grp_path}/temp/to_dask")
-            loc = ZarrLocation(f"{grp_path}/temp/to_dask")
-
-            reader = Reader(loc)()
-            nodes = list(reader)
-            data_delayed = nodes[0].load(Multiscales).array(resolution="0")
+            out = zarr.open_group(f"{grp_path}/temp/to_dask")
+            node_metadata = out.attrs
+            if "ome" in node_metadata:
+                node_metadata = node_metadata["ome"]
+            paths = [d["path"] for d in node_metadata["multiscales"][0]["datasets"]]
+            data_delayed = da.from_zarr(out[paths[0]])
             # check that the data is the same
             assert np.allclose(data, data_delayed[...].compute())
 
@@ -272,13 +316,20 @@ class TestWriter:
             dask_delayed_jobs = persist(*dask_delayed_jobs)
 
         # check the data written to zarr v2 or v3 group
-        reader = Reader(parse_url(f"{grp_path}"))
-        image_node = next(iter(reader()))
-        first_chunk = [c[0] for c in image_node.data[0].chunks]
-        assert tuple(first_chunk) == _retuple(chunks, image_node.data[0].shape)
-        for level, transfs in enumerate(
-            image_node.metadata["coordinateTransformations"]
-        ):
+        out = zarr.open_group(grp_path)
+        node_metadata = out.attrs
+        if "ome" in node_metadata:
+            node_metadata = node_metadata["ome"]
+        paths = [d["path"] for d in node_metadata["multiscales"][0]["datasets"]]
+        image_node_data = [da.from_zarr(out[path]) for path in paths]
+        first_chunk = [c[0] for c in image_node_data[0].chunks]
+        assert tuple(first_chunk) == _retuple(chunks, image_node_data[0].shape)
+
+        cts = [
+            d["coordinateTransformations"]
+            for d in node_metadata["multiscales"][0]["datasets"]
+        ]
+        for level, transfs in enumerate(cts):
             assert len(transfs) == 1
             assert transfs[0]["type"] == "scale"
             assert len(transfs[0]["scale"]) == len(shape)
@@ -303,6 +354,12 @@ class TestWriter:
                 shallow=False,
             )
 
+        # Validate with ome-zarr-models-py
+        if fmt.version == "0.4":
+            Models04Image.from_zarr(group)
+        elif fmt.version == "0.5":
+            Models05Image.from_zarr(group)
+
     def test_write_image_scalar_chunks(self):
         """
         Make sure a scalar chunks value is applied to all dimensions,
@@ -311,9 +368,11 @@ class TestWriter:
         shape = (64, 64, 64)
         data = np.array(self.create_data(shape))
         write_image(
-            image=data, group=self.group, axes="xyz", storage_options={"chunks": 32}
+            image=data, group=str(self.path), axes="xyz", storage_options={"chunks": 32}
         )
-        for data in self.group.array_values():
+        test_group = zarr.open_group(self.path)
+        assert len(list(test_group.array_values())) > 0
+        for data in test_group.array_values():
             print(data)
             assert data.chunks == (32, 32, 32)
 
@@ -330,10 +389,9 @@ class TestWriter:
         data = self.create_data(shape)
         data = array_constructor(data)
         path = self.path / "test_write_image_compressed"
-        store = parse_url(path, mode="w", fmt=format_version()).store
-        root = zarr.group(store=store)
+        fmt = format_version()
         CNAME = "lz4"
-        LEVEL = 4
+        LEVEL = 5
         if format_version().zarr_format == 3:
             compressor = BloscCodec(cname=CNAME, clevel=LEVEL, shuffle="shuffle")
             assert isinstance(compressor, BytesBytesCodec)
@@ -347,8 +405,9 @@ class TestWriter:
 
         write_image(
             data,
-            root,
+            str(path),
             axes="zyx",
+            fmt=fmt,
             storage_options={"compressor": compressor},
         )
         group = zarr.open(f"{path}")
@@ -377,6 +436,11 @@ class TestWriter:
                     "shuffle": Blosc.SHUFFLE,
                     "blocksize": 0,
                 }
+        assert format_version().version in ("0.4", "0.5")
+        if format_version().version == "0.4":
+            Models04Image.from_zarr(group)
+        elif format_version().version == "0.5":
+            Models05Image.from_zarr(group)
 
     @pytest.mark.parametrize(
         "format_version",
@@ -401,8 +465,8 @@ class TestWriter:
         # tempdir = TemporaryDirectory(suffix=".ome.zarr")
         # self.path = pathlib.Path(tmpdir.mkdir("data"))
         path = self.path / "test_default_compression"
-        store = parse_url(path, mode="w", fmt=format_version()).store
-        root = zarr.group(store=store)
+        fmt = format_version()
+        root = zarr.open_group(path, mode="w", zarr_format=fmt.zarr_format)
         assert root.info._zarr_format == format_version().zarr_format
         # no compressor options, we are checking default
         write_image(
@@ -425,12 +489,13 @@ class TestWriter:
                 }
             else:
                 assert (path / ".zattrs").exists()
+                default_cname = "lz4" if isinstance(arr, da.Array) else "zstd"
                 json_text = (path / ds / ".zarray").read_text(encoding="utf-8")
                 arr_json = json.loads(json_text)
                 assert arr_json["compressor"] == {
                     "blocksize": 0,
                     "clevel": 5,
-                    "cname": "zstd",
+                    "cname": default_cname,
                     "id": "blosc",
                     "shuffle": 1,
                 }
@@ -605,13 +670,11 @@ class TestMultiscalesMetadata:
     def initdir(self, tmpdir):
         self.path = pathlib.Path(tmpdir.mkdir("data"))
         # create zarr v2 group...
-        self.store = parse_url(self.path, mode="w", fmt=FormatV04()).store
-        self.root = zarr.group(store=self.store)
+        self.root = zarr.open_group(self.path, mode="w", zarr_format=2)
 
         # let's create zarr v3 group too...
         self.path_v3 = self.path / "v3"
-        store_v3 = parse_url(self.path_v3, mode="w").store
-        self.root_v3 = zarr.group(store=store_v3)
+        self.root_v3 = zarr.open_group(self.path_v3, mode="w", zarr_format=3)
 
     @pytest.mark.parametrize("fmt", (FormatV04(), FormatV05()))
     def test_multi_levels_transformations(self, fmt):
@@ -619,12 +682,12 @@ class TestMultiscalesMetadata:
         for level, transf in enumerate(TRANSFORMATIONS):
             datasets.append({"path": str(level), "coordinateTransformations": transf})
         if fmt.version == "0.5":
-            group = self.root_v3
+            path = self.path_v3
         else:
-            group = self.root
-        write_multiscales_metadata(group, datasets, axes="tczyx")
+            path = self.path
+        write_multiscales_metadata(str(path), datasets, axes="tczyx", fmt=fmt)
         # we want to be sure this is zarr v2 / v3
-        attrs = group.attrs
+        attrs = zarr.open_group(path).attrs
         if fmt.version == "0.5":
             attrs = attrs.get("ome")
             assert "version" in attrs
@@ -637,6 +700,18 @@ class TestMultiscalesMetadata:
         assert "multiscales" in attrs_json
         assert "multiscales" in attrs
         assert attrs["multiscales"][0]["datasets"] == datasets
+        # No arrays, so this is expected:
+        with pytest.raises(
+            ValueError,
+            match=re.escape(
+                "Expected to find an array at 0, but no array was found there."
+            ),
+        ):
+            out = zarr.open_group(path)
+            if fmt.version == "0.4":
+                Models04Image.from_zarr(out)
+            if fmt.version == "0.5":
+                Models05Image.from_zarr(out)
 
     @pytest.mark.parametrize("fmt", (FormatV01(), FormatV02(), FormatV03()))
     def test_version(self, fmt):
@@ -720,6 +795,14 @@ class TestMultiscalesMetadata:
         assert "multiscales" in self.root.attrs
         assert self.root.attrs["multiscales"][0]["axes"] == axes
         assert self.root.attrs["multiscales"][0]["datasets"] == datasets
+        # No arrays, so this is expected:
+        with pytest.raises(
+            ValueError,
+            match=re.escape(
+                "Expected to find an array at 0, but no array was found there."
+            ),
+        ):
+            Models04Image.from_zarr(self.root)
 
     @pytest.mark.parametrize(
         "coordinateTransformations",
@@ -780,7 +863,6 @@ class TestMultiscalesMetadata:
                     }
                 ]
             },
-            {"channels": [{"color": "FF0000"}]},
             {"channels": [{"color": "FF000"}]},  # test wrong metadata
             {"channels": [{"window": []}]},  # test wrong metadata
             {
@@ -797,7 +879,8 @@ class TestMultiscalesMetadata:
             datasets.append({"path": str(level), "coordinateTransformations": transf})
         if metadata is None:
             with pytest.raises(
-                KeyError, match="If `'omero'` is present, value cannot be `None`."
+                KeyError,
+                match=re.escape("If `'omero'` is present, value cannot be `None`."),
             ):
                 write_multiscales_metadata(
                     self.root,
@@ -818,7 +901,7 @@ class TestMultiscalesMetadata:
             )
             if window_metadata is not None and len(window_metadata) < 4:
                 if isinstance(window_metadata, dict):
-                    with pytest.raises(KeyError, match=".*`'window'`.*"):
+                    with pytest.raises(KeyError, match="window"):
                         write_multiscales_metadata(
                             self.root,
                             datasets,
@@ -827,7 +910,7 @@ class TestMultiscalesMetadata:
                             fmt=FormatV04(),
                         )
                 elif isinstance(window_metadata, list):
-                    with pytest.raises(TypeError, match=".*`'window'`.*"):
+                    with pytest.raises(TypeError, match="window"):
                         write_multiscales_metadata(
                             self.root,
                             datasets,
@@ -836,7 +919,7 @@ class TestMultiscalesMetadata:
                             fmt=FormatV04(),
                         )
             elif color_metadata is not None and len(color_metadata) != 6:
-                with pytest.raises(TypeError, match=".*`'color'`.*"):
+                with pytest.raises(TypeError, match="color"):
                     write_multiscales_metadata(
                         self.root,
                         datasets,
@@ -850,6 +933,14 @@ class TestMultiscalesMetadata:
                     axes="tczyx",
                     metadata={"omero": metadata},
                 )
+                # no arrays, so this is expected
+                with pytest.raises(
+                    ValueError,
+                    match=re.escape(
+                        "Expected to find an array at 0, but no array was found there."
+                    ),
+                ):
+                    Models04Image.from_zarr(self.root)
 
 
 class TestPlateMetadata:
@@ -857,12 +948,11 @@ class TestPlateMetadata:
     def initdir(self, tmpdir):
         self.path = pathlib.Path(tmpdir.mkdir("data"))
         # create zarr v2 group...
-        self.store = parse_url(self.path, mode="w", fmt=FormatV04()).store
-        self.root = zarr.group(store=self.store)
+        self.root = zarr.open_group(self.path, mode="w", zarr_format=2)
+
         # create zarr v3 group...
         self.path_v3 = self.path / "v3"
-        store_v3 = parse_url(self.path_v3, mode="w").store
-        self.root_v3 = zarr.group(store=store_v3)
+        self.root_v3 = zarr.open_group(self.path_v3, mode="w", zarr_format=3)
 
     @pytest.mark.parametrize("fmt", (FormatV04(), FormatV05()))
     def test_minimal_plate(self, fmt):
@@ -887,6 +977,12 @@ class TestPlateMetadata:
         assert "name" not in attrs["plate"]
         assert "field_count" not in attrs["plate"]
         assert "acquisitions" not in attrs["plate"]
+        assert fmt.version in ("0.4", "0.5")
+        if fmt.version == "0.4":
+            Models04HCS.from_zarr(group)
+        elif fmt.version == "0.5":
+            # https://github.com/ome-zarr-models/ome-zarr-models-py/issues/218
+            Models05HCS.from_zarr(group)
 
     @pytest.mark.parametrize("fmt", (FormatV04(), FormatV05()))
     def test_12wells_plate(self, fmt):
@@ -944,6 +1040,11 @@ class TestPlateMetadata:
         assert "name" not in attrs["plate"]
         assert "field_count" not in attrs["plate"]
         assert "acquisitions" not in attrs["plate"]
+        assert fmt.version in ("0.4", "0.5")
+        if fmt.version == "0.4":
+            Models04HCS.from_zarr(group)
+        elif fmt.version == "0.5":
+            Models05HCS.from_zarr(group)
 
     @pytest.mark.parametrize("fmt", (FormatV04(), FormatV05()))
     def test_sparse_plate(self, fmt):
@@ -983,6 +1084,11 @@ class TestPlateMetadata:
         assert "name" not in attrs["plate"]
         assert "field_count" not in attrs["plate"]
         assert "acquisitions" not in attrs["plate"]
+        assert fmt.version in ("0.4", "0.5")
+        if fmt.version == "0.4":
+            Models04HCS.from_zarr(group)
+        elif fmt.version == "0.5":
+            Models05HCS.from_zarr(group)
 
     @pytest.mark.parametrize("fmt", (FormatV01(), FormatV02(), FormatV03()))
     def test_legacy_wells(self, fmt):
@@ -999,8 +1105,8 @@ class TestPlateMetadata:
     def test_plate_name(self):
         # We don't need to test v04 and v05 for all tests since
         # the metadata is the same
-        write_plate_metadata(self.root_v3, ["A"], ["1"], ["A/1"], name="test")
-        attrs = self.root_v3.attrs["ome"]
+        write_plate_metadata(str(self.path_v3), ["A"], ["1"], ["A/1"], name="test")
+        attrs = zarr.open_group(self.path_v3).attrs.get("ome")
         assert "plate" in attrs
         assert attrs["plate"]["columns"] == [{"name": "1"}]
         assert attrs["plate"]["name"] == "test"
@@ -1011,6 +1117,8 @@ class TestPlateMetadata:
         ]
         assert "field_count" not in attrs["plate"]
         assert "acquisitions" not in attrs["plate"]
+        out = zarr.open_group(self.path_v3)
+        Models05HCS.from_zarr(out)
 
     def test_field_count(self):
         write_plate_metadata(
@@ -1026,22 +1134,26 @@ class TestPlateMetadata:
         ]
         assert "name" not in self.root.attrs["plate"]
         assert "acquisitions" not in self.root.attrs["plate"]
+        Models04HCS.from_zarr(self.root)
 
     def test_acquisitions_minimal(self):
         a = [{"id": 1}, {"id": 2}, {"id": 3}]
         write_plate_metadata(
-            self.root, ["A"], ["1"], ["A/1"], acquisitions=a, fmt=FormatV04()
+            str(self.path), ["A"], ["1"], ["A/1"], acquisitions=a, fmt=FormatV04()
         )
-        assert "plate" in self.root.attrs
-        assert self.root.attrs["plate"]["acquisitions"] == a
-        assert self.root.attrs["plate"]["columns"] == [{"name": "1"}]
-        assert self.root.attrs["plate"]["rows"] == [{"name": "A"}]
-        assert self.root.attrs["plate"]["version"] == FormatV04().version
-        assert self.root.attrs["plate"]["wells"] == [
+        out = zarr.open_group(str(self.path), mode="r")
+        plate_attrs = out.attrs
+        assert "plate" in dict(plate_attrs)
+        assert plate_attrs["plate"]["acquisitions"] == a
+        assert plate_attrs["plate"]["columns"] == [{"name": "1"}]
+        assert plate_attrs["plate"]["rows"] == [{"name": "A"}]
+        assert plate_attrs["plate"]["version"] == FormatV04().version
+        assert plate_attrs["plate"]["wells"] == [
             {"path": "A/1", "rowIndex": 0, "columnIndex": 0}
         ]
-        assert "name" not in self.root.attrs["plate"]
-        assert "field_count" not in self.root.attrs["plate"]
+        assert "name" not in plate_attrs["plate"]
+        assert "field_count" not in plate_attrs["plate"]
+        Models04HCS.from_zarr(out)
 
     def test_acquisitions_maximal(self):
         a = [
@@ -1067,6 +1179,7 @@ class TestPlateMetadata:
         ]
         assert "name" not in self.root.attrs["plate"]
         assert "field_count" not in self.root.attrs["plate"]
+        Models04HCS.from_zarr(self.root)
 
     @pytest.mark.parametrize(
         "acquisitions",
@@ -1164,6 +1277,7 @@ class TestPlateMetadata:
         assert self.root.attrs["plate"]["rows"] == [{"name": "A"}, {"name": "B"}]
         assert self.root.attrs["plate"]["version"] == FormatV04().version
         assert self.root.attrs["plate"]["wells"] == wells
+        Models04HCS.from_zarr(self.root)
 
     def test_missing_well_keys(self):
         wells = [
@@ -1206,13 +1320,11 @@ class TestWellMetadata:
     def initdir(self, tmpdir):
         self.path = pathlib.Path(tmpdir.mkdir("data"))
         # create zarr v2 group...
-        self.store = parse_url(self.path, mode="w", fmt=FormatV04()).store
-        self.root = zarr.group(store=self.store)
+        self.root = zarr.open_group(self.path, mode="w", zarr_format=2)
 
         # create zarr v3 group too...
         self.path_v3 = self.path / "v3"
-        store_v3 = parse_url(self.path_v3, mode="w").store
-        self.root_v3 = zarr.group(store=store_v3)
+        self.root_v3 = zarr.open_group(self.path_v3, mode="w", zarr_format=3)
 
     @pytest.mark.parametrize("fmt", (FormatV04(), FormatV05()))
     @pytest.mark.parametrize("images", (["0"], [{"path": "0"}]))
@@ -1236,6 +1348,10 @@ class TestWellMetadata:
 
         assert "well" in attrs_json
         assert attrs["well"]["images"] == [{"path": "0"}]
+        if fmt.version == "0.4":
+            Models04Well.from_zarr(group)
+        elif fmt.version == "0.5":
+            Models05Well.from_zarr(group)
 
     @pytest.mark.parametrize(
         "images",
@@ -1257,6 +1373,7 @@ class TestWellMetadata:
             {"path": "2"},
         ]
         assert self.root_v3.attrs["ome"]["version"] == FormatV05().version
+        Models05Well.from_zarr(self.root_v3)
 
     @pytest.mark.parametrize("fmt", (FormatV01(), FormatV02(), FormatV03()))
     def test_version(self, fmt):
@@ -1275,6 +1392,7 @@ class TestWellMetadata:
         assert "well" in self.root.attrs
         assert self.root.attrs["well"]["images"] == images
         assert self.root.attrs["well"]["version"] == FormatV04().version
+        Models04Well.from_zarr(self.root)
 
     @pytest.mark.parametrize(
         "images",
@@ -1306,12 +1424,10 @@ class TestLabelWriter:
     def initdir(self, tmpdir):
         self.path = pathlib.Path(tmpdir.mkdir("data"))
         # create zarr v2 group...
-        self.store = parse_url(self.path, mode="w", fmt=FormatV04()).store
-        self.root = zarr.group(store=self.store)
+        self.root = zarr.open_group(self.path, mode="w", zarr_format=2)
         # create zarr v3 group...
         self.path_v3 = self.path / "v3"
-        store_v3 = parse_url(self.path_v3, mode="w").store
-        self.root_v3 = zarr.group(store=store_v3)
+        self.root_v3 = zarr.open_group(self.path_v3, mode="w", zarr_format=3)
 
     def create_image_data(self, group, shape, scaler, fmt, axes, transformations):
         rng = np.random.default_rng(0)
@@ -1348,22 +1464,27 @@ class TestLabelWriter:
         self, img_path, label_name, label_data, fmt, shape, transformations
     ):
         # Verify image data
-        reader = Reader(parse_url(f"{img_path}/labels/{label_name}"))
-        node = next(iter(reader()))
-        assert Multiscales.matches(node.zarr)
+        out = zarr.open_group(f"{img_path}/labels/{label_name}")
+        node_metadata = out.attrs
+        if "ome" in node_metadata:
+            node_metadata = node_metadata["ome"]
+        assert "multiscales" in node_metadata
+        paths = [d["path"] for d in node_metadata["multiscales"][0]["datasets"]]
+        node_data = [da.from_zarr(out[path]) for path in paths]
         if fmt.version in ("0.1", "0.2"):
             # v0.1 and v0.2 MUST be 5D
-            assert node.data[0].ndim == 5
+            assert node_data[0].ndim == 5
         else:
-            assert node.data[0].shape == shape
+            assert node_data[0].shape == shape
 
         if fmt.version not in ("0.1", "0.2", "0.3"):
-            for transf, expected in zip(
-                node.metadata["coordinateTransformations"], transformations
-            ):
+            cts = [
+                d["coordinateTransformations"]
+                for d in node_metadata["multiscales"][0]["datasets"]
+            ]
+            for transf, expected in zip(cts, transformations):
                 assert transf == expected
-            assert len(node.metadata["coordinateTransformations"]) == len(node.data)
-        assert np.allclose(label_data, node.data[0][...].compute())
+        assert np.allclose(label_data, node_data[0][...].compute())
 
         # Verify label metadata
         label_root = zarr.open(f"{img_path}/labels", mode="r")
@@ -1386,6 +1507,12 @@ class TestLabelWriter:
         name = imglabel_attrs["multiscales"][0].get("name", "")
         assert label_name == name
 
+        labels_paths = [
+            ds["path"] for ds in imglabel_attrs["multiscales"][0]["datasets"]
+        ]
+        label_data = [da.from_zarr(label_group[path]) for path in labels_paths]
+        return label_data
+
     @pytest.mark.parametrize(
         "format_version",
         (
@@ -1397,7 +1524,9 @@ class TestLabelWriter:
         ),
     )
     @pytest.mark.parametrize("array_constructor", [np.array, da.from_array])
-    def test_write_labels(self, shape, scaler, format_version, array_constructor):
+    @pytest.mark.parametrize("scale_type", ["custom", "noop", "default"])
+    def test_write_labels(self, shape, format_version, array_constructor, scale_type):
+
         fmt = format_version()
         if fmt.version == "0.5":
             img_path = self.path_v3
@@ -1414,11 +1543,23 @@ class TestLabelWriter:
             transformations.append(
                 [{"type": "scale", "scale": transf["scale"][-len(shape) :]}]
             )
-            if scaler is None:
+            if scale_type == "noop":
                 break
 
-        # create the actual label data
-        label_data = np.random.randint(0, 1000, size=shape)
+        # create the actual label data: zeros with blobs
+        label_data = np.zeros(shape, dtype=np.uint8)
+        # add some blobs, corresponding to shape
+        blobs = binary_blobs(length=256, volume_fraction=0.1, n_dim=2).astype("int8")
+        # we only apply blobs to the last two dimensions of label_data
+        slices = [slice(None)] * (len(shape) - blobs.ndim)
+        slices += [slice(0, 256), slice(0, 256)]
+        label_data[tuple(slices)] = 2 * blobs
+
+        print("label_data.shape:", label_data.shape, shape)
+        assert label_data.max() == 2
+        assert label_data.min() == 0
+        assert np.unique(label_data).tolist() == [0, 2]
+
         if fmt.version in ("0.1", "0.2"):
             # v0.1 and v0.2 require 5d
             expand_dims = (np.s_[None],) * (5 - len(shape))
@@ -1427,21 +1568,36 @@ class TestLabelWriter:
         label_name = "my-labels"
         label_data = array_constructor(label_data)
 
+        scaler = Scaler()
+        if scale_type == "noop":
+            scaler = None
+        kwargs = {"scaler": scaler}
+        if scale_type == "default":
+            del kwargs["scaler"]
+
         # create the root level image data
         self.create_image_data(group, shape, scaler, fmt, axes, transformations)
 
         write_labels(
             label_data,
             group,
-            scaler=scaler,
             name=label_name,
             fmt=fmt,
             axes=axes,
             coordinate_transformations=transformations,
+            **kwargs,
         )
-        self.verify_label_data(
+        label_data = self.verify_label_data(
             img_path, label_name, label_data, fmt, shape, transformations
         )
+
+        for level in label_data:
+            if scale_type == "default":
+                assert np.unique(level.compute()).tolist() == [0, 2]
+
+        if fmt.version == "0.4":
+            test_root = zarr.open(self.path)
+            Models04Labels.from_zarr(test_root["labels"])
 
     @pytest.mark.parametrize(
         "format_version",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wandelbots_api_client
-Version: 25.10.0
+Version: 26.1.0
 Summary: Wandelbots Python Client: Interact with robots in an easy and intuitive way. 
 Home-page: 
 Author: Copyright (c) 2025 Wandelbots GmbH
@@ -40,8 +40,8 @@ Dynamic: license-file
 # wandelbots-api-client
 Interact with robots in an easy and intuitive way.
 
-- Compatible API version: 1.1.0 (can be found at the home screen of your instance -> API)
-- Package version: 25.10.0
+- Compatible API version: 1.2.0 (can be found at the home screen of your instance -> API)
+- Package version: 26.1.0
 
 ## Requirements.
 Python >=3.11, Python < 4.0

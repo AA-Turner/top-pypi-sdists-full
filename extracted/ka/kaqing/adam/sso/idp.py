@@ -14,7 +14,7 @@ from .cred_cache import CredCache
 from .idp_session import IdpSession
 from .idp_login import IdpLogin
 from adam.config import Config
-from adam.utils import debug, log, log_exc
+from adam.utils_log import debug, log, log_exc
 
 T = TypeVar('T')
 

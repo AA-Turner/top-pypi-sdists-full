@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# AUTO-GENERATED FROM `$REPO_ROOT/templates/tools/distrib/python/xds_protos/grpc_version.py.template`!!!
+# AUTO-GENERATED FROM `$REPO_ROOT/templates/py_xds_protos/grpc_version.py.template`!!!
 
-VERSION = '1.76.0'
+VERSION = '1.78.0'
 PROTOBUF_VERSION = '4.31.1'

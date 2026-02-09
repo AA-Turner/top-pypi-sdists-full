@@ -34,6 +34,10 @@ class FunctionTool(BaseModel):
 
 
 class GraphToolFunctionQueryConfig(BaseModel):
+    """
+    Configuration options for Knowledge Graph queries, including search parameters and citation settings.
+    """
+
     grounding_level: Optional[float] = None
     """
     Level of grounding required for responses, controlling how closely answers must
@@ -101,6 +105,8 @@ class GraphToolFunctionQueryConfig(BaseModel):
 
 
 class GraphToolFunction(BaseModel):
+    """A tool that uses Knowledge Graphs as context for responses."""
+
     graph_ids: List[str]
     """An array of graph IDs to use in the tool."""
 
@@ -126,6 +132,8 @@ class GraphTool(BaseModel):
 
 
 class LlmToolFunction(BaseModel):
+    """A tool that uses another Writer model to generate a response."""
+
     description: str
     """A description of the model to use."""
 
@@ -142,6 +150,8 @@ class LlmTool(BaseModel):
 
 
 class TranslationToolFunction(BaseModel):
+    """A tool that uses Palmyra Translate to translate text."""
+
     formality: bool
     """Whether to use formal or informal language in the translation.
 
@@ -194,6 +204,11 @@ class TranslationToolFunction(BaseModel):
 
 
 class TranslationTool(BaseModel):
+    """A tool that uses Palmyra Translate to translate text.
+
+    Note that this tool does not stream results. The response is returned after the translation is complete.
+    """
+
     function: TranslationToolFunction
     """A tool that uses Palmyra Translate to translate text."""
 
@@ -203,10 +218,11 @@ class TranslationTool(BaseModel):
 
 class VisionToolFunctionVariable(BaseModel):
     file_id: str
-    """The File ID of the image to analyze.
+    """The File ID of the file to analyze.
 
     The file must be uploaded to the Writer platform before you use it with the
-    Vision tool. The maximum allowed file size is 7MB.
+    Vision tool. Supported file types: JPG, PNG, PDF, TXT. The maximum allowed file
+    size is 7MB.
     """
 
     name: str
@@ -220,6 +236,11 @@ class VisionToolFunctionVariable(BaseModel):
 
 
 class VisionToolFunction(BaseModel):
+    """A tool that uses Palmyra Vision to analyze images and documents.
+
+    Supports JPG, PNG, PDF, and TXT files up to 7MB each.
+    """
+
     model: Literal["palmyra-vision"]
     """The model to use for image analysis."""
 
@@ -228,13 +249,18 @@ class VisionToolFunction(BaseModel):
 
 class VisionTool(BaseModel):
     function: VisionToolFunction
-    """A tool that uses Palmyra Vision to analyze images."""
+    """A tool that uses Palmyra Vision to analyze images and documents.
+
+    Supports JPG, PNG, PDF, and TXT files up to 7MB each.
+    """
 
     type: Literal["vision"]
     """The type of tool."""
 
 
 class WebSearchToolFunction(BaseModel):
+    """A tool that uses web search to find information."""
+
     exclude_domains: List[str]
     """An array of domains to exclude from the search results."""
 

@@ -4,11 +4,10 @@ from dataclasses import dataclass
 from unittest.mock import ANY
 from urllib.parse import parse_qs, unquote
 
-import jsonschema
+import jsonschema_rs
 import pytest
 from flask import Flask, jsonify, request
 from hypothesis import Phase, settings
-from jsonschema import ValidationError
 from requests import Request
 from requests.models import RequestEncodingMixin
 
@@ -242,7 +241,7 @@ def collect_coverage_cases(ctx, body_schema, positive=False):
     loaded = schemathesis.openapi.from_dict(schema)
     operation = loaded["/foo"]["post"]
 
-    validator = jsonschema.Draft202012Validator(body_schema)
+    validator = jsonschema_rs.Draft202012Validator(body_schema)
     cases = []
 
     def collect(case):
@@ -2265,6 +2264,31 @@ def test_avoid_testing_unexpected_methods_in_cli(ctx, cli, snapshot_cli, openapi
     )
 
 
+@pytest.mark.openapi_version("3.0")
+def test_coverage_failure_shows_actual_method_in_header(ctx, cli, snapshot_cli, openapi3_base_url):
+    # Regression test for GH-3322
+    # When coverage phase tests unexpected HTTP methods (e.g., PATCH on a GET endpoint),
+    # the failure header should show the actual tested method, not the original endpoint's method
+    raw_schema = {
+        "/resource": {
+            "get": {"responses": {"200": {"description": "OK"}}},
+        }
+    }
+    schema_path = ctx.openapi.write_schema(raw_schema)
+
+    assert (
+        cli.main(
+            "run",
+            str(schema_path),
+            "--checks=unsupported_method",
+            f"--url={openapi3_base_url}",
+            "--phases=coverage",
+            "--mode=negative",
+        )
+        == snapshot_cli
+    )
+
+
 def test_missing_authorization(ctx, cli, snapshot_cli, openapi3_base_url):
     # The reproduction code should not contain auth if it is explicitly specified
     schema_path = ctx.openapi.write_schema(
@@ -2652,10 +2676,7 @@ def _validate_serialized_items_are_negative(serialized_items, parameter, case):
 
     # Get the JSON schema for validation
     schema = parameter.optimized_schema
-    validator = case.operation.schema.adapter.jsonschema_validator_cls(
-        schema,
-        format_checker=jsonschema.Draft202012Validator.FORMAT_CHECKER,
-    )
+    validator = case.operation.schema.adapter.jsonschema_validator_cls(schema)
 
     # Check each serialized value
     for item in serialized_items:
@@ -2670,7 +2691,7 @@ def _validate_serialized_items_are_negative(serialized_items, parameter, case):
                 f"Description: {case.meta.phase.data.description}\n"
                 f"This value should be invalid but passes validation after HTTP serialization."
             )
-        except ValidationError:
+        except jsonschema_rs.ValidationError:
             # Validation failed - this is expected for negative cases
             pass
 

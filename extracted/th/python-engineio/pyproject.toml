@@ -1,6 +1,6 @@
 [project]
 name = "python-engineio"
-version = "4.13.0"
+version = "4.13.1"
 license = {text = "MIT"}
 authors = [{name = "Miguel Grinberg", email = "miguel.grinberg@gmail.com"}]
 description = "Engine.IO server and client for Python"
@@ -27,13 +27,14 @@ client = [
     "websocket-client >= 0.54.0",
 ]
 asyncio_client = [
-    "aiohttp >= 3.4"
+    "aiohttp >= 3.11"
 ]
 dev = [
     "tox",
 ]
 docs = [
     "sphinx",
+    "furo",
 ]
 
 [tool.setuptools]

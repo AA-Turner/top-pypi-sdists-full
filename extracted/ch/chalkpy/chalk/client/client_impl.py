@@ -745,8 +745,6 @@ class OnlineQueryResponseImpl(OnlineQueryResult):
         self.warnings = warnings
         self.meta = meta
 
-        print(self.data)
-
         for d in self.data:
             if d.value is not None:
                 try:

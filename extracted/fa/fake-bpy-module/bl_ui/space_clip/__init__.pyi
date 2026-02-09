@@ -934,7 +934,7 @@ class CLIP_PT_display(_bpy_types.Panel):
         :param context:
         """
 
-class CLIP_PT_footage(CLIP_PT_clip_view_panel, _bpy_types.Panel):
+class CLIP_PT_footage(_bpy_types.Panel):
     bl_category: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -955,6 +955,13 @@ class CLIP_PT_footage(CLIP_PT_clip_view_panel, _bpy_types.Panel):
         """
 
     def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+    @classmethod
+    def poll(cls, context) -> None:
         """
 
         :param context:

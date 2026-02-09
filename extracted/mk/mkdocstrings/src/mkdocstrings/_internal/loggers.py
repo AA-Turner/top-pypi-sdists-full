@@ -82,7 +82,7 @@ class LoggerAdapter(logging.LoggerAdapter):
             if (key := (self, str(msg))) in self._logged:
                 return
             self._logged.add(key)
-        super().log(level, msg, *args, **kwargs)  # type: ignore[arg-type]
+        super().log(level, msg, *args, **kwargs)  # ty: ignore[invalid-argument-type]
 
 
 class TemplateLogger:

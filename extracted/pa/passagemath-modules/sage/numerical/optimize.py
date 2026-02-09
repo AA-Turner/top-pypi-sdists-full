@@ -79,7 +79,7 @@ def find_root(f, a, b, xtol=10e-13, rtol=2.0**-50, maxiter=100, full_output=Fals
     The following example was added due to :issue:`4942` and demonstrates that
     the function need not be defined at the endpoints::
 
-        sage: find_root(x^2*log(x,2)-1,0, 2)  # abs tol 1e-6
+        sage: find_root(x^2*log(x,2)-1,0, 2)  # abs tol 1e-6                            # needs sage.symbolic
         1.41421356237
 
     The following is an example, again from :issue:`4942` where Brent's method
@@ -95,8 +95,8 @@ def find_root(f, a, b, xtol=10e-13, rtol=2.0**-50, maxiter=100, full_output=Fals
 
     An example of a function which evaluates to NaN on the entire interval::
 
-        sage: f(x) = 0.0 / max(0, x)
-        sage: find_root(f, -1, 0)
+        sage: f(x) = 0.0 / max(0, x)                                                    # needs sage.symbolic
+        sage: find_root(f, -1, 0)                                                       # needs sage.symbolic
         Traceback (most recent call last):
         ...
         RuntimeError: f appears to have no zero on the interval
@@ -520,9 +520,9 @@ def minimize_constrained(func, cons, x0, gradient=None, algorithm='default', **a
         sage: x, y = var('x y')
         sage: f(x,y) = (100 - x) + (1000 - y)
         sage: c(x,y) = x + y - 479  # > 0
-        sage: minimize_constrained(f, [c], [100, 300])
+        sage: minimize_constrained(f, [c], [100, 300]) # random
         (805.985..., 1005.985...)
-        sage: minimize_constrained(f, c, [100, 300])
+        sage: minimize_constrained(f, c, [100, 300])   # random
         (805.985..., 1005.985...)
 
     If ``func`` is symbolic, its minimizer should be in the same order
@@ -533,7 +533,7 @@ def minimize_constrained(func, cons, x0, gradient=None, algorithm='default', **a
         sage: f(y,x) = x - y
         sage: c1(y,x) = x
         sage: c2(y,x) = 1-y
-        sage: minimize_constrained(f, [c1, c2], (0,0))
+        sage: minimize_constrained(f, [c1, c2], (0,0)) # abs tol 1e-04
         (1.0, 0.0)
     """
     from sage.structure.element import Expression
@@ -568,12 +568,12 @@ def minimize_constrained(func, cons, x0, gradient=None, algorithm='default', **a
         if isinstance(cons[0], (tuple, list)) or cons[0] is None:
             if gradient is not None:
                 if algorithm == 'l-bfgs-b':
-                    min = optimize.fmin_l_bfgs_b(f, x0, gradient, bounds=cons, iprint=-1, **args)[0]
+                    min = optimize.fmin_l_bfgs_b(f, x0, gradient, bounds=cons, **args)[0]
                 else:
                     min = optimize.fmin_tnc(f, x0, gradient, bounds=cons, messages=0, **args)[0]
             else:
                 if algorithm == 'l-bfgs-b':
-                    min = optimize.fmin_l_bfgs_b(f, x0, approx_grad=True, bounds=cons, iprint=-1, **args)[0]
+                    min = optimize.fmin_l_bfgs_b(f, x0, approx_grad=True, bounds=cons, **args)[0]
                 else:
                     min = optimize.fmin_tnc(f, x0, approx_grad=True, bounds=cons, messages=0, **args)[0]
         elif isinstance(cons[0], (function_type, Expression)):

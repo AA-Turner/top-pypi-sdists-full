@@ -18,10 +18,7 @@ AUTHORS:
 #                  http://www.gnu.org/licenses/
 #*****************************************************************************
 
-try:
-    from typing import Self  # type: ignore (Python >= 3.11)
-except ImportError:
-    from typing_extensions import Self  # type: ignore (Python 3.10)
+from typing import Self
 
 from sage.algebras.lie_algebras.verma_module import ModulePrinting
 from sage.categories.enumerated_sets import EnumeratedSets
@@ -105,7 +102,7 @@ class BGGDualModule(CombinatorialFreeModule):
 
     - [Humphreys08]_
     """
-    def __init__(self, module):
+    def __init__(self, module) -> None:
         r"""
         Initialize ``self``.
 
@@ -463,7 +460,7 @@ class SimpleModuleIndices(IndexedFreeAbelianMonoid):
         """
         return super(IndexedMonoid, cls).__classcall__(cls, simple, prefix=prefix, **kwds)
 
-    def __init__(self, simple, prefix, category=None, **kwds):
+    def __init__(self, simple, prefix, category=None, **kwds) -> None:
         r"""
         Initialize ``self``.
 
@@ -596,7 +593,7 @@ class SimpleModuleIndices(IndexedFreeAbelianMonoid):
             self._construct_next_level()
         return self._weight_space_bases.get(mu, [])
 
-    def __contains__(self, m):
+    def __contains__(self, m) -> bool:
         r"""
         Check if ``m`` is contained in ``self``.
 
@@ -751,10 +748,10 @@ class SimpleModuleIndices(IndexedFreeAbelianMonoid):
                 mat = matrix(R, [[b[s] for s in supp] for b in wt_basis])
                 mat.echelonize()
                 for i, k in enumerate(self._weight_space_bases[mu]):
-                    data = {supp[ind]: R(c) for ind, c in mat[i].iteritems() if c}
+                    data = {supp[ind]: R(c) for ind, c in mat[i].items() if c}
                     self._basis[k] = ambient.element_class(ambient, data)
                 i = mat.nrows() - 1
-                data = {supp[ind]: R(c) for ind, c in mat[i].iteritems() if c}
+                data = {supp[ind]: R(c) for ind, c in mat[i].items() if c}
                 if data:
                     next_level[key] = ambient.element_class(ambient, data)
                     self._basis[key] = next_level[key]
@@ -820,7 +817,7 @@ class SimpleModule(ModulePrinting, CombinatorialFreeModule):
             return FiniteDimensionalSimpleModule(g, weight, *args, **kwds)
         return super().__classcall__(cls, g, weight, *args, **kwds)
 
-    def __init__(self, g, weight, prefix='f', basis_key=None, **kwds):
+    def __init__(self, g, weight, prefix='f', basis_key=None, **kwds) -> None:
         r"""
         Initialize ``self``.
 

@@ -378,7 +378,7 @@ def sieve(X, bound):
         sage: from sage.schemes.projective.projective_rational_point import sieve
         sage: P.<x,y,z> = ProjectiveSpace(2, QQ)
         sage: X = P.subscheme(3*x - 3/2*y)
-        sage: sieve(X, 3)                                                               # needs sage.libs.singular sage.symbolic
+        sage: sieve(X, 3)                                                               # needs fpylll sage.libs.singular sage.symbolic
         [(-1 : -2 : 1), (-1/2 : -1 : 1), (-1/3 : -2/3 : 1), (0 : 0 : 1),
          (1/3 : 2/3 : 1), (1/2 : 1 : 0), (1/2 : 1 : 1), (1 : 2 : 1)]
     """
@@ -470,18 +470,14 @@ def sieve(X, bound):
         all rational points in modulo ring.
         """
         Xp = X.change_ring(GF(p))
-        L = Xp.rational_points()
-
-        return [list(_) for _ in L]
+        return [list(p) for p in Xp.rational_points()]
 
     def points_modulo_primes(X, primes):
         r"""
         Return a list of rational points modulo all `p` in primes,
         computed parallelly.
         """
-        normalized_input = []
-        for p in primes_list:
-            normalized_input.append(((X, p, ), {}))
+        normalized_input = [((X, p, ), {}) for p in primes_list]
         p_iter = p_iter_fork(ncpus())
 
         points_pair = list(p_iter(parallel_function, normalized_input))
@@ -531,12 +527,11 @@ def sieve(X, bound):
         r"""
         Return list of all rational points lifted parallelly.
         """
-        normalized_input = []
-        points = modulo_points.pop() # remove the list of points corresponding to largest prime
+        points = modulo_points.pop()  # remove the list of points corresponding to largest prime
         len_modulo_points.pop()
 
-        for point in points:
-            normalized_input.append(( (point, ), {}))
+        normalized_input = [((point, ), {}) for point in points]
+
         p_iter = p_iter_fork(ncpus())
         points_satisfying = list(p_iter(parallel_function_combination, normalized_input))
 

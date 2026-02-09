@@ -1,25 +1,28 @@
 import os
 import time
-from typing import cast
+import traceback
+from typing import Callable, cast
 import click
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit import HTML
 
 from adam.cli_group import cli
 from adam.commands.command import Command, InvalidArgumentsException, InvalidStateException
+from adam.commands.command_filter import CommandFilter
 from adam.commands.command_helpers import ClusterCommandHelper
-from adam.commands.devices.devices import Devices
+from adam.commands.devices.devices import device
 from adam.commands.help import Help
 from adam.config import Config
 from adam.sql.async_executor import AsyncExecutor
-from adam.utils_audits import Audits
+from adam.utils_audits import Audits, audit
 from adam.utils_context import Context
 from adam.utils_k8s.kube_context import KubeContext
-from adam.log import Log
 from adam.repl_commands import ReplCommands
 from adam.repl_session import ReplSession
 from adam.repl_state import ReplState
-from adam.utils import CommandLog, clear_wait_log_flag, debug_trace, deep_sort_dict, log2, log_exc, log_timing
+from adam.utils import deep_sort_dict
+from adam.utils_log import CommandLog, Log, clear_wait_log_flag, debug_trace, log2, log_exc, log_timing
+from adam.utils_repl.set_completer import SetCompleter
 from adam.utils_tabulize import tabulize
 from adam.apps import Apps
 from adam.utils_repl.repl_completer import ReplCompleter, merge_completions
@@ -38,6 +41,7 @@ def enter_repl(state: ReplState):
     cmd_list: list[Command] = ReplCommands.repl_cmd_list() + [Help()]
     # head with the Chain of Responsibility pattern
     cmds: Command = Command.chain(cmd_list)
+
     session = ReplSession().prompt_session
 
     def prompt_msg():
@@ -47,7 +51,7 @@ def enter_repl(state: ReplState):
 
     Log.log2(f'kaqing {__version__}')
 
-    Devices.of(state).enter(state)
+    device(state).enter(state)
 
     kb = KeyBindings()
 
@@ -55,35 +59,22 @@ def enter_repl(state: ReplState):
     def _(event):
         event.app.current_buffer.text = ''
 
-    with Audits.offload() as exec:
+    with audit() as submit:
         # warm up AWS lambda - this log line may timeout and get lost, which is fine
-        exec.submit(Audits.log, 'entering kaqing repl', state.namespace, 'z', 0.0)
+        submit(Audits.log, 'entering kaqing repl', state.namespace, 'z', 0.0)
 
+        cmd_list, cmds = cmd_list_n_chain()
         s0 = time.time()
 
-        # use sorted command list only for auto-completion
-        sorted_cmds = sorted(cmd_list, key=lambda cmd: cmd.command())
         while True:
             AsyncExecutor.reset()
+
+            final_calls = []
 
             cmd: str = None
             result = None
             try:
-                completer = ReplCompleter.from_nested_dict({})
-                if not state.bash_session:
-                    with log_timing('completion-calcs'):
-                        completions = {}
-                        # app commands are available only on a: drive
-                        if state.device == ReplState.A and state.app_app:
-                            completions = log_timing('actions', lambda: Apps(path='apps.yaml').commands())
-
-                        for c in sorted_cmds:
-                            with log_exc(f'* {c.command()} command returned None completions.'):
-                                completions = log_timing(c.command(), lambda: deep_sort_dict(merge_completions(completions, c.completion(state))))
-
-                        # print(json.dumps(completions, indent=4))
-                        completer = ReplCompleter.from_nested_dict(completions)
-
+                completer = repl_completer(state, cmd_list)
                 cmd = session.prompt(HTML(f'<ansibrightblue>{prompt_msg()}</ansibrightblue>'),
                                      completer=completer,
                                      key_bindings=kb,
@@ -96,30 +87,10 @@ def enter_repl(state: ReplState):
                         continue
 
                     cmd = f'bash {cmd}'
+                else:
+                    final_calls, cmd = filtered(state, cmd)
+                    target, cmd = targetted(state, cmd)
 
-                def targetted(state: ReplState, cmd: str):
-                    if not (cmd.startswith('@') and len(arry := cmd.split(' ')) > 1):
-                        return state, cmd
-
-                    if state.device == ReplState.A and state.app_app or state.device == ReplState.P:
-                        state.push(pod_targetted=True)
-
-                        state.app_pod = arry[0].strip('@')
-                        cmd = ' '.join(arry[1:])
-                    elif state.device == ReplState.P:
-                        state.push(pod_targetted=True)
-
-                        state.app_pod = arry[0].strip('@')
-                        cmd = ' '.join(arry[1:])
-                    elif state.sts:
-                        state.push(pod_targetted=True)
-
-                        state.pod = arry[0].strip('@')
-                        cmd = ' '.join(arry[1:])
-
-                    return (state, cmd)
-
-                target, cmd = targetted(state, cmd)
                 try:
                     if cmd and cmd.strip(' ') and not (result := cmds.run(cmd, target)):
                         result = try_device_default_action(target, cmds, cmd_list, cmd)
@@ -130,7 +101,6 @@ def enter_repl(state: ReplState):
 
                 if result and type(result) is ReplState and (s := cast(ReplState, result).export_session) != state.export_session:
                     state.export_session = s
-
             except EOFError:  # Handle Ctrl+D (EOF) for graceful exit
                 break
             except Exception as e:
@@ -147,14 +117,103 @@ def enter_repl(state: ReplState):
                 if cmd:
                     log_timing(f'command {cmd}', s0=s0)
 
+                if final_calls:
+                    for c in final_calls:
+                        try:
+                            c()
+                        except:
+                            if Config().is_debug():
+                                traceback.print_exc()
+
                 # offload audit logging
                 if cmd and (state.device != ReplState.L or Config().get('audit.log-audit-queries', False)):
-                    exec.submit(Audits.log, cmd, state.namespace, state.device, time.time() - s0, get_audit_extra(result))
+                    submit(Audits.log, cmd, state.namespace, state.device, time.time() - s0, get_audit_extra(result))
 
                 CommandLog.close_log_file()
 
+def repl_completer(state: ReplState, cmd_list: list[Command]):
+    completer = ReplCompleter.from_nested_dict({})
+
+    # use sorted command list only for auto-completion
+    sorted_cmds = sorted(cmd_list, key=lambda cmd: cmd.command())
+
+    if not state.bash_session:
+        with log_timing('completion-calcs'):
+            completions = {}
+            # app commands are available only on a: drive
+            if state.device == ReplState.A and state.app_app:
+                completions = log_timing('actions', lambda: Apps(path='apps.yaml').commands())
+
+            for c in sorted_cmds:
+                with log_exc(f'* {c.command()} command returned None completions.'):
+                    completions = log_timing(c.command(), lambda: deep_sort_dict(merge_completions(completions, c.completion(state))))
+
+            # print(json.dumps(completions, indent=4))
+            completer = SetCompleter(['time', 'debug'], completions, at_least=0)
+
+    return completer
+
+def filtered(state: ReplState, cmd: str) -> tuple[list[Callable[[], None]], str]:
+    cmd_filters: list[CommandFilter] = ReplCommands.filters()
+
+    if not cmd_filters:
+        return [], cmd
+
+    final_calls = []
+
+    filter_processed = True
+    while filter_processed:
+        filter_processed = False
+        for filter in cmd_filters:
+            fn, cmd = filter.process(state, cmd)
+            if fn:
+                final_calls.append(fn)
+                filter_processed = True
+
+    return final_calls, cmd
+
+def process_config_filter(state: ReplState, cmd: str, word: str, key: str, value = True, default = False) -> tuple[Callable[[], None], str]:
+    if (pre := f'{word} ') and cmd.startswith(pre):
+        cmd = cmd[len(pre):]
+        final_value = Config().get(key, default=default)
+
+        Config().set(key, value)
+
+        return lambda: Config().set(key, final_value), cmd
+
+    return None, cmd
+
+def targetted(state: ReplState, cmd: str):
+    if not (cmd.startswith('@') and len(arry := cmd.split(' ')) > 1):
+        return state, cmd
+
+    if state.device == ReplState.A and state.app_app or state.device == ReplState.P:
+        state.push(pod_targetted=True)
+
+        state.app_pod = arry[0].strip('@')
+        cmd = ' '.join(arry[1:])
+    elif state.device == ReplState.P:
+        state.push(pod_targetted=True)
+
+        state.app_pod = arry[0].strip('@')
+        cmd = ' '.join(arry[1:])
+    elif state.sts:
+        state.push(pod_targetted=True)
+
+        state.pod = arry[0].strip('@')
+        cmd = ' '.join(arry[1:])
+
+    return (state, cmd)
+
+def cmd_list_n_chain():
+    cmd_list: list[Command] = ReplCommands.repl_cmd_list() + [Help()]
+    # head with the Chain of Responsibility pattern
+    cmds: Command = Command.chain(cmd_list)
+
+    return cmd_list, cmds
+
 def try_device_default_action(state: ReplState, cmds: Command, cmd_list: list[Command], cmd: str, ctx: Context = Context.NULL):
-    action_taken, result = Devices.of(state).try_fallback_action(cmds, state, cmd)
+    action_taken, result = device(state).try_fallback_action(cmds, state, cmd)
 
     if not action_taken:
         ctx=ctx.copy(show_out=True)

@@ -61,6 +61,8 @@ class DynamicAgentGraph:
         langfuse_handler=None,
         policy_system: Optional[PolicyConfigurable] = None,
         tool_provider: Optional[ToolProviderInterface] = None,
+        cuga_folder: Optional[str] = None,
+        filesystem_sync: Optional[bool] = None,
     ):
         self.task_decomposition_agent = TaskDecompositionNode(TaskDecompositionAgent.create())
         self.plan_controller_agent = PlanControllerNode(PlanControllerAgent.create())
@@ -79,9 +81,15 @@ class DynamicAgentGraph:
         self.api_shortlister = ApiShortlister(ShortlisterAgent.create())
         self.api_coder = ApiCoder(CodeAgent.create())
         self.cuga_lite = CugaLiteNode(langfuse_handler=langfuse_handler)
+        from cuga.config import settings
+
         self.langfuse_handler = langfuse_handler
         self.policy_system = policy_system or PolicyConfigurable.get_instance()
         self.tool_provider = tool_provider
+        self.cuga_folder = cuga_folder if cuga_folder is not None else settings.policy.cuga_folder
+        self.filesystem_sync = (
+            filesystem_sync if filesystem_sync is not None else settings.policy.filesystem_sync
+        )
         self.graph = None
 
     async def build_graph(self):

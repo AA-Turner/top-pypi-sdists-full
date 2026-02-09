@@ -6,7 +6,8 @@
 # :license: MIT, see LICENSE for more details
 from __future__ import annotations
 
-from asyncio import iscoroutinefunction, ensure_future
+from asyncio import ensure_future
+from inspect import iscoroutinefunction
 from typing import Optional, Callable, Awaitable, TYPE_CHECKING
 
 from slixmpp.xmlstream.stanzabase import StanzaBase

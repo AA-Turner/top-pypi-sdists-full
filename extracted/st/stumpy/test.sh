@@ -142,7 +142,7 @@ check_ray()
 gen_coveragerc_boilerplate()
 {
     # Check if file does not exist OR file is empty
-    if [[ ! -e "$FILE" ]] || [[ ! -s "$FILE" ]]; then
+    if [[ ! -e ".coveragerc_override" ]] || [[ ! -s ".coveragerc_override" ]]; then
         echo "[report]" > .coveragerc_override
         echo "; Regexes for lines to exclude from consideration" >> .coveragerc_override
         echo "exclude_also =" >> .coveragerc_override

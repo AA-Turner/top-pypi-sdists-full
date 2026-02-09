@@ -1,34 +1,33 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: sqlalchemy_exasol
-Version: 6.0.0
+Version: 6.1.0
 Summary: EXASOL dialect for SQLAlchemy
-License: BSD
+License-Expression: BSD-2-Clause
+License-File: LICENSE
 Keywords: exasol,sql,sqlalchemy,data science,database
 Author: Exasol AG
 Author-email: opensource@exasol.com
 Requires-Python: >=3.10,<3.14
 Classifier: Development Status :: 5 - Production/Stable
+Classifier: Operating System :: POSIX :: Linux
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Information Technology
-Classifier: License :: Other/Proprietary License
-Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: SQL
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
-Classifier: Programming Language :: SQL
 Classifier: Topic :: Database
-Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Requires-Dist: packaging (>=21.3)
-Requires-Dist: pyexasol (>=0.26.0,<2)
-Requires-Dist: sqlalchemy (>=2.0.0,<3.0.0)
+Requires-Dist: pyexasol (>=0.26.0,<3.0)
+Requires-Dist: sqlalchemy (>=2.0.0,<2.0.45)
 Project-URL: Changelog, https://exasol.github.io/sqlalchemy-exasol/changelog.html
 Project-URL: Documentation, https://exasol.github.io/sqlalchemy-exasol/
 Project-URL: Homepage, https://www.exasol.com/

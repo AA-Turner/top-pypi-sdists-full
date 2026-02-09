@@ -207,6 +207,7 @@ class HookStage(StageWithFile):
     type_name = "hook"
     input: bool = False
     output: bool = False
+    task_schema: Optional[Dict[str, Any]] = None
 
     @staticmethod
     def from_dict(dto: dict):
@@ -224,6 +225,7 @@ class HookStage(StageWithFile):
             is_initial=dto["is_initial"],
             input=dto.get("input", False),
             output=dto.get("output", False),
+            task_schema=dto.get("task_schema"),
         )
 
     @staticmethod
@@ -259,6 +261,7 @@ class HookStage(StageWithFile):
             "transitions": [t.as_dict for t in self.workflow_transitions],
             "input": self.input,
             "output": self.output,
+            "task_schema": self.task_schema,
         }
 
     @property
@@ -271,7 +274,7 @@ class HookStage(StageWithFile):
 
     def update(self, changes: Dict[str, Any]):
         for attr, value in changes.items():
-            if attr in ["title", "enabled", "input", "output"]:
+            if attr in ["title", "enabled", "input", "output", "task_schema"]:
                 setattr(self, attr, value)
             elif attr == "file":
                 _update_file(self, value)
@@ -292,6 +295,7 @@ class HookStage(StageWithFile):
             is_initial=self.is_initial,
             input=self.input,
             output=self.output,
+            task_schema=self.task_schema,
         )
 
 
@@ -306,6 +310,7 @@ class ScriptStage(StageWithFile):
     type_name = "script"
     input: bool = False
     output: bool = False
+    task_schema: Optional[Dict[str, Any]] = None
 
     @staticmethod
     def create(
@@ -340,6 +345,7 @@ class ScriptStage(StageWithFile):
             ],
             input=data.get("input", False),
             output=data.get("output", False),
+            task_schema=data.get("task_schema"),
         )
 
     @property
@@ -353,6 +359,7 @@ class ScriptStage(StageWithFile):
             "transitions": [t.as_dict for t in self.workflow_transitions],
             "input": self.input,
             "output": self.output,
+            "task_schema": self.task_schema,
         }
 
     @property
@@ -365,7 +372,7 @@ class ScriptStage(StageWithFile):
 
     def update(self, changes: Dict[str, Any]):
         for attr, value in changes.items():
-            if attr in ["id", "title", "input", "output"]:
+            if attr in ["id", "title", "input", "output", "task_schema"]:
                 setattr(self, attr, value)
             elif attr == "file":
                 _update_file(self, value)
@@ -382,6 +389,7 @@ class ScriptStage(StageWithFile):
             transitions=[t.to_abstra_json_dto() for t in self.workflow_transitions],
             input=self.input,
             output=self.output,
+            task_schema=self.task_schema,
         )
 
 
@@ -569,6 +577,7 @@ class JobStage(StageWithFile):
     type_name = "job"
     input: bool = False
     output: bool = False
+    task_schema: Optional[Dict[str, Any]] = None
 
     is_initial = True
 
@@ -605,6 +614,7 @@ class JobStage(StageWithFile):
             ],
             input=data.get("input", False),
             output=data.get("output", False),
+            task_schema=data.get("task_schema"),
         )
 
     @property
@@ -618,6 +628,7 @@ class JobStage(StageWithFile):
             "transitions": [t.as_dict for t in self.workflow_transitions],
             "input": self.input,
             "output": self.output,
+            "task_schema": self.task_schema,
         }
 
     @property
@@ -630,7 +641,14 @@ class JobStage(StageWithFile):
 
     def update(self, changes: Dict[str, Any]):
         for attr, value in changes.items():
-            if attr in ["identifier", "title", "schedule", "input", "output"]:
+            if attr in [
+                "identifier",
+                "title",
+                "schedule",
+                "input",
+                "output",
+                "task_schema",
+            ]:
                 setattr(self, attr, value)
             elif attr == "file":
                 _update_file(self, value)
@@ -647,6 +665,7 @@ class JobStage(StageWithFile):
             transitions=[t.to_abstra_json_dto() for t in self.workflow_transitions],
             input=self.input,
             output=self.output,
+            task_schema=self.task_schema,
         )
 
 
@@ -673,6 +692,7 @@ class FormStage(StageWithFile):
     type_name = "form"
     input: bool = False
     output: bool = False
+    task_schema: Optional[Dict[str, Any]] = None
 
     @staticmethod
     def create(
@@ -722,6 +742,7 @@ class FormStage(StageWithFile):
             access_control=AccessSettings.from_dict(data.get("access_control", {})),
             input=data.get("input", False),
             output=data.get("output", False),
+            task_schema=data.get("task_schema"),
         )
 
     @property
@@ -763,6 +784,7 @@ class FormStage(StageWithFile):
                 else None
             ),
             "access_control": self.access_control.as_dict,
+            "task_schema": self.task_schema,
         }
 
     @property
@@ -785,6 +807,7 @@ class FormStage(StageWithFile):
                 "start_button_text",
                 "input",
                 "output",
+                "task_schema",
             ]:
                 setattr(self, attr, value)
             elif attr == "file":
@@ -828,6 +851,7 @@ class FormStage(StageWithFile):
             access_control=self.access_control.to_abstra_json_dto(),
             input=self.input,
             output=self.output,
+            task_schema=self.task_schema,
         )
 
 

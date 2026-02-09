@@ -324,7 +324,7 @@ async def get_authenticated_user_task(
     base_ws_url: str,
 ) -> None:
     graphql_client = GraphQLClient(api_key, base_api_url, base_ws_url)
-    async for it in graphql_client.subscribe(AUTHENTICATED_USER_SUBSCRIPTION):
+    async for it in graphql_client.subscribe(AUTHENTICATED_USER_SUBSCRIPTION, vars={"token": api_key}):
         click.echo(it)
 
 

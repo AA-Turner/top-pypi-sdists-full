@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.3.7
+Version: 0.3.9
 Summary: Generic helpers for GenAI
 Project-URL: Homepage, https://github.com/datarobot-oss/datarobot-genai
 Author: DataRobot, Inc.
@@ -74,8 +74,7 @@ Requires-Dist: opentelemetry-instrumentation-crewai<1.0.0,>=0.40.5; extra == 'na
 Requires-Dist: opentelemetry-instrumentation-langchain<1.0.0,>=0.40.5; extra == 'nat'
 Requires-Dist: opentelemetry-instrumentation-llamaindex<1.0.0,>=0.40.5; extra == 'nat'
 Provides-Extra: pydanticai
-Requires-Dist: logfire<5.0.0,>=4.6.0; extra == 'pydanticai'
-Requires-Dist: pydantic-ai<1.9.0,>=1.0.5; extra == 'pydanticai'
+Requires-Dist: pydantic-ai-slim[ag-ui,anthropic,bedrock,cli,cohere,evals,fastmcp,google,groq,huggingface,logfire,mcp,mistral,openai,retries,vertexai]<1.9.0,>=1.0.5; extra == 'pydanticai'
 Description-Content-Type: text/markdown
 
 <p align="center">

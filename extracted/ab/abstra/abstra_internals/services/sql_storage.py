@@ -1,16 +1,18 @@
 import json
 import shutil
+import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Generic, List, Optional, Type, TypeVar
 
 from abstra_json_sql.eval import eval_sql
 from abstra_json_sql.persistence import FileSystemJsonTables
 from abstra_json_sql.tables import Column, ColumnType, Table
+from filelock import FileLock
 
 from abstra_internals.interface.sdk.tables.utils import serialize
 from abstra_internals.logger import AbstraLogger
-from abstra_internals.repositories.multiprocessing import MPContext
 from abstra_internals.settings import Settings
 from abstra_internals.utils.serializable import Serializable
 
@@ -21,16 +23,25 @@ BASE_DELAY = 0.05
 
 
 class SqlStorage(Generic[T]):
-    def __init__(self, mp_context: MPContext, directory: str, model: Type[T]):
-        self.lock = mp_context.RLock()
+    def __init__(self, directory: str, model: Type[T]):
+        self._thread_lock = threading.RLock()
         self.directory = directory
         self.model = model
         self.table_name = "data"
         self._tables_instance: Optional[FileSystemJsonTables] = None
+        self.directory_path.mkdir(parents=True, exist_ok=True)
+        self._file_lock = FileLock(str(self.directory_path / ".lock"), timeout=30)
 
     @property
     def directory_path(self) -> Path:
         return Settings.root_path / self.directory
+
+    @contextmanager
+    def _locked(self):
+        """Acquire both thread lock (intra-process) and file lock (cross-process)."""
+        with self._thread_lock:
+            with self._file_lock:
+                yield
 
     @property
     def tables(self) -> FileSystemJsonTables:
@@ -105,7 +116,7 @@ class SqlStorage(Generic[T]):
         raise RuntimeError("Unexpected state in _execute_with_retry")
 
     def save(self, id: str, data: T) -> None:
-        with self.lock:
+        with self._locked():
             self._ensure_table_exists()
 
             # Convert the model to dict and serialize values
@@ -159,7 +170,7 @@ class SqlStorage(Generic[T]):
                 self._execute_with_retry(sql_command)
 
     def load_all(self) -> List[T]:
-        with self.lock:
+        with self._locked():
             try:
                 self._ensure_table_exists()
 
@@ -182,11 +193,11 @@ class SqlStorage(Generic[T]):
                 return []
 
     def load(self, id: str) -> Optional[T]:
-        with self.lock:
+        with self._locked():
             return self._load(id)
 
     def delete(self, id: str) -> None:
-        with self.lock:
+        with self._locked():
             try:
                 self._ensure_table_exists()
                 self._execute_with_retry(
@@ -196,7 +207,7 @@ class SqlStorage(Generic[T]):
                 AbstraLogger.capture_exception(e)
 
     def clear(self) -> None:
-        with self.lock:
+        with self._locked():
             try:
                 self._ensure_table_exists()
                 self._execute_with_retry(f"DELETE FROM {self.table_name}")

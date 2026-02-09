@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Literal
+from typing import TypeAlias
 from typing import TypedDict
 from typing import Union
 
@@ -20,6 +22,9 @@ from . import _vtk
 from .renderer import CameraPosition
 
 if TYPE_CHECKING:
+    from pyvista.core.composite import MultiBlock
+    from pyvista.core.dataset import DataSet
+    from pyvista.core.partitioned import PartitionedDataSet
     from pyvista.plotting.themes import Theme
 
     from .charts import Chart2D as Chart2D
@@ -32,6 +37,11 @@ if TYPE_CHECKING:
     from .colors import _MATPLOTLIB_CMAPS_LITERAL
     from .colors import Color as Color
 
+PlottableType: TypeAlias = Union[
+    VectorLike[float], 'DataSet', 'MultiBlock', 'PartitionedDataSet', str, Path
+]
+
+
 NamedColormaps = Union[
     '_MATPLOTLIB_CMAPS_LITERAL',
     '_CMOCEAN_CMAPS_LITERAL',
@@ -39,7 +49,7 @@ NamedColormaps = Union[
     '_CMCRAMERI_CMAPS_LITERAL',
 ]
 
-ColormapOptions = Union[NamedColormaps, list[str], mpl.colors.Colormap]
+ColormapOptions = NamedColormaps | list[str] | mpl.colors.Colormap
 
 ColorLike = Union[
     tuple[int, int, int],
@@ -49,7 +59,7 @@ ColorLike = Union[
     Sequence[int],
     Sequence[float],
     NumpyArray[float],
-    dict[str, Union[int, float, str]],
+    dict[str, int | float | str],
     str,
     'Color',
     _vtk.vtkColor3ub,
@@ -79,12 +89,12 @@ OpacityOptions = Literal[
 CullingOptions = Literal['front', 'back', 'frontface', 'backface', 'f', 'b']
 StyleOptions = Literal['surface', 'wireframe', 'points', 'points_gaussian']
 LightingOptions = Literal['light kit', 'three lights', 'none']
-CameraPositionOptions = Union[
-    Literal['xy', 'xz', 'yz', 'yx', 'zx', 'zy', 'iso'],
-    VectorLike[float],
-    MatrixLike[float],
-    CameraPosition,
-]
+CameraPositionOptions = (
+    Literal['xy', 'xz', 'yz', 'yx', 'zx', 'zy', 'iso']
+    | VectorLike[float]
+    | MatrixLike[float]
+    | CameraPosition
+)
 
 
 class BackfaceArgs(TypedDict, total=False):

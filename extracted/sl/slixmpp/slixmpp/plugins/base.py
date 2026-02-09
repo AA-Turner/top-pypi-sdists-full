@@ -13,7 +13,7 @@ import copy
 import logging
 import threading
 
-from typing import Any, Dict, Set, ClassVar, Union, Optional, TYPE_CHECKING
+from typing import Any, Dict, Set, ClassVar, Union, Optional, TYPE_CHECKING, Type
 
 if TYPE_CHECKING:
     from slixmpp.clientxmpp import ClientXMPP, BaseXMPP
@@ -29,7 +29,7 @@ PLUGIN_REGISTRY = {}
 
 #: In order to do cascading plugin disabling, reverse dependencies
 #: must be tracked.
-PLUGIN_DEPENDENTS = {}
+PLUGIN_DEPENDENTS: dict[str, set[str]] = {}
 
 #: Only allow one thread to manipulate the plugin registry at a time.
 REGISTRY_LOCK = threading.RLock()
@@ -39,7 +39,7 @@ class PluginNotFound(Exception):
     """Raised if an unknown plugin is accessed."""
 
 
-def register_plugin(impl, name=None):
+def register_plugin(impl: Type['BasePlugin'], name=None) -> None:
     """Add a new plugin implementation to the registry.
 
     :param class impl: The plugin class.
@@ -353,3 +353,5 @@ class BasePlugin(object):
         Only needed if the plugin has circular dependencies.
         """
         pass
+
+__all__ = ("register_plugin", )

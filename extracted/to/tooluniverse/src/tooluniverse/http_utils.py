@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Optional, Sequence, Tuple, Union
 import time
+import random
 
 import requests
 
@@ -26,7 +27,7 @@ def request_with_retry(
     json: Any = None,
     data: Any = None,
     timeout: Optional[float] = None,
-    retry_statuses: RetryStatuses = (502, 503, 504),
+    retry_statuses: RetryStatuses = (408, 429, 500, 502, 503, 504),
     max_attempts: int = 3,
     backoff_seconds: float = 0.5,
 ) -> requests.Response:
@@ -58,7 +59,15 @@ def request_with_retry(
             )
 
             if resp.status_code in set(retry_statuses) and attempt < attempts - 1:
-                sleep_s = backoff_seconds * (2**attempt)
+                retry_after_header = resp.headers.get("Retry-After")
+                if retry_after_header:
+                    try:
+                        sleep_s = max(0.0, float(retry_after_header))
+                    except (TypeError, ValueError):
+                        sleep_s = backoff_seconds * (2**attempt)
+                else:
+                    sleep_s = backoff_seconds * (2**attempt)
+                sleep_s += random.uniform(0.0, backoff_seconds * 0.25)
                 time.sleep(sleep_s)
                 continue
 
@@ -68,6 +77,7 @@ def request_with_retry(
             last_exc = e
             if attempt < attempts - 1:
                 sleep_s = backoff_seconds * (2**attempt)
+                sleep_s += random.uniform(0.0, backoff_seconds * 0.25)
                 time.sleep(sleep_s)
                 continue
             raise
@@ -77,6 +87,7 @@ def request_with_retry(
             last_exc = e
             if attempt < attempts - 1:
                 sleep_s = backoff_seconds * (2**attempt)
+                sleep_s += random.uniform(0.0, backoff_seconds * 0.25)
                 time.sleep(sleep_s)
                 continue
             raise

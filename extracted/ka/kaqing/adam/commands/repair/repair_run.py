@@ -6,7 +6,7 @@ from adam.repl_state import ReplState, RequiredState
 from adam.config import Config
 from adam.commands.reaper.reaper_runs_abort import ReaperRunsAbort
 from adam.commands.reaper.reaper_schedule_stop import ReaperScheduleStop
-from adam.utils import log2, log_exc
+from adam.utils_log import log2, log_exc
 
 class RepairRun(Command):
     COMMAND = 'repair run'

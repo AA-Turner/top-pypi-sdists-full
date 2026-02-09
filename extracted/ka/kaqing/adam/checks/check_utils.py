@@ -8,12 +8,12 @@ from adam.checks.gossip import Gossip
 from adam.checks.issue import Issue
 from adam.checks.memory import Memory
 from adam.checks.status import Status
-from adam.config import Config
-from adam.utils_cassandra.cassandra_nodes import CassandraNodes
+from adam.utils_cassandra.cassandra_status import CassandraStatus
+from adam.utils_concurrent import parallelize
 from adam.utils_context import Context
 from adam.utils_k8s.secrets import Secrets
 from adam.utils_k8s.statefulsets import StatefulSets
-from adam.utils import parallelize, log2
+from adam.utils_log import log2
 
 def all_checks() -> list[Check]:
     return [CompactionStats(), Cpu(), Gossip(), Memory(), Disk(), Status()]
@@ -34,7 +34,13 @@ def checks_from_csv(check_str: str):
 
     return checks
 
-def run_checks(cluster: str = None, namespace: str = None, pod: str = None, checks: list[Check] = None, ctx: Context = Context.NULL):
+def run_checks(cluster: str = None,
+               namespace: str = None,
+               pod: str = None,
+               checks: list[Check] = None,
+               find_issues=True,
+               status: CassandraStatus = None,
+               ctx: Context = Context.NULL):
     if not checks:
         checks = all_checks()
 
@@ -43,23 +49,27 @@ def run_checks(cluster: str = None, namespace: str = None, pod: str = None, chec
     sts_ns_pods: list[tuple[str, str, str]] = []
     for sts, ns in sts_ns:
         if (not cluster or cluster == sts) and (not namespace or namespace == ns):
-            pods = StatefulSets.pods(sts, ns)
-            for pod_name in [pod.metadata.name for pod in pods]:
-                if not pod or pod == pod_name:
-                    sts_ns_pods.append((sts, ns, pod_name))
+            if ns == status.namespace:
+                for pod_name in status.pod_names():
+                    if not pod or pod == pod_name:
+                        sts_ns_pods.append((sts, ns, pod_name))
+            else:
+                pods = StatefulSets.pods(sts, ns)
+                for pod_name in [pod.metadata.name for pod in pods]:
+                    if not pod or pod == pod_name:
+                        sts_ns_pods.append((sts, ns, pod_name))
 
     with parallelize(sts_ns_pods,
-                     Config().action_workers('issues', 30),
                      msg='d`Running|Ran checks on {size} pods') as exec:
-        return exec.map(lambda sts_ns_pod: run_checks_on_pod(checks, sts_ns_pod[0], sts_ns_pod[1], sts_ns_pod[2], ctx))
+        return exec.collect(lambda sts_ns_pod: run_checks_on_pod(checks, sts_ns_pod[0], sts_ns_pod[1], sts_ns_pod[2], find_issues=find_issues, status=status, ctx=ctx))
 
-def run_checks_on_pod(checks: list[Check], cluster: str = None, namespace: str = None, pod: str = None, ctx: Context = Context.NULL):
-    host_id = CassandraNodes.get_host_id(pod, namespace)
+def run_checks_on_pod(checks: list[Check], sts: str = None, namespace: str = None, pod: str = None, find_issues = True, status: CassandraStatus = None, ctx: Context = Context.NULL):
+    host_id = status.host_id_from_pod_name(pod)
     user, pw = Secrets.get_user_pass(pod, namespace)
     results = {}
     issues: list[Issue] = []
     for c in checks:
-        check_results = c.check(CheckContext.from_exec(ctx, cluster, host_id, pod, namespace, user, pw))
+        check_results = c.check(CheckContext.from_exec(ctx, sts, host_id, pod, namespace, user, pw, find_issues=find_issues))
         if check_results.details:
             results = results | {check_results.name: check_results.details}
         if check_results.issues:

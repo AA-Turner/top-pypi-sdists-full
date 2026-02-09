@@ -106,7 +106,7 @@ class ComponentXMPP(BaseXMPP):
         :param host: The name of the desired server for the connection.
                      Defaults to :attr:`server_host`.
         :param port: Port to connect to on the server.
-                     Defauts to :attr:`server_port`.
+                     Defaults to :attr:`server_port`.
         """
         if host is not None:
             self.server_host = host

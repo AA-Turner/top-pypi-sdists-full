@@ -4,17 +4,14 @@ from unittest.mock import MagicMock, patch
 
 from abstra_internals.entities.execution import Execution
 from abstra_internals.repositories.execution import LocalExecutionRepository
-from abstra_internals.repositories.multiprocessing import MPContext
 
 
 class TestLocalKillRegression(unittest.TestCase):
     @patch("os.kill")
-    def test_local_kill_uses_os_kill(self, mock_os_kill):
+    @patch("abstra_internals.repositories.execution.SqlStorage")
+    def test_local_kill_uses_os_kill(self, mock_sql_storage, mock_os_kill):
         # Setup
-        mock_mp_context = MagicMock(spec=MPContext)
-        mock_mp_context.RLock = MagicMock()  # Add RLock mock
-        repo = LocalExecutionRepository(mock_mp_context)
-        repo.fs_storage = MagicMock()
+        repo = LocalExecutionRepository()
 
         execution_id = "exec-local-1"
         mock_execution = MagicMock(spec=Execution)

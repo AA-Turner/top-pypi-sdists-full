@@ -27,10 +27,7 @@ Coercion via construction functors
 # ****************************************************************************
 
 import operator
-try:
-    from typing import Self  # type: ignore (Python >= 3.11)
-except ImportError:
-    from typing_extensions import Self  # type: ignore (Python 3.10)
+from typing import Self
 
 from sage.categories.functor import Functor, IdentityFunctor_generic
 from sage.misc.lazy_import import lazy_import
@@ -1192,6 +1189,7 @@ class InfinitePolynomialFunctor(ConstructionFunctor):
 
     EXAMPLES::
 
+        sage: # needs sage.modules
         sage: A.<a,b> = InfinitePolynomialRing(ZZ['t'])
         sage: A.construction()
         [InfPoly{[a,b], "lex", "dense"},
@@ -1209,6 +1207,7 @@ class InfinitePolynomialFunctor(ConstructionFunctor):
     However, if the polynomial ring was given a different ordering, merging would not be allowed,
     resulting in a name conflict::
 
+        sage: # needs sage.modules
         sage: R = PolynomialRing(QQ, names=['x','y','a_3','a_1'])
         sage: A.construction()[0] * R.construction()[0]
         Traceback (most recent call last):
@@ -1218,6 +1217,7 @@ class InfinitePolynomialFunctor(ConstructionFunctor):
     In an infinite polynomial ring with generator `a_\ast`, the variable `a_3` will always be greater
     than the variable `a_1`. Hence, the orders are incompatible in the next example as well::
 
+        sage: # needs sage.modules
         sage: R = PolynomialRing(QQ, names=['x','y','a_1','a_3'], order='lex')
         sage: A.construction()[0] * R.construction()[0]
         Traceback (most recent call last):
@@ -1229,6 +1229,7 @@ class InfinitePolynomialFunctor(ConstructionFunctor):
     This is not the case in the following example, since it is not clear whether the variables `x,y`
     should be greater or smaller than the variables `b_\ast`::
 
+        sage: # needs sage.modules
         sage: R = PolynomialRing(QQ, names=['a_3','a_1','x','y'], order='lex')
         sage: A.construction()[0] * R.construction()[0]
         Traceback (most recent call last):
@@ -1239,12 +1240,14 @@ class InfinitePolynomialFunctor(ConstructionFunctor):
     Since the construction functors are actually used to construct infinite polynomial rings, the following
     result is no surprise::
 
+        sage: # needs sage.modules
         sage: C.<a,b> = InfinitePolynomialRing(B); C
         Infinite polynomial ring in a, b
          over Multivariate Polynomial Ring in x, y over Rational Field
 
     There is also an overlap in the next example::
 
+        sage: # needs sage.modules
         sage: X.<w,x,y> = InfinitePolynomialRing(ZZ)
         sage: Y.<x,y,z> = InfinitePolynomialRing(QQ)
 
@@ -1252,6 +1255,7 @@ class InfinitePolynomialFunctor(ConstructionFunctor):
     used in both rings, it gives rise to isomorphic sub-monoids in both `X` and `Y`. They are merged in the
     pushout, which also yields a common parent for doing arithmetic::
 
+        sage: # needs sage.modules
         sage: P = sage.categories.pushout.pushout(Y,X); P
         Infinite polynomial ring in w, x, y, z over Rational Field
         sage: w[2]+z[3]
@@ -1288,9 +1292,10 @@ class InfinitePolynomialFunctor(ConstructionFunctor):
 
         TESTS::
 
+            sage: # needs sage.modules
             sage: P.<x,y> = QQ[]
             sage: R.<alpha> = InfinitePolynomialRing(P)
-            sage: f = P.hom([x+y,x-y],P)
+            sage: f = P.hom([x + y, x - y], P)
             sage: R.construction()[0](f)     # indirect doctest
             Traceback (most recent call last):
             ...
@@ -1304,6 +1309,7 @@ class InfinitePolynomialFunctor(ConstructionFunctor):
 
         TESTS::
 
+            sage: # needs sage.modules
             sage: F = sage.categories.pushout.InfinitePolynomialFunctor(['a','b','x'],'degrevlex','sparse'); F
             InfPoly{[a,b,x], "degrevlex", "sparse"}
             sage: F(QQ['t']) # indirect doctest
@@ -1368,6 +1374,7 @@ class InfinitePolynomialFunctor(ConstructionFunctor):
 
         TESTS::
 
+            sage: # needs sage.modules
             sage: F1 = QQ['a','x_2','x_1','y_3','y_2'].construction()[0]; F1
             MPoly[a,x_2,x_1,y_3,y_2]
             sage: F2 = InfinitePolynomialRing(QQ, ['x','y'],order='degrevlex').construction()[0]; F2
@@ -1469,6 +1476,7 @@ class InfinitePolynomialFunctor(ConstructionFunctor):
 
         EXAMPLES::
 
+            sage: # needs sage.modules
             sage: X.<x,y> = InfinitePolynomialRing(QQ, implementation='sparse')
             sage: Y.<x,y> = InfinitePolynomialRing(QQ, order='degrevlex')
             sage: X.construction()
@@ -1521,6 +1529,7 @@ class InfinitePolynomialFunctor(ConstructionFunctor):
 
         EXAMPLES::
 
+            sage: # needs sage.modules
             sage: A = InfinitePolynomialRing(QQ, ['x','y'], order='degrevlex')
             sage: F = A.construction()[0]; F
             InfPoly{[x,y], "degrevlex", "dense"}
@@ -1958,7 +1967,7 @@ class VectorFunctor(ConstructionFunctor):
             return FreeModule(R, self.n, sparse=self.is_sparse, inner_product_matrix=self.inner_product_matrix,
                               with_basis=self.with_basis, basis_keys=self.basis_keys)
         return FreeModule(R, self.n, sparse=self.is_sparse, inner_product_matrix=self.inner_product_matrix,
-                              with_basis=self.with_basis, basis_keys=self.basis_keys, name=name, latex_name=latex_name)
+                          with_basis=self.with_basis, basis_keys=self.basis_keys, name=name, latex_name=latex_name)
 
     def _apply_functor_to_morphism(self, f):
         """
@@ -3298,7 +3307,12 @@ class AlgebraicExtensionFunctor(ConstructionFunctor):
                 if latex_names[i] == latex_variable_name(name):
                     latex_names[i] = None
         self.latex_names = latex_names
-        self.kwds = kwds
+        kwds_self = dict(kwds.items())
+        if 'implementation' in kwds_self:
+            assert len(self.polys) == 1
+            self.implementations = [kwds_self['implementation']]
+            del kwds_self['implementation']
+        self.kwds = kwds_self
 
     def _apply_functor(self, R):
         """
@@ -3533,11 +3547,7 @@ class AlgebraicExtensionFunctor(ConstructionFunctor):
         # integers to encode degrees of extensions.
         from sage.rings.integer import Integer
         kwds_self = dict(self.kwds.items())
-        if 'impl' in kwds_self:
-            del kwds_self['impl']
         kwds_other = dict(other.kwds.items())
-        if 'impl' in kwds_other:
-            del kwds_other['impl']
         if (isinstance(self.polys[0], Integer)
                 and isinstance(other.polys[0], Integer)
                 and self.embeddings == other.embeddings == [None]
@@ -3939,6 +3949,7 @@ class BlackBoxConstructionFunctor(ConstructionFunctor):
         TESTS::
 
             sage: from sage.categories.pushout import BlackBoxConstructionFunctor
+            sage: from sage.interfaces.maxima_lib import maxima                         # needs sage.symbolic
             sage: FG = BlackBoxConstructionFunctor(gap)
             sage: FM = BlackBoxConstructionFunctor(maxima)                              # needs sage.symbolic
             sage: FM == FG                                                              # needs sage.libs.gap sage.symbolic
@@ -3970,6 +3981,7 @@ class BlackBoxConstructionFunctor(ConstructionFunctor):
         TESTS::
 
             sage: from sage.categories.pushout import BlackBoxConstructionFunctor
+            sage: from sage.interfaces.maxima_lib import maxima                         # needs sage.symbolic
             sage: FG = BlackBoxConstructionFunctor(gap)
             sage: FM = BlackBoxConstructionFunctor(maxima)                              # needs sage.symbolic
             sage: FM == FG       # indirect doctest                                     # needs sage.libs.gap sage.symbolic
@@ -3989,6 +4001,7 @@ class BlackBoxConstructionFunctor(ConstructionFunctor):
         EXAMPLES::
 
             sage: from sage.categories.pushout import BlackBoxConstructionFunctor
+            sage: from sage.interfaces.maxima_lib import maxima                         # needs sage.symbolic
             sage: FG = BlackBoxConstructionFunctor(gap)
             sage: FM = BlackBoxConstructionFunctor(maxima)                              # needs sage.symbolic
             sage: FM != FG       # indirect doctest                                     # needs sage.libs.gap sage.symbolic

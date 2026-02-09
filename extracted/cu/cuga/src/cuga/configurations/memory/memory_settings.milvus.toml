@@ -1,3 +1,12 @@
-[milvus_config]
+[milvus]
 max_num_messages = 2
 embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
+
+[milvus.fact_extraction]
+model = "watsonx/meta-llama/llama-3-405b-instruct"
+
+[milvus.conflict_resolution]
+model = "watsonx/meta-llama/llama-3-405b-instruct"
+
+[milvus.step_processing]
+model = "watsonx/meta-llama/llama-3-405b-instruct"

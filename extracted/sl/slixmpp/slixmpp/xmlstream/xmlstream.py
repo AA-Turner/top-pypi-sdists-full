@@ -44,9 +44,9 @@ from asyncio import (
     Task,
     TimerHandle,
     Transport,
-    iscoroutinefunction,
     wait,
 )
+from inspect import iscoroutinefunction
 from pathlib import Path
 
 from slixmpp.types import FilterString
@@ -594,7 +594,8 @@ class XMLStream(asyncio.BaseProtocol):
             return
         self.parser.feed(data)
         try:
-            for event, xml in self.parser.read_events():
+            for event, xml in self.parser.read_events():  # type:ignore[misc]
+                xml = cast(ET.Element, xml)
                 if event == 'start':
                     if self.xml_depth == 0:
                         # We have received the start of the root element.
@@ -665,7 +666,7 @@ class XMLStream(asyncio.BaseProtocol):
 
     def reschedule_connection_attempt(self) -> Optional[asyncio.Future]:
         """
-        Increase the exponential back-off and initate another background
+        Increase the exponential back-off and initiate another background
         _connect_loop call to connect to the server.
 
         :returns: A future on the next scheduled connection attempt.
@@ -1483,7 +1484,7 @@ class XMLStream(asyncio.BaseProtocol):
                 fut.set_result(event_data)
             else:
                 log.debug(
-                    "Future registered on event '%s' was alredy done",
+                    "Future registered on event '%s' was already done",
                     event
                 )
 

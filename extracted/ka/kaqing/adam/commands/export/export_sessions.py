@@ -6,8 +6,9 @@ from adam.commands.export.importer import Importer
 from adam.commands.export.utils_export import ExportTableStatus, csv_dir, fs_exec, table_log_dir
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import log2, log_to_pods, log, parallelize
+from adam.utils_log import log2, log
 from adam.utils_cassandra.cassandra_nodes import CassandraNodes
+from adam.utils_concurrent import parallelize
 from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 from adam.utils_k8s.pod_files import PodFiles
@@ -38,7 +39,7 @@ class ExportSessions:
 
         prefix = Importer.prefix_from_importer(importer)
 
-        log_files: list[str] = PodFiles.find_files(pod, 'cassandra', namespace, f'{table_log_dir(pod, namespace)}/{prefix}*_*.log*', remote=log_to_pods())
+        log_files: list[str] = PodFiles.find_files(pod, 'cassandra', namespace, f'{table_log_dir(pod, namespace)}/{prefix}*_*.log*', remote=True)
 
         if not log_files:
             return {}
@@ -81,7 +82,6 @@ class ExportSessions:
             max_workers = Config().action_workers('export', 8)
 
         with parallelize(sessions,
-                         max_workers,
                          msg='Cleaning|Cleaned up {size} export sessions') as exec:
             cnt_tuples = exec.map(lambda session: ExportSessions.clean_up_session(sts, pod, namespace, session, ctx=ctx.copy(show_out=False)))
             csv_cnt = 0
@@ -105,8 +105,7 @@ class ExportSessions:
         csv_cnt = 0
         log_cnt = 0
 
-        log_files: list[str] = PodFiles.find_files(pod, 'cassandra', namespace, f'{table_log_dir(pod, namespace)}/{session}_*.log*', remote=log_to_pods())
-
+        log_files: list[str] = PodFiles.find_files(pod, 'cassandra', namespace, f'{table_log_dir(pod, namespace)}/{session}_*.log*', remote=True)
         for log_file in log_files:
             m = re.match(f'{table_log_dir(pod, namespace)}/{session}_(.*?)\.(.*?)\.log.*', log_file)
             if m:
@@ -154,7 +153,6 @@ class ExportSessions:
             log2(f'[{session}] Downloaded to {to_path}.')
 
         with parallelize(tables,
-                         workers=Config().get('download.workers', 8),
                          msg='Downloading|Downloaded {size} csv files') as exec:
             exec.map(download_csv)
 

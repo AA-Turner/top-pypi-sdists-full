@@ -18,7 +18,7 @@ from pypika_tortoise.terms import (
     ValueWrapper,
 )
 
-from tortoise.contrib.postgres.fields import ArrayField
+from tortoise.contrib.postgres.fields import ArrayField, TSVectorField
 from tortoise.fields import Field, JSONField
 from tortoise.fields.relational import BackwardFKRelation, ManyToManyFieldInstance
 
@@ -271,6 +271,7 @@ class FilterInfoDict(TypedDict):
     table: NotRequired[Table]
     value_encoder: NotRequired[Callable]
     source_field: NotRequired[str]
+    is_tsvector: NotRequired[bool]
 
 
 def get_m2m_filters(field_name: str, field: ManyToManyFieldInstance) -> dict[str, FilterInfoDict]:
@@ -280,28 +281,28 @@ def get_m2m_filters(field_name: str, field: ManyToManyFieldInstance) -> dict[str
             "field": field.forward_key,
             "backward_key": field.backward_key,
             "operator": operator.eq,
-            "table": Table(field.through),
+            "table": Table(field.through, schema=field.through_schema),
             "value_encoder": target_table_pk.to_db_value,
         },
         f"{field_name}__not": {
             "field": field.forward_key,
             "backward_key": field.backward_key,
             "operator": not_equal,
-            "table": Table(field.through),
+            "table": Table(field.through, schema=field.through_schema),
             "value_encoder": target_table_pk.to_db_value,
         },
         f"{field_name}__in": {
             "field": field.forward_key,
             "backward_key": field.backward_key,
             "operator": is_in,
-            "table": Table(field.through),
+            "table": Table(field.through, schema=field.through_schema),
             "value_encoder": partial(related_list_encoder, field=target_table_pk),
         },
         f"{field_name}__not_in": {
             "field": field.forward_key,
             "backward_key": field.backward_key,
             "operator": not_in,
-            "table": Table(field.through),
+            "table": Table(field.through, schema=field.through_schema),
             "value_encoder": partial(related_list_encoder, field=target_table_pk),
         },
     }
@@ -547,6 +548,7 @@ def get_filters_for_field(
             "source_field": source_field,
             "operator": search,
             "value_encoder": string_encoder,
+            "is_tsvector": isinstance(field, TSVectorField) if field else False,
         },
         f"{field_name}__endswith": {
             "field": actual_field_name,

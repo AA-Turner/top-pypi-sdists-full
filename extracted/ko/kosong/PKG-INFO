@@ -1,8 +1,8 @@
 Metadata-Version: 2.3
 Name: kosong
-Version: 0.41.1
+Version: 0.42.0
 Summary: The LLM abstraction layer for modern AI agent applications.
-Requires-Dist: anthropic>=0.75.0
+Requires-Dist: anthropic>=0.78.0
 Requires-Dist: google-genai>=1.56.0
 Requires-Dist: jsonschema>=4.25.1
 Requires-Dist: loguru>=0.6.0,<0.8
@@ -11,7 +11,7 @@ Requires-Dist: pydantic>=2.12.5
 Requires-Dist: python-dotenv>=1.2.1
 Requires-Dist: typing-extensions>=4.15.0
 Requires-Dist: mcp>=1,<2
-Requires-Dist: anthropic>=0.75.0 ; extra == 'contrib'
+Requires-Dist: anthropic>=0.78.0 ; extra == 'contrib'
 Requires-Dist: google-genai>=1.55.0 ; extra == 'contrib'
 Requires-Python: >=3.12
 Provides-Extra: contrib

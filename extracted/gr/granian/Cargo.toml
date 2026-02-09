@@ -1,6 +1,6 @@
 [package]
 name = "granian"
-version = "2.7.0"
+version = "2.7.1"
 description = "A Rust HTTP server for Python applications"
 authors = ["Giovanni Barillari <g@baro.dev>"]
 license = "BSD-3-Clause"
@@ -71,11 +71,7 @@ jemalloc = ["dep:tikv-jemallocator"]
 mimalloc = ["dep:mimalloc"]
 
 [profile.release]
-codegen-units = 1
-debug = false
-incremental = false
 lto = "fat"
-opt-level = 3
 panic = "abort"
 strip = true
 

@@ -1,36 +1,43 @@
 """Unit tests for the __main__ module"""
 
-import sys
-from unittest.mock import Mock, call, patch
+import argparse
+import logging
+import string
+from unittest.mock import Mock, patch
 
 import pytest
 
-from wakepy import ActivationResult, Method
+from tests.helpers import get_method_info
+from wakepy import ActivationResult, Method, ProbingResults
 from wakepy.__main__ import (
-    _get_activation_error_text,
-    get_spinner_symbols,
-    get_startup_text,
-    handle_activation_error,
+    UI,
+    CliApp,
+    DisplayTheme,
+    MultipleModesSelectedError,
+    get_logging_level,
+    get_mode_name,
+    get_should_use_ascii_only,
     main,
-    parse_arguments,
-    wait_until_keyboardinterrupt,
+    parse_args,
+    setup_logging,
 )
 from wakepy.core import PlatformType
-from wakepy.core.constants import IdentifiedPlatformType, ModeName
+from wakepy.core.activationresult import MethodActivationResult
+from wakepy.core.constants import IdentifiedPlatformType, ModeName, StageName
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def mode_name_working():
     return "testmode_working"
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def mode_name_broken():
     return "testmode_broken"
 
 
-@pytest.fixture
-def method1(mode_name_working):
+@pytest.fixture(scope="session")
+def method_working(mode_name_working):
     class WorkingMethod(Method):
         """This is a successful method as it implements enter_mode which
         returns None"""
@@ -61,168 +68,442 @@ def method2_broken(mode_name_broken):
     return BrokenMethod
 
 
-@pytest.mark.parametrize(
-    "args",
-    [
-        ["-r"],
-        ["--keep-running"],
-        # Also no args means keep running
-        [],
-    ],
-)
-def test_get_argparser_keep_running(args):
-    assert parse_arguments(args) == (ModeName.KEEP_RUNNING, [])
+class TestGetModeName:
+    @pytest.mark.parametrize(
+        "sysargs",
+        [
+            ["-r"],
+            ["--keep-running"],
+        ],
+    )
+    def test_keep_running(self, sysargs):
+        assert get_mode_name(parse_args(sysargs)) == ModeName.KEEP_RUNNING
+
+    @pytest.mark.parametrize(
+        "sysargs",
+        [
+            ["-p"],
+            ["--keep-presenting"],
+            # No args means keep presenting (default)
+            [],
+        ],
+    )
+    def test_keep_presenting(self, sysargs):
+        assert get_mode_name(parse_args(sysargs)) == ModeName.KEEP_PRESENTING
+
+    @pytest.mark.parametrize(
+        "sysargs",
+        [
+            ["-r", "-p"],
+            ["--keep-presenting", "-r"],
+            ["-p", "--keep-running"],
+            ["--keep-presenting", "--keep-running"],
+        ],
+    )
+    def test_too_many_modes(self, sysargs):
+        with pytest.raises(MultipleModesSelectedError):
+            get_mode_name(parse_args(sysargs))
 
 
-@pytest.mark.parametrize(
-    "args",
-    [
-        ["-p"],
-        ["--keep-presenting"],
-    ],
-)
-def test_get_argparser_keep_presenting(args):
-    assert parse_arguments(args) == (ModeName.KEEP_PRESENTING, [])
+def test_wait_for_interrupt_handles_keyboard_interrupt(capsys):
+    """Test that UI.wait_for_interrupt handles KeyboardInterrupt gracefully."""
+    ui = UI()
 
-
-@pytest.mark.parametrize(
-    "args",
-    [
-        ["-r", "-p"],
-        ["--keep-presenting", "-r"],
-        ["-p", "--keep-running"],
-        ["--keep-presenting", "--keep-running"],
-    ],
-)
-def test_get_argparser_too_many_modes(args):
-    with pytest.raises(ValueError, match="You may only select one of the modes!"):
-        assert parse_arguments(args)
-
-
-@pytest.mark.parametrize(
-    "args, expected_mode",
-    [
-        (["--presentation"], ModeName.KEEP_PRESENTING),
-        (["-k"], ModeName.KEEP_RUNNING),
-    ],
-)
-def test_deprecations(args, expected_mode):
-    mode, deprecations = parse_arguments(args)
-    assert mode == expected_mode
-    assert len(deprecations) == 1
-    assert f"Using {args[0]} is deprecated in wakepy 0.10.0" in deprecations[0]
-
-
-def test_get_startup_text_smoke_test():
-    assert isinstance(get_startup_text(ModeName.KEEP_PRESENTING), str)
-
-
-def test_wait_until_keyboardinterrupt():
-    def raise_keyboardinterrupt(_):
+    def interrupting_frames():
+        yield "x"
         raise KeyboardInterrupt
 
-    with patch("wakepy.__main__.time") as timemock:
-        timemock.sleep.side_effect = raise_keyboardinterrupt
+    with patch.object(ui, "spinner_frames", return_value=interrupting_frames()):
+        ui.wait_for_interrupt(interval=0)
 
-        wait_until_keyboardinterrupt()
-
-
-@patch("builtins.print")
-def test_handle_activation_error(print_mock):
-    result = ActivationResult()
-    handle_activation_error(result)
-    if sys.version_info[:2] == (3, 7):
-        # on python 3.7, need to do other way.
-        printed_text = print_mock.mock_calls[0][1][0]
-    else:
-        printed_text = "\n".join(print_mock.mock_calls[0].args)
-    # Some sensible text was printed to the user
-    assert "Wakepy could not activate" in printed_text
+    captured = capsys.readouterr().out
+    assert captured == "x"
 
 
-@patch("wakepy.__main__.wait_until_keyboardinterrupt")
-@patch("wakepy.__main__.parse_arguments")
-class TestMain:
-    """Tests the main() function from the __main__.py in a simple way. This
-    is more of a smoke test. The functionality of the different parts is
-    already tested in other unit tests."""
+def test_wait_for_interrupt_with_no_frames():
+    ui = UI()
+    with patch.object(ui, "spinner_frames", return_value=iter(())):
+        ui.wait_for_interrupt(interval=0)
 
-    def test_working_mode(
-        self,
-        parse_arguments,
-        wait_until_keyboardinterrupt,
-        method1,
-    ):
 
-        with patch("sys.argv", self.sys_argv), patch("builtins.print") as print_mock:
-            manager = self.setup_mock_manager(
-                method1, print_mock, parse_arguments, wait_until_keyboardinterrupt
-            )
-            main()
+class TestCliAppRunWakepy:
+    """Tests the CliApp.run_wakepy() method from the __main__.py in a simple
+    way. This is more of a smoke test. The functionality of the different parts
+    is already tested in other unit tests."""
 
-        assert manager.mock_calls == [
-            call.print(get_startup_text(method1.mode_name)),
-            call.wait_until_keyboardinterrupt(),
-            call.print("\n\nExited."),
-        ]
+    def test_working_mode(self, method_working):
+        with patch(
+            "wakepy.__main__.get_mode_name", return_value=method_working.mode_name
+        ), patch.object(UI, "wait_for_interrupt"):
+            app = CliApp()
+            args = parse_args([])
+            mode = app.run_wakepy(args)
+            assert mode.result.success is True
 
-    @pytest.mark.usefixtures("method2_broken")
-    def test_non_working_mode(
-        self,
-        parse_arguments,
-        wait_until_keyboardinterrupt,
-        method2_broken,
-        monkeypatch,
-    ):
-        # need to turn off WAKEPY_FAKE_SUCCESS as we want to get a failure.
-        monkeypatch.setenv("WAKEPY_FAKE_SUCCESS", "0")
+    def test_non_working_mode(self, method2_broken, monkeypatch, capsys):
+        monkeypatch.setenv("WAKEPY_FAKE_SUCCESS", "0")  # needed for a failure
 
-        with patch("sys.argv", self.sys_argv), patch("builtins.print") as print_mock:
-            manager = self.setup_mock_manager(
-                method2_broken,
-                print_mock,
-                parse_arguments,
-                wait_until_keyboardinterrupt,
-            )
-            main()
+        with patch(
+            "wakepy.__main__.get_mode_name", return_value=method2_broken.mode_name
+        ), patch.object(UI, "wait_for_interrupt"):
+            app = CliApp()
+            args = parse_args([])
+            mode = app.run_wakepy(args)
+            assert mode.result.success is False
 
-        expected_result = ActivationResult(
-            results=[], mode_name=method2_broken.mode_name
+            # the method2_broken enter_mode raises this:
+            assert mode.result.query()[0].failure_reason == "RuntimeError('foo')"
+            assert "Wakepy could not activate" in capsys.readouterr().out
+
+
+class TestCliAppRunWakepyVerbose:
+    """Tests for verbose output in run_wakepy()."""
+
+    @pytest.mark.usefixtures("WAKEPY_FAKE_SUCCESS_eq_1")
+    def test_verbose_mode_with_methods(self, capsys, method_working: Method):
+        """Test verbose mode when methods text is available."""
+        with patch(
+            "wakepy.__main__.get_mode_name", return_value=method_working.mode_name
+        ), patch.object(UI, "wait_for_interrupt"):
+            app = CliApp()
+            args = parse_args(["-v"])
+            mode = app.run_wakepy(args)
+            assert mode.result.success is True
+
+            output = capsys.readouterr().out
+            assert "Wakepy Methods (in the order of attempt):" in output
+
+    def test_verbose_mode_with_no_methods(self, capsys):
+        """Test verbose mode when methods text is empty."""
+        with patch("wakepy.__main__.get_mode_name", return_value="asdas"), patch.object(
+            UI, "wait_for_interrupt"
+        ):
+            app = CliApp()
+            args = parse_args(["-v"])
+            mode = app.run_wakepy(args)
+            assert mode.result.success is False
+
+            output = capsys.readouterr().out
+            assert "Did not try any methods!" in output
+
+
+class TestCliAppRunWakepyMethods:
+    @pytest.fixture
+    def probe_result(self):
+        return ProbingResults(
+            [
+                MethodActivationResult(
+                    method=get_method_info("method-a"),
+                    success=True,
+                ),
+                MethodActivationResult(
+                    method=get_method_info("method-b"),
+                    success=False,
+                    failure_stage=StageName.REQUIREMENTS,
+                    failure_reason="Missing requirement",
+                ),
+            ]
         )
-        assert manager.mock_calls == [
-            call.print(get_startup_text(method2_broken.mode_name)),
-            call.print(_get_activation_error_text(expected_result)),
+
+    def test_non_verbose_output(self, probe_result: ProbingResults, capsys):
+        args = argparse.Namespace(
+            keep_running=True,
+            keep_presenting=False,
+            verbose=0,
+        )
+
+        app = CliApp()
+        app.run_wakepy_methods(args, probe_runner=lambda _: probe_result)
+
+        output = capsys.readouterr().out
+        # Compare normalized output (strip trailing spaces per line)
+        expected_lines = [
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            "                      keep.running",
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            "  1. method-a                                 SUCCESS",
+            "  2. method-b                                 FAIL",
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            "",
         ]
+        output_lines = [line.rstrip() for line in output.splitlines()]
+        assert expected_lines == output_lines
 
-    @staticmethod
-    def setup_mock_manager(
-        method: Method,
-        print_mock,
-        parse_arguments,
-        wait_until_keyboardinterrupt,
-    ):
-        # Assume that user has specified some mode in the commandline which
-        # resolves to `method.mode_name`
-        parse_arguments.return_value = method.mode_name, []
+    def test_verbose_output(self, probe_result: ProbingResults, capsys):
+        args = argparse.Namespace(
+            keep_running=True,
+            keep_presenting=False,
+            verbose=1,
+        )
 
-        mocks = Mock()
-        mocks.attach_mock(print_mock, "print")
-        mocks.attach_mock(wait_until_keyboardinterrupt, "wait_until_keyboardinterrupt")
-        return mocks
+        app = CliApp()
+        app.run_wakepy_methods(args, probe_runner=lambda _: probe_result)
 
-    @property
-    def sys_argv(self):
-        # The patched value for sys.argv. Does not matter here otherwise, but
-        # should be a list of at least two items.
-        return ["", ""]
+        output = capsys.readouterr().out
+        expected = """
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                                  keep.running
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. method-a
+     SUCCESS
+
+  2. method-b
+     FAIL: Missing requirement
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+""".lstrip("\n")
+        assert expected == output
+
+    def test_default_probe_runner_prints_output(self, probe_result, capsys):
+        args = argparse.Namespace(
+            keep_running=False,
+            keep_presenting=False,
+            verbose=0,
+        )
+
+        with patch(
+            "wakepy.__main__.Mode.probe_all_methods",
+            return_value=probe_result,
+        ):
+            app = CliApp()
+            app.run_wakepy_methods(args)
+
+        assert capsys.readouterr().out
+
+    def test_probe_runner_overrides_default(self, probe_result, capsys):
+        args = argparse.Namespace(
+            keep_running=False,
+            keep_presenting=False,
+            verbose=0,
+        )
+
+        app = CliApp()
+        app.run_wakepy_methods(args, probe_runner=lambda _: probe_result)
+
+        assert capsys.readouterr().out
 
 
-class TestGetSpinnerSymbols:
-    @patch("wakepy.__main__.CURRENT_PLATFORM", IdentifiedPlatformType.LINUX)
-    def test_on_linux(self):
-        assert get_spinner_symbols() == ["⢎⡰", "⢎⡡", "⢎⡑", "⢎⠱", "⠎⡱", "⢊⡱", "⢌⡱", "⢆⡱"]
+class TestDisplayTheme:
+    def test_create_unicode(self):
+        theme = DisplayTheme.create(ascii_mode=False)
+        # fmt: off
+        assert theme.spinner_symbols == ("⢎⡰", "⢎⡡", "⢎⡑", "⢎⠱", "⠎⡱", "⢊⡱", "⢌⡱", "⢆⡱")  # noqa: E501
+        # fmt: on
+        assert theme.success_symbol == "✔"
+        assert theme.ascii_mode is False
 
-    @patch("wakepy.__main__.CURRENT_PLATFORM", IdentifiedPlatformType.WINDOWS)
-    @patch("wakepy.__main__.platform.python_implementation", lambda: "PyPy")
-    def test_on_windows_pypy(self):
-        assert get_spinner_symbols() == ["|", "/", "-", "\\"]
+    def test_create_ascii(self):
+        theme = DisplayTheme.create(ascii_mode=True)
+        assert theme.spinner_symbols == ("|", "/", "-", "\\")
+        assert theme.success_symbol == "x"
+        assert theme.ascii_mode is True
+
+
+class TestShouldUseAsciiOnly:
+    @pytest.mark.parametrize(
+        "platform,python_impl,expected",
+        [
+            # Non-Windows platforms should always use Unicode
+            (IdentifiedPlatformType.LINUX, "CPython", False),
+            (IdentifiedPlatformType.LINUX, "PyPy", False),
+            (IdentifiedPlatformType.MACOS, "CPython", False),
+            (IdentifiedPlatformType.MACOS, "PyPy", False),
+            # Windows + PyPy needs ASCII mode
+            (IdentifiedPlatformType.WINDOWS, "PyPy", True),
+            (IdentifiedPlatformType.WINDOWS, "pypy", True),  # case insensitive
+            # Windows + CPython can use Unicode
+            (IdentifiedPlatformType.WINDOWS, "CPython", False),
+        ],
+    )
+    def test_ascii_mode_detection(self, platform, python_impl, expected):
+        """Test ASCII mode detection based on platform and Python impl."""
+        assert (
+            get_should_use_ascii_only(
+                current_platform=platform, python_impl=python_impl
+            )
+            is expected
+        )
+
+
+class TestRendering:
+    expected_logo = r"""
+                         _
+                        | |
+        __      __ __ _ | | __ ___  _ __   _   _
+        \ \ /\ / // _` || |/ // _ \| '_ \ | | | |
+         \ V  V /| (_| ||   <|  __/| |_) || |_| |
+          \_/\_/  \__,_||_|\_\\___|| .__/  \__, |
+         v.1.0.0                   | |      __/ |
+                                   |_|     |___/ """.lstrip("\n")  # noqa: W291
+
+    expected_info_box_unicode = r"""
+ ┏━━ Mode: test_mode ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+ ┃                                                      ┃
+ ┃  [✔] Programs keep running                           ┃
+ ┃  [ ] Display kept on, screenlock disabled            ┃
+ ┃                                                      ┃
+ ┃   Method: test_method                                ┃
+ ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛""".lstrip("\n")  # noqa: W291
+
+    expected_info_box_ascii = r"""
+ ┏━━ Mode: test_mode ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+ ┃                                                      ┃
+ ┃  [x] Programs keep running                           ┃
+ ┃  [ ] Display kept on, screenlock disabled            ┃
+ ┃                                                      ┃
+ ┃   Method: test_method                                ┃
+ ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛""".lstrip("\n")  # noqa: W291
+
+    def test_render_logo(self):
+        ui = UI()
+        output_logo = ui.render_logo("1.0.0")
+        assert output_logo == self.expected_logo
+
+    @pytest.mark.parametrize(
+        "ascii_mode,expected_info_box",
+        [
+            (False, expected_info_box_unicode),  # Unicode
+            (True, expected_info_box_ascii),  # ASCII
+        ],
+    )
+    def test_render_info_box_uses_correct_template(self, ascii_mode, expected_info_box):
+        theme = DisplayTheme.create(ascii_mode=ascii_mode)
+        ui = UI(theme=theme)
+        output_box = ui.render_info_box(
+            "test_mode",
+            "test_method",
+            is_presentation_mode=False,
+        )
+        assert output_box == expected_info_box
+
+    def test_render_fake_success_warning(self):
+        ui = UI()
+        formatted = ui.render_fake_success_warning()
+
+        assert "WAKEPY_FAKE_SUCCESS" in formatted
+        assert "WARNING" in formatted
+
+    def test_render_info_box_truncates_long_names(self):
+        base = string.ascii_letters + string.digits
+        very_long_mode = "mode_" + base
+        very_long_method = "method_" + base
+        theme = DisplayTheme.create(ascii_mode=False)
+        ui = UI(theme=theme)
+        formatted = ui.render_info_box(
+            very_long_mode,
+            very_long_method,
+            is_presentation_mode=False,
+        )
+
+        expected = r"""
+ ┏━━ Mode: mode_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKL ━┓
+ ┃                                                      ┃
+ ┃  [✔] Programs keep running                           ┃
+ ┃  [ ] Display kept on, screenlock disabled            ┃
+ ┃                                                      ┃
+ ┃   Method: method_abcdefghijklmnopqrstuvwxyzABCDEFGHI ┃
+ ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛""".lstrip("\n")  # noqa: W291
+        assert formatted == expected
+
+    def test_spinner_frames(self):
+        theme = DisplayTheme.create(ascii_mode=False)
+        ui = UI(theme=theme)
+
+        # Get the first few frames from the infinite generator
+        frames = []
+        for i, frame in enumerate(ui.spinner_frames()):
+            frames.append(frame)
+            if i >= len(theme.spinner_symbols):
+                # Get one full cycle plus one to verify it cycles
+                break
+
+        # Check that we got frames
+        assert len(frames) > 0
+
+        # Each frame should contain the "Press Ctrl+C to exit" message
+        for frame in frames:
+            assert "[Press Ctrl+C to exit]" in frame
+
+        # The frames should cycle through the symbols
+        # First frame should contain first symbol, etc.
+        for i, symbol in enumerate(theme.spinner_symbols):
+            assert symbol in frames[i]
+
+    def test_render_activation_error_default_system_info(self):
+        ui = UI()
+        result = ActivationResult([])
+        formatted = ui.render_activation_error(result)
+        assert "Wakepy could not activate" in formatted
+
+
+class TestMain:
+    """Test the main() entry point function."""
+
+    def test_main_calls_run_wakepy(self):
+        """Test that main() parses args and calls run_wakepy."""
+        mock_app = Mock()
+        with patch("wakepy.__main__.setup_logging"):
+            main(argv=["-v", "-p"], app=mock_app)
+        mock_app.run_wakepy.assert_called_once()
+        mock_app.run_wakepy_methods.assert_not_called()
+
+    def test_main_default_app_and_argv(self):
+        with patch("wakepy.__main__.setup_logging"), patch(
+            "wakepy.__main__.CliApp"
+        ) as mock_cli_app, patch("wakepy.__main__.sys.argv", ["wakepy", "-v", "-p"]):
+            main()
+            mock_instance = mock_cli_app.return_value
+            mock_instance.run_wakepy.assert_called_once()
+            mock_instance.run_wakepy_methods.assert_not_called()
+
+    def test_main_calls_run_wakepy_methods(self):
+        """Test that main() calls run_wakepy_methods for 'methods' command."""
+        mock_app = Mock()
+        with patch("wakepy.__main__.setup_logging"):
+            main(argv=["methods", "-p"], app=mock_app)
+        mock_app.run_wakepy_methods.assert_called_once()
+        mock_app.run_wakepy.assert_not_called()
+
+    def test_main_handles_multiple_modes_error(self, capsys):
+        """Test that main() catches MultipleModesSelectedError and exits."""
+        with patch("wakepy.__main__.setup_logging"), pytest.raises(
+            SystemExit
+        ) as exc_info:
+            main(argv=["-r", "-p"])
+        assert exc_info.value.code == 2
+        captured = capsys.readouterr()
+        assert "Cannot use both --keep-running" in captured.err
+
+
+class TestGetLoggingLevel:
+    @pytest.mark.parametrize(
+        "verbosity, expected_level",
+        [
+            (0, logging.WARNING),
+            (1, logging.INFO),
+            (2, logging.DEBUG),
+            (3, logging.DEBUG),
+        ],
+    )
+    def test_get_logging_level(self, verbosity, expected_level):
+        assert get_logging_level(verbosity) == expected_level
+
+    @pytest.mark.parametrize(
+        "verbosity, expected_level",
+        [
+            (0, logging.WARNING),
+            (1, logging.WARNING),  # -v only enables detailed output, not INFO
+            (2, logging.INFO),
+            (3, logging.DEBUG),
+        ],
+    )
+    def test_get_logging_level_methods(self, verbosity, expected_level):
+        assert get_logging_level(verbosity, command="methods") == expected_level
+
+
+def test_setup_logging_calls_basic_config():
+    with patch("wakepy.__main__.logging.basicConfig") as basic_config:
+        setup_logging(verbosity=1, command="run")
+        basic_config.assert_called_once()

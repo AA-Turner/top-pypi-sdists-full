@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agilicus"
-version = "1.405.17"
+version = "1.405.21"
 description = "Agilicus SDK"
 license = "MIT"
 homepage = "https://www.agilicus.com/"
@@ -38,6 +38,7 @@ babel = "2.18.0"
 click-shell = "^2.1"
 appdirs = "^1.4.4"
 shortuuid = "^1.0.13"
+httpx = "^0.28.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "25.12.0"

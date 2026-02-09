@@ -3,7 +3,6 @@
 
 from __future__ import absolute_import
 
-import json
 import os
 import subprocess
 from textwrap import dedent
@@ -179,7 +178,9 @@ def test_desktop_file(tmpdir):
             dedent(
                 """\
                 [Test]
-                Data={{"name": "{name}", "exe": "{exe}", "icon": "{icon}"}}
+                name={name}
+                exe={exe}
+                icon={icon}
 
                 [Desktop Entry]
                 Name=Slartibartfast
@@ -188,9 +189,9 @@ def test_desktop_file(tmpdir):
             )
         )
 
-    icon = tmpdir.join("file.ico")
+    icon_path = tmpdir.join("file.ico")
     icon_contents = "1/137"
-    with open(icon, "w") as fp:
+    with open(icon_path, "w") as fp:
         fp.write(icon_contents)
 
     run_pex_command(
@@ -206,29 +207,130 @@ def test_desktop_file(tmpdir):
             "eager",
             "--scie-only",
             "--scie-icon",
-            icon,
+            icon_path,
             "--scie-desktop-file",
             desktop_file,
             "--no-scie-prompt-desktop-install",
         ]
     ).assert_success()
 
+    def assert_desktop_entry(
+        scie_base,  # type: str
+        xdg_data_home,  # type: str
+    ):
+        env = make_env(SCIE_BASE=scie_base, XDG_DATA_HOME=xdg_data_home)
+        assert b"| Moo! |" in subprocess.check_output(args=[scie, "Moo!"], env=env)
+
+        parser = DesktopFileParser.create(
+            os.path.join(xdg_data_home, "applications", "cowsay.desktop")
+        )
+        assert "Slartibartfast" == parser.get("Desktop Entry", "Name")
+        assert "DoesNotExist.png" == parser.get("Desktop Entry", "Icon")
+
+        executable = parser.get("Desktop Entry", "Exec")
+        assert executable != scie
+        assert scie == parser.get("Test", "exe")
+
+        def assert_quoting(string):
+            # type: (str) -> str
+
+            if " " not in string:
+                return string
+
+            prefix, unquoted, suffix = string.split('"')
+            assert not prefix, "Expected {string} to be quoted but found prefix {prefix}.".format(
+                string=string, prefix=prefix
+            )
+            assert not suffix, "Expected {string} to be quoted but found prefix {suffix}.".format(
+                string=string, suffix=suffix
+            )
+            return unquoted
+
+        exe, arg = executable.split()
+        exe = assert_quoting(exe)
+
+        option, value = arg.split("=")
+        assert "--launch" == option
+        value = assert_quoting(value)
+
+        assert b"| Moo? |" in subprocess.check_output(
+            args=[exe, "{option}={value}".format(option=option, value=value)] + ["Moo?"], env=env
+        )
+
+        assert "cowsay" == parser.get("Test", "name")
+
+        icon = parser.get("Test", "icon")
+        assert scie_base == commonpath((scie_base, icon))
+        with open(icon) as fp:
+            assert icon_contents == fp.read()
+
+    assert_desktop_entry(
+        scie_base=tmpdir.join("nce-no-space"),
+        xdg_data_home=safe_mkdir(tmpdir.join("XDG_DATA_HOME")),
+    )
+    assert_desktop_entry(
+        scie_base=tmpdir.join("nce-space"), xdg_data_home=safe_mkdir(tmpdir.join("XDG DATA HOME"))
+    )
+
+
+@skip_if_no_provider
+@pytest.mark.skipif(not IS_LINUX, reason="PEX scie desktop installs are only supported for Linux.")
+def test_desktop_file_env_var(tmpdir):
+    # type: (Tempdir) -> None
+
+    pex_root = tmpdir.join("pex-root")
+    icon = tmpdir.join("file.ico")
+    icon_contents = "42"
+    with open(icon, "w") as fp:
+        fp.write(icon_contents)
+
+    exe = tmpdir.join("exe.py")
+    with open(exe, "w") as fp:
+        fp.write(
+            dedent(
+                """\
+                import os
+                import sys
+
+
+                desktop_file = os.environ["DESKTOP_FILE"]
+                if sys.argv[1:] == ["--uninstall"]:
+                    os.unlink(desktop_file)
+                else:
+                    print(desktop_file)
+                """
+            )
+        )
+
+    scie = tmpdir.join("example")
+    run_pex_command(
+        args=[
+            "--runtime-pex-root",
+            pex_root,
+            "--exe",
+            exe,
+            "--scie",
+            "eager",
+            "--scie-only",
+            "--scie-icon",
+            icon,
+            "--no-scie-prompt-desktop-install",
+            "-o",
+            scie,
+        ]
+    ).assert_success()
+
     xdg_data_home = safe_mkdir(tmpdir.join("XDG_DATA_HOME"))
+    installed_desktop_file = os.path.join(xdg_data_home, "applications", "example.desktop")
+    assert not os.path.isfile(installed_desktop_file)
+
     scie_base = tmpdir.join("nce")
     env = make_env(SCIE_BASE=scie_base, XDG_DATA_HOME=xdg_data_home)
-    assert b"| Moo! |" in subprocess.check_output(args=[scie, "Moo!"], env=env)
+    assert (
+        installed_desktop_file
+        == subprocess.check_output(args=[scie], env=env).decode("utf-8").strip()
+    )
+    assert os.path.isfile(installed_desktop_file)
 
-    parser = DesktopFileParser.create(os.path.join(xdg_data_home, "applications", "cowsay.desktop"))
-    assert "Slartibartfast" == parser.get("Desktop Entry", "Name")
-    assert "DoesNotExist.png" == parser.get("Desktop Entry", "Icon")
-
-    data = json.loads(parser.get("Test", "Data"))
-    assert parser.get("Desktop Entry", "Exec") == data.pop("exe")
-    assert "cowsay" == data.pop("name")
-
-    icon = data.pop("icon")
-    assert scie_base == commonpath((scie_base, icon))
-    with open(icon) as fp:
-        assert icon_contents == fp.read()
-
-    assert not data
+    subprocess.check_call(args=[scie, "--uninstall"], env=env)
+    assert not os.path.isfile(installed_desktop_file)

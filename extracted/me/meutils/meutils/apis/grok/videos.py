@@ -59,13 +59,13 @@ aspect_ratio: Optional[VideoAspectRatio] = None,
 resolution: Optional[VideoResolution] = None,
 
 VideoAspectRatio: TypeAlias = Literal[
-    "1:1",
-    "16:9",
-    "9:16",
-    "4:3",
-    "3:4",
-    "3:2",
-    "2:3",
+"1:1",
+"16:9",
+"9:16",
+"4:3",
+"3:4",
+"3:2",
+"2:3",
 ]
 VideoResolutionMap: dict[VideoResolution, "video_pb2.VideoResolution"] = {
     "480p": video_pb2.VideoResolution.VIDEO_RESOLUTION_480P,

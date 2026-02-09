@@ -1,7 +1,7 @@
 ### Project
 [project]
 name = "taskcluster-taskgraph"
-version = "18.1.0"
+version = "19.0.0"
 description = "Build taskcluster taskgraphs"
 readme = "README.rst"
 authors = [
@@ -25,11 +25,12 @@ dependencies = [
   "cookiecutter~=2.1",
   "json-e>=2.7",
   "mozilla-repo-urls",
+  "msgspec>=0.20.0",
   "PyYAML>=5.3.1",
   "redo>=2.0",
   "requests>=2.25",
   "slugid>=2.0",
-  "taskcluster>=91.0,<92.0",
+  "taskcluster>=92.0",
   "taskcluster-urls>=11.0",
   "voluptuous>=0.12.1",
 ]

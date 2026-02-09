@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awkward_cpp
-Version: 51
+Version: 52
 Summary: CPU kernels and compiled extensions for Awkward Array
 Author-Email: Jim Pivarski <jpivarski@gmail.com>
 Maintainer-Email: Scikit-HEP <scikit-hep-admins@googlegroups.com>
@@ -18,7 +18,6 @@ Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -37,8 +36,8 @@ Project-URL: Bug Tracker, https://github.com/scikit-hep/awkward-1.0/issues
 Project-URL: Discussions, https://github.com/scikit-hep/awkward-1.0/discussions
 Project-URL: Chat, https://gitter.im/Scikit-HEP/awkward-array
 Project-URL: Releases, https://github.com/scikit-hep/awkward-1.0/releases
-Requires-Python: >=3.9
-Requires-Dist: numpy>=1.18.0
+Requires-Python: >=3.10
+Requires-Dist: numpy>=1.21.3
 Description-Content-Type: text/markdown
 
 # `awkward-cpp`

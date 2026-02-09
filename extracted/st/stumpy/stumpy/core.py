@@ -4001,7 +4001,7 @@ def _subspace(D, k, include=None, discords=False):
     # `include` processing occur here since we are dealing with indices, not distances
     if include is not None:
         include = _preprocess_include(include)
-        mask = np.in1d(sorted_idx, include)
+        mask = np.isin(sorted_idx, include)
         include_idx = mask.nonzero()[0]
         exclude_idx = (~mask).nonzero()[0]
         sorted_idx[: include_idx.shape[0]], sorted_idx[include_idx.shape[0] :] = (

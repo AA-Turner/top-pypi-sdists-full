@@ -1,47 +1,46 @@
 # std imports
-import asyncio
-import collections
 import struct
+import logging
+import collections
 
 # 3rd party
 import pytest
 
 # local
-from telnetlib3.stream_writer import TelnetWriter
 from telnetlib3 import slc
 from telnetlib3.telopt import (
-    IAC,
+    DO,
+    IS,
     SB,
     SE,
-    IS,
-    REQUEST,
+    EOR,
+    IAC,
+    SGA,
+    ECHO,
+    NAWS,
     SEND,
-    DO,
-    DONT,
     WILL,
     WONT,
-    ECHO,
-    SGA,
-    BINARY,
-    LINEMODE,
     LFLOW,
-    LFLOW_OFF,
+    TTYPE,
+    BINARY,
+    SNDLOC,
+    STATUS,
+    TSPEED,
+    CHARSET,
+    CMD_EOR,
+    REQUEST,
     LFLOW_ON,
+    LINEMODE,
+    XDISPLOC,
+    LFLOW_OFF,
+    NEW_ENVIRON,
     LFLOW_RESTART_ANY,
     LFLOW_RESTART_XON,
-    STATUS,
-    TTYPE,
-    TSPEED,
-    XDISPLOC,
-    NEW_ENVIRON,
-    CHARSET,
-    NAWS,
-    EOR,
-    CMD_EOR,
-    LOGOUT,
-    TM,
-    name_command,
 )
+from telnetlib3.client_base import BaseClient
+from telnetlib3.server_base import BaseServer
+from telnetlib3.stream_writer import TelnetWriter, _encode_env_buf, _format_sb_status
 
 
 class MockTransport:
@@ -58,6 +57,12 @@ class MockTransport:
 
     def get_extra_info(self, name, default=None):
         return self.extra.get(name, default)
+
+    def pause_reading(self):
+        pass
+
+    def resume_reading(self):
+        pass
 
     def close(self):
         self._closing = True
@@ -115,7 +120,7 @@ def test_iac_do_sets_pending_and_writes_when_not_enabled():
     assert w.remote_option.enabled(BINARY) is False
     sent = w.iac(DO, BINARY)
     assert sent is True
-    assert (DO + BINARY) in w.pending_option
+    assert DO + BINARY in w.pending_option
     assert t.writes[-1] == IAC + DO + BINARY
 
 
@@ -218,9 +223,7 @@ def test_request_tspeed_and_handle_send_and_is():
     ws2.set_ext_callback(TSPEED, lambda rx, tx: seen.setdefault("v", (rx, tx)))
     payload = b"57600,115200"
     # feed payload as individual bytes, matching expected subnegotiation format
-    buf2 = collections.deque(
-        [TSPEED, IS] + [payload[i : i + 1] for i in range(len(payload))]
-    )
+    buf2 = collections.deque([TSPEED, IS] + [payload[i : i + 1] for i in range(len(payload))])
     ws2._handle_sb_tspeed(buf2)
     assert seen["v"] == (57600, 115200)
 
@@ -240,9 +243,7 @@ def test_handle_sb_charset_request_accept_reject_and_accepted():
     w2.set_ext_send_callback(CHARSET, lambda offers=None: "UTF-8")
     buf2 = collections.deque([CHARSET, REQUEST, sep, offers])
     w2._handle_sb_charset(buf2)
-    assert (
-        t2.writes[-1] == IAC + SB + CHARSET + b"\x02" + b"UTF-8" + IAC + SE
-    )  # ACCEPTED = 2
+    assert t2.writes[-1] == IAC + SB + CHARSET + b"\x02" + b"UTF-8" + IAC + SE  # ACCEPTED = 2
 
     # ACCEPTED -> callback fired
     seen = {}
@@ -294,8 +295,6 @@ def test_handle_sb_ttype_is_and_send():
 
 def _encode_env(env):
     """Helper to encode env dict like _encode_env_buf would, for tests."""
-    from telnetlib3.stream_writer import _encode_env_buf
-
     return _encode_env_buf(env)
 
 
@@ -420,9 +419,7 @@ def test_send_naws_and_handle_naws():
     ws.remote_option[NAWS] = True
     ws.set_ext_callback(NAWS, lambda r, c: seen.setdefault("sz", (r, c)))
     payload2 = struct.pack("!HH", 100, 200)
-    buf2 = collections.deque(
-        [NAWS, payload2[0:1], payload2[1:2], payload2[2:3], payload2[3:4]]
-    )
+    buf2 = collections.deque([NAWS, payload2[0:1], payload2[1:2], payload2[2:3], payload2[3:4]])
     ws._handle_sb_naws(buf2)
     assert seen["sz"] == (200, 100)
 
@@ -472,13 +469,20 @@ def test_handle_sb_status_send_and_is():
     ws2._handle_sb_status(buf2)
 
 
-def test_handle_sb_forwardmask_assertions_and_do_raises_notimplemented():
-    # client end receiving DO FORWARDMASK must have WILL LINEMODE True
+def test_handle_sb_forwardmask_do_accepted():
     wc, _, _ = new_writer(server=False, client=True)
     wc.local_option[LINEMODE] = True
-    # DO with some bytes must call _handle_do_forwardmask -> NotImplementedError
-    with pytest.raises(AssertionError):
-        wc._handle_sb_forwardmask(DO, collections.deque([b"x", b"y"]))
+    wc._handle_sb_forwardmask(DO, collections.deque([b"x", b"y"]))
+    opt = SB + LINEMODE + slc.LMODE_FORWARDMASK
+    assert wc.local_option[opt] is True
+
+
+def test_handle_sb_linemode_mode_empty_buffer():
+    ws, _, _ = new_writer(server=True)
+    ws.local_option[LINEMODE] = True
+    ws.remote_option[LINEMODE] = True
+    with pytest.raises(ValueError, match="missing mode byte"):
+        ws._handle_sb_linemode_mode(collections.deque())
 
 
 def test_handle_sb_linemode_switches():
@@ -515,9 +519,131 @@ def test_handle_subnegotiation_dispatch_and_unhandled():
     # must reflect receipt of WILL NAWS prior to NAWS subnegotiation
     ws.remote_option[NAWS] = True
     payload = struct.pack("!HH", 10, 20)
-    buf = collections.deque(
-        [NAWS, payload[0:1], payload[1:2], payload[2:3], payload[3:4]]
-    )
+    buf = collections.deque([NAWS, payload[0:1], payload[1:2], payload[2:3], payload[3:4]])
     ws._handle_sb_naws(buf)
 
     # unhandled command
+    with pytest.raises(ValueError, match="SB unhandled"):
+        ws.handle_subnegotiation(collections.deque([b"\x99", b"\x00"]))
+
+
+async def test_server_data_received_split_sb_linemode():
+    class NoNegServer(BaseServer):
+        def begin_negotiation(self):
+            pass
+
+        def _check_negotiation_timer(self):
+            pass
+
+    transport = MockTransport()
+    server = NoNegServer(encoding=False)
+    server.connection_made(transport)
+
+    server.writer.remote_option[LINEMODE] = True
+    server.writer.local_option[LINEMODE] = True
+
+    transport.writes.clear()
+
+    chunk1 = IAC + SB + LINEMODE + slc.LMODE_MODE
+    server.data_received(chunk1)
+    assert server.writer.is_oob
+
+    mask_byte = b"\x10"
+    chunk2 = mask_byte + IAC + SE
+    server.data_received(chunk2)
+
+    response = b"".join(transport.writes)
+    assert IAC + SB + LINEMODE + slc.LMODE_MODE in response
+
+
+async def test_client_process_chunk_split_sb_linemode():
+    transport = MockTransport()
+    client = BaseClient(encoding=False)
+    client.connection_made(transport)
+
+    client.writer.remote_option[LINEMODE] = True
+    client.writer.local_option[LINEMODE] = True
+
+    transport.writes.clear()
+
+    chunk1 = IAC + SB + LINEMODE + slc.LMODE_MODE
+    client._process_chunk(chunk1)
+    assert client.writer.is_oob
+
+    mask_byte = b"\x10"
+    chunk2 = mask_byte + IAC + SE
+    client._process_chunk(chunk2)
+
+    response = b"".join(transport.writes)
+    assert IAC + SB + LINEMODE + slc.LMODE_MODE in response
+
+
+@pytest.mark.parametrize(
+    "opt, data, expected",
+    [
+        (NAWS, b"\x00\x50\x00\x19", "NAWS 80x25"),
+        (NAWS, b"\x01\x00\x00\xc8", "NAWS 256x200"),
+        (TTYPE, IS + b"VT100", "TTYPE IS VT100"),
+        (TTYPE, SEND + b"xterm", "TTYPE SEND xterm"),
+        (XDISPLOC, IS + b"host:0.0", "XDISPLOC IS host:0.0"),
+        (SNDLOC, IS + b"Building4", "SNDLOC IS Building4"),
+        (TTYPE, b"\x99" + b"data", "TTYPE 99 data"),
+        (STATUS, b"\xab\xcd", "STATUS abcd"),
+        (NAWS, b"\x00\x50\x00", "NAWS 005000"),
+        (STATUS, b"", "STATUS"),
+        (BINARY, b"", "BINARY"),
+    ],
+)
+def test_format_sb_status(opt, data, expected):
+    """Test _format_sb_status output for each branch."""
+    assert _format_sb_status(opt, data) == expected
+
+
+def _make_status_is_buf(*parts):
+    """Build a deque for _handle_sb_status from raw byte sequences."""
+    buf = collections.deque()
+    buf.append(STATUS)
+    buf.append(IS)
+    for part in parts:
+        for byte_val in part:
+            buf.append(bytes([byte_val]))
+    return buf
+
+
+def test_receive_status_sb_naws(caplog):
+    """STATUS IS with embedded SB NAWS data SE."""
+    ws, _, _ = new_writer(server=True)
+    ws.local_option[NAWS] = True
+    naws_payload = struct.pack("!HH", 80, 25)
+    buf = _make_status_is_buf(SB + NAWS + naws_payload + SE)
+    with caplog.at_level(logging.DEBUG):
+        ws._handle_sb_status(buf)
+    assert any("NAWS 80x25" in msg for msg in caplog.messages)
+
+
+def test_receive_status_sb_missing_se(caplog):
+    """STATUS IS with SB block missing SE consumes rest of buffer."""
+    ws, _, _ = new_writer(server=True)
+    naws_payload = struct.pack("!HH", 80, 25)
+    buf = _make_status_is_buf(SB + NAWS + naws_payload)
+    with caplog.at_level(logging.DEBUG):
+        ws._handle_sb_status(buf)
+    assert any("subneg" in msg for msg in caplog.messages)
+
+
+def test_receive_status_mixed_do_will_and_sb(caplog):
+    """STATUS IS with DO/WILL pairs intermixed with SB blocks."""
+    ws, _, _ = new_writer(server=True)
+    ws.local_option[BINARY] = True
+    ws.remote_option[SGA] = True
+    ws.remote_option[ECHO] = True
+    ws.local_option[NAWS] = True
+    naws_payload = struct.pack("!HH", 132, 43)
+    buf = _make_status_is_buf(
+        DO + BINARY + WILL + SGA + SB + NAWS + naws_payload + SE + WONT + ECHO
+    )
+    with caplog.at_level(logging.DEBUG):
+        ws._handle_sb_status(buf)
+    assert any("agreed" in msg.lower() for msg in caplog.messages)
+    assert any("NAWS 132x43" in msg for msg in caplog.messages)
+    assert any("disagree" in msg.lower() for msg in caplog.messages)

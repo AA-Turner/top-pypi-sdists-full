@@ -22,7 +22,7 @@ class RecordedFact(Fact):
 
     id: str = Field(description='The unique ID of a fact.')
     created_at: datetime = Field(description='The date and time the fact was created.')
-    run_id: str | None = Field(description='The run associated with the fact.')
+    run_id: str | None = Field(default=None, description='The run associated with the fact.')
 
 
 class Run(BaseModel):
@@ -44,6 +44,9 @@ fact_schema = CollectionSchema(
         # Keep it as an INT64 or else you won't be able to list all facts.
         FieldSchema(name='id', is_primary=True, auto_id=True, dtype=DataType.INT64, max_length=128),
         FieldSchema(name='content', dtype=DataType.VARCHAR, max_length=512),
+        FieldSchema(name='created_at', dtype=DataType.INT64),
+        # milvus-lite does not support nullable values. Use a default value like '' in place of `None`
+        FieldSchema(name='run_id', dtype=DataType.VARCHAR, max_length=128),
         FieldSchema(name='embedding', dtype=DataType.FLOAT_VECTOR, dim=384),
         FieldSchema(name='metadata', dtype=DataType.JSON),
     ]

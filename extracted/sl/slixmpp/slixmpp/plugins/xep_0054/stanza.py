@@ -318,8 +318,8 @@ class Birthday(ElementBase):
     is_extension = True
 
     def set_bday(self, value):
-        if isinstance(value, dt.datetime):
-            value = xep_0082.format_datetime(value)
+        if isinstance(value, (dt.datetime, dt.date)):
+            value = xep_0082.format_date(value)
         self.xml.text = value
 
     def get_bday(self):

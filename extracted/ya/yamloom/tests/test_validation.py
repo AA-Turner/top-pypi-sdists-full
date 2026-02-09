@@ -103,3 +103,50 @@ def test_script_permissions_merge_like_recommended_permissions() -> None:
         runs_on='ubuntu-latest',
     )
     assert '\npermissions:\n  contents: read\n' in str(job)
+
+
+def test_script_multiline_expression_renders_as_block_scalar() -> None:
+    job = Job(
+        steps=[
+            script(
+                'echo "raw=|${{ steps.release.outputs.releases_created }}|"',
+                'echo "toJSON=${{ toJSON(steps.release.outputs.releases_created) }}"',
+                "echo \"== 'true'  -> ${{ steps.release.outputs.releases_created == 'true' }}\"",
+            )
+        ],
+        runs_on='ubuntu-latest',
+    )
+    job_yaml = str(job)
+    assert '\n  - run: |' in job_yaml or '\n  - run: |-' in job_yaml
+    assert '\\n' not in job_yaml
+
+
+def test_script_preserves_intentional_escaped_control_sequences() -> None:
+    job = Job(
+        steps=[
+            script(
+                'printf "%s" "a\\nb\\r"',
+                'echo "${{ steps.release.outputs.releases_created }}"',
+            )
+        ],
+        runs_on='ubuntu-latest',
+    )
+    job_yaml = str(job)
+    assert '\n  - run: |' in job_yaml or '\n  - run: |-' in job_yaml
+    assert 'printf "%s" "a\\nb\\r"' in job_yaml
+
+
+def test_script_expression_line_escapes_control_chars_without_block_scalar() -> None:
+    job = Job(
+        steps=[
+            script(
+                f'printf "%s\n" {context.matrix.platform.python_versions.as_array().join(" ")} >> version.txt',
+            )
+        ],
+        runs_on='ubuntu-latest',
+    )
+    job_yaml = str(job)
+    assert (
+        '\n  - run: printf "%s\\n" ${{ join(matrix.platform.python_versions, \' \') }} >> version.txt'
+        in job_yaml
+    )

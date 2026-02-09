@@ -21,6 +21,7 @@ Example:
 from typing import Any
 
 import tomlkit
+from tomlkit.items import Table
 
 from pyrig.dev.configs.base.dict_cf import DictConfigFile
 
@@ -71,11 +72,40 @@ class TomlConfigFile(DictConfigFile):
         cls.pretty_dump(config)
 
     @classmethod
-    def prettify_dict(cls, config: dict[str, Any]) -> dict[str, Any]:
+    def prettify_value(cls, value: Any) -> Any:
+        """Recursively prettify a value for TOML output.
+
+        Lists of dicts become arrays of tables (``[[section]]`` syntax).
+        Other lists become multiline arrays. Dicts become tables with recursively
+        prettified values. Scalars are returned as-is.
+
+        Args:
+            value: Value to prettify (list, dict, or scalar).
+
+        Returns:
+            Prettified tomlkit value.
+        """
+        if isinstance(value, list):
+            if value and all(isinstance(item, dict) for item in value):
+                aot = tomlkit.aot()
+                for item in value:
+                    aot.append(cls.prettify_dict(item))
+                return aot
+            arr = tomlkit.array().multiline(multiline=True)
+            for item in value:
+                arr.append(cls.prettify_value(item))
+            return arr
+        if isinstance(value, dict):
+            return cls.prettify_dict(value)
+        return value
+
+    @classmethod
+    def prettify_dict(cls, config: dict[str, Any]) -> Table:
         """Convert dict to tomlkit table with multiline arrays.
 
-        Recursively processes config: lists become multiline arrays (inline tables
-        for dict lists), dicts become nested tables, scalars added as-is.
+        Recursively processes config: lists of dicts become arrays of tables
+        (``[[section]]`` syntax), other lists become multiline arrays, dicts become
+        nested tables, scalars added as-is.
 
         Args:
             config: Configuration dict to prettify.
@@ -84,30 +114,8 @@ class TomlConfigFile(DictConfigFile):
             tomlkit.table() with formatted arrays.
         """
         t = tomlkit.table()
-
-        for key, value in config.items():
-            if isinstance(value, list):
-                # Check if all items are dicts - use inline tables for those
-                if value and all(isinstance(item, dict) for item in value):
-                    arr = tomlkit.array().multiline(multiline=True)
-                    for item in value:
-                        inline_table = tomlkit.inline_table()
-                        inline_table.update(item)
-                        arr.append(inline_table)
-                    t.add(key, arr)
-                else:
-                    # For non-dict items, use multiline arrays
-                    arr = tomlkit.array().multiline(multiline=True)
-                    for item in value:
-                        arr.append(item)
-                    t.add(key, arr)
-
-            elif isinstance(value, dict):
-                t.add(key, cls.prettify_dict(value))
-
-            else:
-                t.add(key, value)
-
+        for k, v in config.items():
+            t.add(k, cls.prettify_value(v))
         return t
 
     @classmethod

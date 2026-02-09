@@ -3,7 +3,7 @@ from rich.console import Console
 from rich.table import Table
 from typing import Annotated, TYPE_CHECKING
 
-from cuga.backend.memory.agentic_memory.client import APIRequestException
+from cuga.backend.memory.agentic_memory.utils.exceptions import APIRequestException
 
 if TYPE_CHECKING:
     from cuga.backend.memory.memory import Memory

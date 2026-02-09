@@ -5,9 +5,27 @@ import sqlite3
 import threading
 
 from cuga.backend.memory.agentic_memory.schema import Namespace, Run
+from cuga.backend.memory.agentic_memory.utils.exceptions import (
+    NamespaceAlreadyExistsException,
+    RunAlreadyExistsException,
+)
 from cuga.config import DBS_DIR
 
 logger = logging.getLogger(__name__)
+
+
+def adapt_datetime_epoch(time: datetime.datetime) -> int:
+    """Adapt datetime.datetime to Unix timestamp."""
+    return int(time.timestamp())
+
+
+def convert_timestamp(time: bytes) -> datetime.datetime:
+    """Convert Unix epoch timestamp to datetime.datetime object."""
+    return datetime.datetime.fromtimestamp(int.from_bytes(time), datetime.UTC)
+
+
+sqlite3.register_adapter(datetime.datetime, adapt_datetime_epoch)
+sqlite3.register_converter("timestamp", convert_timestamp)
 
 
 class SQLiteManager:
@@ -84,7 +102,7 @@ class SQLiteManager:
                 )
                 self.connection.execute("COMMIT")
             except sqlite3.IntegrityError as e:
-                raise RuntimeError(f'Namespace "{namespace_id}" already exists.') from e
+                raise NamespaceAlreadyExistsException(f'Namespace "{namespace_id}" already exists.') from e
             except Exception as e:
                 self.connection.execute("ROLLBACK")
                 logger.error(f"Failed to create namespace: {e}")
@@ -117,7 +135,7 @@ class SQLiteManager:
                 )
                 self.connection.execute("COMMIT")
             except sqlite3.IntegrityError as e:
-                raise RuntimeError(f'Run "{run_id}" already exists.') from e
+                raise RunAlreadyExistsException(f'Run "{run_id}" already exists.') from e
             except Exception as e:
                 self.connection.execute("ROLLBACK")
                 logger.error(f"Failed to create run: {e}")
@@ -155,18 +173,8 @@ class SQLiteManager:
             )
             return cursor.fetchone()
 
-    def all_namespaces(self) -> list[Namespace]:
-        with self._lock:
-            cursor: sqlite3.Cursor = self.connection.cursor()
-            cursor.row_factory = Namespace.row_factory
-            cursor.execute("""
-                SELECT id, created_at, user_id, agent_id, app_id
-                FROM namespaces
-                ORDER BY id ASC
-            """)
-            return cursor.fetchall()
-
-    def all_runs(self, namespace_id: str) -> list[Run]:
+    def list_runs(self, namespace_id: str, limit: int = 10) -> list[Run]:
+        params = [namespace_id, limit]
         with self._lock:
             cursor: sqlite3.Cursor = self.connection.cursor()
             cursor.row_factory = Run.row_factory
@@ -175,9 +183,10 @@ class SQLiteManager:
                     SELECT namespace_id, id, created_at, ended
                     FROM runs
                     WHERE namespace_id = ?
-                    ORDER BY id ASC
+                    ORDER BY created_at DESC
+                    LIMIT ?
                 """,
-                (namespace_id,),
+                params,
             )
             return cursor.fetchall()
 
@@ -195,20 +204,28 @@ class SQLiteManager:
         }
         sql = ' AND '.join([f"{k} = ?" for k, v in query.keys()])
         params = list(query.values()) + [limit]
-        if not sql:
-            raise ValueError('At least one of the parameters must not be `None`.')
         with self._lock:
             cursor: sqlite3.Cursor = self.connection.cursor()
             cursor.row_factory = Namespace.row_factory
-            cursor = self.connection.execute(
-                f"""
-                    SELECT id, created_at, user_id, agent_id, app_id
-                    FROM namespaces
-                    WHERE {sql}
-                    LIMIT ?
-                """,
-                params,
-            )
+            if sql:
+                cursor.execute(
+                    f"""
+                        SELECT id, created_at, user_id, agent_id, app_id
+                        FROM namespaces
+                        WHERE {sql}
+                        LIMIT ?
+                    """,
+                    params,
+                )
+            else:
+                cursor.execute(
+                    """
+                        SELECT id, created_at, user_id, agent_id, app_id
+                        FROM namespaces
+                        LIMIT ?
+                    """,
+                    [limit],
+                )
             return cursor.fetchall()
 
     def end_run(self, namespace_id: str, run_id: str):

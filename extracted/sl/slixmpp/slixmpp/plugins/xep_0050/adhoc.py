@@ -8,6 +8,7 @@ import functools
 import logging
 import time
 import typing
+from inspect import iscoroutinefunction
 
 from slixmpp import Iq
 from slixmpp.exceptions import XMPPError
@@ -670,9 +671,9 @@ class XEP_0050(BasePlugin):
 
 
 def _iscoroutine_or_partial_coroutine(handler):
-    return asyncio.iscoroutinefunction(handler) \
+    return iscoroutinefunction(handler) \
         or isinstance(handler, functools.partial) \
-        and asyncio.iscoroutinefunction(handler.func)
+        and iscoroutinefunction(handler.func)
 
 
 async def _await_if_needed(handler, *args):

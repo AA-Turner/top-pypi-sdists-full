@@ -4,10 +4,10 @@ import socket
 import subprocess
 
 from adam.apps import Apps
-from adam.config import Config
 from adam.utils_k8s.ingresses import Ingresses
 from adam.utils_k8s.services import Services
-from adam.utils import debug, log2, random_alphanumeric
+from adam.utils import random_alphanumeric
+from adam.utils_log import debug, log2
 
 def start_user_code(namespace: str):
     try:

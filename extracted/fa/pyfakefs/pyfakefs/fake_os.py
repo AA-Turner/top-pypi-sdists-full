@@ -16,12 +16,15 @@
 fake :py:mod:`os` module replacement.
 """
 
+from __future__ import annotations
+
 import errno
 import functools
 import inspect
 import os
 import sys
 import uuid
+import weakref
 from contextlib import contextmanager
 from stat import (
     S_IFREG,
@@ -145,19 +148,27 @@ class FakeOsModule:
             ]
         return _dir
 
-    def __init__(self, filesystem: "FakeFilesystem"):
+    def __init__(self, filesystem: FakeFilesystem):
         """Also exposes self.path (to fake os.path).
 
         Args:
             filesystem: FakeFilesystem used to provide file system information
         """
-        self.filesystem = filesystem
+        self._filesystem: weakref.ReferenceType[FakeFilesystem] = weakref.ref(
+            filesystem
+        )
         self.os_module: Any = os
-        self.path = FakePathModule(self.filesystem, self)
+        self.path = FakePathModule(filesystem, self)
         self._supports_follow_symlinks: set | None = None
         self._supports_dir_fd: set | None = None
         self._supports_effective_ids: set | None = None
         self._supports_fd: set | None = None
+
+    @property
+    def filesystem(self) -> FakeFilesystem:
+        fs = self._filesystem()
+        assert fs is not None
+        return fs
 
     @property
     def devnull(self) -> str:
@@ -1108,7 +1119,8 @@ class FakeOsModule:
                 the link itself is queried instead of the linked object.
         """
         if not follow_symlinks and (
-            self.chmod not in self.supports_follow_symlinks or IS_PYPY
+            self.chmod not in self.supports_follow_symlinks
+            or (IS_PYPY and not self.filesystem.is_macos)
         ):
             raise NotImplementedError(
                 "`follow_symlinks` for chmod() is not available on this system"
@@ -1295,7 +1307,11 @@ class FakeOsModule:
             OSError:  if something already exists at new_path.
             OSError:  if the parent directory doesn't exist.
         """
-        if IS_PYPY and follow_symlinks is not None:
+        if (
+            IS_PYPY
+            and not (self.filesystem.is_windows_fs and sys.version_info >= (3, 11))
+            and follow_symlinks is not None
+        ):
             raise OSError(errno.EINVAL, "Invalid argument: follow_symlinks")
         if follow_symlinks is None:
             follow_symlinks = True
@@ -1466,7 +1482,7 @@ def handle_original_call(f: Callable) -> Callable:
         if not should_use_original and args:
             self = args[0]
             fs: FakeFilesystem = self.filesystem
-            if self.filesystem.patcher:
+            if fs.has_patcher:
                 skip_names = fs.patcher.skip_names
                 if is_called_from_skipped_module(
                     skip_names=skip_names,

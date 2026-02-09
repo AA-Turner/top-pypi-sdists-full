@@ -13,6 +13,7 @@ import base64
 import logging
 import os
 import platform
+import textwrap
 import time
 import warnings
 
@@ -237,7 +238,7 @@ class X509TestCase(unittest.TestCase):
         # first hash value) to UTF8STRING (the second one)
         self.assertIn(
             n.as_hash(),
-            (1697185131, 1370641112),
+            (1697185131, 1370641112, 333998119),
             "Unexpected value of the X509_Name hash %s" % n.as_hash(),
         )
 
@@ -366,16 +367,12 @@ class X509TestCase(unittest.TestCase):
             self.assertEqual(cert.get_serial_number(), 1)
             self.assertEqual(cert.get_issuer().CN, "The Issuer Monkey")
 
-            if m2.OPENSSL_VERSION_NUMBER >= 0x90800F:
-                self.assertFalse(cert.check_ca())
-                self.assertFalse(cert.check_purpose(m2.X509_PURPOSE_SSL_SERVER, 1))
-                self.assertFalse(cert.check_purpose(m2.X509_PURPOSE_NS_SSL_SERVER, 1))
-                self.assertTrue(cert.check_purpose(m2.X509_PURPOSE_SSL_SERVER, 0))
-                self.assertTrue(cert.check_purpose(m2.X509_PURPOSE_NS_SSL_SERVER, 0))
-                self.assertTrue(cert.check_purpose(m2.X509_PURPOSE_ANY, 0))
-            else:
-                with self.assertRaises(AttributeError):
-                    cert.check_ca()
+            self.assertFalse(cert.check_ca())
+            self.assertFalse(cert.check_purpose(m2.X509_PURPOSE_SSL_SERVER, 1))
+            self.assertFalse(cert.check_purpose(m2.X509_PURPOSE_NS_SSL_SERVER, 1))
+            self.assertTrue(cert.check_purpose(m2.X509_PURPOSE_SSL_SERVER, 0))
+            self.assertTrue(cert.check_purpose(m2.X509_PURPOSE_NS_SSL_SERVER, 0))
+            self.assertTrue(cert.check_purpose(m2.X509_PURPOSE_ANY, 0))
 
     def mkcacert(self, utc):
         req, pk = self.mkreq(1024, ca=1)
@@ -404,17 +401,13 @@ class X509TestCase(unittest.TestCase):
         cert.add_ext(ext)
         cert.sign(pk, "sha256")
 
-        if m2.OPENSSL_VERSION_NUMBER >= 0x0090800F:
-            self.assertTrue(cert.check_ca())
-            self.assertTrue(cert.check_purpose(m2.X509_PURPOSE_SSL_SERVER, 1))
-            self.assertTrue(cert.check_purpose(m2.X509_PURPOSE_NS_SSL_SERVER, 1))
-            self.assertTrue(cert.check_purpose(m2.X509_PURPOSE_ANY, 1))
-            self.assertTrue(cert.check_purpose(m2.X509_PURPOSE_SSL_SERVER, 0))
-            self.assertTrue(cert.check_purpose(m2.X509_PURPOSE_NS_SSL_SERVER, 0))
-            self.assertTrue(cert.check_purpose(m2.X509_PURPOSE_ANY, 0))
-        else:
-            with self.assertRaises(AttributeError):
-                cert.check_ca()
+        self.assertTrue(cert.check_ca())
+        self.assertTrue(cert.check_purpose(m2.X509_PURPOSE_SSL_SERVER, 1))
+        self.assertTrue(cert.check_purpose(m2.X509_PURPOSE_NS_SSL_SERVER, 1))
+        self.assertTrue(cert.check_purpose(m2.X509_PURPOSE_ANY, 1))
+        self.assertTrue(cert.check_purpose(m2.X509_PURPOSE_SSL_SERVER, 0))
+        self.assertTrue(cert.check_purpose(m2.X509_PURPOSE_NS_SSL_SERVER, 0))
+        self.assertTrue(cert.check_purpose(m2.X509_PURPOSE_ANY, 0))
 
         return cert, pk, pkey
 
@@ -627,15 +620,15 @@ class X509TestCase(unittest.TestCase):
             with self.assertRaises(X509.X509Error):
                 X509.new_stack_from_der(b"Hello")
             with self.assertRaises(X509.X509Error):
-                X509.load_cert("tests/alltests.py")
+                X509.load_cert("tests/__init__.py")
             with self.assertRaises(X509.X509Error):
-                X509.load_request("tests/alltests.py")
+                X509.load_request("tests/__init__.py")
             with self.assertRaises(X509.X509Error):
                 X509.load_request_string("Hello")
             with self.assertRaises(X509.X509Error):
                 X509.load_request_der_string("Hello")
             with self.assertRaises(X509.X509Error):
-                X509.load_crl("tests/alltests.py")
+                X509.load_crl("tests/__init__.py")
         except SystemError:
             pass
 
@@ -810,6 +803,49 @@ class X509StackTestCase(unittest.TestCase):
         self.assertEqual(str(issuer_subject1), str(issuer_subject2))
 
 
+class X509StackDegenerateTestCase(unittest.TestCase):
+    def setUp(self):
+        self.cert1 = X509.load_cert("tests/signer.pem")
+        self.cert2 = X509.load_cert("tests/server.pem")
+        self.stack = X509.X509_Stack()
+        self.stack.push(self.cert1)
+        self.stack.push(self.cert2)
+
+    def test_create_degenerate_method(self):
+        """Test X509_Stack.create_degenerate() method."""
+        bio = BIO.MemoryBuffer()
+        ret = self.stack.create_degenerate(bio)
+        self.assertEqual(ret, 1)
+
+        output = bio.read()
+        self.assertTrue(len(output) > 0)
+        # self.assertIn(b"-----BEGIN PKCS7-----", output)
+
+    def test_save_degenerate_method(self):
+        """Test X509_Stack.save_degenerate() method."""
+        filename = "tests/test_stack_degenerate.p7c"
+        try:
+            ret = self.stack.save_degenerate(filename)
+            self.assertEqual(ret, 1)
+            self.assertTrue(os.path.exists(filename))
+        finally:
+            if os.path.exists(filename):
+                os.unlink(filename)
+
+    def test_create_degenerate_empty_stack(self):
+        """Test error handling for empty stack."""
+        empty_stack = X509.X509_Stack()
+        bio = BIO.MemoryBuffer()
+
+        with self.assertRaises(X509.X509Error):
+            empty_stack.create_degenerate(bio)
+
+    def test_create_degenerate_invalid_bio(self):
+        """Test error handling for invalid BIO parameter."""
+        with self.assertRaises(X509.X509Error):
+            self.stack.create_degenerate("not_a_bio")
+
+
 class X509ExtTestCase(unittest.TestCase):
     def test_ext(self):
         if 0:  # XXX
@@ -825,19 +861,262 @@ class X509ExtTestCase(unittest.TestCase):
         x509_ext_ptr = m2.x509v3_ext_conf(None, ctx, name, value)
         X509.X509_Extension(x509_ext_ptr, 1)
 
+    def test_multiple_extensions(self):
+        # Testing for https://todo.sr.ht/~mcepl/m2crypto/9
+        # Test creating multiple X509 extensions
+
+        # These are extensions that should work without special context
+        ext1 = X509.new_extension("basicConstraints", "CA:TRUE")
+        self.assertIsNotNone(ext1)
+
+        ext2 = X509.new_extension("subjectAltName", "DNS:example.com")
+        self.assertIsNotNone(ext2)
+
+        ext3 = X509.new_extension("keyUsage", "digitalSignature,keyEncipherment")
+        self.assertIsNotNone(ext3)
+
+        # Test subjectKeyIdentifier with explicit hex value (not "hash")
+        sub_key_id = "1CE6F0585832BC7BBA8EE0231BFF1799B04DCF64"
+        ext4 = X509.new_extension("subjectKeyIdentifier", sub_key_id)
+        self.assertIsNotNone(ext4)
+
+        # Test with colons in the hex string (should also work)
+        sub_key_id_with_colons = "1C:E6:F0:58:58:32:BC:7B:BA:8E:E0:23:1B:FF:17:99:B0:4D:CF:64"
+        ext5 = X509.new_extension("subjectKeyIdentifier", sub_key_id_with_colons)
+        self.assertIsNotNone(ext5)
+
+        # Verify the extensions have expected values
+        self.assertEqual(ext1.get_name(), "basicConstraints")
+        self.assertEqual(ext2.get_name(), "subjectAltName")
+        self.assertEqual(ext3.get_name(), "keyUsage")
+        self.assertEqual(ext4.get_name(), "subjectKeyIdentifier")
+        self.assertEqual(ext5.get_name(), "subjectKeyIdentifier")
+
+
+    @unittest.skip("requires functionality we don't support yet")
+    def test_multiple_extensions_older_version(self):
+        # Testing for https://todo.sr.ht/~mcepl/m2crypto/9
+        sub_key_id = "1C:E6:F0:58:58:32:BC:7B:BA:8E:E0:23:1B:FF:17:99:B0:4D:CF:64"
+        auth_id = "1C:E6:F0:58:58:32:BC:7B:BA:8E:E0:23:1B:FF:17:99:B0:4D:CF:64"
+
+        cert_pem_string = textwrap.dedent(
+            """\
+        -----BEGIN CERTIFICATE-----
+        MIIGFjCCA/6gAwIBAgIJAO7rHaO9YDQDMA0GCSqGSIb3DQEBCwUAMHsxCzAJBgNV
+        BAYTAlVTMQswCQYDVQQIDAJDQTESMBAGA1UEBwwJTG9zIEdhdG9zMRMwEQYDVQQK
+        DApOYUplRGEgTExDMSMwIQYDVQQLDBpOYUplRGEgR2VvY2FjaGluZyBTZXJ2aWNl
+        czERMA8GA1UEAwwIbG9jYWxfY2EwHhcNMTgwNTMxMTgwOTMwWhcNMzcxMjMxMTgw
+        OTMwWjB7MQswCQYDVQQGEwJVUzELMAkGA1UECAwCQ0ExEjAQBgNVBAcMCUxvcyBH
+        YXRvczETMBEGA1UECgwKTmFKZURhIExMQzEjMCEGA1UECwwaTmFKZURhIEdlb2Nh
+        Y2hpbmcgU2VydmljZXMxETAPBgNVBAMMCGxvY2FsX2NhMIICIjANBgkqhkiG9w0B
+        AQEFAAOCAg8AMIICCgKCAgEAwL4VBqghrv9DdUq+63Yty/kaNINIO+ldhY8GxrZd
+        KXdJqanZN0nMZaW4lys7OTGKml2TzL1JiOueChky5H+8vbmXF8Mp2j3DIQRlYQae
+        m/cijW4Q8QRiUNdsIcB6pB7Oa7JvyTxMsbwQC2MlE9ItNR2zJ1RMpzGvRoO+wheZ
+        8zPtXquo+/rJfzoxd2G6/L9Rrwo3Izgwb6NiXbQadg675o/0shmhD1LJT5DcmvjL
+        0shj+VasUKAOwgt/5GtkjjeE53VsExOkJKrH/RUodl6dXiXBq4ehtwdFGQnTDpyg
+        bKSXI8M3FPU/zYjt4HYDW5R+VlkKYEdMaOwQ4b9waArCZPSh6SoSZ8SyjRN1wKqn
+        da+vl5MrzPGTbnN8CXvs89+ti+iT+pdsCc/L3kdwqaV3HNE0pjTg3bChWJ/iNltF
+        E3lqTmnUcMfvhHpAcj6txB4YqzvQgh7DQ4KnKwFgXvrS7t2fdgFxVe/Bl7ApXi1t
+        Eg8AEjasuLqb/sTWLyvoWog1iJg7uWsv7F3DXloc7q80eAh610KtPTSzcCvOfd9I
+        i6+P9yxcOZv4vCbX7rrCJt/scL2/Hz1qqQYA/DcKtvitA2hUAx6AJlMvW14Dw3tc
+        nHny5lJ4Ty7ZiGN7Bg9Jj1uJusa0le2dkFwx5WjXZu2QMtjgJT8aBl3iM36jNtY7
+        v6cCAwEAAaOBnDCBmTAdBgNVHQ4EFgQUHObwWFgyvHu6juAjG/8XmbBNz2QwHwYD
+        VR0jBBgwFoAUHObwWFgyvHu6juAjG/8XmbBNz2QwDwYDVR0TAQH/BAUwAwEB/zAO
+        BgNVHQ8BAf8EBAMCAQYwNgYDVR0fBC8wLTAroCmgJ4YlaHR0cHM6Ly9jcmwuc29t
+        ZS51cmwuY29tL2xvY2FsX2NhLmNybDANBgkqhkiG9w0BAQsFAAOCAgEAepM/VwzI
+        N3aWc08IgF0+J3wYAjDzq2y/ixDXwL/B/XOHElySaiDakiT6HM52Ek/LkFK67Llp
+        TZIxCwViBxkkcTBS10ymGfsYY5R7lOx14SUIXPOS/Pvht1IZBuSp5J9woZjEZitk
+        InmWYSmA2Q85JtFs86pNQD9gCOCd5hnKK2LqOwrPAcnOJ06FhZFT/psI5MR8XFjD
+        /dJUfnkxbK6S77sCslALdsaYdWp6B4gnmZWF3tTxq1IkNKVJuGdcPLg33zFAXzmo
+        POzjrTmr+1DUEahBbY/9oGcQQh0Ir9lTdd0Uym40FN/7jDA8G1CeK8lsL+TZ5dTU
+        BPCI2LLd2p7c3SddMNM/GUZdoJ4LXKx3JnDu8lYpjOcL21QHjqfNSmAHzX8skery
+        jawwi0yijJYwsyrB629ek0p/v16uTojs6JGddOmnz9z1/pBctRw6w83d0jNQc2yY
+        g89xOl9q0Z7G6rThyNuJwworN5FaPJB2Pl7pHf2uJZEp0mq1SN3Lcfre2yXig8Tc
+        rWjDY8k9VrEJG0G3n9FVv9hKvob9ngUMkmyxE5E4VWyab5gVt2m0XXJjz5Sc3530
+        dQ9SXhFS7s3060/yl0BBWnTtfu9zGdKaz4lWo25Q0r7HD5y/MwUCbqpRVqXJxGHY
+        d3PEYaXkdwhAi3EbarF7R8r3hKzYCpXxfI4=
+        -----END CERTIFICATE-----"""
+        )
+        m2_x509_cert = X509.load_cert_string(cert_pem_string)
+
+        local_ski = m2_x509_cert.get_ext("subjectKeyIdentifier")
+        local_aki = m2_x509_cert.get_ext("authorityKeyIdentifier")
+
+        X509.new_extension("subjectKeyIdentifier", sub_key_id)
+        X509.new_extension("authorityKeyIdentifier", "keyid:" + auth_id)
+
+
+class X509_StoreContextTestCase(unittest.TestCase):
+
+    def test_verify_cert(self):
+        # Test with the CA that signed tests/x509.pem
+        ca = X509.load_cert("tests/ca.pem")
+        cert = X509.load_cert("tests/x509.pem")
+        store = X509.X509_Store()
+        store.add_x509(ca)
+        store_ctx = X509.X509_Store_Context()
+        store_ctx.init(store, cert)
+        self.assertTrue(store_ctx.verify_cert())
+
+        # Test with the wrong CA, this CA did not sign tests/x509.pem
+        wrong_ca = X509.load_cert("tests/crl_data/certs/revoking_ca.pem")
+        cert = X509.load_cert("tests/x509.pem")
+        store = X509.X509_Store()
+        store.add_x509(wrong_ca)
+        store_ctx = X509.X509_Store_Context()
+        store_ctx.init(store, cert)
+        self.assertFalse(store_ctx.verify_cert())
+
+    def test_verify_with_add_crl(self):
+        ca = X509.load_cert("tests/crl_data/certs/revoking_ca.pem")
+        valid_cert = X509.load_cert("tests/crl_data/certs/valid_cert.pem")
+        revoked_cert = X509.load_cert("tests/crl_data/certs/revoked_cert.pem")
+        crl = X509.load_crl("tests/crl_data/certs/revoking_crl.pem")
+
+        # Verify that a good cert is verified OK
+        store = X509.X509_Store()
+        store.add_x509(ca)
+        store.add_crl(crl)
+        store.set_flags(
+            X509.m2.X509_V_FLAG_CRL_CHECK | X509.m2.X509_V_FLAG_CRL_CHECK_ALL
+        )
+        store_ctx = X509.X509_Store_Context()
+        store_ctx.init(store, valid_cert)
+        self.assertTrue(store_ctx.verify_cert())
+
+        # Verify that a revoked cert is not verified
+        store = X509.X509_Store()
+        store.add_x509(ca)
+        store.add_crl(crl)
+        store.set_flags(
+            X509.m2.X509_V_FLAG_CRL_CHECK | X509.m2.X509_V_FLAG_CRL_CHECK_ALL
+        )
+        store_ctx = X509.X509_Store_Context()
+        store_ctx.init(store, revoked_cert)
+        self.assertFalse(store_ctx.verify_cert())
+
+    def test_verify_with_add_crls(self):
+        ca = X509.load_cert("tests/crl_data/certs/revoking_ca.pem")
+        valid_cert = X509.load_cert("tests/crl_data/certs/valid_cert.pem")
+        revoked_cert = X509.load_cert("tests/crl_data/certs/revoked_cert.pem")
+        crl = X509.load_crl("tests/crl_data/certs/revoking_crl.pem")
+
+        # Verify that a good cert is verified OK
+        store = X509.X509_Store()
+        store.add_x509(ca)
+        store.set_flags(
+            X509.m2.X509_V_FLAG_CRL_CHECK | X509.m2.X509_V_FLAG_CRL_CHECK_ALL
+        )
+        crl_stack = X509.CRL_Stack()
+        crl_stack.push(crl)
+        store_ctx = X509.X509_Store_Context()
+        store_ctx.init(store, valid_cert)
+        store_ctx.add_crls(crl_stack)
+        self.assertTrue(store_ctx.verify_cert())
+
+        # Verify that a revoked cert is not verified
+        store = X509.X509_Store()
+        store.add_x509(ca)
+        store.set_flags(
+            X509.m2.X509_V_FLAG_CRL_CHECK | X509.m2.X509_V_FLAG_CRL_CHECK_ALL
+        )
+        crl_stack = X509.CRL_Stack()
+        crl_stack.push(crl)
+        store_ctx = X509.X509_Store_Context()
+        store_ctx.init(store, revoked_cert)
+        store_ctx.add_crls(crl_stack)
+        self.assertFalse(store_ctx.verify_cert())
+
+
+class CRL_StackTestCase(unittest.TestCase):
+    def test_new(self):
+        crl_stack = X509.CRL_Stack()
+        self.assertIsNotNone(crl_stack)
+        self.assertEqual(len(crl_stack), 0)
+
+    def test_push_and_pop(self):
+        crl_stack = X509.CRL_Stack()
+        crl_a = X509.CRL()
+        crl_b = X509.CRL()
+        self.assertNotEqual(crl_a, crl_b)
+        crl_stack.push(crl_a)
+        crl_stack.push(crl_b)
+        self.assertEqual(len(crl_stack), 2)
+        popped_b = crl_stack.pop()
+        self.assertEqual(crl_b, popped_b)
+        self.assertEqual(len(crl_stack), 1)
+        popped_a = crl_stack.pop()
+        self.assertEqual(crl_a, popped_a)
+        self.assertEqual(len(crl_stack), 0)
+
 
 class CRLTestCase(unittest.TestCase):
     def test_new(self):
         crl = X509.CRL()
         self.assertEqual(crl.as_text()[:34], "Certificate Revocation List (CRL):")
 
+    def test_verify(self):
+        ca = X509.load_cert("tests/crl_data/certs/revoking_ca.pem")
+        crl = X509.load_crl("tests/crl_data/certs/revoking_crl.pem")
+        self.assertTrue(crl.verify(ca.get_pubkey()))
+
+        wrong_ca = X509.load_cert("tests/ca.pem")
+        self.assertFalse(crl.verify(wrong_ca.get_pubkey()))
+
+    def test_get_issuer(self):
+        ca = X509.load_cert("tests/crl_data/certs/revoking_ca.pem")
+        crl = X509.load_crl("tests/crl_data/certs/revoking_crl.pem")
+        ca_issuer = ca.get_issuer()
+        crl_issuer = crl.get_issuer()
+        self.assertEqual(ca_issuer.as_hash(), crl_issuer.as_hash())
+
+        wrong_ca = X509.load_cert("tests/ca.pem")
+        wrong_ca_issuer = wrong_ca.get_issuer()
+        self.assertNotEqual(wrong_ca_issuer.as_hash(), crl_issuer.as_hash())
+
+    def test_load_crl(self):
+        crl = X509.load_crl("tests/crl_data/certs/revoking_crl.pem")
+        self.assertIsNotNone(crl)
+        self.assertIsInstance(crl, X509.CRL)
+
+    def test_load_crl_string(self):
+        f = open("tests/crl_data/certs/revoking_crl.pem")
+        data = f.read()
+        f.close()
+        crl = X509.load_crl_string(data)
+        self.assertIsInstance(crl, X509.CRL)
+
+        ca = X509.load_cert("tests/crl_data/certs/revoking_ca.pem")
+        ca_issuer = ca.get_issuer()
+        crl_issuer = crl.get_issuer()
+        self.assertEqual(ca_issuer.as_hash(), crl_issuer.as_hash())
+
+    def test_get_last_updated(self):
+        crl = X509.load_crl("tests/crl_data/certs/revoking_crl.pem")
+        last_update_dt = crl.get_lastUpdate().get_datetime()
+        # Format the datetime object to the expected string format "Nov 26 10:50:25 2025 GMT"
+        # The %Z directive does not output "GMT" directly for UTC, so we append it.
+        expected_lastUpdate = last_update_dt.strftime("%b %d %H:%M:%S %Y UTC").replace("UTC", "GMT")
+        self.assertEqual(str(crl.get_lastUpdate()), expected_lastUpdate)
+
+    def test_get_next_update(self):
+        crl = X509.load_crl("tests/crl_data/certs/revoking_crl.pem")
+        next_update_dt = crl.get_nextUpdate().get_datetime()
+        # Format the datetime object to the expected string format "Nov 26 10:50:25 2025 GMT"
+        # The %Z directive does not output "GMT" directly for UTC, so we append it.
+        expected_nextUpdate = next_update_dt.strftime("%b %d %H:%M:%S %Y UTC").replace("UTC", "GMT")
+        self.assertEqual(str(crl.get_nextUpdate()), expected_nextUpdate)
+
 
 def suite():
     st = unittest.TestSuite()
     st.addTest(unittest.TestLoader().loadTestsFromTestCase(X509TestCase))
     st.addTest(unittest.TestLoader().loadTestsFromTestCase(X509StackTestCase))
+    st.addTest(unittest.TestLoader().loadTestsFromTestCase(X509StackDegenerateTestCase))
     st.addTest(unittest.TestLoader().loadTestsFromTestCase(X509ExtTestCase))
+    st.addTest(unittest.TestLoader().loadTestsFromTestCase(X509_StoreContextTestCase))
     st.addTest(unittest.TestLoader().loadTestsFromTestCase(CRLTestCase))
+    st.addTest(unittest.TestLoader().loadTestsFromTestCase(CRL_StackTestCase))
     return st
 
 

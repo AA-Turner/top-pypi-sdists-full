@@ -6,7 +6,7 @@ from kubernetes import client
 from kubernetes.client import V1Secret
 
 from adam.config import Config
-from adam.utils import log2, wait_log
+from adam.utils_log import log2, wait_log
 
 # utility collection on secrets; methods are all static
 class Secrets:

@@ -48,6 +48,10 @@ data = {
     "wan2.6_720p": 0.1 * TIMES,
     "wan2.6_1080p": 0.15 * TIMES,
 
+    # grok
+    "grok-imagine-video": 0.05 * TIMES,
+    "grok-imagine-video_720p": 0.07 * TIMES,
+
     # sora
     "sora-2": 0.1 * TIMES,
     "sora-2-pro": 0.3 * TIMES,

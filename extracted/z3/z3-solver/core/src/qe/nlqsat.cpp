@@ -833,7 +833,6 @@ namespace qe {
             m_answer_simplify(m),
             m_trail(m),
             m_div_mc(nullptr) {
-            s.m_solver.get_explain().set_signed_project(true);
             m_nftactic = mk_tseitin_cnf_tactic(m);
         }
 
@@ -859,7 +858,7 @@ namespace qe {
             ptr_vector<expr> fmls;
             expr_ref fml(m);
             in->get_formulas(fmls);
-            fml = mk_and(m, fmls.size(), fmls.data());
+            fml = mk_and(m, fmls);
             if (m_mode == elim_t) {
                 fml = m.mk_not(fml);
             }                         

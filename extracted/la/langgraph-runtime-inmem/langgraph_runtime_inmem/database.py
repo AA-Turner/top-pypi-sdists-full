@@ -89,6 +89,7 @@ class GlobalStore(PersistentDict):
             a for a in assistants if a["metadata"].get("created_by") == "system"
         ]
         self["assistant_versions"] = []
+        self["crons"] = []
 
 
 OPS_FILENAME = os.path.join(".langgraph_api", ".langgraph_ops.pckl")
@@ -193,7 +194,7 @@ async def start_pool() -> None:
                 a["context"] = {}
     for k in ["crons"]:
         if not GLOBAL_STORE.get(k):
-            GLOBAL_STORE[k] = {}
+            GLOBAL_STORE[k] = []
     await start_stream()
 
 

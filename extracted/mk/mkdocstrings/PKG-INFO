@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocstrings
-Version: 1.0.2
+Version: 1.0.3
 Summary: Automatic documentation from sources, for MkDocs.
 Keywords: mkdocs,mkdocs-plugin,docstrings,autodoc,documentation
 Author-Email: =?utf-8?q?Timoth=C3=A9e_Mazzucotelli?= <dev@pawamoy.fr>

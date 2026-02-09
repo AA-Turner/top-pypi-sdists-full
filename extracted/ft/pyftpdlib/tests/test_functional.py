@@ -21,12 +21,12 @@ from unittest.mock import patch
 import pytest
 
 from pyftpdlib.filesystems import AbstractedFS
-from pyftpdlib.handlers import SUPPORTS_HYBRID_IPV6
 from pyftpdlib.handlers import DTPHandler
 from pyftpdlib.handlers import FTPHandler
 from pyftpdlib.handlers import ThrottledDTPHandler
 from pyftpdlib.ioloop import IOLoop
 from pyftpdlib.servers import FTPServer
+from pyftpdlib.utils import has_dualstack_ipv6
 
 from . import BUFSIZE
 from . import CI_TESTING
@@ -2130,7 +2130,7 @@ class _TestNetworkProtocols:
 
     @disable_log_warning
     def test_eprt(self):
-        if not SUPPORTS_HYBRID_IPV6:
+        if not has_dualstack_ipv6():
             # test wrong proto
             with pytest.raises(ftplib.error_perm, match="522"):
                 self.client.sendcmd(
@@ -2294,7 +2294,10 @@ class TestIPv6Environment(_TestNetworkProtocols, PyftpdlibTestCase):
 
 
 @pytest.mark.skipif(
-    not SUPPORTS_HYBRID_IPV6, reason="IPv4/6 dual stack not supported"
+    not has_dualstack_ipv6(), reason="IPv4/6 dual stack not supported"
+)
+@pytest.mark.skipif(
+    WINDOWS, reason="IPv4/6 dual stack not supported on Windows"
 )
 class TestIPv6MixedEnvironment(PyftpdlibTestCase):
     """By running the server by specifying "::" as IP address the
@@ -2846,7 +2849,8 @@ class ThreadedFTPTests(PyftpdlibTestCase):
         self.dummy_sendfile.seek(0)
         self.client.storbinary("stor " + self.tempfile, self.dummy_sendfile)
         with patch(
-            "pyftpdlib.handlers.os.sendfile", side_effect=OSError(errno.EINVAL)
+            "pyftpdlib.handlers.ftp.control.os.sendfile",
+            side_effect=OSError(errno.EINVAL),
         ) as fun:
             self.client.retrbinary(
                 "retr " + self.tempfile, self.dummy_recvfile.write

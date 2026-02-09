@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: livekit-plugins-cartesia
-Version: 1.3.12
+Version: 1.4.1
 Summary: LiveKit Agents Plugin for Cartesia
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
@@ -12,13 +12,12 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Topic :: Multimedia :: Sound/Audio
 Classifier: Topic :: Multimedia :: Video
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >=3.9.0
-Requires-Dist: livekit-agents>=1.3.12
+Requires-Python: >=3.10.0
+Requires-Dist: livekit-agents>=1.4.1
 Description-Content-Type: text/markdown
 
 # Cartesia plugin for LiveKit Agents

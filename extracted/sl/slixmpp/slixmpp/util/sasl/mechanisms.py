@@ -4,7 +4,7 @@
 # A collection of supported SASL mechanisms.
 # This module was originally based on Dave Cridland's Suelta library.
 # Part of Slixmpp: The Slick XMPP Library
-# :copryight: (c) 2004-2013 David Alan Cridland
+# :copyright: (c) 2004-2013 David Alan Cridland
 # :copyright: (c) 2013 Nathanael C. Fritz, Lance J.T. Stout
 # :license: MIT, see LICENSE for more details
 import hmac
@@ -158,7 +158,7 @@ class CRAM(Mech):
             raise SASLCancelled('Unknown hash: %s' % self.hash_name)
         if not self.security_settings['encrypted']:
             if not self.security_settings['unencrypted_cram']:
-                raise SASLCancelled('Unecrypted CRAM-%s' % self.hash_name)
+                raise SASLCancelled('Unencrypted CRAM-%s' % self.hash_name)
 
     def process(self, challenge: bytes_ = b'') -> Optional[bytes_]:
         if not challenge:

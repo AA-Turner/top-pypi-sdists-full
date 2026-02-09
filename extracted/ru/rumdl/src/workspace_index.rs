@@ -289,8 +289,10 @@ pub struct FileIndex {
     /// Rules disabled for the entire file (from inline comments)
     /// Used by cross-file rules to respect inline disable directives
     pub file_disabled_rules: HashSet<String>,
-    /// Rules disabled at specific lines (line number -> set of rule names)
-    /// Merges both persistent disables and line-specific disables
+    /// Persistent disable/enable state transitions, sorted by line number.
+    /// Each entry: (line, disabled_rules, enabled_rules). Use binary search to query.
+    pub persistent_transitions: Vec<(usize, HashSet<String>, HashSet<String>)>,
+    /// Rules disabled at specific lines via disable-line / disable-next-line
     pub line_disabled_rules: HashMap<usize, HashSet<String>>,
 }
 
@@ -695,6 +697,14 @@ impl FileIndex {
         self.headings.push(heading);
     }
 
+    /// Add an alternative anchor that resolves to an existing heading.
+    /// Used for platform-specific anchor conventions (e.g., Python-Markdown `_N` dedup).
+    pub fn add_anchor_alias(&mut self, anchor: String, heading_index: usize) {
+        if heading_index < self.headings.len() {
+            self.anchor_to_heading.insert(anchor.to_lowercase(), heading_index);
+        }
+    }
+
     /// Check if an anchor exists in this file (O(1) lookup)
     ///
     /// Returns true if the anchor matches any of:
@@ -767,9 +777,32 @@ impl FileIndex {
             return true;
         }
 
-        // Check line-specific disables
-        if let Some(rules) = self.line_disabled_rules.get(&line) {
-            return rules.contains("*") || rules.contains(rule_name);
+        // Check line-specific disables (disable-line / disable-next-line)
+        if let Some(rules) = self.line_disabled_rules.get(&line)
+            && (rules.contains("*") || rules.contains(rule_name))
+        {
+            return true;
+        }
+
+        // Check persistent disable/enable transitions via binary search
+        if !self.persistent_transitions.is_empty() {
+            let idx = match self.persistent_transitions.binary_search_by_key(&line, |t| t.0) {
+                Ok(i) => Some(i),
+                Err(i) => {
+                    if i > 0 {
+                        Some(i - 1)
+                    } else {
+                        None
+                    }
+                }
+            };
+            if let Some(i) = idx {
+                let (_, ref disabled, ref enabled) = self.persistent_transitions[i];
+                if disabled.contains("*") {
+                    return !enabled.contains(rule_name);
+                }
+                return disabled.contains(rule_name);
+            }
         }
 
         false

@@ -1,6 +1,6 @@
 import click
 
-from adam.utils import log
+from adam.utils_log import log
 
 class ClusterCommandHelper(click.Command):
     def get_help(self, ctx: click.Context):

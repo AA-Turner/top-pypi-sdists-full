@@ -2,13 +2,13 @@
 # Minimum requirements for the build system to execute.
 requires = [
     'setuptools >= 77.0.0',
-    'passagemath-setup ~= 10.6.48.0',
+    'passagemath-setup ~= 10.8.1.0',
     'pkgconfig',
-    'passagemath-conf ~= 10.6.48.0 ; sys_platform != "win32"',
-    'passagemath-environment ~= 10.6.48.0',
-    'passagemath-modules ~= 10.6.48.0',
-    'cython >=3.0.8, <3.3.0', 'cython >=3.0.8,<3.3.0',
-    'gmpy2 ~=2.1.b999',
+    'passagemath-conf ~= 10.8.1.0 ; sys_platform != "win32"',
+    'passagemath-environment ~= 10.8.1.0',
+    'passagemath-modules ~= 10.8.1.0',
+    'cython >=3.1.0,<3.3.0',
+    'gmpy2 ~=2.1.b999', 'gmpy2 ~=2.3.b1; sys_platform == "win32"',
     'cysignals !=1.12.4; sys_platform == "win32"', 'cysignals >=1.11.2, != 1.12.0',
     'memory_allocator <0.2',
 ]
@@ -18,14 +18,14 @@ build-backend = "setuptools.build_meta"
 name = "passagemath-polyhedra"
 description = "passagemath: Convex polyhedra in arbitrary dimension, mixed integer linear optimization"
 dependencies = [
-    'gmpy2 ~=2.1.b999',
+    'gmpy2 ~=2.1.b999', 'gmpy2 ~=2.3.b1; sys_platform == "win32"',
     'cysignals !=1.12.4; sys_platform == "win32"', 'cysignals >=1.11.2, != 1.12.0',
     'passagemath-ppl',
     'memory_allocator <0.2',
-    'passagemath-conf ~= 10.6.48.0 ; sys_platform != "win32"',
-    'passagemath-environment ~= 10.6.48.0',
-    'passagemath-glpk ~= 10.6.48.0',
-    'passagemath-modules ~= 10.6.48.0',
+    'passagemath-conf ~= 10.8.1.0 ; sys_platform != "win32"',
+    'passagemath-environment ~= 10.8.1.0',
+    'passagemath-glpk ~= 10.8.1.0',
+    'passagemath-modules ~= 10.8.1.0',
 ]
 dynamic = ["version"]
 license = "GPL-2.0-or-later"
@@ -42,7 +42,6 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS :: MacOS X",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -50,7 +49,7 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
-requires-python = ">=3.10, <3.15"
+requires-python = ">=3.11, <3.15"
 
 [project.urls]
 "release notes" = "https://github.com/passagemath/passagemath/releases"
@@ -72,7 +71,7 @@ test        = ["passagemath-repl"]
 
 # general libraries
 flint       = ["passagemath-flint"]
-fpylll      = ['fpylll >=0.5.9',]
+fpylll      = ['fpylll >=0.5.9; sys_platform != "win32"',]
 linbox      = ["passagemath-linbox"]
 pari        = ["passagemath-pari"]
 
@@ -81,7 +80,7 @@ pari        = ["passagemath-pari"]
 cddlib      = ["passagemath-cddlib"]
 latte       = ["passagemath-polyhedra[latte_int]"]  # alias
 latte_int   = ["passagemath-latte-4ti2"]
-normaliz    = ['pynormaliz ==2.21',]
+normaliz    = ['pynormaliz >=2.18; platform_machine != "aarch64" and platform_machine != "arm64" ',]
 palp        = ["passagemath-palp"]
 polymake    = ["passagemath-polymake"]
 ppl         = []  # no extra required
@@ -89,7 +88,7 @@ topcom      = ["passagemath-topcom"]
 
 # optimization libraries
 cbc         = ["passagemath-polyhedra[cbc_sage]"]
-cbc_sage    = ['passagemath-coin-or-cbc',]
+cbc_sage    = ['sage_numerical_backends_coin',]
 coin        = ["passagemath-polyhedra[cbc_sage]"]
 coin_sage   = ["passagemath-polyhedra[cbc_sage]"]
 cplex       = ["passagemath-polyhedra[cplex_sage]"]
@@ -99,6 +98,7 @@ cvxopt_sage = ['cvxopt >=1.2.5',]
 cvxpy       = ['cvxpy',]
 glpk        = ["passagemath-polyhedra[glpk_sage]"]
 glpk_sage   = []  # no extra required
+highs       = ["passagemath-highs"]
 gurobi      = ["passagemath-polyhedra[gurobi_sage]"]
 gurobi_sage = ['passagemath-gurobi',]
 scip        = ['PySCIPOpt',]

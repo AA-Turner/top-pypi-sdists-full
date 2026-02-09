@@ -1581,10 +1581,14 @@ def snap(
     /,
     *,
     frame: int | None = 0,
+    side: typing.Literal["LEFT", "RIGHT"] | None = "LEFT",
+    keep_offset: bool | None = True,
 ) -> None:
-    """Frame where selected strips will be snapped
+    """Snap strips to the current frame, using the active strip as the anchor, and the mouse cursor relative to the playhead to determine the side of the playhead to snap to
 
     :param frame: Frame, Frame where selected strips will be snapped
+    :param side: Snap Side, Which side of the playhead strips should snap to when no handles are selected
+    :param keep_offset: Keep Offset, Whether the selection should be snapped as a whole or by each individual strip
     """
 
 def sound_strip_add(

@@ -4,6 +4,7 @@ Financial statement processing for XBRL data.
 This module provides functions for working with financial statements.
 """
 
+import re
 import warnings
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -60,6 +61,125 @@ def is_xbrl_structural_element(item: Dict[str, Any]) -> bool:
         return True
 
     return False
+
+
+_FINANCIAL_WORDS = [
+    # 14-letter words
+    'POSTRETIREMENT',
+    # 13-letter words
+    'COMPREHENSIVE', 'CONTINGENCIES', 'ESTABLISHMENT', 'EXTRAORDINARY', 'RESTRUCTURING',
+    'STOCKHOLDERS',
+    # 12-letter words
+    'ACQUISITIONS', 'ARRANGEMENTS', 'COMPENSATION', 'CONSOLIDATED', 'DIVESTITURES',
+    'INSTRUMENTS', 'MEASUREMENTS', 'SHAREHOLDERS', 'SHAREOWNERS',
+    # 11-letter words
+    'COMMITMENTS', 'INFORMATION', 'INVESTMENTS', 'RECEIVABLES', 'SIGNIFICANT',
+    # 10-letter words
+    'ACCOUNTING', 'BORROWING', 'DEPRECIATION', 'INTANGIBLE', 'STATEMENTS',
+    # 9-letter words
+    'DOCUMENT', 'EARNINGS', 'ENTITY', 'EXPENSES', 'FINANCIAL', 'GOODWILL',
+    'OPERATING', 'PROVISION', 'REPORTING', 'REVENUES', 'SEGMENTS',
+    # 8-letter words
+    'ACCRUED', 'BALANCES', 'BUSINESS', 'PAYABLE', 'POLICIES', 'PROPERTY',
+    # 7-letter words
+    'BALANCE', 'HEDGING', 'REVENUE', 'SUMMARY', 'SUPPLY',
+    # 6-letter words
+    'ASSETS', 'EQUITY', 'INCOME', 'LEASES', 'SHARES', 'STOCK',
+    # 5-letter words
+    'BASED', 'CHAIN', 'MONEY', 'OTHER', 'PLANS', 'TAXES', 'VALUE',
+    # 4-letter words
+    'CASH', 'DEBT', 'FAIR', 'FLOW', 'ITEM', 'LINE', 'LONG', 'LOSS', 'TERM',
+    # 3-letter words
+    'AND', 'FOR', 'NET', 'NON', 'PER', 'THE',
+    # 2-letter words
+    'OF',
+]
+
+
+def _split_allcaps(text: str) -> str:
+    """
+    Split an ALL-CAPS string into title-cased words using a greedy dictionary approach.
+
+    Uses a dictionary of common financial terms to split strings like
+    'INCOMETAXES' → 'Income Taxes' and 'DEBTANDBORROWINGARRANGEMENTS' → 'Debt And Borrowing Arrangements'.
+
+    Non-ALL-CAPS strings are returned unchanged.
+    """
+    if not text or not text.isupper() or len(text) <= 1:
+        return text
+
+    remaining = text
+    words = []
+    while remaining:
+        matched = False
+        for word in _FINANCIAL_WORDS:
+            if remaining.startswith(word):
+                words.append(word.title())
+                remaining = remaining[len(word):]
+                matched = True
+                break
+        if not matched:
+            # Take the next character as its own fragment
+            words.append(remaining[0])
+            remaining = remaining[1:]
+
+    return ' '.join(words)
+
+
+def _extract_topic_summary(stmts_in_category: List[Dict], max_shown: int = 4) -> str:
+    """
+    Extract unique root topic names from a list of statement dicts.
+
+    Identifies root topics by finding definitions that are prefixes of other definitions
+    (e.g. 'Debt' is a root because 'DebtTables' and 'DebtDetails' also exist).
+    Inserts spaces into CamelCase names for readability.
+    """
+    defs = [s.get('definition', '') for s in stmts_in_category if s.get('definition')]
+    if not defs:
+        return ''
+
+    # Find root topics: short definitions that are prefixes of longer ones
+    roots = []
+    seen = set()
+    for d in sorted(defs, key=len):
+        if d in seen:
+            continue
+        is_prefix = any(other.startswith(d) and other != d for other in defs)
+        if is_prefix:
+            # Skip if already a sub-topic of a found root
+            if not any(d.startswith(r) and d != r for r in roots):
+                roots.append(d)
+                seen.add(d)
+
+    # Fallback: use shortest unique definitions as topics
+    if not roots:
+        for d in sorted(defs, key=len):
+            if d not in seen:
+                roots.append(d)
+                seen.add(d)
+            if len(roots) >= max_shown:
+                break
+
+    # Insert spaces for readability (ALL-CAPS or CamelCase)
+    result = []
+    for r in roots:
+        if r.isupper() and len(r) > 1:
+            spaced = _split_allcaps(r)
+        else:
+            spaced = re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', r)
+            spaced = re.sub(r'(?<=[A-Z])(?=[A-Z][a-z])', ' ', spaced)
+            # Fix common lowercase joiners: "Summaryof" -> "Summary of"
+            spaced = re.sub(r'(?<=[a-z])(of|and|for|to|the|in|by|or|on)(?=[A-Z ])', r' \1 ', spaced)
+            # Collapse any double spaces
+            spaced = re.sub(r'  +', ' ', spaced)
+        result.append(spaced.strip())
+
+    shown = result[:max_shown]
+    extra = len(result) - max_shown
+    line = ', '.join(shown)
+    if extra > 0:
+        line += f', +{extra} more topics'
+    return line
 
 
 @dataclass
@@ -1544,7 +1664,13 @@ class Statements:
     @staticmethod
     def classify_statement(stmt: dict) -> str:
         """
-        Classify a statement into a category based on its type.
+        Classify a statement into a category based on its type, primary_concept, and definition.
+
+        Uses a tiered approach:
+        - Tier 0: Explicit category field
+        - Tier 1: Infer from type (works when type is set)
+        - Tier 2: Infer from primary_concept (reliable for type=None statements)
+        - Tier 3: Infer from definition suffix
 
         Categories:
         - 'statement': Core financial statements (Income Statement, Balance Sheet, etc.)
@@ -1554,7 +1680,8 @@ class Statements:
         - 'other': Everything else
 
         Args:
-            stmt: Statement dictionary with 'type' and optional 'category' fields
+            stmt: Statement dictionary with 'type', 'primary_concept', 'definition',
+                  and optional 'category' fields
 
         Returns:
             str: Category name ('statement', 'note', 'disclosure', 'document', or 'other')
@@ -1564,31 +1691,41 @@ class Statements:
             >>> Statements.classify_statement(stmt)
             'statement'
 
-            >>> stmt = {'type': 'DebtDisclosure', 'title': 'Debt Disclosure'}
+            >>> stmt = {'type': None, 'primary_concept': 'DebtDisclosureAbstract'}
             >>> Statements.classify_statement(stmt)
             'disclosure'
         """
-        # Use explicit category if provided
+        # Tier 0: Use explicit category if provided
         category = stmt.get('category')
         if category:
             return category
 
-        # Infer from type
-        stmt_type = stmt.get('type', '')
-        if not stmt_type:
-            return 'other'
+        # Tier 1: Infer from type (existing logic, works when type is set)
+        stmt_type = stmt.get('type', '') or ''
+        if stmt_type:
+            if 'Note' in stmt_type:
+                return 'note'
+            elif 'Disclosure' in stmt_type:
+                return 'disclosure'
+            elif stmt_type == 'CoverPage':
+                return 'document'
+            elif stmt_type in ('BalanceSheet', 'IncomeStatement', 'CashFlowStatement',
+                               'StatementOfEquity', 'ComprehensiveIncome') or 'Statement' in stmt_type:
+                return 'statement'
 
-        if 'Note' in stmt_type:
-            return 'note'
-        elif 'Disclosure' in stmt_type:
+        # Tier 2: Infer from primary_concept (reliable for type=None statements)
+        pc = stmt.get('primary_concept', '') or ''
+        if 'Disclosure' in pc:
             return 'disclosure'
-        elif stmt_type == 'CoverPage':
-            return 'document'
-        elif stmt_type in ('BalanceSheet', 'IncomeStatement', 'CashFlowStatement',
-                           'StatementOfEquity', 'ComprehensiveIncome') or 'Statement' in stmt_type:
+        if 'AccountingPolicies' in pc:
+            return 'note'
+
+        # Tier 3: Infer from definition suffix
+        defn = stmt.get('definition', '') or ''
+        if 'Parenthetical' in defn:
             return 'statement'
-        else:
-            return 'other'
+
+        return 'other'
 
     def get_statements_by_category(self) -> dict:
         """
@@ -1770,168 +1907,271 @@ class Statements:
                     break
             return Statement(self.xbrl, item, canonical_type=canonical_type)
 
-    def __rich__(self) -> Any:
+    def __len__(self):
+        return len(self.statements)
+
+    def __iter__(self):
+        return iter(self.all())
+
+    def to_context(self, detail: str = 'standard') -> str:
         """
-        Rich console representation.
+        Returns AI-optimized text representation for language models.
+
+        Provides structured information about available statements in Markdown-KV
+        format optimized for LLM consumption and navigation.
+
+        Args:
+            detail: Level of detail to include:
+                - 'minimal': Entity + count + core statement accessors (~150 tokens)
+                - 'standard': Adds category breakdown and discovery methods (~300 tokens)
+                - 'full': Adds all non-core statement names by category (~500+ tokens)
 
         Returns:
-            Rich Table object if rich is available, else string representation
+            Markdown-KV formatted context string optimized for LLMs
+        """
+        lines = []
+
+        # Header with entity info
+        entity_name = ''
+        ticker = ''
+        doc_type = ''
+        if hasattr(self.xbrl, 'entity_info') and self.xbrl.entity_info:
+            entity_name = self.xbrl.entity_info.get('entity_name', '')
+            ticker = self.xbrl.entity_info.get('ticker', '')
+            doc_type = self.xbrl.entity_info.get('document_type', '')
+
+        header = "STATEMENTS"
+        if entity_name:
+            header += f": {entity_name}"
+            if ticker:
+                header += f" ({ticker})"
+        if doc_type:
+            header += f" {doc_type}"
+        lines.append(header)
+        lines.append("")
+        lines.append(f"Total: {len(self.statements)} statements")
+
+        # Core financial statements with accessor methods
+        type_accessors = {
+            'IncomeStatement': '.income_statement()',
+            'BalanceSheet': '.balance_sheet()',
+            'CashFlowStatement': '.cashflow_statement()',
+            'StatementOfEquity': '.statement_of_equity()',
+            'ComprehensiveIncome': '.comprehensive_income()',
+            'CoverPage': '.cover_page()',
+        }
+
+        statements_by_category = self.get_statements_by_category()
+        core_stmts = statements_by_category.get('statement', [])
+
+        if core_stmts:
+            lines.append("")
+            lines.append("CORE STATEMENTS:")
+            for stmt in core_stmts:
+                stmt_type = stmt.get('type', '')
+                accessor = type_accessors.get(stmt_type, '')
+                definition = stmt.get('definition', '')
+                if accessor:
+                    lines.append(f"  {accessor:<40s} {definition}")
+                else:
+                    lines.append(f"  [{stmt.get('index', '')}] {definition}")
+
+        if detail == 'minimal':
+            return '\n'.join(lines)
+
+        # Category breakdown
+        category_display = [
+            ('note', 'Notes'),
+            ('disclosure', 'Disclosures'),
+            ('document', 'Document'),
+            ('other', 'Other'),
+        ]
+
+        category_parts = []
+        for cat_key, cat_label in category_display:
+            count = len(statements_by_category.get(cat_key, []))
+            if count > 0:
+                category_parts.append(f"{cat_label}: {count}")
+
+        if category_parts:
+            lines.append("")
+            lines.append(f"OTHER: {' | '.join(category_parts)}")
+
+        # Discovery methods
+        lines.append("")
+        lines.append("DISCOVERY:")
+        lines.append("  .search('keyword')       Find statements by keyword")
+        lines.append("  .get('name')             Get statement by type or name")
+        lines.append("  .list_available()        Browse all as DataFrame")
+        lines.append("  .all(category='note')    Filter by category")
+
+        if detail == 'standard':
+            return '\n'.join(lines)
+
+        # Full: list statements in each non-core category
+        for cat_key, cat_label in category_display:
+            cat_stmts = statements_by_category.get(cat_key, [])
+            if not cat_stmts:
+                continue
+            lines.append("")
+            lines.append(f"{cat_label.upper()} ({len(cat_stmts)}):")
+            for stmt in cat_stmts:
+                definition = stmt.get('definition', stmt.get('role_name', ''))
+                lines.append(f"  [{stmt.get('index', '')}] {definition}")
+
+        return '\n'.join(lines)
+
+    def __rich__(self) -> Any:
+        """
+        Rich console representation following the EdgarTools design language.
+
+        Returns a Panel card with:
+        - Title: entity name and ticker from XBRL metadata
+        - Content: core financial statements table + category summary
+        - Subtitle: hint for discovering more statements
         """
         if Table is None:
             return str(self)
 
         from rich.console import Group
+        from rich.panel import Panel
         from rich.text import Text
+        from edgar.display import get_style, SYMBOLS
 
-        # Group statements by category using the extracted method
+        # Extract entity info from the XBRL object
+        entity_name = ''
+        ticker = ''
+        if hasattr(self.xbrl, 'entity_info') and self.xbrl.entity_info:
+            entity_name = self.xbrl.entity_info.get('entity_name', '')
+            ticker = self.xbrl.entity_info.get('ticker', '')
+
+        total = len(self.statements)
+
+        # === Title ===
+        title_parts = []
+        title_parts.append((f"Statements ({total}) ", get_style("form_type")))
+        if entity_name:
+            title_parts.append((entity_name, get_style("company_name")))
+        if ticker:
+            title_parts.append((" ", ""))
+            title_parts.append((f"({ticker})", get_style("ticker")))
+        title = Text.assemble(*title_parts) if title_parts else Text("Statements")
+
+        # === Subtitle ===
+        subtitle = Text.assemble(
+            (".search() ", get_style("hint")),
+            (f"{SYMBOLS['bullet']} ", get_style("metadata")),
+            (".list_available() ", get_style("hint")),
+            (f"{SYMBOLS['bullet']} ", get_style("metadata")),
+            (".get()", get_style("hint")),
+        )
+
+        # Group statements by category
         statements_by_category = self.get_statements_by_category()
+        components = []
 
-        # Create a table for each category that has statements
-        tables = []
+        # === Core financial statements table ===
+        core_stmts = statements_by_category.get('statement', [])
+        if core_stmts:
+            # Friendly display names for statement types
+            type_labels = {
+                'IncomeStatement': 'Income Statement',
+                'BalanceSheet': 'Balance Sheet',
+                'CashFlowStatement': 'Cash Flow Statement',
+                'StatementOfEquity': 'Equity',
+                'ComprehensiveIncome': 'Comprehensive Income',
+                'IncomeStatementParenthetical': 'Income (Parenthetical)',
+                'BalanceSheetParenthetical': 'Balance Sheet (Parenthetical)',
+                'CashFlowStatementParenthetical': 'Cash Flow (Parenthetical)',
+                'StatementOfEquityParenthetical': 'Equity (Parenthetical)',
+                'ComprehensiveIncomeParenthetical': 'Compr. Income (Parenthetical)',
+                'CoverPage': 'Cover Page',
+                'ScheduleOfInvestments': 'Schedule of Investments',
+                'FinancialHighlights': 'Financial Highlights',
+            }
 
-        # Define styles and titles for each category
-        category_styles = {
-            'statement': {'title': "Financial Statements", 'color': "green"},
-            'note': {'title': "Notes to Financial Statements", 'color': "blue"},
-            'disclosure': {'title': "Disclosures", 'color': "cyan"},
-            'document': {'title': "Document Sections", 'color': "magenta"},
-            'other': {'title': "Other Sections", 'color': "yellow"}
-        }
+            # Map statement types to their accessor method names
+            type_accessors = {
+                'IncomeStatement': '.income_statement()',
+                'BalanceSheet': '.balance_sheet()',
+                'CashFlowStatement': '.cashflow_statement()',
+                'StatementOfEquity': '.statement_of_equity()',
+                'ComprehensiveIncome': '.comprehensive_income()',
+                'IncomeStatementParenthetical': '.income_statement(parenthetical=True)',
+                'BalanceSheetParenthetical': '.balance_sheet(parenthetical=True)',
+                'CashFlowStatementParenthetical': '.cashflow_statement(parenthetical=True)',
+                'StatementOfEquityParenthetical': '.statement_of_equity(parenthetical=True)',
+                'ComprehensiveIncomeParenthetical': '.comprehensive_income(parenthetical=True)',
+                'CoverPage': '.cover_page()',
+            }
 
-        # Order of categories in the display
-        category_order = ['statement', 'note', 'disclosure', 'document', 'other']
-
-        for category in category_order:
-            stmts = statements_by_category[category]
-            if not stmts:
-                continue
-
-            # Create a table for this category
-            style = category_styles[category]
-
-            # Create title with color
-            title = Text(style['title'])
-            title.stylize(f"bold {style['color']}")
-
-            table = Table(
-                title=title,
-                box=box.SIMPLE,
-                title_justify="left",
-                highlight=True
+            stmt_table = Table(
+                box=box.SIMPLE_HEAD,
+                show_edge=False,
+                padding=(0, 1),
+                expand=False,
             )
+            stmt_table.add_column("#", style="dim", justify="right", width=4)
+            stmt_table.add_column("Statement", no_wrap=True)
+            stmt_table.add_column("Accessor", no_wrap=True)
 
-            # Add columns
-            table.add_column("#", style="dim", width=3)
-            table.add_column("Name", style=style['color'])
-            table.add_column("Type", style="italic")
-            table.add_column("Parenthetical", width=14)
+            for stmt in core_stmts:
+                idx = str(stmt['index'])
+                stmt_type = stmt.get('type', '') or ''
+                friendly = type_labels.get(stmt_type, stmt_type)
+                accessor = type_accessors.get(stmt_type, f'[{stmt.get("index", "")}]')
 
-            # Sort statements by type and name for better organization
-            # Handle None values to prevent TypeError when sorting
-            sorted_stmts = sorted(stmts, key=lambda s: (s.get('type') or '', s.get('definition') or ''))
-
-            # Add rows
-            for stmt in sorted_stmts:
-                # Check if this is a parenthetical statement
-                is_parenthetical = False
-                role_or_def = stmt.get('definition', '').lower()
-                if 'parenthetical' in role_or_def:
-                    is_parenthetical = True
-
-                # Format parenthetical indicator
-                parenthetical_text = "✓" if is_parenthetical else ""
-
-                table.add_row(
-                    str(stmt['index']),
-                    stmt.get('definition', 'Untitled'),
-                    stmt.get('type', '') or "",
-                    parenthetical_text,
+                stmt_table.add_row(
+                    idx,
+                    Text(friendly, style=get_style("value_highlight")),
+                    Text(accessor, style=get_style("hint")),
                 )
 
-            tables.append(table)
+            components.append(stmt_table)
 
-        # If no statements found in any category, show a message
-        if not tables:
+        # === Other categories summary with topic samples ===
+        category_display = [
+            ('note', 'Notes'),
+            ('disclosure', 'Disclosures'),
+            ('document', 'Document'),
+            ('other', 'Other'),
+        ]
+
+        summary_table = Table(box=None, show_header=False, padding=(0, 1), expand=False)
+        summary_table.add_column("Category", style=get_style("label"), no_wrap=True)
+        summary_table.add_column("Count", style=get_style("value_highlight"), justify="right", width=4)
+        summary_table.add_column("Topics", style=get_style("metadata"), no_wrap=True)
+
+        has_summary_rows = False
+        for cat_key, cat_label in category_display:
+            cat_stmts = statements_by_category.get(cat_key, [])
+            count = len(cat_stmts)
+            if count == 0:
+                continue
+
+            topics_str = _extract_topic_summary(cat_stmts, max_shown=4)
+            summary_table.add_row(cat_label, str(count), topics_str)
+            has_summary_rows = True
+
+        if has_summary_rows:
+            components.append(Text(""))
+            components.append(summary_table)
+
+        if not components:
             return Text("No statements found")
 
-        # Create a group containing all tables
-        return Group(*tables)
+        return Panel(
+            Group(*components),
+            title=title,
+            subtitle=subtitle,
+            box=box.ROUNDED,
+            border_style=get_style("border"),
+            expand=False,
+            padding=(0, 1),
+        )
 
     def __repr__(self):
         return repr_rich(self.__rich__())
-
-    def __str__(self):
-        """String representation with statements organized by category."""
-        # Group statements by category
-        statements_by_category = {
-            'statement': [],
-            'note': [],
-            'disclosure': [],
-            'document': [],
-            'other': []
-        }
-
-        # The 'type' field will always exist, but 'category' may not
-        for index, stmt in enumerate(self.statements):
-            # Determine category based on either explicit category or infer from type
-            category = stmt.get('category')
-            if not category:
-                # Fallback logic - infer category from type
-                stmt_type = stmt.get('type', '')
-                if stmt_type:
-                    if 'Note' in stmt_type:
-                        category = 'note'
-                    elif 'Disclosure' in stmt_type:
-                        category = 'disclosure'
-                    elif stmt_type == 'CoverPage':
-                        category = 'document'
-                    elif stmt_type in ('BalanceSheet', 'IncomeStatement', 'CashFlowStatement', 
-                                      'StatementOfEquity', 'ComprehensiveIncome') or 'Statement' in stmt_type:
-                        category = 'statement'
-                    else:
-                        category = 'other'
-                else:
-                    category = 'other'
-
-            # Add to the appropriate category
-            statements_by_category[category].append((index, stmt))
-
-        lines = ["Available Statements:"]
-
-        # Define category titles and order
-        category_titles = {
-            'statement': "Financial Statements:",
-            'note': "Notes to Financial Statements:",
-            'disclosure': "Disclosures:",
-            'document': "Document Sections:",
-            'other': "Other Sections:"
-        }
-
-        category_order = ['statement', 'note', 'disclosure', 'document', 'other']
-
-        for category in category_order:
-            stmts = statements_by_category[category]
-            if not stmts:
-                continue
-
-            lines.append("")
-            lines.append(category_titles[category])
-
-            # Sort statements by type and name for better organization
-            # Handle None values to prevent TypeError when sorting
-            sorted_stmts = sorted(stmts, key=lambda s: (s[1].get('type') or '', s[1].get('definition') or ''))
-
-            for index, stmt in sorted_stmts:
-                # Indicate if parenthetical
-                is_parenthetical = 'parenthetical' in stmt.get('definition', '').lower()
-                parenthetical_text = " (Parenthetical)" if is_parenthetical else ""
-
-                lines.append(f"  {index}. {stmt.get('definition', 'Untitled')}{parenthetical_text}")
-
-        if len(lines) == 1:  # Only the header is present
-            lines.append("  No statements found")
-
-        return "\n".join(lines)
 
     def cover_page(self) -> Statement:
         """
@@ -2186,7 +2426,7 @@ class Statements:
 
         # Find all statements with matching category
         for stmt in self.statements:
-            if stmt.get('category') == category:
+            if self.classify_statement(stmt) == category:
                 result.append(Statement(self.xbrl, stmt['role']))
 
         return result
@@ -2208,6 +2448,112 @@ class Statements:
             List of Statement objects for disclosures
         """
         return self.get_by_category('disclosure')
+
+    def _make_statement(self, stmt: dict) -> Statement:
+        """Create a Statement from a statement dict, resolving canonical type."""
+        canonical_type = stmt.get('type') if stmt.get('type') in statement_to_concepts else None
+        return Statement(self.xbrl, stmt['role'], canonical_type=canonical_type)
+
+    def all(self, category: str = None) -> List[Statement]:
+        """
+        Get all statements as Statement objects, optionally filtered by category.
+
+        Args:
+            category: Optional category filter ('statement', 'note', 'disclosure', 'document', or 'other')
+
+        Returns:
+            List of Statement objects
+        """
+        results = []
+        for stmt in self.statements:
+            if category and self.classify_statement(stmt) != category:
+                continue
+            results.append(self._make_statement(stmt))
+        return results
+
+    def list_available(self, category: str = None) -> pd.DataFrame:
+        """
+        List all available statements as a DataFrame for browsing.
+
+        Args:
+            category: Optional category filter ('statement', 'note', 'disclosure', 'document', or 'other')
+
+        Returns:
+            DataFrame with columns: index, category, name, role_name, element_count
+        """
+        rows = []
+        for index, stmt in enumerate(self.statements):
+            stmt_category = self.classify_statement(stmt)
+            if category and stmt_category != category:
+                continue
+            rows.append({
+                'index': index,
+                'category': stmt_category,
+                'name': stmt.get('definition', ''),
+                'role_name': stmt.get('role_name', ''),
+                'element_count': stmt.get('element_count', 0),
+            })
+        return pd.DataFrame(rows)
+
+    def search(self, keyword: str) -> List[Statement]:
+        """
+        Search for statements by keyword across definition, role_name, and type.
+
+        Space-separated words use AND logic, case-insensitive.
+
+        Args:
+            keyword: Search keyword(s), e.g. 'debt', 'long term debt', 'revenue'
+
+        Returns:
+            List of matching Statement objects
+        """
+        if not keyword or not keyword.strip():
+            return []
+        words = keyword.lower().split()
+        results = []
+        for stmt in self.statements:
+            searchable = ' '.join([
+                stmt.get('definition') or '',
+                stmt.get('role_name') or '',
+                stmt.get('type') or '',
+            ]).lower()
+            if all(word in searchable for word in words):
+                results.append(self._make_statement(stmt))
+        return results
+
+    def get(self, name: str) -> Optional[Statement]:
+        """
+        Get a statement by name with smart resolution.
+
+        Searches in order: exact type match, role_name contains, definition contains.
+        Returns the first match or None.
+
+        Args:
+            name: Statement name to search for (e.g. 'IncomeStatement', 'cash flow', 'debt')
+
+        Returns:
+            Statement if found, None otherwise
+        """
+        if not name or not name.strip():
+            return None
+        name_lower = name.lower()
+
+        # Tier 1: Exact type match
+        for stmt in self.statements:
+            if (stmt.get('type') or '').lower() == name_lower:
+                return self._make_statement(stmt)
+
+        # Tier 2: role_name contains (case-insensitive)
+        for stmt in self.statements:
+            if name_lower in (stmt.get('role_name') or '').lower():
+                return self._make_statement(stmt)
+
+        # Tier 3: definition contains (case-insensitive)
+        for stmt in self.statements:
+            if name_lower in (stmt.get('definition') or '').lower():
+                return self._make_statement(stmt)
+
+        return None
 
     def to_dataframe(self,
                      statement_type: str,

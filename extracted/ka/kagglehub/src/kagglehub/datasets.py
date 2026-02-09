@@ -31,19 +31,31 @@ _DATASET_LOAD_VALID_KWARGS_MAP = {
 }
 
 
-def dataset_download(handle: str, path: str | None = None, *, force_download: bool | None = False) -> str:
+def dataset_download(
+    handle: str,
+    path: str | None = None,
+    *,
+    force_download: bool | None = False,
+    output_dir: str | None = None,
+) -> str:
     """Download dataset files
     Args:
         handle: (string) the dataset handle
         path: (string) Optional path to a file within a dataset
-        force_download: (bool) Optional flag to force download a dataset, even if it's cached
+        force_download: (bool) Optional flag to force download a dataset, even if it's cached or already in output_dir.
+        output_dir: (string) Optional output directory for direct download, bypassing the default cache.
     Returns:
         A string requesting the path to the requested dataset files.
     """
     h = parse_dataset_handle(handle)
     logger.info(f"Downloading Dataset: {h.to_url()} ...", extra={**EXTRA_CONSOLE_BLOCK})
-    path, _ = registry.dataset_resolver(h, path, force_download=force_download)
-    return path
+    resolved_path, _ = registry.dataset_resolver(
+        h,
+        path,
+        force_download=force_download,
+        output_dir=output_dir,
+    )
+    return resolved_path
 
 
 def dataset_upload(

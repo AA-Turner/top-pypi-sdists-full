@@ -14,12 +14,10 @@ class XEP_0055(BasePlugin):
     The config options are only useful for a "server-side" search feature,
     and if the ``provide_search`` option is set to True.
 
-    API
-    ===
+    API:
 
-    ``search_get_form``: customize the search form content (ie fields)
-
-    ``search_query``: return search results
+    - `search_get_form`: customize the search form content (ie fields)
+    - `search_query`: return search results
     """
     name = "xep_0055"
     description = "XEP-0055: Jabber search"

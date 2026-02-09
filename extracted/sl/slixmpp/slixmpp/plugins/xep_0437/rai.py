@@ -45,7 +45,7 @@ class XEP_0437(BasePlugin):
     def subscribe(self, service: JID, *,
                   pfrom: Optional[JID] = None):
         """
-        Subscribe to room activty on a MUC service.
+        Subscribe to room activity on a MUC service.
         :param JID service: MUC service
         """
         pres = self.xmpp.make_presence(pto=service, pfrom=pfrom)
@@ -55,7 +55,7 @@ class XEP_0437(BasePlugin):
     def unsubscribe(self, service: JID, *,
                     pfrom: Optional[JID] = None):
         """
-        Unsubscribe from room activty on a MUC service.
+        Unsubscribe from room activity on a MUC service.
         :param JID service: MUC service
         """
         pres = self.xmpp.make_presence(

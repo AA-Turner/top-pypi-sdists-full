@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from adam.config import Config
-from adam.utils import log2, log_exc
+from adam.utils_log import log2, log_exc
 from adam.utils_athena import Athena
 from adam.utils_audits import Audits
 from adam.utils_context import Context

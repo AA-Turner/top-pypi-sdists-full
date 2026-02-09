@@ -63,7 +63,7 @@ class IoT_TestDevice(slixmpp.ClientXMPP):
     def session_start(self, event):
         self.send_presence()
         self.get_roster()
-        # tell your preffered friend that you are alive
+        # tell your preferred friend that you are alive
         self.send_message(mto='jocke@jabber.sust.se', mbody=self.boundjid.bare +' is now online use xep_323 stanza to talk to me')
 
         if not(self.beServer):

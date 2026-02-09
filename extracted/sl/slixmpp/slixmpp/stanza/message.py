@@ -4,10 +4,8 @@
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
 from slixmpp.stanza.rootstanza import RootStanza
+from slixmpp.types import MessageTypes
 from slixmpp.xmlstream import StanzaBase, ET
-
-
-ORIGIN_NAME = '{urn:xmpp:sid:0}origin-id'
 
 
 class Message(RootStanza):
@@ -61,14 +59,10 @@ class Message(RootStanza):
         """
         StanzaBase.__init__(self, *args, **kwargs)
         if not recv and self['id'] == '':
-            if self.stream:
-                use_ids = getattr(self.stream, 'use_message_ids', None)
-                if use_ids:
-                    self.set_id(self.stream.new_id())
-            else:
-                self.del_origin_id()
+            if self.stream and getattr(self.stream, 'use_message_ids', False):
+                self.set_id(self.stream.new_id())
 
-    def get_type(self):
+    def get_type(self) -> MessageTypes:
         """
         Return the message type.
 
@@ -78,44 +72,23 @@ class Message(RootStanza):
 
         :rtype: str
         """
-        return self._get_attr('type', 'normal')
+        return self._get_attr('type', 'normal')  # type:ignore[return-value]
 
-    def get_id(self):
+    def get_id(self) -> str:
         return self._get_attr('id') or ''
 
-    def get_origin_id(self):
-        sub = self.xml.find(ORIGIN_NAME)
-        if sub is not None:
-            return sub.attrib.get('id') or ''
-        return ''
-
-    def _set_ids(self, value) -> None:
+    def set_id(self, value: str | None) -> None:
         if value is None or value == '':
             return None
 
         self.xml.attrib['id'] = value
 
-        if self.stream:
-            if not getattr(self.stream, 'use_origin_id', False):
-                self.del_origin_id()
-                return None
-
-        sub = self.xml.find(ORIGIN_NAME)
-        if sub is not None:
-            sub.attrib['id'] = value
-        else:
-            sub = ET.Element(ORIGIN_NAME)
-            sub.attrib['id'] = value
-            self.xml.append(sub)
-
-    def set_id(self, value):
-        return self._set_ids(value)
-
-    def set_origin_id(self, value: str):
-        return self._set_ids(value)
+    # Compatibility fallbacks from when we supported XEP-0359 origin-id.
+    get_origin_id = get_id
+    set_origin_id = set_id
 
     def del_origin_id(self):
-        sub = self.xml.find(ORIGIN_NAME)
+        sub = self.xml.find('{urn:xmpp:sid:0}origin-id')
         if sub is not None:
             self.xml.remove(sub)
 
@@ -203,7 +176,7 @@ class Message(RootStanza):
         else:
             return ''
 
-    def get_mucnick(self):
+    def get_mucnick(self) -> str:
         """
         Return the nickname of the MUC user that sent the message.
 

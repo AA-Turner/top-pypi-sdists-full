@@ -1094,7 +1094,7 @@ class FiniteDimensionalLieAlgebrasWithBasis(CategoryWithAxiom_over_base_ring):
                 [x, y]
             """
             from sage.algebras.lie_algebras.subalgebra import LieSubalgebra_finite_dimensional_with_basis
-            from sage.structure.element import parent, Element
+            from sage.structure.element import Element
             if len(gens) == 1 and not isinstance(gens[0], Element):
                 gens = gens[0]
             category = kwds.pop('category', None)
@@ -1165,8 +1165,7 @@ class FiniteDimensionalLieAlgebrasWithBasis(CategoryWithAxiom_over_base_ring):
                 sage: L.<X,Y,Z,W,U> = LieAlgebra(QQ, 2, step=3)
                 sage: E = L.quotient(U); E
                 Lie algebra quotient L/I of dimension 4 over Rational Field where
-                 L: Free Nilpotent Lie algebra on 5 generators (X, Y, Z, W, U)
-                    over Rational Field
+                 L: Free Nilpotent Lie algebra of rank 2 and step 3 over Rational Field
                  I: Ideal (U)
                 sage: E.basis().list()
                 [X, Y, Z, W]
@@ -1533,7 +1532,7 @@ class FiniteDimensionalLieAlgebrasWithBasis(CategoryWithAxiom_over_base_ring):
             """
             return self.upper_central_series()[-1]
 
-        def is_abelian(self):
+        def is_abelian(self) -> bool:
             """
             Return if ``self`` is an abelian Lie algebra.
 
@@ -1693,7 +1692,7 @@ class FiniteDimensionalLieAlgebrasWithBasis(CategoryWithAxiom_over_base_ring):
                 sage: [C.free_module_rank(i) for i in range(11)]  # long time
                 [1, 10, 45, 120, 210, 252, 210, 120, 45, 10, 1]
 
-                sage: # needs sage.combinat sage.modules
+                sage: # needs sage.combinat sage.graphs sage.modules
                 sage: g = lie_algebras.sl(QQ, 2)
                 sage: E, F, H = g.basis()
                 sage: n = g.subalgebra([F, H])
@@ -1817,7 +1816,7 @@ class FiniteDimensionalLieAlgebrasWithBasis(CategoryWithAxiom_over_base_ring):
                                 vec = elt.to_vector()
                             else:
                                 vec = Lmod.coordinate_vector(elt.to_vector())
-                            for key, coeff in vec.iteritems():
+                            for key, coeff in vec.items():
                                 if not coeff:
                                     continue
                                 s, A = sgn(key, Z)
@@ -2555,7 +2554,7 @@ class FiniteDimensionalLieAlgebrasWithBasis(CategoryWithAxiom_over_base_ring):
 
             We verify that this forms a representation::
 
-                sage: # needs sage.combinat sage.modules
+                sage: # needs sage.combinat sage.graphs sage.modules
                 sage: sl3 = lie_algebras.sl(QQ, 3)
                 sage: e1, e2 = sl3.e(1), sl3.e(2)
                 sage: e12 = e1.bracket(e2)
@@ -2757,17 +2756,17 @@ class FiniteDimensionalLieAlgebrasWithBasis(CategoryWithAxiom_over_base_ring):
                 P = X.parent()
                 X = self.ambient()(X)  # make sure it is in the ambient space
                 for Y in self.basis():
-                    Y = self.lift(Y)
-                    k, c = Y.leading_item(key=self._order)
+                    lY = self.lift(Y)
+                    k, c = lY.leading_item(key=self._order)
                     if not X[k]:  # scalar will be 0
                         continue
 
                     if is_field:
-                        X -= (X[k] / c) * Y
+                        X -= (X[k] / c) * lY
                     else:
                         try:
                             q, _ = X[k].quo_rem(c)
-                            X -= q * Y
+                            X -= q * lY
                         except AttributeError:
                             break
 

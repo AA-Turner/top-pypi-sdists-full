@@ -11,6 +11,8 @@ from ._shared_client import get_shared_client
 def gwas_search_associations(
     disease_trait: Optional[str] = None,
     efo_uri: Optional[str] = None,
+    efo_id: Optional[str] = None,
+    efo_trait: Optional[str] = None,
     rs_id: Optional[str] = None,
     accession_id: Optional[str] = None,
     sort: Optional[str] = None,
@@ -31,6 +33,10 @@ def gwas_search_associations(
         Disease or trait name for text-based search (e.g., 'diabetes', 'coronary arte...
     efo_uri : str
         Full EFO ontology URI (e.g., 'http://www.ebi.ac.uk/efo/EFO_0001645')
+    efo_id : str
+        EFO/OBA term ID (e.g., 'EFO_0001645', 'OBA_2050062'). Recommended for reliabl...
+    efo_trait : str
+        Exact EFO trait label (e.g., 'serum alanine aminotransferase amount'). Use wh...
     rs_id : str
         dbSNP rs identifier
     accession_id : str
@@ -62,6 +68,8 @@ def gwas_search_associations(
             "arguments": {
                 "disease_trait": disease_trait,
                 "efo_uri": efo_uri,
+                "efo_id": efo_id,
+                "efo_trait": efo_trait,
                 "rs_id": rs_id,
                 "accession_id": accession_id,
                 "sort": sort,

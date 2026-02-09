@@ -7,10 +7,12 @@ import re
 import requests
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import Color, convert_seconds, epoch, log2, wait_log
+from adam.utils import convert_seconds, epoch
+from adam.utils_color import Color
 from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 from adam.utils_k8s.k8s import port_forwarding
+from adam.utils_log import log2, wait_log
 
 class ReaperService:
     def __init__(self, state: ReplState, local_addr: str, remote_addr: str, show_out = True):

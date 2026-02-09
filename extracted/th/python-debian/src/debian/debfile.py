@@ -22,6 +22,8 @@ Debfile Classes
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import gzip
 import io
 import tarfile
@@ -32,19 +34,12 @@ from pathlib import Path
 from typing import (
     Any,
     BinaryIO,
-    Dict,
     IO,
     Iterator,
-    List,
-    Optional,
-    Text,
-    Union,
     overload,
 )
 try:
-    from typing_extensions import (
-        Literal,
-    )
+    from typing import Literal
 except ImportError:
     pass
 
@@ -110,9 +105,9 @@ class _NormedTarInfo(tarfile.TarInfo):
     See https://bugs.debian.org/1031674 for more detail.
     """
 
-    _name: Optional[str] = None
+    _name: str | None = None
 
-    def _get_name(self) -> Optional[str]:
+    def _get_name(self) -> str | None:
         return self._name
 
     def _set_name(self, name: str) -> None:
@@ -143,13 +138,11 @@ class DebPart:
     mechanism is the third one (as in deb.data.get_file('/etc/vim/vimrc') ).
     """
 
-    def __init__(self, member):
-        # type: (ArMember) -> None
+    def __init__(self, member: ArMember) -> None:
         self.__member = member  # arfile.ArMember file member
-        self.__tgz = None   # type: Optional[tarfile.TarFile]
+        self.__tgz: tarfile.TarFile | None = None
 
-    def tgz(self):
-        # type: () -> tarfile.TarFile
+    def tgz(self) -> tarfile.TarFile:
         """Return a TarFile object corresponding to this part of a .deb
         package.
 
@@ -157,8 +150,7 @@ class DebPart:
         compressed tar archives, not only gzipped ones.
         """
 
-        def _custom_decompress(command_list):
-            # type: (List[str]) -> BinaryIO
+        def _custom_decompress(command_list: list[str]) -> BinaryIO:
             try:
                 # pylint: disable=import-outside-toplevel
                 import subprocess
@@ -203,8 +195,7 @@ class DebPart:
         return self.__tgz
 
     @staticmethod
-    def __normalize_member(fname):
-        # type: (Union[str, Path]) -> str
+    def __normalize_member(fname: str | Path) -> str:
         """ try (not so hard) to obtain a member file name in a form that is
         stored in the .tar.gz, i.e. starting with ./ """
 
@@ -222,7 +213,7 @@ class DebPart:
 
         return './' + fname
 
-    def __resolve_symlinks(self, path: str) -> Optional[str]:
+    def __resolve_symlinks(self, path: str) -> str | None:
         """ walk the path following symlinks
 
         returns:
@@ -259,8 +250,7 @@ class DebPart:
 
         return DebPart.__normalize_member(os.path.normpath(currpath))
 
-    def has_file(self, fname, follow_symlinks=False):
-        # type: (Union[str, Path], bool) -> bool
+    def has_file(self, fname: str | Path, follow_symlinks: bool = False) -> bool:
         """Check if this part contains a given file name.
 
         Symlinks within the archive can be followed.
@@ -278,17 +268,26 @@ class DebPart:
         return fname in names
 
     @overload
-    def get_file(self, fname, encoding=None, errors=None, follow_symlinks=False):
-        # type: (Union[str, Path], None, Optional[str], bool) -> IO[bytes]
+    def get_file(self,
+                 fname: str | Path,
+                 encoding: None = None,
+                 errors: str | None = None,
+                 follow_symlinks: bool = False) -> IO[bytes]:
         pass
 
     @overload
-    def get_file(self, fname, encoding, errors=None, follow_symlinks=False):
-        # type: (Union[str, Path], str, Optional[str], bool) -> IO[str]
+    def get_file(self,
+                 fname: str | Path,
+                 encoding: str,
+                 errors: str | None = None,
+                 follow_symlinks: bool = False) -> IO[str]:
         pass
 
-    def get_file(self, fname, encoding=None, errors=None, follow_symlinks=False):
-        # type: (Union[str, Path], Optional[str], Optional[str], bool) -> Union[IO[bytes], IO[str]]
+    def get_file(self,
+                 fname: str | Path,
+                 encoding: str | None = None,
+                 errors: str | None = None,
+                 follow_symlinks: bool = False) -> IO[bytes] | IO[str]:
         """Return a file object corresponding to a given file name.
 
         If encoding is given, then the file object will return Unicode data;
@@ -321,31 +320,28 @@ class DebPart:
 
     @overload
     def get_content(self,
-                    fname,          # type: Union[str, Path]
-                    encoding=None,  # type: Literal[None]
-                    errors=None,    # type: Optional[str]
-                    follow_symlinks=False,  # type: bool
-                   ):
-        # type: (...) -> Optional[bytes]
+                    fname: str | Path,
+                    encoding: Literal[None] = None,
+                    errors: str | None = None,
+                    follow_symlinks: bool = False,
+                   ) -> bytes | None:
         pass
 
     @overload
     def get_content(self,
-                    fname,             # type: Union[str, Path]
-                    encoding,          # type: str
-                    errors=None,       # type: Optional[str]
-                    follow_symlinks=False,  # type: bool
-                   ):
-        # type: (...) -> Optional[Text]
+                    fname: str | Path,
+                    encoding: str,
+                    errors: str | None = None,
+                    follow_symlinks: bool = False,
+                   ) -> str | None:
         pass
 
     def get_content(self,
-                    fname,          # type: Union[str, Path]
-                    encoding=None,  # type: Optional[str]
-                    errors=None,    # type: Optional[str]
-                    follow_symlinks=False,  # type: bool
-                   ):
-        # type: (...) -> Optional[Union[Text,bytes]]
+                    fname: str | Path,
+                    encoding: str | None = None,
+                    errors: str | None = None,
+                    follow_symlinks: bool = False,
+                   ) -> str |bytes | None:
         """Return the string content of a given file, or None (e.g. for
         directories).
 
@@ -368,16 +364,13 @@ class DebPart:
 
     # container emulation
 
-    def __iter__(self):
-        # type: () -> Iterator[str]
+    def __iter__(self) -> Iterator[str]:
         return iter(self.tgz().getnames())
 
-    def __contains__(self, fname):
-        # type: (Union[str, Path]) -> bool
+    def __contains__(self, fname: str | Path) -> bool:
         return self.has_file(fname)
 
-    def __getitem__(self, fname):
-        # type: (Union[str, Path]) ->  Optional[Union[bytes, Text]]
+    def __getitem__(self, fname: str | Path) -> bytes | str | None:
         return self.get_content(fname)
 
     def close(self) -> None:
@@ -391,11 +384,11 @@ class DebData(DebPart):
 
 class DebControl(DebPart):
 
-    def scripts(self) -> Dict[str, bytes]:
+    def scripts(self) -> dict[str, bytes]:
         """ Return a dictionary of maintainer scripts (postinst, prerm, ...)
         mapping script names to script text. """
 
-        scripts: Dict[str, bytes] = {}
+        scripts: dict[str, bytes] = {}
         for fname in MAINT_SCRIPTS:
             if self.has_file(fname):
                 data = self.get_content(fname)
@@ -414,16 +407,18 @@ class DebControl(DebPart):
         return debian.deb822.DebControl(self.get_content(CONTROL_FILE))
 
     @overload
-    def md5sums(self, encoding=None, errors=None):
-        # type: (Literal[None], Optional[str]) -> Dict[bytes, str]
+    def md5sums(self,
+                encoding: Literal[None] = None,
+                errors: str | None = None) -> dict[bytes, str]:
         pass
 
     @overload
-    def md5sums(self, encoding: str, errors: Optional[str] = None) -> Dict[str, str]:
+    def md5sums(self, encoding: str, errors: str | None = None) -> dict[str, str]:
         pass
 
-    def md5sums(self, encoding=None, errors=None):
-        # type: (Optional[str], Optional[str]) -> Union[Dict[str, str], Dict[bytes, str]]
+    def md5sums(self,
+                encoding: str | None = None,
+                errors: str | None = None) -> dict[str, str] | dict[bytes, str]:
         """ Return a dictionary mapping filenames (of the data part) to
         md5sums. Fails if the control part does not contain a 'md5sum' file.
 
@@ -439,9 +434,9 @@ class DebControl(DebPart):
                 "'%s' file not found, can't list MD5 sums" % MD5_FILE)
 
         md5_file = self.get_file(MD5_FILE, encoding=encoding, errors=errors)
-        sums: Dict[Any, str] = {}
+        sums: dict[Any, str] = {}
 
-        newline: Union[str, bytes] = '\r\n'
+        newline: str | bytes = '\r\n'
         if encoding is None:
             newline = b'\r\n'
 
@@ -472,13 +467,15 @@ class DebFile(ArFile):
                         file
     """
 
-    def __init__(self, filename=None, mode='r', fileobj=None):
-        # type: (Optional[Union[str, Path]], str, Optional[BinaryIO]) -> None
+    def __init__(self,
+                 filename: str | Path | None = None,
+                 mode: str = 'r',
+                 fileobj: BinaryIO | None = None) -> None:
         ArFile.__init__(self, filename, mode, fileobj)
         actual_names = set(self.getnames())
 
         def compressed_part_name(basename: str) -> str:
-            candidates = ['%s.%s' % (basename, ext) for ext in PART_EXTS]
+            candidates = [f'{basename}.{ext}' for ext in PART_EXTS]
             # also permit uncompressed data.tar and control.tar
             if basename in (DATA_PART, CTRL_PART):
                 candidates.append(basename)
@@ -500,7 +497,7 @@ class DebFile(ArFile):
                 "missing required part in given .deb"
                 " (expected: '%s')" % INFO_PART)
 
-        self.__parts = {}   # type: Dict[str, DebPart]
+        self.__parts: dict[str, DebPart] = {}
         self.__parts[CTRL_PART] = DebControl(self.getmember(
             compressed_part_name(CTRL_PART)))
         self.__parts[DATA_PART] = DebData(self.getmember(
@@ -519,13 +516,11 @@ class DebFile(ArFile):
         return self.__version
 
     @property
-    def data(self):
-        # type: () -> DebData
+    def data(self) -> DebData:
         return self.__parts[DATA_PART]  # type: ignore
 
     @property
-    def control(self):
-        # type: () -> DebControl
+    def control(self) -> DebControl:
         return self.__parts[CTRL_PART]  # type: ignore
 
     # proxy methods for the appropriate parts
@@ -534,26 +529,27 @@ class DebFile(ArFile):
         """ See .control.debcontrol() """
         return self.control.debcontrol()
 
-    def scripts(self) -> Dict[str, bytes]:
+    def scripts(self) -> dict[str, bytes]:
         """ See .control.scripts() """
         return self.control.scripts()
 
     @overload
-    def md5sums(self, encoding=None, errors=None):
-        # type: (Literal[None], Optional[str]) -> Dict[bytes, str]
+    def md5sums(self,
+                encoding: Literal[None] = None,
+                errors: str | None = None) -> dict[bytes, str]:
         pass
 
     @overload
-    def md5sums(self, encoding: str, errors: Optional[str]=None) -> Dict[str, str]:
+    def md5sums(self, encoding: str, errors: str | None=None) -> dict[str, str]:
         pass
 
-    def md5sums(self, encoding=None, errors=None):
-        # type: (Optional[str], Optional[str]) -> Union[Dict[str, str], Dict[bytes, str]]
+    def md5sums(self,
+                encoding: str | None = None,
+                errors: str | None = None) -> dict[str, str] | dict[bytes, str]:
         """ See .control.md5sums() """
         return self.control.md5sums(encoding=encoding, errors=errors)
 
-    def changelog(self):
-        # type: () -> Optional[Changelog]
+    def changelog(self) -> Changelog | None:
         """ Return a Changelog object for the changelog.Debian.gz of the
         present .deb package. Return None if no changelog can be found. """
 
@@ -577,7 +573,7 @@ class DebFile(ArFile):
         self.control.close()
         self.data.close()
 
-    def __enter__(self) -> 'DebFile':
+    def __enter__(self) -> DebFile:
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:

@@ -69,7 +69,7 @@ class Geoloc(ElementBase):
     namespace = 'http://jabber.org/protocol/geoloc'
     name = 'geoloc'
     interfaces = {'accuracy', 'alt', 'area', 'bearing', 'building',
-                  'country', 'countrycode', 'datum', 'dscription',
+                  'country', 'countrycode', 'datum', 'description',
                   'error', 'floor', 'lat', 'locality', 'lon',
                   'postalcode', 'region', 'room', 'speed', 'street',
                   'text', 'timestamp', 'uri'}

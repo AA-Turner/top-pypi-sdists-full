@@ -7,19 +7,33 @@ class BaseAuthManager(ABC):
         self._tokens: Dict[str, str] = {}
 
     def get_access_token(self, app_name: str) -> Optional[str]:
-        """Fetch a new access token for app_name."""
+        """Get access token for app_name, using stored token if available, otherwise fetch new one."""
+        # First check if we already have a stored token
+        stored_token = self._tokens.get(app_name)
+        if stored_token:
+            return stored_token
+
+        # No stored token, fetch a new one
         creds = self._get_credentials(app_name)
         if creds is None:
             return None
 
-        token_info = self._fetch_token(app_name, creds)
-        token = token_info.get("access_token")
-        if not token:
-            raise Exception("Failed to obtain access token")
+        try:
+            token_info = self._fetch_token(app_name, creds)
+            token = token_info.get("access_token")
+            if not token:
+                raise Exception("Failed to obtain access token")
 
-        # Store the token in memory
-        self._tokens[app_name] = token
-        return token
+            # Store the token in memory
+            self._tokens[app_name] = token
+            return token
+        except Exception:
+            # Re-raise with original exception to preserve detailed error messages
+            raise
+
+    def clear_tokens(self):
+        """Clear all stored tokens. Used when reset endpoint is called."""
+        self._tokens.clear()
 
     def get_stored_token(self, app_name: str) -> Optional[str]:
         """Get token from memory by app_name."""

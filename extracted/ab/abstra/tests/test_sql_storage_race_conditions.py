@@ -77,6 +77,16 @@ def reader_during_write(test_dir: str, execution_id: str, num_reads: int):
     return successful_reads
 
 
+def worker_single_create_and_finish(stage_id: str, test_dir: str):
+    """Worker that creates a single execution and finishes it."""
+    Settings.set_root_path(test_dir)
+    repos = build_editor_repositories()
+    execution = create_execution(stage_id)
+    repos.execution.create(execution)
+    execution.set_status("finished")
+    repos.execution.update(execution)
+
+
 def writer_process_func(test_dir: str):
     """Worker process that creates executions."""
     Settings.set_root_path(test_dir)
@@ -211,9 +221,9 @@ class TestSqlStorageRaceConditions(unittest.TestCase):
             expected = num_threads * 50
             actual = len(result.executions)
 
-            # Allow for some loss, but not significant
-            self.assertGreaterEqual(
-                actual, expected * 0.95, "Should complete most operations"
+            # With FileLock, no data loss should occur
+            self.assertEqual(
+                actual, expected, "Should complete all operations without data loss"
             )
 
         finally:
@@ -262,8 +272,8 @@ class TestSqlStorageRaceConditions(unittest.TestCase):
             execs = repositories.execution.list(filter)
             tasks = repositories.tasks.get_all_tasks()
 
-            self.assertGreaterEqual(len(execs.executions), 38)
-            self.assertGreaterEqual(len(tasks), 38)
+            self.assertEqual(len(execs.executions), 40)
+            self.assertEqual(len(tasks), 40)
 
         finally:
             self._cleanup_test_dir(test_dir)
@@ -351,6 +361,67 @@ class TestSqlStorageRaceConditions(unittest.TestCase):
             filter = ExecutionFilter()
             result = repositories.execution.list(filter)
             self.assertIsNotNone(result)
+
+        finally:
+            self._cleanup_test_dir(test_dir)
+
+    def test_100_concurrent_processes(self):
+        """Test 7: 100 processes writing simultaneously — the real-world scenario.
+
+        Each process creates one execution and finishes it, all starting at once.
+        Validates zero data loss under heavy concurrent load.
+        """
+        num_workers = 100
+        test_dir = self._get_test_dir("7_100_concurrent")
+        test_dir.mkdir(exist_ok=True)
+        Settings.set_root_path(str(test_dir))
+
+        try:
+            repositories = build_editor_repositories()
+            mp_context = SpawnContextReposity().get_context()
+
+            processes = []
+            for i in range(num_workers):
+                p = mp_context.Process(
+                    target=worker_single_create_and_finish,
+                    args=(f"stage-{i}", str(test_dir)),
+                )
+                processes.append(p)
+
+            # Start all processes at once — no staggering
+            for p in processes:
+                p.start()
+
+            # Wait for all to complete
+            for p in processes:
+                p.join(timeout=120)
+
+            # Kill any stragglers
+            for p in processes:
+                if p.is_alive():
+                    p.terminate()
+                    p.join(timeout=5)
+
+            # Verify all exited successfully
+            failed = [i for i, p in enumerate(processes) if p.exitcode != 0]
+            self.assertEqual(len(failed), 0, f"Workers {failed} failed (exitcode != 0)")
+
+            # Verify zero data loss
+            filter = ExecutionFilter()
+            result = repositories.execution.list(filter)
+
+            self.assertEqual(
+                len(result.executions),
+                num_workers,
+                f"Expected {num_workers} executions, got {len(result.executions)} — data loss detected",
+            )
+
+            finished_count = sum(1 for e in result.executions if e.status == "finished")
+            self.assertEqual(
+                finished_count,
+                num_workers,
+                f"Expected all {num_workers} finished, got {finished_count}",
+            )
 
         finally:
             self._cleanup_test_dir(test_dir)

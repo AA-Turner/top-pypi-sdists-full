@@ -1,84 +1,88 @@
-from adam.commands.cql.utils_cql import cassandra
 from adam.commands.nodetool.utils_nodetools import NodeTools
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import Color, log_timing
-from adam.utils_cassandra.address_table import AddressTable, NATError
-from adam.utils_k8s.statefulsets import StatefulSets
+from adam.utils import Holder
+from adam.utils_cassandra.cassandra_status import AddressTranslationError, CassandraStatus
+from adam.utils_cassandra.pod_service import cassandra
+from adam.utils_color import Color
+from adam.utils_concurrent import parallelize
+from adam.utils_k8s.k8s_context import K8sContext
+from adam.utils_k8s.pods import strip_pod_name
+from adam.utils_log import log_timing
 from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 
 class NodeRestartability:
+    def tokens(state: ReplState, ctx: Context = Context.NULL) -> tuple[CassandraStatus, list[dict]]:
+        with cassandra(state) as pods:
+            # both status snapshot and nodetool ring needs k8s pods info
+            k8s = K8sContext.preload_pods(state.sts, state.namespace)
+
+            status_holder: Holder[CassandraStatus] = Holder()
+            ring_holder: Holder[list[dict]] = Holder()
+
+            def fetch_status():
+                status_holder.set(log_timing('cassandra.status.snapshot', lambda: CassandraStatus.snapshot(state, k8s=k8s)))
+
+            def fetch_ring():
+                r = pods.nodetool('ring', samples=1, k8s=k8s, ctx=ctx.copy(show_out=False, background=False))
+                if isinstance(r, list):
+                    r = r[0]
+
+                ring_holder.set(NodeTools.parse_nodetool_ring(r.stdout))
+
+            with parallelize([fetch_status, fetch_ring],
+                            msg='d`Fetching|Fetched tokens on {size} nodes') as exec:
+                exec.join(lambda fn: fn())
+
+            return status_holder.get(), ring_holder.get()
+
     def probe(state: ReplState, pod: str, in_restartings: list, ctx: Context = Context.NULL):
         if (pod, state.namespace) in in_restartings:
             return NodeRestartability(pod, err=f'{pod} is already in restart.')
 
-        nat: AddressTable = AddressTable.snapshot(state, ctx=ctx)
+        status: CassandraStatus = None
+        ring: list[dict] = None
+        status, ring = NodeRestartability.tokens(state, ctx)
 
         ip: str = None
         try:
-            ip = nat.local_ip_from_pod_name(pod)
-        except NATError as e:
-            return NodeRestartability(pod, host_ids_by_pod=nat._host_ids_by_pod, err=str(e))
+            ip = status.ip_from_pod_name(pod)
+        except AddressTranslationError as e:
+            return NodeRestartability(pod, host_ids_by_pod=status.host_ids_by_pod, err=str(e))
 
-        # find pod that's up
-        running_pods = StatefulSets.running_pods(state.sts, state.namespace)
-        pod_to_run_on: str = None
-        statuses = nat.status_by_host_id(state)
-        for p, host_id in nat._host_ids_by_pod.items():
-            if not running_pods or p in running_pods:
-                if host_id in statuses:
-                    status = statuses[host_id]
-                    if 'status' in status and status['status'] == 'UN':
-                        pod_to_run_on = p
-                        break
+        tokens, my_tokens = NodeRestartability.replica_ips(ip, ring)
 
-        if not pod_to_run_on:
-            return NodeRestartability(pod, host_ids_by_pod=nat._host_ids_by_pod, err=f'[DOWN] Cannot locate any pod that works at the moment.')
+        if ctx.debug:
+            ctx.debug(f'{ip} has {len(my_tokens)} primary token ranges.', verbose=True)
+            ctx.debug(verbose=True)
+            tabulize(sorted(tokens.keys()),
+                    lambda k: f'{status.status_by_ip()[k]["status"]}\t{k}\t{status.pod_name_from_ip[k]}\t{len(tokens[k])}',
+                    header='--\tAddress\tPOD\t# Tokens Shared',
+                    separator='\t',
+                    ctx=ctx.copy(show_out=True, text_color=Color.gray))
 
-        ctx.log(f'Chose {pod_to_run_on} for running nodetool ring.')
+        downs = {}
+        has_multiple_copies = {}
+        try:
+            for k, s in status.status_by_ip().items():
+                if p := (status.pod_name_from_ip(k), state.namespace):
+                    in_restart = 'yes' if p in in_restartings else 'no'
 
-        with cassandra(state, pod=pod_to_run_on) as pods:
-            with log_timing('nodetool ring'):
-               r = pods.nodetool('ring', ctx=ctx.copy(show_out=False))
+                    if s["status"] != 'UN' or in_restart == 'yes':
+                        token_list = ['Unknown']
+                        if k in tokens:
+                            token_list = tokens[k]
+                        downs[k] = {'status': s['status'], 'pod': p[0], 'namespace': p[1], 'tokens': token_list, 'in_restart': in_restart}
 
-            if isinstance(r, list):
-               r = r[0]
+                if k == ip:
+                    has_multiple_copies = tokens[k]
+        except AddressTranslationError as e:
+            return NodeRestartability(pod, host_ids_by_pod=status._host_ids_by_pod, err=str(e))
 
-            tokens, my_tokens = NodeRestartability.replica_ips(ip, r.stdout)
+        return NodeRestartability(pod, downs, has_multiple_copies, host_ids_by_pod=status.host_ids_by_pod)
 
-            if ctx.show_verbose:
-               ctx.log2(f'{ip} has {len(my_tokens)} primary token ranges.', verbose=True)
-               ctx.log2(verbose=True)
-               tabulize(sorted(tokens.keys()),
-                        lambda k: f'{nat.status_by_ip(state)[k]["status"]}\t{k}\t{nat.pod_name_from_local_ip[k]}\t{len(tokens[k])}',
-                        header='--\tAddress\tPOD\t# Tokens Shared',
-                        separator='\t',
-                        ctx=ctx.copy(show_out=True, text_color=Color.gray))
-
-            downs = {}
-            has_multiple_copies = {}
-            try:
-                for k, status in nat.status_by_ip(state).items():
-                    if p := (nat.pod_name_from_local_ip(k), state.namespace):
-                        in_restart = 'yes' if p in in_restartings else 'no'
-
-                        if status["status"] != 'UN' or in_restart == 'yes':
-                            token_list = ['Unknown']
-                            if k in tokens:
-                                token_list = tokens[k]
-                            downs[k] = {'status': status['status'], 'pod': p[0], 'namespace': p[1], 'tokens': token_list, 'in_restart': in_restart}
-
-                    if k == ip:
-                        has_multiple_copies = tokens[k]
-            except NATError as e:
-                return NodeRestartability(pod, host_ids_by_pod=nat._host_ids_by_pod, err=str(e))
-
-            return NodeRestartability(pod, downs, has_multiple_copies, host_ids_by_pod=nat._host_ids_by_pod)
-
-    def replica_ips(ip: str, ring_out: str):
-         ring = NodeTools.parse_nodetool_ring(ring_out)
-
+    def replica_ips(ip: str, ring: list[dict]):
          tokens : dict[str, set] = {}
 
          def line(ip: str):
@@ -128,12 +132,6 @@ class NodeRestartability:
 
             return
 
-     #   tabulize(sorted(list(self.host_ids_by_pod.keys())),
-     #            lambda p: f'{p}\t{self.host_ids_by_pod[p]}',
-     #            header='POD\tHOST_ID',
-     #            separator='\t',
-     #            ctx=ctx.copy(show_out=True, text_color=ctx.text_color))
-
         if self.downs:
             ctx.log2(f'[REPLICAS DOWN] The following nodes with replicas are down.')
             ctx.log2()
@@ -164,7 +162,7 @@ class NodeRestartability:
         if self.downs:
             ip = sorted(list(self.downs.keys()))[0]
             if 'pod' in self.downs[ip]:
-                pod = self.downs[ip]['pod']
+                pod = strip_pod_name(self.downs[ip]['pod'])
 
                 if self.downs[ip]['status'] != 'UN':
                     return f'DN: {pod}'

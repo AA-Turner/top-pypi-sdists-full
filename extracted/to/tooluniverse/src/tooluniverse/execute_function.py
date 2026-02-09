@@ -1616,7 +1616,9 @@ class ToolUniverse:
         tool_name_list = []
         tool_desc_list = []
         for tool in self.all_tools:
-            original_name = tool["name"]
+            # Use the stored original name if available (avoids re-shortening
+            # an already-shortened name when this method is called multiple times)
+            original_name = tool.get("original_name", tool["name"])
 
             # If shortening enabled, use shortened name as primary key
             if self.enable_name_shortening:

@@ -1,6 +1,11 @@
 import unittest
 from slixmpp.test.integration import SlixIntegration
 
+try:
+    import aiohttp
+except ImportError:
+    aiohttp = None
+
 
 class TestSos(SlixIntegration):
     async def asyncSetUp(self):
@@ -12,6 +17,7 @@ class TestSos(SlixIntegration):
         self.register_plugins(['xep_0455'])
         await self.connect_clients()
 
+    @unittest.skipIf(aiohttp is None, "aiohttp is not installed")
     async def test_sos(self):
         """Check we can get the status addr and fetch empty data"""
         addresses = await self.clients[0]['xep_0455'].get_external_status_addresses()

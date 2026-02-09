@@ -873,7 +873,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
         """
-        List tags for the specified resource.
+        Lists the tags for a specified resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/list_tags_for_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iot_managed_integrations/client/#list_tags_for_resource)
@@ -984,7 +984,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
 
     def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
-        Add tags for the specified resource.
+        Adds tags to a specified resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/tag_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iot_managed_integrations/client/#tag_resource)
@@ -992,7 +992,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
 
     def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
-        Remove tags for the specified resource.
+        Removes tags from a specified resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/untag_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iot_managed_integrations/client/#untag_resource)

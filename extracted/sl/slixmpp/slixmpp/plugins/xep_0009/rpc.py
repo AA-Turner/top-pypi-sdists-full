@@ -106,7 +106,7 @@ class XEP_0009(BasePlugin):
         iq['error']['condition'] = 'forbidden'
         return iq
 
-    def _recipient_unvailable(self, iq):
+    def _recipient_unavailable(self, iq):
         payload = iq.get_payload()
         iq = iq.reply()
         iq.error().set_payload(payload)

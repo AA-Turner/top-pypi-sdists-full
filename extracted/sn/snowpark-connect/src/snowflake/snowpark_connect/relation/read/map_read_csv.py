@@ -45,9 +45,9 @@ from snowflake.snowpark_connect.relation.read.metadata_utils import (
     get_non_metadata_fields,
 )
 from snowflake.snowpark_connect.relation.read.utils import (
+    _load_file_with_copy_into,
     apply_metadata_exclusion_pattern,
-    extract_relative_file_path,
-    extract_stage_from_path,
+    generate_stage_path_groups,
     get_spark_column_names_from_snowpark_columns,
     rename_columns_as_snowflake_standard,
 )
@@ -186,8 +186,8 @@ def map_read_csv(
                 # Generate a temporary table name
                 temp_table_name = random_name_for_temp_object(TempObjectType.TABLE)
                 df = session.table(temp_table_name)
-                stage_file_groups = _generate_stage_path_groups(paths)
-                for stage, stage_files in stage_file_groups:
+                stage_file_groups = generate_stage_path_groups(paths)
+                for stage_name, stage_files in stage_file_groups:
                     # Get schema from the first file
                     copy_into_schema = _get_schema_for_copy_into(
                         reader=reader,
@@ -200,23 +200,21 @@ def map_read_csv(
                         parse_header=parse_header,
                     )
                     if len(stage_files) == 1:
-                        _load_csv_with_copy_into(
-                            reader=reader,
-                            target=temp_table_name,
-                            paths=[],
-                            stage=stage_files[0],
-                            schema=copy_into_schema,
-                            file_format_options=file_format_options,
-                        )
+                        stage_file_paths = []
+                        copy_from_stage = stage_files[0]
                     else:
-                        _load_csv_with_copy_into(
-                            reader=reader,
-                            target=temp_table_name,
-                            paths=stage_files,
-                            stage=stage,
-                            schema=copy_into_schema,
-                            file_format_options=file_format_options,
-                        )
+                        stage_file_paths = stage_files
+                        copy_from_stage = stage_name
+                    _load_file_with_copy_into(
+                        reader=reader,
+                        session=session,
+                        target=temp_table_name,
+                        stage_file_paths=stage_file_paths,
+                        stage=copy_from_stage,
+                        schema=copy_into_schema,
+                        file_format_options=file_format_options,
+                        file_format="csv",
+                    )
 
         if schema is None and not str_to_bool(
             str(raw_options.get("inferSchema", raw_options.get("inferschema", "false")))
@@ -617,55 +615,6 @@ def _emulate_integral_types_for_csv(t: DataType) -> DataType:
     return t
 
 
-def _generate_stage_path_groups(paths: list[str]) -> list[tuple[str, list[str]]]:
-    """
-    Group paths by their stage.
-
-    Args:
-        paths: List of file paths (stage paths, cloud URLs, etc.)
-
-    Returns:
-        A list of tuples (stage, paths) where each tuple represents a group. Each group contains at most MAX_FILES_PER_COPY_INTO files.
-
-    Example:
-        Input: ["'@stage/file1.csv'", "'@stage/file2.csv'"]
-        Output: [("'@stage'", ["'@stage/file1.csv'", "'@stage/file2.csv'"])]
-    """
-    # First, group paths by stage
-    stage_path_dict: dict[str, list[str]] = {}
-    for path in paths:
-        stage = extract_stage_from_path(path)
-        if stage not in stage_path_dict:
-            stage_path_dict[stage] = []
-        stage_path_dict[stage].append(path)
-
-    result: list[tuple[str, list[str]]] = []
-
-    for stage, stage_paths in stage_path_dict.items():
-        for chunk in _split_into_chunks(stage_paths, MAX_FILES_PER_COPY_INTO):
-            result.append((stage, chunk))
-
-    return result
-
-
-# Maximum number of files allowed in COPY INTO with FILES parameter
-MAX_FILES_PER_COPY_INTO = 1000
-
-
-def _split_into_chunks(items: list, chunk_size: int) -> list[list]:
-    """
-    Split a list into chunks of specified size.
-
-    Args:
-        items: The list to split.
-        chunk_size: Maximum size of each chunk.
-
-    Returns:
-        A list of chunks, each with at most chunk_size items.
-    """
-    return [items[i : i + chunk_size] for i in range(0, len(items), chunk_size)]
-
-
 def _get_schema_for_copy_into(
     reader: DataFrameReader,
     session: snowpark.Session,
@@ -712,40 +661,3 @@ def _get_schema_for_copy_into(
         parse_header,
     )
     return df.schema
-
-
-def _load_csv_with_copy_into(
-    reader: DataFrameReader,
-    target: str,
-    paths: list[str],
-    stage: str,
-    schema: StructType,
-    file_format_options: dict[str, Any],
-) -> None:
-    """
-    Load multiple CSV files from the same stage using COPY INTO with FILES parameter for parallel execution.
-
-    Args:
-        reader: The DataFrameReader with configured options (including metadata settings).
-        TODO: SNOW-3002469 copy_into_table does not enable INCLUDE_METADATA even though add_filename_metadata_to_reader
-        has been called before.
-        target: The name of the temporary table to load the data into.
-        paths: List of full stage paths like ['@stage/file1.csv', '@stage/file2.csv'] to load.
-        stage: The common stage name like '@stage_name'.
-        schema: The StructType schema for the table.
-        file_format_options: File format options for CSV.
-    """
-    # Extract just the file paths relative to the stage for the FILES parameter
-    relative_files = [extract_relative_file_path(path, stage) for path in paths]
-
-    logger.debug(
-        f"Using COPY INTO for parallel CSV loading: {len(relative_files)} files from {stage}"
-    )
-
-    # Use Snowpark's copy_into_table API with the files parameter for parallel loading
-    reader.schema(schema).csv(stage).copy_into_table(
-        target,
-        files=relative_files,
-        format_type_options=file_format_options,
-        force=True,
-    )

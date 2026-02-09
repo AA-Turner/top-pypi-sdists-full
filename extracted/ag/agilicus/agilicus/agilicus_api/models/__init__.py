@@ -68,6 +68,7 @@ from agilicus_api.model.allow_map_compiled import AllowMapCompiled
 from agilicus_api.model.allow_rule_compiled import AllowRuleCompiled
 from agilicus_api.model.alternate_mode_setting import AlternateModeSetting
 from agilicus_api.model.alternate_mode_status import AlternateModeStatus
+from agilicus_api.model.always_match_condition import AlwaysMatchCondition
 from agilicus_api.model.application import Application
 from agilicus_api.model.application_additional_context import ApplicationAdditionalContext
 from agilicus_api.model.application_assignment import ApplicationAssignment
@@ -856,6 +857,7 @@ from agilicus_api.model.template_extraction import TemplateExtraction
 from agilicus_api.model.template_path import TemplatePath
 from agilicus_api.model.time_interval_metrics import TimeIntervalMetrics
 from agilicus_api.model.time_validity import TimeValidity
+from agilicus_api.model.timeframe_condition import TimeframeCondition
 from agilicus_api.model.token import Token
 from agilicus_api.model.token_introspect import TokenIntrospect
 from agilicus_api.model.token_introspect_options import TokenIntrospectOptions

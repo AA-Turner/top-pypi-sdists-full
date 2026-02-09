@@ -40,9 +40,9 @@ import pathlib
 from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Any
-import warnings
 
 import pyvista  # noqa: TC001
+from pyvista._warn_external import warn_external
 from pyvista.core.utilities.misc import _check_range
 
 from .colors import Color
@@ -69,7 +69,7 @@ def _set_plot_theme_from_env() -> None:
             set_plot_theme(theme.lower())
         except ValueError:
             allowed = ', '.join([item.name for item in _NATIVE_THEMES])
-            warnings.warn(
+            warn_external(
                 f'\n\nInvalid PYVISTA_PLOT_THEME environment variable "{theme}". '
                 f'Should be one of the following: {allowed}',
             )
@@ -108,8 +108,16 @@ def set_plot_theme(theme):
     Parameters
     ----------
     theme : str
-        Theme name.  Either ``'default'``, ``'document'``, ``'dark'``,
-        or ``'paraview'``.
+        The theme name.  Available predefined theme names include:
+
+        - ``'dark'``,
+        - ``'default'``,
+        - ``'document'``,
+        - ``'document_build'``,
+        - ``'document_pro'``,
+        - ``'paraview'``,
+        - ``'testing'`` and
+        - ``'vtk'``.
 
     Examples
     --------
@@ -192,6 +200,8 @@ class _ThemeConfig(metaclass=_ForceSlots):
         for key in self._all__slots__():
             value = getattr(self, key)
             key_ = key[1:]
+            if key_ == 'plot_cell':  # private config values
+                continue
             if hasattr(value, 'to_dict'):
                 dict_[key_] = value.to_dict()
             else:
@@ -996,9 +1006,9 @@ class _Font(_ThemeConfig):
 
     >>> pv.global_theme.font.color = 'grey'
 
-    Set the string formatter used to format numerical data to '%.6e'
+    Set the string formatter used to format numerical data to '{:.6e}'
 
-    >>> pv.global_theme.font.fmt = '%.6e'
+    >>> pv.global_theme.font.fmt = '{:.6e}'
 
     """
 
@@ -1133,10 +1143,10 @@ class _Font(_ThemeConfig):
 
         Examples
         --------
-        Set the string formatter used to format numerical data to '%.6e'.
+        Set the string formatter used to format numerical data to '{:.6e}'.
 
         >>> import pyvista as pv
-        >>> pv.global_theme.font.fmt = '%.6e'
+        >>> pv.global_theme.font.fmt = '{:.6e}'
 
         """
         return self._fmt  # type: ignore[return-value]
@@ -1548,7 +1558,7 @@ class _TrameConfig(_ThemeConfig):
     @server_proxy_enabled.setter
     def server_proxy_enabled(self, enabled: bool):
         if enabled and self.jupyter_extension_enabled:
-            warnings.warn('Enabling server_proxy will disable jupyter_extension')
+            warn_external('Enabling server_proxy will disable jupyter_extension')
             self._jupyter_extension_enabled = False
 
         self._server_proxy_enabled = bool(enabled)
@@ -1569,8 +1579,8 @@ class _TrameConfig(_ThemeConfig):
 
     @jupyter_extension_available.setter
     def jupyter_extension_available(self, _available: bool):
-        warnings.warn(
-            'The jupyter_extension_available flag is read only and is automatically detected.',
+        warn_external(
+            'The jupyter_extension_available flag is read only and is automatically detected.'
         )
 
     @property
@@ -1585,7 +1595,7 @@ class _TrameConfig(_ThemeConfig):
             raise ValueError(msg)
 
         if enabled and self.server_proxy_enabled:
-            warnings.warn('Enabling jupyter_extension will disable server_proxy')
+            warn_external('Enabling jupyter_extension will disable server_proxy')
             self._server_proxy_enabled = False
 
         self._jupyter_extension_enabled = bool(enabled)
@@ -1707,6 +1717,18 @@ class _CameraConfig(_ThemeConfig):
         self._parallel_scale = value
 
 
+class _PlotCellConfig(_ThemeConfig):
+    """Internal config for plotting cells."""
+
+    __slots__ = ['_font_size', '_line_width', '_normals_scale', '_point_size']
+
+    def __init__(self):
+        self._line_width = 5
+        self._point_size = 30
+        self._font_size = 20
+        self._normals_scale = 0.1
+
+
 class Theme(_ThemeConfig):
     """Base VTK theme.
 
@@ -1771,6 +1793,7 @@ class Theme(_ThemeConfig):
         '_notebook',
         '_opacity',
         '_outline_color',
+        '_plot_cell',
         '_point_size',
         '_render_lines_as_tubes',
         '_render_points_as_spheres',
@@ -1877,6 +1900,8 @@ class Theme(_ThemeConfig):
 
         self._resample_environment_texture: bool | float = False
 
+        self._plot_cell = _PlotCellConfig()
+
     @property
     def hidden_line_removal(self) -> bool:  # numpydoc ignore=RT01
         """Return or set hidden line removal.
@@ -1931,27 +1956,27 @@ class Theme(_ThemeConfig):
 
         >>> dargs = dict(scalars='Elevation', cmap='rainbow', show_edges=True)
 
-        >>> p = pv.Plotter(shape=(1, 2))
-        >>> _ = p.add_mesh(
+        >>> pl = pv.Plotter(shape=(1, 2))
+        >>> _ = pl.add_mesh(
         ...     cyl,
         ...     interpolate_before_map=False,
         ...     scalar_bar_args={'title': 'Elevation - interpolated'},
         ...     **dargs,
         ... )
-        >>> p.subplot(0, 1)
-        >>> _ = p.add_mesh(
+        >>> pl.subplot(0, 1)
+        >>> _ = pl.add_mesh(
         ...     cyl,
         ...     interpolate_before_map=True,
         ...     scalar_bar_args={'title': 'Elevation - interpolated'},
         ...     **dargs,
         ... )
-        >>> p.link_views()
-        >>> p.camera_position = [
-        ...     (-1.67, -5.10, 2.06),
-        ...     (0.0, 0.0, 0.0),
-        ...     (0.00, 0.37, 0.93),
-        ... ]
-        >>> p.show()  # doctest: +SKIP
+        >>> pl.link_views()
+        >>> pl.camera_position = pv.CameraPosition(
+        ...     position=(-1.67, -5.10, 2.06),
+        ...     focal_point=(0.0, 0.0, 0.0),
+        ...     viewup=(0.00, 0.37, 0.93),
+        ... )
+        >>> pl.show()  # doctest: +SKIP
 
         """
         return self._interpolate_before_map
@@ -2315,9 +2340,9 @@ class Theme(_ThemeConfig):
 
         >>> pv.global_theme.font.color = 'grey'
 
-        String formatter used to format numerical data to '%.6e'.
+        String formatter used to format numerical data to '{:.6e}'.
 
-        >>> pv.global_theme.font.fmt = '%.6e'
+        >>> pv.global_theme.font.fmt = '{:.6e}'
 
         """
         return self._font
@@ -3458,6 +3483,11 @@ class _DocumentBuildTheme(DocumentTheme):
         self.return_cpos = False
         self.resample_environment_texture = True
 
+        self._plot_cell._line_width = 10
+        self._plot_cell._point_size = 80
+        self._plot_cell._font_size = 50
+        self._plot_cell._normals_scale = 0.25
+
 
 class _TestingTheme(Theme):
     """Low resolution testing theme for ``pytest``.
@@ -3482,6 +3512,11 @@ class _TestingTheme(Theme):
         self.axes.show = False
         self.return_cpos = False
         self.resample_environment_texture = True
+
+        self._plot_cell._line_width = 8
+        self._plot_cell._point_size = 50
+        self._plot_cell._font_size = 30
+        self._plot_cell._normals_scale = 0.2
 
 
 class _NATIVE_THEMES(Enum):  # noqa: N801

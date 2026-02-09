@@ -101,7 +101,7 @@ class SetupMPI(ActionStep):
         return super().__new__(
             cls,
             name,
-            'mpi-action/setup-mpi',
+            'mpi4py/setup-mpi',
             ref=version,
             with_opts=options or None,
             args=args,

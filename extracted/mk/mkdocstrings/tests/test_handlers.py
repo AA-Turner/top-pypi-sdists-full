@@ -62,7 +62,7 @@ def test_extended_templates(tmp_path: Path, plugin: MkdocstringsPlugin) -> None:
         tmp_path: Temporary folder.
         plugin: Instance of our plugin.
     """
-    handler = plugin._handlers.get_handler("python")  # type: ignore[union-attr]
+    handler = plugin._handlers.get_handler("python")  # ty: ignore[possibly-missing-attribute]
 
     # monkeypatch Jinja env search path
     search_paths = [
@@ -71,7 +71,7 @@ def test_extended_templates(tmp_path: Path, plugin: MkdocstringsPlugin) -> None:
         extended_theme := tmp_path / "extended_theme",
         extended_fallback_theme := tmp_path / "extended_fallback_theme",
     ]
-    handler.env.loader.searchpath = search_paths  # type: ignore[union-attr]
+    handler.env.loader.searchpath = search_paths  # ty: ignore[invalid-assignment]
 
     # assert "new" template is not found
     with pytest.raises(expected_exception=TemplateNotFound):
@@ -117,7 +117,7 @@ def test_nested_autodoc(ext_markdown: Markdown) -> None:
     )
     assert 'id="tests.fixtures.nesting.Class"' in output
     assert 'id="tests.fixtures.nesting.Class.method"' in output
-    assert ext_markdown.toc_tokens == [  # type: ignore[attr-defined]
+    assert ext_markdown.toc_tokens == [  # ty: ignore[unresolved-attribute]
         {
             "level": 1,
             "id": "tests.fixtures.nesting.Class",

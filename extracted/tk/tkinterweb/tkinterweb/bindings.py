@@ -81,6 +81,16 @@ class TkinterWeb(tk.Widget):
         # Provide OS information for troubleshooting
         self.post_message(f"Starting TkinterWeb for {utilities.PLATFORM.processor} {utilities.PLATFORM.system} with Python {'.'.join(utilities.PYTHON_VERSION)}")
 
+        # Check tkinterweb_tkhtml_extras
+        if not self.using_tkhtml30 and tkinterweb_tkhtml.TKHTML_EXTRAS_VERSION is not None:
+            version = []
+            for letter in tkinterweb_tkhtml.TKHTML_EXTRAS_VERSION.split("."): version.append(int(letter))
+            if tuple(version) < (1, 3, 0):
+                raise RuntimeError(
+                    f"tkinterweb-tkhtml-extras >= 1.3.0 is required but version {tkinterweb_tkhtml.TKHTML_EXTRAS_VERSION} is installed. " \
+                    "Upgrade with pip install --upgrade tkinterweb[recommended]."
+                )
+
         # Initialize the Tkhtml3 widget
         tk.Widget.__init__(self, master, "html", kwargs)
 
@@ -99,6 +109,7 @@ class TkinterWeb(tk.Widget):
         self.motion_frame = tk.Frame(self, bg=self.motion_frame_bg, width=1, height=1)
         self.motion_frame.place(x=0, y=0)
 
+
         # Setup bindings        
         self._setup_bindings()
         self._setup_handlers()
@@ -113,6 +124,7 @@ Load about:tkinterweb for debugging information.
                                 
 If you benefited from using this package, please consider supporting its development by donating at https://buymeacoffee.com/andereoo - any amount helps!""")
         
+        # Check tkinterweb_tkhtml_extras
         if not tkinterweb_tkhtml.TKHTML_EXTRAS_ROOT_DIR:
             self.post_message("The tkinterweb-tkhtml-extras package is either not installed or does not support your system. Some functionality may be missing.")
 
@@ -201,7 +213,7 @@ If you benefited from using this package, please consider supporting its develop
 
         self.fragment = ""
         self.active_threads = []
-        self.downloads_have_occured = False
+        self.pending_threads = []
         self.current_active_node = None
         self.clicked_node = None
         self.current_hovered_node = None
@@ -276,6 +288,10 @@ If you benefited from using this package, please consider supporting its develop
         self.register_lazy_handler("node", "a", "node_manager")
         self.register_lazy_handler("node", "base", "node_manager")
         self.register_lazy_handler("attribute", "a", "node_manager")
+
+        if not self.using_tkhtml30:
+            #self.register_lazy_handler("node", "details", "node_manager")
+            self.register_lazy_handler("attribute", "details", "node_manager")
         
         self.register_lazy_handler("node", "form", "form_manager")
         self.register_lazy_handler("node", "table", "form_manager")
@@ -587,7 +603,6 @@ It is likely that not all dependencies are installed. Make sure Cairo is install
         "Parse HTML code. Call :meth:`TkinterWeb.reset` before calling this method for the first time."
         # NOTE: when thread_safe=True, this method is thread-safe
 
-        self.downloads_have_occured = False
         html = self._crash_prevention(html)
         html = self._dark_mode(html)
 
@@ -605,12 +620,14 @@ It is likely that not all dependencies are installed. Make sure Cairo is install
     def _parse(self, html):
         "Parse HTML code."
         # NOTE: this must run in the main thread
-
+        self.parsing = True
         self.tk.call(self._w, "parse", html)
+        self.parsing = False
+
         self.post_event(utilities.DOM_CONTENT_LOADED_EVENT)
 
-        # We assume that if no downloads have been made by now the document has finished loading, so we send the done loading signal
-        if not self.downloads_have_occured:
+        # If any threads are active, they'll send the done loading signal when they finish
+        if not self.active_threads:
             self._handle_load_finish()
         else:
             # Scroll to the fragment if given but do not issue a done loading event
@@ -618,6 +635,9 @@ It is likely that not all dependencies are installed. Make sure Cairo is install
 
         self.script_manager._submit_deferred_scripts()
         self.event_manager.send_onload()
+
+        #if self.using_tkhtml30: # Handle unsupported tags
+        self.node_manager._handle_load_finish()
 
     def _handle_load_finish(self, post_event=True):
         if self.fragment:
@@ -707,6 +727,7 @@ It is likely that not all dependencies are installed. Make sure Cairo is install
         "Stop loading resources."
         for thread in self.active_threads:
             thread.stop()
+        self.pending_threads.clear()
     
     def resolve_url(self, url, base=None):
         "Generate a full url from the specified url."
@@ -725,16 +746,15 @@ It is likely that not all dependencies are installed. Make sure Cairo is install
             return utilities.cache_download(url, *args, insecure=self.insecure_https, cafile=self.ssl_cafile, headers=tuple(self.headers.items()), timeout=self.request_timeout)
     
     def _thread_check(self, callback, url, *args, **kwargs):
-        if not self.downloads_have_occured:
-            self.downloads_have_occured = True
-            
         if not self.threading_enabled or url.startswith("file://"):
             callback(url, *args, **kwargs)
-        elif len(self.active_threads) >= self.maximum_thread_count:
-            self.after(500, lambda callback=callback, url=url, args=args: self._thread_check(callback, url, *args, **kwargs))
         else:
             thread = utilities.StoppableThread(target=callback, args=(url, *args,), kwargs=kwargs)
-            thread.start()
+
+            if len(self.active_threads) >= 100:
+                self.pending_threads.append(thread)
+            else:
+                thread.start()
 
     def _begin_download(self):
         # NOTE: this may run in a thread
@@ -748,10 +768,16 @@ It is likely that not all dependencies are installed. Make sure Cairo is install
         # NOTE: this may run in a thread
 
         self.active_threads.remove(thread)
-        if len(self.active_threads) == 0:
-            self.post_to_queue(self._handle_load_finish, thread.is_subthread)
-        else:
-            self.post_to_queue(lambda: self._handle_load_finish(False), thread.is_subthread)
+
+        if thread.isrunning():
+            if thread.is_subthread and self.pending_threads:
+                self.pending_threads.pop(0).start()
+
+            elif not self.parsing:
+                if len(self.active_threads) == 0:
+                    self.post_to_queue(self._handle_load_finish, thread.is_subthread)
+                else:
+                    self.post_to_queue(lambda: self._handle_load_finish(False), thread.is_subthread)
 
     def _finish_resource_load(self, message, url, resource, success):
         # NOTE: this must run in the main thread
@@ -829,12 +855,11 @@ It is likely that not all dependencies are installed. Make sure Cairo is install
         A document fragment isn't part of the active document but is comprised of nodes like the active document.
         Changes made to the fragment don't affect the document.
         Returns a root node."""
-        self.downloads_have_occured = False
         html = self._crash_prevention(html)
         html = self._dark_mode(html)
         fragment = self.tk.call(self._w, "fragment", html)
-        # We assume that if no downloads have been made by now the document has finished loading, so we send the done loading signal
-        if not self.downloads_have_occured:
+        # If any threads are active, they'll send the done loading signal when they finish
+        if not self.active_threads:
             self.post_event(utilities.DONE_LOADING_EVENT)
         self.script_manager._submit_deferred_scripts()
         return fragment
@@ -1549,7 +1574,8 @@ It is likely that not all dependencies are installed. Make sure Cairo is install
         href = self.get_node_attribute(node_handle, "href")
         url = self.resolve_url(href)
         self.post_message(f"A link to '{utilities.shorten(url)}' was clicked")
-        self.visited_links.append(url)
+        if url not in self.visited_links:
+            self.visited_links.append(url)
         self.on_link_click(url)
 
     def _on_click_release(self, event):
@@ -1602,6 +1628,10 @@ It is likely that not all dependencies are installed. Make sure Cairo is install
                         if node_type == "submit":
                             self.form_manager._handle_form_submission(node)
                             break
+                    elif node_tag == "summary":
+                        self.node_manager._handle_summary_click(node)
+                        break
+                        
         except tk.TclError:
             pass
 

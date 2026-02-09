@@ -67,11 +67,80 @@ impl<'a> LineIndex<'a> {
         index
     }
 
+    /// Create a `LineIndex` from pre-computed line start byte offsets.
+    /// Each entry is the byte offset of the first character on that line.
+    /// The first entry must be 0 (start of content).
+    pub fn with_line_starts(content: &'a str, line_starts: Vec<usize>) -> Self {
+        let mut index = Self {
+            line_starts,
+            content,
+            code_block_lines: None,
+        };
+
+        // Pre-compute code block lines for better performance
+        index.compute_code_block_lines();
+
+        index
+    }
+
+    /// Create a `LineIndex` from pre-computed line starts and code block byte ranges.
+    ///
+    /// Instead of re-scanning content to find code blocks, this converts
+    /// the already-detected byte ranges into line-level information.
+    pub fn with_line_starts_and_code_blocks(
+        content: &'a str,
+        line_starts: Vec<usize>,
+        code_block_byte_ranges: &[(usize, usize)],
+    ) -> Self {
+        let mut code_block_lines = HashSet::new();
+
+        for &(block_start, block_end) in code_block_byte_ranges {
+            let start_line = match line_starts.binary_search(&block_start) {
+                Ok(idx) => idx,
+                Err(idx) => idx.saturating_sub(1),
+            };
+            let end_line = if block_end == 0 {
+                0
+            } else {
+                match line_starts.binary_search(&block_end) {
+                    // block_end exactly at a line start means the block ended on the previous line
+                    Ok(idx) => idx.saturating_sub(1),
+                    Err(idx) => idx.saturating_sub(1),
+                }
+            };
+            for line_idx in start_line..=end_line {
+                code_block_lines.insert(line_idx);
+            }
+        }
+
+        Self {
+            line_starts,
+            content,
+            code_block_lines: Some(code_block_lines),
+        }
+    }
+
+    /// Get the content of a line by 0-based index using pre-computed byte offsets.
+    /// Returns the line content without the trailing newline character.
+    fn get_line(&self, line_idx: usize) -> Option<&'a str> {
+        let start = *self.line_starts.get(line_idx)?;
+        let end = self
+            .line_starts
+            .get(line_idx + 1)
+            .copied()
+            .unwrap_or(self.content.len());
+        let line = &self.content[start..end];
+        // Strip trailing newline (and optional \r before it)
+        let line = line.strip_suffix('\n').unwrap_or(line);
+        let line = line.strip_suffix('\r').unwrap_or(line);
+        Some(line)
+    }
+
     pub fn line_col_to_byte_range(&self, line: usize, column: usize) -> Range<usize> {
         let line = line.saturating_sub(1);
         let line_start = *self.line_starts.get(line).unwrap_or(&self.content.len());
 
-        let current_line = self.content.lines().nth(line).unwrap_or("");
+        let current_line = self.get_line(line).unwrap_or("");
         // Column is 1-indexed character position, not byte position
         let char_col = column.saturating_sub(1);
         let char_count = current_line.chars().count();
@@ -170,7 +239,7 @@ impl<'a> LineIndex<'a> {
         let line_start = *self.line_starts.get(line_idx).unwrap_or(&self.content.len());
 
         // Get the actual line content to ensure we don't exceed bounds
-        let current_line = self.content.lines().nth(line_idx).unwrap_or("");
+        let current_line = self.get_line(line_idx).unwrap_or("");
         let char_count = current_line.chars().count();
 
         // Convert character positions to byte positions
@@ -200,7 +269,7 @@ impl<'a> LineIndex<'a> {
         let line_idx = line.saturating_sub(1);
         let line_start = *self.line_starts.get(line_idx).unwrap_or(&self.content.len());
 
-        let current_line = self.content.lines().nth(line_idx).unwrap_or("");
+        let current_line = self.get_line(line_idx).unwrap_or("");
         let line_end = line_start + current_line.len();
         line_start..line_end
     }
@@ -226,7 +295,7 @@ impl<'a> LineIndex<'a> {
 
     /// Check if the line is a code fence marker (``` or ~~~)
     pub fn is_code_fence(&self, line: usize) -> bool {
-        self.content.lines().nth(line).is_some_and(|l| {
+        self.get_line(line).is_some_and(|l| {
             let trimmed = l.trim();
             trimmed.starts_with("```") || trimmed.starts_with("~~~")
         })
@@ -234,10 +303,7 @@ impl<'a> LineIndex<'a> {
 
     /// Check if the line is a tilde code fence marker (~~~)
     pub fn is_tilde_code_block(&self, line: usize) -> bool {
-        self.content
-            .lines()
-            .nth(line)
-            .is_some_and(|l| l.trim().starts_with("~~~"))
+        self.get_line(line).is_some_and(|l| l.trim().starts_with("~~~"))
     }
 
     /// Get a reference to the content

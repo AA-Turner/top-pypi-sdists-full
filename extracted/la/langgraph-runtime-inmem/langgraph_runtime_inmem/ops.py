@@ -15,6 +15,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, cast
 from uuid import UUID, uuid4
 
+import croniter as croniter_mod
 import orjson
 import structlog
 from langgraph.checkpoint.serde.jsonplus import _msgpack_ext_hook_to_json
@@ -546,6 +547,12 @@ class Assistants(Authenticated):
                 for v in conn.store["assistant_versions"]
                 if v["assistant_id"] != assistant_id
             ]
+            # Cascade delete crons
+            conn.store["crons"] = [
+                c
+                for c in conn.store["crons"]
+                if str(c["assistant_id"]) != str(assistant_id)
+            ]
 
             async def _yield_deleted():
                 yield assistant_id
@@ -952,7 +959,7 @@ class Threads(Authenticated):
 
     @staticmethod
     async def put(
-        conn: InMemConnectionProto,
+        conn: InMemConnectionProto | Any,
         thread_id: UUID | str,
         *,
         metadata: MetadataInput,
@@ -1255,6 +1262,10 @@ class Threads(Authenticated):
         conn.store["runs"] = [
             run for run in conn.store["runs"] if run["thread_id"] != thread_id
         ]
+        # Cascade delete crons associated with this thread
+        conn.store["crons"] = [
+            c for c in conn.store["crons"] if str(c.get("thread_id")) != str(thread_id)
+        ]
         _delete_checkpoints_for_thread(thread_id, conn)
 
         if thread_idx is not None:
@@ -1294,6 +1305,26 @@ class Threads(Authenticated):
         """
         if not thread_ids:
             return 0
+
+        auth_filters = await Threads.handle_event(
+            ctx,
+            "delete",
+            {"thread_ids": thread_ids},
+        )
+        if auth_filters:
+            # Validate access to all threads
+            async with connect() as conn:
+                matching_threads = await asyncio.gather(
+                    *[
+                        Threads._get_with_filters(conn, tid, auth_filters)
+                        for tid in thread_ids
+                    ]
+                )
+                if any(not thread for thread in matching_threads):
+                    raise HTTPException(
+                        status_code=404,
+                        detail="At least one thread not found or not authorized",
+                    )
 
         if strategy == "keep_latest":
             raise HTTPException(
@@ -2992,7 +3023,22 @@ async def listen_for_cancellation(
             break
 
 
-class Crons:
+class Crons(Authenticated):
+    resource = "crons"
+
+    @staticmethod
+    def _validate_cron_schedule_or_throw(schedule: str) -> None:
+        """Validate cron schedule format and raise HTTPException if invalid."""
+        if not croniter_mod.croniter.is_valid(schedule):
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Invalid cron schedule: '{schedule}'. Reason: Invalid cron schedule. "
+                    "Ensure the schedule uses the standard cron format (minute hour day_of_month month day_of_week). "
+                    "Example: '*/5 * * * *' for every 5 minutes."
+                ),
+            )
+
     @staticmethod
     async def put(
         conn: InMemConnectionProto,
@@ -3007,7 +3053,143 @@ class Crons:
         enabled: bool,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> AsyncIterator[Cron]:
-        raise NotImplementedError
+        from langgraph_api.graph import get_assistant_id
+        from langgraph_api.utils import get_auth_ctx, next_cron_date, uuid7
+
+        ctx = ctx or get_auth_ctx()
+        user_id = ctx.user.identity if ctx is not None else None
+        cron_id = cron_id or uuid7()
+
+        try:
+            thread_id = UUID(str(thread_id)) if thread_id else None
+        except ValueError:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid thread ID {thread_id}. Expected a UUID.",
+            ) from None
+
+        if thread_id is not None:
+            effective_on_run_completed = None
+        else:
+            effective_on_run_completed = on_run_completed or "delete"
+
+        metadata = metadata if metadata is not None else {}
+        payload = payload if payload is not None else {}
+        config = payload.get("config")
+        if config is None:
+            config = {}
+            payload["config"] = config
+        configurable = config.get("configurable")
+        if configurable is None:
+            configurable = {}
+            config["configurable"] = configurable
+        configurable["cron_id"] = str(cron_id)
+
+        request_data = Auth.types.CronsCreate(
+            payload=payload,
+            schedule=schedule,
+            cron_id=cron_id,
+            thread_id=thread_id,
+            user_id=user_id,
+            end_time=end_time,
+        )
+        request_data["metadata"] = metadata  # type: ignore
+        filters = await Crons.handle_event(ctx, "create", request_data)
+
+        Crons._validate_cron_schedule_or_throw(schedule)
+
+        assistant_id = get_assistant_id(payload["assistant_id"])
+        payload["assistant_id"] = assistant_id
+
+        # Validate assistant exists
+        assistant = next(
+            (
+                a
+                for a in conn.store["assistants"]
+                if str(a["assistant_id"]) == str(assistant_id)
+            ),
+            None,
+        )
+        if not assistant:
+            if filters and assistant_id:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Assistant '{assistant_id}' not found",
+                )
+            raise HTTPException(
+                status_code=404,
+                detail=f"Assistant '{assistant_id}' not found",
+            )
+        if filters and not _check_filter_match(assistant.get("metadata", {}), filters):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Assistant '{assistant_id}' not found",
+            )
+
+        # Validate thread exists if provided
+        if thread_id is not None:
+            thread = next(
+                (
+                    t
+                    for t in conn.store["threads"]
+                    if str(t["thread_id"]) == str(thread_id)
+                ),
+                None,
+            )
+            if not thread:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Thread with ID '{thread_id}' not found. Please verify the ID is correct and the thread hasn't been deleted or expired.",
+                )
+            if filters and not _check_filter_match(thread.get("metadata", {}), filters):
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Thread with ID '{thread_id}' not found. Please verify the ID is correct and the thread hasn't been deleted or expired.",
+                )
+
+        # Check if cron already exists (ON CONFLICT DO NOTHING equivalent)
+        existing_cron = next(
+            (c for c in conn.store["crons"] if str(c["cron_id"]) == str(cron_id)),
+            None,
+        )
+        if existing_cron:
+            if filters and not _check_filter_match(
+                existing_cron.get("metadata", {}), filters
+            ):
+
+                async def _empty():
+                    return
+                    yield  # type: ignore[misc]
+
+                return _empty()
+
+            async def _yield_existing():
+                yield existing_cron
+
+            return _yield_existing()
+
+        now = datetime.now(UTC)
+        new_cron: Cron = {
+            "cron_id": cron_id,
+            "assistant_id": UUID(str(assistant_id)),
+            "thread_id": thread_id,
+            "user_id": user_id,
+            "end_time": end_time,
+            "schedule": schedule,
+            "payload": payload,
+            "next_run_date": next_cron_date(schedule, now),
+            "metadata": metadata,
+            "on_run_completed": effective_on_run_completed,
+            "enabled": enabled,
+            "created_at": now,
+            "updated_at": now,
+        }
+        conn.store["crons"].append(new_cron)
+
+        async def _yield_new():
+            yield new_cron
+
+        return _yield_new()
 
     @staticmethod
     async def update(
@@ -3022,7 +3204,82 @@ class Crons:
         metadata: dict | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> AsyncIterator[Cron]:
-        raise NotImplementedError
+        from langgraph_api.utils import get_auth_ctx, next_cron_date
+
+        ctx = ctx or get_auth_ctx()
+        request_data = Auth.types.CronsUpdate(
+            cron_id=cron_id,
+            schedule=schedule,
+            end_time=end_time,
+            enabled=enabled,
+            on_run_completed=on_run_completed,
+            payload=payload,
+            metadata=metadata,
+        )
+        filters = await Crons.handle_event(ctx, "update", request_data)
+
+        # Check if anything to update
+        has_updates = any(
+            v is not None
+            for v in [schedule, end_time, enabled, on_run_completed, payload, metadata]
+        )
+        if not has_updates:
+            raise HTTPException(status_code=400, detail="No fields to update")
+
+        cron = next(
+            (c for c in conn.store["crons"] if str(c["cron_id"]) == str(cron_id)),
+            None,
+        )
+        if not cron:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Cron '{cron_id}' not found",
+            )
+        if filters and not _check_filter_match(cron.get("metadata", {}), filters):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Cron '{cron_id}' not found",
+            )
+
+        if schedule is not None:
+            Crons._validate_cron_schedule_or_throw(schedule)
+            cron["schedule"] = schedule
+            cron["next_run_date"] = next_cron_date(schedule, datetime.now(UTC))
+
+        if end_time is not None:
+            cron["end_time"] = end_time
+
+        if enabled is not None:
+            cron["enabled"] = enabled
+
+        if on_run_completed is not None:
+            cron["on_run_completed"] = on_run_completed
+
+        if metadata is not None:
+            cron["metadata"] = metadata
+
+        if payload is not None:
+            # Shallow merge payload, preserve assistant_id and config.configurable.cron_id
+            existing_payload = cron.get("payload") or {}
+            merged = {**existing_payload, **payload}
+            # Preserve assistant_id from existing
+            merged["assistant_id"] = existing_payload.get(
+                "assistant_id", merged.get("assistant_id")
+            )
+            # Ensure config.configurable.cron_id is preserved
+            merged_config = merged.get("config") or {}
+            merged_configurable = merged_config.get("configurable") or {}
+            merged_configurable["cron_id"] = str(cron_id)
+            merged_config["configurable"] = merged_configurable
+            merged["config"] = merged_config
+            cron["payload"] = merged
+
+        cron["updated_at"] = datetime.now(UTC)
+
+        async def _yield_updated():
+            yield cron
+
+        return _yield_updated()
 
     @staticmethod
     async def delete(
@@ -3030,15 +3287,49 @@ class Crons:
         cron_id: UUID,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> AsyncIterator[UUID]:
-        raise NotImplementedError
+        filters = await Crons.handle_event(
+            ctx,
+            "delete",
+            Auth.types.CronsDelete(cron_id=cron_id),
+        )
+
+        original_len = len(conn.store["crons"])
+        if filters:
+            conn.store["crons"] = [
+                c
+                for c in conn.store["crons"]
+                if not (
+                    str(c["cron_id"]) == str(cron_id)
+                    and _check_filter_match(c.get("metadata", {}), filters)
+                )
+            ]
+        else:
+            conn.store["crons"] = [
+                c for c in conn.store["crons"] if str(c["cron_id"]) != str(cron_id)
+            ]
+
+        deleted = original_len > len(conn.store["crons"])
+
+        async def _yield_deleted():
+            if deleted:
+                yield cron_id
+
+        return _yield_deleted()
 
     @staticmethod
     async def next(
         conn: InMemConnectionProto,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> AsyncIterator[Cron]:
-        raise NotImplementedError("The in-mem server does not implement Crons.")
-        yield {"payload": None}
+        now = datetime.now(UTC)
+        for cron in conn.store["crons"]:
+            if not cron.get("enabled", False):
+                continue
+            if cron.get("end_time") is not None and cron["end_time"] < now:
+                continue
+            if cron["next_run_date"] > now:
+                continue
+            yield {**cron, "now": now}
 
     @staticmethod
     async def set_next_run_date(
@@ -3047,7 +3338,10 @@ class Crons:
         next_run_date: datetime,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> None:
-        raise NotImplementedError
+        for cron in conn.store["crons"]:
+            if str(cron["cron_id"]) == str(cron_id):
+                cron["next_run_date"] = next_run_date
+                return
 
     @staticmethod
     async def search(
@@ -3055,15 +3349,81 @@ class Crons:
         *,
         assistant_id: UUID | None,
         thread_id: UUID | None,
-        enabled: bool,
+        enabled: bool | None,
         limit: int,
         offset: int,
         select: list[CronSelectField] | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
         sort_by: str | None = None,
         sort_order: Literal["asc", "desc"] | None = None,
-    ) -> tuple[AsyncIterator[Cron], int]:
-        raise NotImplementedError
+    ) -> tuple[AsyncIterator[Cron], int | None]:
+        filters = await Crons.handle_event(
+            ctx,
+            "search",
+            Auth.types.CronsSearch(
+                assistant_id=assistant_id,
+                thread_id=thread_id,
+                limit=limit,
+                offset=offset,
+            ),
+        )
+
+        crons = conn.store["crons"]
+        filtered_crons = [
+            c
+            for c in crons
+            if (assistant_id is None or str(c["assistant_id"]) == str(assistant_id))
+            and (thread_id is None or str(c.get("thread_id")) == str(thread_id))
+            and (enabled is None or c.get("enabled") == enabled)
+            and (not filters or _check_filter_match(c.get("metadata", {}), filters))
+        ]
+
+        # Sort
+        sort_by = sort_by.lower() if sort_by else None
+        if sort_by and sort_by in (
+            "cron_id",
+            "assistant_id",
+            "thread_id",
+            "next_run_date",
+            "end_time",
+            "created_at",
+            "updated_at",
+        ):
+            reverse = False if sort_order and sort_order.upper() == "ASC" else True
+            if sort_by in ["cron_id", "assistant_id", "thread_id"]:
+                filtered_crons.sort(
+                    key=lambda x: str(x.get(sort_by, "")).lower(),
+                    reverse=reverse,
+                )
+            else:
+                filtered_crons.sort(
+                    key=lambda x: x.get(sort_by) or datetime.min.replace(tzinfo=UTC),
+                    reverse=reverse,
+                )
+        elif sort_by is None:
+            filtered_crons.sort(key=lambda x: x["created_at"], reverse=True)
+        else:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid sort_by field: '{sort_by}'. Valid options are: cron_id, assistant_id, thread_id, next_run_date, end_time, created_at, updated_at",
+            )
+
+        # Paginate — fetch limit+1 to determine cursor
+        paginated = filtered_crons[offset : offset + limit + 1]
+        if len(paginated) > limit:
+            cursor = offset + limit
+            paginated = paginated[:limit]
+        else:
+            cursor = None
+
+        async def cron_iterator() -> AsyncIterator[Cron]:
+            for cron in paginated:
+                if select:
+                    yield {k: v for k, v in cron.items() if k in select}
+                else:
+                    yield cron
+
+        return cron_iterator(), cursor
 
     @staticmethod
     async def count(
@@ -3074,7 +3434,27 @@ class Crons:
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> int:
         """Get count of crons."""
-        raise NotImplementedError("The in-mem server does not implement Crons.")
+        filters = await Crons.handle_event(
+            ctx,
+            "search",
+            Auth.types.CronsSearch(
+                assistant_id=assistant_id,
+                thread_id=thread_id,
+                limit=0,
+                offset=0,
+            ),
+        )
+
+        count = 0
+        for c in conn.store["crons"]:
+            if assistant_id is not None and str(c["assistant_id"]) != str(assistant_id):
+                continue
+            if thread_id is not None and str(c.get("thread_id")) != str(thread_id):
+                continue
+            if filters and not _check_filter_match(c.get("metadata", {}), filters):
+                continue
+            count += 1
+        return count
 
 
 async def cancel_run(

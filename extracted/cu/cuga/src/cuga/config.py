@@ -134,6 +134,7 @@ validators = [
     Validator("advanced_features.e2b_cleanup_on_create", default=True),
     Validator("advanced_features.e2b_cleanup_frequency", default=0),
     Validator("advanced_features.enable_web_search", default=False),
+    Validator("advanced_features.execution_output_max_length", default=3500),
     Validator("features.chat", default=True),
     Validator("features.memory_provider", default="mem0"),
     Validator("playwright_args", default=[]),
@@ -158,7 +159,8 @@ else:
     logger.warning("tracker disabled - logs and trajectory data will not be saved")
 # Read and sanitize the model settings filename (Windows users sometimes include quotes)
 default_llm = os.environ.get("AGENT_SETTING_CONFIG", "settings.openai.toml")
-default_llm = default_llm.strip().strip('"').strip("'")
+# Remove inline comments (everything after #) and strip quotes/whitespace
+default_llm = default_llm.split('#')[0].strip().strip('"').strip("'").strip()
 logger.info("loaded llm settings *{}*".format(default_llm))
 
 # Resolve absolute config file paths
@@ -168,13 +170,13 @@ modes_file_path = os.path.join(MODES_DIR, f"{base_settings.features.cuga_mode}.t
 logger.info(f"Models config path: {models_file_path}")
 logger.info(f"Mode config path:   {modes_file_path}")
 
-if base_settings.advanced_features.enable_memory:
-    memory_file_path = os.path.join(
-        MEMORY_DIR, f"memory_settings.{base_settings.features.memory_provider}.toml"
-    )
-    tips_extractor_file_path = os.path.join(MEMORY_DIR, "memory_settings.tips_extractor.toml")
+mem0_file_path = os.path.join(MEMORY_DIR, "memory_settings.mem0.toml")
+milvus_file_path = os.path.join(MEMORY_DIR, "memory_settings.milvus.toml")
+tips_extractor_file_path = os.path.join(MEMORY_DIR, "memory_settings.tips_extractor.toml")
 
-    logger.info(f"Memory config path:   {memory_file_path}")
+if base_settings.advanced_features.enable_memory:
+    logger.info(f"Mem0 config path:   {mem0_file_path}")
+    logger.info(f"Milvus config path:   {milvus_file_path}")
     logger.info(f"Memory tips extractor config path:   {tips_extractor_file_path}")
 
 # Fail fast with clear error if files are missing (helps especially on Windows)
@@ -189,8 +191,11 @@ if os.getenv("CUGA_STRICT_CONFIG", "1") == "1":
         raise FileNotFoundError(f"Could not find mode configuration file: {modes_file_path}.")
 
     if base_settings.advanced_features.enable_memory:
-        if not os.path.isfile(memory_file_path):
-            raise FileNotFoundError(f"Could not find memory configuration file: {memory_file_path}.")
+        if not os.path.isfile(mem0_file_path):
+            raise FileNotFoundError(f"Could not find memory configuration file: {mem0_file_path}.")
+
+        if not os.path.isfile(milvus_file_path):
+            raise FileNotFoundError(f"Could not find memory configuration file: {milvus_file_path}.")
 
         if not os.path.isfile(tips_extractor_file_path):
             raise FileNotFoundError(
@@ -203,10 +208,10 @@ settings_files = [
     EVAL_CONFIG_TOML_PATH,
     models_file_path,
     modes_file_path,
+    mem0_file_path,
+    milvus_file_path,
+    tips_extractor_file_path,
 ]
-
-if base_settings.advanced_features.enable_memory:
-    settings_files.extend([memory_file_path, tips_extractor_file_path])
 
 settings = Dynaconf(
     root_path=PACKAGE_ROOT,

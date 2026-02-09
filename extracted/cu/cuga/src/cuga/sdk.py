@@ -75,6 +75,7 @@ from pydantic import BaseModel, Field
 from langchain_core.tools import BaseTool
 from langchain_core.language_models import BaseChatModel
 from langchain_core.callbacks import BaseCallbackHandler
+from langchain_core.runnables import RunnableConfig
 
 if TYPE_CHECKING:
     pass
@@ -153,6 +154,7 @@ class PoliciesManager:
     def __init__(self, agent: "CugaAgent"):
         """Initialize policies manager with reference to agent."""
         self._agent = agent
+        self._fs_sync = None
 
     async def _ensure_policy_system(self) -> Optional[PolicyConfigurable]:
         """Ensure policy system is initialized if enabled.
@@ -168,6 +170,77 @@ class PoliciesManager:
         if not hasattr(self._agent, '_policy_system') or self._agent._policy_system is None:
             self._agent._policy_system = PolicyConfigurable()
             await self._agent._policy_system.initialize()
+
+            # Initialize filesystem sync if enabled and .cuga folder is configured
+            # Initialize filesystem sync if enabled
+            import os
+
+            if self._agent._filesystem_sync and self._agent.cuga_folder:
+                from cuga.backend.cuga_graph.policy.filesystem_sync import PolicyFilesystemSync
+
+                self._fs_sync = PolicyFilesystemSync(cuga_folder=self._agent.cuga_folder)
+                logger.debug(f"Initialized filesystem sync for {self._agent.cuga_folder}")
+
+        # Reset/clear all existing policies if requested (must be outside the init block)
+        # This ensures reset works even when policy system is already initialized
+        # Only reset ONCE during initialization, then clear the flag
+        if self._agent._reset_policy_storage:
+            try:
+                logger.info("Resetting policy storage - clearing all existing policies")
+                await self.clear()
+                logger.info("✅ Policy storage reset complete")
+                # Clear the flag so we don't reset again on subsequent calls
+                self._agent._reset_policy_storage = False
+            except Exception as e:
+                logger.error(f"Failed to reset policy storage: {e}")
+                raise e
+
+        # Auto-load policies from .cuga folder if enabled
+        # BUT skip auto-load if we just reset the storage (to keep it clean)
+        if self._agent._auto_load_policies and not self._agent._reset_policy_storage:
+            try:
+                # Resolve to absolute path for clarity in logs
+                import os
+
+                folder_path = os.path.abspath(self._agent.cuga_folder)
+                cwd = os.getcwd()
+
+                logger.debug(f"Checking for policy folder: {self._agent.cuga_folder}")
+                logger.debug(f"  Current working directory: {cwd}")
+                logger.debug(f"  Resolved absolute path: {folder_path}")
+
+                if os.path.exists(folder_path):
+                    await self.load_from_folder(self._agent.cuga_folder)
+                    logger.info(
+                        f"Auto-loaded policies from {self._agent.cuga_folder} (resolved: {folder_path})"
+                    )
+
+                    # Validate and sync: ensure filesystem and storage are in sync
+                    if self._fs_sync:
+                        sync_result = await self._validate_and_sync(
+                            self._agent._policy_system.storage, folder_path
+                        )
+                        if (
+                            sync_result['removed']
+                            or sync_result['added_to_storage']
+                            or sync_result['added_to_filesystem']
+                        ):
+                            logger.info(
+                                f"Sync validation complete: "
+                                f"removed={sync_result['removed']}, "
+                                f"added_to_storage={sync_result['added_to_storage']}, "
+                                f"added_to_filesystem={sync_result['added_to_filesystem']}"
+                            )
+                else:
+                    logger.warning(
+                        f"Policy folder not found: {self._agent.cuga_folder} (resolved: {folder_path})"
+                    )
+                    logger.warning(f"  Current directory: {cwd}")
+                    logger.warning("  Skipping auto-load")
+            except Exception as e:
+                logger.error(f"Failed to auto-load policies from {self._agent.cuga_folder}: {e}")
+                raise e
+
         return self._agent._policy_system
 
     async def add_intent_guard(
@@ -255,6 +328,14 @@ class PoliciesManager:
         await policy_system.storage.add_policy(policy)
         await policy_system.initialize()  # Reload policies
 
+        # Save to filesystem if sync is enabled
+        if self._fs_sync:
+            try:
+                self._fs_sync.save_policy_to_file(policy)
+                logger.debug(f"Saved policy '{policy.id}' to filesystem")
+            except Exception as e:
+                logger.warning(f"Failed to save policy to filesystem: {e}")
+
         logger.info(f"Added Intent Guard policy: {policy.id}")
         return policy.id
 
@@ -333,11 +414,26 @@ class PoliciesManager:
             priority=priority,
             enabled=enabled,
         )
-        await policy_system.storage.add_policy(policy)
-        await policy_system.initialize()  # Reload policies
+        try:
+            await policy_system.storage.add_policy(policy)
+            logger.info(f"✅ Added Playbook policy to storage: {policy.id}")
 
-        logger.info(f"Added Playbook policy: {policy.id}")
-        return policy.id
+            # Reinitialize to ensure policy is loaded in memory
+            await policy_system.initialize()
+            logger.debug(f"Reinitialized policy system after adding {policy.id}")
+
+            # Save to filesystem if sync is enabled
+            if self._fs_sync:
+                try:
+                    self._fs_sync.save_policy_to_file(policy)
+                    logger.debug(f"Saved policy '{policy.id}' to filesystem")
+                except Exception as e:
+                    logger.warning(f"Failed to save policy to filesystem: {e}")
+
+            return policy.id
+        except Exception as e:
+            logger.error(f"Failed to add Playbook policy {policy.id}: {e}")
+            raise
 
     async def add_tool_guide(
         self,
@@ -414,6 +510,14 @@ class PoliciesManager:
         await policy_system.storage.add_policy(policy)
         await policy_system.initialize()  # Reload policies
 
+        # Save to filesystem if sync is enabled
+        if self._fs_sync:
+            try:
+                self._fs_sync.save_policy_to_file(policy)
+                logger.debug(f"Saved policy '{policy.id}' to filesystem")
+            except Exception as e:
+                logger.warning(f"Failed to save policy to filesystem: {e}")
+
         logger.info(f"Added Tool Guide policy: {policy.id}")
         return policy.id
 
@@ -477,6 +581,14 @@ class PoliciesManager:
 
         await policy_system.storage.add_policy(policy)
         await policy_system.initialize()  # Reload policies
+
+        # Save to filesystem if sync is enabled
+        if self._fs_sync:
+            try:
+                self._fs_sync.save_policy_to_file(policy)
+                logger.debug(f"Saved policy '{policy.id}' to filesystem")
+            except Exception as e:
+                logger.warning(f"Failed to save policy to filesystem: {e}")
 
         logger.info(f"Added Tool Approval policy: {policy.id}")
         return policy.id
@@ -564,11 +676,26 @@ class PoliciesManager:
             enabled=enabled,
         )
 
-        await policy_system.storage.add_policy(policy)
-        await policy_system.initialize()  # Reload policies
+        try:
+            await policy_system.storage.add_policy(policy)
+            logger.info(f"✅ Added OutputFormatter policy to storage: {policy.id}")
 
-        logger.info(f"Added OutputFormatter policy: {policy.id}")
-        return policy.id
+            # Reinitialize to ensure policy is loaded in memory
+            await policy_system.initialize()
+            logger.debug(f"Reinitialized policy system after adding {policy.id}")
+
+            # Save to filesystem if sync is enabled
+            if self._fs_sync:
+                try:
+                    self._fs_sync.save_policy_to_file(policy)
+                    logger.debug(f"Saved policy '{policy.id}' to filesystem")
+                except Exception as e:
+                    logger.warning(f"Failed to save policy to filesystem: {e}")
+
+            return policy.id
+        except Exception as e:
+            logger.error(f"Failed to add OutputFormatter policy {policy.id}: {e}")
+            raise
 
     async def delete(self, policy_id: str) -> bool:
         """
@@ -599,6 +726,16 @@ class PoliciesManager:
 
             await policy_system.storage.delete_policy(policy_id)
             await policy_system.initialize()  # Reload policies
+
+            # Delete from filesystem if sync is enabled
+            if self._fs_sync:
+                try:
+                    deleted = self._fs_sync.delete_policy_file(policy_id)
+                    if deleted:
+                        logger.debug(f"Deleted policy '{policy_id}' from filesystem")
+                except Exception as e:
+                    logger.warning(f"Failed to delete policy from filesystem: {e}")
+
             logger.info(f"Deleted policy: {policy_id}")
             return True
         except Exception as e:
@@ -727,6 +864,264 @@ class PoliciesManager:
 
         return result
 
+    async def clear(self) -> bool:
+        """
+        Clear all policies from storage.
+
+        Returns:
+            True if successful
+
+        Example:
+            ```python
+            await agent.policies.clear()
+            ```
+        """
+        # Check if policy system is already initialized to avoid recursion
+        if hasattr(self._agent, '_policy_system') and self._agent._policy_system is not None:
+            policy_system = self._agent._policy_system
+        else:
+            policy_system = await self._ensure_policy_system()
+            if policy_system is None:
+                logger.warning("Policy system is disabled - skipping clear")
+                return False
+
+        try:
+            # Get all policies
+            policies = await policy_system.storage.list_policies(enabled_only=False)
+
+            # Delete each policy
+            for policy in policies:
+                await policy_system.storage.delete_policy(policy.id)
+
+            await policy_system.initialize()
+            logger.info(f"Cleared {len(policies)} policies from storage")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to clear policies: {e}")
+            return False
+
+    async def load_from_folder(
+        self,
+        folder_path: str = ".cuga",
+        clear_existing: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Load policies from a .cuga folder structure containing markdown files.
+
+        Folder structure:
+        ```
+        .cuga/
+        ├── playbooks/
+        │   ├── search-strategy.md
+        │   └── ibm-docs.md
+        ├── output_formatters/
+        │   └── ibm-format.md
+        ├── tool_guides/
+        │   └── security-guide.md
+        └── intent_guards/
+            └── block-delete.md
+        ```
+
+        Each markdown file should have frontmatter with policy metadata:
+        ```markdown
+        ---
+        name: IBM Documentation Search
+        type: playbook
+        priority: 100
+        enabled: true
+        triggers:
+          keywords:
+            - search
+            - IBM docs
+          natural_language:
+            - search IBM documentation
+            - find in IBM docs
+          threshold: 0.7
+        ---
+
+        # Policy Content
+
+        Your markdown content here...
+        ```
+
+        Args:
+            folder_path: Path to .cuga folder (default: ".cuga")
+            clear_existing: If True, clear all existing policies before loading
+
+        Returns:
+            Dictionary with:
+                - count: Number of policies loaded
+                - errors: List of error messages (if any)
+                - files: List of files processed
+
+        Example:
+            ```python
+            # Load all policies from .cuga folder
+            result = await agent.policies.load_from_folder(".cuga")
+            print(f"Loaded {result['count']} policies from {result['files']} files")
+
+            # Replace all existing policies
+            result = await agent.policies.load_from_folder(
+                ".cuga",
+                clear_existing=True
+            )
+            ```
+        """
+        from cuga.backend.cuga_graph.policy.folder_loader import load_policies_from_folder
+
+        # Check if policy system is already initialized to avoid recursion
+        if hasattr(self._agent, '_policy_system') and self._agent._policy_system is not None:
+            policy_system = self._agent._policy_system
+        else:
+            # Ensure policy system is initialized BEFORE loading
+            policy_system = await self._ensure_policy_system()
+            if policy_system is None:
+                logger.warning("Policy system is disabled - skipping load_from_folder")
+                return {"count": 0, "errors": ["Policy system is disabled"], "files": []}
+
+        # Verify storage is connected
+        if not hasattr(policy_system, 'storage') or policy_system.storage is None:
+            error_msg = "Policy storage not initialized"
+            logger.error(error_msg)
+            return {"count": 0, "errors": [error_msg], "files": []}
+
+        logger.info(f"Loading policies from {folder_path} (clear_existing={clear_existing})")
+
+        result = await load_policies_from_folder(
+            folder_path=folder_path,
+            storage=policy_system.storage,  # Pass storage directly
+            clear_existing=clear_existing,
+        )
+
+        # Reinitialize policy system after loading
+        await policy_system.initialize()
+
+        if result['errors']:
+            logger.warning(f"Encountered {len(result['errors'])} errors while loading policies:")
+            for error in result['errors']:
+                logger.warning(f"  - {error}")
+
+        logger.info(
+            f"✅ Loaded {result['count']} policies from {len(result['files'])} files in {folder_path}"
+        )
+
+        return result
+
+    async def _validate_and_sync(self, storage, folder_path: str) -> Dict[str, Any]:
+        """
+        Validate and sync policies between filesystem and storage.
+
+        This ensures:
+        1. Policies in filesystem are in storage
+        2. Policies only in storage are saved to filesystem
+        3. Policies deleted from filesystem are removed from storage
+
+        Args:
+            storage: PolicyStorage instance
+            folder_path: Path to .cuga folder
+
+        Returns:
+            Dictionary with sync statistics
+        """
+        if not self._fs_sync:
+            return {"removed": 0, "added_to_storage": 0, "added_to_filesystem": 0, "errors": []}
+
+        try:
+            # Get policy IDs from both sources
+            fs_policy_ids = self._fs_sync.get_filesystem_policy_ids()
+            storage_policies = await storage.list_policies(enabled_only=False)
+            storage_policy_ids = {p.id for p in storage_policies}
+
+            removed_count = 0
+            added_to_storage_count = 0
+            added_to_filesystem_count = 0
+            errors = []
+
+            # 1. Remove from storage if deleted from filesystem
+            policies_to_remove = storage_policy_ids - fs_policy_ids
+            for policy_id in policies_to_remove:
+                try:
+                    await storage.delete_policy(policy_id)
+                    removed_count += 1
+                    logger.info(f"Removed policy '{policy_id}' from storage (not in filesystem)")
+                except Exception as e:
+                    error_msg = f"Failed to remove policy '{policy_id}': {e}"
+                    errors.append(error_msg)
+                    logger.error(error_msg)
+
+            # 2. Save to filesystem if only in storage
+            policies_to_save_to_fs = storage_policy_ids - fs_policy_ids
+            for policy_id in policies_to_save_to_fs:
+                try:
+                    # Find the policy object
+                    policy = next((p for p in storage_policies if p.id == policy_id), None)
+                    if policy:
+                        self._fs_sync.save_policy_to_file(policy)
+                        added_to_filesystem_count += 1
+                        logger.info(f"Saved policy '{policy_id}' to filesystem (was only in storage)")
+                except Exception as e:
+                    error_msg = f"Failed to save policy '{policy_id}' to filesystem: {e}"
+                    errors.append(error_msg)
+                    logger.error(error_msg)
+
+            return {
+                "removed": removed_count,
+                "added_to_storage": added_to_storage_count,
+                "added_to_filesystem": added_to_filesystem_count,
+                "errors": errors,
+            }
+        except Exception as e:
+            logger.error(f"Failed to validate and sync: {e}")
+            return {
+                "removed": 0,
+                "added_to_storage": 0,
+                "added_to_filesystem": 0,
+                "errors": [str(e)],
+            }
+
+    async def sync_from_filesystem(self) -> Dict[str, Any]:
+        """
+        Sync policies from filesystem to storage.
+
+        This will:
+        1. Load new policies from .cuga folder
+        2. Remove policies from storage that are no longer in filesystem
+
+        Returns:
+            Dictionary with sync statistics
+
+        Example:
+            ```python
+            result = await agent.policies.sync_from_filesystem()
+            print(f"Synced: {result['loaded']} loaded, {result['removed']} removed")
+            ```
+        """
+        policy_system = await self._ensure_policy_system()
+        if policy_system is None:
+            logger.warning("Policy system is disabled - skipping sync")
+            return {"loaded": 0, "removed": 0, "errors": ["Policy system is disabled"]}
+
+        if not self._fs_sync:
+            logger.warning("Filesystem sync not initialized - skipping")
+            return {"loaded": 0, "removed": 0, "errors": ["Filesystem sync not initialized"]}
+
+        try:
+            # Load policies from filesystem
+            load_result = await self.load_from_folder(self._agent.cuga_folder, clear_existing=False)
+
+            # Sync removals
+            removed_ids = await self._fs_sync.sync_removals(policy_system.storage)
+
+            return {
+                "loaded": load_result['count'],
+                "removed": len(removed_ids),
+                "errors": load_result['errors'],
+                "files": load_result['files'],
+            }
+        except Exception as e:
+            logger.error(f"Failed to sync from filesystem: {e}")
+            return {"loaded": 0, "removed": 0, "errors": [str(e)]}
+
 
 class CugaAgent:
     """
@@ -740,10 +1135,18 @@ class CugaAgent:
         tool_provider: Optional custom tool provider (advanced usage)
         model: Optional language model (defaults to configured model)
         callbacks: Optional list of callback handlers for monitoring
+        cuga_folder: Path to .cuga folder containing policy markdown files (default: ".cuga")
+        auto_load_policies: If True, automatically loads policies from cuga_folder on first invoke/stream
+        filesystem_sync: If True, automatically saves policies to .cuga folder when added/updated (default: True)
 
     Attributes:
         graph: The underlying LangGraph StateGraph (compiled)
         tool_provider: The tool provider interface being used
+        cuga_folder: Path to the .cuga folder
+
+    Note:
+        When auto_load_policies=True, policies are loaded lazily on first invoke() or stream() call.
+        To load policies immediately after agent creation, call await agent.initialize().
 
     Example:
         ```python
@@ -755,7 +1158,36 @@ class CugaAgent:
             '''Get weather for a city'''
             return f"Weather in {city}: Sunny, 72°F"
 
-        agent = CugaAgent(tools=[get_weather])
+        # Load policies from .cuga folder automatically with filesystem sync
+        agent = CugaAgent(
+            tools=[get_weather],
+            cuga_folder=".cuga",
+            auto_load_policies=True,
+            filesystem_sync=True  # Auto-save policies to .cuga when added/updated
+        )
+        # Policies will be loaded on first invoke() or stream() call
+        # Or explicitly: await agent.initialize()
+
+        # Or with fresh/clean policy storage
+        agent = CugaAgent(
+            tools=[get_weather],
+            cuga_folder=".cuga",
+            auto_load_policies=True,
+            reset_policy_storage=True,  # Clears all existing policies first
+            filesystem_sync=True
+        )
+
+        # Or load manually later (filesystem sync still works)
+        agent = CugaAgent(tools=[get_weather], filesystem_sync=True)
+        await agent.policies.load_from_folder(".cuga")
+
+        # Add a policy - it will be saved to .cuga/playbooks/ automatically
+        await agent.policies.add_playbook(
+            name="Search Strategy",
+            keywords=["search", "find"],
+            content="# Search Strategy\n\n..."
+        )
+
         result = await agent.invoke("What's the weather in San Francisco?")
         print(result)  # Agent will use the tool and return an answer
         ```
@@ -769,6 +1201,10 @@ class CugaAgent:
         callbacks: Optional[List[BaseCallbackHandler]] = None,
         policy_system: Optional[PolicyConfigurable] = None,
         special_instructions: Optional[str] = None,
+        cuga_folder: Optional[str] = None,
+        auto_load_policies: Optional[bool] = None,
+        reset_policy_storage: bool = False,
+        filesystem_sync: Optional[bool] = None,
     ):
         """
         Initialize the CUGA Agent.
@@ -780,6 +1216,10 @@ class CugaAgent:
             callbacks: List of callback handlers
             policy_system: Optional PolicyConfigurable instance (auto-created if not provided)
             special_instructions: Optional special instructions to add to the agent's system prompt
+            cuga_folder: Path to .cuga folder containing policy markdown files
+            auto_load_policies: If True, automatically loads policies from cuga_folder
+            reset_policy_storage: If True, clears all existing policies from storage on init
+            filesystem_sync: If True, saves policies to .cuga when added/updated (default: True)
 
         Example with tool approval policy:
             ```python
@@ -803,12 +1243,25 @@ class CugaAgent:
                 result = await agent.graph.ainvoke(None, config)  # Resume
             ```
         """
+        # Load settings
+        from cuga.config import settings
+
         self._model = model
         self._callbacks = callbacks
         self._graph = None
         self._compiled_graph = None
         self._policy_system = policy_system
         self._special_instructions = special_instructions
+
+        # Use settings defaults if not provided
+        self.cuga_folder = cuga_folder if cuga_folder is not None else settings.policy.cuga_folder
+        self._auto_load_policies = (
+            auto_load_policies if auto_load_policies is not None else settings.policy.auto_load_policies
+        )
+        self._filesystem_sync = (
+            filesystem_sync if filesystem_sync is not None else settings.policy.filesystem_sync
+        )
+        self._reset_policy_storage = reset_policy_storage
 
         # Setup tool provider
         if tool_provider:
@@ -828,6 +1281,36 @@ class CugaAgent:
             llm_manager = LLMManager()
             self._model = llm_manager.get_model(settings.agent.code.model)
             logger.info(f"Using default model: {self._model.__class__.__name__}")
+
+        # Initialize policies manager (cached instance)
+        self._policies_manager = None
+
+    async def initialize(self):
+        """
+        Initialize the agent asynchronously.
+
+        This method should be called after creating the agent to ensure:
+        - Tool provider is initialized
+        - Policy system is initialized (if auto_load_policies=True)
+        - Policies are loaded from .cuga folder (if auto_load_policies=True)
+
+        Example:
+            ```python
+            agent = CugaAgent(
+                tools=[my_tool],
+                auto_load_policies=True,
+                cuga_folder=".cuga"
+            )
+            await agent.initialize()  # Trigger policy loading
+            ```
+        """
+        # Initialize tool provider
+        await self._ensure_initialized()
+
+        # Initialize policy system (triggers auto-load if enabled)
+        if self._auto_load_policies or self._reset_policy_storage:
+            await self.policies._ensure_policy_system()
+            logger.debug("Policy system initialized during agent.initialize()")
 
     async def _ensure_initialized(self):
         """Ensure tool provider is initialized."""
@@ -897,6 +1380,7 @@ class CugaAgent:
         # Create custom callback node for SDK (simpler than full CugaLiteNode)
         async def sdk_callback_node(
             state: AgentState,
+            config: Optional[RunnableConfig] = None,
         ) -> Command[Literal['FinalAnswerAgent', 'SuggestHumanActions', 'CugaLiteSubgraph']]:
             """Process results after CugaLite subgraph execution (SDK version)."""
             logger.info("SDK callback node - processing subgraph results")
@@ -941,6 +1425,11 @@ class CugaAgent:
                     update=state.model_dump(),
                     goto=NodeNames.SUGGEST_HUMAN_ACTIONS,
                 )
+
+            # Check for OutputFormatter policies before finalizing response
+            from cuga.backend.cuga_graph.policy.output_formatter_utils import apply_output_formatter_policies
+
+            await apply_output_formatter_policies(state, config, context="SDK Callback")
 
             # Otherwise, route to FinalAnswerAgent
             # Set sender to CugaLite so FinalAnswerAgent handles it properly (see final_answer.py line 106)
@@ -1010,7 +1499,9 @@ class CugaAgent:
             policies = await agent.policies.list()
             ```
         """
-        return PoliciesManager(self)
+        if self._policies_manager is None:
+            self._policies_manager = PoliciesManager(self)
+        return self._policies_manager
 
     @property
     def graph(self):
@@ -1131,6 +1622,12 @@ class CugaAgent:
             ```
         """
         await self._ensure_initialized()
+
+        # Initialize policy system if auto_load_policies is enabled and not yet initialized
+        # This ensures policies are loaded before first invocation
+        if self._auto_load_policies and (not hasattr(self, '_policy_system') or self._policy_system is None):
+            await self.policies._ensure_policy_system()
+            logger.debug("Policy system auto-initialized during first invoke()")
 
         # Setup config
         run_config = config or {}
@@ -1343,6 +1840,12 @@ class CugaAgent:
             ```
         """
         await self._ensure_initialized()
+
+        # Initialize policy system if auto_load_policies is enabled and not yet initialized
+        # This ensures policies are loaded before first stream
+        if self._auto_load_policies and (not hasattr(self, '_policy_system') or self._policy_system is None):
+            await self.policies._ensure_policy_system()
+            logger.debug("Policy system auto-initialized during first stream()")
 
         # Setup config
         run_config = config or {}

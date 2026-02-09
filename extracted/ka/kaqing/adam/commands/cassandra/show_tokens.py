@@ -2,12 +2,11 @@ import re
 
 from adam.commands import extract_trailing_options
 from adam.commands.command import Command
-from adam.commands.cql.utils_cql import cassandra
-from adam.commands.devices.devices import Devices
-from adam.commands.nodetool.utils_nodetools import NodeTools
+from adam.commands.devices.devices import device
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import log_timing
-from adam.utils_cassandra.address_table import AddressTable, NATError
+from adam.utils_log import log_timing
+from adam.utils_cassandra.cassandra_status import AddressTranslationError, CassandraStatus
+from adam.utils_cassandra.node_restartability import NodeRestartability
 from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 
@@ -27,7 +26,6 @@ class ShowTokens(Command):
         return ShowTokens.COMMAND
 
     def required(self):
-        # return RequiredState.CLUSTER_OR_POD
         return RequiredState.POD
 
     def run(self, cmd: str, state: ReplState):
@@ -39,75 +37,68 @@ class ShowTokens(Command):
                 with log_timing('show.tokens'):
                     ctx: Context = self.context().copy(background=background)
 
-                    nat = log_timing('nat.build', lambda: AddressTable.snapshot(state, ctx=ctx.copy(show_out=False, background=False)))
-
-                    ip = nat.local_ip_from_pod_name(state.pod)
+                    status: CassandraStatus = None
+                    ring: list[dict] = None
+                    status, ring = NodeRestartability.tokens(state, ctx)
+                    ip = status.ip_from_pod_name(state.pod)
 
                     def pod(ip: str):
-                        status = '** '
-                        if ip in nat.status_by_ip(state) and 'status' in nat.status_by_ip(state)[ip]:
-                            # print(ip, nat.status_by_ip(state)[ip])
-                            status = '' if nat.status_by_ip(state)[ip]['status'] == 'UN' else '* '
+                        s = '** '
+                        if ip in status.status_by_ip() and 'status' in status.status_by_ip()[ip]:
+                            s = '' if status.status_by_ip()[ip]['status'] == 'UN' else '* '
 
                         try:
-                            pod = nat.pod_name_from_local_ip(ip)
+                            pod = status.pod_name_from_ip(ip)
                             if groups := re.match(r'.*-(.*-\d+)$', pod):
                                 pod = groups[1]
 
-                            return f'{status}{pod}'
-                        except NATError:
-                            if status:
-                                return f'{status}{ip}'
+                            return f'{s}{pod}'
+                        except AddressTranslationError:
+                            if s:
+                                return f'{s}{ip}'
                             else:
                                 return f'*** {ip}'
 
-                    with cassandra(state) as pods:
-                        r = log_timing('nodetool.ring', lambda: pods.nodetool('ring', samples=1, ctx=ctx.copy(show_out=False, background=False)))
-                        if isinstance(r, list):
-                            r = r[0]
+                    lines : dict[str, set] = {}
 
-                        ring = NodeTools.parse_nodetool_ring(r.stdout)
+                    def line(ip: str):
+                        if ip not in lines:
+                            lines[ip] = set()
 
-                        lines : dict[str, set] = {}
+                        return lines[ip]
 
-                        def line(ip: str):
-                            if ip not in lines:
-                                lines[ip] = set()
+                    token = None
+                    s = 0
+                    for n in ring[1:]:
+                        if s == 0:
+                            if n['address'] == ip:
+                                token = n['token']
 
-                            return lines[ip]
+                                s = 1
+                        elif s == 1:
+                            line(token).add(pod(n['address']))
 
-                        token = None
-                        s = 0
-                        for n in ring[1:]:
-                            if s == 0:
-                                if n['address'] == ip:
-                                    token = n['token']
+                            s = 2
+                        elif s == 2:
+                            line(token).add(pod(n['address']))
 
-                                    s = 1
-                            elif s == 1:
-                                line(token).add(pod(n['address']))
+                            s = 0
 
-                                s = 2
-                            elif s == 2:
-                                line(token).add(pod(n['address']))
+                    tabulize(sorted(lines.keys()),
+                                lambda k: f'{k}\t' + "\t".join(sorted(list(lines[k]))),
+                                header='Token\tPods',
+                                separator='\t',
+                                ctx=ctx)
 
-                                s = 0
+                    ctx.log()
+                    ctx.log2('*   node is down')
+                    ctx.log2('**  status cannot be located from ip address')
+                    ctx.log2('*** pod name cannot be located from ip address')
 
-                        tabulize(sorted(lines.keys()),
-                                 lambda k: f'{k}\t' + "\t".join(sorted(list(lines[k]))),
-                                 header='Token\tPods',
-                                 separator='\t',
-                                 ctx=ctx)
-
-                        ctx.log()
-                        ctx.log2('*   node is down')
-                        ctx.log2('**  status cannot be located from ip address')
-                        ctx.log2('*** pod name cannot be located from ip address')
-
-                        return state
+                    return state
 
     def completion(self, state: ReplState):
-        return super().completion(state, {'&': None}, pods=Devices.of(state).pods(state, '-'))
+        return super().completion(state, {'&': None}, pods=device(state).pods(state, '-'))
 
     def help(self, state: ReplState):
         return super().help(state, 'show Cassandra tokens', args='[&]')

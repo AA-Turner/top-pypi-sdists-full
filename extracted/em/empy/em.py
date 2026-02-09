@@ -7,11 +7,11 @@ A system for processing Python via markup embeded in text.
 __project__ = "EmPy"
 __program__ = "empy"
 __module__ = "em"
-__version__ = "4.2"
+__version__ = "4.2.1"
 __url__ = "http://www.alcyone.com/software/empy/"
 __author__ = "Erik Max Francis <max@alcyone.com>"
 __contact__ = "software@alcyone.com"
-__copyright__ = "Copyright (C) 2002-2024 Erik Max Francis"
+__copyright__ = "Copyright (C) 2002-2026 Erik Max Francis"
 __license__ = "BSD"
 
 #
@@ -46,6 +46,7 @@ import unicodedata
 # - input             The input function (raw_input in Python 2.x)
 # - evalFunc          The eval function
 # - execFunc          The exec function
+# - binaryOpen        The codecs.open function, or open (Python 3.14+)
 # - BaseException     The base exception class for all exceptions
 # - FileNotFoundError FileNotFoundError (= IOError in Python < 3.3)
 # - StringIO          The StringIO class
@@ -72,6 +73,8 @@ if major == 2:
     strType = (bytes, str)
     chr = unichr
     input = raw_input
+    # In Python 2.x, binaryOpen defers to codecs.open.
+    binaryOpen = codecs.open
     # In Python 2.x, StringIO is contained in the cStringIO module.
     try:
         from cStringIO import StringIO
@@ -83,8 +86,8 @@ if major == 2:
         # Starting with Python 2.5, a new BaseException class serves as the
         # base class of all exceptions; prior to that, it was just Exception.
         # So create a name for it if necessary.
-        compat.append('BaseException')
         BaseException = Exception
+        compat.append('BaseException')
     # Python 2.x did not have a FileNotFoundError.
     FileNotFoundError = IOError
     compat.append('FileNotFoundError')
@@ -138,10 +141,22 @@ elif major >= 3:
     input = input
     # In Python 3.x, the module containing StringIO is io.
     from io import StringIO
+    # codecs.open is deprecated starting with Python 3.14.  Use open instead.
+    if minor >= 14:
+        binaryOpen = open
+        compat.append('!codecs.open')
+    else:
+        binaryOpen = codecs.open
     # Python 3.x prior to 3.3 did not have a FileNotFoundError.
     if minor < 3:
         FileNotFoundError = IOError
         compat.append('FileNotFoundError')
+    # The callable builtin was removed from Python 3.0 and reinstated in Python
+    # 3.2, but we need it.
+    if minor < 2:
+        def callable(object):
+            return getattr(object, '__call__', None) is not None
+        compat.append('callable')
     # In Python 3.x, exec is a function, but attempting to reference it as such
     # in Python 2.x generates an error.  Since this needs to also compile in
     # Python 2.x, defer the evaluation past the parsing phase.
@@ -162,7 +177,6 @@ elif major >= 3:
     def uliteral(i):
         """Return a wide Unicode string literal."""
         return r"'\U%08x'" % i
-
 # Was this Python interpreter built with narrow Unicode?  That is, does it use
 # a UTF-16 encoding (with surrgoate pairs) vs. UTF-32 internally?
 if hasattr(sys, 'maxunicode'):
@@ -322,6 +336,7 @@ class Error(Exception):
         self.__dict__.update(kwargs)
 
 class ConsistencyError(Error): pass
+class ProxyError(ConsistencyError): pass
 class DiversionError(Error): pass
 class FilterError(Error): pass
 class CoreError(Error): pass
@@ -415,73 +430,6 @@ class EmojiModuleInfo(Root):
 Module = EmojiModuleInfo # DEPRECATED
 
 #
-# module support
-#
-
-_pathFinderInstalled = False
-
-def _installPathFinder(index):
-    """Install the path finder into the importlib machinery to support
-    EmPy modules.  Use the specified meta path index (nonnegative for an
-    insertion point, negative to append).  Idempotent."""
-    import importlib
-    import importlib.abc
-    import importlib.util
-
-    #
-    # Loader
-    #
-
-    class Loader(importlib.abc.Loader):
-
-        def __init__(self, filename):
-            self.filename = filename
-
-        def create_module(self, spec):
-            return None # default
-
-        def exec_module(self, module):
-            interp = sys.stdout._EmPy_current()
-            assert interp
-            interp.import_(self.filename, module)
-
-    #
-    # Finder
-    #
-
-    class Finder(importlib.abc.PathEntryFinder):
-
-        _EmPy_tag = None
-
-        def find_spec(self, fullname, path, target=None):
-            # If the proxy is not installed, skip.
-            method = getattr(sys.stdout, '_EmPy_current', None)
-            if not method:
-                return None
-            interp = method()
-            # If there's no active interpreter, also skip.
-            if not interp:
-                return None
-            if not path:
-                path = sys.path
-            import os
-            name = fullname.replace('.', os.sep)
-            for dirname in path:
-                filename = (os.path.join(dirname, name) +
-                    interp.config.moduleExtension)
-                if os.path.isfile(filename):
-                    return importlib.util.spec_from_file_location(
-                            fullname, filename, loader=Loader(filename))
-            return None
-
-    # Install the finder.
-    finder = Finder()
-    if index < 0:
-        sys.meta_path.append(finder)
-    else:
-        sys.meta_path.insert(index, finder)
-
-#
 # Configuration
 #
 
@@ -530,6 +478,7 @@ class Configuration(Root):
     defaultSuccessCode = 0
     defaultFailureCode = 1
     defaultUnknownCode = 2
+    defaultSkipCode = 111
     defaultSignificatorDelimiters = ('__', '__')
     defaultEmptySignificator = None
     defaultAutoValidateIcons = True
@@ -555,115 +504,122 @@ class Configuration(Root):
     verboseFile = sys.stderr
     factory = None
     ignorableErrorAttributes = [
+        # Python atttributes
         'args', 'message', 'add_note', 'characters_written', 'with_traceback',
+        # Jython attributes
+        'addSuppressed', 'cause', 'class', 'equals', 'fillInStackTrace',
+        'getCause', 'getClass', 'getLocalizedMessage', 'getMessage',
+        'getStackTrace', 'getSuppressed', 'hashCode', 'initCause',
+        'localizedMessage', 'notify', 'notifyAll', 'printStackTrace',
+        'setStackTrace', 'stackTrace', 'suppressed', 'toString', 'wait',
     ]
 
     tokens = None # list of token factories; intialized below
 
-    _initialized = False # change only in instances
+    _initialized = False # overridden in instances
+    tag = None # overridden in instances
 
     # Dictionaries.
 
     controls = {
         # C0 (ASCII, ISO 646, ECMA-6)
-        'NUL':    (0x0000, "null"),
-        'SOH':    (0x0001, "start of heading, transmission control one"),
-        'TC1':    (0x0001, "start of heading, transmission control one"),
-        'STX':    (0x0002, "start of text, transmission control two"),
-        'TC2':    (0x0002, "start of text, transmission control two"),
-        'ETX':    (0x0003, "end of text, transmission control three"),
-        'TC3':    (0x0003, "end of text, transmission control three"),
-        'EOT':    (0x0004, "end of transmission, transmission control four"),
-        'TC4':    (0x0004, "end of transmission, transmission control four"),
-        'ENQ':    (0x0005, "enquiry, transmission control five"),
-        'TC5':    (0x0005, "enquiry, transmission control five"),
-        'ACK':    (0x0006, "acknowledge, transmission control six"),
-        'TC6':    (0x0006, "acknowledge, transmission control six"),
-        'BEL':    (0x0007, "bell; alert"),
-        'BS':     (0x0008, "backspace, format effector zero"),
-        'FE0':    (0x0008, "backspace, format effector zero"),
-        'HT':     (0x0009, "horizontal tabulation, format effector one; tab"),
-        'FE1':    (0x0009, "horizontal tabulation, format effector one; tab"),
-        'LF':     (0x000a, "linefeed, format effector two; newline (Unix)"),
-        'NL':     (0x000a, "linefeed, format effector two; newline (Unix)"),
-        'FE2':    (0x000a, "linefeed, format effector two; newline (Unix)"),
-        'VT':     (0x000b, "line tabulation, format effector three; vertical tab"),
-        'LT':     (0x000b, "line tabulation, format effector three; vertical tab"),
-        'FE3':    (0x000b, "line tabulation, format effector three; vertical tab"),
-        'FF':     (0x000c, "form feed, format effector four"),
-        'FE4':    (0x000c, "form feed, format effector four"),
-        'CR':     (0x000d, "carriage return, format effector five; enter"),
-        'FE5':    (0x000d, "carriage return, format effector five; enter"),
-        'SO':     (0x000e, "shift out, locking-shift one"),
-        'LS1':    (0x000e, "shift out, locking-shift one"),
-        'SI':     (0x000f, "shift in, locking-shirt zero"),
-        'LS0':    (0x000f, "shift in, locking-shirt zero"),
-        'DLE':    (0x0010, "data link escape; transmission control seven"),
-        'TC7':    (0x0010, "data link escape; transmission control seven"),
-        'XON':    (0x0011, "device control one; xon"),
-        'DC1':    (0x0011, "device control one; xon"),
-        'DC2':    (0x0012, "device control two"),
-        'XOFF':   (0x0013, "device control three; xoff"),
-        'DC3':    (0x0013, "device control three; xoff"),
-        'STOP':   (0x0014, "device control four; stop"),
-        'DC4':    (0x0014, "device control four; stop"),
-        'NAK':    (0x0015, "negative acknowledge, transmission control eight"),
-        'TC8':    (0x0015, "negative acknowledge, transmission control eight"),
-        'SYN':    (0x0016, "synchronous idle, transmission control nine"),
-        'TC9':    (0x0016, "synchronous idle, transmission control nine"),
-        'ETB':    (0x0017, "end of transmission block, transmission control ten"),
-        'TC10':   (0x0017, "end of transmission block, transmission control ten"),
-        'CAN':    (0x0018, "cancel"),
-        'EM':     (0x0019, "end of medium"),
-        'SUB':    (0x001a, "substitute; end of file (DOS)"),
-        'ESC':    (0x001b, "escape"),
-        'FS':     (0x001c, "file separator, information separator four"),
-        'IS4':    (0x001c, "file separator, information separator four"),
-        'GS':     (0x001d, "group separator, information separator three"),
-        'IS3':    (0x001d, "group separator, information separator three"),
-        'RS':     (0x001e, "record separator, information separator two"),
-        'IS2':    (0x001e, "record separator, information separator two"),
-        'US':     (0x001f, "unit separator, information separator one"),
-        'IS1':    (0x001f, "unit separator, information separator one"),
-        'SP':     (0x0020, "space"),
-        'DEL':    (0x007f, "delete"),
+        'NUL':    (0x00, "null"),
+        'SOH':    (0x01, "start of heading, transmission control one"),
+        'TC1':    (0x01, "start of heading, transmission control one"),
+        'STX':    (0x02, "start of text, transmission control two"),
+        'TC2':    (0x02, "start of text, transmission control two"),
+        'ETX':    (0x03, "end of text, transmission control three"),
+        'TC3':    (0x03, "end of text, transmission control three"),
+        'EOT':    (0x04, "end of transmission, transmission control four"),
+        'TC4':    (0x04, "end of transmission, transmission control four"),
+        'ENQ':    (0x05, "enquiry, transmission control five"),
+        'TC5':    (0x05, "enquiry, transmission control five"),
+        'ACK':    (0x06, "acknowledge, transmission control six"),
+        'TC6':    (0x06, "acknowledge, transmission control six"),
+        'BEL':    (0x07, "bell; alert"),
+        'BS':     (0x08, "backspace, format effector zero"),
+        'FE0':    (0x08, "backspace, format effector zero"),
+        'HT':     (0x09, "horizontal tabulation, format effector one; tab"),
+        'FE1':    (0x09, "horizontal tabulation, format effector one; tab"),
+        'LF':     (0x0a, "linefeed, format effector two; newline (Unix)"),
+        'NL':     (0x0a, "linefeed, format effector two; newline (Unix)"),
+        'FE2':    (0x0a, "linefeed, format effector two; newline (Unix)"),
+        'VT':     (0x0b, "line tabulation, format effector three; vertical tab"),
+        'LT':     (0x0b, "line tabulation, format effector three; vertical tab"),
+        'FE3':    (0x0b, "line tabulation, format effector three; vertical tab"),
+        'FF':     (0x0c, "form feed, format effector four"),
+        'FE4':    (0x0c, "form feed, format effector four"),
+        'CR':     (0x0d, "carriage return, format effector five; enter"),
+        'FE5':    (0x0d, "carriage return, format effector five; enter"),
+        'SO':     (0x0e, "shift out, locking-shift one"),
+        'LS1':    (0x0e, "shift out, locking-shift one"),
+        'SI':     (0x0f, "shift in, locking-shirt zero"),
+        'LS0':    (0x0f, "shift in, locking-shirt zero"),
+        'DLE':    (0x10, "data link escape; transmission control seven"),
+        'TC7':    (0x10, "data link escape; transmission control seven"),
+        'XON':    (0x11, "device control one; xon"),
+        'DC1':    (0x11, "device control one; xon"),
+        'DC2':    (0x12, "device control two"),
+        'XOFF':   (0x13, "device control three; xoff"),
+        'DC3':    (0x13, "device control three; xoff"),
+        'STOP':   (0x14, "device control four; stop"),
+        'DC4':    (0x14, "device control four; stop"),
+        'NAK':    (0x15, "negative acknowledge, transmission control eight"),
+        'TC8':    (0x15, "negative acknowledge, transmission control eight"),
+        'SYN':    (0x16, "synchronous idle, transmission control nine"),
+        'TC9':    (0x16, "synchronous idle, transmission control nine"),
+        'ETB':    (0x17, "end of transmission block, transmission control ten"),
+        'TC10':   (0x17, "end of transmission block, transmission control ten"),
+        'CAN':    (0x18, "cancel"),
+        'EM':     (0x19, "end of medium"),
+        'SUB':    (0x1a, "substitute; end of file (DOS)"),
+        'ESC':    (0x1b, "escape"),
+        'FS':     (0x1c, "file separator, information separator four"),
+        'IS4':    (0x1c, "file separator, information separator four"),
+        'GS':     (0x1d, "group separator, information separator three"),
+        'IS3':    (0x1d, "group separator, information separator three"),
+        'RS':     (0x1e, "record separator, information separator two"),
+        'IS2':    (0x1e, "record separator, information separator two"),
+        'US':     (0x1f, "unit separator, information separator one"),
+        'IS1':    (0x1f, "unit separator, information separator one"),
+        'SP':     (0x20, "space"),
+        'DEL':    (0x7f, "delete"),
         # C1 (ANSI X3.64, ISO 6429, ECMA-48)
-        'PAD':    (0x0080, "padding character"),
-        'HOP':    (0x0081, "high octet preset"),
-        'BPH':    (0x0082, "break permitted here"),
-        'NBH':    (0x0083, "no break here"),
-        'IND':    (0x0084, "index"),
-        'NEL':    (0x0085, "next line"),
-        'SSA':    (0x0086, "start of selected area"),
-        'ESA':    (0x0087, "end of selected area"),
-        'HTS':    (0x0088, "horizontal/character tabulation set"),
-        'HTJ':    (0x0089, "horizontal/character tabulation with justification"),
-        'VTS':    (0x008a, "vertical/line tabulation set"),
-        'PLD':    (0x008b, "partial line down/forward"),
-        'PLU':    (0x008c, "partial line up/backward"),
-        'RI':     (0x008d, "reverse index, reverse line feed"),
-        'SS2':    (0x008e, "single shift two"),
-        'SS3':    (0x008f, "single shift three"),
-        'DCS':    (0x0090, "device control string"),
-        'PU1':    (0x0091, "private use one"),
-        'PU2':    (0x0092, "private use two"),
-        'STS':    (0x0093, "set transmission state"),
-        'CHC':    (0x0094, "cancel character"),
-        'MW':     (0x0095, "message waiting"),
-        'SPA':    (0x0096, "start of protected/guarded area"),
-        'EPA':    (0x0097, "end of protected/guarded area"),
-        'SOS':    (0x0098, "start of string"),
-        'SGCI':   (0x0099, "single graphic character introducer, unassigned"),
-        'SCI':    (0x009a, "single character introducer"),
-        'CSI':    (0x009b, "control sequence introducer"),
-        'ST':     (0x009c, "string terminator"),
-        'OSC':    (0x009d, "operating system command"),
-        'PM':     (0x009e, "privacy message"),
-        'APC':    (0x009f, "application program command"),
+        'PAD':    (0x80, "padding character"),
+        'HOP':    (0x81, "high octet preset"),
+        'BPH':    (0x82, "break permitted here"),
+        'NBH':    (0x83, "no break here"),
+        'IND':    (0x84, "index"),
+        'NEL':    (0x85, "next line"),
+        'SSA':    (0x86, "start of selected area"),
+        'ESA':    (0x87, "end of selected area"),
+        'HTS':    (0x88, "horizontal/character tabulation set"),
+        'HTJ':    (0x89, "horizontal/character tabulation with justification"),
+        'VTS':    (0x8a, "vertical/line tabulation set"),
+        'PLD':    (0x8b, "partial line down/forward"),
+        'PLU':    (0x8c, "partial line up/backward"),
+        'RI':     (0x8d, "reverse index, reverse line feed"),
+        'SS2':    (0x8e, "single shift two"),
+        'SS3':    (0x8f, "single shift three"),
+        'DCS':    (0x90, "device control string"),
+        'PU1':    (0x91, "private use one"),
+        'PU2':    (0x92, "private use two"),
+        'STS':    (0x93, "set transmission state"),
+        'CHC':    (0x94, "cancel character"),
+        'MW':     (0x95, "message waiting"),
+        'SPA':    (0x96, "start of protected/guarded area"),
+        'EPA':    (0x97, "end of protected/guarded area"),
+        'SOS':    (0x98, "start of string"),
+        'SGCI':   (0x99, "single graphic character introducer, unassigned"),
+        'SCI':    (0x9a, "single character introducer"),
+        'CSI':    (0x9b, "control sequence introducer"),
+        'ST':     (0x9c, "string terminator"),
+        'OSC':    (0x9d, "operating system command"),
+        'PM':     (0x9e, "privacy message"),
+        'APC':    (0x9f, "application program command"),
         # ISO 8859
-        'NBSP':   (0x00a0, "no-break space"),
-        'SHY':    (0x00ad, "soft hyphen, discretionary hyphen"),
-        'CGJ':    (0x034f, "combining grapheme joiner"),
+        'NBSP':   (0xa0, "no-break space"),
+        'SHY':    (0xad, "soft hyphen, discretionary hyphen"),
         # Unicode, general punctuation
         'NQSP':   (0x2000, "en quad"),
         'MQSP':   (0x2001, "em quad; mutton quad"),
@@ -682,7 +638,9 @@ class Configuration(Root):
         'LRM':    (0x200e, "left-to-right mark"),
         'RLM':    (0x200f, "right-to-left mark"),
         'NBHY':   (0x2011, "non-breaking hyphen"),
+        'LS':     (0x2028, "line separator"),
         'LSEP':   (0x2028, "line separator"),
+        'PS':     (0x2029, "paragraph separator"),
         'PSEP':   (0x2029, "paragraph separator"),
         'LRE':    (0x202a, "left-to-right encoding"),
         'RLE':    (0x202b, "right-to-left encoding"),
@@ -695,12 +653,22 @@ class Configuration(Root):
         'FA':     (0x2061, "function application (`f()`)"),
         'IT':     (0x2062, "invisible times (`x`)"),
         'IS':     (0x2063, "invisible separator (`,`)"),
+        'IP':     (0x2064, "invisible plus (`+`)"),
+        'LRI':    (0x2066, "left-to-right isolate"),
+        'RLI':    (0x2067, "right-to-left isolate"),
+        'FSI':    (0x2068, "first strong isolate"),
+        'PDI':    (0x2069, "pop directional isolate"),
         'ISS':    (0x206a, "inhibit symmetric swapping"),
         'ASS':    (0x206b, "activate symmetric swapping"),
         'IAFS':   (0x206c, "inhibit arabic form shaping"),
         'AAFS':   (0x206d, "activate arabic form shaping"),
         'NADS':   (0x206e, "national digit shapes"),
         'NODS':   (0x206f, "nominal digit shapes"),
+        # Geometric shapes (some circles)
+        'WC':     (0x25cb, "white circle"),
+        'DC':     (0x25cc, "dotted circle"),
+        'CWVF':   (0x25cc, "circle with vertical fill"),
+        'BE':     (0x25cc, "bullseye"),
         # Unicode, CJK symbols and punctuation
         'IDSP':   (0x3000, "ideographic space"),
         'IIM':    (0x3005, "ideographic iteration mark"),
@@ -711,6 +679,16 @@ class Configuration(Root):
         'PAM':    (0x303d, "part alternation mark"),
         'IVI':    (0x303e, "ideographic variation indicator"),
         'IHFSP':  (0x303f, "ideograhic half fill space"),
+        # Combining diacritical marks
+        'CGJ':    (0x034f, "combining grapheme joiner"),
+        # Arabic leter forms
+        'ANS':    (0x0600, "Arabic number sign"),
+        'ASN':    (0x0601, "Arabic sign sanah"),
+        'AFM':    (0x0602, "Arabic footnote marker"),
+        'ASF':    (0x0603, "Arabic sign safha"),
+        'ASM':    (0x0604, "Arabic sign samvat"),
+        'ANMA':   (0x0605, "Arabic number mark above"),
+        'ALM':    (0x061c, "Arabic letter mark"),
         # Unicode, variation selectors
         'VS1':    (0xfe00, "variation selector 1"),
         'VS2':    (0xfe01, "variation selector 2"),
@@ -739,6 +717,23 @@ class Configuration(Root):
         'IAT':    (0xfffb, "interlinear annotation terminator"),
         'ORC':    (0xfffc, "object replacement character"),
         'RC':     (0xfffd, "replacement character"),
+        # Egyptian hieroglyph format controls
+        'EHVJ':   (0x13430, "Egyptian hieroglyph vertical joiner"),
+        'EHHJ':   (0x13431, "Egyptian hieroglyph horizontal joiner"),
+        'EHITS':  (0x13432, "Egyptian hieroglyph insert at top start"),
+        'EHIBS':  (0x13433, "Egyptian hieroglyph insert at bottom start"),
+        'EHITE':  (0x13434, "Egyptian hieroglyph insert at top end"),
+        'EHIBE':  (0x13435, "Egyptian hieroglyph insert at bottom end"),
+        'EHOM':   (0x13436, "Egyptian hieroglyph overlay middle"),
+        'EHBS':   (0x13437, "Egyptian hieroglyph begin segment"),
+        'EHES':   (0x13437, "Egyptian hieroglyph end segment"),
+        # Shorthand format controls
+        'SFLO':   (0x1bca0, "shorthand format letter overlap"),
+        'SFCO':   (0x1bca1, "shorthand format continuing overlap"),
+        'SFDS':   (0x1bca2, "shorthand format down step"),
+        'SFUS':   (0x1bca3, "shorthand format up step"),
+        # step
+        'TAG':    (0xe0001, "language tag"),
     }
 
     diacritics = {
@@ -810,6 +805,7 @@ class Configuration(Root):
 
     icons = {
         '!':    ([0x2757, 0xfe0f], "exclamation mark"),
+        '#':    (0x1f6d1, "octagonal sign"),
         '$':    (0x1f4b2, "heavy dollar sign"),
         '%%':   (0x1f3b4, "flower playing cards"),
         '%':    None,
@@ -827,12 +823,7 @@ class Configuration(Root):
         '&1':   (0x1f947, "first place medal"),
         '&2':   (0x1f948, "second place medal"),
         '&3':   (0x1f949, "third place medal"),
-        '*':    ([0x002a, 0xfe0f], "asterisk"),
-        '=':    None,
-        '=*':   ([0x2716, 0xfe0f], "heavy multiplication sign"),
-        '=+':   ([0x2795, 0xfe0f], "heavy plus sign"),
-        '=-':   ([0x2796, 0xfe0f], "heavy minus sign"),
-        '=/':   ([0x2797, 0xfe0f], "heavy division sign"),
+        '*':    ([0x2a, 0xfe0f], "asterisk"),
         '+':    (0x1f53a, "red triangle pointed up"),
         ',':    None,
         ',+':   (0x1f44d, "thumbs up"),
@@ -884,6 +875,11 @@ class Configuration(Root):
         ';':    None,
         ';)':   (0x1f609, "winking face"),
         '<':    (0x23ea, "black left-pointing double triangle"),
+        '=':    None,
+        '=*':   ([0x2716, 0xfe0f], "heavy multiplication sign"),
+        '=+':   ([0x2795, 0xfe0f], "heavy plus sign"),
+        '=-':   ([0x2796, 0xfe0f], "heavy minus sign"),
+        '=/':   ([0x2797, 0xfe0f], "heavy division sign"),
         '>':    (0x23e9, "black right-pointing double triangle"),
         '?':    ([0x2753, 0xfe0f], "question mark"),
         'B':    None,
@@ -894,13 +890,13 @@ class Configuration(Root):
         '\"':   None,
         '\"(':  (0x201c, "left double quotation mark"),
         '\")':  (0x201d, "right double quotation mark"),
-        '\"\"': (0x0022, "quotation mark"),
+        '\"\"': (0x22, "quotation mark"),
         '\'':   None,
         '\'(':  (0x2018, "left single quotation mark"),
         '\')':  (0x2019, "right single quotation mark"),
-        '\'/':  (0x00b4, "acute accent"),
-        '\'\'': (0x0027, "apostrophe"),
-        '\'\\': (0x0060, "grave accent"),
+        '\'/':  (0xb4, "acute accent"),
+        '\'\'': (0x27, "apostrophe"),
+        '\'\\': (0x60, "grave accent"),
         '\\':   ([0x274c, 0xfe0f], "cross mark"),
         '^':    ([0x26a0, 0xfe0f], "warning sign"),
         '{!!':  None,
@@ -1005,6 +1001,7 @@ class Configuration(Root):
         self.define('successCode', int, self.defaultSuccessCode, "Exit code to return on script success")
         self.define('failureCode', int, self.defaultFailureCode, "Exit code to return on script failure")
         self.define('unknownCode', int, self.defaultUnknownCode, "Exit code to return on bad configuration")
+        self.define('skipCode', int, self.defaultSkipCode, "Exit code to return on requirements failure (testing")
         self.define('checkVariables', bool, True, "Check configuration variables on assignment?")
         self.define('pathSeparator', strType, sys.platform.startswith('win') and ';' or ':', "Path separator for configuration file paths")
         self.define('supportModules', bool, True, "Support EmPy modules?")
@@ -1012,6 +1009,7 @@ class Configuration(Root):
         self.define('moduleFinderIndex', int, 0, "Index of module finder in meta path")
         self.define('enableImportOutput', bool, True, "Disable output during import?")
         self.define('duplicativeFirsts', list, list(DUPLICATIVE_CHARS), "List of duplicative first characters")
+        self.define('openFunc', None, None, "The open function to use (None for automatic)")
 
         # Redefine static configuration variables so they're in the help.
         self.define('controls', dict, self.controls, "Controls dictionary")
@@ -1205,6 +1203,44 @@ class Configuration(Root):
 
     # Convenience.
 
+    def recode(self, result, encoding=None):
+        """Convert a lookup table entry into a string.  A value can be a
+        string itself, an integer corresponding to a code point, or a
+        2-tuple, the first value of which is one of the above (the
+        second is a description).  If the encoding is provided, use that
+        to convert bytes objects; otherwise, use the output encoding."""
+        assert result is not None
+        # First, if it's a tuple, then use the first element; the remaining
+        # elements are a description.
+        if isinstance(result, tuple):
+            result = result[0]
+        # Check the type of the value:
+        if isinstance(result, list):
+            # If it's a list, then it's a sequence of some the above.
+            # Turn them all into strings and then concatenate them.
+            fragments = []
+            for elem in result:
+                fragments.append(self.recode(elem))
+            result = ''.join(fragments)
+        elif isinstance(result, str):
+            # It's already a string, so do nothing.
+            pass
+        elif isinstance(result, bytes):
+            # If it's a bytes, decode it.
+            if encoding is None:
+                encoding = self.outputEncoding
+            result = result.decode(encoding)
+        elif isinstance(result, int):
+            # If it's an int, then it's a character code.
+            result = chr(result)
+        elif callable(result):
+            # If it's callable, then call it.
+            result = self.recode(result())
+        else:
+            # Otherwise, it's something convertible to a string.
+            result = str(result)
+        return result
+
     def escaped(self, ord, prefix='\\'):
         """Write a valid Python string escape sequence for the given
         character ordinal."""
@@ -1328,6 +1364,33 @@ class Configuration(Root):
         except AttributeError:
             return default
 
+    def determineOpenFunc(self, filename,
+                          mode=None, buffering=-1, encoding=None, errors=None):
+        """Determine which openFunc to use if it has not already been
+        specified and return it."""
+        if self.openFunc is None:
+            if self.useBinary:
+                # Use binary mode, so call binaryOpen.
+                self.openFunc = binaryOpen
+            else:
+                if major >= 3:
+                    # If it's Python 3.x, just use open.
+                    self.openFunc = open
+                else:
+                    # For Python 2.x, open doesn't take encoding and error
+                    # handler arguments.  Check to make sure non-default
+                    # encodings and error handlers haven't been chosen, because
+                    # we can't comply.
+                    if not self.isDefaultEncodingErrors(encoding, errors):
+                        raise ConfigurationError("cannot comply with non-default Unicode encoding/errors selected in Python 2.x; use -u option: `%s`/`%s`" % (encoding, errors))
+                    self.openFunc = open
+            assert self.openFunc is not None
+        return self.openFunc
+
+    def isModeBinary(self, mode):
+        """Does this mode represent binary mode?"""
+        return 'b' in mode
+
     def open(self, filename,
              mode=None, buffering=-1, encoding=None, errors=None,
              expand=None):
@@ -1335,7 +1398,7 @@ class Configuration(Root):
         (Unicode) should be employed.  Raise if the selection
         cannot be complied with.  Arguments:
 
-        - filename: The filename to open;
+        - filename: The filename to open (required);
         - mode: The file open mode, None for read;
         - buffering: The buffering setting (int);
         - encoding: The encoding to use, None for default;
@@ -1348,7 +1411,7 @@ class Configuration(Root):
         if mode is None:
             # Default to read.
             mode = 'r'
-            if self.useBinary and 'b' not in mode:
+            if self.useBinary and not self.isModeBinary(mode):
                 # Make it binary if it needs to be.
                 mode += 'b'
         # Figure out the encoding and error handler.
@@ -1362,21 +1425,21 @@ class Configuration(Root):
                 encoding = self.inputEncoding
             if errors is None:
                 errors = self.inputErrors
-        if self.useBinary:
-            # Use binary mode, so call codecs.open.
-            return codecs.open(filename, mode, encoding, errors, buffering)
-        else:
-            # If it's not binary mode, them use the standard open call.
-            if major >= 3:
-                # If it's Python 3.x, just pass the arguments through.
-                return open(filename, mode, buffering, encoding, errors)
-            else:
-                # For Python 2.x, open doesn't take encoding and error handler
-                # arguments.  Check to make sure non-default encodings and
-                # error handlers haven't been chosen, because we can't comply.
-                if not self.isDefaultEncodingErrors(encoding, errors):
-                    raise ConfigurationError("cannot comply with non-default Unicode encoding/errors selected in Python 2.x; use -u option: `%s`/`%s`" % (encoding, errors))
-                return open(filename, mode, buffering)
+        func = self.determineOpenFunc(
+            filename, mode, buffering, encoding, errors)
+        try:
+            return func(filename,
+                        mode=mode,
+                        buffering=buffering,
+                        encoding=encoding,
+                        errors=errors)
+        except TypeError:
+            # Some older versions of the open functions (e.g., Python 2.x's
+            # open) do not accept the Unicode encoding and errors arguments.
+            # Try again.
+            return func(filename,
+                        mode=mode,
+                        buffering=buffering)
 
     def reconfigure(self, file,
                     buffering=-1, encoding=None, errors=None):
@@ -1392,26 +1455,6 @@ class Configuration(Root):
                                  errors=errors)
         except (AssertionError, AttributeError):
             raise InvocationError("non-default Unicode output encoding/errors selected with %s; use -o/-a option instead: %s/%s" % (file.name, encoding, errors))
-
-    # Modules.
-
-    def install(self, dryRun=False):
-        """Install EmPy module support, if possible.  Mark a flag the first
-        time this is called so it's only installed once, if ever."""
-        global _pathFinderInstalled
-        if _pathFinderInstalled:
-            return False
-        ok = True
-        if not self.supportModules or not self.moduleExtension:
-            ok = False
-        if not modules:
-            return False
-        if dryRun:
-            return None
-        _pathFinderInstalled = True
-        if ok:
-            _installPathFinder(self.moduleFinderIndex)
-        return ok
 
     # Significators.
 
@@ -1607,10 +1650,23 @@ class Configuration(Root):
             parts.append(prefix)
         parts.append(error.__class__.__name__)
         if self.verboseErrors:
+            # Find the error's arguments.  This needs special treatment due to
+            # spurious Java exceptions leaking through under Jython.
+            args = getattr(error, 'args', None)
+            if args is None:
+                # It might be an unwrapped Java exception.  Check for
+                # getMessage.
+                method = getattr(error, 'getMessage', None)
+                if method is not None:
+                    args = (method(),)
+                else:
+                    # Otherwise, not sure what this is; treat it as having no
+                    # arguments.
+                    args = ()
             # Check for arguments.
-            if len(error.args) > 0:
+            if len(args) > 0:
                 parts.append(": ")
-                parts.append(", ".join([toString(x) for x in error.args]))
+                parts.append(", ".join([toString(x) for x in args]))
             # Check for keyword arguments.
             pairs = []
             for attrib in dir(error):
@@ -1622,14 +1678,223 @@ class Configuration(Root):
             if pairs:
                 parts.append("; ")
                 pairs.sort()
-                args = []
+                kwargs = []
                 for key, value in pairs:
-                    args.append("%s=%s" % (key, value))
-                parts.append(', '.join(args))
+                    kwargs.append("%s=%s" % (key, value))
+                parts.append(', '.join(kwargs))
         # Fold the arguments together.
         if suffix is not None:
             parts.append(suffix)
         return ''.join(parts)
+
+    # Proxy.
+
+    @staticmethod
+    def proxy(object=sys):
+        """Find the proxy for this Python interpreter session, or
+        None."""
+        return getattr(object, '_EmPy_proxy', None)
+
+    @staticmethod
+    def evocare(increment=0, ignore=True):
+        """Try to call the EmPy special method on the proxy with the
+        given increment argument and return the resulting count value.
+        If the magic method is not present (no proxy installed) and
+        ignore is true (default), return None; otherwise, raise.  Exodus
+        is four as one!"""
+        method = getattr(Configuration.proxy(), '_EmPy_evocare', None)
+        if method is not None:
+            try:
+                return method(increment)
+            except:
+                raise ProxyError("proxy evocare method should not raise")
+        else:
+            if ignore:
+                return None
+            else:
+                raise ProxyError("proxy evocare method not found")
+
+    def installProxy(self, output):
+        """Install a proxy if necessary around the given output,
+        wrapped to be uncloseable.  Return the wrapped object (not the
+        proxy)."""
+        assert output is not None
+        # Invoke the special method ...
+        count = self.evocare(+1)
+        proxy = self.proxy()
+        if count is not None:
+            # ... and if it's present, we've already created it.
+            new = False
+        else:
+            if proxy is None:
+                # If not, setup the proxy, and increment the reference count.
+                proxy = sys._EmPy_proxy = ProxyFile(output, self.proxyWrapper)
+                if self.useProxy:
+                    # Replace sys.stdout with the proxy.
+                    sys.stdout = proxy
+                self.evocare(+1)
+            else:
+                # ... but if the count showed no proxy but there is one,
+                # something went wrong.
+                raise ProxyError("proxy conflict; no proxy registered but one found")
+            new = True
+        if not self.useProxy:
+            output = UncloseableFile(output)
+        return output
+
+    def uninstallProxy(self):
+        """Uninstall a proxy if necessary."""
+        # Try decrementing the reference count; if it hits zero, it will
+        # automatically remove itself and restore sys.stdout.
+        try:
+            proxy = self.proxy()
+            done = not self.evocare(-1)
+            if done:
+                del sys._EmPy_proxy
+        except AttributeError:
+            if self.proxy() is not None:
+                raise ProxyError("proxy lost")
+
+    def checkProxy(self, abandonedIsError=True):
+        """Check whether a proxy is installed.  Returns the
+        current reference count (positive means one is
+        installed), None (for no proxy installed), or 0 if the
+        proxy has been abandoned.  Thus, true means a proxy is
+        installed, false means one isn't.  If abandonIsError
+        is true, raise instead of returning 0 on abandonment."""
+        if not self.useProxy:
+            return False
+        count = self.evocare(0)
+        if count is not None:
+            if count == 0 and abandonedIsError:
+                raise ProxyError("stdout proxy abandoned; proxy present but with zero reference count: %r" % sys.stdout)
+            return count
+        else:
+            return None
+
+    # Meta path finder (for module support).
+
+    @staticmethod
+    def finder(object=sys):
+        """Find the meta path finder for this Python interpreter
+        session, if there is one."""
+        return getattr(object, '_EmPy_finder', None)
+
+    def createFinder(self):
+        """Create a new finder object, ready for installation."""
+        # Use the importlib architecture to set up an EmPy path finder.
+        import importlib
+        import importlib.abc
+        import importlib.util
+
+        #
+        # Loader
+        #
+
+        class Loader(importlib.abc.Loader):
+
+            def __init__(self, filename):
+                self.filename = filename
+
+            def create_module(self, spec):
+                return None # default
+
+            def exec_module(self, module):
+                interp = sys.stdout._EmPy_current()
+                assert interp
+                interp.import_(self.filename, module)
+
+        #
+        # Finder
+        #
+
+        class Finder(importlib.abc.PathEntryFinder):
+
+            _EmPy_next = 1
+
+            def __init__(self):
+                self._EmPy_tag = self._EmPy_next
+                self.__class__._EmPy_next += 1
+
+            def __str__(self):
+                return '%s [tag %d]' % (
+                    self.__class__.__name__, self._EmPy_tag)
+
+            def find_spec(self, fullname, path, target=None):
+                # If the proxy is not installed, skip.
+                method = getattr(sys.stdout, '_EmPy_current', None)
+                if not method:
+                    return None
+                interp = method()
+                # If there's no active interpreter, also skip.
+                if not interp:
+                    return None
+                # If this interpreter has modules disable, also skip.
+                if not interp.config.supportModules:
+                    return None
+                if not path:
+                    path = sys.path
+                import os
+                name = fullname.replace('.', os.sep)
+                for dirname in path:
+                    filename = (os.path.join(dirname, name) +
+                        interp.config.moduleExtension)
+                    if os.path.isfile(filename):
+                        return importlib.util.spec_from_file_location(
+                                fullname, filename, loader=Loader(filename))
+                return None
+
+        return Finder()
+
+    def installFinder(self, index=None, dryRun=False):
+        """Install EmPy module support, if possible.  Mark a flag the
+        first time this is called so it's only installed once, if ever.
+        Idempotent."""
+        if Configuration.finder():
+            # A finder had already been installed; abort.
+            return None
+        if not self.supportModules or not self.moduleExtension:
+            # This configuration does not want to support mnodules; abort.
+            return None
+        if not modules:
+            # Modules are not supported by the underlying interpreter; abort.
+            return None
+        if dryRun:
+            # This is a dry run for displaying details; abort.
+            return None
+        # Create the finder.
+        finder = self.createFinder()
+        # Register it with this configuration.
+        self.tag = finder._EmPy_tag
+        # And install it.
+        if index is None:
+            index = self.moduleFinderIndex
+        if index < 0:
+            sys.meta_path.append(finder)
+        else:
+            sys.meta_path.insert(index, finder)
+        # Register it with the sys module.
+        sys._EmPy_finder = finder
+        return finder
+
+    def uninstallFinder(self, tag=None):
+        """Uninstall any module meta path finder for EmPy support,
+        either by tag (if not None), or all.  Idempotent."""
+        if sys.meta_path is not None:
+            newMetaPath = []
+            for finder in sys.meta_path:
+                finderTag = getattr(finder, '_EmPy_tag', None)
+                if tag is None:
+                    # Delete any custom finder.
+                    if finderTag is not None:
+                        continue
+                else:
+                    # Delete only the matching finder.
+                    if finderTag == tag:
+                        continue
+                # If we're still here, we're keeping this finder.
+                newMetaPath.append(finder)
+            sys.meta_path = newMetaPath
 
     # Debugging.
 
@@ -1730,6 +1995,12 @@ class File(Root):
 
     """An abstract filelike object."""
 
+    def __enter__(self):
+        pass
+
+    def __exit__(self, *exc):
+        self.close()
+
     def write(self, data): raise NotImplementedError
     def writelines(self, lines): raise NotImplementedError
     def flush(self): raise NotImplementedError
@@ -1808,8 +2079,14 @@ class ProxyFile(File):
         self._EmPy_wrapper = wrapper
         self._EmPy_wrap()
 
-    def __getattr__(self, attribute):
-        return getattr(self._EmPy_bottom, attribute)
+    def __del__(self):
+        self.finalize()
+
+    def __str__(self):
+        return '%s [count %d, depth %d]'% (
+            self.__class__.__name__,
+            self._EmPy_count,
+            len(self._EmPy_stack))
 
     def __repr__(self):
         return '<%s [count %d, depth %d] : %r @ 0x%x>' % (
@@ -1821,6 +2098,10 @@ class ProxyFile(File):
 
     def __getattr__(self, name):
         return getattr(self._EmPy_top(), name)
+
+    # Finalizer.
+
+    def finalize(self): pass
 
     # File methods.
 
@@ -1894,7 +2175,7 @@ class ProxyFile(File):
     def _EmPy_wrap(self):
         """Wrap the bottom file in a delegate."""
         if self._EmPy_shouldWrap():
-            assert issubclass(self._EmPy_wrapper, DelegatingFile)
+            assert issubclass(self._EmPy_wrapper, DelegatingFile), self._EmPy_wrapper
             self._EmPy_bottom = self._EmPy_wrapper(self._EmPy_bottom)
 
     def _EmPy_unwrap(self):
@@ -2029,6 +2310,7 @@ class Stream(File):
         self.sink.flush()
 
     def close(self):
+        self.flush()
         if not self.done:
             self.sink.close()
             self.done = True
@@ -2536,6 +2818,26 @@ class BackquoteToken(LiteralToken):
         interp.invoke('postBackquote', result=self.literal)
 
 
+class SimpleToken(ExpansionToken):
+
+    """An abstract base class for simple tokens which consist of nothing but
+    the prefix and expand to either the results a function call in the
+    interpreter globals (if args is not specified or is a tuple) or the value
+    of a variable name named function (if args is None)."""
+
+    def string(self):
+        return self.config.prefix + self.first
+
+    def run(self, interp, locals):
+        args = getattr(self, 'args', ())
+        if args is None:
+            result = interp.lookup(self.function)
+        else:
+            callable = interp.lookup(self.function)
+            result = callable(*args)
+        interp.write(result)
+
+
 class ExecutionToken(ExpansionToken):
 
     """The abstract base class for execution tokens (expressions,
@@ -2886,7 +3188,7 @@ class ControlToken(ExecutionToken):
         current = []
         result.append(self.Chain(self, current))
         for subtoken in self.subtokens:
-            if (isinstance(subtoken, ControlToken) and 
+            if (isinstance(subtoken, ControlToken) and
                 subtoken.kind == 'secondary'):
                 if subtoken.type not in allowed:
                     raise ParseError("control unexpected secondary: `%s`" % subtoken.type)
@@ -3204,26 +3506,7 @@ class CodedToken(ExpansionToken):
     """The abstract base class for a token that supports codings."""
 
     def recode(self, result):
-        """Convert a lookup table entry into a string.  A value can be a string
-        itself, an integer corresponding to a code point, or a 2-tuple, the
-        first value of which is one of the above (the second is a
-        description)."""
-        assert result is not None
-        # If it's a tuple, then use the first element; the remaining elements
-        # are descriptions..
-        if isinstance(result, tuple):
-            result = result[0]
-        # If it's an int, then it's a character code.
-        if isinstance(result, int):
-            result = chr(result)
-        # If it's a list, then it's a sequence of some the above.  Turn them
-        # all into strings and then concatenate them.
-        if isinstance(result, list):
-            fragments = []
-            for elem in result:
-                fragments.append(self.recode(elem))
-            result = ''.join(fragments)
-        return result
+        return self.config.recode(result)
 
 
 class EscapeToken(CodedToken):
@@ -4270,6 +4553,7 @@ class ImportCommand(Command):
         name = '<import:%s>' % n
         context = interp.newContext(name)
         interp.pushContext(context)
+        # Expand shortcuts.
         self.noun = self.noun.replace('+', ' ')
         self.noun = self.noun.replace('=', ' as ')
         method = interp.string
@@ -4319,11 +4603,13 @@ class DocumentCommand(Command):
     def process(self, interp, n):
         name = self.noun
         method = interp.file
+        self.target = None
         self.target = interp.config.open(self.noun, 'r')
         interp.protect(name, method, self.target)
 
     def cleanup(self):
-        self.target.close()
+        if self.target is not None:
+            self.target.close()
 
 
 class ExecuteCommand(Command):
@@ -4378,8 +4664,12 @@ class ExpandCommand(Command):
 
 class Plugin(Root):
 
-    """A plugin is an object owned by an interpreter that has a back-reference
-    to it."""
+    """A plugin is an object associated with an interpreter that has a
+    back-reference to it."""
+
+    def __init__(self, interp=None):
+        if interp is not None:
+            self.attach(interp)
 
     def attach(self, interp):
         """Attach this plugin to an interpreter.  This needs to be a
@@ -4387,10 +4677,27 @@ class Plugin(Root):
         interpreter."""
         self.interp = interp
 
-    def detach(self):
-        """Detach this plugin from any interpreter.  This breaks any
-        cyclical links between the interpreter and core."""
+    def detach(self, interp=None):
+        """Detach this plugin from an interpreter, or any interpreter if
+        not specified.  This breaks any cyclical links between the
+        interpreter and the plugin."""
+        if interp is not None and interp is not self.interp:
+            raise em.ConsistencyError("plugin not associated with this interpeter")
         self.interp = None
+
+    def push(self):
+        self.interp.push()
+
+    def pop(self):
+        self.interp.pop()
+
+    # DEPRECATED:
+
+    def register(self, interp):
+        self.attach(interp)
+
+    def deregister(self, interp=None):
+        self.detach(interp)
 
 #
 # Core
@@ -4427,13 +4734,6 @@ class Core(Plugin):
             yield self.tokens
 
     def __init__(self, **kwargs):
-        def extract(dict, key, default):
-            if key in dict:
-                value = dict.get(key)
-                del dict[key]
-            else:
-                value = default
-            return value
         evaluate = extract(kwargs, 'evaluate', None)
         if evaluate is not None:
             self.evaluate = evaluate
@@ -4562,22 +4862,11 @@ class Interpreter(Root):
     ASSIGN_TOKEN_RE = re.compile(r"[_a-zA-Z][_a-zA-Z0-9]*|\(|\)|,")
     AS_RE = re.compile(r"\bas\b")
 
-    # Statics.
-
-    _proxy = None # the installed proxy or None
-
     # Construction, initialization, destruction.
 
     def __init__(self, **kwargs):
         """Accept keyword arguments only, so users will never have to
         worry about the ordering of arguments."""
-        def extract(dict, key, default):
-            if key in dict:
-                value = dict.get(key)
-                del dict[key]
-            else:
-                value = default
-            return value
         self.ok = None # is the interpreter initialized?
         self.shuttingDown = False # is the interpreter shutting down?
         config = extract(kwargs, 'config', None)
@@ -4585,6 +4874,8 @@ class Interpreter(Root):
             config = Configuration()
         core = extract(kwargs, 'core', None)
         if core is None:
+            # Specifying the ...Func callbacks separately from the core is now
+            # DEPRECATED.
             core = Core(
                 evaluate=extract(kwargs, 'evalFunc', None),
                 execute=extract(kwargs, 'execFunc', None),
@@ -4611,6 +4902,7 @@ class Interpreter(Root):
             extract(kwargs, 'handler', None),
             extract(kwargs, 'input', sys.stdin),
             extract(kwargs, 'root', None),
+            extract(kwargs, 'origin', False),
             extract(kwargs, 'immediately', True),
         )
         if kwargs:
@@ -4653,7 +4945,7 @@ class Interpreter(Root):
                    executable=None, argv=None, filespec=None,
                    hooks=None, finalizers=None, filters=None, callback=None,
                    dispatcher=True, handler=None, input=sys.stdin, root=None,
-                   immediately=True):
+                   origin=False, immediately=True):
         """Initialize the interpreter with the given arguments (all of
         which have defaults).  The number and order of arguments here
         is subject to change."""
@@ -4684,10 +4976,11 @@ class Interpreter(Root):
         self.hooksEnabled = None
         for hook in hooks:
             self.addHook(hook)
-        # Initialize finalisers:
+        # Initialize finalizers:
         if finalizers is None:
             finalizers = []
-        self.finalizers = finalizers
+        self.finalizers = []
+        self.setFinalizers(finalizers)
         # Initialize dispatcher.
         if dispatcher is True:
             dispatcher = self.dispatch
@@ -4700,8 +4993,9 @@ class Interpreter(Root):
         self.handler = None
         if handler is not None:
             self.setHandler(handler)
-        # Install a proxy stdout if one hasn't been already..
-        self.output = self.installProxy(output)
+        # Install a proxy stdout if one hasn't been already.
+        self.output = self.bottom(output)
+        self.install(self.output)
         # Setup the execution core.
         self.insertCore(core)
         # Setup any extension.
@@ -4718,6 +5012,8 @@ class Interpreter(Root):
         if root is None:
             root = self.config.defaultRoot
         self.root = root
+        # Is this a top-level interpreter?
+        self.origin = origin
         # Now declare that we've started up.
         self.ok = True
         self.invoke('atStartup')
@@ -4729,8 +5025,16 @@ class Interpreter(Root):
         # Declare the interpreter ready.
         if immediately and not self.shuttingDown:
             self.ready()
-        # Install any necessary apparatus.
-        self.install()
+
+    def _deinitialize(self):
+        """Deinitialize by detaching all plugins.  Called at the end of
+        shutdown."""
+        self.clearHooks()
+        self._deregisterCallback()
+        self.clearFinalizers()
+        self.resetHandler()
+        self.uninstallExtension()
+        self.ejectCore()
 
     def reset(self, clearStacks=False):
         """Completely reset the interpreter state.  If clearStacks is
@@ -4738,6 +5042,7 @@ class Interpreter(Root):
         the interpreter ready."""
         self.ok = False
         self.error = None
+        self.enabled = True
         # None is a special sentinel meaning "false until added."
         self.hooksEnabled = len(self.hooks) > 0 and True or None
         # Set up a diversions dictionary.
@@ -4770,17 +5075,28 @@ class Interpreter(Root):
                 # order and we remove them as they're executed in case
                 # something bad happens.
                 while self.finalizers:
-                    final = self.finalizers.pop()
-                    if self.invoke('beforeFinalizer', finalizer=final):
+                    finalizer = self.finalizers.pop()
+                    if self.invoke('beforeFinalizer', finalizer=finalizer):
                         continue
-                    final()
+                    finalizer()
                     self.invoke('afterFinalizer')
+                    self.detach(finalizer)
             finally:
                 self.pop()
 
-    def install(self):
-        """Install any global apparatus necessary."""
-        return self.config.install()
+    def install(self, output):
+        """Given the desired output files, install any global
+        apparatus."""
+        self.installProxy(output)
+        if self.config.evocare() == 1:
+            self.installFinder()
+
+    def uninstall(self):
+        """Uninstall any global apparatus.  The apparatus should be
+        installed."""
+        self.uninstallProxy()
+        if self.config.evocare() is None:
+            self.uninstallFinder()
 
     def succeeded(self):
         """Did the interpreter succeed?  That is, is the logged
@@ -4797,7 +5113,7 @@ class Interpreter(Root):
     def shutdown(self):
         """Declare this interpreting session over; close all the
         stream file objects, and if this is the last interpreter,
-        uninstall the proxy.  This method is idempotent."""
+        uninstall the proxy and/or finder.  This method is idempotent."""
         if self.ok and not self.shuttingDown:
             self.shuttingDown = True
             # Finally, if we're supposed to go interactive afterwards, do it.
@@ -4821,11 +5137,13 @@ class Interpreter(Root):
                         stream.flush()
                 self.clear()
             finally:
-                self.uninstallProxy()
-            # Uninstall any extension.
-            self.uninstallExtension()
-            # Eject the core!
-            self.ejectCore()
+                self.uninstall()
+                if self.origin and self.evocare() is not None:
+                    raise ProxyError("proxy persists; did you not call shutdown?")
+            # Deinitialize (detach all plugins).
+            self._deinitialize()
+            # Do a final flush of all the streams.
+            self.flushAll()
             # Finally, pause if desired.
             if self.config.pauseAtEnd:
                 self.pause()
@@ -4839,6 +5157,41 @@ class Interpreter(Root):
         """Has this interpreter had an error (which we should not
         ignore)?"""
         return self.error and self.config.exitOnError
+
+    # Installation delegates.
+
+    def proxy(self, *args, **kwargs):
+        return self.config.proxy(*args, **kwargs)
+
+    def evocare(self, *args, **kwargs):
+        return self.config.evocare(*args, **kwargs)
+
+    def installProxy(self, *args, **kwargs):
+        before = self.config.evocare()
+        output = self.config.installProxy(*args, **kwargs)
+        proxy = self.config.proxy()
+        if proxy is not None:
+            self.invoke('atInstallProxy', proxy=proxy, new=(before is None))
+        return output
+
+    def uninstallProxy(self):
+        proxy = self.config.proxy()
+        self.config.uninstallProxy()
+        after = self.config.evocare()
+        self.invoke('atUninstallProxy', proxy=proxy, done=(after is None))
+
+    def checkProxy(self, *args, **kwargs):
+        return self.config.checkProxy(*args, **kwargs)
+
+    def installFinder(self, *args, **kwargs):
+        self.config.installFinder(*args, **kwargs)
+        finder = self.config.finder()
+        self.invoke('atInstallFinder', finder=finder)
+
+    def uninstallFinder(self):
+        finder = self.config.finder()
+        self.invoke('atUninstallFinder', finder=finder)
+        self.config.uninstallFinder()
 
     # Writeable file-like methods.
 
@@ -4863,6 +5216,10 @@ class Interpreter(Root):
         assert stream is not None
         stream.flush()
 
+    def flushAll(self):
+        for stream in self.streams:
+            stream.flush()
+
     def close(self):
         self.shutdown()
 
@@ -4875,6 +5232,16 @@ class Interpreter(Root):
         else:
             self.write(self.core.serialize(thing))
 
+    def bottom(self, output):
+        """Get the underlying bottom file."""
+        # If there's no output, check the bottom file in the proxy first.
+        if output is None:
+            output = getattr(self.config.proxy(), '_EmPy_bottom', None)
+        # Otherwise, default to the config's stdout.
+        if output is None:
+            output = self.config.defaultStdout
+        return output
+
     # Stream stack-related activity.
 
     def top(self):
@@ -4886,14 +5253,14 @@ class Interpreter(Root):
             try:
                 sys.stdout._EmPy_push(self)
             except AttributeError:
-                raise ConsistencyError("stdout proxy lost; cannot push stream")
+                raise ProxyError("proxy lost; cannot push stream")
 
     def pop(self):
         if self.config.useProxy and self.ok:
             try:
                 sys.stdout._EmPy_pop(self)
             except AttributeError:
-                raise ConsistencyError("stdout proxy lost; cannot pop stream")
+                raise ProxyError("proxy lost; cannot pop stream")
 
     def clear(self):
         self.streams.purge()
@@ -4908,25 +5275,31 @@ class Interpreter(Root):
 
     def include(self, fileOrFilename, locals=None, name=None):
         """Do an include pass on a file or filename."""
+        close = False
         if isinstance(fileOrFilename, strType):
             # Either it's a string representing a filename ...
             filename = fileOrFilename
             if not name:
                 name = filename
             file = self.config.open(filename, 'r')
+            close = True
         else:
             # ... or a file object.
             file = fileOrFilename
             if not name:
                 name = '<%s>' % toString(file.__class__.__name__)
-        if self.invoke('beforeInclude', file=file, locals=locals, name=name):
-            return
-        if name:
-            context = self.newContext(name)
-            self.pushContext(context)
-        self.file(file, locals)
-        if name:
-            self.popContext()
+        try:
+            if self.invoke('beforeInclude', file=file, locals=locals, name=name):
+                return
+            if name:
+                context = self.newContext(name)
+                self.pushContext(context)
+            self.file(file, locals)
+            if name:
+                self.popContext()
+        finally:
+            if close:
+                file.close()
         self.invoke('afterInclude')
 
     def expand(self, data, locals=None, name='<expand>', dispatcher=False):
@@ -5105,39 +5478,12 @@ class Interpreter(Root):
             pass
         self.invoke('afterFileFull')
 
-    def import_(self, filename, module, locals=None, dispatcher=None):
-        """Import an EmPy module."""
-        if self.invoke('beforeImport', filename=filename, module=module,
-                       locals=locals, dispatcher=dispatcher):
-            return
-        globals = self.globals
-        self.globals = vars(module)
-        self.fixGlobals()
-        switch = self.enabled
-        if not self.config.enableImportOutput:
-            self.disable()
-        context = self.newContext(filename)
-        self.pushContext(context)
-        try:
-            self.push()
-            file = self.config.open(filename, 'r')
-            try:
-                self.file(file, locals, dispatcher)
-            finally:
-                file.close()
-                self.pop()
-                self.globals = globals
-                self.enabled = switch
-            self.invoke('afterImport')
-        finally:
-            self.popContext()
-
-    def string(self, data, locals=None, dispatcher=None):
+    def string(self, string, locals=None, dispatcher=None):
         """Parse a string.  Cleans up after itself."""
-        if self.invoke('beforeString', string=data, locals=locals,
+        if self.invoke('beforeString', string=string, locals=locals,
                        dispatcher=dispatcher):
             return
-        scanner = Scanner(self.config, self.getContext(), self.currents, data)
+        scanner = Scanner(self.config, self.getContext(), self.currents, string)
         while not self.safe(scanner, True, locals, dispatcher):
             pass
         self.invoke('afterString')
@@ -5172,6 +5518,33 @@ class Interpreter(Root):
         except:
             if dispatcher():
                 return True
+
+    def import_(self, filename, module, locals=None, dispatcher=None):
+        """Import an EmPy module."""
+        if self.invoke('beforeImport', filename=filename, module=module,
+                       locals=locals, dispatcher=dispatcher):
+            return
+        globals = self.globals
+        self.globals = vars(module)
+        self.fixGlobals()
+        switch = self.enabled
+        if not self.config.enableImportOutput:
+            self.disable()
+        context = self.newContext(filename)
+        self.pushContext(context)
+        try:
+            self.push()
+            file = self.config.open(filename, 'r')
+            try:
+                self.file(file, locals, dispatcher)
+            finally:
+                file.close()
+                self.pop()
+                self.globals = globals
+                self.enabled = switch
+            self.invoke('afterImport')
+        finally:
+            self.popContext()
 
     def parse(self, scanner, locals=None):
         """Parse and run as much from this scanner as possible.  Return
@@ -5456,7 +5829,7 @@ class Interpreter(Root):
         variable is set; otherwise, don't do it regardless."""
         self.push()
         try:
-            if self.invoke('beforeEvaluate', 
+            if self.invoke('beforeEvaluate',
                            expression=expression, locals=locals, replace=replace):
                 return
             if replace and self.config.replaceNewlines:
@@ -5496,7 +5869,7 @@ class Interpreter(Root):
         entered into the Python interactive interpreter."""
         self.push()
         try:
-            if self.invoke('beforeSingle', 
+            if self.invoke('beforeSingle',
                            source=source, locals=locals):
                 return
             code = compile(source, '<single>', 'single')
@@ -5505,93 +5878,6 @@ class Interpreter(Root):
             return result
         finally:
             self.pop()
-
-    # Proxy.
-
-    def evocare(self, increment):
-        """Try to call the EmPy special method on the proxy with the
-        given increment argument and return the resulting count value.
-        If the magic method is not present (no proxy installed) return None."""
-        method = getattr(sys.stdout, '_EmPy_evocare', None)
-        if method is not None:
-            try:
-                return method(increment)
-            except:
-                raise ConsistencyError("proxy evocare method should not raise")
-        else:
-            return None
-
-    def installProxy(self, output=None):
-        """Install a proxy if necessary around the given output,
-        wrapped to be uncloseable, which can be None.  Return the
-        wrapped object (but not the proxy)."""
-        if not self.config.useProxy:
-            return UncloseableFile(self.config.defaultStdout)
-        # Unfortunately, there's no surefire way to make sure that installing a
-        # sys.stdout proxy is idempotent, what with different interpreters
-        # running from different modules.  The best we can do here is to try to
-        # access the special method on the proxy ...
-        count = self.evocare(+1)
-        if count is not None:
-            # ... and if it's present, this is definitely a proxy.  Record it.
-            if Interpreter._proxy is None:
-                Interpreter._proxy = sys.stdout
-            else:
-                if sys.stdout is not Interpreter._proxy:
-                    raise ConsistencyError("stdout proxy duplicated")
-            new = False
-            if output is None:
-                output = Interpreter._proxy._EmPy_bottom
-        else:
-            # ... but if the current sys.stdout object doesn't have one, then
-            # check to see if we think _this_ particular Interpreter class has
-            # installed it before ...
-            if Interpreter._proxy is not None:
-                # ... and if so, we have a problem.
-                raise ConsistencyError("stdout proxy lost; has sys.stdout been rebound?: %r" % sys.stdout)
-            else:
-                # If not, setup the output file, install the proxy, and
-                # increment the reference count.
-                if output is None:
-                    output = self.config.defaultStdout
-                sys.stdout = Interpreter._proxy = ProxyFile(output, self.config.proxyWrapper)
-                self.evocare(+1)
-            new = True
-        assert output is not None
-        self.invoke('atInstallProxy', proxy=Interpreter._proxy, new=new)
-        return output
-
-    def uninstallProxy(self):
-        """Uninstall a proxy if necessary."""
-        if not self.config.useProxy:
-            return
-        # Try decrementing the reference count; if it hits zero, it will
-        # automatically remove itself and restore sys.stdout.
-        try:
-            proxy = sys.stdout
-            done = not self.evocare(-1)
-            self.invoke('atUninstallProxy', proxy=proxy, done=done)
-        except AttributeError:
-            if Interpreter._proxy is not None:
-                raise ConsistencyError("stdout proxy lost; did you not call shutdown?: %r" % sys.stdout)
-        Interpreter._proxy = None
-
-    def checkProxy(self, abandonIsError=True):
-        """Check whether a proxy is installed.  Returns the
-        current reference count (positive means one is
-        installed), None (for no proxy installed), or 0 if the
-        proxy has been abandoned.  Thus, true means a proxy is
-        installed, false means one isn't.  If abandonIsError
-        is true, raise instead of returning 0 on abandonment."""
-        if not self.config.useProxy:
-            return False
-        count = self.evocare(0)
-        if count is not None:
-            if count == 0 and abandonIsError:
-                raise ConsistencyError("stdout proxy abandoned; proxy present but with zero reference count: %r" % sys.stdout)
-            return count
-        else:
-            return None
 
     #
     # Pseudomodule routines.
@@ -5692,21 +5978,43 @@ class Interpreter(Root):
         self.currents.replace(self.config.renderContext(context))
         self.invoke('restoreContext', context=context)
 
+    # Plugins.
+
+    def attach(self, plugin):
+        """Attach the plugin to this interpreter."""
+        if hasattr(plugin, 'attach'):
+            plugin.attach(self)
+
+    def detach(self, plugin):
+        """Detach the plugin from this interpreter."""
+        if hasattr(plugin, 'detach'):
+            plugin.detach(self)
+
     # Finalizers.
 
     def clearFinalizers(self):
         """Clear all finalizers."""
+        for finalizer in self.finalizers:
+            self.detach(finalizer)
         self.finalizers = []
 
     def appendFinalizer(self, finalizer):
         """Register a function to be called at exit."""
+        self.attach(finalizer)
         self.finalizers.append(finalizer)
 
     def prependFinalizer(self, finalizer):
         """Register a function to be called at exit."""
+        self.attach(finalizer)
         self.finalizers.insert(0, finalizer)
 
-    atExit = appendFinalizer
+    def setFinalizers(self, finalizers):
+        self.clearFinalizers()
+        for finalizer in finalizers:
+            self.attach(finalizer)
+        self.finalizers = finalizers
+
+    atExit = appendFinalizer # DEPRECATED
 
     # Globals.
 
@@ -5904,6 +6212,8 @@ class Interpreter(Root):
         """Attach a single filter to the end of the current filter chain."""
         self.top().append(filter)
 
+    attachFilter = appendFilter # DEPRECATED
+
     def setFilterChain(self, filters):
         """Set the filter."""
         self.top().install(filters)
@@ -5922,13 +6232,13 @@ class Interpreter(Root):
         """Insert and attach the execution core."""
         if core is None:
             core = Core()
-        core.attach(self)
+        self.attach(core)
         self.core = core
 
     def ejectCore(self):
         """Clear the execution core, breaking a potential cyclical link."""
         if self.core is not None:
-            self.core.detach()
+            self.detach(self.core)
             self.core = None
 
     def resetCore(self):
@@ -5947,7 +6257,7 @@ class Interpreter(Root):
         if self.extension is not None:
             raise ExtensionError("cannot replace an installed extension")
         self.extension = extension
-        extension.attach(self)
+        self.attach(extension)
         # Now make sure there are token classes for them.
         factory = self.config.getFactory()
         for first, name in extension.mapping.items():
@@ -5957,7 +6267,7 @@ class Interpreter(Root):
         """Uninstall any extension.  This should only be done by the
         interpreter itself at shutdown time."""
         if self.extension is not None:
-            self.extension.detach()
+            self.detach(self.extension)
             self.extension = None
 
     def callExtension(self, name, contents, depth, locals):
@@ -6019,7 +6329,7 @@ class Interpreter(Root):
 
     def addHook(self, hook, prepend=False):
         """Add a new hook; optionally insert it rather than appending it."""
-        hook.register(self)
+        self.attach(hook)
         if self.hooksEnabled is None:
             self.hooksEnabled = True
         if prepend:
@@ -6037,13 +6347,13 @@ class Interpreter(Root):
 
     def removeHook(self, hook):
         """Remove a preexisting hook."""
-        hook.deregister(self)
+        self.detach(hook)
         self.hooks.remove(hook)
 
     def clearHooks(self):
         """Clear all hooks."""
         for hook in self.hooks:
-            hook.deregister(self)
+            self.detach(hook)
         self.hooks = []
         self.hooksEnabled = None
 
@@ -6058,20 +6368,28 @@ class Interpreter(Root):
         interpreter, or None."""
         return self.callback
 
-    def registerCallback(self, callback):
+    def registerCallback(self, callback, extensionFactory=Extension):
         """Register a custom markup callback with this interpreter."""
         if self.callback:
             raise ExtensionError("old-style callbacks cannot be reregistered; use extensions instead")
         if self.hasExtension():
             raise ExtensionError("old-style callbacks cannot be registered over existing extension; add `angle_brackets` method to extension instead")
         self.callback = callback
-        extension = Extension(angle_brackets=callback)
+        self.attach(callback)
+        extension = extensionFactory(angle_brackets=callback)
         self.installExtension(extension)
 
     def deregisterCallback(self):
         """Remove any previously registered custom markup callback
         with this interpreter."""
         raise ExtensionError("old-style callbacks cannot be deregistered; use extensions instead")
+
+    def _deregisterCallback(self):
+        """Remove any previously registered custom markup callback
+        with this interpreter.  Internal use only."""
+        if self.callback is not None:
+            self.detach(self.callback)
+            self.callback = None
 
     def invokeCallback(self, contents):
         """Call the custom markup callback."""
@@ -6097,9 +6415,8 @@ class Interpreter(Root):
         if exitCode is None:
             exitCode = self.getExitCode()
         # If we are supposed to delete the file on error, do it.
-        if self.filespec is not None and self.config.deleteOnError:
-            # But don't do it on a successful exit.
-            if exitCode != self.config.successCode:
+        if exitCode != self.config.successCode and self.config.deleteOnError:
+            if self.filespec is not None:
                 os.remove(self.filespec[0])
 
     def reraise(self, *args):
@@ -6173,7 +6490,18 @@ class Interpreter(Root):
         """Set the current handler.  Additionally, specify whether
         errors should exit (defaults to false with a custom
         handler)."""
+        if self.handler is not None:
+            self.detach(self.handler)
+        self.attach(handler)
         self.handler = handler
+        if exitOnError is not None:
+            self.config.exitOnError = exitOnError
+
+    def resetHandler(self, exitOnError=None):
+        """Reset the current handler to the default."""
+        if self.handler is not None:
+            self.detach(self.handler)
+        self.handler = None
         if exitOnError is not None:
             self.config.exitOnError = exitOnError
 
@@ -6210,28 +6538,41 @@ class Interpreter(Root):
 # functions
 #
 
+def extract(dict, key, default):
+    """Retrieve the value of the given key in this dictionary, but delete
+    it first.  If the key is not present, use the given default."""
+    if key in dict:
+        value = dict.get(key)
+        del dict[key]
+    else:
+        value = default
+    return value
+
 def details(level, config=None, prelim="Welcome to ", postlim=".\n",
             file=sys.stdout):
     """Write some details, using the details subsystem if available."""
     if config is None:
         config = Configuration()
-    config.install(dryRun=True)
-    write = file.write
-    details = None
-    if level > Version.VERSION:
-        try:
-            import emlib
-            details = emlib.Details(config)
-        except ImportError:
-            raise ConfigurationError("missing emlib module; details subsystem not available")
-    if details:
-        try:
-            details.show(level, prelim, postlim, file)
-        except TypeError:
-            raise
-    else:
-        write("%s%s version %s%s" % (prelim, __project__, __version__, postlim))
-    sys.stdout.flush()
+    config.installFinder(dryRun=True)
+    try:
+        write = file.write
+        details = None
+        if level > Version.VERSION:
+            try:
+                import emlib
+                details = emlib.Details(config)
+            except ImportError:
+                raise ConfigurationError("missing emlib module; details subsystem not available")
+        if details is not None:
+            try:
+                details.show(level, prelim, postlim, file)
+            except TypeError:
+                raise
+        else:
+            write("%s%s version %s%s" % (prelim, __project__, __version__, postlim))
+        sys.stdout.flush()
+    finally:
+        config.uninstallFinder()
 
 def expand(data,
            _globals=None, _argv=None, _prefix=None, _pseudo=None, _options=None,
@@ -6244,15 +6585,8 @@ def expand(data,
     The sys.stdout object is saved off and then replaced before this
     function returns.  Any exception that occurs will be raised to the
     caller."""
-    def extract(dict, key, default=None):
-        if key in dict:
-            value = dict.get(key)
-            del dict[key]
-        else:
-            value = default
-        return value
     # For backward compatibility.  These arguments (starting with an
-    # underscore) are currently DEPRECATED.
+    # underscore) are now DEPRECATED.
     if _globals is not None:
         if 'globals' in kwargs:
             raise CompatibilityError("keyword arguments contain extra `globals` key; use keyword arguments")
@@ -6296,17 +6630,10 @@ def invoke(args, **kwargs):
     """Run a standalone instance of an EmPy interpreter with the given
     command line arguments.  See the Interpreter constructor for the
     keyword arguments."""
-    def extract(dict, key, default=None):
-        if key in dict:
-            value = dict.get(key)
-            del dict[key]
-        else:
-            value = default
-        return value
     # Get the defaults.
     config = extract(kwargs, 'config', None)
     errors = extract(kwargs, 'errors', ())
-    globals = extract(kwargs, 'globals', None)
+    globals = extract(kwargs, 'globals', {})
     hooks = extract(kwargs, 'hooks', [])
     output = extract(kwargs, 'output', None)
     for key in ['filespec', 'immediately']:
@@ -6327,6 +6654,8 @@ def invoke(args, **kwargs):
         nullFile = False
         preprocessing = []
         postprocessing = []
+        preinitializers = []
+        postinitializers = []
         configStatements = []
         configPaths = []
         immediately = False
@@ -6344,7 +6673,7 @@ def invoke(args, **kwargs):
         # Parse the arguments.
         try:
             SHORTS = 'VWZh?H:vp:qm:fkersidnc:Co:a:O:A:b:NLBP:Q:I:D:S:E:F:G:K:X:Y:wlux:y:z:gj'
-            LONGS = ['version', 'info', 'details', 'help', 'topic=', 'topics=', 'extended-help=', 'verbose', 'prefix=', 'no-prefix', 'no-output', 'pseudomodule=', 'module=', 'flatten', 'keep-going', 'ignore-errors', 'raw-errors', 'brief-errors', 'verbose-errors', 'interactive', 'delete-on-error', 'no-proxy', 'no-override-stdout', 'config=', 'configuration=', 'config-file=', 'configuration-file=', 'config-variable=', 'configuration-variable=', 'ignore-missing-config', 'output=' 'append=', 'output-binary=', 'append-binary=', 'output-mode=', 'input-mode=', 'buffering=', 'default-buffering', 'no-buffering', 'line-buffering', 'full-buffering', 'preprocess=', 'postprocess=', 'import=', 'define=', 'string=', 'execute=', 'file=', 'postfile=', 'postexecute=', 'expand=', 'postexpand=', 'pause-at-end', 'relative-path', 'replace-newlines', 'no-replace-newlines', 'ignore-bangpaths', 'no-ignore-bangpaths', 'expand-user', 'no-expand-user', 'auto-validate-icons', 'no-auto-validate-icons', 'none-symbol=', 'no-none-symbol', 'starting-line=', 'starting-column=', 'emoji-modules=', 'no-emoji-modules', 'disable-emoji-modules', 'ignore-emoji-not-found', 'binary', 'input-binary', 'unicode', 'encoding=', 'unicode-encoding=', 'input-encoding=', 'unicode-input-encoding=', 'output-encoding=', 'unicode-output-encoding=', 'errors=', 'unicode-errors=', 'input-errors=', 'unicode-input-errors=', 'output-errors=', 'unicode-output-errors=', 'normalization-form=', 'unicode-normalization-form=', 'auto-play-diversions', 'no-auto-play-diversions', 'check-variables', 'no-check-variables', 'path-separator=', 'enable-modules', 'disable-modules', 'module-extension=', 'module-finder-index=', 'enable-import-output', 'disable-import-output', 'context-format=', 'success-code=', 'failure-code=', 'unknown-code=', 'null-hook']
+            LONGS = ['version', 'info', 'details', 'help', 'topic=', 'topics=', 'extended-help=', 'verbose', 'prefix=', 'no-prefix', 'no-output', 'pseudomodule=', 'module=', 'flatten', 'keep-going', 'ignore-errors', 'raw-errors', 'brief-errors', 'verbose-errors', 'interactive', 'delete-on-error', 'no-proxy', 'no-override-stdout', 'config=', 'configuration=', 'config-file=', 'configuration-file=', 'config-variable=', 'configuration-variable=', 'ignore-missing-config', 'output=' 'append=', 'output-binary=', 'append-binary=', 'output-mode=', 'input-mode=', 'buffering=', 'default-buffering', 'no-buffering', 'line-buffering', 'full-buffering', 'preprocess=', 'postprocess=', 'import=', 'define=', 'string=', 'execute=', 'file=', 'postfile=', 'postexecute=', 'expand=', 'postexpand=', 'preinitializer=', 'postinitializer=', 'pause-at-end', 'relative-path', 'replace-newlines', 'no-replace-newlines', 'ignore-bangpaths', 'no-ignore-bangpaths', 'expand-user', 'no-expand-user', 'auto-validate-icons', 'no-auto-validate-icons', 'none-symbol=', 'no-none-symbol', 'starting-line=', 'starting-column=', 'emoji-modules=', 'no-emoji-modules', 'disable-emoji-modules', 'ignore-emoji-not-found', 'binary', 'input-binary', 'unicode', 'encoding=', 'unicode-encoding=', 'input-encoding=', 'unicode-input-encoding=', 'output-encoding=', 'unicode-output-encoding=', 'errors=', 'unicode-errors=', 'input-errors=', 'unicode-input-errors=', 'output-errors=', 'unicode-output-errors=', 'normalization-form=', 'unicode-normalization-form=', 'auto-play-diversions', 'no-auto-play-diversions', 'check-variables', 'no-check-variables', 'path-separator=', 'enable-modules', 'disable-modules', 'module-extension=', 'module-finder-index=', 'enable-import-output', 'disable-import-output', 'context-format=', 'success-code=', 'failure-code=', 'unknown-code=', 'null-hook', 'requirements=']
             pairs, argv = getopt.getopt(args, SHORTS, LONGS)
         except getopt.GetoptError:
             type, error, traceback = sys.exc_info()
@@ -6464,6 +6793,10 @@ def invoke(args, **kwargs):
                 preprocessing.append(ExpandCommand(argument))
             elif option in ['-Y', '--postexpand']:
                 postprocessing.append(ExpandCommand(argument))
+            elif option in ['--preinitializer']:
+                preinitializers.append(argument)
+            elif option in ['--postinitializer']:
+                postinitializers.append(argument)
             elif option in ['-w', '--pause-at-end']:
                 config.pauseAtEnd = True
             elif option in ['-l', '--relative-path']:
@@ -6565,6 +6898,14 @@ def invoke(args, **kwargs):
                     hooks.append(emlib.Hook())
                 except ImportError:
                     raise InvocationError("missing emlib module; --null-hook not available")
+            elif option in ['--requirements']:
+                try:
+                    import emlib
+                    det = emlib.Details()
+                    if not det.checkRequirements(argument):
+                        sys.exit(config.skipCode)
+                except ImportError:
+                    raise InvocationError("missing emlib module; cannot check requirements")
             else:
                 assert False, "unhandled option: %s" % option
         # Show the details and exit if desired.
@@ -6610,8 +6951,15 @@ def invoke(args, **kwargs):
                                    config.outputEncoding,
                                    config.outputErrors)
             filespec = None
+        # Run any pre-initializers.
+        for initializer in preinitializers:
+            file = config.open(initializer, 'r')
+            try:
+                data = file.read()
+                execFunc(data, globals, locals())
+            finally:
+                file.close()
         # Get ready!
-        exitCode = config.successCode
         kwargs['argv'] = argv
         kwargs['config'] = config
         kwargs['filespec'] = filespec
@@ -6632,16 +6980,26 @@ def invoke(args, **kwargs):
             # Finally, handle any cleanup.
             if interp is not None:
                 interp.shutdown()
+        # Run any post-initializers.
+        for initializer in postinitializers:
+            try:
+                file = config.open(initializer, 'r')
+                data = file.read()
+                execFunc(data, globals, locals())
+            finally:
+                file.close()
+    except SystemExit:
+        type, error, traceback = sys.exc_info()
+        if len(error.args) > 0:
+            exitCode = error.args[0] # okay even if a string
+        else:
+            exitCode = config.successCode
     except KeyboardInterrupt:
         if config.rawErrors:
             raise
         type, error, traceback = sys.exc_info()
         sys.stderr.write(config.formatError(error, "ERROR: ", "\n"))
         exitCode = config.failureCode
-    except SystemExit:
-        type, error, traceback = sys.exc_info()
-        if len(error.args) > 0:
-            exitCode = error.args[0] # okay even if a string
     except errors:
         if config.rawErrors:
             raise
@@ -6667,7 +7025,8 @@ def invoke(args, **kwargs):
 #
 
 def main():
-    exitCode = invoke(sys.argv[1:], executable=sys.argv[0], errors=None)
+    exitCode = invoke(sys.argv[1:],
+        executable=sys.argv[0], errors=None, origin=True)
     sys.exit(exitCode)
 
 if __name__ == '__main__': main()

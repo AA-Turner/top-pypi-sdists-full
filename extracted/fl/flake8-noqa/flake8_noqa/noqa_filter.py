@@ -23,12 +23,10 @@ if (TYPE_CHECKING):
 	from collections.abc import Iterator, Sequence
 
 
+package_name = (__package__ or 'flake8_noqa')
 try:
-	try:
-		from importlib.metadata import version
-	except ModuleNotFoundError:  # python < 3.8 use polyfill
-		from importlib_metadata import version  # type: ignore
-	package_version = version(__package__)
+	from importlib.metadata import version
+	package_version = version(package_name)
 except Exception:
 	package_version = 'unknown'
 
@@ -87,7 +85,7 @@ class Options(Protocol):
 class NoqaFilter:
 	"""Check noqa comments for proper formatting."""
 
-	name: ClassVar[str] = __package__.replace('_', '-')
+	name: ClassVar[str] = package_name.replace('_', '-')
 	version: ClassVar[str] = package_version
 	plugin_name: ClassVar[str]
 	require_code: ClassVar[bool]
@@ -195,10 +193,10 @@ class FileChecker(flake8.checker.FileChecker):
 
 	def report(self, error_code: (str | None), line_number: int, column: int, text: str, *args, **kwargs) -> str:
 		"""Capture report information."""
-		Report.add_report(self.processor.filename, error_code, line_number, column, text)
+		Report.add_report(self.filename, error_code, line_number, column, text)
 		return super().report(error_code, line_number, column, text, *args, **kwargs)
 
 
 # patch flake8
-flake8.style_guide.Violation = Violation
-flake8.checker.FileChecker = FileChecker
+flake8.style_guide.Violation = Violation  # ty: ignore[invalid-assignment]
+flake8.checker.FileChecker = FileChecker  # ty: ignore[invalid-assignment]

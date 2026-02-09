@@ -7,7 +7,7 @@ from adam.commands.medusa.utils_medusa import medusa_backup_names
 from adam.utils_k8s.statefulsets import StatefulSets
 from adam.repl_state import ReplState, RequiredState
 from adam.utils_k8s.custom_resources import CustomResources
-from adam.utils import log_exc
+from adam.utils_log import log_exc
 from adam.utils_tabulize import tabulize
 
 class MedusaRestore(Command):

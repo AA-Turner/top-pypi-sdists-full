@@ -2,7 +2,7 @@
 """
 Unit tests for Memory module with mocked HTTP responses.
 
-Tests the Memory singleton and V1MemoryClient without requiring the memory service to be running.
+Tests the Memory singleton and MemoryClient without requiring the memory service to be running.
 Uses unittest.mock to simulate API responses.
 """
 
@@ -11,12 +11,12 @@ from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
 import httpx
 
+from cuga.backend.memory.agentic_memory.client.memory_client import MemoryConfig
 from cuga.backend.memory.memory import Memory
-from cuga.backend.memory.agentic_memory import V1MemoryClient
+from cuga.backend.memory.agentic_memory import MemoryClient
 from cuga.backend.memory.agentic_memory.schema import Namespace, RecordedFact, Run
-from cuga.backend.memory.agentic_memory.client.exceptions import (
+from cuga.backend.memory.agentic_memory.utils.exceptions import (
     NamespaceNotFoundException,
-    FactNotFoundException,
     APIRequestException,
 )
 
@@ -36,18 +36,18 @@ class TestMemorySingleton:
         memory = Memory()
 
         assert hasattr(memory, 'memory_client')
-        assert isinstance(memory.memory_client, V1MemoryClient)
+        assert isinstance(memory.memory_client, MemoryClient)
         assert memory.user_id is None
 
 
-class TestV1MemoryClientMocked:
-    """Test suite for V1MemoryClient with mocked HTTP responses."""
+class TestMemoryClientMocked:
+    """Test suite for MemoryClient with mocked HTTP responses."""
 
     @pytest.fixture
     def mock_client(self):
-        """Create a V1MemoryClient with mocked httpx client."""
+        """Create a MemoryClient with mocked httpx client."""
         with patch('httpx.Client'):
-            client = V1MemoryClient(base_url="http://localhost:8888")
+            client = MemoryClient(base_url="http://localhost:8888")
             mock_httpx_instance = MagicMock()
             client.client = mock_httpx_instance
             yield client, mock_httpx_instance
@@ -398,9 +398,9 @@ class TestMemoryWrapperMocked:
 
     @pytest.fixture
     def mock_memory(self):
-        """Create a Memory instance with mocked V1MemoryClient."""
+        """Create a Memory instance with mocked MemoryClient."""
         with patch.object(Memory, '_initialized', False):
-            with patch('cuga.backend.memory.memory.V1MemoryClient') as mock_client_class:
+            with patch('cuga.backend.memory.memory.MemoryClient') as mock_client_class:
                 mock_client = MagicMock()
                 mock_client_class.return_value = mock_client
                 memory = Memory()
@@ -511,13 +511,13 @@ class TestMemoryWrapperMocked:
 
 
 class TestExceptionHandling:
-    """Test suite for exception handling in V1MemoryClient."""
+    """Test suite for exception handling in MemoryClient."""
 
     @pytest.fixture
     def mock_client(self):
-        """Create a V1MemoryClient with mocked httpx client."""
+        """Create a MemoryClient with mocked httpx client."""
         with patch('httpx.Client'):
-            client = V1MemoryClient(base_url="http://localhost:8888")
+            client = MemoryClient(base_url="http://localhost:8888")
             mock_httpx_instance = MagicMock()
             client.client = mock_httpx_instance
             yield client, mock_httpx_instance
@@ -560,28 +560,17 @@ class TestExceptionHandling:
         with pytest.raises(NamespaceNotFoundException):
             client.get_namespace_details("nonexistent")
 
-    def test_fact_not_found_error(self, mock_client):
-        """Test FactNotFoundException."""
-        client, mock_httpx = mock_client
-
-        mock_response = Mock()
-        mock_response.status_code = 404
-        mock_httpx.request.return_value = mock_response
-
-        with pytest.raises(FactNotFoundException):
-            client.delete_fact("test_ns", 999)
-
 
 class TestEdgeCases:
     """Test suite for edge cases and boundary conditions."""
 
     @pytest.fixture
     def mock_client(self):
-        """Create a V1MemoryClient with mocked httpx client."""
+        """Create a MemoryClient with mocked httpx client."""
         with patch('httpx.Client'):
-            client = V1MemoryClient(base_url="http://localhost:8888")
+            client = MemoryClient(config=MemoryConfig(provider='http'))
             mock_httpx_instance = MagicMock()
-            client.client = mock_httpx_instance
+            client.backend._client = mock_httpx_instance
             yield client, mock_httpx_instance
 
     def test_empty_query_search(self, mock_client):

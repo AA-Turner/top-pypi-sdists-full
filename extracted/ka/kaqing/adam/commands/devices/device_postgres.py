@@ -4,7 +4,7 @@ from adam.commands.devices.device import Device
 from adam.commands.postgres.postgres_databases import PostgresDatabases, pg_path
 from adam.commands.postgres.utils_postgres import pg_database_names, pg_table_names, postgres
 from adam.repl_state import ReplState
-from adam.utils import wait_log
+from adam.utils_log import wait_log
 from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 
@@ -163,11 +163,11 @@ class DevicePostgres(Command, Device):
 
     def exec_no_dir(self, command: str, state: ReplState, ctx: Context = Context.NULL):
         with postgres(state) as pod:
-            return pod.exec(command, ctx.copy(show_out=True, show_verbose=True))
+            return pod.exec(command, ctx.copy(show_out=True))
 
     def exec_with_dir(self, command: str, session_just_created: bool, state: ReplState, ctx: Context = Context.NULL):
         with postgres(state) as pod:
-            return pod.exec(command, ctx=ctx.copy(show_out=not session_just_created, show_verbose=not session_just_created))
+            return pod.exec(command, ctx=ctx.copy(show_out=not session_just_created))
 
     def bash_completion(self, cmd: str, state: ReplState, default: dict = {}):
         return {cmd: BashCompleter(lambda: [])}

@@ -2,7 +2,7 @@ from adam.commands.command import Command
 from adam.commands.postgres.postgres_databases import PostgresDatabases
 from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import ing
+from adam.utils_log import ing
 
 class UndeployPgAgent(Command):
     COMMAND = 'undeploy pg-agent'

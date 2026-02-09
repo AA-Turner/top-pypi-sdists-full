@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: banks
-Version: 2.3.0
+Version: 2.4.0
 Summary: A prompt programming language
 Project-URL: Documentation, https://github.com/masci/banks#readme
 Project-URL: Issues, https://github.com/masci/banks/issues
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.9
 Requires-Dist: deprecated
 Requires-Dist: eval-type-backport; python_version < '3.10'
+Requires-Dist: filetype>=1.2.0
 Requires-Dist: griffe
 Requires-Dist: jinja2
 Requires-Dist: platformdirs

@@ -4,7 +4,7 @@ import boto3
 import botocore
 
 from adam.config import Config
-from adam.utils import log2, log_exc, wait_log
+from adam.utils_log import log2, log_exc, wait_log
 from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 

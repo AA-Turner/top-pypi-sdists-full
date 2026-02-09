@@ -5,27 +5,27 @@
 namespace mlperf {
 
 const std::string& LoadgenVersion() {
-  static const std::string str = "6.0.9";
+  static const std::string str = "6.0.10";
   return str;
 }
 
 const std::string& LoadgenBuildDateLocal() {
-  static const std::string str = "2026-01-28T07:16:52.959599";
+  static const std::string str = "2026-02-06T17:40:02.299619";
   return str;
 }
 
 const std::string& LoadgenBuildDateUtc() {
-  static const std::string str = "2026-01-28T07:16:52.959616";
+  static const std::string str = "2026-02-06T17:40:02.299635";
   return str;
 }
 
 const std::string& LoadgenGitRevision() {
-  static const std::string str = "6520e394e9";
+  static const std::string str = "0b4aa6f62e";
   return str;
 }
 
 const std::string& LoadgenGitCommitDate() {
-  static const std::string str = "2026-01-28T07:16:10Z";
+  static const std::string str = "2026-02-06T17:39:21Z";
   return str;
 }
 
@@ -35,7 +35,7 @@ const std::string& LoadgenGitStatus() {
 }
 
 const std::string& LoadgenGitLog() {
-  static const std::string str = R"LGVG_RSLD(6520e394e942a88f9d2aa58acecfb10410e256c5 Increment version to 6.0.9)LGVG_RSLD";
+  static const std::string str = R"LGVG_RSLD(0b4aa6f62e9fc33fd816dd9725b29b6ce65831e2 Increment version to 6.0.10)LGVG_RSLD";
   return str;
 }
 
@@ -46,7 +46,7 @@ ddeb472d62edf2920db1f8fa3beebe3e831557f1 /MANIFEST.in
 e850133bdbbfa62c84bc05a7358114d8996e0530 /README.md
 a7e4fcdb5572fa084dcb084f1b4cb658b4b7f38f /README_BUILD.md
 01f9ae9887f50bc030dc6107e740f40c43ca388f /README_FAQ.md
-2f486418c89132d7eda49fe4737860bf2b4e3891 /VERSION.txt
+4badd8116e0802b47b58337d6c56a00d5a8ad2e8 /VERSION.txt
 d013101621ef06a0ddc5e7d9ce511918a8b2ebe6 /__init__.py
 14d178b64c7fc45d090e038c08d9b78ca943c383 /bindings/c_api.cc
 23d9f99e00b2d196e095fae0bb453a391c18d601 /bindings/c_api.h
@@ -62,8 +62,8 @@ ce9fcb5d44951e7e9048a83b7c1a41c8b8e0f7d8 /loadgen.h
 47f748307536f80cfc606947b440dd732afc2637 /loadgen_integration_diagram.svg
 49e63158ebca654fa4b7c5f3321054cf4d6c3a30 /logging.cc
 2102c91dedbaa156beadf0cecc63d2f43a2bd7dd /logging.h
-3bbbca89ffc0124358b2320156f0a5f893bd2f06 /mlperf.conf
-436881a8e29ed66d02327ef61fd5e89226135f97 /mlperf_conf.h
+661c4040c38284469c08cd866a4687107b3d1873 /mlperf.conf
+0bdb83f7ad95d931c7f93bf074d042d3b790705a /mlperf_conf.h
 712fab87b72ba67ef2a068d0f9f47da65130342f /pyproject.toml
 1f18e9cd3ee4dc89a387cf462de1d0ceb1ece975 /query_dispatch_library.h
 c4f399103bc3d172079bbd4cd2b0ca0f22eebc4f /query_sample.h

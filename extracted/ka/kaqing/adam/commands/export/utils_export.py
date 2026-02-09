@@ -3,14 +3,15 @@ import os
 import re
 
 from adam.config import Config
-from adam.utils import ExecResult, creating_dir, log2, log_to_pods
+from adam.utils import ExecResult
+from adam.utils_log import creating_dir
 from adam.repl_state import ReplState
 from adam.utils_cassandra.cassandra_nodes import CassandraNodes
 from adam.utils_context import Context
 from adam.utils_k8s.pod_files import PodFiles
 from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.statefulsets import StatefulSets
-from adam.utils_local import local_exec
+from adam.utils_log import log2
 
 class ImportSpec:
     def __init__(self, table_name: str, session: str = None, files: list[str] = None, importer: str = None):
@@ -201,7 +202,7 @@ class ExportTableStatus:
         statuses: list[ExportTableStatus] = []
 
         status_in_whole = 'done'
-        log_files: list[str] = PodFiles.find_files(pod, 'cassandra', namespace, f'{table_log_dir(pod, namespace)}/{export_session}_*.log*', remote=log_to_pods())
+        log_files: list[str] = PodFiles.find_files(pod, 'cassandra', namespace, f'{table_log_dir(pod, namespace)}/{export_session}_*.log*', remote=True)
 
         for log_file in log_files:
             status: ExportTableStatus = ExportTableStatus.from_log_file(pod, namespace, export_session, log_file)
@@ -216,7 +217,7 @@ class ExportTableStatus:
         def get_csv_files_n_table(target_table: str):
             db = f'{copy_session}_{target_table}'
             csv_file = f'{csv_dir()}/{db}/*.csv'
-            csv_files: list[str] = PodFiles.find_files(pod, 'cassandra', namespace, csv_file, remote=log_to_pods())
+            csv_files: list[str] = PodFiles.find_files(pod, 'cassandra', namespace, csv_file, remote=True)
             if csv_files:
                 table = target_table
                 m = re.match(f'{csv_dir()}/{db}/(.*).csv', csv_files[0])
@@ -239,11 +240,7 @@ class ExportTableStatus:
 
             # 4 rows exported to 1 files in 0 day, 0 hour, 0 minute, and 1.335 seconds.
             pattern = 'rows exported to'
-            if log_to_pods():
-                r: ExecResult = Pods.exec(pod, 'cassandra', namespace, f"grep '{pattern}' {log_file}", ctx=ctx)
-            else:
-                r: ExecResult = local_exec(["grep", pattern, log_file], show_out=ctx.debug)
-
+            r: ExecResult = Pods.exec(pod, 'cassandra', namespace, f"grep '{pattern}' {log_file}", ctx=ctx)
             if r.exit_code() == 0:
                 csv_files, table = get_csv_files_n_table(target_table)
                 if csv_files:
@@ -336,10 +333,7 @@ def state_with_pod(state: ReplState, pod: str = None):
     return PodPushHandler(state, pod=pod)
 
 def fs_exec(pod: str, namespace: str, cmd: str, ctx: Context = Context.NULL):
-    if log_to_pods():
-        CassandraNodes.exec(pod, namespace, cmd, ctx=ctx)
-    else:
-        os_system_exec(cmd, show_out=ctx.show_out)
+    CassandraNodes.exec(pod, namespace, cmd, ctx=ctx)
 
 def os_system_exec(cmd: str, show_out = False):
     if show_out:
@@ -351,10 +345,7 @@ def csv_dir():
     return Config().get('export.csv_dir', '/c3/cassandra/tmp')
 
 def table_log_dir(pod: str, namespace: str):
-    if log_to_pods():
-        return remote_export_log_dir(pod, namespace)
-    else:
-        return export_log_dir()
+    return remote_export_log_dir(pod, namespace)
 
 def export_log_dir():
     return creating_dir(Config().get('export.log-dir', '/tmp/qing-db/q/export/logs'))

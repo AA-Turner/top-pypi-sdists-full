@@ -297,7 +297,7 @@ class SUREVAE(nn.Module):
                 )
             
         self.decoder_log_mu = MLP(
-                [self.latent_dim+self.latent_dim+self.latent_dim] + self.decoder_hidden_layers + [self.input_dim],
+                [self.latent_dim] + self.decoder_hidden_layers + [self.input_dim],
                 activation=activate_fct,
                 output_activation=None,
                 post_layer_fct=post_layer_fct,
@@ -444,7 +444,7 @@ class SUREVAE(nn.Module):
             else:
                 zfs = torch.zeros_like(zs)
 
-            log_mu = self.decoder_log_mu([zs+zcs,zps,zfs])
+            log_mu = self.decoder_log_mu(zs+zcs+zps+zfs)
             if self.loss_func in ['bernoulli']:
                 log_theta = log_mu
             elif self.loss_func in ['negbinomial']:
@@ -707,7 +707,7 @@ class SUREVAE(nn.Module):
                     
                 zfs = torch.zeros_like(z_basal)
                 
-                log_mu = self.decoder_log_mu([z_basal+zcs,zps,zfs])
+                log_mu = self.decoder_log_mu(z_basal+zcs+zps+zfs)
                 if self.loss_func == 'bernoulli':
                     counts = dist.Bernoulli(logits=log_mu).to_event(1).mean
                 else:

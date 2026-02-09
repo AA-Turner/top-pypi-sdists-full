@@ -1,12 +1,74 @@
 # std imports
 import asyncio
+import threading
 
 # 3rd party
 import pytest
 
 # local
 import telnetlib3
-from telnetlib3.tests.accessories import unused_tcp_port, bind_host
+from telnetlib3.telopt import (
+    DO,
+    GA,
+    SB,
+    SE,
+    TM,
+    EOR,
+    IAC,
+    NOP,
+    SGA,
+    DONT,
+    ECHO,
+    NAWS,
+    WILL,
+    WONT,
+    TTYPE,
+    CMD_EOR,
+    option_from_name,
+)
+from telnetlib3.tests.accessories import (  # pylint: disable=unused-import
+    bind_host,
+    create_server,
+    open_connection,
+    unused_tcp_port,
+    asyncio_connection,
+)
+
+
+class SimulSLCServer(telnetlib3.BaseServer):
+    """Test server for SLC simulation in kludge mode."""
+
+    slc_callbacks = [
+        getattr(telnetlib3.slc, "SLC_" + key)
+        for key in (
+            "IP",
+            "AO",
+            "AYT",
+            "ABORT",
+            "EOF",
+            "SUSP",
+            "EC",
+            "EL",
+            "EW",
+            "RP",
+            "LNEXT",
+            "XON",
+            "XOFF",
+        )
+    ]
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.waiters = None
+
+    def connection_made(self, transport):
+        super().connection_made(transport)
+        self.waiters = {slc_cmd: asyncio.Future() for slc_cmd in self.slc_callbacks}
+
+        for slc_cmd in self.slc_callbacks:
+            self.writer.set_slc_callback(
+                slc_byte=slc_cmd, func=lambda byte: self.waiters[byte].set_result(byte)
+            )
 
 
 def test_writer_instantiation_safety():
@@ -24,19 +86,13 @@ def test_repr():
     """Test writer.__repr__ for client and server viewpoint."""
     srv = telnetlib3.TelnetWriter(transport=None, protocol=None, server=True)
     clt = telnetlib3.TelnetWriter(transport=None, protocol=None, client=True)
-    assert repr(srv) == (
-        "<TelnetWriter server " "mode:local +lineflow -xon_any +slc_sim>"
-    )
-    assert repr(clt) == (
-        "<TelnetWriter client " "mode:local +lineflow -xon_any +slc_sim>"
-    )
+    assert repr(srv) == ("<TelnetWriter server " "mode:local +lineflow -xon_any +slc_sim>")
+    assert repr(clt) == ("<TelnetWriter client " "mode:local +lineflow -xon_any +slc_sim>")
 
 
 def test_illegal_2byte_iac():
     """Given an illegal 2byte IAC command, raise ValueError."""
     writer = telnetlib3.TelnetWriter(transport=None, protocol=None, server=True)
-    from telnetlib3.telopt import IAC, SGA
-
     writer.feed_byte(IAC)
     with pytest.raises(ValueError):
         # IAC SGA(b'\x03'): not a legal 2-byte cmd
@@ -45,10 +101,6 @@ def test_illegal_2byte_iac():
 
 def test_legal_2byte_iac():
     """Nothing special about a 2-byte IAC, test wiring a callback."""
-    from telnetlib3.telopt import IAC, NOP
-
-    import threading
-
     called = threading.Event()
 
     def callback(cmd):
@@ -65,7 +117,7 @@ def test_legal_2byte_iac():
 
 
 def test_sb_interrupted():
-    """IAC SB gets interrupted by IAC command, reseting and exiting state."""
+    """IAC SB gets interrupted by IAC command, resetting and exiting state."""
     # when within an SB buffer, all SB protocols we know about remark that
     # IAC must be escaped -- for example, the NAWS negotiation of a 65535
     # by 0 window size should be '\xff\xff\xff\xff\x00\x00' -- so if we
@@ -76,13 +128,7 @@ def test_sb_interrupted():
     # instead of awaiting the unlikely SE, and throwing all intermediary bytes
     # out, we just clear what we have received so far within this so called
     # 'SB', and exit the sb buffering state.
-    from telnetlib3.telopt import IAC, SB, TM, SE
-
-    writer = telnetlib3.TelnetWriter(
-        transport=None,
-        protocol=None,
-        server=True,
-    )
+    writer = telnetlib3.TelnetWriter(transport=None, protocol=None, server=True)
 
     given = IAC + SB + b"sbdata-\xff\xff-sbdata"
     sb_expected = b"sbdata-\xff-sbdata"
@@ -111,109 +157,83 @@ def test_sb_interrupted():
 
 async def test_iac_do_twice_replies_once(bind_host, unused_tcp_port):
     """WILL/WONT replied only once for repeated DO."""
-    from telnetlib3.telopt import IAC, DO, WILL, ECHO
 
     async def shell(reader, writer):
         writer.close()
+        await writer.wait_closed()
 
-    # given,
     given_from_client = IAC + DO + ECHO + IAC + DO + ECHO
     expect_from_server = IAC + WILL + ECHO
 
-    await telnetlib3.create_server(
+    async with create_server(
         protocol_factory=telnetlib3.BaseServer,
         host=bind_host,
         shell=shell,
         port=unused_tcp_port,
         connect_maxwait=0.05,
-    )
-
-    client_reader, client_writer = await asyncio.open_connection(
-        host=bind_host, port=unused_tcp_port
-    )
-
-    # exercise,
-    client_writer.write(given_from_client)
-
-    # verify,
-    result_from_server = await asyncio.wait_for(client_reader.read(), 0.5)
-
-    assert result_from_server == expect_from_server
+    ):
+        async with asyncio_connection(bind_host, unused_tcp_port) as (client_reader, client_writer):
+            client_writer.write(given_from_client)
+            result_from_server = await asyncio.wait_for(client_reader.read(), 0.5)
+            assert result_from_server == expect_from_server
 
 
 async def test_iac_dont_dont(bind_host, unused_tcp_port):
     """WILL/WONT replied only once for repeated DO."""
-    from telnetlib3.telopt import IAC, DONT, ECHO
 
     async def shell(reader, writer):
         writer.close()
+        await writer.wait_closed()
 
-    # given,
     given_from_client = IAC + DONT + ECHO + IAC + DONT + ECHO
     expect_from_server = b""
 
-    await telnetlib3.create_server(
+    async with create_server(
         protocol_factory=telnetlib3.BaseServer,
         host=bind_host,
         shell=shell,
         port=unused_tcp_port,
         connect_maxwait=0.05,
-    )
-
-    client_reader, client_writer = await asyncio.open_connection(
-        host=bind_host, port=unused_tcp_port
-    )
-
-    # exercise,
-    client_writer.write(given_from_client)
-
-    # verify,
-    result_from_server = await asyncio.wait_for(client_reader.read(), 0.5)
-
-    assert result_from_server == expect_from_server
+    ):
+        async with asyncio_connection(bind_host, unused_tcp_port) as (client_reader, client_writer):
+            client_writer.write(given_from_client)
+            result_from_server = await asyncio.wait_for(client_reader.read(), 0.5)
+            assert result_from_server == expect_from_server
 
 
 async def test_send_iac_dont_dont(bind_host, unused_tcp_port):
     """Try a DONT and ensure it cannot be sent twice."""
-    from telnetlib3.telopt import DONT, ECHO
-
-    _waiter_connected = asyncio.Future()
-    _waiter_closed = asyncio.Future()
-
-    await telnetlib3.create_server(
+    async with create_server(
         protocol_factory=telnetlib3.BaseServer,
         host=bind_host,
         port=unused_tcp_port,
         connect_maxwait=0.05,
-        _waiter_connected=_waiter_connected,
-        _waiter_closed=_waiter_closed,
-    )
+    ) as server:
+        async with open_connection(
+            host=bind_host, port=unused_tcp_port, connect_minwait=0.05, connect_maxwait=0.05
+        ) as (_, client_writer):
+            # say it once,
+            result = client_writer.iac(DONT, ECHO)
+            assert result
 
-    _, client_writer = await telnetlib3.open_connection(
-        host=bind_host, port=unused_tcp_port, connect_minwait=0.05, connect_maxwait=0.05
-    )
+            # say it again (this call is suppressed)
+            result = client_writer.iac(DONT, ECHO)
+            assert result is False
 
-    # say it once,
-    result = client_writer.iac(DONT, ECHO)
-    assert result == True
+            srv_instance = await asyncio.wait_for(server.wait_for_client(), 3.0)
+            server_writer = srv_instance.writer
 
-    # say it again (this call is suppressed)
-    result = client_writer.iac(DONT, ECHO)
-    assert result == False
+        # Wait for server to process client disconnect
+        await asyncio.sleep(0.1)
 
-    server_writer = (await asyncio.wait_for(_waiter_connected, 0.5)).writer
-    client_writer.close()
-    await asyncio.wait_for(_waiter_closed, 0.5)
-
-    assert client_writer.remote_option[ECHO] is False, client_writer.remote_option
-    assert server_writer.local_option[ECHO] is False, server_writer.local_option
+        assert client_writer.remote_option[ECHO] is False, client_writer.remote_option
+        assert server_writer.local_option[ECHO] is False, server_writer.local_option
 
 
 async def test_slc_simul(bind_host, unused_tcp_port):
     """Test SLC control characters are simulated in kludge mode."""
     # For example, ^C is simulated as IP (Interrupt Process) callback.
-    from telnetlib3.telopt import IAC, DO, WILL, ECHO, SGA
-
+    #
     # First, change server state into kludge mode -- Then, send all control
     # characters.  We ensure all of our various callbacks that are simulated
     # by control characters were 'fired', as well as the raw bytes received
@@ -229,41 +249,9 @@ async def test_slc_simul(bind_host, unused_tcp_port):
 
         # then report what was received and hangup on client
         _waiter_input.set_result((writer.protocol.waiters, result))
-
         writer.close()
 
-    class SimulSLCServer(telnetlib3.BaseServer):
-        slc_callbacks = [
-            getattr(telnetlib3.slc, "SLC_" + key)
-            # no default value for break, sync, or end-of-record.
-            for key in (
-                "IP",
-                "AO",
-                "AYT",
-                "ABORT",
-                "EOF",
-                "SUSP",
-                "EC",
-                "EL",
-                "EW",
-                "RP",
-                "LNEXT",
-                "XON",
-                "XOFF",
-            )
-        ]
-
-        def connection_made(self, transport):
-            super().connection_made(transport)
-            self.waiters = {slc_cmd: asyncio.Future() for slc_cmd in self.slc_callbacks}
-
-            for slc_cmd in self.slc_callbacks:
-                self.writer.set_slc_callback(
-                    slc_byte=slc_cmd,
-                    func=lambda byte: self.waiters[byte].set_result(byte),
-                )
-
-    await telnetlib3.create_server(
+    server = await telnetlib3.create_server(
         protocol_factory=SimulSLCServer,
         host=bind_host,
         shell=shell,
@@ -272,52 +260,45 @@ async def test_slc_simul(bind_host, unused_tcp_port):
         encoding=False,
     )
 
-    client_reader, client_writer = await asyncio.open_connection(
-        host=bind_host,
-        port=unused_tcp_port,
-    )
+    try:
+        client_reader, client_writer = await asyncio.open_connection(
+            host=bind_host, port=unused_tcp_port
+        )
 
-    # exercise,
-    client_writer.write(given_input_outband)
-    client_writer.write(given_input_inband)
-    await client_writer.drain()
-    result = await client_reader.readexactly(len(expected_from_server))
-    assert result == expected_from_server
-    client_writer.close()
+        # exercise
+        client_writer.write(given_input_outband)
+        client_writer.write(given_input_inband)
+        await client_writer.drain()
+        result = await client_reader.readexactly(len(expected_from_server))
+        assert result == expected_from_server
+        client_writer.close()
 
-    # verify,
-    callbacks, data_received = await asyncio.wait_for(_waiter_input, 0.5)
-    for byte, waiter in callbacks.items():
-        assert waiter.done(), telnetlib3.slc.name_slc_command(byte)
-    assert data_received == given_input_inband
+        # verify
+        callbacks, data_received = await asyncio.wait_for(_waiter_input, 0.5)
+        for byte, waiter in callbacks.items():
+            assert waiter.done(), telnetlib3.slc.name_slc_command(byte)
+        assert data_received == given_input_inband
+    finally:
+        server.close()
+        await server.wait_closed()
 
 
 async def test_unhandled_do_sends_wont(bind_host, unused_tcp_port):
     """An unhandled DO is denied by WONT."""
-    from telnetlib3.telopt import IAC, DO, NOP, WONT
-
     given_input_outband = IAC + DO + NOP
     expected_output = IAC + WONT + NOP
 
-    await telnetlib3.create_server(
+    async with create_server(
         protocol_factory=telnetlib3.BaseServer,
         host=bind_host,
         port=unused_tcp_port,
         connect_maxwait=0.05,
         encoding=False,
-    )
-
-    client_reader, client_writer = await asyncio.open_connection(
-        host=bind_host,
-        port=unused_tcp_port,
-    )
-
-    # exercise,
-    client_writer.write(given_input_outband)
-    result = await asyncio.wait_for(
-        client_reader.readexactly(len(expected_output)), 0.5
-    )
-    assert result == expected_output
+    ):
+        async with asyncio_connection(bind_host, unused_tcp_port) as (client_reader, client_writer):
+            client_writer.write(given_input_outband)
+            result = await asyncio.wait_for(client_reader.readexactly(len(expected_output)), 0.5)
+            assert result == expected_output
 
 
 async def test_writelines_bytes(bind_host, unused_tcp_port):
@@ -328,25 +309,19 @@ async def test_writelines_bytes(bind_host, unused_tcp_port):
     async def shell(reader, writer):
         writer.writelines(given)
         writer.close()
+        await writer.wait_closed()
 
-    await telnetlib3.create_server(
+    async with create_server(
         protocol_factory=telnetlib3.BaseServer,
         host=bind_host,
         shell=shell,
         port=unused_tcp_port,
         connect_maxwait=0.05,
         encoding=False,
-    )
-
-    client_reader, client_writer = await asyncio.open_connection(
-        host=bind_host,
-        port=unused_tcp_port,
-    )
-
-    # verify,
-    result = await asyncio.wait_for(client_reader.read(), 0.5)
-
-    assert result == expected
+    ):
+        async with asyncio_connection(bind_host, unused_tcp_port) as (client_reader, client_writer):
+            result = await asyncio.wait_for(client_reader.read(), 0.5)
+            assert result == expected
 
 
 async def test_writelines_unicode(bind_host, unused_tcp_port):
@@ -357,31 +332,23 @@ async def test_writelines_unicode(bind_host, unused_tcp_port):
     async def shell(reader, writer):
         writer.writelines(given)
         writer.close()
+        await writer.wait_closed()
 
-    await telnetlib3.create_server(
+    async with create_server(
         protocol_factory=telnetlib3.BaseServer,
         host=bind_host,
         shell=shell,
         port=unused_tcp_port,
         connect_maxwait=0.05,
         encoding="ascii",
-    )
-
-    client_reader, client_writer = await asyncio.open_connection(
-        host=bind_host,
-        port=unused_tcp_port,
-    )
-
-    # verify,
-    result = await asyncio.wait_for(client_reader.read(), 0.5)
-
-    assert result == expected
+    ):
+        async with asyncio_connection(bind_host, unused_tcp_port) as (client_reader, client_writer):
+            result = await asyncio.wait_for(client_reader.read(), 0.5)
+            assert result == expected
 
 
 def test_bad_iac():
     """Test using writer.iac for something outside of DO/DONT/WILL/WONT."""
-    from telnetlib3.telopt import NOP
-
     writer = telnetlib3.TelnetWriter(transport=None, protocol=None, server=True)
     with pytest.raises(ValueError):
         writer.iac(NOP)
@@ -389,38 +356,29 @@ def test_bad_iac():
 
 async def test_send_ga(bind_host, unused_tcp_port):
     """Writer sends IAC + GA when SGA is not negotiated."""
-    from telnetlib3.telopt import IAC, GA
-
     expected = IAC + GA
 
     async def shell(reader, writer):
         result = writer.send_ga()
         assert result is True
         writer.close()
+        await writer.wait_closed()
 
-    await telnetlib3.create_server(
+    async with create_server(
         protocol_factory=telnetlib3.BaseServer,
         host=bind_host,
         shell=shell,
         port=unused_tcp_port,
         connect_maxwait=0.05,
-    )
-
-    client_reader, client_writer = await asyncio.open_connection(
-        host=bind_host, port=unused_tcp_port
-    )
-
-    # verify,
-    result = await asyncio.wait_for(client_reader.read(), 0.5)
-
-    assert result == expected
+    ):
+        async with asyncio_connection(bind_host, unused_tcp_port) as (client_reader, client_writer):
+            result = await asyncio.wait_for(client_reader.read(), 0.5)
+            assert result == expected
 
 
 async def test_not_send_ga(bind_host, unused_tcp_port):
     """Writer does not send IAC + GA when SGA is negotiated."""
-    from telnetlib3.telopt import IAC, DO, WILL, SGA
-
-    # we requires IAC + DO + SGA, and expect a confirming reply.  We also
+    # we require IAC + DO + SGA, and expect a confirming reply.  We also
     # call writer.send_ga() from the shell, whose result should be False
     # (not sent).  The reader never receives an IAC + GA.
     expected = IAC + WILL + SGA
@@ -429,24 +387,19 @@ async def test_not_send_ga(bind_host, unused_tcp_port):
         result = writer.send_ga()
         assert result is False
         writer.close()
+        await writer.wait_closed()
 
-    await telnetlib3.create_server(
+    async with create_server(
         protocol_factory=telnetlib3.BaseServer,
         host=bind_host,
         shell=shell,
         port=unused_tcp_port,
         connect_maxwait=0.05,
-    )
-
-    client_reader, client_writer = await asyncio.open_connection(
-        host=bind_host, port=unused_tcp_port
-    )
-
-    client_writer.write(IAC + DO + SGA)
-
-    # verify,
-    result = await asyncio.wait_for(client_reader.read(), 0.5)
-    assert result == expected
+    ):
+        async with asyncio_connection(bind_host, unused_tcp_port) as (client_reader, client_writer):
+            client_writer.write(IAC + DO + SGA)
+            result = await asyncio.wait_for(client_reader.read(), 0.5)
+            assert result == expected
 
 
 async def test_not_send_eor(bind_host, unused_tcp_port):
@@ -457,29 +410,22 @@ async def test_not_send_eor(bind_host, unused_tcp_port):
         result = writer.send_eor()
         assert result is False
         writer.close()
+        await writer.wait_closed()
 
-    await telnetlib3.create_server(
+    async with create_server(
         protocol_factory=telnetlib3.BaseServer,
         host=bind_host,
         shell=shell,
         port=unused_tcp_port,
         connect_maxwait=0.05,
-    )
-
-    client_reader, client_writer = await asyncio.open_connection(
-        host=bind_host, port=unused_tcp_port
-    )
-
-    # verify,
-    result = await asyncio.wait_for(client_reader.read(), 0.5)
-
-    assert result == expected
+    ):
+        async with asyncio_connection(bind_host, unused_tcp_port) as (client_reader, client_writer):
+            result = await asyncio.wait_for(client_reader.read(), 0.5)
+            assert result == expected
 
 
 async def test_send_eor(bind_host, unused_tcp_port):
     """Writer sends IAC + EOR if client requests by DO."""
-    from telnetlib3.telopt import IAC, DO, WILL, CMD_EOR, EOR
-
     given = IAC + DO + EOR
     expected = IAC + WILL + EOR + b"<" + IAC + CMD_EOR + b">"
 
@@ -493,24 +439,19 @@ async def test_send_eor(bind_host, unused_tcp_port):
         assert result is True
         writer.write(">")
         writer.close()
+        await writer.wait_closed()
 
-    await telnetlib3.create_server(
+    async with create_server(
         protocol_factory=telnetlib3.BaseServer,
         host=bind_host,
         shell=shell,
         port=unused_tcp_port,
         connect_maxwait=0.05,
-    )
-
-    client_reader, client_writer = await asyncio.open_connection(
-        host=bind_host, port=unused_tcp_port
-    )
-
-    # verify,
-    client_writer.write(given)
-    result = await asyncio.wait_for(client_reader.read(), 0.5)
-
-    assert result == expected
+    ):
+        async with asyncio_connection(bind_host, unused_tcp_port) as (client_reader, client_writer):
+            client_writer.write(given)
+            result = await asyncio.wait_for(client_reader.read(), 0.5)
+            assert result == expected
 
 
 async def test_wait_closed():
@@ -567,3 +508,145 @@ async def test_wait_closed():
 
     # Test calling wait_closed() after close() - should complete immediately
     await writer.wait_closed()  # Should complete immediately
+
+
+def test_option_from_name():
+    """Test option_from_name returns correct option bytes."""
+    assert option_from_name("NAWS") == NAWS
+    assert option_from_name("naws") == NAWS
+    assert option_from_name("TTYPE") == TTYPE
+    assert option_from_name("ECHO") == ECHO
+
+    with pytest.raises(KeyError):
+        option_from_name("INVALID_OPTION")
+
+
+async def test_wait_for_immediate_return():
+    """Test wait_for returns immediately when conditions already met."""
+    writer = telnetlib3.TelnetWriter(transport=None, protocol=None, server=True)
+    writer.remote_option[ECHO] = True
+
+    result = await writer.wait_for(remote={"ECHO": True})
+    assert result is True
+
+
+async def test_wait_for_remote_option():
+    """Test wait_for waits for remote option to become true."""
+    writer = telnetlib3.TelnetWriter(transport=None, protocol=None, server=True)
+
+    async def set_option_later():
+        await asyncio.sleep(0.01)
+        writer.remote_option[ECHO] = True
+
+    task = asyncio.create_task(set_option_later())
+    result = await asyncio.wait_for(writer.wait_for(remote={"ECHO": True}), 0.5)
+    assert result is True
+    await task
+
+
+async def test_wait_for_local_option():
+    """Test wait_for waits for local option to become true."""
+    writer = telnetlib3.TelnetWriter(transport=None, protocol=None, server=True)
+
+    async def set_option_later():
+        await asyncio.sleep(0.01)
+        writer.local_option[ECHO] = True
+
+    task = asyncio.create_task(set_option_later())
+    result = await asyncio.wait_for(writer.wait_for(local={"ECHO": True}), 0.5)
+    assert result is True
+    await task
+
+
+async def test_wait_for_pending_false():
+    """Test wait_for waits for pending option to become false."""
+    writer = telnetlib3.TelnetWriter(transport=None, protocol=None, server=True)
+    writer.pending_option[DO + TTYPE] = True
+
+    async def clear_pending_later():
+        await asyncio.sleep(0.01)
+        writer.pending_option[DO + TTYPE] = False
+
+    task = asyncio.create_task(clear_pending_later())
+    result = await asyncio.wait_for(writer.wait_for(pending={"TTYPE": False}), 0.5)
+    assert result is True
+    await task
+
+
+async def test_wait_for_combined_conditions():
+    """Test wait_for with multiple conditions."""
+    writer = telnetlib3.TelnetWriter(transport=None, protocol=None, server=True)
+
+    async def set_options_later():
+        await asyncio.sleep(0.01)
+        writer.remote_option[ECHO] = True
+        await asyncio.sleep(0.01)
+        writer.local_option[NAWS] = True
+
+    task = asyncio.create_task(set_options_later())
+    result = await asyncio.wait_for(
+        writer.wait_for(remote={"ECHO": True}, local={"NAWS": True}), 0.5
+    )
+    assert result is True
+    await task
+
+
+async def test_wait_for_invalid_option():
+    """Test wait_for raises KeyError for invalid option names."""
+    writer = telnetlib3.TelnetWriter(transport=None, protocol=None, server=True)
+
+    with pytest.raises(KeyError):
+        await writer.wait_for(remote={"INVALID": True})
+
+
+async def test_wait_for_cancelled_on_close():
+    """Test wait_for is cancelled when connection closes."""
+    writer = telnetlib3.TelnetWriter(transport=None, protocol=None, server=True)
+
+    wait_task = asyncio.create_task(writer.wait_for(remote={"ECHO": True}))
+    await asyncio.sleep(0.01)
+
+    assert not wait_task.done()
+    writer.close()
+
+    with pytest.raises(asyncio.CancelledError):
+        await wait_task
+
+
+async def test_wait_for_condition_immediate():
+    """Test wait_for_condition returns immediately when condition met."""
+    writer = telnetlib3.TelnetWriter(transport=None, protocol=None, server=True)
+
+    result = await writer.wait_for_condition(lambda w: w.server is True)
+    assert result is True
+
+
+async def test_wait_for_condition_waits():
+    """Test wait_for_condition waits for condition to become true."""
+    writer = telnetlib3.TelnetWriter(transport=None, protocol=None, server=True)
+
+    async def set_option_later():
+        await asyncio.sleep(0.01)
+        writer.remote_option[ECHO] = True
+
+    task = asyncio.create_task(set_option_later())
+    result = await asyncio.wait_for(
+        writer.wait_for_condition(lambda w: w.remote_option.enabled(ECHO)), 0.5
+    )
+    assert result is True
+    await task
+
+
+async def test_wait_for_cleanup_on_success():
+    """Test that waiters are cleaned up after successful completion."""
+    writer = telnetlib3.TelnetWriter(transport=None, protocol=None, server=True)
+
+    async def set_option_later():
+        await asyncio.sleep(0.01)
+        writer.remote_option[ECHO] = True
+
+    task = asyncio.create_task(set_option_later())
+    await asyncio.wait_for(writer.wait_for(remote={"ECHO": True}), 0.5)
+    await task
+
+    assert len(writer._waiters) == 0

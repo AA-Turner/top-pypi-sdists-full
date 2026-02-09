@@ -175,16 +175,6 @@ pub enum Expr {
     Len,
     #[cfg(feature = "dtype-struct")]
     Field(Arc<[PlSmallStr]>),
-    AnonymousAgg {
-        /// function arguments
-        input: Vec<Expr>,
-        /// function to apply
-        function: OpaqueStreamingAgg,
-
-        /// used for formatting
-        #[cfg_attr(any(feature = "serde", feature = "dsl-schema"), serde(skip))]
-        fmt_str: Box<PlSmallStr>,
-    },
     AnonymousFunction {
         /// function arguments
         input: Vec<Expr>,
@@ -212,10 +202,18 @@ pub enum Expr {
         expr: Arc<Expr>,
         evaluation: Vec<Expr>,
     },
-    SubPlan(SpecialEq<Arc<DslPlan>>, Vec<String>),
+    /// SQL SubQueries
+    SubPlan(SpecialEq<Arc<DslPlan>>, Vec<PlSmallStr>),
     RenameAlias {
         function: RenameAliasFn,
         expr: Arc<Expr>,
+    },
+    /// Not a real expression. This is meant
+    /// as catch-all for IR expressions that
+    /// are not supported by DSL.
+    Display {
+        inputs: Vec<Expr>,
+        fmt_str: Box<PlSmallStr>,
     },
 }
 
@@ -403,20 +401,12 @@ impl Hash for Expr {
                 offset.hash(state);
                 length.hash(state);
             },
-            // Expr::Exclude(input, excl) => {
-            //     input.hash(state);
-            //     excl.hash(state);
-            // },
             Expr::RenameAlias { function, expr } => {
                 function.hash(state);
                 expr.hash(state);
             },
-            Expr::AnonymousAgg {
-                input,
-                function: _,
-                fmt_str,
-            } => {
-                input.hash(state);
+            Expr::Display { inputs, fmt_str } => {
+                inputs.hash(state);
                 fmt_str.hash(state);
             },
             Expr::AnonymousFunction {

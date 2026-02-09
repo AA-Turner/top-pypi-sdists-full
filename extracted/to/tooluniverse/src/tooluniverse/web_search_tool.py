@@ -5,9 +5,17 @@ This module provides web search capabilities using the ddgs library,
 which supports multiple search engines including DuckDuckGo, Google, Bing, etc.
 """
 
+import json
+import re
+import subprocess
+import sys
 import time
-from typing import Dict, Any, List
-from ddgs import DDGS
+from html import unescape
+from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import parse_qs, unquote, urlparse
+
+import requests
+
 from .base_tool import BaseTool
 from .tool_registry import register_tool
 
@@ -46,44 +54,280 @@ class WebSearchTool(BaseTool):
         Returns:
             List of search results with title, url, and snippet
         """
-        try:
-            # Create DDGS instance
-            ddgs = DDGS()
+        # Run DDGS in a subprocess so native-library panics cannot crash the
+        # current ToolUniverse process.
+        payload = {
+            "query": query,
+            "max_results": max_results,
+            "backend": backend,
+            "region": region,
+            "safesearch": safesearch,
+        }
+        ddgs_script = """
+import json
+import sys
+from ddgs import DDGS
 
-            # Perform search using DDGS
-            search_results = list(
-                ddgs.text(
+args = json.loads(sys.argv[1])
+results = list(
+    DDGS().text(
+        query=args["query"],
+        max_results=args["max_results"],
+        backend=args["backend"],
+        region=args["region"],
+        safesearch=args["safesearch"],
+    )
+)
+print(json.dumps(results))
+"""
+
+        completed = subprocess.run(
+            [sys.executable, "-c", ddgs_script, json.dumps(payload)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        if completed.returncode != 0:
+            stderr_preview = (completed.stderr or "").strip()[:300]
+            stdout_preview = (completed.stdout or "").strip()[:300]
+            detail = stderr_preview or stdout_preview or "Unknown subprocess failure"
+            raise RuntimeError(
+                f"DDGS subprocess failed with exit code {completed.returncode}: {detail}"
+            )
+
+        try:
+            search_results = json.loads(completed.stdout or "[]")
+        except json.JSONDecodeError as error:
+            raise RuntimeError(
+                f"DDGS subprocess returned invalid JSON: {str(error)}"
+            ) from error
+
+        # Convert DDGS results to our expected format
+        results = []
+        for i, result in enumerate(search_results):
+            results.append(
+                {
+                    "title": result.get("title", ""),
+                    "url": result.get("href", ""),
+                    "snippet": result.get("body", ""),
+                    "rank": i + 1,
+                }
+            )
+
+        return results
+
+    def _search_with_fallback(
+        self,
+        query: str,
+        max_results: int,
+        backend: str,
+        region: str,
+        safesearch: str,
+    ) -> Tuple[
+        List[Dict[str, Any]],
+        Optional[str],
+        List[str],
+        Optional[str],
+        Dict[str, str],
+    ]:
+        """
+        Search with backend fallback strategy.
+
+        Returns:
+            (results, backend_used, attempted_backends, warning, provider_errors)
+        """
+        attempted_backends = []
+        last_error = None
+        provider_errors: Dict[str, str] = {}
+        had_empty_success = False
+        backends_to_try = [backend]
+        stop_ddgs_backends = False
+
+        if backend == "auto":
+            # Try the explicit DuckDuckGo backend first. It tends to fail with
+            # regular Python exceptions in restricted environments, while some
+            # other backends can trigger native panics.
+            backends_to_try = ["duckduckgo", "auto", "bing", "brave"]
+        else:
+            backends_to_try.append("auto")
+
+        seen = set()
+        unique_backends = []
+        for backend_name in backends_to_try:
+            if backend_name not in seen:
+                seen.add(backend_name)
+                unique_backends.append(backend_name)
+
+        for backend_name in unique_backends:
+            if stop_ddgs_backends:
+                break
+
+            attempted_backends.append(backend_name)
+            try:
+                results = self._search_with_ddgs(
                     query=query,
                     max_results=max_results,
-                    backend=backend,
+                    backend=backend_name,
                     region=region,
                     safesearch=safesearch,
                 )
+                if results:
+                    return (
+                        results,
+                        backend_name,
+                        attempted_backends,
+                        None,
+                        provider_errors,
+                    )
+                had_empty_success = True
+            except Exception as error:
+                error_str = str(error)
+                last_error = error_str
+                provider_errors[backend_name] = error_str
+                # If DNS resolution is unavailable, additional DDGS backends
+                # are unlikely to help and may trigger avoidable native panics.
+                if any(
+                    token in error_str
+                    for token in [
+                        "NameResolutionError",
+                        "nodename nor servname provided",
+                        "Temporary failure in name resolution",
+                    ]
+                ):
+                    stop_ddgs_backends = True
+                continue
+
+        # Fallback providers that do not depend on DDGS.
+        provider_chain = [
+            ("duckduckgo_html", self._search_with_duckduckgo_html),
+            ("wikipedia_api", self._search_with_wikipedia_api),
+        ]
+
+        for provider_name, provider_func in provider_chain:
+            attempted_backends.append(provider_name)
+            try:
+                results = provider_func(query=query, max_results=max_results)
+                if results:
+                    return (
+                        results,
+                        provider_name,
+                        attempted_backends,
+                        None,
+                        provider_errors,
+                    )
+                had_empty_success = True
+            except Exception as error:
+                last_error = str(error)
+                provider_errors[provider_name] = str(error)
+                continue
+
+        # Return clean empty set + last error context when every provider fails
+        # or no provider had results.
+        if had_empty_success:
+            return [], "empty", attempted_backends, None, provider_errors
+
+        warning = (
+            "All search providers failed"
+            if provider_errors
+            else (last_error or "No search providers returned results")
+        )
+        return [], "none", attempted_backends, warning, provider_errors
+
+    def _search_with_duckduckgo_html(
+        self, query: str, max_results: int
+    ) -> List[Dict[str, Any]]:
+        """Fallback provider: parse DuckDuckGo HTML results without DDGS."""
+        response = requests.get(
+            "https://duckduckgo.com/html/",
+            params={"q": query},
+            timeout=15,
+            headers={"User-Agent": "ToolUniverse/1.0"},
+        )
+        response.raise_for_status()
+        html_text = response.text
+
+        result_pattern = re.compile(
+            r'<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>',
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        snippet_pattern = re.compile(
+            r'<a[^>]*class="result__snippet"[^>]*>(.*?)</a>',
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+
+        anchors = result_pattern.findall(html_text)
+        snippets = snippet_pattern.findall(html_text)
+        results = []
+
+        for index, (href, raw_title) in enumerate(anchors[:max_results], start=1):
+            parsed_href = href
+            if href.startswith("/l/?") or "uddg=" in href:
+                parsed = urlparse(href)
+                query_map = parse_qs(parsed.query)
+                uddg_values = query_map.get("uddg")
+                if uddg_values:
+                    parsed_href = unquote(uddg_values[0])
+
+            clean_title = unescape(re.sub(r"<[^>]+>", "", raw_title)).strip()
+            raw_snippet = snippets[index - 1] if index - 1 < len(snippets) else ""
+            clean_snippet = unescape(re.sub(r"<[^>]+>", "", raw_snippet)).strip()
+
+            if not parsed_href:
+                continue
+
+            results.append(
+                {
+                    "title": clean_title,
+                    "url": parsed_href,
+                    "snippet": clean_snippet,
+                    "rank": index,
+                }
             )
 
-            # Convert DDGS results to our expected format
-            results = []
-            for i, result in enumerate(search_results):
-                results.append(
-                    {
-                        "title": result.get("title", ""),
-                        "url": result.get("href", ""),
-                        "snippet": result.get("body", ""),
-                        "rank": i + 1,
-                    }
-                )
+        return results
 
-            return results
+    def _search_with_wikipedia_api(
+        self, query: str, max_results: int
+    ) -> List[Dict[str, Any]]:
+        """Fallback provider: Wikipedia OpenSearch API."""
+        response = requests.get(
+            "https://en.wikipedia.org/w/api.php",
+            params={
+                "action": "opensearch",
+                "search": query,
+                "limit": max_results,
+                "namespace": 0,
+                "format": "json",
+            },
+            timeout=15,
+            headers={"User-Agent": "ToolUniverse/1.0"},
+        )
+        response.raise_for_status()
+        data = response.json()
 
-        except Exception as e:
-            return [
+        if not isinstance(data, list) or len(data) < 4:
+            return []
+
+        titles = data[1] if isinstance(data[1], list) else []
+        descriptions = data[2] if isinstance(data[2], list) else []
+        urls = data[3] if isinstance(data[3], list) else []
+
+        results = []
+        for index, title in enumerate(titles[:max_results], start=1):
+            url = urls[index - 1] if index - 1 < len(urls) else ""
+            snippet = descriptions[index - 1] if index - 1 < len(descriptions) else ""
+            if not url:
+                continue
+            results.append(
                 {
-                    "title": "Search Error",
-                    "url": "",
-                    "snippet": f"Failed to perform search: {str(e)}",
-                    "rank": 0,
+                    "title": str(title),
+                    "url": str(url),
+                    "snippet": str(snippet),
+                    "rank": index,
                 }
-            ]
+            )
+        return results
 
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -110,11 +354,13 @@ class WebSearchTool(BaseTool):
             safesearch = arguments.get("safesearch", "moderate")
 
             if not query:
+                error_msg = "Query parameter is required"
                 return {
                     "status": "error",
+                    "error": error_msg,
                     "data": {
                         "status": "error",
-                        "error": "Query parameter is required",
+                        "error": error_msg,
                         "query": "",
                         "total_results": 0,
                         "results": [],
@@ -132,14 +378,38 @@ class WebSearchTool(BaseTool):
             elif search_type == "github":
                 query = f"{query} site:github.com"
 
-            # Perform search using DDGS
-            results = self._search_with_ddgs(
+            # Perform search using fallback backends to improve reliability.
+            (
+                results,
+                backend_used,
+                attempted_backends,
+                search_warning,
+                provider_errors,
+            ) = self._search_with_fallback(
                 query=query,
                 max_results=max_results,
                 backend=backend,
                 region=region,
                 safesearch=safesearch,
             )
+
+            if search_warning:
+                return {
+                    "status": "success",
+                    "warning": search_warning,
+                    "data": {
+                        "status": "success",
+                        "query": query,
+                        "search_type": search_type,
+                        "total_results": 0,
+                        "results": [],
+                        "attempted_backends": attempted_backends,
+                        "backend_used": backend_used or "none",
+                        "all_providers_failed": backend_used == "none",
+                        "provider_errors": provider_errors,
+                        "warning": search_warning,
+                    },
+                }
 
             # Add rate limiting to be respectful
             time.sleep(0.5)
@@ -150,16 +420,22 @@ class WebSearchTool(BaseTool):
                 "search_type": search_type,
                 "total_results": len(results),
                 "results": results,
+                "backend_used": backend_used or backend,
+                "attempted_backends": attempted_backends,
             }
+            if provider_errors:
+                result_data["provider_errors"] = provider_errors
 
             return {"status": "success", "data": result_data}
 
         except Exception as e:
+            error_msg = str(e)
             return {
                 "status": "error",
+                "error": error_msg,
                 "data": {
                     "status": "error",
-                    "error": str(e),
+                    "error": error_msg,
                     "query": arguments.get("query", ""),
                     "total_results": 0,
                     "results": [],
@@ -196,11 +472,13 @@ class WebAPIDocumentationSearchTool(WebSearchTool):
             backend = arguments.get("backend", "auto")
 
             if not query:
+                error_msg = "Query parameter is required"
                 return {
                     "status": "error",
+                    "error": error_msg,
                     "data": {
                         "status": "error",
-                        "error": "Query parameter is required",
+                        "error": error_msg,
                         "query": "",
                         "total_results": 0,
                         "results": [],
@@ -255,11 +533,13 @@ class WebAPIDocumentationSearchTool(WebSearchTool):
             return result
 
         except Exception as e:
+            error_msg = str(e)
             return {
                 "status": "error",
+                "error": error_msg,
                 "data": {
                     "status": "error",
-                    "error": str(e),
+                    "error": error_msg,
                     "query": arguments.get("query", ""),
                     "total_results": 0,
                     "results": [],

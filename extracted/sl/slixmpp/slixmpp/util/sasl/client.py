@@ -2,14 +2,14 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~
 # This module was originally based on Dave Cridland's Suelta library.
 # Part of Slixmpp: The Slick XMPP Library
-# :copryight: (c) 2004-2013 David Alan Cridland
+# :copyright: (c) 2004-2013 David Alan Cridland
 # :copyright: (c) 2013 Nathanael C. Fritz, Lance J.T. Stout
 # :license: MIT, see LICENSE for more details
 from __future__ import annotations
 import logging
 import stringprep
 
-from typing import Iterable, Set, Callable, Dict, Any, Optional, Type
+from typing import Iterable, Callable, Any, Optional, Type
 from slixmpp.util import hashes, bytes, stringprep_profiles
 
 
@@ -17,11 +17,11 @@ log = logging.getLogger(__name__)
 
 
 #: Global registry mapping mechanism names to implementation classes.
-MECHANISMS: Dict[str, Type[Mech]] = {}
+MECHANISMS: dict[str, Type[Mech]] = {}
 
 
 #: Global registry mapping mechanism names to security scores.
-MECH_SEC_SCORES: Dict[str, int] = {}
+MECH_SEC_SCORES: dict[str, int] = {}
 
 
 #: The SASLprep profile of stringprep used to validate simple username
@@ -101,9 +101,9 @@ class Mech(object):
     score = -1
     use_hashes = False
     channel_binding = False
-    required_credentials: Set[str] = set()
-    optional_credentials: Set[str] = set()
-    security: Set[str] = set()
+    required_credentials: set[str] = set()
+    optional_credentials: set[str] = set()
+    security: set[str] = set()
 
     def __init__(self, name, credentials, security_settings):
         self.credentials = credentials
@@ -120,13 +120,13 @@ class Mech(object):
         return b''
 
 
-CredentialsCallback = Callable[[Iterable[str], Iterable[str]], Dict[str, Any]]
-SecurityCallback = Callable[[Iterable[str]], Dict[str, Any]]
+CredentialsCallback = Callable[[Iterable[str], Iterable[str]], dict[str, Any]]
+SecurityCallback = Callable[[Iterable[str]], dict[str, Any]]
 
 
-def choose(mech_list: Iterable[Type[Mech]], credentials: CredentialsCallback,
+def choose(mech_list: Iterable[str], credentials: CredentialsCallback,
            security_settings: SecurityCallback,
-           limit: Optional[Iterable[Type[Mech]]] = None,
+           limit: Optional[Iterable[str]] = None,
            min_mech: Optional[str] = None) -> Mech:
     available_mechs = set(MECHANISMS.keys())
     if limit is None:

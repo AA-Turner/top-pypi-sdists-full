@@ -106,12 +106,13 @@ from sage.categories.action import Action
 from sage.categories.hopf_algebras_with_basis import HopfAlgebrasWithBasis
 from sage.categories.quotient_fields import QuotientFields
 from sage.structure.unique_representation import UniqueRepresentation
-from sage.rings.polynomial.infinite_polynomial_ring import InfinitePolynomialRing
-from sage.rings.polynomial.infinite_polynomial_element import InfinitePolynomial
 from sage.rings.fraction_field import FractionField_generic
 from sage.rings.fraction_field_element import FractionFieldElement
 from sage.misc.cachefunc import cached_method
+
 lazy_import('sage.combinat.sf.sfa', ['_variables_recursive', '_raise_variables'])
+lazy_import('sage.rings.polynomial.infinite_polynomial_ring', 'InfinitePolynomialRing')
+lazy_import('sage.rings.polynomial.infinite_polynomial_element', 'InfinitePolynomial')
 
 
 class Stream:
@@ -1282,6 +1283,7 @@ class VariablePool(UniqueRepresentation):
 
         EXAMPLES::
 
+            sage: # needs sage.modules
             sage: from sage.data_structures.stream import VariablePool
             sage: R.<a> = InfinitePolynomialRing(QQ)
             sage: P = VariablePool(R)
@@ -1296,6 +1298,7 @@ class VariablePool(UniqueRepresentation):
 
         EXAMPLES::
 
+            sage: # needs sage.modules
             sage: from sage.data_structures.stream import VariablePool
             sage: R.<a> = InfinitePolynomialRing(QQ)
             sage: P = VariablePool(R)
@@ -1307,6 +1310,7 @@ class VariablePool(UniqueRepresentation):
         Check, that we get a new pool for each
         :class:`InfinitePolynomialRing`::
 
+            sage: # needs sage.modules
             sage: R0.<b> = InfinitePolynomialRing(QQ)
             sage: P0 = VariablePool(R0)
             sage: P0.new_variable()
@@ -1324,12 +1328,12 @@ class VariablePool(UniqueRepresentation):
 
         EXAMPLES::
 
+            sage: # needs sage.modules
             sage: from sage.data_structures.stream import VariablePool
             sage: R.<a> = InfinitePolynomialRing(QQ)
             sage: P = VariablePool(R)
             sage: v = P.new_variable(); v
             a_1
-
             sage: P.del_variable(v)
             sage: v = P.new_variable(); v
             a_1
@@ -1342,6 +1346,7 @@ class VariablePool(UniqueRepresentation):
 
         EXAMPLES::
 
+            sage: # needs sage.modules
             sage: from sage.data_structures.stream import VariablePool
             sage: R.<a> = InfinitePolynomialRing(QQ)
             sage: P = VariablePool(R)
@@ -1369,6 +1374,7 @@ class DominatingAction(Action):
 
         EXAMPLES::
 
+            sage: # needs sage.modules
             sage: from sage.data_structures.stream import CoefficientRing
             sage: PF = CoefficientRing(ZZ)
             sage: g = PF.gen(0)
@@ -1414,6 +1420,7 @@ class CoefficientRing(UniqueRepresentation, FractionField_generic):
 
         EXAMPLES::
 
+            sage: # needs sage.modules
             sage: from sage.data_structures.stream import CoefficientRing
             sage: PF = CoefficientRing(ZZ)
             sage: S.<q, t> = PF[]
@@ -1423,18 +1430,19 @@ class CoefficientRing(UniqueRepresentation, FractionField_generic):
             FESDUMMY_0*q
             sage: p.parent()
             Multivariate Polynomial Ring in q, t over CoefficientRing over Integer Ring
-
             sage: p = c + q
             sage: p
             q + FESDUMMY_0
             sage: p.parent()
             Multivariate Polynomial Ring in q, t over CoefficientRing over Integer Ring
 
+            sage: # needs sage.modules
             sage: L.<a,b> = LazyPowerSeriesRing(ZZ)
             sage: p = a + c
             sage: p.parent()
             Multivariate Lazy Taylor Series Ring in a, b over CoefficientRing over Integer Ring
 
+            sage: # needs sage.modules
             sage: S.<q, t> = ZZ[]
             sage: PF = CoefficientRing(S)
             sage: L.<a, b> = LazyPowerSeriesRing(S)
@@ -1443,6 +1451,7 @@ class CoefficientRing(UniqueRepresentation, FractionField_generic):
             sage: p.parent()
             Multivariate Lazy Taylor Series Ring in a, b over CoefficientRing over Multivariate Polynomial Ring in q, t over Integer Ring
 
+            sage: # needs sage.modules
             sage: PF = CoefficientRing(ZZ)
             sage: S.<q, t> = PF[]
             sage: L.<a, b> = LazyPowerSeriesRing(ZZ)
@@ -1476,6 +1485,7 @@ class CoefficientRing(UniqueRepresentation, FractionField_generic):
 
         EXAMPLES::
 
+            sage: # needs sage.modules
             sage: from sage.data_structures.stream import CoefficientRing
             sage: CoefficientRing(ZZ["q"])
             CoefficientRing over Univariate Polynomial Ring in q over Integer Ring
@@ -1490,6 +1500,7 @@ class CoefficientRing(UniqueRepresentation, FractionField_generic):
 
         EXAMPLES::
 
+            sage: # needs sage.modules
             sage: from sage.data_structures.stream import CoefficientRing
             sage: PF = CoefficientRing(ZZ["q"])
             sage: PF.gen(0)
@@ -1503,6 +1514,7 @@ class CoefficientRing(UniqueRepresentation, FractionField_generic):
 
         EXAMPLES::
 
+            sage: # needs sage.modules
             sage: from sage.data_structures.stream import CoefficientRing
             sage: R = ZZ['q']
             sage: S = QQ['t']['a','q']
@@ -1686,7 +1698,7 @@ class Stream_uninitialized(Stream):
             sage: D = Stream_add(x, Stream_cauchy_mul(C, C, True), True)
             sage: eq = Stream_sub(C, D, True)
             sage: C.define_implicitly([C], [], [eq], QQ, QQ, terms_of_degree)
-            sage: C[6]
+            sage: C[6]                                                                  # needs sage.libs.pari
             42
         """
         assert self._target is None
@@ -1739,6 +1751,7 @@ class Stream_uninitialized(Stream):
 
         EXAMPLES::
 
+            sage: # needs sage.modules
             sage: from sage.data_structures.stream import Stream_uninitialized, Stream_exact, Stream_cauchy_mul, Stream_add, Stream_sub
             sage: terms_of_degree = lambda n, R: [R.one()]
             sage: x = Stream_exact([1], order=1)
@@ -1788,9 +1801,9 @@ class Stream_uninitialized(Stream):
             sage: C.define_implicitly([C], [], [eq], QQ, QQ, terms_of_degree)
             sage: C._good_cache
             [0, 0, 0, 0]
-            sage: C[1]
+            sage: C[1]                                                                  # needs sage.libs.pari
             1
-            sage: C._good_cache
+            sage: C._good_cache                                                         # needs sage.libs.pari
             [1, 0, 1, 0]
         """
         g = []
@@ -1945,7 +1958,7 @@ class Stream_uninitialized(Stream):
             sage: D = Stream_add(x, Stream_cauchy_mul(C, C, True), True)
             sage: eq = Stream_sub(C, D, True)
             sage: C.define_implicitly([C], [], [eq], QQ, QQ, terms_of_degree)
-            sage: C[3]  # indirect doctest
+            sage: C[3]  # indirect doctest                                              # needs sage.libs.pari
             2
         """
         def subs(c, var, val):
@@ -2022,6 +2035,7 @@ class Stream_uninitialized(Stream):
 
         EXAMPLES::
 
+            sage: # needs sage.modules
             sage: from sage.data_structures.stream import Stream_uninitialized, Stream_cauchy_mul, Stream_sub
             sage: terms_of_degree = lambda n, R: [R.one()]
             sage: C = Stream_uninitialized(0)
@@ -2029,7 +2043,7 @@ class Stream_uninitialized(Stream):
             sage: C.define_implicitly([C], [], [eq], QQ, QQ, terms_of_degree)
             sage: C._uncomputed = False
             sage: C._collect_equations(0)
-            ([], [[(0, -FESDUMMY_0^2 + FESDUMMY_0)]])
+            ([], [[(0, -FESDUMMY_...^2 + FESDUMMY_...)]])
         """
         lin_coeffs = []
         all_coeffs = []  # only for the error message
@@ -2095,12 +2109,12 @@ class Stream_uninitialized(Stream):
             sage: C._uncomputed = False
             sage: lin_coeffs, all_coeffs = C._collect_equations(0)
             sage: C._cache
-            [FESDUMMY_1]
+            [FESDUMMY_...]
             sage: lin_coeffs
-            [FESDUMMY_1 - 1]
-            sage: C._solve_linear_equations_and_subs(lin_coeffs)
+            [FESDUMMY_... - 1]
+            sage: C._solve_linear_equations_and_subs(lin_coeffs)                        # needs sage.libs.pari
             True
-            sage: C._cache
+            sage: C._cache                                                              # needs sage.libs.pari
             [1]
         """
         from sage.rings.polynomial.multi_polynomial_sequence import PolynomialSequence
@@ -2152,7 +2166,7 @@ class Stream_uninitialized(Stream):
             sage: D = Stream_add(x, Stream_cauchy_mul(C, C, True), True)
             sage: eq = Stream_sub(C, D, True)
             sage: C.define_implicitly([C], [], [eq], QQ, QQ, terms_of_degree)
-            sage: C[3]  # indirect doctest
+            sage: C[3]  # indirect doctest                                              # needs sage.libs.pari
             2
         """
         # determine the next linear equations
@@ -2191,6 +2205,7 @@ class Stream_uninitialized(Stream):
 
         EXAMPLES::
 
+            sage: # needs sage.modules
             sage: from sage.data_structures.stream import Stream_uninitialized, Stream_cauchy_mul, Stream_sub
             sage: terms_of_degree = lambda n, R: [R.one()]
             sage: C = Stream_uninitialized(0)
@@ -2553,9 +2568,7 @@ class Stream_binaryCommutative(Stream_binary):
             return False
         if self._left == other._left and self._right == other._right:
             return True
-        if self._left == other._right and self._right == other._left:
-            return True
-        return False
+        return self._left == other._right and self._right == other._left
 
 
 class Stream_zero(Stream):
@@ -4289,7 +4302,7 @@ class Stream_truncated(Stream_unary):
             3
         """
         super().__init__(series, series._is_sparse, False)
-        assert isinstance(series, Stream_inexact)
+        assert isinstance(series, (Stream_inexact, Stream_uninitialized))
         # We share self._series._cache but not self._series._approximate order
         # self._approximate_order cannot be updated by self._series.__getitem__
         self._cache = series._cache
@@ -4953,9 +4966,8 @@ class Stream_infinite_operator(Stream):
         if not isinstance(other, type(self)):
             return True
         ao = min(self._approximate_order, other._approximate_order)
-        if any(self[i] != other[i] for i in range(ao, min(self._cur_order, other._cur_order))):
-            return True
-        return False
+        return any(self[i] != other[i]
+                   for i in range(ao, min(self._cur_order, other._cur_order)))
 
     def is_nonzero(self):
         r"""

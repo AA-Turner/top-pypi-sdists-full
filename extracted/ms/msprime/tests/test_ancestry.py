@@ -891,6 +891,171 @@ class TestSimulator:
         assert len(s) > 0
 
 
+class TestSimulateAfterLocalMRCA:
+
+    def check_roots(self, ts, end_time=None, allow_multiple_roots=False):
+        if allow_multiple_roots:
+            root_times = [tree.time(tree.roots[0]) for tree in ts.trees()]
+        else:
+            root_times = [tree.time(tree.root) for tree in ts.trees()]
+        assert len(set(root_times)) == 1
+        if end_time is not None:
+            assert root_times[0] == end_time
+
+    @pytest.mark.parametrize(
+        "model",
+        [
+            "dtwf",
+            "hudson",
+            msprime.BetaCoalescent(alpha=1.5),
+            msprime.DiracCoalescent(psi=0.1, c=2),
+        ],
+    )
+    def test_single_models(self, model):
+        tss = msprime.sim_ancestry(
+            10,
+            population_size=10,
+            stop_at_local_mrca=False,
+            random_seed=1,
+            sequence_length=10,
+            recombination_rate=0.1,
+            model=model,
+            num_replicates=10,
+        )
+        for ts in tss:
+            self.check_roots(ts)
+
+    def test_fixed_pedigree_full_trace(self):
+        # The pedigree used has this shape:
+        #         O
+        #         |
+        #         O
+        #        / \
+        #       O   O
+        #       \\ //
+        #         O
+        #        / \
+        #       O   O
+        #       \\ //
+        #         O
+        eldest_time = 5
+        pb = msprime.PedigreeBuilder()
+        gggpa = pb.add_individual(time=eldest_time)
+        ggpa = pb.add_individual(time=4, parents=[gggpa, gggpa])
+        # first diamound
+        gmom = pb.add_individual(time=3, parents=[ggpa, ggpa])
+        gdad = pb.add_individual(time=3, parents=[ggpa, ggpa])
+        grandpa_id = pb.add_individual(time=2, parents=[gmom, gdad])
+        # second diamond
+        mom_id = pb.add_individual(time=1, parents=[grandpa_id, grandpa_id])
+        dad_id = pb.add_individual(time=1, parents=[grandpa_id, grandpa_id])
+        pb.add_individual(time=0, parents=[mom_id, dad_id], is_sample=True)
+        pedigree = pb.finalise(100)
+
+        ts = msprime.sim_ancestry(
+            initial_state=pedigree,
+            stop_at_local_mrca=False,
+            coalescing_segments_only=False,
+            additional_nodes=(
+                msprime.NodeType.RECOMBINANT
+                | msprime.NodeType.PASS_THROUGH
+                | msprime.NodeType.COMMON_ANCESTOR
+            ),
+            recombination_rate=0.01,
+            model="fixed_pedigree",
+        )
+        for tree in ts.trees():
+            for sample in ts.samples():
+                path = [sample] + list(tree.ancestors(sample))
+                time = ts.nodes_time[path]
+                # Each sample should pass through each level of the pedigree.
+                np.testing.assert_array_equal(time, np.arange(eldest_time + 1))
+
+    def test_multiple_models(self):
+        """
+        To test multiple models, we run simulations with end time < first models
+        duration and test (that would be using the first model). Then we run again
+        until end_time too large to cover the second model.
+        """
+        end_time = 499
+        ts = msprime.sim_ancestry(
+            2,
+            population_size=100,
+            model=[
+                msprime.DiscreteTimeWrightFisher(duration=500),
+                msprime.StandardCoalescent(),
+            ],
+            random_seed=2,
+            recombination_rate=0.1,
+            sequence_length=10,
+            stop_at_local_mrca=False,
+            end_time=end_time,
+        )
+
+        self.check_roots(ts, end_time, allow_multiple_roots=True)
+
+        ts = msprime.sim_ancestry(
+            2,
+            population_size=100,
+            model=[
+                msprime.DiscreteTimeWrightFisher(duration=500),
+                msprime.StandardCoalescent(),
+            ],
+            random_seed=2,
+            recombination_rate=0.1,
+            sequence_length=10,
+            stop_at_local_mrca=False,
+        )
+        self.check_roots(ts)
+
+    @pytest.mark.parametrize(
+        "model",
+        [
+            "dtwf",
+            "hudson",
+        ],
+    )
+    def test_migration(self, model):
+        demography = msprime.Demography.stepping_stone_model(
+            [100, 100], migration_rate=0.01
+        )
+        ts = msprime.sim_ancestry(
+            {0: 2, 1: 1},
+            demography=demography,
+            stop_at_local_mrca=False,
+            recombination_rate=0.01,
+            sequence_length=10,
+            model=model,
+        )
+        self.check_roots(ts)
+
+    @pytest.mark.parametrize(
+        "model",
+        [
+            "dtwf",
+            "hudson",
+        ],
+    )
+    def test_additional_nodes(self, model):
+
+        ts = msprime.sim_ancestry(
+            2,
+            population_size=10,
+            random_seed=2,
+            additional_nodes=(
+                msprime.NodeType.RECOMBINANT
+                | msprime.NodeType.PASS_THROUGH
+                | msprime.NodeType.COMMON_ANCESTOR
+            ),
+            coalescing_segments_only=False,
+            stop_at_local_mrca=False,
+            sequence_length=5,
+            model=model,
+        )
+
+        self.check_roots(ts)
+
+
 class TestParseRandomSeed:
     """
     Tests for parsing the random seed values.
@@ -2628,7 +2793,7 @@ class TestSimulateInterface:
         # Running simulations with different numbers of labels in the default
         # setting should have no effect.
         tables = [
-            msprime.simulate(10, num_labels=num_labels, random_seed=1).tables
+            msprime.simulate(10, num_labels=num_labels, random_seed=1).dump_tables()
             for num_labels in range(1, 5)
         ]
         for t in tables:
@@ -2879,4 +3044,132 @@ class TestTimeUnits:
         with pytest.raises(ValueError, match="time_units"):
             msprime.sim_ancestry(
                 initial_state=tables, population_size=10, random_seed=1
+            )
+
+
+class TestSMCK:
+    @pytest.mark.parametrize("seed", [4512, 873561])
+    def test_discrete(self, seed):
+        tss = msprime.sim_ancestry(
+            samples=10,
+            model=msprime.SMCK(1),
+            recombination_rate=0.005,
+            sequence_length=1000,
+            random_seed=seed,
+            num_replicates=10,
+        )
+        for ts in tss:
+            assert max(tree.num_roots for tree in ts.trees()) == 1
+
+    def test_continuous(self):
+        tss = msprime.sim_ancestry(
+            samples=10,
+            model=msprime.SMCK(1),
+            recombination_rate=0.005,
+            sequence_length=1000,
+            num_replicates=10,
+            random_seed=7598782,
+            discrete_genome=False,
+        )
+        for ts in tss:
+            assert max(tree.num_roots for tree in ts.trees()) == 1
+
+    def test_ancient_samples(self):
+        tables = tskit.TableCollection(100)
+        tables.time_units = "generations"
+        tables.populations.add_row()
+        tables.nodes.add_row(flags=1, time=0.0, population=0)
+        tables.nodes.add_row(flags=1, time=1.0, population=0)
+        tables.nodes.add_row(flags=1, time=10.0, population=0)
+        tables.nodes.add_row(flags=1, time=30.0, population=0)
+        tables.populations.metadata_schema = tskit.MetadataSchema.permissive_json()
+        ts = msprime.sim_ancestry(
+            initial_state=tables,
+            population_size=10_000,
+            model=msprime.SMCK(1),
+            recombination_rate=1e-6,
+        )
+        for tree in ts.trees():
+            assert tree.num_roots == 1
+
+    def test_model_switch(self):
+        ts = msprime.sim_ancestry(
+            samples=10,
+            population_size=10_000,
+            model=[
+                msprime.StandardCoalescent(duration=10),
+                msprime.SMCK(1, duration=10),
+                msprime.StandardCoalescent(),
+            ],
+            random_seed=10,
+            recombination_rate=1e-5,
+            sequence_length=100,
+        )
+        for tree in ts.trees():
+            assert tree.num_roots == 1
+
+    def test_model_switch_high_rec(self):
+        ts = msprime.sim_ancestry(
+            samples=10,
+            population_size=10_000,
+            model=[
+                msprime.StandardCoalescent(duration=100),
+                msprime.SMCK(1),
+            ],
+            random_seed=10,
+            recombination_rate=1e-4,
+            sequence_length=100,
+        )
+        for tree in ts.trees():
+            assert tree.num_roots == 1
+
+    @pytest.mark.parametrize("hull_offset", [2, 0.5, 1e-6, 2.133])
+    @pytest.mark.parametrize("discrete_genome", [True, False])
+    def test_smc_k_plus(self, hull_offset, discrete_genome):
+        tss = msprime.sim_ancestry(
+            samples=10,
+            population_size=10_000,
+            model=msprime.SMCK(hull_offset),
+            random_seed=10,
+            recombination_rate=1e-5,
+            sequence_length=100,
+            num_replicates=10,
+            discrete_genome=discrete_genome,
+        )
+        for ts in tss:
+            assert ts.num_trees > 1
+            for tree in ts.trees():
+                assert tree.num_roots == 1
+
+    def test_two_pops(self):
+        demography = msprime.Demography()
+        demography.add_population(initial_size=10_000)
+        demography.add_population(initial_size=10_000)
+        demography.add_mass_migration(1e6, source=1, dest=0, proportion=1.0)
+        ts = msprime.sim_ancestry(
+            samples={0: 2, 1: 2},
+            demography=demography,
+            model=msprime.SMCK(1),
+            random_seed=74024,
+            recombination_rate=1e-5,
+            sequence_length=100,
+        )
+        for tree in ts.trees():
+            assert tree.num_roots == 1
+
+    def test_gc(self):
+
+        with pytest.raises(
+            ValueError,
+            match="Gene conversion is not supported for the SMCK model. "
+            "Please refer to issue #2399 on GitHub for details.",
+        ):
+            msprime.sim_ancestry(
+                samples=10,
+                model=msprime.SMCK(1),
+                sequence_length=100,
+                gene_conversion_rate=1.0,
+                gene_conversion_tract_length=5,
+                num_replicates=5,
+                recombination_rate=0.01,
             )

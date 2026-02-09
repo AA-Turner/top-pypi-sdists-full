@@ -10,14 +10,13 @@ if sys.version_info < (3, 8):  # pragma: no-cover-if-py-gte-38
 else:  # pragma: no-cover-if-py-lt-38
     from typing import Literal
 
-WAKEPY_FAKE_SUCCESS = "WAKEPY_FAKE_SUCCESS"
-"""Name of the Wakepy fake success method and the environment variable used
-to set it"""
+WAKEPY_FAKE_SUCCESS_METHOD = "WakepyFakeSuccess"
+"""Name of the Wakepy fake success method"""
 
 # This variable should only contain lower-case characters.
 FALSY_ENV_VAR_VALUES = ("0", "no", "false", "n", "f", "")
 """The falsy environment variable values. All other values are considered to be
-truthy. These values are case insensitive; Also "NO", "False" and "FALSE" are
+truthy. These values are case insensitive; also "NO", "False" and "FALSE" are
 falsy.
 """
 
@@ -83,7 +82,7 @@ class PlatformType(StrEnum):
 class ModeName(StrEnum):
     """The names of the modes wakepy supports
 
-    See: wakepy/modes/keep.py for full definitions of the modes.
+    See: :ref:`wakepy-modes` for full definitions of the modes.
     """
 
     KEEP_RUNNING = "keep.running"
@@ -110,12 +109,15 @@ class StageName(StrEnum):
     NONE = auto()  # No stage at all.
 
     # The stages in the activation process in order
+    WAKEPY_FORCE_FAILURE = auto()
     PLATFORM_SUPPORT = auto()
     REQUIREMENTS = auto()
     ACTIVATION = auto()
 
 
-StageNameValue = Literal["NONE", "PLATFORM_SUPPORT", "REQUIREMENTS", "ACTIVATION"]
+StageNameValue = Literal[
+    "NONE", "WAKEPY_FORCE_FAILURE", "PLATFORM_SUPPORT", "REQUIREMENTS", "ACTIVATION"
+]
 
 # Type annotations
 T = TypeVar("T")

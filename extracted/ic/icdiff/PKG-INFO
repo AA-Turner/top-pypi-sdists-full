@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: icdiff
-Version: 2.0.7
+Version: 2.0.10
 Summary: improved colored diff
 Home-page: https://www.jefftk.com/icdiff
 Author: Jeff Kaufman
@@ -9,6 +9,15 @@ Project-URL: Source, https://github.com/jeffkaufman/icdiff
 Classifier: License :: OSI Approved :: Python Software Foundation License
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: summary
 
 # Icdiff
 

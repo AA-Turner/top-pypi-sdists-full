@@ -3,13 +3,18 @@ from typing import Iterable
 from prompt_toolkit.completion import CompleteEvent, Completer, Completion, NestedCompleter, WordCompleter
 from prompt_toolkit.document import Document
 
+from adam.utils_repl.repl_completer import ReplCompleter
+
 class SetCompleter(Completer):
-    def __init__(self, words: list[str], options: dict = None, sub_completer = False, ignore_case = False) -> None:
+    def __init__(self, words: list[str], options: dict = None, at_least = 1, ignore_case = False) -> None:
         self.words = words
-        self.sub_completer = sub_completer
+        self.at_least = at_least
+        self.options = None
+
         if options:
-            opts = NestedCompleter.from_nested_dict(options)
+            opts = ReplCompleter.from_nested_dict(options)
             self.options = opts.options
+            # print('SEAN options', len(self.options))
         self.ignore_case = ignore_case
 
     def __repr__(self) -> str:
@@ -30,9 +35,9 @@ class SetCompleter(Completer):
             if words and first_term in words:
                 words.remove(first_term)
 
-            # already moved to nested completion part
-            if first_term not in self.options:
-                completer = SetCompleter(words, self.options, sub_completer=True)
+            # still in the set
+            if not self.options or first_term not in self.options:
+                completer = SetCompleter(words, self.options, at_least=self.at_least-1 if self.at_least else 0)
 
                 # If we have a sub completer, use this for the completions.
                 if completer is not None:
@@ -47,7 +52,7 @@ class SetCompleter(Completer):
                     for c in completer.get_completions(new_document, complete_event):
                         yield c
 
-            if self.sub_completer:
+            if not self.at_least and self.options:
                 completer = self.options.get(first_term)
 
                 # If we have a sub completer, use this for the completions.
@@ -71,7 +76,7 @@ class SetCompleter(Completer):
             for c in completer.get_completions(document, complete_event):
                 yield c
 
-            if self.sub_completer:
+            if not self.at_least and self.options:
                 completer = WordCompleter(
                     list(self.options.keys()), ignore_case=self.ignore_case
                 )

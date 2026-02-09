@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import platform
 import sys
@@ -16,6 +17,9 @@ if typing.TYPE_CHECKING:
     PlatformFunc = Callable[[IdentifiedPlatformType], bool]
 
 
+logger = logging.getLogger(__name__)
+
+
 def get_current_platform() -> IdentifiedPlatformType:
     # Ref: https://docs.python.org/3/library/platform.html#platform.system
     system = platform.system()
@@ -29,7 +33,8 @@ def get_current_platform() -> IdentifiedPlatformType:
         return IdentifiedPlatformType.FREEBSD
 
     warnings.warn(
-        f"Could not detect current platform! Debug info:\n{get_platform_debug_info()}"
+        f"Could not detect current platform! Debug info:\n{get_platform_debug_info()}",
+        stacklevel=8,
     )
     return IdentifiedPlatformType.UNKNOWN
 
@@ -53,6 +58,7 @@ def get_platform_debug_info_dict() -> Dict[str, str]:
         info.update(os_release_info)
     except Exception:
         # This should never happen, but better to be safe.
+        logger.error("Error in creating platform debug info", exc_info=True)
         warnings.warn("Error in creating platform debug info")
 
     return info

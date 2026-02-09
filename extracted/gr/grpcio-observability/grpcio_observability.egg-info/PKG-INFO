@@ -1,23 +1,25 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: grpcio-observability
-Version: 1.76.0
+Version: 1.78.0
 Summary: gRPC Python observability package
-Home-page: https://grpc.io
-Author: The gRPC Authors
-Author-email: grpc-io@googlegroups.com
-License: Apache License 2.0
+Author-email: The gRPC Authors <grpc-io@googlegroups.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://grpc.io
 Project-URL: Source Code, https://github.com/grpc/grpc/tree/master/src/python/grpcio_observability
 Project-URL: Bug Tracker, https://github.com/grpc/grpc/issues
+Project-URL: Documentation, https://grpc.github.io/grpc/python/grpc_observability.html
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: Apache Software License
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: grpcio==1.76.0
-Requires-Dist: setuptools>=59.6.0
+Requires-Dist: grpcio==1.78.0
+Requires-Dist: setuptools>=77.0.1
 Requires-Dist: opentelemetry-api>=1.21.0
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
 
 gRPC Python Observability
 =========================

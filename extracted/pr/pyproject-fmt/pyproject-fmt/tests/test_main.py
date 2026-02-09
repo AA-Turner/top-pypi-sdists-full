@@ -169,7 +169,7 @@ def test_pyproject_toml_config(tmp_path: Path, capsys: pytest.CaptureFixture[str
     ]
 
     [tool.pyproject-fmt]
-    column_width = 20
+    column_width = 120
     indent = 4
     keep_full_version = true
     max_supported_python = "3.11"
@@ -197,7 +197,7 @@ def test_pyproject_toml_config(tmp_path: Path, capsys: pytest.CaptureFixture[str
     ]
 
     [tool.pyproject-fmt]
-    column_width = 20
+    column_width = 120
     indent = 4
     keep_full_version = true
     max_supported_python = "3.11"
@@ -217,7 +217,7 @@ def test_pyproject_ftm_api_changed(tmp_path: Path, capsys: pytest.CaptureFixture
     """
     filename = tmp_path / "pyproject.toml"
     filename.write_text(dedent(txt))
-    res = run([str(filename), "--no-print-diff", "--column-width", "20"])
+    res = run([str(filename), "--no-print-diff", "--column-width", "120"])
 
     assert res == 1
 
@@ -274,7 +274,7 @@ def test_no_generate_python_version_classifiers(tmp_path: Path) -> None:
     filename.write_text(dedent(txt))
     res = run([str(filename), "--no-print-diff", "--no-generate-python-version-classifiers"])
 
-    assert res == 1
+    assert res == 0
 
     got = filename.read_text()
 
@@ -282,6 +282,8 @@ def test_no_generate_python_version_classifiers(tmp_path: Path) -> None:
     [project]
     requires-python = "==3.12"
     classifiers = [
+      "Programming Language :: Python :: 3 :: Only",
+      "Programming Language :: Python :: 3.12",
     ]
     """
     assert got == dedent(expected)

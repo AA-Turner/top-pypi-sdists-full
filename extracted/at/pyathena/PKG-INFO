@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyAthena
-Version: 3.26.0
+Version: 3.27.1
 Summary: Python DB API 2.0 (PEP 249) client for Amazon Athena
 Project-URL: homepage, https://github.com/laughingman7743/PyAthena/
 Project-URL: repository, https://github.com/laughingman7743/PyAthena/
@@ -51,106 +51,75 @@ Provides-Extra: polars
 Requires-Dist: polars>=1.0.0; extra == 'polars'
 Provides-Extra: sqlalchemy
 Requires-Dist: sqlalchemy>=1.0.0; extra == 'sqlalchemy'
-Description-Content-Type: text/x-rst
+Description-Content-Type: text/markdown
 
-.. |badge package| image:: https://badge.fury.io/py/pyathena.svg
-  :target: https://badge.fury.io/py/pyathena
-.. |badge pypi| image:: https://img.shields.io/pypi/pyversions/PyAthena.svg
-  :target: https://pypi.org/project/PyAthena/
-.. |badge test| image:: https://github.com/laughingman7743/PyAthena/actions/workflows/test.yaml/badge.svg
-  :target: https://github.com/laughingman7743/PyAthena/actions/workflows/test.yaml
-.. |badge docs| image:: https://github.com/laughingman7743/PyAthena/actions/workflows/docs.yaml/badge.svg
-  :target: https://github.com/laughingman7743/PyAthena/actions/workflows/docs.yaml
-.. |badge license| image:: https://img.shields.io/pypi/l/PyAthena.svg
-  :target: https://github.com/laughingman7743/PyAthena/blob/master/LICENSE
-.. |badge downloads| image:: https://static.pepy.tech/badge/pyathena/month
-  :target: https://pepy.tech/project/pyathena
-.. |badge ruff| image:: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json
-  :target: https://github.com/astral-sh/ruff
-  :alt: Ruff
-.. |badge mypy| image:: https://www.mypy-lang.org/static/mypy_badge.svg
-  :target: https://mypy-lang.org/
-  :alt: mypy
+# PyAthena
 
-PyAthena
-========
+<div align="center">
 
-PyAthena is a Python `DB API 2.0 (PEP 249)`_ client for `Amazon Athena`_.
+<img src="https://raw.githubusercontent.com/laughingman7743/PyAthena/master/docs/_static/icon.png" alt="PyAthena logo" width="250">
 
-+---------+------------------------------------------------+
-| Package | |badge package| |badge pypi| |badge downloads| |
-+---------+------------------------------------------------+
-| CI/CD   | |badge test| |badge docs|                      |
-+---------+------------------------------------------------+
-| Meta    | |badge license| |badge ruff| |badge mypy|      |
-+---------+------------------------------------------------+
+[![PyPI - Version](https://badge.fury.io/py/pyathena.svg)](https://badge.fury.io/py/pyathena)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/PyAthena.svg)](https://pypi.org/project/PyAthena/)
+[![PyPI - Downloads](https://static.pepy.tech/badge/pyathena/month)](https://pepy.tech/project/pyathena)
+[![CI - Test](https://github.com/laughingman7743/PyAthena/actions/workflows/test.yaml/badge.svg)](https://github.com/laughingman7743/PyAthena/actions/workflows/test.yaml)
+[![CD - Docs](https://github.com/laughingman7743/PyAthena/actions/workflows/docs.yaml/badge.svg)](https://github.com/laughingman7743/PyAthena/actions/workflows/docs.yaml)
+[![License - MIT](https://img.shields.io/pypi/l/PyAthena.svg)](https://github.com/laughingman7743/PyAthena/blob/master/LICENSE)
+[![linting - Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![types - Mypy](https://www.mypy-lang.org/static/mypy_badge.svg)](https://mypy-lang.org/)
 
-.. _`DB API 2.0 (PEP 249)`: https://www.python.org/dev/peps/pep-0249/
-.. _`Amazon Athena`: https://docs.aws.amazon.com/athena/latest/APIReference/Welcome.html
+</div>
 
-.. _requirements:
+PyAthena is a Python [DB API 2.0 (PEP 249)](https://www.python.org/dev/peps/pep-0249/) client for [Amazon Athena](https://docs.aws.amazon.com/athena/latest/APIReference/Welcome.html).
 
-Requirements
-------------
+-----
+
+## Requirements
 
 * Python
 
   - CPython 3.10, 3.11, 3.12, 3.13, 3.14
 
-.. _installation:
+## Installation
 
-Installation
-------------
-
-.. code:: bash
-
-    $ pip install PyAthena
+```bash
+$ pip install PyAthena
+```
 
 Extra packages:
 
-+---------------+---------------------------------------+------------------+
-| Package       | Install command                       | Version          |
-+===============+=======================================+==================+
-| SQLAlchemy    | ``pip install PyAthena[SQLAlchemy]``  | >=1.0.0          |
-+---------------+---------------------------------------+------------------+
-| Pandas        | ``pip install PyAthena[Pandas]``      | >=1.3.0          |
-+---------------+---------------------------------------+------------------+
-| Arrow         | ``pip install PyAthena[Arrow]``       | >=10.0.0         |
-+---------------+---------------------------------------+------------------+
-| Polars        | ``pip install PyAthena[Polars]``      | >=1.0.0          |
-+---------------+---------------------------------------+------------------+
+| Package    | Install command                      | Version  |
+|------------|--------------------------------------|----------|
+| SQLAlchemy | `pip install PyAthena[SQLAlchemy]`   | >=1.0.0  |
+| Pandas     | `pip install PyAthena[Pandas]`       | >=1.3.0  |
+| Arrow      | `pip install PyAthena[Arrow]`        | >=10.0.0 |
+| Polars     | `pip install PyAthena[Polars]`       | >=1.0.0  |
 
-.. _usage:
+## Usage
 
-Usage
------
+```python
+from pyathena import connect
 
-.. code:: python
+cursor = connect(s3_staging_dir="s3://YOUR_S3_BUCKET/path/to/",
+                 region_name="us-west-2").cursor()
+cursor.execute("SELECT * FROM one_row")
+print(cursor.description)
+print(cursor.fetchall())
+```
 
-    from pyathena import connect
+## License
 
-    cursor = connect(s3_staging_dir="s3://YOUR_S3_BUCKET/path/to/",
-                     region_name="us-west-2").cursor()
-    cursor.execute("SELECT * FROM one_row")
-    print(cursor.description)
-    print(cursor.fetchall())
+[MIT license](LICENSE)
 
-.. _license:
+Many of the implementations in this library are based on [PyHive](https://github.com/dropbox/PyHive), thanks for [PyHive](https://github.com/dropbox/PyHive).
 
-License
--------
-
-`MIT license`_
-
-Many of the implementations in this library are based on `PyHive`_, thanks for `PyHive`_.
-
-.. _`MIT license`: LICENSE
-.. _`PyHive`: https://github.com/dropbox/PyHive
-
-Links
------
+## Links
 
 - Documentation: https://laughingman7743.github.io/PyAthena/
 - PyPI Releases: https://pypi.org/project/PyAthena/
 - Source Code: https://github.com/laughingman7743/PyAthena/
 - Issue Tracker: https://github.com/laughingman7743/PyAthena/issues
+
+## Logo
+
+The PyAthena logo was generated using [Nano-Banana Pro](https://deepmind.google/models/gemini-image/pro/) (Gemini 3 Pro Image).

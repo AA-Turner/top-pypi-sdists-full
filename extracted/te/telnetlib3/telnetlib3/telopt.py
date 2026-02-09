@@ -1,3 +1,8 @@
+"""Telnet option constants exported from the deprecated telnetlib module."""
+
+# std imports
+from typing import Dict
+
 # Exported from the telnetlib module, which is marked for deprecation in version
 # 3.11 and removal in 3.13
 LINEMODE = b'"'
@@ -32,7 +37,7 @@ SB = b"\xfa"
 LOGOUT = b"\x12"
 CHARSET = b"*"
 SNDLOC = b"\x17"
-theNULL = b"\x00"
+theNULL = b"\x00"  # pylint: disable=invalid-name
 ENCRYPT = b"&"
 AUTHENTICATION = b"%"
 TN3270E = b"("
@@ -70,9 +75,11 @@ NAOVTD = b"\x0f"
 NAOLFD = b"\x10"
 
 __all__ = (
+    "AARDWOLF",
     "ABORT",
     "ACCEPTED",
     "AO",
+    "ATCP",
     "AUTHENTICATION",
     "AYT",
     "BINARY",
@@ -95,6 +102,7 @@ __all__ = (
     "EXOPL",
     "FORWARD_X",
     "GA",
+    "GMCP",
     "IAC",
     "INFO",
     "IP",
@@ -109,7 +117,18 @@ __all__ = (
     "LOGOUT",
     "MCCP2_COMPRESS",
     "MCCP_COMPRESS",
-    "GMCP",
+    "MSDP",
+    "MSDP_ARRAY_CLOSE",
+    "MSDP_ARRAY_OPEN",
+    "MSDP_TABLE_CLOSE",
+    "MSDP_TABLE_OPEN",
+    "MSDP_VAL",
+    "MSDP_VAR",
+    "MSP",
+    "MSSP",
+    "MSSP_VAL",
+    "MSSP_VAR",
+    "MXP",
     "NAMS",
     "NAOCRD",
     "NAOFFD",
@@ -140,6 +159,7 @@ __all__ = (
     "STATUS",
     "SUPDUP",
     "SUPDUPOUTPUT",
+    "TELOPT_92",
     "SUPPRESS_LOCAL_ECHO",
     "SUSP",
     "TLS",
@@ -162,118 +182,181 @@ __all__ = (
     "XASCII",
     "XAUTH",
     "XDISPLOC",
+    "ZMP",
     "theNULL",
     "name_command",
     "name_commands",
+    "name_option",
+    "option_from_name",
 )
 
-(EOF, SUSP, ABORT, CMD_EOR) = (bytes([const]) for const in range(236, 240))
-(IS, SEND, INFO) = (bytes([const]) for const in range(3))
-(VAR, VALUE, ESC, USERVAR) = (bytes([const]) for const in range(4))
-(LFLOW_OFF, LFLOW_ON, LFLOW_RESTART_ANY, LFLOW_RESTART_XON) = (
-    bytes([const]) for const in range(4)
-)
-(REQUEST, ACCEPTED, REJECTED, TTABLE_IS, TTABLE_REJECTED, TTABLE_ACK, TTABLE_NAK) = (
+EOF, SUSP, ABORT, CMD_EOR = (bytes([const]) for const in range(236, 240))
+IS, SEND, INFO = (bytes([const]) for const in range(3))
+VAR, VALUE, ESC, USERVAR = (bytes([const]) for const in range(4))
+LFLOW_OFF, LFLOW_ON, LFLOW_RESTART_ANY, LFLOW_RESTART_XON = (bytes([const]) for const in range(4))
+REQUEST, ACCEPTED, REJECTED, TTABLE_IS, TTABLE_REJECTED, TTABLE_ACK, TTABLE_NAK = (
     bytes([const]) for const in range(1, 8)
 )
-(MCCP_COMPRESS, MCCP2_COMPRESS) = (bytes([85]), bytes([86]))
+MCCP_COMPRESS, MCCP2_COMPRESS = (bytes([85]), bytes([86]))
 GMCP = bytes([201])
+MSDP = bytes([69])
+MSSP = bytes([70])
+MSP = bytes([90])
+MXP = bytes([91])
+TELOPT_92 = bytes([92])
+ZMP = bytes([93])
+AARDWOLF = bytes([102])
+ATCP = bytes([200])
+
+# MSDP sub-command bytes (used within SB MSDP payloads)
+MSDP_VAR = bytes([1])
+MSDP_VAL = bytes([2])
+MSDP_TABLE_OPEN = bytes([3])
+MSDP_TABLE_CLOSE = bytes([4])
+MSDP_ARRAY_OPEN = bytes([5])
+MSDP_ARRAY_CLOSE = bytes([6])
+
+# MSSP sub-command bytes (used within SB MSSP payloads)
+MSSP_VAR = bytes([1])
+MSSP_VAL = bytes([2])
 
 #: List of globals that may match an iac command option bytes
-_DEBUG_OPTS = dict(
-    [
-        (value, key)
-        for key, value in globals().items()
-        if key
-        in (
-            "LINEMODE",
-            "LMODE_FORWARDMASK",
-            "NAWS",
-            "NEW_ENVIRON",
-            "ENCRYPT",
-            "AUTHENTICATION",
-            "BINARY",
-            "SGA",
-            "ECHO",
-            "STATUS",
-            "TTYPE",
-            "TSPEED",
-            "LFLOW",
-            "XDISPLOC",
-            "IAC",
-            "DONT",
-            "DO",
-            "WONT",
-            "WILL",
-            "SE",
-            "NOP",
-            "DM",
-            "TM",
-            "BRK",
-            "IP",
-            "ABORT",
-            "AO",
-            "AYT",
-            "EC",
-            "EL",
-            "EOR",
-            "GA",
-            "SB",
-            "EOF",
-            "SUSP",
-            "ABORT",
-            "CMD_EOR",
-            "LOGOUT",
-            "CHARSET",
-            "SNDLOC",
-            "MCCP_COMPRESS",
-            "MCCP2_COMPRESS",
-            "GMCP",
-            "ENCRYPT",
-            "AUTHENTICATION",
-            "TN3270E",
-            "XAUTH",
-            "RSP",
-            "COM_PORT_OPTION",
-            "SUPPRESS_LOCAL_ECHO",
-            "TLS",
-            "KERMIT",
-            "SEND_URL",
-            "FORWARD_X",
-            "PRAGMA_LOGON",
-            "SSPI_LOGON",
-            "PRAGMA_HEARTBEAT",
-            "EXOPL",
-            "X3PAD",
-            "VT3270REGIME",
-            "TTYLOC",
-            "SUPDUPOUTPUT",
-            "SUPDUP",
-            "DET",
-            "BM",
-            "XASCII",
-            "RCP",
-            "NAMS",
-            "RCTE",
-            "NAOL",
-            "NAOP",
-            "NAOCRD",
-            "NAOHTS",
-            "NAOHTD",
-            "NAOFFD",
-            "NAOVTS",
-            "NAOVTD",
-            "NAOLFD",
-        )
-    ]
-)
+_DEBUG_OPTS: Dict[bytes, str] = {
+    value: key
+    for key, value in globals().items()
+    if key
+    in (
+        "LINEMODE",
+        "LMODE_FORWARDMASK",
+        "NAWS",
+        "NEW_ENVIRON",
+        "ENCRYPT",
+        "AUTHENTICATION",
+        "BINARY",
+        "SGA",
+        "ECHO",
+        "STATUS",
+        "TTYPE",
+        "TSPEED",
+        "LFLOW",
+        "XDISPLOC",
+        "IAC",
+        "DONT",
+        "DO",
+        "WONT",
+        "WILL",
+        "SE",
+        "NOP",
+        "DM",
+        "TM",
+        "BRK",
+        "IP",
+        "ABORT",
+        "AO",
+        "AYT",
+        "EC",
+        "EL",
+        "EOR",
+        "GA",
+        "SB",
+        "EOF",
+        "SUSP",
+        "ABORT",
+        "CMD_EOR",
+        "LOGOUT",
+        "CHARSET",
+        "SNDLOC",
+        "MCCP_COMPRESS",
+        "MCCP2_COMPRESS",
+        "GMCP",
+        "MSDP",
+        "MSSP",
+        "MSP",
+        "MXP",
+        "TELOPT_92",
+        "ZMP",
+        "AARDWOLF",
+        "ATCP",
+        "ENCRYPT",
+        "AUTHENTICATION",
+        "TN3270E",
+        "XAUTH",
+        "RSP",
+        "COM_PORT_OPTION",
+        "SUPPRESS_LOCAL_ECHO",
+        "TLS",
+        "KERMIT",
+        "SEND_URL",
+        "FORWARD_X",
+        "PRAGMA_LOGON",
+        "SSPI_LOGON",
+        "PRAGMA_HEARTBEAT",
+        "EXOPL",
+        "X3PAD",
+        "VT3270REGIME",
+        "TTYLOC",
+        "SUPDUPOUTPUT",
+        "SUPDUP",
+        "DET",
+        "BM",
+        "XASCII",
+        "RCP",
+        "NAMS",
+        "RCTE",
+        "NAOL",
+        "NAOP",
+        "NAOCRD",
+        "NAOHTS",
+        "NAOHTD",
+        "NAOFFD",
+        "NAOVTS",
+        "NAOVTD",
+        "NAOLFD",
+    )
+}
+
+#: Reverse mapping of option names to option bytes
+_NAME_TO_OPT: Dict[str, bytes] = {name: opt for opt, name in _DEBUG_OPTS.items()}
 
 
-def name_command(byte):
+def option_from_name(name: str) -> bytes:
+    """
+    Return option bytes for a given option name.
+
+    :param name: Option name (e.g., "NAWS", "TTYPE")
+    :returns: Option bytes
+    :raises KeyError: If name is not a known telnet option
+    """
+    return _NAME_TO_OPT[name.upper()]
+
+
+def name_command(byte: bytes) -> str:
     """Return string description for (maybe) telnet command byte."""
     return _DEBUG_OPTS.get(byte, repr(byte))
 
 
-def name_commands(cmds, sep=" "):
+#: IAC command bytes that should display as hex when used as option codes.
+#: Servers with output-filter bugs can send e.g. ``IAC WONT 0xFC`` where
+#: 0xFC is the WONT command byte itself.  Displaying "WONT WONT" is
+#: confusing, so :func:`name_option` renders these as ``b'\\xfc'``.
+_IAC_CMD_BYTES: frozenset[bytes] = frozenset(
+    {IAC, DO, DONT, WILL, WONT, SB, SE, NOP, DM, BRK, IP, AO, AYT, EC, EL, GA}
+)
+
+
+def name_option(byte: bytes) -> str:
+    """
+    Return string description for a telnet option byte.
+
+    Unlike :func:`name_command`, IAC command bytes (DO, DONT, WILL, WONT,
+    etc.) are displayed as ``repr(byte)`` rather than their command names
+    when they appear in the option-byte position.
+    """
+    if byte in _IAC_CMD_BYTES:
+        return repr(byte)
+    return _DEBUG_OPTS.get(byte, repr(byte))
+
+
+def name_commands(cmds: bytes, sep: str = " ") -> str:
     """Return string description for array of (maybe) telnet command bytes."""
     return sep.join([name_command(bytes([byte])) for byte in cmds])

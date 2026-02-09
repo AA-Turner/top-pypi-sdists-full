@@ -6,7 +6,7 @@ import threading
 import time
 import traceback
 
-from adam.utils import log2, log_timing
+from adam.utils_log import log2, log_timing
 
 class AsyncExecutor:
     # some lib does not handle asyncio loop properly, as sync exec submit does not work, use another async loop

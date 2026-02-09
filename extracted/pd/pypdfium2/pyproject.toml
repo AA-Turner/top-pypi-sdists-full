@@ -60,7 +60,7 @@ before-all = [
 select = "*-manylinux_i686"
 inherit.before-all = "append"
 before-all = [
-    "python3 {project}/utils/bootstrap_gn.py /usr/local/bin",
+    "python3 {project}/utils/build_gn.py /usr/local/bin",
 ]
 
 # NOTE: gcc is not actually used for ppc64le,riscv64,loongarch64 anymore (see the clang block below)
@@ -107,6 +107,9 @@ before-all = [
     "unlink '$GN_ARCHIVE'",
 ]
 
+[tool.cibuildwheel.linux]
+environment-pass = ["TEST_PDFIUM"]
+
 [tool.cibuildwheel.linux.environment]
 PDFIUM_PLATFORM = "sourcebuild-native"
 BUILD_PARAMS = "--vendor all --no-vendor libc++"
@@ -115,6 +118,7 @@ BUILD_PARAMS = "--vendor all --no-vendor libc++"
 # s390x (manylinux and musllinux) is broken with clang-cross, perpetually freezes during test phase.
 # It works when built using emulated gcc, however.
 select = "*-*linux_{ppc64le,riscv64,loongarch64}"
+inherit.environment-pass = "append"
 environment-pass = ["RUNNER_ARCH"]
 inherit.before-all = "prepend"
 before-all = [

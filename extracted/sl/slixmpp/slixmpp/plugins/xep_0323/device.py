@@ -97,7 +97,7 @@ class Device(object):
         """
         logging.debug("request_fields called looking for fields %s",fields)
         if len(fields) > 0:
-            # Check availiability
+            # Check availability
             for f in fields:
                 if f not in self.fields.keys():
                     self._send_reject(session, callback)

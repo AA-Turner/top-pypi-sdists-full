@@ -233,11 +233,11 @@ class ComponentFactory:
         """
         Create a LogicExtractor (The Cartographer).
 
-        Uses the grading LLM (stronger model) for accurate rule extraction.
+        Uses the generation LLM for rule extraction.
         """
         from synkro.generation.logic_extractor import LogicExtractor
 
-        return LogicExtractor(llm=self.grading_llm)
+        return LogicExtractor(llm=self.generation_llm)
 
     def create_golden_scenario_generator(self) -> "GoldenScenarioGenerator":
         """

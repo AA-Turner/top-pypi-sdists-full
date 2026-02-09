@@ -18,7 +18,7 @@
 #    a) Update version number on line 2
 #    b) Update the sha256 on line 10 according to what is found on PyPI
 #       in the "Download files" section of the left navigation pane for
-#       the tar.gz file: https://pypi.org/project/stumpy/#files
+#       the tar.gz file (click "view details"): https://pypi.org/project/stumpy/#files
 #    c) Reset the build number (to zero) on line 14 since this is a new version
 # 4. Commit the changes and push upstream for a PR
 # 5. Check the checkboxes in the PR
@@ -55,15 +55,20 @@
 #  Functions  #
 ###############
 
+local_test()
+{
+    twine check dist/*
+}
+
 upload_test_pypi()
 {
     # Upload to Test PyPi
     if ! [ -f $HOME/.pypirc ]; then
         # .pypirc file does not exist, prompt for API token
-        twine upload --verbose --repository-url https://test.pypi.org/legacy/ dist/*
+        twine upload --verbose --repository-url https://test.pypi.org/legacy/ dist/* || echo 'Twine Test Upload Failed: Try temporarily incrementing the minor version number if you are getting a "400 File already exists"'
     else
         # Get API token from .pypirc file
-        twine upload --verbose -r testpypi dist/*
+        twine upload --verbose -r testpypi dist/* || echo 'Twine Test Upload Failed: Try temporarily incrementing the minor version number if you are getting a "400 File already exists"'
     fi
 }
 
@@ -106,6 +111,7 @@ upload_pypi()
 
 rm -rf dist
 python3 -m build --sdist --wheel
-#upload_test_pypi
+# local_test
+# upload_test_pypi
 upload_pypi
 rm -rf build dist stumpy.egg-info

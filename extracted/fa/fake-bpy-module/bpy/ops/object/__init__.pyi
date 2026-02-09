@@ -3345,6 +3345,13 @@ def shape_key_add(
     :param from_mix: From Mix, Create the new shape key from the existing mix of keys
     """
 
+def shape_key_apply_to_basis(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
+    """Appply deformations of selected shape keys to the basis key, removing them"""
+
 def shape_key_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,

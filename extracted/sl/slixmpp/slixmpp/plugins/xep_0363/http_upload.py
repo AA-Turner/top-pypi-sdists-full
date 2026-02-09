@@ -44,8 +44,21 @@ class FileTooBig(FileUploadError):
     - max file size allowed
     """
     def __str__(self):
-        return 'File size too large: {} (max: {} bytes)' \
-            .format(self.args[0], self.args[1])
+        return f"File size too large: {self._human_readable(self.args[0])} (max: {self._human_readable(self.args[1])})"
+
+    @staticmethod
+    def _human_readable(size):
+        """
+        Convert a size in bytes to a human-readable string with decimals.
+        """
+        for unit in ['bytes', 'KiB', 'MiB', 'GiB', 'TiB']:
+            if size < 1024:
+                if unit == 'bytes':
+                    return f"{size} {unit}"
+                return f"{size:.2f} {unit}"
+            size /= 1024
+        return f"{size:.2f} PiB"
+
 
 class HTTPError(FileUploadError):
     """
@@ -62,6 +75,16 @@ class HTTPError(FileUploadError):
 class XEP_0363(BasePlugin):
     """
     XEP-0363: HTTP File Upload
+
+    Configuration:
+
+    - 'upload_service': Upload service to use. If unset, slixmpp will attempt to
+        automatically discover one
+    - 'max_file_size': Defaults to ``float('+inf')``
+    - 'default_content_type': Default content type to use when uploading files, when
+        None is specified. Defaults to 'application/octet-stream'
+    - 'handle_upload_requests': Defaults to False. Set this to True to implement a
+        HTTP upload component, and hook on the 'http_upload_request' event.
     """
 
     name = 'xep_0363'
@@ -72,7 +95,10 @@ class XEP_0363(BasePlugin):
         'upload_service': None,
         'max_file_size': float('+inf'),
         'default_content_type': 'application/octet-stream',
+        'handle_upload_requests': False,
     }
+
+    handle_upload_requests: bool
 
     def plugin_init(self):
         register_stanza_plugin(Iq, Request)
@@ -81,17 +107,20 @@ class XEP_0363(BasePlugin):
         register_stanza_plugin(Slot, Get)
         register_stanza_plugin(Put, Header, iterable=True)
 
-        self.xmpp.register_handler(
-                Callback('HTTP Upload Request',
-                         StanzaPath('iq@type=get/http_upload_request'),
-                         self._handle_request))
+        if self.handle_upload_requests:
+            self.xmpp.register_handler(
+                    Callback('HTTP Upload Request',
+                             StanzaPath('iq@type=get/http_upload_request'),
+                             self._handle_request))
 
     def plugin_end(self):
-        self.xmpp.remove_handler('HTTP Upload Request')
-        self.xmpp['xep_0030'].del_feature(feature=Request.namespace)
+        if self.handle_upload_requests:
+            self.xmpp.remove_handler('HTTP Upload Request')
+            self.xmpp['xep_0030'].del_feature(feature=Request.namespace)
 
     def session_bind(self, jid):
-        self.xmpp.plugin['xep_0030'].add_feature(Request.namespace)
+        if self.handle_upload_requests:
+            self.xmpp.plugin['xep_0030'].add_feature(Request.namespace)
 
     def _handle_request(self, iq):
         self.xmpp.event('http_upload_request', iq)
@@ -110,7 +139,7 @@ class XEP_0363(BasePlugin):
 
         candidates = []
         for info in results:
-            if not info['disco_info']:
+            if not info.get_plugin('disco_info', check=True):
                 continue
             for identity in info['disco_info']['identities']:
                 if identity[0] == 'store' and identity[1] == 'file':
@@ -211,6 +240,6 @@ class XEP_0363(BasePlugin):
                     timeout=timeout)
             if response.status >= 400:
                 raise HTTPError(response.status, await response.text())
-            log.info('Response code: %d (%s)', response.status, await response.text())
+            log.debug('Response code: %d (%s)', response.status, await response.text())
             response.close()
             return slot['get']['url']

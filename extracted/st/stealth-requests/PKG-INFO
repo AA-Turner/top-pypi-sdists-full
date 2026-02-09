@@ -1,21 +1,19 @@
 Metadata-Version: 2.4
 Name: stealth-requests
-Version: 2.0.4
+Version: 2.0.5
 Summary: Undetected web-scraping & seamless HTML parsing in Python!
 Author-email: Jacob Padilla <stealth-requests@jacobpadilla.com>
 License: MIT
 Project-URL: Homepage, https://github.com/jpjacobpadilla/Stealth-Requests
 Keywords: HTTP,requests,scraping,browser
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: curl_cffi
+Requires-Dist: curl_cffi>=0.14.0
 Provides-Extra: parsers
 Requires-Dist: lxml; extra == "parsers"
 Requires-Dist: html2text; extra == "parsers"
 Requires-Dist: beautifulsoup4; extra == "parsers"
-Provides-Extra: dev
-Requires-Dist: notebook>=7.4.4; extra == "dev"
 Dynamic: license-file
 
 <p align="center">
@@ -24,12 +22,12 @@ Dynamic: license-file
 
 <h1 align="center">The Easiest Way to Scrape the Web</h1>
 
-<p align="center"><a href="https://github.com/jpjacobpadilla/stealth-requests/blob/main/LICENSE"><img src="https://img.shields.io/github/license/jpjacobpadilla/stealth-requests.svg?color=green"></a> <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.9%2B-green" alt="Python 3.8+"></a> <a href="https://pypi.org/project/stealth-requests/"><img alt="PyPI" src="https://img.shields.io/pypi/v/stealth-requests.svg?color=green"></a> <a href="https://pepy.tech/project/stealth-requests"><img alt="PyPI installs" src="https://img.shields.io/pepy/dt/stealth-requests?label=pypi%20installs&color=green"></a></p>
+<p align="center"><a href="https://github.com/jpjacobpadilla/stealth-requests/blob/main/LICENSE"><img src="https://img.shields.io/github/license/jpjacobpadilla/stealth-requests.svg?color=green"></a> <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10%2B-green" alt="Python 3.10+"></a> <a href="https://pypi.org/project/stealth-requests/"><img alt="PyPI" src="https://img.shields.io/pypi/v/stealth-requests.svg?color=green"></a> <a href="https://pepy.tech/project/stealth-requests"><img alt="PyPI installs" src="https://img.shields.io/pepy/dt/stealth-requests?label=pypi%20installs&color=green"></a></p>
 
 
 ### Features
 - **Realistic HTTP Requests:**
-    - Mimics the Chrome browser for undetected scraping using the [curl_cffi](https://curl-cffi.readthedocs.io/en/latest/) package
+    - Mimics Chrome browser for undetected scraping using [curl_cffi](https://curl-cffi.readthedocs.io/en/latest/)
     - Automatically rotates User Agents between requests
     - Tracks and updates the `Referer` header to simulate realistic request chains
     - Built-in retry logic for failed requests (e.g. 429, 503, 522)
@@ -53,6 +51,7 @@ $ pip install stealth_requests
 - [Sending Requests With Asyncio](#sending-requests-with-asyncio)
 - [Accessing Page Metadata](#accessing-page-metadata)
 - [Extracting Emails, Phone Numbers, Images, and Links](#extracting-emails-phone-numbers-images-and-links)
+- [Extracting HTML Tables](#extracting-html-tables)
 - [More Parsing Options](#more-parsing-options)
 - [Converting Responses to Markdown](#converting-responses-to-markdown)
 - [Using Proxies](#using-proxies)
@@ -145,6 +144,33 @@ print(resp.images)
 print(resp.links)
 # Output: ('https://example.com/about', 'https://example.com/contact')
 ```
+
+
+### Extracting HTML Tables
+
+The `StealthResponse` object can parse HTML tables into dictionaries, where each key is a column header and the value is a list of that column's cell values.
+
+For example, given a page with this table:
+
+| Name  | Age |
+|-------|-----|
+| Jacob | 30  |
+| Jake  | 25  |
+
+You can extract it like this:
+
+```python
+import stealth_requests as requests
+
+resp = requests.get('https://link-here.com')
+
+# Each table becomes a dict: {column_name: [values]}
+for table in resp.tables:
+    print(table)
+# Output: {'Name': ['Jacob', 'Jake'], 'Age': ['30', '25']}
+```
+
+Tables without recognizable headers are automatically skipped.
 
 
 ### More Parsing Options

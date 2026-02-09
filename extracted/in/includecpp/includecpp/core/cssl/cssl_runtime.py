@@ -7590,6 +7590,11 @@ class CSSLRuntime:
                 return False
             return value == pattern_value
 
+        elif condition_node.type == 'condition_negated_type':
+            # v4.9.13: [!type] — matches if value is NOT of specified type
+            type_name = condition_node.value.get('type')
+            return not self._value_matches_type(value, type_name)
+
         elif condition_node.type == 'condition_negated':
             # v4.9.8: [!expr] — matches if value does NOT equal expr
             inner = condition_node.value.get('inner')
@@ -7602,18 +7607,28 @@ class CSSLRuntime:
             return value == condition_value
 
     def _value_matches_type(self, value: Any, type_name: str) -> bool:
-        """Check if a value matches a CSSL type name."""
+        """Check if a value matches a CSSL type name.
+
+        v4.9.13: Now checks both Python native types AND CSSL native types
+        (List, Array, Vector, Dictionary, etc.) for consistent type checking.
+        """
+        # Import CSSL types for comprehensive checking
+        from .cssl_types import List as CSSLList, Array, Vector, Dictionary, Map, Stack
+
+        # Map type names to both Python and CSSL types
         type_map = {
             'int': (int,),
             'float': (float, int),
             'string': (str,),
             'bool': (bool,),
-            'list': (list,),
-            'array': (list,),
-            'vector': (list,),
-            'dict': (dict,),
-            'map': (dict,),
-            'json': (dict,),
+            'list': (list, CSSLList),  # Python list + CSSL List
+            'array': (list, Array, CSSLList),  # Python list + CSSL Array + List
+            'vector': (list, Vector, CSSLList),  # Python list + CSSL Vector + List
+            'stack': (Stack,),
+            'dict': (dict, Dictionary),  # Python dict + CSSL Dictionary
+            'dictionary': (dict, Dictionary),
+            'map': (dict, Map, Dictionary),  # Python dict + CSSL Map + Dictionary
+            'json': (dict, Dictionary),
             'null': (type(None),),
             'none': (type(None),),
         }

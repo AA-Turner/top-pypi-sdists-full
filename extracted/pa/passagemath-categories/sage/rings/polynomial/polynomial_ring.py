@@ -951,13 +951,9 @@ class PolynomialRing_generic(Ring):
         s = 'PolynomialRing(%s)' % (Bref)
         return magma._with_names(s, self.variable_names())
 
-    def _gap_init_(self, gap=None):
+    def _gap_init_(self) -> str:
         """
         String for representing this polynomial ring in GAP.
-
-        INPUT:
-
-        - ``gap`` -- (optional GAP instance) used for representing the base ring
 
         EXAMPLES::
 
@@ -982,10 +978,7 @@ class PolynomialRing_generic(Ring):
             sage: gap(S) is gap(S)                                                      # needs sage.libs.gap
             True
         """
-        if gap is not None:
-            base_ring = gap(self.base_ring()).name()
-        else:
-            base_ring = self.base_ring()._gap_init_()
+        base_ring = self.base_ring()._gap_init_()
         return 'PolynomialRing(%s, ["%s"])' % (base_ring, self.variable_name())
 
     def _sage_input_(self, sib, coerced):
@@ -2050,7 +2043,7 @@ class PolynomialRing_integral_domain(PolynomialRing_commutative, PolynomialRing_
             35
             sage: L[9]
             T^4 + T^3 + 2*T^2 + 2*T + 4
-            sage: all(p.is_weil_polynomial() for p in L)
+            sage: all(p.is_weil_polynomial() for p in L)                                # needs sage.libs.pari
             True
 
         Setting multiple leading coefficients::
@@ -2093,8 +2086,8 @@ class PolynomialRing_integral_domain(PolynomialRing_commutative, PolynomialRing_
         Check that every polynomial in this list has 3 real roots between `-2
         \sqrt{3}` and `2 \sqrt{3}`::
 
-            sage: roots = [f.roots(RR, multiplicities=False) for f in reals]                                            # needs sage.libs.flint
-            sage: all(len(L) == 3 and all(x^2 <= 12 for x in L) for L in roots)                                         # needs sage.libs.flint
+            sage: roots = [f.roots(RR, multiplicities=False) for f in reals]                                            # needs sage.libs.flint sage.libs.pari
+            sage: all(len(L) == 3 and all(x^2 <= 12 for x in L) for L in roots)                                         # needs sage.libs.flint sage.libs.pari
             True
 
         Finally, check that the original polynomials are reconstructed as CM
@@ -2105,7 +2098,7 @@ class PolynomialRing_integral_domain(PolynomialRing_commutative, PolynomialRing_
 
         A simple check (not sufficient)::
 
-            sage: all(f.number_of_real_roots() == 0 for f in simples)                                                   # needs sage.libs.flint
+            sage: all(f.number_of_real_roots() == 0 for f in simples)                   # needs sage.libs.flint sage.libs.pari
             True
         """
         R = self.base_ring()
@@ -2236,6 +2229,12 @@ class PolynomialRing_field(PolynomialRing_integral_domain):
                 try:
                     from .polynomial_real_mpfr_dense import PolynomialRealDense
                     return PolynomialRealDense
+                except ImportError:
+                    pass
+            elif isinstance(base_ring, sage.rings.abc.RealBallField):
+                try:
+                    from sage.rings.polynomial.polynomial_real_arb import Polynomial_real_arb
+                    return Polynomial_real_arb
                 except ImportError:
                     pass
             elif isinstance(base_ring, sage.rings.abc.ComplexBallField):

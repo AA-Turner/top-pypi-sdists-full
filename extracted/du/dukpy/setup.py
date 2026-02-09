@@ -32,7 +32,7 @@ repo_url = 'https://github.com/{0}'.format(repo_slug)
 
 setup(
     name=name,
-    version='0.5.0',
+    version='0.5.1',
     description='Simple JavaScript interpreter for Python',
     long_description=README,
     keywords='javascript compiler babeljs jsx coffeescript typescript',
@@ -66,12 +66,12 @@ setup(
     classifiers=[
         'Development Status :: 3 - Alpha',
         'License :: OSI Approved :: MIT License',
+        'Programming Language :: Python :: 3.14',
+        'Programming Language :: Python :: 3.13',
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: JavaScript',
     ],
     entry_points={

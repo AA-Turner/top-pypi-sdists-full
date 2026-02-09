@@ -10,7 +10,7 @@ Author: Heikki Toivonen
 import binascii
 import logging
 
-from M2Crypto import ASN1, BIO, EVP, m2, types as C
+from M2Crypto import ASN1, BIO, Err, EVP, m2, types as C
 from typing import (
     Callable,
     List,
@@ -45,7 +45,7 @@ class X509Error(ValueError):
 
 m2.x509_init(X509Error)
 
-V_OK: int = m2.X509_V_OK
+V_OK = m2.X509_V_OK  # type: int
 
 
 class X509_Extension(object):
@@ -162,12 +162,39 @@ def new_extension(
             "Cannot create 'subjectKeyIdentifier:hash' without a public key (pkey) context."
         )
 
+    # Enhanced handling for authorityKeyIdentifier extension
+    if name == "authorityKeyIdentifier":
+        # authorityKeyIdentifier requires issuer context which we don't have
+        # Provide a helpful error message instead of the cryptic OpenSSL error
+        if value.startswith("keyid:"):
+            m2.x509v3_ctx_free(ctx)
+            raise X509Error(
+                "Cannot create 'authorityKeyIdentifier' with keyid without issuer certificate context. "
+                "This extension requires the issuer certificate to be set in the X509V3_CTX. "
+                "For testing purposes, consider using other extensions like 'basicConstraints' or "
+                "'subjectAltName' that don't require issuer context."
+            )
+        elif value.startswith("issuer"):
+            m2.x509v3_ctx_free(ctx)
+            raise X509Error(
+                "Cannot create 'authorityKeyIdentifier' with issuer without issuer certificate context. "
+                "This extension requires the issuer certificate to be set in the X509V3_CTX."
+            )
+
+    # Pre-process hex strings to remove colons for better compatibility
+    # This helps with extensions like subjectKeyIdentifier when provided as hex
+    if name == "subjectKeyIdentifier" and ":" in value:
+        # Remove colons from hex strings for better OpenSSL compatibility
+        processed_value = value.replace(":", "")
+    else:
+        processed_value = value
+
     if pkey is not None:
         m2.X509V3_CTX_set_nconf_pkey(ctx, pkey._ptr())
-    x509_ext_ptr = m2.x509v3_ext_conf(None, ctx, name, str(value))
+    x509_ext_ptr = m2.x509v3_ext_conf(None, ctx, name, str(processed_value))
     if x509_ext_ptr is None:
         raise X509Error(
-            "Cannot create X509_Extension with name '%s' and value '%s'" % (name, value)
+            "Cannot create X509_Extension with name '%s' and value '%s'" % (name, processed_value)
         )
     x509_ext = X509_Extension(x509_ext_ptr, _pyfree)
     x509_ext.set_critical(critical)
@@ -195,11 +222,9 @@ class X509_Extension_Stack(object):
             self._pyfree = _pyfree
             num = m2.sk_x509_extension_num(self.stack)
             for i in range(num):
-                # Set _pyfree=0, the C stack owns the extension objects.
                 self.pystack.append(
                     X509_Extension(
-                        m2.sk_x509_extension_value(self.stack, i),
-                        _pyfree=0,
+                        m2.sk_x509_extension_value(self.stack, i), _pyfree=_pyfree
                     )
                 )
         else:
@@ -586,15 +611,29 @@ class X509(object):
 
     def set_not_before(self, asn1_time: ASN1.ASN1_TIME) -> int:
         """
-        :return: 1 on success, 0 on failure
+        Set the notBefore field of the certificate.
         """
-        return m2.x509_set_not_before(self.x509, asn1_time._ptr())
+        if isinstance(asn1_time, ASN1.ASN1_UTCTIME):
+            # Convert ASN1_UTCTIME to ASN1_TIME
+            dt_obj = asn1_time.get_datetime()
+            temp_asn1_time = ASN1.ASN1_TIME()
+            temp_asn1_time.set_datetime(dt_obj)
+            return m2.x509_set_not_before(self.x509, temp_asn1_time.asn1_time)
+        else:
+            return m2.x509_set_not_before(self.x509, asn1_time.asn1_time)
 
     def set_not_after(self, asn1_time: ASN1.ASN1_TIME) -> int:
         """
-        :return: 1 on success, 0 on failure
+        Set the notAfter field of the certificate.
         """
-        return m2.x509_set_not_after(self.x509, asn1_time._ptr())
+        if isinstance(asn1_time, ASN1.ASN1_UTCTIME):
+            # Convert ASN1_UTCTIME to ASN1_TIME
+            dt_obj = asn1_time.get_datetime()
+            temp_asn1_time = ASN1.ASN1_TIME()
+            temp_asn1_time.set_datetime(dt_obj)
+            return m2.x509_set_not_after(self.x509, temp_asn1_time.asn1_time)
+        else:
+            return m2.x509_set_not_after(self.x509, asn1_time.asn1_time)
 
     def get_not_before(self) -> ASN1.ASN1_TIME:
         time_ptr = m2.x509_get_not_before(self.x509)
@@ -840,6 +879,80 @@ def load_cert_bio(bio: BIO.BIO, format: int = FORMAT_PEM) -> X509:
     return X509(cptr, _pyfree=1)
 
 
+class CRL_Stack:
+    """
+    A 'CRL Stack', maps to STACK_OF(X509_CRL)
+
+    @warning: Do not modify the underlying OpenSSL stack
+    except through this interface, or use any OpenSSL functions that do so
+    indirectly. Doing so will get the OpenSSL stack and the Ginternal pystack
+    of this class out of sync, leading to python memory leaks, exceptions
+    or even python crashes!
+    """
+
+    def __init__(self, stack=None, _pyfree=0, _pyfree_x509_crl=0):
+        if stack is not None:
+            self.stack = stack
+            self._pyfree = _pyfree
+            self.pystack = []  # This must be kept in sync with self.stack
+            num = m2.sk_x509_crl_num(self.stack)
+            for i in range(num):
+                self.pystack.append(
+                    CRL(m2.sk_x509_crl_value(self.stack, i), _pyfree=_pyfree_x509_crl)
+                )
+        else:
+            self.stack = m2.sk_x509_crl_new_null()
+            self._pyfree = 1
+            self.pystack = []  # This must be kept in sync with self.stack
+
+    @staticmethod
+    def m2_sk_x509_crl_free(ctx: C.STACK_OF_X509_CRL) -> None:
+        m2.sk_x509_crl_free(ctx)
+
+    def __del__(self):
+        if getattr(self, "_pyfree", 0):
+            self.m2_sk_x509_crl_free(self.stack)
+
+    def __len__(self):
+        assert m2.sk_x509_crl_num(self.stack) == len(self.pystack)
+        return len(self.pystack)
+
+    def __getitem__(self, idx):
+        return self.pystack[idx]
+
+    def __iter__(self):
+        return iter(self.pystack)
+
+    def _ptr(self):
+        return self.stack
+
+    def push(self, crl):
+        """
+        push a CRL certificate onto the stack.
+
+        @param crl: CRL object.
+        @return: The number of CRL objects currently on the stack.
+        """
+        assert isinstance(crl, CRL)
+        self.pystack.append(crl)
+        ret = m2.sk_x509_crl_push(self.stack, crl._ptr())
+        assert ret == len(self.pystack)
+        return ret
+
+    def pop(self):
+        """
+        pop a CRL from the stack.
+
+        @return: CRL object that was popped, or None if there is nothing
+        to pop.
+        """
+        crl_ptr = m2.sk_x509_crl_pop(self.stack)
+        if crl_ptr is None:
+            assert len(self.pystack) == 0
+            return None
+        return self.pystack.pop()
+
+
 def load_cert_string(string: Union[str, bytes], format: int = FORMAT_PEM) -> X509:
     """
     Load certificate from a cert_str.
@@ -953,24 +1066,63 @@ class X509_Stack(object):
         """
         return m2.get_der_encoding_stack(self.stack)
 
+    def create_degenerate(self, bio: BIO.BIO) -> int:
+        """Write this certificate stack as a degenerate PKCS7 object.
+
+        :param bio: Output BIO to write to
+        :return: 1 on success, 0 on failure
+        :raises X509Error: If operation fails
+        """
+        if not isinstance(bio, BIO.BIO):
+            raise X509Error("bio must be a BIO.BIO")
+        if len(self) == 0:
+            raise X509Error("Cannot create degenerate PKCS7 from empty stack")
+
+        ret = m2.pkcs7_create_degenerate(self._ptr(), bio._ptr())
+        if ret != 1:
+            raise X509Error(m2.err_get_error())
+        return ret
+
+    def save_degenerate(self, filename: Union[str, bytes]) -> int:
+        """Save this certificate stack as a .p7c file.
+
+        :param filename: Output filename (.p7c extension recommended)
+        :return: 1 on success, 0 on failure
+        """
+        if isinstance(filename, bytes):
+            filename = filename.decode("utf-8")
+
+        with BIO.openfile(filename, "wb") as bio:
+            return self.create_degenerate(bio)
+
 
 class X509_Store_Context(object):
     """
     X509 Store Context
     """
 
-    def __init__(self, x509_store_ctx: C.X509_STORE_CTX, _pyfree: int = 0) -> None:
+    def __init__(
+        self, x509_store_ctx: Optional[C.X509_STORE_CTX] = None, _pyfree: int = 0
+    ) -> None:
         """
 
         :param x509_store_ctx: binary data for
               OpenSSL X509_STORE_CTX type
         """
-        self.ctx = x509_store_ctx
-        self._pyfree = _pyfree
+        if x509_store_ctx is not None:
+            self.ctx = x509_store_ctx
+            self._pyfree = _pyfree
+        else:
+            self.ctx = m2.x509_store_ctx_new()
+            self._pyfree = 1
+
+    @staticmethod
+    def m2_x509_store_ctx_free(ctx: C.X509_STORE_CTX) -> None:
+        m2.x509_store_ctx_free(ctx)
 
     def __del__(self) -> None:
         if getattr(self, "_pyfree", 0):
-            m2.x509_store_ctx_free(self.ctx)
+            self.m2_x509_store_ctx_free(self.ctx)
 
     def _ptr(self) -> C.X509_STORE_CTX:
         return self.ctx
@@ -1009,6 +1161,44 @@ class X509_Store_Context(object):
                  chain as X509_Stack.
         """
         return X509_Stack(m2.x509_store_ctx_get1_chain(self.ctx), 1, 1)
+
+    def init(self, store, cert, untrusted=None):
+        """
+        Initialization context to allow certificate verification
+
+        @type store: X509_Store
+        @param store: X509_Store containing CA and flags set for verification
+
+        @type cert: X509
+        @param cert: X509 certificate to add to context for verification
+
+        @type untrusted: X509_Stack
+        @param untrusted: untrusted chain, default None
+        """
+        assert isinstance(store, X509_Store)
+        assert isinstance(cert, X509)
+        untrusted_ptr = None
+        if untrusted:
+            assert isinstance(untrusted, X509_Stack)
+            untrusted_ptr = untrusted._ptr()
+        ret = m2.x509_store_ctx_init(self.ctx, store._ptr(), cert._ptr(), untrusted_ptr)
+        if ret < 1:
+            raise X509Error(Err.get_error())
+
+    def add_crls(self, crls):
+        """
+        Add CRLs to this context
+        @type crls: CRL_Stack
+        @param crls: Stack of CRLs
+        """
+        assert isinstance(crls, CRL_Stack)
+        m2.x509_store_ctx_set0_crls(self.ctx, crls._ptr())
+
+    def verify_cert(self):
+        """
+        Verify certificate
+        """
+        return m2.x509_verify_cert(self.ctx)
 
 
 def x509_store_default_cb(ok: int, ctx: C.X509_STORE_CTX) -> int:
@@ -1054,6 +1244,13 @@ class X509_Store(object):
         """
         return m2.x509_store_add_cert(self.store, x509._ptr())
 
+    def add_crl(self, crl):
+        assert isinstance(crl, CRL)
+        ret = m2.x509_store_add_crl(self.store, crl._ptr())
+        if ret < 1:
+            raise X509Error(Err.get_error())
+        return ret
+
     add_cert = add_x509
 
     def set_verify_cb(
@@ -1097,7 +1294,29 @@ class X509_Store(object):
                       Their M2Crypto equivalent is transformed following
                       the pattern: "X509_V_FLAG_XYZ" -> lowercase("VERIFY_XYZ")
         """
-        return m2.x509_store_set_flags(self.store, flags)
+        ret = m2.x509_store_set_flags(self.store, flags)
+        if ret < 1:
+            raise X509Error(Err.get_error())
+        return ret
+
+
+def load_crl_string(crl_string: Union[str, bytes]) -> 'CRL':
+    """
+    Load CRL from a string.
+
+    @type crl_string: str or bytes
+    @param crl_string: String or bytes containing a CRL in PEM format.
+
+    @rtype: M2Crypto.X509.CRL
+    @return: M2Crypto.X509.CRL object.
+    """
+    if isinstance(crl_string, str):
+        crl_string = crl_string.encode('utf-8')
+    bio = BIO.MemoryBuffer(crl_string)
+    cptr = m2.x509_crl_read_pem(bio._ptr())
+    if cptr is None:
+        raise X509Error(Err.get_error())
+    return CRL(cptr, 1)
 
 
 def new_stack_from_der(der_string: bytes) -> X509_Stack:
@@ -1365,6 +1584,52 @@ class CRL(object):
         buf = BIO.MemoryBuffer()
         m2.x509_crl_print(buf.bio_ptr(), self.crl)
         return (buf.read_all() or b"").decode()
+
+    def get_issuer(self):
+        """
+        Return the Issuer Name
+
+        @rtype: X509_Name
+        @return: X509_Name of the issuer
+
+        Warning: X509_Name is tied to the CRL.  If the CRL goes out of scope
+        so does the underlying X509_Name of the issuer
+        """
+        crl_issuer_x509_name = m2.x509_crl_get_issuer(self.crl)
+        return X509_Name(crl_issuer_x509_name)
+
+    def get_lastUpdate(self):
+        """
+        Return the lastUpdate
+
+        @rtype: ASN1.ASN1_TIME
+        @return: Time value of the last update
+        """
+        return ASN1.ASN1_TIME(m2.x509_CRL_get_lastUpdate(self.crl))
+
+    def get_nextUpdate(self):
+        """
+        Return the nextUpdate
+
+        @rtype: ASN1.ASN1_TIME
+        @return: Time value of the next update
+        """
+        return ASN1.ASN1_TIME(m2.x509_CRL_get_nextUpdate(self.crl))
+
+    def _ptr(self):
+        return self.crl
+
+    def verify(self, pkey):
+        """
+        Verifies signature of CRL against a key
+
+        @type pkey: EVP.PKey
+        @param pkey: Public key
+
+        @rtype: bool
+        @return: True if CRL is signed by pkey, False otherwise
+        """
+        return m2.x509_crl_verify(self.crl, pkey.pkey)
 
 
 def load_crl(file: str) -> CRL:

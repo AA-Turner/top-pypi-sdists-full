@@ -2,8 +2,11 @@ import os
 from typing import TypeVar, cast
 import yaml
 
+from adam.config_holder import ConfigReadable
+from adam.utils_log import log2
+
 from . import __version__
-from adam.utils import ConfigHolder, ConfigReadable, copy_config_file, get_deep_keys, log2
+from adam.utils import ConfigHolder, copy_config_file, get_deep_keys
 
 T = TypeVar('T')
 

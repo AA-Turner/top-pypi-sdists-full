@@ -52,7 +52,7 @@ class TestLiveSocket(object):
     # ------------------------------------------------------------------
     # Testing Interface
 
-    def disconnect_errror(self):
+    def disconnect_error(self):
         """
         Used to simulate a socket disconnection error.
 

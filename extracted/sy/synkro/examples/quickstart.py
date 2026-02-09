@@ -22,7 +22,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from synkro.examples import EXPENSE_POLICY
-from synkro.models.google import Google
+
+# from synkro.models.google import Google
+from synkro.models import Cerebras
 from synkro.pipelines import create_pipeline
 from synkro.reporting import FileLoggingReporter
 from synkro.types import DatasetType
@@ -40,8 +42,10 @@ reporter = FileLoggingReporter(log_dir="./logs")
 # - grading_model: Used for quality grading (stronger model recommended for better filtering)
 # - dataset_type: CONVERSATION = multi-turn, INSTRUCTION = single-turn, TOOL_CALL = with function calling
 pipeline = create_pipeline(
-    model=Google.GEMINI_25_FLASH,  # Fast generation
-    grading_model=Google.GEMINI_25_FLASH,  # Quality grading
+    model=Cerebras.GPT_OSS_120B,  # Fast generation
+    grading_model=Cerebras.GPT_OSS_120B,  # Quality grading
+    # model=Google.GEMINI_25_FLASH,  # Fast generation (alternative)
+    # grading_model=Google.GEMINI_25_FLASH,  # Quality grading (alternative)
     # grading_model=Google.GEMINI_25_PRO, # Quality grading (stronger = better filtering)
     dataset_type=DatasetType.CONVERSATION,  # Chat format for fine-tuning
     # max_iterations=3,                   # Max refinement iterations per trace

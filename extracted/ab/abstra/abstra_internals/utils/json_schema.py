@@ -268,11 +268,14 @@ def validate_type(value: object, schema: dict) -> bool:
             if prop in value and not validate_type(value[prop], prop_schema):
                 return False
         # Check additionalProperties
-        if not additional:
+        if additional is False:
             # No additional properties allowed
             for k in value:
                 if k not in properties:
                     return False
+        elif additional is True:
+            # Allow any additional properties - nothing to validate
+            pass
         elif isinstance(additional, dict):
             # additionalProperties is a schema
             for k in value:

@@ -1,6 +1,6 @@
 import re
 
-from adam.utils import Color
+from adam.utils_color import Color
 from adam.utils_cassandra.cassandra_nodes import CassandraNodes
 from adam.utils_context import Context
 from adam.utils_k8s.pod_exec_result import PodExecResult

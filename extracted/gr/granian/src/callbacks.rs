@@ -499,16 +499,16 @@ impl PyFutureAwaitable {
             return;
         }
 
-        {
+        if let Some((cb, ctx)) = {
             let ack = rself.ack.read().unwrap();
-            if let Some((cb, ctx)) = &*ack {
-                _ = rself.event_loop.clone_ref(py).call_method(
-                    py,
-                    pyo3::intern!(py, "call_soon_threadsafe"),
-                    (cb, pyself.clone_ref(py)),
-                    Some(ctx.bind(py)),
-                );
-            }
+            ack.as_ref().map(|(cb, ctx)| (cb.clone_ref(py), ctx.clone_ref(py)))
+        } {
+            _ = rself.event_loop.clone_ref(py).call_method(
+                py,
+                pyo3::intern!(py, "call_soon_threadsafe"),
+                (cb, pyself.clone_ref(py)),
+                Some(ctx.bind(py)),
+            );
         }
         pyself.drop_ref(py);
     }

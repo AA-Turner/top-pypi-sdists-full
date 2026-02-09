@@ -8,7 +8,7 @@ else:
     from distutils.core import setup
 
 PROGRAM = "empy"
-VERSION = "4.2"
+VERSION = "4.2.1"
 AUTHOR = "Erik Max Francis <max@alcyone.com>".split(' <')[0]
 CONTACT = "software@alcyone.com"
 URL = "http://www.alcyone.com/software/empy/"
@@ -58,6 +58,11 @@ setup(
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: Implementation :: CPython",
+        "Programming Language :: Python :: Implementation :: IronPython",
+        "Programming Language :: Python :: Implementation :: Jython",
+        "Programming Language :: Python :: Implementation :: PyPy",
+        "Programming Language :: Python :: Implementation :: Stackless",
         "Topic :: Software Development :: Interpreters",
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Software Development :: Pre-processors",

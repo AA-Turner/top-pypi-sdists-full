@@ -5,7 +5,8 @@ import sqlite3
 import pandas
 
 from adam.config import Config
-from adam.utils import creating_dir, wait_log
+from adam.utils_fs import creating_dir
+from adam.utils_log import wait_log
 from adam.utils_tabulize import tabulize
 from adam.utils_context import Context
 

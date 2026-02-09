@@ -57,7 +57,7 @@ export type InternalTools = boolean | null;
 export type MaxToolOutput = number | null;
 export type CachePrompt = "auto" | boolean | null;
 export type Verbosity = ("low" | "medium" | "high") | null;
-export type Effort = ("low" | "medium" | "high") | null;
+export type Effort = ("low" | "medium" | "high" | "max") | null;
 export type ReasoningEffort =
   | ("none" | "minimal" | "low" | "medium" | "high" | "xhigh")
   | null;
@@ -90,6 +90,9 @@ export type Anyof = JSONSchema[] | null;
 export type Required = string[] | null;
 export type Description1 = string | null;
 export type Strict = boolean | null;
+export type ExtraHeaders = {
+  [k: string]: string;
+} | null;
 export type ExtraBody = {
   [k: string]: unknown;
 } | null;
@@ -573,6 +576,8 @@ export type ToolChoice = ("auto" | "any" | "none") | ToolFunction;
 export type Name10 = string;
 export type Retries = number | null;
 export type Error2 = string | null;
+export type Traceback1 = string | null;
+export type TracebackAnsi1 = string | null;
 export type Cache1 = ("read" | "write") | null;
 export type Time1 = number | null;
 export type Completed1 = string | null;
@@ -945,6 +950,7 @@ export interface GenerateConfig {
   reasoning_summary: ReasoningSummary;
   reasoning_history: ReasoningHistory;
   response_schema: ResponseSchema | null;
+  extra_headers: ExtraHeaders;
   extra_body: ExtraBody;
   cache: Cache;
   batch: Batch;
@@ -1147,6 +1153,7 @@ export interface GenerateConfig1 {
   reasoning_summary: ReasoningSummary;
   reasoning_history: ReasoningHistory;
   response_schema: ResponseSchema | null;
+  extra_headers: ExtraHeaders;
   extra_body: ExtraBody;
   cache: Cache;
   batch: Batch;
@@ -1666,6 +1673,8 @@ export interface ModelEvent {
   output: ModelOutput;
   retries: Retries;
   error: Error2;
+  traceback: Traceback1;
+  traceback_ansi: TracebackAnsi1;
   cache: Cache1;
   call: ModelCall | null;
   completed: Completed1;

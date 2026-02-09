@@ -23,7 +23,7 @@ class Roster(ElementBase):
           </query>
         </iq>
 
-    Stanza Inteface:
+    Stanza Interface:
         items -- A dictionary of roster entries contained
                  in the stanza.
 
@@ -43,7 +43,7 @@ class Roster(ElementBase):
         Ensure handling an empty ver attribute property.
 
         The ver attribute is special in that the presence of the
-        attribute with an empty value is important for boostrapping
+        attribute with an empty value is important for bootstrapping
         roster versioning.
         """
         return self.xml.attrib.get('ver', None)
@@ -53,7 +53,7 @@ class Roster(ElementBase):
         Ensure handling an empty ver attribute property.
 
         The ver attribute is special in that the presence of the
-        attribute with an empty value is important for boostrapping
+        attribute with an empty value is important for bootstrapping
         roster versioning.
         """
         if ver is not None:

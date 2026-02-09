@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-ses
-Version: 4.7.0
+Version: 4.7.1
 Summary: A Django email backend for Amazon's Simple Email Service (SES)
 License: MIT
 License-File: LICENSE
@@ -31,7 +31,7 @@ Provides-Extra: events
 Requires-Dist: backports-zoneinfo (>=0.2.1) ; python_version < "3.9"
 Requires-Dist: boto3 (>=1.0.0)
 Requires-Dist: cryptography (>=36.0.2) ; extra == "bounce" or extra == "events"
-Requires-Dist: django (>=4.2)
+Requires-Dist: django (>=3.2)
 Requires-Dist: importlib-metadata (>=1) ; python_version < "3.8"
 Requires-Dist: requests (>=2.32.1) ; extra == "bounce" or extra == "events"
 Project-URL: Bugtracker, https://github.com/django-ses/django-ses/issues
@@ -868,15 +868,15 @@ Git hooks (via pre-commit)
 We use pre-push hooks to ensure that only linted code reaches our remote repository and pipelines aren't triggered in
 vain.
 
-To enable the configured pre-push hooks, you need to [install](https://pre-commit.com/) pre-commit and run once::
+To enable the configured pre-push hooks, you need to `install <https://pre-commit.com/>`_ pre-commit and run once::
 
     pre-commit install -t pre-push -t pre-commit --install-hooks
 
 This will permanently install the git hooks for both, frontend and backend, in your local
-[`.git/hooks`](./.git/hooks) folder.
-The hooks are configured in the [`.pre-commit-config.yaml`](.pre-commit-config.yaml).
+``.git/hooks`` folder.
+The hooks are configured in the ``.pre-commit-config.yaml``.
 
-You can check whether hooks work as intended using the [run](https://pre-commit.com/#pre-commit-run) command::
+You can check whether hooks work as intended using the `run <https://pre-commit.com/#pre-commit-run>`_ command::
 
     pre-commit run [hook-id] [options]
 
@@ -914,6 +914,6 @@ To create a release:
     :target: https://github.com/django-ses/django-ses/actions/workflows/ci.yml
 .. |python| image:: https://img.shields.io/badge/python-3.8|3.9|3.10|3.11|3.12|3.13|3.14-blue.svg
     :target: https://pypi.org/project/django-ses/
-.. |django| image:: https://img.shields.io/badge/django-4.2%7C%205.0+-blue.svg
+.. |django| image:: https://img.shields.io/badge/django-3.2%7C%205.0+-blue.svg
     :target: https://www.djangoproject.com/
 

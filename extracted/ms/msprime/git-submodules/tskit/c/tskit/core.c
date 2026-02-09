@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2019-2022 Tskit Developers
+ * Copyright (c) 2019-2025 Tskit Developers
  * Copyright (c) 2015-2018 University of Oxford
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -43,22 +43,24 @@ static int TSK_WARN_UNUSED
 get_random_bytes(uint8_t *buf)
 {
     /* Based on CPython's code in bootstrap_hash.c */
-    int ret = TSK_ERR_GENERATE_UUID;
+    int ret = 0;
     HCRYPTPROV hCryptProv = (HCRYPTPROV) NULL;
 
     if (!CryptAcquireContext(
             &hCryptProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
+        ret = tsk_trace_error(TSK_ERR_GENERATE_UUID);
         goto out;
     }
     if (!CryptGenRandom(hCryptProv, (DWORD) UUID_NUM_BYTES, buf)) {
+        ret = tsk_trace_error(TSK_ERR_GENERATE_UUID);
         goto out;
     }
     if (!CryptReleaseContext(hCryptProv, 0)) {
         hCryptProv = (HCRYPTPROV) NULL;
+        ret = tsk_trace_error(TSK_ERR_GENERATE_UUID);
         goto out;
     }
     hCryptProv = (HCRYPTPROV) NULL;
-    ret = 0;
 out:
     if (hCryptProv != (HCRYPTPROV) NULL) {
         CryptReleaseContext(hCryptProv, 0);
@@ -72,19 +74,21 @@ out:
 static int TSK_WARN_UNUSED
 get_random_bytes(uint8_t *buf)
 {
-    int ret = TSK_ERR_GENERATE_UUID;
+    int ret = 0;
     FILE *f = fopen("/dev/urandom", "r");
 
     if (f == NULL) {
+        ret = tsk_trace_error(TSK_ERR_GENERATE_UUID);
         goto out;
     }
     if (fread(buf, UUID_NUM_BYTES, 1, f) != 1) {
+        ret = tsk_trace_error(TSK_ERR_GENERATE_UUID);
         goto out;
     }
     if (fclose(f) != 0) {
+        ret = tsk_trace_error(TSK_ERR_GENERATE_UUID);
         goto out;
     }
-    ret = 0;
 out:
     return ret;
 }
@@ -111,7 +115,7 @@ tsk_generate_uuid(char *dest, int TSK_UNUSED(flags))
             buf[4], buf[5], buf[6], buf[7], buf[8], buf[9], buf[10], buf[11], buf[12],
             buf[13], buf[14], buf[15])
         < 0) {
-        ret = TSK_ERR_GENERATE_UUID;
+        ret = tsk_trace_error(TSK_ERR_GENERATE_UUID);
         goto out;
     }
 out:
@@ -164,7 +168,8 @@ tsk_strerror_internal(int err)
             break;
         case TSK_ERR_FILE_VERSION_TOO_OLD:
             ret = "tskit file version too old. Please upgrade using the "
-                  "'tskit upgrade' command. (TSK_ERR_FILE_VERSION_TOO_OLD)";
+                  "'tskit upgrade' command from tskit version<0.6.2. "
+                  "(TSK_ERR_FILE_VERSION_TOO_OLD)";
             break;
         case TSK_ERR_FILE_VERSION_TOO_NEW:
             ret = "tskit file version is too new for this instance. "
@@ -222,13 +227,20 @@ tsk_strerror_internal(int err)
         case TSK_ERR_SEEK_OUT_OF_BOUNDS:
             ret = "Tree seek position out of bounds. (TSK_ERR_SEEK_OUT_OF_BOUNDS)";
             break;
+        case TSK_ERR_KEEP_ROWS_MAP_TO_DELETED:
+            ret = "One of the kept rows in the table refers to a deleted row. "
+                  "(TSK_ERR_KEEP_ROWS_MAP_TO_DELETED)";
+            break;
+        case TSK_ERR_POSITION_OUT_OF_BOUNDS:
+            ret = "Position out of bounds. (TSK_ERR_POSITION_OUT_OF_BOUNDS)";
+            break;
 
         /* Edge errors */
         case TSK_ERR_NULL_PARENT:
-            ret = "Edge in parent is null. (TSK_ERR_NULL_PARENT)";
+            ret = "Edge parent is null. (TSK_ERR_NULL_PARENT)";
             break;
         case TSK_ERR_NULL_CHILD:
-            ret = "Edge in parent is null. (TSK_ERR_NULL_CHILD)";
+            ret = "Edge child is null. (TSK_ERR_NULL_CHILD)";
             break;
         case TSK_ERR_EDGES_NOT_SORTED_PARENT_TIME:
             ret = "Edges must be listed in (time[parent], child, left) order;"
@@ -265,11 +277,15 @@ tsk_strerror_internal(int err)
             break;
         case TSK_ERR_BAD_EDGES_CONTRADICTORY_CHILDREN:
             ret = "Bad edges: contradictory children for a given parent over "
-                  "an interval. (TSK_ERR_BAD_EDGES_CONTRADICTORY_CHILDREN)";
+                  "an interval, or indexes need to be rebuilt. "
+                  "(TSK_ERR_BAD_EDGES_CONTRADICTORY_CHILDREN)";
             break;
         case TSK_ERR_CANT_PROCESS_EDGES_WITH_METADATA:
             ret = "Can't squash, flush, simplify or link ancestors with edges that have "
-                  "non-empty metadata. (TSK_ERR_CANT_PROCESS_EDGES_WITH_METADATA)";
+                  "non-empty metadata. Removing the metadata from the edges will allow "
+                  "these operations to proceed. For example using "
+                  "tables.edges.drop_metadata() in the tskit Python API. "
+                  "(TSK_ERR_CANT_PROCESS_EDGES_WITH_METADATA)";
             break;
 
         /* Site errors */
@@ -325,6 +341,17 @@ tsk_strerror_internal(int err)
                   "values for any single site. "
                   "(TSK_ERR_MUTATION_TIME_HAS_BOTH_KNOWN_AND_UNKNOWN)";
             break;
+        case TSK_ERR_DISALLOWED_UNKNOWN_MUTATION_TIME:
+            ret = "Some mutation times are marked 'unknown' for a method that requires "
+                  "no unknown times. (Use compute_mutation_times to add times?) "
+                  "(TSK_ERR_DISALLOWED_UNKNOWN_MUTATION_TIME)";
+            break;
+
+        case TSK_ERR_BAD_MUTATION_PARENT:
+            ret = "A mutation's parent is not consistent with the topology of the tree. "
+                  "Use compute_mutation_parents to set the parents correctly."
+                  "(TSK_ERR_BAD_MUTATION_PARENT)";
+            break;
 
         /* Migration errors */
         case TSK_ERR_UNSORTED_MIGRATIONS:
@@ -336,7 +363,7 @@ tsk_strerror_internal(int err)
             ret = "Duplicate sample value. (TSK_ERR_DUPLICATE_SAMPLE)";
             break;
         case TSK_ERR_BAD_SAMPLES:
-            ret = "Bad sample configuration provided. (TSK_ERR_BAD_SAMPLES)";
+            ret = "The nodes provided are not samples. (TSK_ERR_BAD_SAMPLES)";
             break;
 
         /* Table errors */
@@ -350,8 +377,13 @@ tsk_strerror_internal(int err)
         case TSK_ERR_TABLES_NOT_INDEXED:
             ret = "Table collection must be indexed. (TSK_ERR_TABLES_NOT_INDEXED)";
             break;
+        case TSK_ERR_TABLES_BAD_INDEXES:
+            ret = "Table collection indexes inconsistent: do they need to be rebuilt? "
+                  "(TSK_ERR_TABLES_BAD_INDEXES)";
+            break;
         case TSK_ERR_TABLE_OVERFLOW:
-            ret = "Table too large; cannot allocate more than 2**31 rows. "
+            ret = "Table too large; cannot allocate more than 2**31 rows. This error "
+                  "is often caused by a lack of simplification when simulating. "
                   "(TSK_ERR_TABLE_OVERFLOW)";
             break;
         case TSK_ERR_COLUMN_OVERFLOW:
@@ -408,6 +440,14 @@ tsk_strerror_internal(int err)
             ret = "A tree sequence can't take ownership of tables with "
                   "TSK_NO_EDGE_METADATA. (TSK_ERR_CANT_TAKE_OWNERSHIP_NO_EDGE_METADATA)";
             break;
+        case TSK_ERR_UNDEFINED_NONBINARY:
+            ret = "Operation undefined for nonbinary trees. "
+                  "(TSK_ERR_UNDEFINED_NONBINARY)";
+            break;
+        case TSK_ERR_UNDEFINED_MULTIROOT:
+            ret = "Operation undefined for trees that are not singly-rooted. "
+                  "(TSK_ERR_UNDEFINED_MULTIROOT)";
+            break;
 
         /* Stats errors */
         case TSK_ERR_BAD_NUM_WINDOWS:
@@ -448,6 +488,73 @@ tsk_strerror_internal(int err)
             ret = "Statistics using branch lengths cannot be calculated when time_units "
                   "is 'uncalibrated'. (TSK_ERR_TIME_UNCALIBRATED)";
             break;
+        case TSK_ERR_STAT_POLARISED_UNSUPPORTED:
+            ret = "The TSK_STAT_POLARISED option is not supported by this statistic. "
+                  "(TSK_ERR_STAT_POLARISED_UNSUPPORTED)";
+            break;
+        case TSK_ERR_STAT_SPAN_NORMALISE_UNSUPPORTED:
+            ret = "The TSK_STAT_SPAN_NORMALISE option is not supported by this "
+                  "statistic. "
+                  "(TSK_ERR_STAT_SPAN_NORMALISE_UNSUPPORTED)";
+            break;
+        case TSK_ERR_INSUFFICIENT_WEIGHTS:
+            ret = "Insufficient weights provided (at least 1 required). "
+                  "(TSK_ERR_INSUFFICIENT_WEIGHTS)";
+            break;
+
+        /* Pair coalescence errors */
+        case TSK_ERR_BAD_NODE_BIN_MAP:
+            ret = "Node-to-bin map contains values less than TSK_NULL. "
+                  "(TSK_ERR_BAD_NODE_BIN_MAP)";
+            break;
+        case TSK_ERR_BAD_NODE_BIN_MAP_DIM:
+            ret = "Maximum index in node-to-bin map is greater than the "
+                  "output dimension. (TSK_ERR_BAD_NODE_BIN_MAP_DIM)";
+            break;
+        case TSK_ERR_BAD_QUANTILES:
+            ret = "Quantiles must be between 0 and 1 (inclusive) "
+                  "and strictly increasing. (TSK_ERR_BAD_QUANTILES)";
+            break;
+        case TSK_ERR_UNSORTED_TIMES:
+            ret = "Times must be strictly increasing. (TSK_ERR_UNSORTED_TIMES)";
+            break;
+        case TSK_ERR_BAD_TIME_WINDOWS_DIM:
+            ret = "Must have at least one time window. (TSK_ERR_BAD_TIME_WINDOWS_DIM)";
+            break;
+        case TSK_ERR_BAD_SAMPLE_PAIR_TIMES:
+            ret = "All sample times must be equal to the start of first time window. "
+                  "(TSK_ERR_BAD_SAMPLE_PAIR_TIMES)";
+            break;
+        case TSK_ERR_BAD_TIME_WINDOWS:
+            ret = "Time windows must start at zero and be strictly increasing. "
+                  "(TSK_ERR_BAD_TIME_WINDOWS)";
+            break;
+        case TSK_ERR_BAD_TIME_WINDOWS_END:
+            ret = "Time windows must end at infinity for this method. "
+                  "(TSK_ERR_BAD_TIME_WINDOWS_END)";
+            break;
+        case TSK_ERR_BAD_NODE_TIME_WINDOW:
+            ret = "Node time does not fall within assigned time window. "
+                  "(TSK_ERR_BAD_NODE_TIME_WINDOW)";
+            break;
+
+        /* Two locus errors */
+        case TSK_ERR_STAT_UNSORTED_POSITIONS:
+            ret = "The provided positions are not sorted in strictly increasing "
+                  "order. (TSK_ERR_STAT_UNSORTED_POSITIONS)";
+            break;
+        case TSK_ERR_STAT_DUPLICATE_POSITIONS:
+            ret = "The provided positions contain duplicates. "
+                  "(TSK_ERR_STAT_DUPLICATE_POSITIONS)";
+            break;
+        case TSK_ERR_STAT_UNSORTED_SITES:
+            ret = "The provided sites are not sorted in strictly increasing position "
+                  "order. (TSK_ERR_STAT_UNSORTED_SITES)";
+            break;
+        case TSK_ERR_STAT_DUPLICATE_SITES:
+            ret = "The provided sites contain duplicated entries. "
+                  "(TSK_ERR_STAT_DUPLICATE_SITES)";
+            break;
 
         /* Mutation mapping errors */
         case TSK_ERR_GENOTYPES_ALL_MISSING:
@@ -477,6 +584,14 @@ tsk_strerror_internal(int err)
             ret = "Must have at least one allele when specifying an allele map. "
                   "(TSK_ERR_ZERO_ALLELES)";
             break;
+        case TSK_ERR_BAD_ALLELE_LENGTH:
+            ret = "Alleles used when decoding alignments must have length one. "
+                  "(TSK_ERR_BAD_ALLELE_LENGTH)";
+            break;
+        case TSK_ERR_MISSING_CHAR_COLLISION:
+            ret = "Alleles used when decoding alignments must not match the missing "
+                  "data character. (TSK_ERR_MISSING_CHAR_COLLISION)";
+            break;
 
         /* Distance metric errors */
         case TSK_ERR_SAMPLE_SIZE_MISMATCH:
@@ -500,7 +615,8 @@ tsk_strerror_internal(int err)
             break;
         case TSK_ERR_NO_SAMPLE_LISTS:
             ret = "The sample_lists option must be enabled on the tree to perform this "
-                  "operation. (TSK_ERR_NO_SAMPLE_LISTS)";
+                  "operation. Pass the option to the constructor or method that created "
+                  "the tree. (TSK_ERR_NO_SAMPLE_LISTS)";
             break;
 
         /* Haplotype matching errors */
@@ -570,6 +686,23 @@ tsk_strerror_internal(int err)
         case TSK_ERR_INDIVIDUAL_PARENT_CYCLE:
             ret = "Individuals cannot be their own ancestor. "
                   "(TSK_ERR_INDIVIDUAL_PARENT_CYCLE)";
+            break;
+
+        case TSK_ERR_INDIVIDUAL_POPULATION_MISMATCH:
+            ret = "Individual populations cannot be returned "
+                  "if an individual has nodes from more than one population. "
+                  "(TSK_ERR_INDIVIDUAL_POPULATION_MISMATCH)";
+            break;
+
+        case TSK_ERR_INDIVIDUAL_TIME_MISMATCH:
+            ret = "Individual times cannot be returned "
+                  "if an individual has nodes from more than one time. "
+                  "(TSK_ERR_INDIVIDUAL_TIME_MISMATCH)";
+            break;
+
+        case TSK_ERR_EXTEND_EDGES_BAD_MAXITER:
+            ret = "Maximum number of iterations must be positive. "
+                  "(TSK_ERR_EXTEND_EDGES_BAD_MAXITER)";
             break;
     }
     return ret;
@@ -654,7 +787,7 @@ tsk_blkalloc_init(tsk_blkalloc_t *self, size_t chunk_size)
 
     tsk_memset(self, 0, sizeof(tsk_blkalloc_t));
     if (chunk_size < 1) {
-        ret = TSK_ERR_BAD_PARAM_VALUE;
+        ret = tsk_trace_error(TSK_ERR_BAD_PARAM_VALUE);
         goto out;
     }
     self->chunk_size = chunk_size;
@@ -665,12 +798,12 @@ tsk_blkalloc_init(tsk_blkalloc_t *self, size_t chunk_size)
     self->num_chunks = 0;
     self->mem_chunks = malloc(sizeof(char *));
     if (self->mem_chunks == NULL) {
-        ret = TSK_ERR_NO_MEMORY;
+        ret = tsk_trace_error(TSK_ERR_NO_MEMORY);
         goto out;
     }
     self->mem_chunks[0] = malloc(chunk_size);
     if (self->mem_chunks[0] == NULL) {
-        ret = TSK_ERR_NO_MEMORY;
+        ret = tsk_trace_error(TSK_ERR_NO_MEMORY);
         goto out;
     }
     self->num_chunks = 1;
@@ -1132,4 +1265,146 @@ tsk_avl_tree_int_ordered_nodes(const tsk_avl_tree_int_t *self, tsk_avl_node_int_
 {
     ordered_nodes_traverse(self->head.rlink, 0, out);
     return 0;
+}
+
+// Bit Array implementation. Allows us to store unsigned integers in a compact manner.
+// Currently implemented as an array of 32-bit unsigned integers.
+
+int
+tsk_bitset_init(tsk_bitset_t *self, tsk_size_t num_bits, tsk_size_t length)
+{
+    int ret = 0;
+
+    self->row_len = (num_bits / TSK_BITSET_BITS) + (num_bits % TSK_BITSET_BITS ? 1 : 0);
+    self->len = length;
+    self->data = tsk_calloc(self->row_len * length, sizeof(*self->data));
+    if (self->data == NULL) {
+        ret = tsk_trace_error(TSK_ERR_NO_MEMORY);
+        goto out;
+    }
+out:
+    return ret;
+}
+
+#define BITSET_DATA_ROW(bs, row) ((bs)->data + (row) * (bs)->row_len)
+
+void
+tsk_bitset_intersect(const tsk_bitset_t *self, tsk_size_t self_row,
+    const tsk_bitset_t *other, tsk_size_t other_row, tsk_bitset_t *out)
+{
+    const tsk_bitset_val_t *restrict self_d = BITSET_DATA_ROW(self, self_row);
+    const tsk_bitset_val_t *restrict other_d = BITSET_DATA_ROW(other, other_row);
+    tsk_bitset_val_t *restrict out_d = out->data;
+    for (tsk_size_t i = 0; i < self->row_len; i++) {
+        out_d[i] = self_d[i] & other_d[i];
+    }
+}
+
+void
+tsk_bitset_subtract(tsk_bitset_t *self, tsk_size_t self_row, const tsk_bitset_t *other,
+    tsk_size_t other_row)
+{
+    tsk_bitset_val_t *restrict self_d = BITSET_DATA_ROW(self, self_row);
+    const tsk_bitset_val_t *restrict other_d = BITSET_DATA_ROW(other, other_row);
+    for (tsk_size_t i = 0; i < self->row_len; i++) {
+        self_d[i] &= ~(other_d[i]);
+    }
+}
+
+void
+tsk_bitset_union(tsk_bitset_t *self, tsk_size_t self_row, const tsk_bitset_t *other,
+    tsk_size_t other_row)
+{
+    tsk_bitset_val_t *restrict self_d = BITSET_DATA_ROW(self, self_row);
+    const tsk_bitset_val_t *restrict other_d = BITSET_DATA_ROW(other, other_row);
+    for (tsk_size_t i = 0; i < self->row_len; i++) {
+        self_d[i] |= other_d[i];
+    }
+}
+
+void
+tsk_bitset_set_bit(tsk_bitset_t *self, tsk_size_t row, const tsk_bitset_val_t bit)
+{
+    tsk_bitset_val_t i = (bit / TSK_BITSET_BITS);
+    *(BITSET_DATA_ROW(self, row) + i) |= (tsk_bitset_val_t) 1
+                                         << (bit - (TSK_BITSET_BITS * i));
+}
+
+bool
+tsk_bitset_contains(const tsk_bitset_t *self, tsk_size_t row, const tsk_bitset_val_t bit)
+{
+    tsk_bitset_val_t i = (bit / TSK_BITSET_BITS);
+    return *(BITSET_DATA_ROW(self, row) + i)
+           & ((tsk_bitset_val_t) 1 << (bit - (TSK_BITSET_BITS * i)));
+}
+
+static inline uint32_t
+popcount(tsk_bitset_val_t v)
+{
+    // Utilizes 12 operations per chunk. NB this only works on 32 bit integers.
+    // Taken from:
+    //   https://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
+    // There's a nice breakdown of this algorithm here:
+    //   https://stackoverflow.com/a/109025
+    //
+    // The gcc/clang compiler flag will -mpopcnt will convert this code to a
+    // popcnt instruction (most if not all modern CPUs will support this). The
+    // popcnt instruction will yield some speed improvements, which depend on
+    // the tree sequence.
+    //
+    // NB: 32bit counting is typically faster than 64bit counting for this task.
+    //     (at least on x86-64)
+
+    v = v - ((v >> 1) & 0x55555555);
+    v = (v & 0x33333333) + ((v >> 2) & 0x33333333);
+    return (((v + (v >> 4)) & 0xF0F0F0F) * 0x1010101) >> 24;
+}
+
+tsk_size_t
+tsk_bitset_count(const tsk_bitset_t *self, tsk_size_t row)
+{
+    tsk_size_t i = 0;
+    tsk_size_t count = 0;
+    const tsk_bitset_val_t *restrict self_d = BITSET_DATA_ROW(self, row);
+
+    for (i = 0; i < self->row_len; i++) {
+        count += popcount(self_d[i]);
+    }
+    return count;
+}
+
+void
+tsk_bitset_get_items(
+    const tsk_bitset_t *self, tsk_size_t row, tsk_id_t *items, tsk_size_t *n_items)
+{
+    // Get the items stored in the row of a bitset.
+    // Uses a de Bruijn sequence lookup table to determine the lowest bit set.
+    // See the wikipedia article for more info: https://w.wiki/BYiF
+
+    tsk_size_t i, n, off;
+    tsk_bitset_val_t v, lsb; // least significant bit
+    static const tsk_id_t lookup[32] = { 0, 1, 28, 2, 29, 14, 24, 3, 30, 22, 20, 15, 25,
+        17, 4, 8, 31, 27, 13, 23, 21, 19, 16, 7, 26, 12, 18, 6, 11, 5, 10, 9 };
+    const tsk_bitset_val_t *restrict self_d = BITSET_DATA_ROW(self, row);
+
+    n = 0;
+    for (i = 0; i < self->row_len; i++) {
+        v = self_d[i];
+        off = i * TSK_BITSET_BITS;
+        if (v == 0) {
+            continue;
+        }
+        while ((lsb = v & -v)) {
+            items[n] = lookup[(lsb * 0x077cb531U) >> 27] + (tsk_id_t) off;
+            n++;
+            v ^= lsb;
+        }
+    }
+    *n_items = n;
+}
+
+void
+tsk_bitset_free(tsk_bitset_t *self)
+{
+    tsk_safe_free(self->data);
 }

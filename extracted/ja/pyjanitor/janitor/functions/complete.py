@@ -293,14 +293,13 @@ def _computations_complete(
         df,
         how="outer",
         on=merge_columns,
-        copy=False,
         sort=False,
         indicator=indicator,
     )
     if indicator:
         indicator = out.pop(indicator)
     if not out.columns.equals(columns):
-        out = out.reindex(columns=columns, copy=False)
+        out = out.reindex(columns=columns)
     if fill_value is None:
         return out
     # keep only columns that are not part of column_checker

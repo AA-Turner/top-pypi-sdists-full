@@ -12,6 +12,7 @@ https://gitlab.com/keatontaylor/alexapy
 
 import asyncio
 import base64
+import contextlib
 import datetime
 import hashlib
 import http.cookiejar
@@ -755,12 +756,68 @@ class AlexaLogin:
                         ssl=self._ssl,
                     )
             else:
+                # POSTs to Amazon sometimes return redirects
+                # (e.g. /verify -> /mybusiness/verify). aiohttp may convert
+                # POST->GET for 301/302/303 when auto-following redirects, which
+                # can drop the form body and break the flow. Disable auto-redirects
+                # and follow once manually while preserving method/body semantics.
                 post_resp = await self._session.post(
                     site,
                     data=self._data,
                     headers=self._headers,
                     ssl=self._ssl,
+                    allow_redirects=False,
                 )
+
+                if post_resp is not None and post_resp.status in (
+                    301, 302, 303, 307, 308,
+                ):
+                    location = post_resp.headers.get("Location")
+                    if location:
+                        # Resolve relative redirects safely against the response URL.
+                        target = URL(str(post_resp.url)).join(URL(location))
+
+                        _LOGGER.debug(
+                            "POST redirect %s -> %s (status=%s); replaying request",
+                            site,
+                            str(target),
+                            post_resp.status,
+                        )
+
+                        # Preserve referer for the follow-up request.
+                        headers = dict(self._headers)
+                        headers["Referer"] = str(post_resp.url)
+
+                        # Release the prior response before replaying
+                        # to avoid connector leaks.
+                        with contextlib.suppress(Exception):
+                            await post_resp.release()
+                        if post_resp.status == 303:
+                            # "See Other" becomes a GET.
+                            post_resp = await self._session.get(
+                                str(target),
+                                params=self._data,
+                                headers=headers,
+                                ssl=self._ssl,
+                            )
+                        elif post_resp.status in (307, 308):
+                            # 307/308 must preserve method and body.
+                            post_resp = await self._session.post(
+                                str(target),
+                                data=self._data,
+                                headers=headers,
+                                ssl=self._ssl,
+                            )
+                        else:
+                            # For 301/302, preserve POST+body
+                            # (Amazon does this for some endpoints).
+                            post_resp = await self._session.post(
+                                str(target),
+                                data=self._data,
+                                headers=headers,
+                                ssl=self._ssl,
+                                allow_redirects=False,
+                            )
 
             # headers need to be submitted to have the referer
             if post_resp:

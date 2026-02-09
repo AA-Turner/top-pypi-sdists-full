@@ -1,8 +1,9 @@
 from copy import copy
 import threading
 
-from adam.commands.cql.utils_cql import cassandra
+from adam.utils_log import log_timing
 from adam.utils_cassandra.cassandra_status import CassandraStatus
+from adam.utils_cassandra.pod_service import cassandra
 from adam.utils_context import Context
 from adam.repl_state import ReplState
 from adam.utils_k8s.pod_exec_result import PodExecResult
@@ -13,6 +14,7 @@ class AddressTable:
     pods_by_ip: dict[str, str] = {}
     ips_by_pod: dict[str, str] = {}
     host_ids_by_pod: dict[str, str] = {}
+    pod_names_by_host_id: dict[str, str] = {}
 
     lock = threading.Lock()
 
@@ -20,25 +22,28 @@ class AddressTable:
         host_ids_by_ip = {}
 
         try:
-            with cassandra(state.with_no_pod()) as pods:
-                cql = 'select broadcast_address, host_id from system.local; select peer, host_id from system.peers'
-                result: PodExecResult = pods.cql(cql, ctx=ctx.copy(show_out=ctx.debug), no_color=True, on_any=True)
-                if isinstance(result, list):
-                    result = result[0]
+            with log_timing('AddressTable.snapshot'):
+                with cassandra(state.with_no_pod()) as pods:
+                    cql = 'select broadcast_address, host_id from system.local; select peer, host_id from system.peers'
+                    result: PodExecResult = pods.cql(cql, ctx=ctx.copy(show_out=ctx.debug), no_color=True, on_any=True)
+                    if isinstance(result, list):
+                        result = result[0]
 
-                for line in result.stdout.splitlines():
-                    if line:
-                        #    172.18.6.43 | 87625c74-b1f3-4694-b4e7-e6b9dec4bcb5
-                        tokens = [t.strip(' \r\n\t') for t in line.strip(' ').split('|')]
-                        if len(tokens) == 2 and is_valid_ip(tokens[0]):
-                            host_ids_by_ip[tokens[0]] = tokens[1]
+                    for line in result.stdout.splitlines():
+                        if line:
+                            #    172.18.6.43 | 87625c74-b1f3-4694-b4e7-e6b9dec4bcb5
+                            tokens = [t.strip(' \r\n\t') for t in line.strip(' ').split('|')]
+                            if len(tokens) == 2 and is_valid_ip(tokens[0]):
+                                host_ids_by_ip[tokens[0]] = tokens[1]
 
-                for pod, ip in pods.pod_name_n_ips():
-                    with AddressTable.lock:
-                        AddressTable.pods_by_ip[ip] = pod
-                        AddressTable.ips_by_pod[pod] = ip
-                        if ip in host_ids_by_ip:
-                            AddressTable.host_ids_by_pod[pod] = host_ids_by_ip[ip]
+                    for pod, ip in pods.pod_name_n_ips():
+                        with AddressTable.lock:
+                            AddressTable.pods_by_ip[ip] = pod
+                            AddressTable.ips_by_pod[pod] = ip
+                            if ip in host_ids_by_ip:
+                                host_id = host_ids_by_ip[ip]
+                                AddressTable.host_ids_by_pod[pod] = host_id
+                                AddressTable.pod_names_by_host_id[host_id] = pod
 
         except Exception as e:
             # traceback.print_exc()
@@ -80,23 +85,30 @@ class AddressTable:
 
             return AddressTable.host_ids_by_pod[pod_name]
 
-    def status_by_host_id(self, state: ReplState):
-        if not self._status:
-            self._status, samples, nodes = CassandraStatus.merged_nodetool_status(state)
+    def pod_name_from_host_id(self, host_id: str, default: str = None) -> str:
+        with AddressTable.lock:
+            if host_id not in AddressTable.pod_names_by_host_id:
+                if default:
+                    return default
 
-        return {s['host_id']: s for s in self._status}
+                raise NATError(f'Cannot locate pod from host_id: {host_id}.', self)
+
+            return AddressTable.pod_names_by_host_id[host_id]
+
+    def status_by_host_id(self, state: ReplState):
+        return {s['host_id']: s for s in self.status(state)}
 
     def status_by_ip(self, state: ReplState):
-        if not self._status:
-            self._status, samples, nodes = CassandraStatus.merged_nodetool_status(state)
-
-        return {s['address']: s for s in self._status}
+        return {s['address']: s for s in self.status(state)}
 
     def status_by_pod_name(self, state: ReplState):
-        if not self._status:
-            self._status, samples, nodes = CassandraStatus.merged_nodetool_status(state)
+        return {s['address']: s for s in self.status(state)}
 
-        return {s['address']: s for s in self._status}
+    def status(self, state: ReplState):
+        if not self._status:
+            self._status = CassandraStatus.snapshot(state).status
+
+        return self._status
 
 class NATError(Exception):
     def __init__(self, message, nat: AddressTable = None):

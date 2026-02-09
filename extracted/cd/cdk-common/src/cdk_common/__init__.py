@@ -5868,6 +5868,14 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    SECURITY_AGENT_WEB_APP_POLICY = "SECURITY_AGENT_WEB_APP_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AWSSECURITY_AGENT_WEB_APP_POLICY = "AWSSECURITY_AGENT_WEB_APP_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

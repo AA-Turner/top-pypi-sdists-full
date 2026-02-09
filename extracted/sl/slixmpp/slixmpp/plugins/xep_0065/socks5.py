@@ -161,7 +161,7 @@ class Socks5Protocol(asyncio.Protocol):
         self.transport.write(request)
 
     def _send_request(self, command):
-        '''Send a request, should be done after having negociated a method.'''
+        '''Send a request, should be done after having negotiated a method.'''
 
         # Encode the destination address to embed it in our request.
         # We need to do that first because its length is variable.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymodbus
-Version: 3.11.4
+Version: 3.12.0
 Summary: A fully featured modbus protocol stack in python
 Author: Galen Collins, Jan Iversen
 Maintainer: dhoomakethu, janiversen
@@ -38,28 +38,28 @@ Provides-Extra: serial
 Requires-Dist: pyserial>=3.5; extra == "serial"
 Provides-Extra: simulator
 Requires-Dist: aiohttp>=3.8.6; python_version < "3.12" and extra == "simulator"
-Requires-Dist: aiohttp>=3.10.6; python_version >= "3.12" and extra == "simulator"
+Requires-Dist: aiohttp>=3.13.2; python_version >= "3.12" and extra == "simulator"
 Provides-Extra: documentation
 Requires-Dist: recommonmark>=0.7.1; extra == "documentation"
 Requires-Dist: Sphinx>=7.3.7; extra == "documentation"
 Requires-Dist: sphinx-rtd-theme>=2.0.0; extra == "documentation"
 Provides-Extra: development
-Requires-Dist: build>=1.2.2; extra == "development"
+Requires-Dist: build>=1.4.0; extra == "development"
 Requires-Dist: codespell>=2.3.0; extra == "development"
-Requires-Dist: coverage>=7.10.7; extra == "development"
-Requires-Dist: mypy>=1.18.2; extra == "development"
-Requires-Dist: pylint>=4.0.0; extra == "development"
-Requires-Dist: pytest>=8.4.2; extra == "development"
+Requires-Dist: coverage>=7.13.3; extra == "development"
+Requires-Dist: pylint>=4.0.4; extra == "development"
+Requires-Dist: pytest>=9.0.2; extra == "development"
 Requires-Dist: pytest-asyncio>=1.2.0; extra == "development"
 Requires-Dist: pytest-cov>=7.0.0; extra == "development"
 Requires-Dist: pytest-profiling>=1.7.0; python_version < "3.13" and extra == "development"
 Requires-Dist: pytest-timeout>=2.3.1; extra == "development"
 Requires-Dist: pytest-xdist>=3.6.1; extra == "development"
 Requires-Dist: pytest-aiohttp>=1.0.5; extra == "development"
-Requires-Dist: ruff>=0.13.1; extra == "development"
+Requires-Dist: ruff>=0.15.0; extra == "development"
 Requires-Dist: twine>=6.2.0; extra == "development"
 Requires-Dist: types-Pygments; extra == "development"
 Requires-Dist: types-pyserial; extra == "development"
+Requires-Dist: zuban>=0.4.2; extra == "development"
 Provides-Extra: all
 Requires-Dist: pymodbus[development,documentation,serial,simulator]; extra == "all"
 Dynamic: license-file
@@ -101,7 +101,7 @@ as well as the
 `API_changes <https://github.com/pymodbus-dev/pymodbus/blob/dev/API_changes.rst>`_
 files.
 
-Current release is `3.11.4 <https://github.com/pymodbus-dev/pymodbus/releases/tag/v3.11.4>`_.
+Current release is `3.12.0 <https://github.com/pymodbus-dev/pymodbus/releases/tag/v3.12.0>`_.
 
 Bleeding edge (not released) is `dev <https://github.com/pymodbus-dev/pymodbus/tree/dev>`_.
 
@@ -222,6 +222,9 @@ You need to have python3 installed, preferable 3.11.
 
 Install with pip
 ^^^^^^^^^^^^^^^^
+.. note::
+   This section is intended for apps that uses the pymodbus library.
+
 You can install using pip by issuing the following
 commands in a terminal window::
 
@@ -277,21 +280,23 @@ Some distributions have an old pip, which needs to be upgraded:
 
    pip install --upgrade pip
 
-Install required development tools::
+Install required development tools in editable mode::
 
-   pip install ".[development]"
+    pip install -e ".[development]"
 
-Install all (allows creation of documentation etc):
+Install all (allows creation of documentation etc) in editable mode::
 
-   pip install ".[all]"
+    pip install -e ".[all]"
 
-Install git hooks, that helps control the commit and avoid errors when submitting a Pull Request:
+.. note::
+   The use of the ``-e`` (editable) flag is recommended when working on the ``dev`` branch. 
+   It registers the ``pymodbus`` namespace in your virtual environment using pointers to the 
+   source directory. This ensures that any changes you make to the core library are 
+   immediately reflected when running examples or tests.
 
-  cp githooks/* .git/hooks
+Install git hooks, that helps control the commit and avoid errors when submitting a Pull Request::
+   cp githooks/* .git/hooks
 
-This installs dependencies in your virtual environment
-with pointers directly to the pymodbus directory,
-so any change you make is immediately available as if installed.
 
 The repository contains a number of important branches and tags.
   * **dev** is where all development happens, this branch is not always stable.
@@ -324,10 +329,22 @@ need, feel free to submit them so others can benefit.
 Also, if you have a question, please `create a post in discussions q&a topic <https://github.com/pymodbus-dev/pymodbus/discussions/new?category=q-a>`_,
 so that others can benefit from the results.
 
-If you think, that something in the code is broken/not running well, please `open an issue <https://github.com/pymodbus-dev/pymodbus/issues/new>`_,
-read the Template-text first and then post your issue with your setup information.
+- If you think, that something in the code is broken/not running well, please `open an issue <https://github.com/pymodbus-dev/pymodbus/issues/new>`_,
+  read the Template-text first and then post your issue with your setup information.
 
 `Example documentation <https://pymodbus.readthedocs.io/en/dev/source/examples.html>`_
+
+Troubleshooting the dev branch
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+If you encounter errors while running examples, please check:
+
+1. **Namespace Error** (``*** ERROR --> PyModbus not found``): 
+   The package is not registered. Please ensure you followed the installation 
+   steps in the `Install with github`_ section above.
+
+2. **Directory Error** (``*** ERROR --> THIS EXAMPLE needs the example directory...``): 
+   You are in the wrong folder. You **must** run the script from within the 
+   ``examples/`` directory.
 
 
 Contributing

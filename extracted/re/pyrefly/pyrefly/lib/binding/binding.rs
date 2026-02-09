@@ -20,6 +20,7 @@ use pyrefly_python::module_path::ModuleStyle;
 use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::symbol_kind::SymbolKind;
+use pyrefly_types::special_form::SpecialForm;
 use pyrefly_types::type_alias::TypeAlias;
 use pyrefly_types::type_alias::TypeAliasIndex;
 use pyrefly_util::assert_bytes;
@@ -80,6 +81,7 @@ use crate::types::quantified::QuantifiedKind;
 use crate::types::stdlib::Stdlib;
 use crate::types::type_info::JoinStyle;
 use crate::types::type_info::TypeInfo;
+use crate::types::types::AnyStyle;
 use crate::types::types::TParams;
 use crate::types::types::Type;
 use crate::types::types::Var;
@@ -203,8 +205,6 @@ pub enum ChangedExport {
     Name(Name),
     /// A changed class (from class-related keys like `KeyClassField`, `KeyClassMetadata`, etc.).
     ClassDefIndex(ClassDefIndex),
-    /// The wildcard set changed (names exported via `from M import *`).
-    Wildcard,
     /// A name was added or removed from the module's definitions.
     /// This is detected at the Exports step, before types are computed.
     NameExistence(Name),
@@ -535,6 +535,13 @@ impl Ranged for NarrowUseLocation {
     }
 }
 
+/// Distinguishes between match statements and if/elif chains for exhaustiveness checking.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ExhaustivenessKind {
+    Match,
+    IfElif,
+}
+
 /// Keys that refer to a `Type`.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Key {
@@ -609,8 +616,8 @@ pub enum Key {
     /// This `Key` is *only* ever used if the variable has only a `del` but is not otherwise defined (which is
     /// always a type error, since you cannot delete an uninitialized variable).
     Delete(TextRange),
-    /// Match statement that needs type-based exhaustiveness checking
-    MatchExhaustive(TextRange),
+    /// Match statement or if/elif chain that needs type-based exhaustiveness checking
+    Exhaustive(ExhaustivenessKind, TextRange),
 }
 
 impl Ranged for Key {
@@ -641,7 +648,7 @@ impl Ranged for Key {
             Self::SelfTypeLiteral(r) => *r,
             Self::PossibleLegacyTParam(r) => *r,
             Self::PatternNarrow(r) => *r,
-            Self::MatchExhaustive(r) => *r,
+            Self::Exhaustive(_, r) => *r,
         }
     }
 }
@@ -687,7 +694,9 @@ impl DisplayWith<ModuleInfo> for Key {
                 write!(f, "Key::PossibleLegacyTParam({})", ctx.display(r))
             }
             Self::PatternNarrow(r) => write!(f, "Key::PatternNarrow({})", ctx.display(r)),
-            Self::MatchExhaustive(r) => write!(f, "Key::MatchExhaustive({})", ctx.display(r)),
+            Self::Exhaustive(kind, r) => {
+                write!(f, "Key::Exhaustive({:?}, {})", kind, ctx.display(r))
+            }
         }
     }
 }
@@ -722,6 +731,8 @@ pub enum KeyExpect {
     PrivateAttributeAccess(TextRange),
     /// Deferred uninitialized variable check.
     UninitializedCheck(TextRange),
+    /// Forward reference string literal in union type check.
+    ForwardRefUnion(TextRange),
 }
 
 impl Ranged for KeyExpect {
@@ -735,7 +746,8 @@ impl Ranged for KeyExpect {
             | KeyExpect::Bool(range)
             | KeyExpect::MatchExhaustiveness(range)
             | KeyExpect::PrivateAttributeAccess(range)
-            | KeyExpect::UninitializedCheck(range) => *range,
+            | KeyExpect::UninitializedCheck(range)
+            | KeyExpect::ForwardRefUnion(range) => *range,
         }
     }
 }
@@ -752,6 +764,7 @@ impl DisplayWith<ModuleInfo> for KeyExpect {
             KeyExpect::MatchExhaustiveness(r) => ("MatchExhaustiveness", r),
             KeyExpect::PrivateAttributeAccess(r) => ("PrivateAttributeAccess", r),
             KeyExpect::UninitializedCheck(r) => ("UninitializedCheck", r),
+            KeyExpect::ForwardRefUnion(r) => ("ForwardRefUnion", r),
         };
         write!(f, "KeyExpect::{}({})", name, ctx.display(range))
     }
@@ -839,6 +852,21 @@ pub enum BindingExpect {
         /// If any don't, the variable may be uninitialized.
         termination_keys: Vec<Idx<Key>>,
     },
+    /// Check for forward reference string literal in union type.
+    /// At runtime, `type.__or__` cannot handle string literals, so expressions
+    /// like `int | "str"` will raise a TypeError.
+    ForwardRefUnion {
+        /// The left expression of the union.
+        left: Box<Expr>,
+        /// The right expression of the union.
+        right: Box<Expr>,
+        /// Whether the left side is a forward reference string literal.
+        left_is_forward_ref: bool,
+        /// Whether the right side is a forward reference string literal.
+        right_is_forward_ref: bool,
+        /// The range for error reporting (covers the whole union expression).
+        range: TextRange,
+    },
 }
 
 impl DisplayWith<Bindings> for BindingExpect {
@@ -923,6 +951,23 @@ impl DisplayWith<Bindings> for BindingExpect {
                     name,
                     ctx.module().display(range),
                     termination_keys
+                )
+            }
+            Self::ForwardRefUnion {
+                left,
+                right,
+                left_is_forward_ref,
+                right_is_forward_ref,
+                range,
+            } => {
+                write!(
+                    f,
+                    "ForwardRefUnion({}, {}, {}, {}, {})",
+                    m.display(left),
+                    m.display(right),
+                    left_is_forward_ref,
+                    right_is_forward_ref,
+                    m.display(range)
                 )
             }
         }
@@ -1164,7 +1209,7 @@ impl DisplayWith<ModuleInfo> for KeyVariance {
     }
 }
 
-/// A key for checking variance violations (separate from KeyVariance to avoid cycles)
+// A key for checking variance violations (separate from KeyVariance to avoid cycles)
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct KeyVarianceCheck(pub ClassDefIndex);
 
@@ -1596,9 +1641,9 @@ pub enum LastStmt {
     /// The last statement is a `with`, with the following context,
     /// which might (if exit is true) catch an exception
     With(IsAsync),
-    /// The last statement is a match that may be type-exhaustive.
-    /// Contains the match statement range to look up exhaustiveness at solve time.
-    Match(TextRange),
+    /// The last statement is a match or if/elif chain that may be type-exhaustive.
+    /// Contains the statement range to look up exhaustiveness at solve time.
+    Exhaustive(ExhaustivenessKind, TextRange),
 }
 
 #[derive(Clone, Debug)]
@@ -1725,8 +1770,10 @@ pub enum Binding {
     /// A record of an "augmented assignment" statement like `x -= _`
     /// or `a.b *= _`. These desugar to special method calls.
     AugAssign(Option<Idx<KeyAnnotation>>, StmtAugAssign),
-    /// An explicit type.
-    Type(Type),
+    /// The None type, constructed lazily with TypeHeap during solving.
+    None,
+    /// An Any type with a specific style, constructed lazily with TypeHeap during solving.
+    Any(AnyStyle),
     /// A global variable.
     Global(ImplicitGlobal),
     /// A type parameter.
@@ -1874,11 +1921,12 @@ pub enum Binding {
     /// It could either be an unbound name or a reference to an inherited attribute
     /// We'll find out which when we solve the class
     ClassBodyUnknownName(Idx<KeyClass>, Identifier, Option<Name>),
-    /// A match statement that may be type-exhaustive.
+    /// A match statement or if/elif chain that may be type-exhaustive.
     /// Resolves to Never if exhaustive, None otherwise.
     /// When `exhaustiveness_info` is None, we couldn't determine narrowing info,
-    /// so we conservatively assume the match is not exhaustive.
-    MatchExhaustive {
+    /// so we conservatively assume the statement is not exhaustive.
+    Exhaustive {
+        kind: ExhaustivenessKind,
         subject_idx: Idx<Key>,
         subject_range: TextRange,
         /// Narrowing information needed to check exhaustiveness. None if we couldn't
@@ -1966,7 +2014,8 @@ impl DisplayWith<Bindings> for Binding {
             Self::ClassDef(x, _) => write!(f, "ClassDef({})", ctx.display(*x)),
             Self::Forward(k) => write!(f, "Forward({})", ctx.display(*k)),
             Self::AugAssign(a, s) => write!(f, "AugAssign({}, {})", ann(a), m.display(s)),
-            Self::Type(t) => write!(f, "Type({t})"),
+            Self::None => write!(f, "None"),
+            Self::Any(style) => write!(f, "Any({style:?})"),
             Self::Global(g) => write!(f, "Global({})", g.name()),
             Self::TypeParameter(tp) => {
                 write!(f, "TypeParameter({}, {}, ..)", tp.unique, tp.kind)
@@ -2156,14 +2205,16 @@ impl DisplayWith<Bindings> for Binding {
                 }
                 write!(f, ")")
             }
-            Self::MatchExhaustive {
+            Self::Exhaustive {
+                kind,
                 subject_idx,
                 subject_range,
                 ..
             } => {
                 write!(
                     f,
-                    "MatchExhaustive({}, {})",
+                    "Exhaustive({:?}, {}, {})",
+                    kind,
                     ctx.display(*subject_idx),
                     ctx.module().display(subject_range)
                 )
@@ -2221,7 +2272,8 @@ impl Binding {
             | Binding::ContextValue(_, _, _, _)
             | Binding::AnnotatedType(_, _)
             | Binding::AugAssign(_, _)
-            | Binding::Type(_)
+            | Binding::None
+            | Binding::Any(_)
             | Binding::Forward(_)
             | Binding::Phi(_, _)
             | Binding::LoopPhi(_, _)
@@ -2239,7 +2291,7 @@ impl Binding {
             | Binding::PartialTypeWithUpstreamsCompleted(..)
             | Binding::Delete(_)
             | Binding::ClassBodyUnknownName(_, _, _)
-            | Binding::MatchExhaustive { .. } => None,
+            | Binding::Exhaustive { .. } => None,
         }
     }
 }
@@ -2355,8 +2407,8 @@ pub enum BindingAnnotation {
     /// The type is annotated to be this key, will have the outer type removed.
     /// Optionally occurring within a class, in which case Self refers to this class.
     AnnotateExpr(AnnotationTarget, Expr, Option<Idx<KeyClass>>),
-    /// A literal type we know statically.
-    Type(AnnotationTarget, Type),
+    /// A special form declaration like `Literal: _SpecialForm`.
+    SpecialForm(AnnotationTarget, SpecialForm),
 }
 
 impl DisplayWith<Bindings> for BindingAnnotation {
@@ -2371,7 +2423,7 @@ impl DisplayWith<Bindings> for BindingAnnotation {
                     Some(t) => ctx.display(*t).to_string(),
                 }
             ),
-            Self::Type(target, t) => write!(f, "Type({target}, {t})"),
+            Self::SpecialForm(target, sf) => write!(f, "SpecialForm({target}, {sf})"),
         }
     }
 }

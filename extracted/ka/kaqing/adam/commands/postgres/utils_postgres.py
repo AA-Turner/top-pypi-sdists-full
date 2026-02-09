@@ -1,11 +1,12 @@
 import functools
 
 from adam.commands.postgres.postgres_databases import PostgresDatabases, pg_path
-from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils import ExecResult, log2, wait_log
+from adam.utils import ExecResult
+from adam.utils_color import Color
 from adam.utils_context import Context
 from adam.utils_k8s.pods import Pods
+from adam.utils_log import log2, wait_log
 
 TestPG = [False]
 
@@ -58,7 +59,7 @@ class PostgresPodService:
         r = Pods.exec(pod, container, state.namespace, command, ctx=ctx)
 
         if r and ctx.show_out and not ctx.debug:
-            ctx.log(r.command, verbose=True)
+            ctx.log(r.command, text_color=Color.gray)
 
             if r.stdout:
                 ctx.log(r.stdout)

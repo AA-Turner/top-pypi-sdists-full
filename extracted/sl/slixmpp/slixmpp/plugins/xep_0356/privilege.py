@@ -2,6 +2,7 @@ import logging
 import typing
 import uuid
 from collections import defaultdict
+from xml.etree import ElementTree as ET
 
 from slixmpp import JID, Iq, Message
 from slixmpp.plugins.base import BasePlugin
@@ -201,7 +202,9 @@ class XEP_0356(BasePlugin):
         """
         iq_id = iq_id or str(uuid.uuid4())
         encapsulated_iq["id"] = iq_id
-        server = encapsulated_iq.get_to().domain
+        if encapsulated_iq.namespace != "jabber:client":
+            _set_client_namespace(encapsulated_iq.xml)
+        server = encapsulated_iq.get_from().domain
         perms = self.granted_privileges.get(server)
         if not perms:
             raise PermissionError(f"{server} has not granted us any privilege")
@@ -232,6 +235,17 @@ class XEP_0356(BasePlugin):
             raise PrivilegedIqError(exc.iq)
 
         return resp["privilege"]["forwarded"]["iq"]
+
+
+def _set_client_namespace(xml: ET.Element) -> None:
+    """
+    Hack to fix namespaces between jabber:component and jabber:client
+
+    Acts in-place.
+    """
+    xml.tag = xml.tag.replace("{jabber:component:accept}", "{jabber:client}")
+    for child in xml:
+        _set_client_namespace(child)
 
 
 # does not include iq access that is handled differently

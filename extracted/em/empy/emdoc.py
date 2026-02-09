@@ -24,9 +24,10 @@ import emlib
 # constants
 #
 
-EXAMPLE = '\N{JIGSAW PUZZLE PIECE}'
 SOURCE = '\N{KEYBOARD}\ufe0f'
 OUTPUT = '\N{DESKTOP COMPUTER}\ufe0f'
+
+PATHS = ['../..', '.']
 
 EMOJIS = {
     '...': ('\N{HORIZONTAL ELLIPSIS}', "horizontal ellipsis"),
@@ -71,8 +72,8 @@ class Identity:
     """Dynamically access magic attributes on both the interpreter and
     underlying module."""
 
-    def __init__(self, pseudo, module):
-        self.pseudo = pseudo
+    def __init__(self, interp, module):
+        self.interp = interp
         self.module = module
 
     def __str__(self):
@@ -83,8 +84,8 @@ class Identity:
 
     def __getattr__(self, attr):
         attribute = '__{}__'.format(attr)
-        if attribute in self.pseudo.globals:
-            return self.pseudo.globals[attribute]
+        if attribute in self.interp.globals:
+            return self.interp.globals[attribute]
         elif attribute in self.module.__dict__:
             return self.module.__dict__[attribute]
         else:
@@ -229,12 +230,12 @@ class Information:
 
     noLanguage = 'text'
 
-    def __init__(self, pseudo, moduleName, file=sys.stdout):
-        self.pseudo = pseudo
+    def __init__(self, interp, moduleName, file=sys.stdout):
+        self.interp = interp
         self.moduleName = moduleName
         self.file = file
         self.module = __import__(moduleName)
-        self.ident = Identity(pseudo, self.module)
+        self.ident = Identity(interp, self.module)
         self.details = emlib.Details()
         self.config = em.Configuration()
         self.usage = emhelp.Usage(config=self.config)
@@ -288,7 +289,7 @@ class Information:
     def variable(self, variable):
         self.file.write("`{}`".format(variable))
 
-    def source(self, filename='README'):
+    def source(self, filename):
         for extension in self.extensions:
             if os.path.exists(filename + extension):
                 return filename + extension
@@ -320,9 +321,9 @@ class Information:
         if stopped:
             chunks.append('...')
         return '\n'.join(chunks)
-    
+
     def shell(self, command, output, prefix='% ', lines=None, blanks=None,
-              exitCode=0):
+              class_='shell', exitCode=0):
         display = command
         if isinstance(display, list):
             words = ['"{}"'.format(x)
@@ -330,13 +331,13 @@ class Information:
                 else x
                 for x in command]
             display = ' '.join(words)
-        self.file.write("<pre class=\"shell\">")
+        self.file.write("<pre class=\"{}\">\n".format(class_))
         if display:
             self.file.write("<b><i>{}{}</i></b>\n".format(
                 prefix, self.filter(display)))
         self.file.write(self.filter(output, lines, blanks))
         if exitCode != 0:
-            self.file.write("<i>Exit code: {}</i>".format(exitCode))
+            self.file.write("<i>Exit code: {}</i>\n".format(exitCode))
         self.file.write("</pre>\n")
 
     def execute(self, command, prefix='% ', lines=None, blanks=None, check=True):
@@ -353,12 +354,12 @@ class Information:
             os.environ['PATH'] = oldPath
 
     def splice(self, file, name='<splice>'):
-        context = self.pseudo.newContext(name)
-        self.pseudo.pushContext(context)
+        context = self.interp.newContext(name)
+        self.interp.pushContext(context)
         try:
-            self.pseudo.fileFull(file)
+            self.interp.fileFull(file)
         finally:
-            self.pseudo.popContext()
+            self.interp.popContext()
 
     def load(self, filename, mode='r'):
         with open(filename, mode) as file:
@@ -375,7 +376,10 @@ class Information:
         with open(filename, mode) as file:
             for line in file.readlines():
                 if line.startswith('#'):
-                    prelim, title = line.split(' ', 1)
+                    try:
+                        prelim, title = line.split(' ', 1)
+                    except ValueError:
+                        raise DocumentationError("malformed header line: {}".format(line), line=line)
                     if ':' in title:
                         title, subtitle = title.split(':', 1)
                         subtitle = subtitle.strip()
@@ -398,13 +402,13 @@ class Information:
         if start:
             self.splice(io.StringIO(''.join(buffer)), (filename, start))
         else:
-            raise DocumentationError("could not find heading '%s'" % heading)
+            raise DocumentationError("could not find heading '{}'".format(heading), heading=heading)
 
     def tee(self, filename):
         return Tee(filename)
 
-    def summarize(self):
-        filename = self.source()
+    def summarize(self, filename='README'):
+        filename = self.source(filename)
         hasher = self.hashFactory()
         with open(filename, 'rb') as f:
             data = f.read()
@@ -426,7 +430,7 @@ _This documentation for {} version {} was generated from {} ({} `{}`, {} bytes) 
 
     def done(self):
         if self.config:
-            self.pseudo.dropAllDiversions()
+            self.interp.dropAllDiversions()
             self.config = None
 
 #
@@ -441,7 +445,6 @@ class Extension(em.Extension):
         'empy': '' # to eliminate Pygments warning
     }
 
-    asTable = False
     sub = True
 
     def __init__(self):
@@ -480,39 +483,32 @@ class Extension(em.Extension):
         if example:
             number = self.next()
             self.interp.startDiversion(caption)
-            self.interp.write(":::{{admonition}} {} Example {}{}\n".format(
-                EXAMPLE, number, suffix))
+            self.interp.write('<a class="example" id="example-{}"></a>\n'.format(number))
+            self.interp.write('\n')
+            self.interp.write(':::{{admonition}} Example {}{}\n'.format(
+                number, suffix))
             output = self.expand(source, '<example {}{}>'.format(
-                number, " \"" +  caption + "\"" if caption else ''))
-            if self.asTable:
-                self.interp.write("&nbsp;  \n")
-                self.interp.write("<table>\n")
-                self.interp.write("<tr><th>Source</th><th>Output</th></tr>\n")
-                self.interp.write("<tr><td valign=top>\n\n")
-                self.interp.write("``````\n{}``````\n\n".format(source))
-                self.interp.write("</td><td valign=top>\n\n")
-                self.interp.write("``````\n{}``````\n\n".format(output))
-                self.interp.write("</td></tr>\n")
-                self.interp.write("</table>\n")
-            else:
-                self.interp.write("&nbsp;  \n")
-                self.interp.write("&nbsp;  \n")
-                self.interp.write("_Source_: {}\n".format(SOURCE))
-                self.interp.write("``````{}\n".format(self.languages.get(language, language)))
-                self.interp.write(source)
-                self.interp.write("``````\n")
-                self.interp.write("\n")
-                self.interp.write("_Output_: {}\n".format(OUTPUT))
-                self.interp.write("``````\n")
-                self.interp.write(output)
-                self.interp.write("``````\n")
-            self.interp.write(":::\n")
+                number, ' "' +  caption + '"' if caption else ''))
+            self.interp.write('_Source_: {}\n'.format(SOURCE))
+            self.interp.write('<div class="source">\n\n')
+            self.interp.write('``````{}\n'.format(self.languages.get(language, language)))
+            self.interp.write(source)
+            self.interp.write('``````\n')
+            self.interp.write('\n</div>\n\n')
+            self.interp.write('_Output_: {}\n'.format(OUTPUT))
+            self.interp.write('<div class="output">\n\n')
+            self.interp.write('``````\n')
+            self.interp.write(output)
+            self.interp.write('``````\n')
+            self.interp.write('\n</div>\n\n')
+            self.interp.write(':::\n')
+
             self.interp.stopDiverting()
             self.interp.replayDiversion(caption)
         else:
-            self.interp.write("``````{}\n".format(self.languages.get(language, language)))
+            self.interp.write('``````{}\n'.format(self.languages.get(language, language)))
             self.interp.write(source)
-            self.interp.write("``````\n")
+            self.interp.write('``````\n')
 
 #
 # Hook
@@ -543,11 +539,13 @@ class Hook(emlib.Hook):
 # init
 #
 
-def init(pseudo, moduleName, paths=['../..', '.']):
+def init(interp, moduleName, paths=None):
     """Initialize the information object."""
+    if paths is None:
+        paths = PATHS
     for path in paths:
         sys.path.insert(0, os.path.abspath(path))
-    pseudo.config.emojis = EMOJIS
-    pseudo.addHook(Hook(pseudo))
-    pseudo.installExtension(Extension())
-    return Information(pseudo, moduleName)
+    interp.config.emojis = EMOJIS
+    interp.addHook(Hook(interp))
+    interp.installExtension(Extension())
+    return Information(interp, moduleName)

@@ -111,7 +111,7 @@ def register_stanza_plugin(stanza: Type[ElementBase], plugin: Type[ElementBase],
 
 def multifactory(stanza: Type[ElementBase], plugin_attrib: str) -> Type[ElementBase]:
     """
-    Returns a ElementBase class for handling reoccuring child stanzas
+    Returns a ElementBase class for handling reoccurring child stanzas
     """
 
     def plugin_filter(self: Multi) -> Callable[..., bool]:
@@ -1453,6 +1453,8 @@ class ElementBase(object):
     #:
     #: Child stanzas are exposed as nested dictionaries.
     values = property(_get_stanza_values, _set_stanza_values)  # type: ignore
+
+    get_toplevel_attr = _get_attr
 
 
 class StanzaBase(ElementBase):

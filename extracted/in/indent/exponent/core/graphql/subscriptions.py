@@ -1,6 +1,6 @@
 AUTHENTICATED_USER_SUBSCRIPTION = """
-    subscription {
-            testAuthenticatedUser {
+    subscription AuthenticatedUserSubscription($token: String!) {
+            testAuthenticatedUser: testAuthenticatedUser(token: $token) {
                 __typename
                 ... on UnauthenticatedError {
                     message

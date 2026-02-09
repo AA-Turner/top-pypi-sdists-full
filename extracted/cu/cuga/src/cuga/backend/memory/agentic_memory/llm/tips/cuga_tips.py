@@ -61,9 +61,6 @@ async def extract_cuga_tips_from_data(data: Optional[dict]) -> Tuple[dict, Optio
         logger.info("Initializing TipsExtractor...")
         extractor = TipsExtractor()
 
-        if not extractor.llm:
-            return {"error": "LLM not available for tips extraction"}, trajectory_id
-
         # Extract tips using async processing with comprehensive error handling
         logger.info("Starting LLM-based tips extraction (this may take several minutes)...")
 
@@ -96,39 +93,3 @@ async def extract_cuga_tips_from_data(data: Optional[dict]) -> Tuple[dict, Optio
     except Exception as e:
         logger.error(f"Failed to process trajectory: {e}")
         return {"error": f"Failed to process trajectory: {str(e)}"}, None
-
-
-async def store_cuga_tips(tips_by_agent: dict, trajectory_id: str, user_id: str | None = None) -> int:
-    from cuga.backend.memory.agentic_memory.utils.utils import store_facts
-
-    # Store tips in memory
-    total_tips = 0
-    for agent, tips in tips_by_agent.items():
-        for tip in tips:
-            tip_data = {
-                "intent": tip.intent,
-                "task_status": tip.task_status,
-                "failure_reason": tip.failure_reason,
-                "tip": tip.tip_content,
-            }
-
-            # Store in memory using the existing store_facts function
-            store_facts(
-                user_id=user_id,
-                message=json.dumps(tip_data),
-                metadata_input={
-                    "type": "tips",
-                    "tip_id": tip.tip_id,
-                    "agent": agent,
-                    "specific_checks": tip.specific_checks,
-                    "intended_use": tip.intended_use,
-                    "priority": tip.priority,
-                    "trajectory_id": trajectory_id,
-                    "tip_type": tip.tip_type,
-                    "rationale": tip.rationale,
-                    "application": tip.application,
-                    "task_category": tip.task_category,
-                },
-            )
-            total_tips += 1
-    return total_tips

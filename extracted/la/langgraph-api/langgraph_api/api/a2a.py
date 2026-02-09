@@ -2005,11 +2005,13 @@ async def handle_message_stream(
                     "User requested to resume a task without specifying a Command.",
                     task_id=existing_task_id,
                 )
+
             if context_id_from_message is None:
                 context_id_from_message = str(uuid.uuid4())
+            context_id = context_id_from_message
 
-            run = await client.runs.create(
-                thread_id=str(context_id_from_message),
+            stream = client.runs.stream(
+                thread_id=context_id,
                 assistant_id=assistant_id,
                 stream_mode=["messages", "values"],
                 if_not_exists="create",
@@ -2017,8 +2019,13 @@ async def handle_message_stream(
                 command=command,
                 headers=request.headers,
             )
-            context_id = str(run["thread_id"])
-            run_id = run["run_id"]  # Keep raw run_id for SDK calls
+
+            # The first event is always metadata including the run_id
+            run_event = await anext(stream)
+            run_id = run_event.data.get("run_id")
+            if not run_id:
+                raise ValueError("Stream did not include run_id")
+
             # If continuing an existing task, preserve the original task_id
             task_id = existing_task_id or _make_task_id(context_id, run_id)
             # Emit initial Task object to establish task context
@@ -2040,11 +2047,7 @@ async def handle_message_stream(
                 },
             }
             yield (b"message", {"jsonrpc": "2.0", "id": rpc_id, "result": initial_task})
-            stream = client.runs.join_stream(
-                run_id=run_id,
-                thread_id=context_id,
-                headers=request.headers,
-            )
+
             result = None
             err = None
             notified_is_working = False
@@ -2107,6 +2110,7 @@ async def handle_message_stream(
                                 {"jsonrpc": "2.0", "id": rpc_id, "result": completed},
                             )
                             return
+                        # TODO: This should just be sent from the start as well
                         if data.get("run_id") and not notified_is_working:
                             notified_is_working = True
                             yield (

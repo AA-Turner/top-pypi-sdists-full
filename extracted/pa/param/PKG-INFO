@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: param
-Version: 2.3.1
+Version: 2.3.2
 Summary: Declarative parameters for robust Python classes and a rich API for reactive programming
 Project-URL: Homepage, https://param.holoviz.org/
 Project-URL: Tracker, https://github.com/holoviz/param/issues
@@ -287,7 +287,6 @@ sfe = SideEffectExample()
 # We update the value of a and immediately see that debug_event is called
 # with a rich Event object.
 sfe.a = 'foo'
-# => Event(
 # => Event(
 #     what='value', name='a',
 #     obj=SideEffectExample(a='foo', b='', c='', name='SideEffectExample00008'),

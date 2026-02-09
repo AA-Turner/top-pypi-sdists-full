@@ -4,9 +4,10 @@ from typing import Any
 
 from tortoise.backends.base.schema_generator import BaseSchemaGenerator
 from tortoise.converters import encoders
+from tortoise.schema_quoting import SqliteQuotingMixin
 
 
-class SqliteSchemaGenerator(BaseSchemaGenerator):
+class SqliteSchemaGenerator(SqliteQuotingMixin, BaseSchemaGenerator):
     DIALECT = "sqlite"
 
     @classmethod
@@ -32,7 +33,7 @@ class SqliteSchemaGenerator(BaseSchemaGenerator):
         auto_now: bool = False,
     ) -> str:
         default_str = " DEFAULT"
-        default_str += " CURRENT_TIMESTAMP" if auto_now_add else f" {default}"
+        default_str += " CURRENT_TIMESTAMP" if (auto_now_add or auto_now) else f" {default}"
         return default_str
 
     def _escape_default_value(self, default: Any):

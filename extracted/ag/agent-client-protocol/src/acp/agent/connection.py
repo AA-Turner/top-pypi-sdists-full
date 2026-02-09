@@ -12,6 +12,7 @@ from ..schema import (
     AgentPlanUpdate,
     AgentThoughtChunk,
     AvailableCommandsUpdate,
+    ConfigOptionUpdate,
     CreateTerminalRequest,
     CreateTerminalResponse,
     CurrentModeUpdate,
@@ -32,13 +33,13 @@ from ..schema import (
     ToolCallProgress,
     ToolCallStart,
     ToolCallUpdate,
+    UsageUpdate,
     UserMessageChunk,
     WaitForTerminalExitRequest,
     WaitForTerminalExitResponse,
     WriteTextFileRequest,
     WriteTextFileResponse,
 )
-from ..terminal import TerminalHandle
 from ..utils import compatible_class, notify_model, param_model, request_model, request_optional_model
 from .router import build_agent_router
 
@@ -49,7 +50,9 @@ _AGENT_CONNECTION_ERROR = "AgentSideConnection requires asyncio StreamWriter/Str
 @final
 @compatible_class
 class AgentSideConnection:
-    """Agent-side connection wrapper that dispatches JSON-RPC messages to a Client implementation."""
+    """Agent-side connection wrapper that dispatches JSON-RPC messages to a Client implementation.
+    The agent can use this connection to communicate with the Client so it behaves like a Client.
+    """
 
     def __init__(
         self,
@@ -61,7 +64,7 @@ class AgentSideConnection:
         use_unstable_protocol: bool = False,
         **connection_kwargs: Any,
     ) -> None:
-        agent = to_agent(cast(Client, self)) if callable(to_agent) else to_agent
+        agent = to_agent(self) if callable(to_agent) else to_agent
         if not isinstance(input_stream, asyncio.StreamWriter) or not isinstance(output_stream, asyncio.StreamReader):
             raise TypeError(_AGENT_CONNECTION_ERROR)
         handler = build_agent_router(cast(Agent, agent), use_unstable_protocol=use_unstable_protocol)
@@ -85,7 +88,9 @@ class AgentSideConnection:
         | AgentPlanUpdate
         | AvailableCommandsUpdate
         | CurrentModeUpdate
-        | SessionInfoUpdate,
+        | ConfigOptionUpdate
+        | SessionInfoUpdate
+        | UsageUpdate,
         **kwargs: Any,
     ) -> None:
         await notify_model(
@@ -139,8 +144,8 @@ class AgentSideConnection:
         env: list[EnvVariable] | None = None,
         output_byte_limit: int | None = None,
         **kwargs: Any,
-    ) -> TerminalHandle:
-        create_response = await request_model(
+    ) -> CreateTerminalResponse:
+        return await request_model(
             self._conn,
             CLIENT_METHODS["terminal_create"],
             CreateTerminalRequest(
@@ -154,7 +159,6 @@ class AgentSideConnection:
             ),
             CreateTerminalResponse,
         )
-        return TerminalHandle(create_response.terminal_id, session_id, self._conn)
 
     @param_model(TerminalOutputRequest)
     async def terminal_output(self, session_id: str, terminal_id: str, **kwargs: Any) -> TerminalOutputResponse:
@@ -212,3 +216,6 @@ class AgentSideConnection:
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
         await self.close()
+
+    def on_connect(self, conn: Agent) -> None:
+        pass

@@ -167,7 +167,8 @@ class Intent(BaseModel):
             intent.api_endpoint,
             snapshot_id=snapshot_id,
             reports=intent.web_endpoint,
-            filters={intent.column: ["color", "eq", color]},
+            # API requires the integer as str, see NIM-22930
+            filters={intent.column: ["color", "eq", str(color)]},
         )
 
     def compare_snapshot(self, snapshot_id: str, reverse: bool = False) -> list:

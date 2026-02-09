@@ -1,4 +1,5 @@
 from adam.commands.command import Command
+from adam.commands.command_filter import CommandFilter
 from adam.repl_commands import ReplCommands
 from adam.repl_state import ReplState
 from adam.utils_tabulize import tabulize
@@ -22,7 +23,11 @@ class Help(Command):
         if not self.args(cmd):
             return super().run(cmd, state)
 
-        def section(cmds : list[ReplCommands]):
+        def section(cmds : list[Command]):
+            sorted_cmds = sorted(cmds, key=lambda cmd: cmd.command())
+            return [f'  {c.help(state)}' for c in sorted_cmds if c.help(state)]
+
+        def filters(cmds : list[CommandFilter]):
             sorted_cmds = sorted(cmds, key=lambda cmd: cmd.command())
             return [f'  {c.help(state)}' for c in sorted_cmds if c.help(state)]
 
@@ -42,6 +47,8 @@ class Help(Command):
         lines.extend(section(ReplCommands.audit_ops()))
         lines.append('TOOLS')
         lines.extend(section(ReplCommands.tools()))
+        lines.append('COMMAND FILTERS')
+        lines.extend(filters(ReplCommands.filters()))
         lines.append('')
         lines.extend(section(ReplCommands.exit()))
 

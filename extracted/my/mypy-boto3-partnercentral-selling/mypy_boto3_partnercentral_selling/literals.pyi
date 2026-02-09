@@ -3,7 +3,7 @@ Type annotations for partnercentral-selling service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -1041,7 +1041,9 @@ MarketingSourceType = Literal["Marketing Activity", "None"]
 NationalSecurityType = Literal["No", "Yes"]
 OpportunityEngagementInvitationSortNameType = Literal["InvitationDate"]
 OpportunityOriginType = Literal["AWS Referral", "Partner Referral"]
-OpportunitySortNameType = Literal["CustomerCompanyName", "Identifier", "LastModifiedDate"]
+OpportunitySortNameType = Literal[
+    "CreatedDate", "CustomerCompanyName", "Identifier", "LastModifiedDate"
+]
 OpportunityTypeType = Literal["Expansion", "Flat Renewal", "Net New Business"]
 ParticipantTypeType = Literal["RECEIVER", "SENDER"]
 PaymentFrequencyType = Literal["Monthly"]
@@ -1267,7 +1269,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -1532,6 +1533,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

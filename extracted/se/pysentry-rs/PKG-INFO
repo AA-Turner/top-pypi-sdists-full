@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pysentry-rs
-Version: 0.4.0
+Version: 0.4.1
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -28,7 +28,7 @@ Project-URL: Repository, https://github.com/nyudenkov/pysentry
 
 [![PyPI Downloads](https://static.pepy.tech/badge/pysentry-rs/week)](https://pepy.tech/projects/pysentry-rs)
 
-[Help to test and improve](https://github.com/nyudenkov/pysentry/issues/12)
+[Help to test and improve](https://github.com/nyudenkov/pysentry/issues/12) · [Participate in pysentry usage survey](https://tally.so/r/mYNPNv)
 
 Please, send feedback to nikita@pysentry.com
 
@@ -92,7 +92,7 @@ See [Quickstart Guide](https://docs.pysentry.com/getting-started/quickstart) for
 ```yaml
 repos:
   - repo: https://github.com/pysentry/pysentry-pre-commit
-    rev: v0.4.0
+    rev: v0.4.1
     hooks:
       - id: pysentry
 ```

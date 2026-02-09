@@ -7,10 +7,11 @@ from langgraph.types import Command
 from loguru import logger
 from langchain_core.runnables.config import RunnableConfig
 from cuga.backend.activity_tracker.tracker import ActivityTracker, Step
-from cuga.backend.tools_env.registry.utils.api_utils import get_apis
+from cuga.backend.tools_env.registry.utils.api_utils import get_apis, get_apps
 from cuga.backend.cuga_graph.nodes.shared.base_agent import create_partial
 from cuga.backend.cuga_graph.nodes.shared.base_node import BaseNode
-from cuga.backend.cuga_graph.state.agent_state import AgentState, SubTaskHistory
+from cuga.backend.cuga_graph.state.agent_state import AgentState, SubTaskHistory, AnalyzeTaskAppsOutput
+from cuga.config import settings
 from cuga.backend.cuga_graph.nodes.task_decomposition_planning.plan_controller_agent.plan_controller_agent import (
     PlanControllerAgent,
 )
@@ -70,6 +71,29 @@ class PlanControllerNode(BaseNode):
         # Final answer ifs
 
         if state.sender == "TaskDecompositionAgent":
+            # Add forced apps to api_intent_relevant_apps when arriving from task decomposition
+            force_lite_apps = getattr(settings.advanced_features, 'force_lite_mode_apps', [])
+            if force_lite_apps:
+                all_apps = await get_apps()
+                if state.api_intent_relevant_apps is None:
+                    state.api_intent_relevant_apps = []
+                existing_app_names = {app.name for app in state.api_intent_relevant_apps}
+                for forced_app_name in force_lite_apps:
+                    if forced_app_name not in existing_app_names:
+                        app_info = next((app for app in all_apps if app.name == forced_app_name), None)
+                        if app_info:
+                            state.api_intent_relevant_apps.append(
+                                AnalyzeTaskAppsOutput(
+                                    name=app_info.name,
+                                    description=app_info.description,
+                                    url=app_info.url,
+                                    type='api',
+                                )
+                            )
+                            logger.info(
+                                f"Added forced lite app '{forced_app_name}' to api_intent_relevant_apps"
+                            )
+
             if ignore_controller:
                 state.sub_task = state.task_decomposition.task_decomposition[0].task
                 state.sub_task_app = state.task_decomposition.task_decomposition[0].app
@@ -80,11 +104,41 @@ class PlanControllerNode(BaseNode):
                         for app in state.api_intent_relevant_apps
                         if app.name == state.task_decomposition.task_decomposition[0].app
                     ]
+                    if not state.api_intent_relevant_apps_current:
+                        # Check if it's a forced lite app
+                        force_lite_apps = getattr(settings.advanced_features, 'force_lite_mode_apps', [])
+                        if state.task_decomposition.task_decomposition[0].app in force_lite_apps:
+                            all_apps = await get_apps()
+                            app_info = next(
+                                (
+                                    app
+                                    for app in all_apps
+                                    if app.name == state.task_decomposition.task_decomposition[0].app
+                                ),
+                                None,
+                            )
+                            if app_info:
+                                state.api_intent_relevant_apps_current = [
+                                    AnalyzeTaskAppsOutput(
+                                        name=app_info.name,
+                                        description=app_info.description,
+                                        url=app_info.url,
+                                        type='api',
+                                    )
+                                ]
+                                logger.info(
+                                    f"Added forced lite app '{state.task_decomposition.task_decomposition[0].app}' to api_intent_relevant_apps_current"
+                                )
+
                     if state.api_shortlister_all_filtered_apis is None:
                         state.api_shortlister_all_filtered_apis = {}
-                    state.api_shortlister_all_filtered_apis[
-                        state.api_intent_relevant_apps_current[0].name
-                    ] = await get_apis(state.api_intent_relevant_apps_current[0].name)
+                    # Skip API fetching if it's a forced lite app
+                    if state.api_intent_relevant_apps_current:
+                        force_lite_apps = getattr(settings.advanced_features, 'force_lite_mode_apps', [])
+                        if state.api_intent_relevant_apps_current[0].name not in force_lite_apps:
+                            state.api_shortlister_all_filtered_apis[
+                                state.api_intent_relevant_apps_current[0].name
+                            ] = await get_apis(state.api_intent_relevant_apps_current[0].name)
                 state.messages.append(
                     AIMessage(
                         content=PlanControllerOutput(
@@ -177,17 +231,49 @@ class PlanControllerNode(BaseNode):
                     if app.name == plan_controller_output.next_subtask_app
                 ]
                 if not state.api_intent_relevant_apps_current:
-                    logger.error(
-                        f"No matching app found for next_subtask_app='{plan_controller_output.next_subtask_app}'. "
-                        f"Available apps: {[app.name for app in state.api_intent_relevant_apps]}"
-                    )
-                    raise ValueError(
-                        f"App '{plan_controller_output.next_subtask_app}' not found in api_intent_relevant_apps"
-                    )
-                state.api_shortlister_all_filtered_apis = {}
-                state.api_shortlister_all_filtered_apis[
-                    state.api_intent_relevant_apps_current[0].name
-                ] = await get_apis(state.api_intent_relevant_apps_current[0].name)
+                    # Check if it's a forced lite app
+                    force_lite_apps = getattr(settings.advanced_features, 'force_lite_mode_apps', [])
+                    if plan_controller_output.next_subtask_app in force_lite_apps:
+                        # Get app info and create AnalyzeTaskAppsOutput
+                        all_apps = await get_apps()
+                        app_info = next(
+                            (app for app in all_apps if app.name == plan_controller_output.next_subtask_app),
+                            None,
+                        )
+                        if app_info:
+                            state.api_intent_relevant_apps_current = [
+                                AnalyzeTaskAppsOutput(
+                                    name=app_info.name,
+                                    description=app_info.description,
+                                    url=app_info.url,
+                                    type='api',
+                                )
+                            ]
+                            logger.info(
+                                f"Added forced lite app '{plan_controller_output.next_subtask_app}' to api_intent_relevant_apps_current"
+                            )
+                            # Skip API fetching for forced lite apps
+                        else:
+                            logger.warning(
+                                f"Forced lite app '{plan_controller_output.next_subtask_app}' not found in available apps"
+                            )
+                    else:
+                        logger.error(
+                            f"No matching app found for next_subtask_app='{plan_controller_output.next_subtask_app}'. "
+                            f"Available apps: {[app.name for app in state.api_intent_relevant_apps]}"
+                        )
+                        raise ValueError(
+                            f"App '{plan_controller_output.next_subtask_app}' not found in api_intent_relevant_apps"
+                        )
+
+                # Only fetch APIs if we have a valid app and it's not a forced lite app
+                if state.api_intent_relevant_apps_current:
+                    force_lite_apps = getattr(settings.advanced_features, 'force_lite_mode_apps', [])
+                    if state.api_intent_relevant_apps_current[0].name not in force_lite_apps:
+                        state.api_shortlister_all_filtered_apis = {}
+                        state.api_shortlister_all_filtered_apis[
+                            state.api_intent_relevant_apps_current[0].name
+                        ] = await get_apis(state.api_intent_relevant_apps_current[0].name)
 
             state.previous_steps = []
             if state.sites and len(state.sites) > 0:

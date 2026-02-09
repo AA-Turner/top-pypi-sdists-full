@@ -3,12 +3,12 @@
 requires = [
     'setuptools >= 77.0.0',
     'pkgconfig',
-    'passagemath-conf ~= 10.6.48.0 ; sys_platform != "win32"',
-    'passagemath-setup ~= 10.6.48.0',
-    'passagemath-categories ~= 10.6.48.0',
-    'passagemath-environment ~= 10.6.48.0',
-    'passagemath-objects ~= 10.6.48.0',
-    'cython >=3.0.8, <3.3.0', 'cython >=3.0.8,<3.3.0',
+    'passagemath-conf ~= 10.8.1.0 ; sys_platform != "win32"',
+    'passagemath-setup ~= 10.8.1.0',
+    'passagemath-categories ~= 10.8.1.0',
+    'passagemath-environment ~= 10.8.1.0',
+    'passagemath-objects ~= 10.8.1.0',
+    'cython >=3.1.0,<3.3.0',
     'cysignals !=1.12.4; sys_platform == "win32"', 'cysignals >=1.11.2, != 1.12.0',
 ]
 build-backend = "setuptools.build_meta"
@@ -18,8 +18,8 @@ name = "passagemath-msolve"
 description = "passagemath: Polynomial system solving through algebraic methods with msolve"
 dependencies = [
     'cysignals !=1.12.4; sys_platform == "win32"', 'cysignals >=1.11.2, != 1.12.0',
-    'passagemath-categories ~= 10.6.48.0',
-    'passagemath-flint ~= 10.6.48.0',              'passagemath-modules ~= 10.6.48.0',            'passagemath-repl ~= 10.6.48.0',           ]
+    'passagemath-categories ~= 10.8.1.0',
+    'passagemath-flint ~= 10.8.1.0',              'passagemath-modules ~= 10.8.1.0',            'passagemath-repl ~= 10.8.1.0',           ]
 dynamic = ["version"]
 license = "GPL-2.0-or-later"
 authors = [{name = "The Sage Developers", email = "sage-support@googlegroups.com"}]
@@ -35,7 +35,6 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS :: MacOS X",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -43,7 +42,7 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
-requires-python = ">=3.10, <3.15"
+requires-python = ">=3.11, <3.15"
 
 [project.urls]
 "release notes" = "https://github.com/passagemath/passagemath/releases"

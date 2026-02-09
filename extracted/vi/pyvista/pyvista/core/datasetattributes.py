@@ -12,6 +12,8 @@ import numpy as np
 import numpy.typing as npt
 
 from pyvista._deprecate_positional_args import _deprecate_positional_args
+from pyvista.core._vtk_utilities import DisableVtkSnakeCase
+from pyvista.core._vtk_utilities import VTKObjectWrapperCheckSnakeCase
 
 from . import _vtk_core as _vtk
 from .pyvista_ndarray import pyvista_ndarray
@@ -53,9 +55,7 @@ attr_type = [
 _SENTINEL = pyvista_ndarray([])
 
 
-class DataSetAttributes(
-    _NoNewAttrMixin, _vtk.DisableVtkSnakeCase, _vtk.VTKObjectWrapperCheckSnakeCase
-):
+class DataSetAttributes(_NoNewAttrMixin, DisableVtkSnakeCase, VTKObjectWrapperCheckSnakeCase):
     """Python friendly wrapper of :vtk:`vtkDataSetAttributes`.
 
     This class provides the ability to pick one of the present arrays as the
@@ -933,7 +933,7 @@ class DataSetAttributes(
          ('data1', pyvista_ndarray([0, 1, 2, 3, 4, 5]))]
 
         """
-        return list(zip(self.keys(), self.values()))
+        return list(zip(self.keys(), self.values(), strict=True))
 
     def keys(self: Self) -> list[str]:
         """Return the names of the arrays as a list.

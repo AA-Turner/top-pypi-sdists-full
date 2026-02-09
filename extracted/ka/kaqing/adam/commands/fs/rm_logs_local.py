@@ -2,7 +2,7 @@ import os
 
 from adam.commands.command import Command
 from adam.repl_state import ReplState
-from adam.utils import log2, log_dir
+from adam.utils_log import log2, log_dir
 
 class RmLogsLocal(Command):
     COMMAND = ':rm logs'

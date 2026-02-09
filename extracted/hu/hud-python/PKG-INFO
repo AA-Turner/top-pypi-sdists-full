@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hud-python
-Version: 0.5.18
+Version: 0.5.21
 Summary: SDK for the HUD platform.
 Project-URL: Homepage, https://github.com/hud-evals/hud-python
 Project-URL: Bug Tracker, https://github.com/hud-evals/hud-python/issues
@@ -51,7 +51,7 @@ Requires-Dist: toml>=0.10.2
 Requires-Dist: typer>=0.9.0
 Requires-Dist: watchfiles>=0.21.0
 Provides-Extra: agent
-Requires-Dist: anthropic>=0.75; extra == 'agent'
+Requires-Dist: anthropic>=0.78.0; extra == 'agent'
 Requires-Dist: datasets>=2.14.0; extra == 'agent'
 Requires-Dist: google-genai; extra == 'agent'
 Requires-Dist: langchain>=1.1.0; extra == 'agent'
@@ -60,7 +60,7 @@ Requires-Dist: openai-agents; extra == 'agent'
 Requires-Dist: pillow>=11.1.0; extra == 'agent'
 Requires-Dist: tornado>=6.5.2; extra == 'agent'
 Provides-Extra: agents
-Requires-Dist: anthropic>=0.75; extra == 'agents'
+Requires-Dist: anthropic>=0.78.0; extra == 'agents'
 Requires-Dist: datasets>=2.14.0; extra == 'agents'
 Requires-Dist: google-genai; extra == 'agents'
 Requires-Dist: langchain>=1.1.0; extra == 'agents'
@@ -69,9 +69,9 @@ Requires-Dist: openai-agents; extra == 'agents'
 Requires-Dist: pillow>=11.1.0; extra == 'agents'
 Requires-Dist: tornado>=6.5.2; extra == 'agents'
 Provides-Extra: bedrock
-Requires-Dist: anthropic[bedrock]>=0.75; extra == 'bedrock'
+Requires-Dist: anthropic[bedrock]>=0.78.0; extra == 'bedrock'
 Provides-Extra: dev
-Requires-Dist: anthropic>=0.75; extra == 'dev'
+Requires-Dist: anthropic>=0.78.0; extra == 'dev'
 Requires-Dist: datasets>=2.14.0; extra == 'dev'
 Requires-Dist: dotenv>=0.9.9; extra == 'dev'
 Requires-Dist: google-adk; extra == 'dev'
@@ -92,7 +92,7 @@ Requires-Dist: pytest-asyncio; extra == 'dev'
 Requires-Dist: pytest-cov; extra == 'dev'
 Requires-Dist: pytest-mock; extra == 'dev'
 Requires-Dist: pytest>=8.1.1; extra == 'dev'
-Requires-Dist: ruff>=0.11.8; extra == 'dev'
+Requires-Dist: ruff<0.15.0,>=0.11.8; extra == 'dev'
 Requires-Dist: tornado>=6.5.2; extra == 'dev'
 Description-Content-Type: text/markdown
 

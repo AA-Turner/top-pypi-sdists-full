@@ -159,6 +159,8 @@ def _make_serialize(
     rename_all: str | None = None,
     reuse_instances_default: bool = False,
     convert_sets_default: bool = False,
+    skip_if_default: bool = False,
+    skip_if_none: bool = False,
     serializer: SerializeFunc | None = None,
     tagging: Tagging = DefaultTagging,
     type_check: TypeCheck = disabled,
@@ -176,6 +178,8 @@ def _make_serialize(
         rename_all=rename_all,
         reuse_instances_default=reuse_instances_default,
         convert_sets_default=convert_sets_default,
+        skip_if_default=skip_if_default,
+        skip_if_none=skip_if_none,
         serializer=serializer,
         tagging=tagging,
         type_check=type_check,
@@ -198,6 +202,8 @@ def serialize(
     rename_all: str | None = None,
     reuse_instances_default: bool = False,
     convert_sets_default: bool = False,
+    skip_if_default: bool = False,
+    skip_if_none: bool = False,
     serializer: SerializeFunc | None = None,
     tagging: Tagging = DefaultTagging,
     type_check: TypeCheck = strict,
@@ -250,6 +256,8 @@ def serialize(
                 cls,
                 reuse_instances_default=reuse_instances_default,
                 convert_sets_default=convert_sets_default,
+                skip_if_default_default=skip_if_default,
+                skip_if_none_default=skip_if_none,
             )
             setattr(cls, SERDE_SCOPE, scope)
         scope.transparent = transparent
@@ -567,6 +575,8 @@ class SeField(Field[T]):
             "alias": self.alias,
             "rename": self.rename,
             "skip": self.skip,
+            "skip_serializing": self.skip_serializing,
+            "skip_deserializing": self.skip_deserializing,
             "skip_if": self.skip_if,
             "skip_if_false": self.skip_if_false,
             "skip_if_default": self.skip_if_default,
@@ -581,7 +591,14 @@ def sefields(cls: type[Any], serialize_class_var: bool = False) -> Iterator[SeFi
     """
     Iterate fields for serialization.
     """
-    for f in fields(SeField, cls, serialize_class_var=serialize_class_var):
+    serde_scope: Scope = getattr(cls, SERDE_SCOPE)
+    for f in fields(
+        SeField,
+        cls,
+        serialize_class_var=serialize_class_var,
+        skip_if_default_default=serde_scope.skip_if_default_default,
+        skip_if_none_default=serde_scope.skip_if_none_default,
+    ):
         f.parent = SeField(None, "obj")  # type: ignore
         yield f
 
@@ -600,7 +617,7 @@ def {{func}}(obj, reuse_instances = None, convert_sets = None, skip_none = False
 
   res = {}
   {% for f in fields -%}
-  {% if not f.skip -%}
+  {% if not (f.skip or f.skip_serializing) -%}
   subres = {{rvalue(f)}}
   {% if lvalue(f) == '__FLATTEN_DICT__' -%}
   # Merge flattened dict into result (declared fields take precedence)
@@ -648,7 +665,7 @@ def {{func}}(obj, reuse_instances=None, convert_sets=None, skip_none=False):
 
   return (
   {% for f in fields -%}
-  {% if not f.skip|default(False) %}
+  {% if not (f.skip|default(False) or f.skip_serializing|default(False)) %}
   {{rvalue(f)}},
   {% endif -%}
   {% endfor -%}
@@ -719,7 +736,9 @@ def render_to_tuple(
     )
     serde_scope = getattr(cls, SERDE_SCOPE)
     if serde_scope.transparent:
-        transparent = [f for f in sefields(cls, serialize_class_var) if not f.skip]
+        transparent = [
+            f for f in sefields(cls, serialize_class_var) if not (f.skip or f.skip_serializing)
+        ]
         return jinja2_env.get_template("transparent_iter").render(
             func=TO_ITER,
             serde_scope=serde_scope,
@@ -755,7 +774,9 @@ def render_to_dict(
     lrenderer = LRenderer(case, serialize_class_var)
     serde_scope = getattr(cls, SERDE_SCOPE)
     if serde_scope.transparent:
-        transparent = [f for f in sefields(cls, serialize_class_var) if not f.skip]
+        transparent = [
+            f for f in sefields(cls, serialize_class_var) if not (f.skip or f.skip_serializing)
+        ]
         return jinja2_env.get_template("transparent_dict").render(
             func=TO_DICT,
             serde_scope=serde_scope,

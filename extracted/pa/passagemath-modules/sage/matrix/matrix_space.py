@@ -49,7 +49,6 @@ import sage.misc.latex as latex
 import sage.modules.free_module
 
 from sage.misc.lazy_attribute import lazy_attribute
-from sage.misc.superseded import deprecated_function_alias
 from sage.misc.persist import register_unpickle_override
 from sage.categories.rings import Rings
 from sage.categories.fields import Fields
@@ -63,31 +62,6 @@ lazy_import('sage.groups.matrix_gps.matrix_group', ['MatrixGroup_base'])
 
 _Rings = Rings()
 _Fields = Fields()
-
-
-def is_MatrixSpace(x):
-    """
-    Return whether ``self`` is an instance of ``MatrixSpace``.
-
-    EXAMPLES::
-
-        sage: from sage.matrix.matrix_space import is_MatrixSpace
-        sage: MS = MatrixSpace(QQ,2)
-        sage: A = MS.random_element()
-        sage: is_MatrixSpace(MS)
-        doctest:warning...
-        DeprecationWarning: the function is_MatrixSpace is deprecated;
-        use 'isinstance(..., MatrixSpace)' instead
-        See https://github.com/sagemath/sage/issues/37924 for details.
-        True
-        sage: is_MatrixSpace(A)
-        False
-        sage: is_MatrixSpace(5)
-        False
-    """
-    from sage.misc.superseded import deprecation
-    deprecation(37924, "the function is_MatrixSpace is deprecated; use 'isinstance(..., MatrixSpace)' instead")
-    return isinstance(x, MatrixSpace)
 
 
 def get_matrix_class(R, nrows, ncols, sparse, implementation):
@@ -786,7 +760,7 @@ class MatrixSpace(UniqueRepresentation, Parent):
         return super().__classcall__(cls, base_ring, nrows,
                                      ncols, sparse, matrix_cls, **kwds)
 
-    def __init__(self, base_ring, nrows, ncols, sparse, implementation):
+    def __init__(self, base_ring, nrows, ncols, sparse, implementation) -> None:
         r"""
         INPUT:
 
@@ -978,7 +952,7 @@ class MatrixSpace(UniqueRepresentation, Parent):
         r"""
         EXAMPLES::
 
-            sage: MatrixSpace(ZZ, 2, implementation='generic')._has_default_implementation()
+            sage: MatrixSpace(ZZ, 2, implementation='generic')._has_default_implementation()        # needs sage.libs.flint
             False
             sage: MatrixSpace(ZZ, 2, implementation='flint')._has_default_implementation()          # needs sage.libs.linbox
             True
@@ -1038,7 +1012,7 @@ class MatrixSpace(UniqueRepresentation, Parent):
             sage: MS._copy_zero
             False
             sage: MS = MatrixSpace(QQ,20,20)
-            sage: MS._copy_zero
+            sage: MS._copy_zero                                                                     # needs sage.libs.flint
             False
         """
         if self.__is_sparse:
@@ -1057,9 +1031,7 @@ class MatrixSpace(UniqueRepresentation, Parent):
         else:
             if self.Element is Matrix_rational_dense:
                 return False
-        if self.__nrows > 40 and self.__ncols > 40:
-            return False
-        return True
+        return self.__nrows <= 40 or self.__ncols <= 40
 
     def _element_constructor_(self, entries, **kwds):
         """
@@ -1510,9 +1482,9 @@ class MatrixSpace(UniqueRepresentation, Parent):
             sage: MS
             Full MatrixSpace of 2 by 4 sparse matrices over Integer Ring
 
-            sage: MatrixSpace(ZZ, 2, implementation='flint')                            # needs sage.libs.linbox
+            sage: MatrixSpace(ZZ, 2, implementation='flint')                            # needs sage.libs.flint
             Full MatrixSpace of 2 by 2 dense matrices over Integer Ring
-            sage: MatrixSpace(ZZ, 2, implementation='generic')
+            sage: MatrixSpace(ZZ, 2, implementation='generic')                          # needs sage.libs.flint
             Full MatrixSpace of 2 by 2 dense matrices over Integer Ring (using Matrix_generic_dense)
         """
         if self.is_sparse():
@@ -2304,14 +2276,14 @@ class MatrixSpace(UniqueRepresentation, Parent):
             sage: MS.matrix([MS0([1,2,3,4]), MS0([5,6,7,8])])
             Traceback (most recent call last):
             ...
-            TypeError: unable to coerce <class 'sage.matrix.matrix_integer_dense.Matrix_integer_dense'> to an integer
+            TypeError: unable to coerce <class 'sage.matrix.matrix_...'> to an integer
 
         A mixed list of matrices and vectors is prohibited as well::
 
             sage: MS.matrix( [MS0([1,2,3,4])] + list(MS0([5,6,7,8])) )
             Traceback (most recent call last):
             ...
-            TypeError: unable to coerce <class 'sage.matrix.matrix_integer_dense.Matrix_integer_dense'> to an integer
+            TypeError: unable to coerce <class 'sage.matrix.matrix_...'> to an integer
 
         Check that :issue:`13302` is fixed::
 
@@ -2751,10 +2723,10 @@ def _test_trivial_matrices_inverse(ring, sparse=True, implementation=None, check
     TESTS::
 
         sage: from sage.matrix.matrix_space import _test_trivial_matrices_inverse as tinv
-        sage: tinv(ZZ, sparse=True)
+        sage: tinv(ZZ, sparse=True)                                                     # needs sage.libs.pari
         sage: tinv(ZZ, sparse=False, implementation='flint')                            # needs sage.libs.linbox
         sage: tinv(ZZ, sparse=False, implementation='generic')
-        sage: tinv(QQ, sparse=True)
+        sage: tinv(QQ, sparse=True)                                                     # needs sage.libs.pari
         sage: tinv(QQ, sparse=False, implementation='flint')                            # needs sage.libs.linbox
         sage: tinv(QQ, sparse=False, implementation='generic')
         sage: tinv(GF(11), sparse=True)
@@ -2829,9 +2801,6 @@ def _test_trivial_matrices_inverse(ring, sparse=True, implementation=None, check
     assert inv == m1
     if checkrank:
         assert m1.rank() == 1
-
-
-test_trivial_matrices_inverse = deprecated_function_alias(33612, _test_trivial_matrices_inverse)
 
 
 # Fix unpickling Matrix_modn_dense and Matrix_integer_2x2

@@ -203,7 +203,7 @@ class DiscoInfo(ElementBase):
 
             (category, type, lang, name)
 
-        If a language is specifified, any identities using that language
+        If a language is specified, any identities using that language
         will be removed to be replaced with the given identities.
 
         .. note::

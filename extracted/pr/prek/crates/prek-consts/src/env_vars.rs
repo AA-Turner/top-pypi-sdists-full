@@ -7,7 +7,6 @@ pub struct EnvVars;
 impl EnvVars {
     pub const PATH: &'static str = "PATH";
     pub const HOME: &'static str = "HOME";
-    pub const TERM: &'static str = "TERM";
     pub const CI: &'static str = "CI";
 
     // Git related
@@ -28,6 +27,7 @@ impl EnvVars {
     pub const PREK_NATIVE_TLS: &'static str = "PREK_NATIVE_TLS";
     pub const SSL_CERT_FILE: &'static str = "SSL_CERT_FILE";
     pub const PREK_CONTAINER_RUNTIME: &'static str = "PREK_CONTAINER_RUNTIME";
+    pub const PREK_QUIET: &'static str = "PREK_QUIET";
 
     // PREK internal environment variables
     pub const PREK_INTERNAL__TEST_DIR: &'static str = "PREK_INTERNAL__TEST_DIR";

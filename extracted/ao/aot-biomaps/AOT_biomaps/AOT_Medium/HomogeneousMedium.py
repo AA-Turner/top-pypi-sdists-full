@@ -68,7 +68,7 @@ class HomogeneousMedium(Medium):
 
         self.kgrid = kWaveGrid([Nx, Nz], [dx, dx])
         dt = 1/(self.params.acoustic['f_AQ'])
-        self.kgrid.setTime(self.kgrid.Nt, dt)  # Garder Nt constant
+        self.kgrid.setTime(self.params.general['Nt'], dt)  # Garder Nt constant
 
         # Saving variable for later use
         self.factorX = int(np.ceil(self.params.general['dx'] / dx))

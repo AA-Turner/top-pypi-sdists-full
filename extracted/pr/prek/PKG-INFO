@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prek
-Version: 0.3.1
+Version: 0.3.2
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -49,19 +49,19 @@ while also providing some additional long-requested features.
 > [!NOTE]
 > Although prek is pretty new, it’s already powering real‑world projects like [CPython](https://github.com/python/cpython), [Apache Airflow](https://github.com/apache/airflow), [FastAPI](https://github.com/fastapi/fastapi), and more projects are picking it up—see [Who is using prek?](#who-is-using-prek). If you’re looking for an alternative to `pre-commit`, please give it a try—we’d love your feedback!
 >
-> Please note that some subcommands and languages are still missing for full drop‑in parity with `pre-commit`. Track the remaining gaps here: [TODO](https://prek.j178.dev/todo/).
+> Please note that some languages are not yet supported for full drop‑in parity with `pre-commit`. See [Language Support](https://prek.j178.dev/languages/) for current status.
 
 <!-- --8<-- [start:features] -->
 
 ## Features
 
-- 🚀 A single binary with no dependencies, does not require Python or any other runtime.
-- ⚡ [Faster](https://prek.j178.dev/benchmark/) than `pre-commit` and more efficient in disk space usage.
-- 🔄 Fully compatible with the original pre-commit configurations and hooks.
-- 🏗️ Built-in support for monorepos (i.e. [workspace mode](https://prek.j178.dev/workspace/)).
-- 🐍 Integration with [`uv`](https://github.com/astral-sh/uv) for managing Python virtual environments and dependencies.
-- 🛠️ Improved toolchain installations for Python, Node.js, Bun, Go, Rust and Ruby, shared between hooks.
-- 📦 [Built-in](https://prek.j178.dev/builtin/) Rust-native implementation of some common hooks.
+- A single binary with no dependencies, does not require Python or any other runtime.
+- [Faster](https://prek.j178.dev/benchmark/) than `pre-commit` and more efficient in disk space usage.
+- Fully compatible with the original pre-commit configurations and hooks.
+- Built-in support for monorepos (i.e. [workspace mode](https://prek.j178.dev/workspace/)).
+- Integration with [`uv`](https://github.com/astral-sh/uv) for managing Python virtual environments and dependencies.
+- Improved toolchain installations for Python, Node.js, Bun, Go, Rust and Ruby, shared between hooks.
+- [Built-in](https://prek.j178.dev/builtin/) Rust-native implementation of some common hooks.
 
 <!-- --8<-- [end:features] -->
 
@@ -85,7 +85,7 @@ On Linux and macOS:
 <!-- --8<-- [start: linux-standalone-install] -->
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/j178/prek/releases/download/v0.3.1/prek-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/j178/prek/releases/download/v0.3.2/prek-installer.sh | sh
 ```
 
 <!-- --8<-- [end: linux-standalone-install] -->
@@ -95,7 +95,7 @@ On Windows:
 <!-- --8<-- [start: windows-standalone-install] -->
 
 ```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://github.com/j178/prek/releases/download/v0.3.1/prek-installer.ps1 | iex"
+powershell -ExecutionPolicy ByPass -c "irm https://github.com/j178/prek/releases/download/v0.3.2/prek-installer.ps1 | iex"
 ```
 
 <!-- --8<-- [end: windows-standalone-install] -->
@@ -380,6 +380,7 @@ prek is pretty new, but it is already being used or recommend by some projects a
 - [fastapi/asyncer](https://github.com/fastapi/asyncer/pull/437)
 - [astral-sh/ruff](https://github.com/astral-sh/ruff/pull/22505)
 - [astral-sh/ty](https://github.com/astral-sh/ty/pull/2469)
+- [openclaw/openclaw](https://github.com/openclaw/openclaw/pull/1720)
 - [home-assistant/core](https://github.com/home-assistant/core/pull/160427)
 - [DetachHead/basedpyright](https://github.com/DetachHead/basedpyright/pull/1413)
 - [OpenLineage/OpenLineage](https://github.com/OpenLineage/OpenLineage/pull/3965)
@@ -391,6 +392,7 @@ prek is pretty new, but it is already being used or recommend by some projects a
 - [python-attrs/attrs](https://github.com/python-attrs/attrs/commit/c95b177682e76a63478d29d040f9cb36a8d31915)
 - [jlowin/fastmcp](https://github.com/jlowin/fastmcp/pull/2309)
 - [apache/iceberg-python](https://github.com/apache/iceberg-python/pull/2533)
+- [apache/lucene](https://github.com/apache/lucene/pull/15629)
 - [jcrist/msgspec](https://github.com/jcrist/msgspec/pull/918)
 - [python-humanize/humanize](https://github.com/python-humanize/humanize/pull/276)
 - [MoonshotAI/kimi-cli](https://github.com/MoonshotAI/kimi-cli/pull/535)
@@ -398,6 +400,8 @@ prek is pretty new, but it is already being used or recommend by some projects a
 - [ast-grep/ast-grep](https://github.com/ast-grep/ast-grep.github.io/commit/e30818144b2967a7f9172c8cf2f4596bba219bf5)
 - [commitizen-tools/commitizen](https://github.com/commitizen-tools/commitizen)
 - [cocoindex-io/cocoindex](https://github.com/cocoindex-io/cocoindex/pull/1564)
+- [cachix/devenv](https://github.com/cachix/devenv/pull/2304)
+- [copper-project/copper-rs](https://github.com/copper-project/copper-rs/pull/783)
 
 <!-- --8<-- [end: why] -->
 

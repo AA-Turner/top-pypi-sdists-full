@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stumpy
-Version: 1.14.0
+Version: 1.14.1
 Summary: A powerful and scalable library that can be used for a variety of time series data mining tasks
 Author-email: "Sean M. Law" <seanmylaw@gmail.com>
 Maintainer-email: "Sean M. Law" <seanmylaw@gmail.com>, Nima Sarajpoor <nimasarajpoor@gmail.com>

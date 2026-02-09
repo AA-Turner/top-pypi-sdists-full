@@ -17,14 +17,23 @@ class OpenAlexTool(BaseTool):
 
     def run(self, arguments):
         """Main entry point for the tool."""
-        search_keywords = arguments.get("search_keywords")
-        max_results = arguments.get("max_results", 10)
+        # Backwards/UX compatibility: accept common aliases.
+        search_keywords = arguments.get("search_keywords") or arguments.get("query")
+        max_results = arguments.get("max_results", arguments.get("limit", 10))
         year_from = arguments.get("year_from", None)
         year_to = arguments.get("year_to", None)
         open_access = arguments.get("open_access", None)
+        require_has_fulltext = bool(arguments.get("require_has_fulltext", False))
+        fulltext_terms = arguments.get("fulltext_terms")
 
         return self.search_literature(
-            search_keywords, max_results, year_from, year_to, open_access
+            search_keywords,
+            max_results,
+            year_from,
+            year_to,
+            open_access,
+            require_has_fulltext=require_has_fulltext,
+            fulltext_terms=fulltext_terms,
         )
 
     def search_literature(
@@ -34,6 +43,9 @@ class OpenAlexTool(BaseTool):
         year_from=None,
         year_to=None,
         open_access=None,
+        *,
+        require_has_fulltext: bool = False,
+        fulltext_terms: Optional[list[str]] = None,
     ):
         """
         Search for literature using OpenAlex API.
@@ -52,9 +64,12 @@ class OpenAlexTool(BaseTool):
         params = {
             "search": search_keywords,
             "per-page": min(max_results, 200),  # OpenAlex allows max 200 per page
-            "sort": "cited_by_count:desc",  # Sort by citation count (most cited first)
             "mailto": "support@openalex.org",  # Polite pool access
         }
+
+        # Don't force a sort by citations: for discovery searches it can hide newer,
+        # lower-cited but highly relevant works. OpenAlex's default ordering is
+        # generally better for keyword search.
 
         # Add year filters if provided
         filters = []
@@ -70,6 +85,20 @@ class OpenAlexTool(BaseTool):
             filters.append("is_oa:true")
         elif open_access is False:
             filters.append("is_oa:false")
+
+        valid_ft_terms: list[str] = []
+        if isinstance(fulltext_terms, list):
+            valid_ft_terms = [
+                t.strip().replace(",", " ")
+                for t in fulltext_terms
+                if isinstance(t, str) and t.strip()
+            ]
+        if valid_ft_terms:
+            require_has_fulltext = True
+            filters.extend([f"fulltext.search:{t}" for t in valid_ft_terms])
+
+        if require_has_fulltext:
+            filters.append("has_fulltext:true")
 
         if filters:
             params["filter"] = ",".join(filters)
@@ -151,6 +180,8 @@ class OpenAlexTool(BaseTool):
         open_access_info = work.get("open_access") or {}
         open_access = open_access_info.get("is_oa", False)
         pdf_url = open_access_info.get("oa_url")
+        has_fulltext = bool(work.get("has_fulltext", False))
+        content_urls = work.get("content_urls")
 
         # Extract keywords/concepts
         keywords = []
@@ -181,6 +212,8 @@ class OpenAlexTool(BaseTool):
             "citation_count": citation_count,
             "open_access": open_access,
             "pdf_url": pdf_url,
+            "has_fulltext": has_fulltext,
+            "content_urls": content_urls,
             "keywords": keywords if keywords else "Keywords not available",
             "article_type": article_type,
             "publisher": publisher,
@@ -298,6 +331,17 @@ class OpenAlexRESTTool(BaseTool):
     def _build_url_and_params(
         self, arguments: Dict[str, Any]
     ) -> tuple[str, Dict[str, Any]]:
+        # Backwards/UX compatibility: accept common aliases.
+        arguments = dict(arguments or {})
+        if "search" not in arguments and isinstance(arguments.get("query"), str):
+            arguments["search"] = arguments.get("query")
+        if "per_page" not in arguments and isinstance(arguments.get("limit"), int):
+            arguments["per_page"] = arguments.get("limit")
+        # Prevent alias keys from being forwarded to OpenAlex as raw query params
+        # (OpenAlex rejects unknown params like `query`/`limit` with HTTP 400).
+        arguments.pop("query", None)
+        arguments.pop("limit", None)
+
         fields = self.tool_config.get("fields", {}) or {}
         path_tmpl = fields.get("path", "")
         if not path_tmpl:
@@ -332,12 +376,37 @@ class OpenAlexRESTTool(BaseTool):
             fields.get("param_map") if isinstance(fields.get("param_map"), dict) else {}
         )
         path_params = set(fields.get("path_params") or [])
+        custom_keys = {"require_has_fulltext", "fulltext_terms"}
 
         for k, v in (arguments or {}).items():
-            if v is None or k in path_params:
+            if v is None or k in path_params or k in custom_keys:
                 continue
             api_key = param_map.get(k, k)
             params[api_key] = v
+
+        require_has_fulltext = bool(arguments.get("require_has_fulltext", False))
+        fulltext_terms = arguments.get("fulltext_terms")
+        valid_ft_terms: list[str] = []
+        if isinstance(fulltext_terms, list):
+            valid_ft_terms = [
+                t.strip().replace(",", " ")
+                for t in fulltext_terms
+                if isinstance(t, str) and t.strip()
+            ]
+        filter_additions: list[str] = []
+        if valid_ft_terms:
+            require_has_fulltext = True
+            filter_additions.extend([f"fulltext.search:{t}" for t in valid_ft_terms])
+        if require_has_fulltext:
+            filter_additions.append("has_fulltext:true")
+        if filter_additions:
+            existing = params.get("filter")
+            if isinstance(existing, str) and existing.strip():
+                params["filter"] = ",".join(
+                    [existing.strip().strip(","), *filter_additions]
+                )
+            else:
+                params["filter"] = ",".join(filter_additions)
 
         # Provide a default mailto unless user overrides.
         if "mailto" not in params:

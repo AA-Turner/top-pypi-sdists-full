@@ -5,7 +5,7 @@ import portforward
 
 from adam.commands.command import InvalidStateException
 from adam.repl_state import ReplState
-from adam.utils import log2
+from adam.utils_log import log2
 from adam.utils_k8s.kube_context import KubeContext
 
 class PortForwardHandler:

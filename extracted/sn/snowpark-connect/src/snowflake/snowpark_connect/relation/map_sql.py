@@ -42,6 +42,7 @@ from snowflake.snowpark_connect.config import (
     auto_uppercase_column_identifiers,
     auto_uppercase_non_column_identifiers,
     check_table_supports_operation,
+    emulate_partition_overwrite_for_fdn_tables,
     get_boolean_session_config_param,
     get_cte_optimization_enabled,
     global_config,
@@ -418,16 +419,20 @@ def _insert_into_table(logical_plan, session: Session) -> None:
     target_table = session.table(name)
     target_schema = target_table.schema
     is_iceberg_table = get_table_type(name, session) == "ICEBERG"
+    table_partition_spec = None
+    if is_iceberg_table and logical_plan.overwrite():
+        # we need the table's partition spec to validate and perform the overwrite operation
+        table_partition_spec = get_partition_spec(name, session)
 
     if partition_columns and logical_plan.overwrite() and is_iceberg_table:
         # confirm that partition_columns are in the table's partition spec
-        table_partition_spec = get_partition_spec(name, session)
         if table_partition_spec is not None:
             _confirm_partition_columns_are_in_spec(
                 list(partition_columns.keys()), table_partition_spec
             )
 
     # Add partition columns to the dataframe
+    partition_col_positions = {}
     if partition_columns:
         """
         Spark sends them in the partition spec and the values won't be present in the values array.
@@ -461,7 +466,6 @@ def _insert_into_table(logical_plan, session: Session) -> None:
         target_column_positions = {
             name: i for i, name in enumerate(comparable_target_schema)
         }
-        partition_col_positions = {}
 
         for partition_col, partition_value in partition_columns.items():
             if _comparable_col_name(partition_col) not in comparable_target_schema:
@@ -592,41 +596,81 @@ def _insert_into_table(logical_plan, session: Session) -> None:
         ).collect()
         return
 
+    # for FDN, we can optionally support partition overwrites if any partition_columns are given
+    is_allowed_fdn_overwrite = (
+        partition_columns and emulate_partition_overwrite_for_fdn_tables()
+    ) or (not partition_columns and not is_dynamic_partition_overwrite_enabled())
+
+    if not is_iceberg_table and not is_allowed_fdn_overwrite:
+        exception = SnowparkConnectNotImplementedError(
+            f"Cannot perform partition overwrite on Snowflake table {name}. Set 'snowpark.connect.sql.emulatePartitionOverwritesForSnowflakeTables' to True to enable partial support."
+        )
+        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+        raise exception
+
+    is_dynamic_overwrite = (
+        # an iceberg table with a known partition spec
+        (
+            is_iceberg_table
+            and is_dynamic_partition_overwrite_enabled()
+            and table_partition_spec
+            and table_partition_spec.columns()
+        )
+        # or user-defined partition columns
+        or partition_columns
+    )
+
     # both dynamic and static overwrites can be handled the same,
     # by this point the input has been augmented
-    if is_iceberg_table and (
-        is_dynamic_partition_overwrite_enabled() or len(partition_columns)
-    ):
-        # TODO (SNOW-2820400): add partition overwrite support for FDN tables
-        table_partition_spec = get_partition_spec(name, session)
-        if table_partition_spec is None:
-            # we can't proceed without a partition spec
-            exception = AnalysisException(
-                f"Could not find partition spec for table {name}."
-            )
-            attach_custom_error_code(
-                exception, ErrorCodes.ICEBERG_PARTITION_SPEC_NOT_FOUND
-            )
-            raise exception
-
-        if table_partition_spec.uses_transform():
-            # TODO (SNOW-3046385): add support for transforms
-            raise SnowparkConnectNotImplementedError(
-                "Non-identity transforms are not supported for partition overwrites"
-            )
-
-        # for dynamic overwrites, we need to extract all distinct partition values from the input data
-        # Spark uses positional matching, we don't care about names here
+    if is_dynamic_overwrite:
         input_column_names = df_container.column_map.get_snowpark_columns()
-        snowpark_partition_cols = [
-            input_column_names[pos]
-            for pos in table_partition_spec.partition_column_positions()
-        ]
+        input_partition_cols = []
+        target_partition_columns = []
+        if is_iceberg_table:
+            # confirm that we have the partition spec, and that it doesn't contain non-identity transforms
+            if table_partition_spec is None:
+                # we can't proceed without a partition spec
+                exception = AnalysisException(
+                    f"Could not find partition spec for table {name}."
+                )
+                attach_custom_error_code(
+                    exception, ErrorCodes.ICEBERG_PARTITION_SPEC_NOT_FOUND
+                )
+                raise exception
 
-        distinct_partitions_df = df.select(*snowpark_partition_cols).distinct()
+            if table_partition_spec.uses_transform():
+                # TODO (SNOW-3046385): add support for transforms
+                raise SnowparkConnectNotImplementedError(
+                    "Non-identity transforms are not supported for partition overwrites"
+                )
+
+            # for dynamic overwrites, we need to extract all distinct partition values from the input data
+            # Spark uses positional matching, we don't care about names here
+            # the partition spec is the source of truth about partition columns, so we use all the columns
+            # that are defined there
+            input_partition_cols = [
+                input_column_names[pos]
+                for pos in table_partition_spec.partition_column_positions()
+            ]
+            target_partition_columns = table_partition_spec.columns()
+        elif partition_col_positions:
+            # for FDN tables, we have to use partition_col_positions, since we don't have a partition spec
+            # this means that we only use the columns that the user includes in the PARTITION clause,
+            input_partition_cols = [
+                c
+                for pos, c in enumerate(input_column_names)
+                if pos in partition_col_positions
+            ]
+            target_partition_columns = [
+                c
+                for pos, c in enumerate(target_table.columns)
+                if pos in partition_col_positions
+            ]
+
+        distinct_partitions_df = df.select(*input_partition_cols).distinct()
 
         overwrite_condition = get_overwrite_condition(
-            distinct_partitions_df, table_partition_spec.columns()
+            distinct_partitions_df, target_partition_columns
         )
         df.write.saveAsTable(
             table_name=name,

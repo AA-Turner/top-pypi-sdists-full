@@ -19,10 +19,7 @@ class ModelWithReservedWords(Serializable):
 class TestFileManager(BaseTest):
     def setUp(self) -> None:
         super().setUp()
-        mp_context = self.repositories.mp_context.get_context()
-        self.manager = SqlStorage[MockModel](
-            mp_context, directory="test", model=MockModel
-        )
+        self.manager = SqlStorage[MockModel](directory="test", model=MockModel)
 
     def test_save_and_load(self):
         test_data = MockModel(name="John", age=30)
@@ -85,9 +82,8 @@ class TestFileManager(BaseTest):
 
     def test_reserved_sql_keywords(self):
         """Test that SQL reserved words as field names are properly escaped."""
-        mp_context = self.repositories.mp_context.get_context()
         manager = SqlStorage[ModelWithReservedWords](
-            mp_context, directory="test_reserved", model=ModelWithReservedWords
+            directory="test_reserved", model=ModelWithReservedWords
         )
 
         # Test save with reserved keywords

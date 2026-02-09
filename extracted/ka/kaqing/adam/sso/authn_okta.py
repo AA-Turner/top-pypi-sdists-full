@@ -8,7 +8,7 @@ from adam.sso.id_token import IdToken
 
 from .idp_login import IdpLogin
 from adam.config import Config
-from adam.utils import debug, log2, log_exc
+from adam.utils_log import debug, log2, log_exc
 
 class OktaException(Exception):
     pass

@@ -74,6 +74,7 @@ from finbourne_horizon.models.paged_resource_list_of_process_information import 
 from finbourne_horizon.models.paged_resource_list_of_process_update_result import PagedResourceListOfProcessUpdateResult
 from finbourne_horizon.models.paged_resource_list_of_vendor_product import PagedResourceListOfVendorProduct
 from finbourne_horizon.models.perm_id_data import PermIdData
+from finbourne_horizon.models.post_process_task import PostProcessTask
 from finbourne_horizon.models.process_information import ProcessInformation
 from finbourne_horizon.models.process_summary import ProcessSummary
 from finbourne_horizon.models.process_update_result import ProcessUpdateResult
@@ -149,6 +150,7 @@ __all__ = [
     "PagedResourceListOfProcessUpdateResult",
     "PagedResourceListOfVendorProduct",
     "PermIdData",
+    "PostProcessTask",
     "ProcessInformation",
     "ProcessSummary",
     "ProcessUpdateResult",

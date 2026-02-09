@@ -6,7 +6,7 @@ use assert_fs::prelude::*;
 use insta::assert_snapshot;
 use predicates::prelude::predicate;
 use prek_consts::env_vars::EnvVars;
-use prek_consts::{ALT_CONFIG_FILE, CONFIG_FILE};
+use prek_consts::{PRE_COMMIT_CONFIG_YAML, PRE_COMMIT_CONFIG_YML, PREK_TOML};
 
 use crate::common::{TestContext, cmd_snapshot, git_cmd};
 
@@ -160,15 +160,19 @@ fn invalid_config() {
     context.write_pre_commit_config("invalid: config");
     context.git_add(".");
 
-    cmd_snapshot!(context.filters(), context.run(), @r#"
+    cmd_snapshot!(context.filters(), context.run(), @"
     success: false
     exit_code: 2
     ----- stdout -----
 
     ----- stderr -----
     error: Failed to parse `.pre-commit-config.yaml`
-      caused by: missing field `repos`
-    "#);
+      caused by: error: line 1 column 1: missing field `repos` at line 1, column 1
+     --> <input>:1:1
+      |
+    1 | invalid: config
+      | ^ missing field `repos` at line 1, column 1
+    ");
 
     context.write_pre_commit_config(indoc::indoc! {r#"
         repos:
@@ -579,7 +583,7 @@ fn config_not_staged() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
 
-    context.work_dir().child(CONFIG_FILE).touch()?;
+    context.work_dir().child(PRE_COMMIT_CONFIG_YAML).touch()?;
     context.git_add(".");
 
     context.write_pre_commit_config(indoc::indoc! {r"
@@ -1920,15 +1924,22 @@ fn minimum_prek_version() {
         )])
         .collect::<Vec<_>>();
 
-    cmd_snapshot!(filters, context.run(), @r#"
+    cmd_snapshot!(filters, context.run(), @"
     success: false
     exit_code: 2
     ----- stdout -----
 
     ----- stderr -----
     error: Failed to parse `.pre-commit-config.yaml`
-      caused by: Required minimum prek version `10.0.0` is greater than current version `[CURRENT_VERSION]`. Please consider updating prek.
-    "#);
+      caused by: error: line 1 column 23: Required minimum prek version `10.0.0` is greater than current version `[CURRENT_VERSION]`; Please consider updating prek at line 1, column 23
+     --> <input>:1:23
+      |
+    1 | minimum_prek_version: 10.0.0
+      |                       ^ Required minimum prek version `10.0.0` is greater than current version `[CURRENT_VERSION]`; Please consider updating prek at line 1, column 23
+    2 | repos:
+    3 |   - repo: local
+      |
+    ");
 }
 
 /// Run hooks that would echo color.
@@ -2127,7 +2138,7 @@ fn write_pre_commit_config(path: &Path, hooks: &[(&str, &str)]) -> Result<()> {
     }
 
     std::fs::create_dir_all(path)?;
-    std::fs::write(path.join(CONFIG_FILE), yaml)?;
+    std::fs::write(path.join(PRE_COMMIT_CONFIG_YAML), yaml)?;
 
     Ok(())
 }
@@ -2153,22 +2164,22 @@ fn selectors_completion() -> Result<()> {
     // Unrelated non-project dir should not appear in subdir suggestions
     cwd.child("scratch").create_dir_all()?;
 
-    cmd_snapshot!(context.filters(), context.run().env("COMPLETE", "fish").arg("--").arg("prek").arg(""), @r"
+    cmd_snapshot!(context.filters(), context.run().env("COMPLETE", "fish").arg("--").arg("prek").arg(""), @"
     success: true
     exit_code: 0
     ----- stdout -----
-    install	Install the prek git hook
-    install-hooks	Create hook environments for all hooks used in the config file
+    install	Install prek as a git hook under the `.git/hooks/` directory
+    install-hooks	Create environments for all hooks used in the config file
     run	Run hooks
     list	List available hooks
-    uninstall	Uninstall the prek git hook
-    validate-config	Validate `.pre-commit-config.yaml` files
+    uninstall	Uninstall prek from git hooks
+    validate-config	Validate configuration files (prek.toml or .pre-commit-config.yaml)
     validate-manifest	Validate `.pre-commit-hooks.yaml` files
-    sample-config	Produce a sample `.pre-commit-config.yaml` file
-    auto-update	Auto-update pre-commit config to the latest repos' versions
+    sample-config	Produce a sample configuration file (prek.toml or .pre-commit-config.yaml)
+    auto-update	Auto-update the `rev` field of repositories in the config file to the latest version
     cache	Manage the prek cache
-    init-template-dir	Install hook script in a directory intended for use with `git config init.templateDir`
     try-repo	Try the pre-commit hooks in the current repo
+    util	Utility commands
     self	`prek` self management
     app/
     app:
@@ -2389,7 +2400,7 @@ fn alternate_config_file() -> Result<()> {
 
     context
         .work_dir()
-        .child(ALT_CONFIG_FILE)
+        .child(PRE_COMMIT_CONFIG_YML)
         .write_str(indoc::indoc! {r#"
         repos:
           - repo: local
@@ -2416,7 +2427,7 @@ fn alternate_config_file() -> Result<()> {
 
     context
         .work_dir()
-        .child(CONFIG_FILE)
+        .child(PRE_COMMIT_CONFIG_YAML)
         .write_str(indoc::indoc! {r#"
         repos:
           - repo: local
@@ -2439,7 +2450,77 @@ fn alternate_config_file() -> Result<()> {
       Hello, world!
 
     ----- stderr -----
-    warning: Both `[TEMP_DIR]/.pre-commit-config.yaml` and `[TEMP_DIR]/.pre-commit-config.yml` exist, using `[TEMP_DIR]/.pre-commit-config.yaml` only
+    warning: Multiple configuration files found (`.pre-commit-config.yaml`, `.pre-commit-config.yml`); using `[TEMP_DIR]/.pre-commit-config.yaml`
+    ");
+
+    context
+        .work_dir()
+        .child(PREK_TOML)
+        .write_str(indoc::indoc! {r#"
+        [[repos]]
+        repo = "local"
+        hooks = [
+          {
+            id = "local-python-hook",
+            name = "local-python-hook",
+            language = "python",
+            entry = "python3 -c 'import sys; print(\"Hello, world!\")'"
+          }
+        ]
+    "#})?;
+    context.git_add(".");
+
+    cmd_snapshot!(context.filters(), context.run().arg("--refresh").arg("-v"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    local-python-hook........................................................Passed
+    - hook id: local-python-hook
+    - duration: [TIME]
+
+      Hello, world!
+
+    ----- stderr -----
+    warning: Multiple configuration files found (`prek.toml`, `.pre-commit-config.yaml`, `.pre-commit-config.yml`); using `[TEMP_DIR]/prek.toml`
+    ");
+
+    Ok(())
+}
+
+/// Supports `prek.toml` as configuration file.
+#[test]
+fn prek_toml() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    context
+        .work_dir()
+        .child(PREK_TOML)
+        .write_str(indoc::indoc! {r#"
+        [[repos]]
+        repo = "local"
+        hooks = [
+          {
+            id = "local-python-hook",
+            name = "local-python-hook",
+            language = "python",
+            entry = "python3 -c 'import sys; print(\"Hello, world!\")'"
+          }
+        ]
+    "#})?;
+    context.git_add(".");
+
+    cmd_snapshot!(context.filters(), context.run().arg("-v"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    local-python-hook........................................................Passed
+    - hook id: local-python-hook
+    - duration: [TIME]
+
+      Hello, world!
+
+    ----- stderr -----
     ");
 
     Ok(())
@@ -2526,7 +2607,7 @@ fn show_diff_on_failure() -> Result<()> {
     let app = context.work_dir().child("app");
     app.create_dir_all()?;
     app.child("file.txt").write_str("Original line\n")?;
-    app.child(CONFIG_FILE).write_str(config)?;
+    app.child(PRE_COMMIT_CONFIG_YAML).write_str(config)?;
 
     git_cmd(&app).arg("add").arg(".").assert().success();
 
@@ -2627,6 +2708,52 @@ fn run_quiet() {
 
     // Run with `-qq`, do not print anything.
     cmd_snapshot!(context.filters(), context.run().arg("-qq"), @r"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+
+    ----- stderr -----
+    ");
+}
+
+/// Test `PREK_QUIET` environment variable.
+#[test]
+fn run_quiet_env() {
+    let context = TestContext::new();
+    context.init_project();
+    context.write_pre_commit_config(indoc::indoc! {r"
+        repos:
+          - repo: local
+            hooks:
+              - id: success
+                name: success
+                entry: echo
+                language: system
+              - id: fail
+                name: fail
+                entry: fail
+                language: fail
+    "});
+    context.git_add(".");
+
+    // Run with `PREK_QUIET=1`, only print failed hooks.
+    cmd_snapshot!(context.filters(), context.run().env(EnvVars::PREK_QUIET, "1"), @r"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    fail.....................................................................Failed
+    - hook id: fail
+    - exit code: 1
+
+      fail
+
+      .pre-commit-config.yaml
+
+    ----- stderr -----
+    ");
+
+    // Run with `PREK_QUIET=2`, does not print anything (silent mode).
+    cmd_snapshot!(context.filters(), context.run().env(EnvVars::PREK_QUIET, "2"), @r"
     success: false
     exit_code: 1
     ----- stdout -----
@@ -2822,7 +2949,7 @@ fn run_with_stdin_closed() {
               - id: check-stdin
                 name: check-stdin
                 language: python
-                entry: python -c 'import sys; sys.stdin.read(); print("STDIN closed")'
+                entry: python -c 'import sys; sys.stdin.read(); print("STDIN closed"); sys.stdout.flush()'
                 pass_filenames: false
                 verbose: true
     "#});

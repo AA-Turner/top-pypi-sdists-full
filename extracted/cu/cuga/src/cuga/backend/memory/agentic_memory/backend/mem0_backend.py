@@ -1,4 +1,3 @@
-from collections.abc import Generator
 from json import JSONDecodeError
 
 import json
@@ -7,18 +6,39 @@ import uuid
 from cuga.backend.memory.agentic_memory.backend.base import BaseMemoryBackend
 from cuga.backend.memory.agentic_memory.db.sqlite_manager import SQLiteManager
 from cuga.backend.memory.agentic_memory.config import get_config
+from cuga.backend.memory.agentic_memory.llm.conflict_resolution.schema import MemoryEvent
 from cuga.backend.memory.agentic_memory.schema import Fact, RecordedFact, Message, Run, Namespace
-from cuga.backend.memory.agentic_memory.utils.utils import clean_llm_response
-from fastapi import HTTPException
-from mem0 import Memory
-from mem0.configs.base import MemoryConfig
-from mem0.llms.base import LLMBase
-from pymilvus import MilvusClient
+from cuga.backend.memory.agentic_memory.utils.exceptions import (
+    NamespaceNotFoundException,
+    RunNotFoundException,
+)
+
+try:
+    from mem0 import Memory
+    from mem0.configs.base import MemoryConfig
+    from mem0.llms.base import LLMBase
+    from pymilvus import MilvusClient
+
+    MEM0_AVAILABLE = True
+except ImportError:
+    MEM0_AVAILABLE = False
+    Memory = None
+    MemoryConfig = None
+    LLMBase = None
+    MilvusClient = None
 
 
 class Mem0MemoryBackend(BaseMemoryBackend):
     # Cache for backend namespaces
     namespaces: dict[str, Memory] = {}
+
+    def __init__(self, *args, **kwargs):
+        if not MEM0_AVAILABLE:
+            raise ImportError(
+                "mem0 is not installed. Please install it with: pip install mem0ai\n"
+                "Or disable memory in settings.toml: enable_memory = false"
+            )
+        super().__init__(*args, **kwargs)
 
     def ready(self) -> bool:
         return True
@@ -38,7 +58,7 @@ class Mem0MemoryBackend(BaseMemoryBackend):
             if namespace:
                 memory = self._cache_namespace(namespace_id)
             else:
-                raise LookupError(f"Namespace `{namespace_id}` not found")
+                raise NamespaceNotFoundException(f"Namespace `{namespace_id}` not found")
         return memory
 
     def create_namespace(
@@ -61,12 +81,8 @@ class Mem0MemoryBackend(BaseMemoryBackend):
         with SQLiteManager() as db_manager:
             namespace = db_manager.get_namespace(namespace_id)
             if namespace is None:
-                raise LookupError(f"Namespace `{namespace_id}` not found")
+                raise NamespaceNotFoundException(f"Namespace `{namespace_id}` not found")
             return namespace
-
-    def all_namespaces(self) -> list[Namespace]:
-        with SQLiteManager() as db_manager:
-            return db_manager.all_namespaces()
 
     def search_namespaces(
         self,
@@ -74,9 +90,9 @@ class Mem0MemoryBackend(BaseMemoryBackend):
         agent_id: str | None = None,
         app_id: str | None = None,
         limit: int = 10,
-    ) -> Generator[Namespace]:
+    ) -> list[Namespace]:
         with SQLiteManager() as db_manager:
-            yield from db_manager.search_namespaces(user_id, agent_id, app_id, limit)
+            return db_manager.search_namespaces(user_id, agent_id, app_id, limit)
 
     def delete_namespace(self, namespace_id: str):
         try:
@@ -89,14 +105,43 @@ class Mem0MemoryBackend(BaseMemoryBackend):
         with SQLiteManager() as db_manager:
             db_manager.delete_namespace(namespace_id)
 
-    def create_and_store_fact(self, namespace_id: str, fact: Fact) -> str:
+    def update_facts(
+        self, namespace_id: str, facts: list[Fact], enable_conflict_resolution: bool = True
+    ) -> list[MemoryEvent]:
+        memory = self._get_namespace(namespace_id=namespace_id)
+        updates = []
+        for fact in facts:
+            user_id = fact.metadata.get('user_id')
+            results = memory.add(fact.content, user_id=user_id, metadata=fact.metadata, infer=False)[
+                'results'
+            ]
+            for result in results:
+                updates.append(
+                    MemoryEvent(
+                        id=result['id'],
+                        content=result['memory'],
+                        event=result['event'],
+                        metadata=fact.metadata,
+                    )
+                )
+        return updates
+
+    def create_and_store_fact(
+        self, namespace_id: str, fact: Fact, enable_conflict_resolution: bool = True
+    ) -> list[MemoryEvent]:
         memory = self._get_namespace(namespace_id=namespace_id)
         user_id = fact.metadata.get('user_id')
-        added_fact = memory.add(fact.content, user_id=user_id, metadata=fact.metadata, infer=False)['results']
-        if len(added_fact) > 0:
-            return added_fact[0]['id']
-        else:
-            return memory.search(query=fact.content, user_id='default_user')['results'][0]['id']
+        results = memory.add(
+            fact.content, user_id=user_id, metadata=fact.metadata, infer=enable_conflict_resolution
+        )['results']
+        updates = []
+        for result in results:
+            updates.append(
+                MemoryEvent(
+                    id=result['id'], content=result['memory'], event=result['event'], metadata=fact.metadata
+                )
+            )
+        return updates
 
     def _result_to_fact(self, result: dict) -> RecordedFact:
         return RecordedFact(
@@ -143,9 +188,21 @@ class Mem0MemoryBackend(BaseMemoryBackend):
         except Exception:
             pass
 
-    def extract_facts_from_messages(self, namespace_id: str, messages: list[Message]):
+    async def extract_facts_from_messages_async(
+        self, namespace_id: str, messages: list[Message], metadata: dict | None = None
+    ) -> list[MemoryEvent]:
         memory = self._get_namespace(namespace_id=namespace_id)
-        memory.add([m.model_dump() for m in messages], user_id='default_user', infer=True)
+        results = memory.add(
+            [m.model_dump() for m in messages], metadata=metadata, user_id='default_user', infer=True
+        )
+        updates = []
+        for result in results:
+            updates.append(
+                MemoryEvent(
+                    id=result['id'], content=result['memory'], event=result['event'], metadata=metadata
+                )
+            )
+        return updates
 
     def create_run(self, namespace_id: str, run_id: str | None = None) -> Run:
         run_id = run_id or 'run_' + str(uuid.uuid4()).replace('-', '_')
@@ -158,7 +215,7 @@ class Mem0MemoryBackend(BaseMemoryBackend):
         with SQLiteManager() as db_manager:
             db_manager.delete_run(namespace_id=namespace_id, run_id=run_id)
 
-    def add_step(self, namespace_id: str, run_id: str, step: dict, prompt: str) -> str:
+    def add_step(self, namespace_id: str, run_id: str, step: dict, prompt: str) -> MemoryEvent:
         memory = self._get_namespace(namespace_id=namespace_id)
         llm: LLMBase = memory.llm
 
@@ -170,22 +227,19 @@ class Mem0MemoryBackend(BaseMemoryBackend):
                 + json.dumps(step, indent=4),
             }
         ]
+
+        decode_error = None
         for attempt in range(3):
             extraction = llm.generate_response(messages)
-
-            # Clean LLM response (removes markdown code blocks and thinking tags)
-            cleaned_extraction = clean_llm_response(extraction)
-
             try:
-                parsed_extraction = json.loads(cleaned_extraction)
-            except JSONDecodeError:
+                parsed_extraction = json.loads(extraction)
+            except JSONDecodeError as e:
+                decode_error = e
                 continue
             else:
                 break
         else:
-            raise HTTPException(
-                status_code=500, detail=f"Unable to parse JSON output from llm prompt:\n{extraction}"
-            )
+            raise decode_error
 
         metadata = {**parsed_extraction, "step": step}
         added_step = memory.add(
@@ -195,10 +249,12 @@ class Mem0MemoryBackend(BaseMemoryBackend):
             run_id=run_id,
             infer=False,
         )
-        if len(added_step) > 0:
-            return added_step['results'][0]['id']
-        else:
-            raise HTTPException(status_code=500, detail="Unable to add step.")
+        return MemoryEvent(
+            id=added_step['results'][0]['id'],
+            content=added_step['results'][0]['memory'],
+            event=added_step['results'][0]['event'],
+            metadata=metadata,
+        )
 
     def get_run(self, namespace_id: str, run_id: str) -> Run:
         memory = self._get_namespace(namespace_id=namespace_id)
@@ -210,6 +266,8 @@ class Mem0MemoryBackend(BaseMemoryBackend):
 
         with SQLiteManager() as db_manager:
             run = db_manager.get_run(namespace_id=namespace_id, run_id=run_id)
+        if run is None:
+            raise RunNotFoundException(f'Run "{run_id}" not found')
         run.steps = sorted_steps
         return run
 

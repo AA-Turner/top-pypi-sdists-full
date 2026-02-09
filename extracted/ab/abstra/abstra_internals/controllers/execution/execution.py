@@ -50,7 +50,10 @@ class ExecutionController:
             status = DEFAULT_STATUS
             try:
                 self.repositories.execution.create(execution)
-                print(f"[ABSTRA] {now_str()} - Execution started")
+                short_stage_id = self.stage.id.split("-")[0]
+                print(
+                    f"[ABSTRA] {now_str()} - Execution started for stage {short_stage_id}"
+                )
 
                 self.client.handle_start(execution.id)
 

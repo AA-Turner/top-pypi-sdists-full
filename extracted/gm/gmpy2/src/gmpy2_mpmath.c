@@ -6,7 +6,7 @@
  *                                                                         *
  * Copyright 2000 - 2009 Alex Martelli                                     *
  *                                                                         *
- * Copyright 2008 - 2024 Case Van Horsen                                   *
+ * Copyright 2008 - 2025 Case Van Horsen                                   *
  *                                                                         *
  * This file is part of GMPY2.                                             *
  *                                                                         *
@@ -90,8 +90,9 @@ mpmath_get_sign(PyObject *x)
     return (long)-1;
 }
 
-PyDoc_STRVAR(doc_mpmath_normalizeg,
-"_mpmath_normalize(...): helper function for mpmath.");
+PyDoc_STRVAR(doc_mpmath_normalize,
+"_mpmath_normalize($module, sign, man, exp, bc, prec, rnd, /)\n--\n\n"
+"helper function for mpmath.");
 
 static PyObject *
 Pympz_mpmath_normalize_fast(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
@@ -267,7 +268,8 @@ Pympz_mpmath_normalize_fast(PyObject *self, PyObject *const *args, Py_ssize_t na
 }
 
 PyDoc_STRVAR(doc_mpmath_create,
-"_mpmath_create(...): helper function for mpmath.");
+"_mpmath_create($module, man, exp, prec=0, rnd='d', /)\n--\n\n"
+"helper function for mpmath.");
 
 static PyObject *
 Pympz_mpmath_create_fast(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
@@ -287,14 +289,17 @@ Pympz_mpmath_create_fast(PyObject *self, PyObject *const *args, Py_ssize_t nargs
     switch (nargs) {
         case 4:
             rnd = PyString_1Char(args[3]);
+            /* fallthrough */
         case 3:
             prec = GMPy_Integer_AsLong(args[2]);
             if (prec == (mp_bitcnt_t)(-1)) {
                 VALUE_ERROR("could not convert prec to positive int");
                 return NULL;
             }
+            /* fallthrough */
         case 2:
             exp = args[1];
+            /* fallthrough */
         case 1:
             man = GMPy_MPZ_From_Integer(args[0], NULL);
             if (!man) {

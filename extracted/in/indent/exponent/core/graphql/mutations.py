@@ -1,5 +1,5 @@
 CREATE_CLOUD_CHAT_FROM_REPOSITORY_MUTATION = """
-mutation CreateCloudChatFromRepository($repositoryUuid: String!, $provider: SandboxProvider) {
+mutation CreateCloudChatFromRepository($repositoryUuid: UUID!, $provider: SandboxProvider) {
   createCloudChat(repositoryUuid: $repositoryUuid, provider: $provider) {
     __typename
     ...on Chat {

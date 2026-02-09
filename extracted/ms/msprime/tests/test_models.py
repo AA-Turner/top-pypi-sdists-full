@@ -60,6 +60,11 @@ class TestIntrospectionInterface:
         assert repr(model) == repr_s
         assert str(model) == repr_s
 
+        model = msprime.SMCK(0.0)
+        repr_s = "SMCK(duration=None, k=0.0)"
+        assert repr(model) == repr_s
+        assert str(model) == repr_s
+
     def test_dtwf(self):
         model = msprime.DiscreteTimeWrightFisher()
         repr_s = "DiscreteTimeWrightFisher(duration=None)"
@@ -139,6 +144,7 @@ class TestModelFactory:
             msprime.StandardCoalescent(),
             msprime.SmcApproxCoalescent(),
             msprime.SmcPrimeApproxCoalescent(),
+            msprime.SMCK(1),
             msprime.DiscreteTimeWrightFisher(),
             msprime.FixedPedigree(),
             msprime.SweepGenicSelection(
@@ -325,6 +331,19 @@ class TestClassesKeywordArgs:
         with pytest.raises(TypeError, match="takes 1 positional"):
             msprime.SweepGenicSelection(1)
 
+    def test_smck_coalescent(self):
+
+        with pytest.raises(TypeError, match="k"):
+            model = msprime.SMCK()
+
+        model = msprime.SMCK(1.1)
+        assert model.duration is None
+        assert model.k == 1.1
+
+        model = msprime.SMCK(1.1, duration=100)
+        assert model.k == 1.1
+        assert model.duration == 100
+
 
 class TestRejectedCommonAncestorEventCounts:
     """
@@ -453,6 +472,13 @@ class TestParametricModels:
                 assert model.c == c
                 d = model._as_lowlevel()
                 assert d == {"name": "dirac", "psi": psi, "c": c, "duration": None}
+
+    def test_smck_coalescent_parameters(self):
+        for k in [0.01, 10.0, 0.99]:
+            model = msprime.SMCK(k)
+            assert model.k == k
+            d = model._as_lowlevel()
+            assert d == {"name": "smc_k", "k": k, "duration": None}
 
 
 class TestMultipleMergerModels:

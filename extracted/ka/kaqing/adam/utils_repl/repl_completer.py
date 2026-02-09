@@ -5,7 +5,7 @@ from typing import Iterable, TypeVar, cast
 from prompt_toolkit.completion import CompleteEvent, Completion, NestedCompleter, WordCompleter
 from prompt_toolkit.document import Document
 
-from adam.utils import debug_complete, log2
+from adam.utils_log import debug_complete, log2
 from adam.utils_repl.appendable_completer import AppendableCompleter
 
 import nest_asyncio

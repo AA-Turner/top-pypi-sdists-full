@@ -196,7 +196,7 @@ class CausalLM(Task):
 
                 # Create an explicit tuple of all variable state.
                 state = (
-                    self.sampler.variables,
+                    [v.value for v in self.sampler.variables],
                     # Use the explicit variable.value to preserve the
                     # sharding spec of distribution.
                     [v.value for v in self.trainable_variables],
@@ -431,7 +431,7 @@ class CausalLM(Task):
         self.generate_function = None
 
     def get_quantization_layer_structure(self, mode):
-        if mode != "gptq":
+        if mode not in ["gptq", "awq"]:
             return None
 
         backbone = self.backbone

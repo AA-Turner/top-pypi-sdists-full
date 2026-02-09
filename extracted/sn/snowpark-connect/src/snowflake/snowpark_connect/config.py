@@ -196,6 +196,7 @@ class GlobalConfig:
         "spark.sql.legacy.dataset.nameNonStructGroupingKeyAsValue",
         "snowpark.connect.handleIntegralOverflow",
         "snowpark.connect.test.force_create_sproc",
+        "snowpark.connect.sql.emulatePartitionOverwritesForSnowflakeTables",
     ]
 
     int_config_list = [
@@ -320,6 +321,7 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "spark.sql.parquet.enable.summary-metadata",
     "parquet.enable.summary-metadata",
     "spark.sql.sources.partitionOverwriteMode",
+    "snowpark.connect.sql.emulatePartitionOverwritesForSnowflakeTables",
 }
 AZURE_ACCOUNT_KEY = re.compile(
     r"^fs\.azure\.sas\.[^\.]+\.[^\.]+\.blob\.core\.windows\.net$"
@@ -357,6 +359,7 @@ class SessionConfig:
         # Example: "/path/to/driver.jar" or "org.neo4j:neo4j-jdbc-driver:4.0.9"
         "spark.jars": None,
         "spark.sql.sources.partitionOverwriteMode": "static",
+        "snowpark.connect.sql.emulatePartitionOverwritesForSnowflakeTables": "false",
     }
 
     def __init__(self) -> None:
@@ -980,4 +983,14 @@ def is_dynamic_partition_overwrite_enabled() -> bool:
             "spark.sql.sources.partitionOverwriteMode"
         ).lower()
         == "dynamic"
+    )
+
+
+def emulate_partition_overwrite_for_fdn_tables() -> bool:
+    session_id = get_spark_session_id()
+    session_config = sessions_config[session_id]
+    return str_to_bool(
+        session_config.get(
+            "snowpark.connect.sql.emulatePartitionOverwritesForSnowflakeTables", "false"
+        )
     )

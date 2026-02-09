@@ -138,6 +138,17 @@ async def ws_push(scope, receive, send):
         pass
 
 
+async def ws_close(scope, receive, send):
+    await receive()
+    await send({'type': 'websocket.accept'})
+    msg = await receive()
+    fpath = msg.get('text') or msg['bytes'].decode('utf8')
+    await send({'type': 'websocket.close', 'code': 1000})
+    msg = await receive()
+    if msg['type'] == 'websocket.disconnect':
+        pathlib.Path(fpath).touch()
+
+
 async def err_app(scope, receive, send):
     1 / 0
 
@@ -208,6 +219,7 @@ def app(scope, receive, send):
         '/ws_rejectc': ws_reject_custom,
         '/ws_info': ws_info,
         '/ws_echo': ws_echo,
+        '/ws_close': ws_close,
         '/ws_push': ws_push,
         '/err_app': err_app,
         '/err_proto/type': err_proto_msg,

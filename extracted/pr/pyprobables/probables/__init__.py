@@ -15,6 +15,7 @@ from probables.exceptions import (
     NotSupportedError,
     ProbablesBaseException,
     RotatingBloomFilterError,
+    SimilarityError,
 )
 from probables.quotientfilter import QuotientFilter
 from probables.utilities import Bitarray
@@ -23,7 +24,7 @@ __author__ = "Tyler Barrus"
 __maintainer__ = "Tyler Barrus"
 __email__ = "barrust@gmail.com"
 __license__ = "MIT"
-__version__ = "0.6.2"
+__version__ = "0.7.0"
 __credits__: list[str] = []
 __url__ = "https://github.com/barrust/pyprobables"
 __bugtrack_url__ = "https://github.com/barrust/pyprobables/issues"
@@ -48,4 +49,5 @@ __all__ = [
     "RotatingBloomFilterError",
     "QuotientFilter",
     "Bitarray",
+    "SimilarityError",
 ]

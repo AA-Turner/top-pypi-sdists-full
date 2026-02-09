@@ -88,7 +88,7 @@ class DiscoItems(ElementBase):
         """
         Add a new item element. Each item is required to have a
         JID, but may also specify a node value to reference
-        non-addressable entitities.
+        non-addressable entities.
 
         :param jid: The JID for the item.
         :param node: Optional additional information to reference
