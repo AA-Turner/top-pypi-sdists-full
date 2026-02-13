@@ -2440,8 +2440,10 @@ class CometExperiment(CommonExperiment):
             "imageId": figure_id,
         }
 
-        if figure_name is not None:
+        if figure_name:
             url_params["figName"] = figure_name
+        else:
+            url_params["figName"] = "Figure"
 
         processor = FigureUploadProcessor(
             figure,

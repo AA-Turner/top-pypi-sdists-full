@@ -236,11 +236,7 @@ class OpenAIAgent(MCPAgent):
         self._openai_tools = []
         self._tool_name_map = {}
 
-        categorized = self.categorize_tools()
-
-        # Log skipped tools at debug level
-        for tool, reason in categorized.skipped:
-            logger.debug("Skipping tool %s: %s", tool.name, reason)
+        categorized = self._categorized_tools
 
         # Process hosted tools
         for tool, spec in categorized.hosted:
@@ -350,12 +346,12 @@ class OpenAIAgent(MCPAgent):
             temperature=self.temperature,
             tool_choice=self.tool_choice if self.tool_choice is not None else Omit(),
             parallel_tool_calls=self.parallel_tool_calls,
-            reasoning=self.reasoning,
+            reasoning=self.reasoning if self.reasoning is not None else Omit(),
             tools=self._openai_tools if self._openai_tools else Omit(),
             previous_response_id=(
                 self.last_response_id if self.last_response_id is not None else Omit()
             ),
-            truncation=self.truncation,
+            truncation=self.truncation if self.truncation is not None else Omit(),
         )
 
         self.last_response_id = response.id

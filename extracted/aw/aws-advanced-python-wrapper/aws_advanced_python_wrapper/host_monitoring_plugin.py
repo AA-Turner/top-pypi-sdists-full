@@ -181,7 +181,7 @@ class HostMonitoringPlugin(Plugin, CanReleaseResources):
             if current_host_info is None:
                 raise AwsWrapperError("HostMonitoringPlugin.HostInfoNone")
             self._monitoring_host_info = current_host_info
-            rds_type = self._rds_utils.identify_rds_type(self._monitoring_host_info.url)
+            rds_type = self._rds_utils.identify_rds_type(self._monitoring_host_info.host)
 
             try:
                 if rds_type.is_rds_cluster:
@@ -578,6 +578,9 @@ class MonitoringThreadContainer:
     _tasks_map: ConcurrentDict[Monitor, Future] = ConcurrentDict()
     _executor_name: ClassVar[str] = "MonitoringThreadContainerExecutor"
 
+    def __init__(self):
+        self._thread_pool = ThreadPoolContainer.get_thread_pool(self._executor_name)
+
     # This logic ensures that this class is a Singleton
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
@@ -605,8 +608,7 @@ class MonitoringThreadContainer:
                     raise AwsWrapperError(Messages.get("MonitoringThreadContainer.SupplierMonitorNone"))
                 self._tasks_map.compute_if_absent(
                     supplied_monitor,
-                    lambda _: ThreadPoolContainer.get_thread_pool(MonitoringThreadContainer._executor_name)
-                    .submit(supplied_monitor.run))
+                    lambda _: self._thread_pool.submit(supplied_monitor.run))
                 return supplied_monitor
 
             if monitor is None:

@@ -8,12 +8,16 @@ import pyarrow as pa
 
 import chalk._gen.chalk.models.v1.model_artifact_pb2 as pb
 import chalk._gen.chalk.models.v1.model_version_pb2 as mv_pb
+from chalk.utils.environment_parsing import env_var_bool
 
 
 def get_registry_metadata_file() -> Optional[str]:
-    branch_root = os.getenv("CHALK_MODEL_REGISTRY_BRANCH_METADATA_ROOT", None)
-    if os.getenv("IS_BRANCH", None) is not None and branch_root is not None:
-        return os.path.join(branch_root, os.getenv("CHALK_DEPLOYMENT_ID", "") + ".bin")
+    branch_root = os.getenv("CHALK_MODEL_REGISTRY_METADATA_ROOT", None)
+    is_branch = env_var_bool("IS_BRANCH", False)
+    if is_branch and branch_root is not None:
+        deployment_id = os.getenv("CHALK_DEPLOYMENT_ID", "")
+        result = os.path.join(branch_root, deployment_id + ".bin")
+        return result
     return os.getenv("CHALK_MODEL_REGISTRY_METADATA_FILENAME", None)
 
 
@@ -111,11 +115,14 @@ def load_model_map() -> Mapping[Tuple[str, str], LoadedModel]:
     return model_map
 
 
-def get_model_spec(model_name: str, identifier: str) -> LoadedModel:
+def get_model_spec(model_name: str, identifier: str, registry_metadata_file: Optional[str] = None) -> LoadedModel:
     mms = load_model_map()
-    if (spec := mms.get((model_name, identifier), None)) is None:
-        raise ValueError(f"Model '{model_name}, {identifier}' not found in mounted models.")
-    return spec
+    if (spec := mms.get((model_name, identifier), None)) is not None:
+        return spec
+
+    raise ValueError(
+        f"Model '{model_name}, {identifier}' not found in mounted models. check path {registry_metadata_file}"
+    )
 
 
 def model_type_from_proto(mt: pb.ModelType) -> ModelType:

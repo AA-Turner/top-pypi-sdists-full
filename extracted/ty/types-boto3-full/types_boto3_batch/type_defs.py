@@ -165,9 +165,12 @@ __all__ = (
     "EksVolumeTypeDef",
     "EphemeralStorageTypeDef",
     "EvaluateOnExitTypeDef",
+    "FairshareCapacityUsageTypeDef",
+    "FairshareCapacityUtilizationTypeDef",
     "FairsharePolicyOutputTypeDef",
     "FairsharePolicyTypeDef",
     "FairsharePolicyUnionTypeDef",
+    "FairshareUtilizationDetailTypeDef",
     "FargatePlatformConfigurationTypeDef",
     "FirelensConfigurationOutputTypeDef",
     "FirelensConfigurationTypeDef",
@@ -177,6 +180,7 @@ __all__ = (
     "GetJobQueueSnapshotResponseTypeDef",
     "HostTypeDef",
     "ImagePullSecretTypeDef",
+    "JobCapacityUsageSummaryTypeDef",
     "JobDefinitionTypeDef",
     "JobDependencyTypeDef",
     "JobDetailTypeDef",
@@ -228,6 +232,8 @@ __all__ = (
     "NodeRangePropertyOutputTypeDef",
     "NodeRangePropertyTypeDef",
     "PaginatorConfigTypeDef",
+    "QueueSnapshotCapacityUsageTypeDef",
+    "QueueSnapshotUtilizationDetailTypeDef",
     "RegisterJobDefinitionRequestTypeDef",
     "RegisterJobDefinitionResponseTypeDef",
     "RepositoryCredentialsTypeDef",
@@ -243,6 +249,8 @@ __all__ = (
     "ServiceEnvironmentDetailTypeDef",
     "ServiceEnvironmentOrderTypeDef",
     "ServiceJobAttemptDetailTypeDef",
+    "ServiceJobCapacityUsageDetailTypeDef",
+    "ServiceJobCapacityUsageSummaryTypeDef",
     "ServiceJobEvaluateOnExitTypeDef",
     "ServiceJobRetryStrategyOutputTypeDef",
     "ServiceJobRetryStrategyTypeDef",
@@ -506,6 +514,11 @@ class DescribeServiceJobRequestTypeDef(TypedDict):
     jobId: str
 
 
+class ServiceJobCapacityUsageDetailTypeDef(TypedDict):
+    capacityUnit: NotRequired[str]
+    quantity: NotRequired[float]
+
+
 class ServiceJobTimeoutTypeDef(TypedDict):
     attemptDurationSeconds: NotRequired[int]
 
@@ -607,6 +620,11 @@ class EvaluateOnExitTypeDef(TypedDict):
     onExitCode: NotRequired[str]
 
 
+class FairshareCapacityUsageTypeDef(TypedDict):
+    capacityUnit: NotRequired[str]
+    quantity: NotRequired[float]
+
+
 class ShareAttributesTypeDef(TypedDict):
     shareIdentifier: str
     weightFactor: NotRequired[float]
@@ -639,6 +657,11 @@ class GetJobQueueSnapshotRequestTypeDef(TypedDict):
 
 class HostTypeDef(TypedDict):
     sourcePath: NotRequired[str]
+
+
+class JobCapacityUsageSummaryTypeDef(TypedDict):
+    capacityUnit: NotRequired[str]
+    quantity: NotRequired[float]
 
 
 class JobTimeoutTypeDef(TypedDict):
@@ -714,6 +737,16 @@ class SchedulingPolicyListingDetailTypeDef(TypedDict):
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
+
+
+class QueueSnapshotCapacityUsageTypeDef(TypedDict):
+    capacityUnit: NotRequired[str]
+    quantity: NotRequired[float]
+
+
+class ServiceJobCapacityUsageSummaryTypeDef(TypedDict):
+    capacityUnit: NotRequired[str]
+    quantity: NotRequired[float]
 
 
 class ServiceJobEvaluateOnExitTypeDef(TypedDict):
@@ -1076,6 +1109,11 @@ class RetryStrategyTypeDef(TypedDict):
     evaluateOnExit: NotRequired[Sequence[EvaluateOnExitTypeDef]]
 
 
+class FairshareCapacityUtilizationTypeDef(TypedDict):
+    shareIdentifier: NotRequired[str]
+    capacityUsage: NotRequired[list[FairshareCapacityUsageTypeDef]]
+
+
 class FairsharePolicyOutputTypeDef(TypedDict):
     shareDecaySeconds: NotRequired[int]
     computeReservation: NotRequired[int]
@@ -1097,7 +1135,10 @@ class JobSummaryTypeDef(TypedDict):
     jobId: str
     jobName: str
     jobArn: NotRequired[str]
+    capacityUsage: NotRequired[list[JobCapacityUsageSummaryTypeDef]]
     createdAt: NotRequired[int]
+    scheduledAt: NotRequired[int]
+    shareIdentifier: NotRequired[str]
     status: NotRequired[JobStatusType]
     statusReason: NotRequired[str]
     startedAt: NotRequired[int]
@@ -1321,6 +1362,11 @@ class EksPodPropertiesTypeDef(TypedDict):
 RetryStrategyUnionTypeDef = Union[RetryStrategyTypeDef, RetryStrategyOutputTypeDef]
 
 
+class FairshareUtilizationDetailTypeDef(TypedDict):
+    activeShareCount: NotRequired[int]
+    topCapacityUtilization: NotRequired[list[FairshareCapacityUtilizationTypeDef]]
+
+
 class SchedulingPolicyDetailTypeDef(TypedDict):
     name: str
     arn: str
@@ -1329,11 +1375,6 @@ class SchedulingPolicyDetailTypeDef(TypedDict):
 
 
 FairsharePolicyUnionTypeDef = Union[FairsharePolicyTypeDef, FairsharePolicyOutputTypeDef]
-
-
-class GetJobQueueSnapshotResponseTypeDef(TypedDict):
-    frontOfQueue: FrontOfQueueDetailTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListJobsResponseTypeDef(TypedDict):
@@ -1347,8 +1388,10 @@ class ServiceJobSummaryTypeDef(TypedDict):
     jobName: str
     serviceJobType: Literal["SAGEMAKER_TRAINING"]
     latestAttempt: NotRequired[LatestServiceJobAttemptTypeDef]
+    capacityUsage: NotRequired[list[ServiceJobCapacityUsageSummaryTypeDef]]
     createdAt: NotRequired[int]
     jobArn: NotRequired[str]
+    scheduledAt: NotRequired[int]
     shareIdentifier: NotRequired[str]
     status: NotRequired[ServiceJobStatusType]
     statusReason: NotRequired[str]
@@ -1454,6 +1497,7 @@ class TaskContainerPropertiesTypeDef(TypedDict):
 
 class DescribeServiceJobResponseTypeDef(TypedDict):
     attempts: list[ServiceJobAttemptDetailTypeDef]
+    capacityUsage: list[ServiceJobCapacityUsageDetailTypeDef]
     createdAt: int
     isTerminated: bool
     jobArn: str
@@ -1462,6 +1506,7 @@ class DescribeServiceJobResponseTypeDef(TypedDict):
     jobQueue: str
     latestAttempt: LatestServiceJobAttemptTypeDef
     retryStrategy: ServiceJobRetryStrategyOutputTypeDef
+    scheduledAt: int
     schedulingPriority: int
     serviceRequestPayload: str
     serviceJobType: Literal["SAGEMAKER_TRAINING"]
@@ -1603,6 +1648,12 @@ class EksPropertiesTypeDef(TypedDict):
     podProperties: NotRequired[EksPodPropertiesTypeDef]
 
 
+class QueueSnapshotUtilizationDetailTypeDef(TypedDict):
+    totalCapacityUsage: NotRequired[list[QueueSnapshotCapacityUsageTypeDef]]
+    fairshareUtilization: NotRequired[FairshareUtilizationDetailTypeDef]
+    lastUpdatedAt: NotRequired[int]
+
+
 class DescribeSchedulingPoliciesResponseTypeDef(TypedDict):
     schedulingPolicies: list[SchedulingPolicyDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1740,6 +1791,12 @@ class EksPropertiesOverrideTypeDef(TypedDict):
 
 
 EksPropertiesUnionTypeDef = Union[EksPropertiesTypeDef, EksPropertiesOutputTypeDef]
+
+
+class GetJobQueueSnapshotResponseTypeDef(TypedDict):
+    frontOfQueue: FrontOfQueueDetailTypeDef
+    queueUtilization: QueueSnapshotUtilizationDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeComputeEnvironmentsResponseTypeDef(TypedDict):

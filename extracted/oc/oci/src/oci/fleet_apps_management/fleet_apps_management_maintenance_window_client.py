@@ -162,7 +162,7 @@ class FleetAppsManagementMaintenanceWindowClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/fleetappsmanagement/create_maintenance_window.py.html>`__ to see an example of how to use create_maintenance_window API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fleetappsmanagement/create_maintenance_window.py.html>`__ to see an example of how to use create_maintenance_window API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -267,7 +267,7 @@ class FleetAppsManagementMaintenanceWindowClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/fleetappsmanagement/delete_maintenance_window.py.html>`__ to see an example of how to use delete_maintenance_window API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fleetappsmanagement/delete_maintenance_window.py.html>`__ to see an example of how to use delete_maintenance_window API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['maintenanceWindowId']
@@ -372,7 +372,7 @@ class FleetAppsManagementMaintenanceWindowClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/fleetappsmanagement/get_maintenance_window.py.html>`__ to see an example of how to use get_maintenance_window API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fleetappsmanagement/get_maintenance_window.py.html>`__ to see an example of how to use get_maintenance_window API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['maintenanceWindowId']
@@ -510,7 +510,7 @@ class FleetAppsManagementMaintenanceWindowClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/fleetappsmanagement/list_maintenance_windows.py.html>`__ to see an example of how to use list_maintenance_windows API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fleetappsmanagement/list_maintenance_windows.py.html>`__ to see an example of how to use list_maintenance_windows API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -658,7 +658,7 @@ class FleetAppsManagementMaintenanceWindowClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/fleetappsmanagement/update_maintenance_window.py.html>`__ to see an example of how to use update_maintenance_window API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fleetappsmanagement/update_maintenance_window.py.html>`__ to see an example of how to use update_maintenance_window API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['maintenanceWindowId']

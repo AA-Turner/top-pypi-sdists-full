@@ -185,12 +185,13 @@ class SecretResourceBase(SchemaObjectReferenceMixin["SecretCollection"]):
         Parameters
         __________
         """
-        return self.collection._api.fetch_secret(
+        result = self.collection._api.fetch_secret(
             self.database.name,
             self.schema.name,
             self._identifier,
             async_req=False,
         )
+        return result
 
     @api_telemetry
     def fetch_async(

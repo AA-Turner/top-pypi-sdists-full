@@ -13,8 +13,15 @@ if TYPE_CHECKING:
     from langgraph_api.encryption.aes_json import AesEncryptionInstance
     from langgraph_api.encryption.custom import JsonEncryptionWrapper
 
-# Marker keys for encryption context storage
+# Stored alongside JSON-encrypted fields to record which encryption context was
+# used.  Presence means sibling values are already encrypted.  Stripped before
+# data reaches user code.
 ENCRYPTION_CONTEXT_KEY = "__encryption_context__"
+
+# Injected into run/cron payloads by the HTTP layer when JSON encryption is NOT
+# configured but blob encryption is still needed.  Signals to the worker "encrypt
+# blobs for this run" without implying the JSON siblings are encrypted.  Stripped
+# before data reaches user code.
 BLOB_ENCRYPTION_CONTEXT_KEY = "__blob_encryption_context__"
 
 # Reserved keys that should never appear in user-facing responses
@@ -48,8 +55,10 @@ def get_encryption() -> JsonEncryptionWrapper | AesEncryptionInstance | None:
     - Neither: None
     """
     # Late import to avoid circular dependency
-    from langgraph_api.encryption.aes_json import get_aes_encryption_instance
-    from langgraph_api.encryption.custom import (
+    from langgraph_api.encryption.aes_json import (  # noqa: PLC0415
+        get_aes_encryption_instance,
+    )
+    from langgraph_api.encryption.custom import (  # noqa: PLC0415
         JsonEncryptionWrapper,
         get_custom_encryption_instance,
     )
@@ -71,7 +80,7 @@ def using_custom_encryption() -> bool:
     Returns:
         True if custom encryption is configured, False otherwise.
     """
-    from langgraph_api.encryption.custom import JsonEncryptionWrapper
+    from langgraph_api.encryption.custom import JsonEncryptionWrapper  # noqa: PLC0415
 
     return (
         isinstance(get_encryption(), JsonEncryptionWrapper)
@@ -87,8 +96,8 @@ def using_aes_encryption() -> bool:
     Returns:
         True if AES encryption is configured, False otherwise.
     """
-    from langgraph_api.encryption.aes_json import AesEncryptionInstance
-    from langgraph_api.encryption.custom import JsonEncryptionWrapper
+    from langgraph_api.encryption.aes_json import AesEncryptionInstance  # noqa: PLC0415
+    from langgraph_api.encryption.custom import JsonEncryptionWrapper  # noqa: PLC0415
 
     enc = get_encryption()
     return isinstance(enc, AesEncryptionInstance) or (

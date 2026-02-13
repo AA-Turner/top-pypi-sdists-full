@@ -187,6 +187,7 @@ class OdbPeeringConnection(AWSObject):
     resource_type = "AWS::ODB::OdbPeeringConnection"
 
     props: PropsDictType = {
+        "AdditionalPeerNetworkCidrs": ([str], False),
         "DisplayName": (str, False),
         "OdbNetworkId": (str, False),
         "PeerNetworkId": (str, False),

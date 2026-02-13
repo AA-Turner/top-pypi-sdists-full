@@ -70,7 +70,8 @@ def fixture_create_stats_table():
     meta_dq_run_id STRING,
     meta_dq_run_date DATE,
     meta_dq_run_datetime TIMESTAMP,
-    dq_env STRING
+    dq_env STRING,
+    se_job_metadata STRING
     )
     USING delta
     """
@@ -502,6 +503,11 @@ def test_collect_stats_on_success_failure(
         "get_rules_exceeds_threshold",
         input_record.get("row_dq_error_threshold"),
     )
+    setattr(
+        _mock_context,
+        "get_se_job_metadata",
+        {"runtime_env": {"host": "local"}},
+    )
 
     setattr(
         _mock_context,
@@ -566,6 +572,8 @@ def test_collect_stats_on_success_failure(
     )
     setattr(_mock_context, "get_se_streaming_stats_dict", {"se.streaming.enable": True})
     setattr(_mock_context, "get_topic_name", "dq-sparkexpectations-stats")
+    setattr(_mock_context, "get_dbr_workspace_id", "local")
+    setattr(_mock_context, "get_dbr_workspace_url", "local")
 
     _mock_context.spark = spark
     _mock_context.product_id = "product1"
@@ -600,6 +608,18 @@ def test_collect_stats_on_success_failure(
     assert row.dq_status == input_record.get("status")
     assert row.meta_dq_run_id == "product1_run_test"
 
+    # Compare Kafka output to stats table; the Kafka writer converts
+    # se_job_metadata from a JSON string to a struct so the comparison
+    # must apply the same transformation to the stats table DataFrame.
+    from pyspark.sql.functions import from_json, schema_of_json, lit as _lit
+    expected_stats = stats_table
+    if "se_job_metadata" in expected_stats.columns:
+        _sample = expected_stats.select("se_job_metadata").first()[0]
+        if _sample:
+            expected_stats = expected_stats.withColumn(
+                "se_job_metadata",
+                from_json(col("se_job_metadata"), schema_of_json(_lit(_sample))),
+            )
     assert (
         spark.read.format("kafka")
         .option("kafka.bootstrap.servers", "localhost:9092")
@@ -611,7 +631,7 @@ def test_collect_stats_on_success_failure(
         .limit(1)
         .selectExpr("cast(value as string) as value")
         .collect()
-        == stats_table.selectExpr("to_json(struct(*)) AS value").collect()
+        == expected_stats.selectExpr("to_json(struct(*)) AS value").collect()
     )
 
 
@@ -1024,6 +1044,11 @@ def test_collect_stats_on_success_failure_exception(
         "get_rules_exceeds_threshold",
         input_record.get("row_dq_error_threshold"),
     )
+    setattr(
+        _mock_context,
+        "get_se_job_metadata",
+        {"runtime_env": {"host": "local"}},
+    )
 
     setattr(
         _mock_context,
@@ -1090,6 +1115,8 @@ def test_collect_stats_on_success_failure_exception(
     )
     setattr(_mock_context, "get_se_streaming_stats_dict", {"se.streaming.enable": True})
     setattr(_mock_context, "get_topic_name", "dq-sparkexpectations-stats")
+    setattr(_mock_context, "get_dbr_workspace_id", "local")
+    setattr(_mock_context, "get_dbr_workspace_url", "local")
 
     writer = SparkExpectationsWriter(_mock_context)
     statistics_writer_obj = SparkExpectationsCollectStatistics(_mock_context, writer)
@@ -1121,6 +1148,18 @@ def test_collect_stats_on_success_failure_exception(
     assert row.dq_status == input_record.get("status")
     assert row.meta_dq_run_id == "product1_run_test"
 
+    # Compare Kafka output to stats table; the Kafka writer converts
+    # se_job_metadata from a JSON string to a struct so the comparison
+    # must apply the same transformation to the stats table DataFrame.
+    from pyspark.sql.functions import from_json, schema_of_json, lit as _lit
+    expected_stats = stats_table
+    if "se_job_metadata" in expected_stats.columns:
+        _sample = expected_stats.select("se_job_metadata").first()[0]
+        if _sample:
+            expected_stats = expected_stats.withColumn(
+                "se_job_metadata",
+                from_json(col("se_job_metadata"), schema_of_json(_lit(_sample))),
+            )
     assert (
         spark.read.format("kafka")
         .option("kafka.bootstrap.servers", "localhost:9092")
@@ -1132,5 +1171,5 @@ def test_collect_stats_on_success_failure_exception(
         .limit(1)
         .selectExpr("cast(value as string) as value")
         .collect()
-        == stats_table.selectExpr("to_json(struct(*)) AS value").collect()
+        == expected_stats.selectExpr("to_json(struct(*)) AS value").collect()
     )

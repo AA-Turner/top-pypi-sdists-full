@@ -12,7 +12,6 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import InstanceFilte
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     InstanceRequest,
     InstanceResponse,
-    ViewReference,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import (
@@ -110,7 +109,7 @@ class InstancesAPI(CDFResourceAPI[TypedInstanceIdentifier, InstanceRequest, Inst
     @classmethod
     def _create_body(cls, filter: InstanceFilter | None) -> dict[str, Any]:
         return {
-            **(filter.model_dump(exclude_none=True) if filter else {}),
+            **(filter.dump() if filter else {}),
             "sort": cls._create_sort_body(filter.instance_type if filter else "node"),
         }
 
@@ -211,6 +210,7 @@ class WrappedInstancesAPI(
         self,
         instance_type: Literal["node", "edge"] = "node",
         spaces: list[str] | None = None,
+        filter: dict[str, JsonValue] | None = None,
         limit: int | None = 100,
     ) -> list[T_WrappedInstanceResponse]:
         """List all wrapped instances in CDF.
@@ -226,11 +226,12 @@ class WrappedInstancesAPI(
         filter_ = InstanceFilter(
             instance_type=instance_type,
             space=spaces,
-            source=ViewReference(
+            source=TypedViewReference(
                 space=self._view_id.space,
                 external_id=self._view_id.external_id,
                 version=self._view_id.version,
             ),
+            filter=filter,
         )
         body = {
             **filter_.dump(),

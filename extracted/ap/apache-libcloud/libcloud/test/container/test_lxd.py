@@ -29,7 +29,6 @@ from libcloud.container.drivers.lxd import (
 
 
 class LXDContainerDriverTestCase(unittest.TestCase):
-
     """
     Unit tests for LXDContainerDriver
     """

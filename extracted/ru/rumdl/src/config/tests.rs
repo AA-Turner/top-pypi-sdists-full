@@ -2041,3 +2041,139 @@ fn test_relative_path_empty_string() {
     // Empty string should return empty string
     assert_eq!(result, "");
 }
+
+// ───── `enable = []` semantics ─────
+
+#[test]
+fn test_empty_enable_list_is_explicit_rumdl_toml() {
+    let temp_dir = tempdir().unwrap();
+    let config_path = temp_dir.path().join(".rumdl.toml");
+    let config_content = r#"
+[global]
+enable = []
+disable = ["MD013"]
+"#;
+    fs::write(&config_path, config_content).unwrap();
+
+    let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+
+    // enable = [] should be treated as explicitly set (not Default)
+    assert_ne!(
+        sourced.global.enable.source,
+        ConfigSource::Default,
+        "Empty enable = [] should change source from Default (it was explicitly set)"
+    );
+
+    let config: Config = sourced.into_validated_unchecked().into();
+
+    // enable should be empty and explicit → disables all rules
+    assert!(config.global.enable.is_empty());
+    assert!(config.global.enable_is_explicit);
+
+    // disable should still be parsed
+    assert_eq!(config.global.disable, vec!["MD013".to_string()]);
+}
+
+#[test]
+fn test_empty_enable_list_is_explicit_pyproject() {
+    let temp_dir = tempdir().unwrap();
+    let config_path = temp_dir.path().join("pyproject.toml");
+    let config_content = r#"
+[tool.rumdl]
+enable = []
+disable = ["MD033"]
+"#;
+    fs::write(&config_path, config_content).unwrap();
+
+    let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+
+    // enable = [] should be treated as explicitly set
+    assert_ne!(
+        sourced.global.enable.source,
+        ConfigSource::Default,
+        "Empty enable = [] in pyproject.toml should change source from Default"
+    );
+}
+
+#[test]
+fn test_enable_all_keyword_rumdl_toml() {
+    let temp_dir = tempdir().unwrap();
+    let config_path = temp_dir.path().join(".rumdl.toml");
+    let config_content = r#"
+[global]
+enable = ["ALL"]
+disable = ["MD013"]
+"#;
+    fs::write(&config_path, config_content).unwrap();
+
+    let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+    let config: Config = sourced.into_validated_unchecked().into();
+
+    // enable should contain "ALL"
+    assert!(config.global.enable.iter().any(|s| s.eq_ignore_ascii_case("all")));
+    // disable should still be parsed
+    assert_eq!(config.global.disable, vec!["MD013".to_string()]);
+}
+
+#[test]
+fn test_enable_all_keyword_pyproject() {
+    let temp_dir = tempdir().unwrap();
+    let config_path = temp_dir.path().join("pyproject.toml");
+    let config_content = r#"
+[tool.rumdl]
+enable = ["ALL"]
+"#;
+    fs::write(&config_path, config_content).unwrap();
+
+    let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+    let config: Config = sourced.into_validated_unchecked().into();
+
+    assert!(config.global.enable.iter().any(|s| s.eq_ignore_ascii_case("all")));
+}
+
+#[test]
+fn test_nonempty_enable_list_still_works_rumdl_toml() {
+    let temp_dir = tempdir().unwrap();
+    let config_path = temp_dir.path().join(".rumdl.toml");
+    let config_content = r#"
+[global]
+enable = ["MD001", "MD003"]
+"#;
+    fs::write(&config_path, config_content).unwrap();
+
+    let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+
+    // Non-empty enable list should change source from Default
+    assert_ne!(
+        sourced.global.enable.source,
+        ConfigSource::Default,
+        "Non-empty enable list should override Default source"
+    );
+
+    let config: Config = sourced.into_validated_unchecked().into();
+    assert_eq!(config.global.enable.len(), 2);
+    assert!(config.global.enable.contains(&"MD001".to_string()));
+    assert!(config.global.enable.contains(&"MD003".to_string()));
+}
+
+#[test]
+fn test_nonempty_enable_list_still_works_pyproject() {
+    let temp_dir = tempdir().unwrap();
+    let config_path = temp_dir.path().join("pyproject.toml");
+    let config_content = r#"
+[tool.rumdl]
+enable = ["MD001", "MD003"]
+"#;
+    fs::write(&config_path, config_content).unwrap();
+
+    let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+
+    assert_ne!(
+        sourced.global.enable.source,
+        ConfigSource::Default,
+        "Non-empty enable list in pyproject.toml should override Default source"
+    );
+
+    let config: Config = sourced.into_validated_unchecked().into();
+    assert_eq!(config.global.enable.len(), 2);
+}

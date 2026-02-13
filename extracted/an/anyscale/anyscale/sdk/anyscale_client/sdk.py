@@ -557,39 +557,12 @@ class AnyscaleSDK(DefaultApi):  # type: ignore
         _upload_and_rewrite_working_dir_in_create_production_job(create_production_job)
         return super().create_job(create_production_job, **kwargs)
 
-    def create_service(self, create_production_service, **kwargs):
-        _upload_and_rewrite_working_dir_in_create_production_job(
-            create_production_service
-        )
-        return super().create_service(create_production_service, **kwargs)
-
-    def apply_service(self, create_production_service, **kwargs):
-        _upload_and_rewrite_working_dir_in_create_production_job(
-            create_production_service
-        )
-        return super().apply_service(create_production_service, **kwargs)
-
-    def rollout_service_v2(self, apply_production_service_v2_model, **kwargs):
+    def _rollout_service(self, apply_service_model, **kwargs):
         """
-        DEPRECATED. Please use rollout_service.
-        """
-        if isinstance(apply_production_service_v2_model, dict):
-            ray_serve_config = apply_production_service_v2_model.get("ray_serve_config")
-            new_ray_serve_config = _upload_and_rewrite_working_dir_ray_serve_config(
-                ray_serve_config
-            )
-            apply_production_service_v2_model["ray_serve_config"] = new_ray_serve_config
-        elif hasattr(apply_production_service_v2_model, "ray_serve_config"):
-            ray_serve_config = apply_production_service_v2_model.ray_serve_config
-            new_ray_serve_config = _upload_and_rewrite_working_dir_ray_serve_config(
-                ray_serve_config
-            )
-            apply_production_service_v2_model.ray_serve_config = new_ray_serve_config
+        Internal use only. This was a legacy public SDK method, but is still
+        used by ServiceController, so it is kept as a private method rather than
+        being removed entirely.
 
-        return super().rollout_service_v2(apply_production_service_v2_model, **kwargs)
-
-    def rollout_service(self, apply_service_model, **kwargs):
-        """
         If a local working_dir and upload_path are specified in ray_serve_config,
         this method uploads the local working_dir to the upload_path and rewrites
         the working_dir in ray_serve_config.
@@ -729,7 +702,7 @@ class AnyscaleSDK(DefaultApi):  # type: ignore
             "Please use anyscale.image.list() instead. "
             "See https://docs.anyscale.com/reference/image for details."
         )
-        
+
     # Compute Config
     def create_cluster_compute(self, create_cluster_compute, **kwargs):
         raise AnyscaleSDKDeprecationError(
@@ -764,4 +737,56 @@ class AnyscaleSDK(DefaultApi):  # type: ignore
             "AnyscaleSDK.search_cluster_computes() is deprecated. "
             "Please use anyscale.compute_config.list() instead. "
             "See https://docs.anyscale.com/reference/compute-config-api for details."
+        )
+
+    # Other
+    def partial_update_organization(self, organization_id, update_organization, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.partial_update_organization() is deprecated."
+        )
+
+    def upsert_sso_config(self, create_sso_config, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.upsert_sso_config() is deprecated."
+        )
+
+    def upsert_test_sso_config(self, create_sso_config, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.upsert_test_sso_config() is deprecated."
+        )
+
+    # Service
+    def get_service(self, service_id, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.get_service() is deprecated. "
+            "Please use anyscale.service.status() instead. "
+            "See https://docs.anyscale.com/reference/service-api for details."
+        )
+
+    def list_services(self, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.list_services() is deprecated. "
+            "Please use anyscale.service.list() instead. "
+            "See https://docs.anyscale.com/reference/service-api for details."
+        )
+
+    def rollback_service(self, service_id, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.rollback_service() is deprecated. "
+            "Please use anyscale.service.rollback() instead. "
+            "See https://docs.anyscale.com/reference/service-api for details."
+        )
+
+    def rollout_service(self, apply_service_model, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.rollout_service() is deprecated. "
+            "Please use anyscale.service.deploy() instead. "
+            "See https://docs.anyscale.com/reference/service-api for details."
+        )
+
+    def terminate_service(self, service_id, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.terminate_service() is deprecated. "
+            "Please use anyscale.service.terminate() instead. "
+            "See https://docs.anyscale.com/reference/service-api for details."
         )

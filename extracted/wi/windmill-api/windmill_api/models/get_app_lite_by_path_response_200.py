@@ -11,7 +11,6 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.get_app_lite_by_path_response_200_extra_perms import GetAppLiteByPathResponse200ExtraPerms
     from ..models.get_app_lite_by_path_response_200_policy import GetAppLiteByPathResponse200Policy
-    from ..models.get_app_lite_by_path_response_200_value import GetAppLiteByPathResponse200Value
 
 
 T = TypeVar("T", bound="GetAppLiteByPathResponse200")
@@ -28,7 +27,7 @@ class GetAppLiteByPathResponse200:
         versions (List[int]):
         created_by (str):
         created_at (datetime.datetime):
-        value (GetAppLiteByPathResponse200Value):
+        value (Any):
         policy (GetAppLiteByPathResponse200Policy):
         execution_mode (GetAppLiteByPathResponse200ExecutionMode):
         extra_perms (GetAppLiteByPathResponse200ExtraPerms):
@@ -44,7 +43,7 @@ class GetAppLiteByPathResponse200:
     versions: List[int]
     created_by: str
     created_at: datetime.datetime
-    value: "GetAppLiteByPathResponse200Value"
+    value: Any
     policy: "GetAppLiteByPathResponse200Policy"
     execution_mode: GetAppLiteByPathResponse200ExecutionMode
     extra_perms: "GetAppLiteByPathResponse200ExtraPerms"
@@ -63,8 +62,7 @@ class GetAppLiteByPathResponse200:
         created_by = self.created_by
         created_at = self.created_at.isoformat()
 
-        value = self.value.to_dict()
-
+        value = self.value
         policy = self.policy.to_dict()
 
         execution_mode = self.execution_mode.value
@@ -104,7 +102,6 @@ class GetAppLiteByPathResponse200:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.get_app_lite_by_path_response_200_extra_perms import GetAppLiteByPathResponse200ExtraPerms
         from ..models.get_app_lite_by_path_response_200_policy import GetAppLiteByPathResponse200Policy
-        from ..models.get_app_lite_by_path_response_200_value import GetAppLiteByPathResponse200Value
 
         d = src_dict.copy()
         id = d.pop("id")
@@ -121,7 +118,7 @@ class GetAppLiteByPathResponse200:
 
         created_at = isoparse(d.pop("created_at"))
 
-        value = GetAppLiteByPathResponse200Value.from_dict(d.pop("value"))
+        value = d.pop("value")
 
         policy = GetAppLiteByPathResponse200Policy.from_dict(d.pop("policy"))
 

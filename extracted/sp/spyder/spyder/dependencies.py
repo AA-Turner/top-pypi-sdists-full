@@ -48,6 +48,7 @@ JEDI_REQVER = '>=0.17.2,<0.20.0'
 JELLYFISH_REQVER = '>=0.7'
 JSONSCHEMA_REQVER = '>=3.2.0'
 KEYRING_REQVER = '>=17.0.0'
+MARKDOWN_IT_REQVER = ">=3.0.0"
 NBCONVERT_REQVER = '>=4.0'
 NUMPYDOC_REQVER = '>=0.6.0'
 PACKAGING_REQVER = '>=20.0'
@@ -68,12 +69,12 @@ PYXDG_REQVER = '>=0.26'
 PYZMQ_REQVER = '>=24.0.0'
 QDARKSTYLE_REQVER = '>=3.2.0,<3.3.0'
 QSTYLIZER_REQVER = '>=0.2.2'
-QTAWESOME_REQVER = '>=1.4.0,<1.5.0'
-QTCONSOLE_REQVER = '>=5.7.0,<5.8.0'
+QTAWESOME_REQVER = '>=1.4.1,<1.5.0'
+QTCONSOLE_REQVER = '>=5.7.1,<5.8.0'
 QTPY_REQVER = '>=2.4.0'
 RTREE_REQVER = '>=0.9.7'
 SPHINX_REQVER = '>=7.2.0'
-SPYDER_KERNELS_REQVER = '>=3.1.2,<3.2.0'
+SPYDER_KERNELS_REQVER = '>=3.1.3,<3.2.0'
 SUPERQT_REQVER = '>=0.6.2,<1.0.0'
 TEXTDISTANCE_REQVER = '>=4.2.0'
 THREE_MERGE_REQVER = '>=0.1.1'
@@ -167,6 +168,10 @@ DESCRIPTIONS = [
      'features': _("Save Github credentials to report internal "
                    "errors securely"),
      'required_version': KEYRING_REQVER},
+    {'modname': "markdown_it",
+     'package_name': "markdown-it-py",
+     'features': _("Render markdown content to HTML"),
+     'required_version': MARKDOWN_IT_REQVER},
     {'modname': "nbconvert",
      'package_name': "nbconvert",
      'features': _("Manipulate Jupyter notebooks in the Editor"),

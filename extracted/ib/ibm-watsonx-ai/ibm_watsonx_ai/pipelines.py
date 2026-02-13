@@ -93,6 +93,60 @@ class Pipelines(WMLResource):
 
         return doc
 
+    def _generate_pipeline_meta(self, meta_props: dict, **kwargs: Any) -> dict:
+        """Helper method for `(a)store` methods.
+        Return pipeline metadata.
+        """
+        # For CP4D, check if either space or project ID is set
+        self._client._check_if_either_is_set()
+
+        # quick support for COS credentials instead of local path
+        # TODO add error handling and cleaning (remove the file)
+        Pipelines._validate_type(meta_props, "meta_props", dict, True)
+
+        if self.ConfigurationMetaNames.DOCUMENT not in meta_props:
+            document = self._generate_pipeline_document(meta_props)
+            meta_props[self.ConfigurationMetaNames.DOCUMENT] = document
+
+        pipeline_meta = self.ConfigurationMetaNames._generate_resource_metadata(
+            meta_props, with_validation=True, client=self._client
+        )
+
+        if self._client.ICP_PLATFORM_SPACES:
+            if self._client.default_space_id is not None:
+                pipeline_meta["space"] = {
+                    "href": "/v4/spaces/" + self._client.default_space_id
+                }
+            elif self._client.default_project_id is not None:
+                pipeline_meta["project"] = {
+                    "href": "/v2/projects/" + self._client.default_project_id
+                }
+            else:
+                raise WMLClientError(
+                    "It is mandatory to set the space/project id. Use client.set.default_space(<SPACE_UID>)/client.set.default_project(<PROJECT_UID>) to proceed."
+                )
+
+        if self._client.default_space_id is not None:
+            pipeline_meta["space_id"] = self._client.default_space_id
+        elif self._client.default_project_id is not None:
+            pipeline_meta["project_id"] = self._client.default_project_id
+        else:
+            raise WMLClientError(
+                "It is mandatory to set the space/project id. Use client.set.default_space(<SPACE_ID>)/client.set.default_project(<PROJECT_ID>) to proceed."
+            )
+
+        # add kwargs into optimization section at the very end of preparing payload
+        try:
+            for p in pipeline_meta[self.ConfigurationMetaNames.DOCUMENT]["pipelines"]:
+                for n in p["nodes"]:
+                    params = n["parameters"]["optimization"]
+                    params.update(kwargs)
+                    n["parameters"]["optimization"] = params
+        except Exception:
+            pass
+
+        return pipeline_meta
+
     def store(self, meta_props: dict, **kwargs: Any) -> dict:
         """Create a pipeline.
 
@@ -156,53 +210,7 @@ class Pipelines(WMLResource):
             )
 
         """
-        # For CP4D, check if either space or project ID is set
-        self._client._check_if_either_is_set()
-
-        # quick support for COS credentials instead of local path
-        # TODO add error handling and cleaning (remove the file)
-        Pipelines._validate_type(meta_props, "meta_props", dict, True)
-
-        if self.ConfigurationMetaNames.DOCUMENT not in meta_props:
-            document = self._generate_pipeline_document(meta_props)
-            meta_props[self.ConfigurationMetaNames.DOCUMENT] = document
-
-        pipeline_meta = self.ConfigurationMetaNames._generate_resource_metadata(
-            meta_props, with_validation=True, client=self._client
-        )
-
-        if self._client.ICP_PLATFORM_SPACES:
-            if self._client.default_space_id is not None:
-                pipeline_meta["space"] = {
-                    "href": "/v4/spaces/" + self._client.default_space_id
-                }
-            elif self._client.default_project_id is not None:
-                pipeline_meta["project"] = {
-                    "href": "/v2/projects/" + self._client.default_project_id
-                }
-            else:
-                raise WMLClientError(
-                    "It is mandatory to set the space/project id. Use client.set.default_space(<SPACE_UID>)/client.set.default_project(<PROJECT_UID>) to proceed."
-                )
-
-        if self._client.default_space_id is not None:
-            pipeline_meta["space_id"] = self._client.default_space_id
-        elif self._client.default_project_id is not None:
-            pipeline_meta["project_id"] = self._client.default_project_id
-        else:
-            raise WMLClientError(
-                "It is mandatory to set the space/project id. Use client.set.default_space(<SPACE_ID>)/client.set.default_project(<PROJECT_ID>) to proceed."
-            )
-
-        # add kwargs into optimization section at the very end of preparing payload
-        try:
-            for p in pipeline_meta[self.ConfigurationMetaNames.DOCUMENT]["pipelines"]:
-                for n in p["nodes"]:
-                    params = n["parameters"]["optimization"]
-                    params.update(kwargs)
-                    n["parameters"]["optimization"] = params
-        except Exception:
-            pass
+        pipeline_meta = self._generate_pipeline_meta(meta_props, **kwargs)
 
         response = self._client.httpx_client.post(
             url=self._client._href_definitions.get_pipelines_href(),
@@ -276,53 +284,7 @@ class Pipelines(WMLResource):
             )
 
         """
-        # For CP4D, check if either space or project ID is set
-        self._client._check_if_either_is_set()
-
-        # quick support for COS credentials instead of local path
-        # TODO add error handling and cleaning (remove the file)
-        Pipelines._validate_type(meta_props, "meta_props", dict, True)
-
-        if self.ConfigurationMetaNames.DOCUMENT not in meta_props:
-            document = self._generate_pipeline_document(meta_props)
-            meta_props[self.ConfigurationMetaNames.DOCUMENT] = document
-
-        pipeline_meta = self.ConfigurationMetaNames._generate_resource_metadata(
-            meta_props, with_validation=True, client=self._client
-        )
-
-        if self._client.ICP_PLATFORM_SPACES:
-            if self._client.default_space_id is not None:
-                pipeline_meta["space"] = {
-                    "href": "/v4/spaces/" + self._client.default_space_id
-                }
-            elif self._client.default_project_id is not None:
-                pipeline_meta["project"] = {
-                    "href": "/v2/projects/" + self._client.default_project_id
-                }
-            else:
-                raise WMLClientError(
-                    "It is mandatory to set the space/project id. Use client.set.default_space(<SPACE_UID>)/client.set.default_project(<PROJECT_UID>) to proceed."
-                )
-
-        if self._client.default_space_id is not None:
-            pipeline_meta["space_id"] = self._client.default_space_id
-        elif self._client.default_project_id is not None:
-            pipeline_meta["project_id"] = self._client.default_project_id
-        else:
-            raise WMLClientError(
-                "It is mandatory to set the space/project id. Use client.set.default_space(<SPACE_ID>)/client.set.default_project(<PROJECT_ID>) to proceed."
-            )
-
-        # add kwargs into optimization section at the very end of preparing payload
-        try:
-            for p in pipeline_meta[self.ConfigurationMetaNames.DOCUMENT]["pipelines"]:
-                for n in p["nodes"]:
-                    params = n["parameters"]["optimization"]
-                    params.update(kwargs)
-                    n["parameters"]["optimization"] = params
-        except Exception:
-            pass
+        pipeline_meta = self._generate_pipeline_meta(meta_props, **kwargs)
 
         response = await self._client.async_httpx_client.post(
             url=self._client._href_definitions.get_pipelines_href(),

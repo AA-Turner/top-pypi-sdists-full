@@ -4,11 +4,11 @@ import json
 from collections.abc import Mapping, Sequence
 from typing import Any, SupportsFloat
 
-from key_value.shared.utils.managed_entry import estimate_serialized_size
 from typing_extensions import override
 
 from key_value.aio.protocols.key_value import AsyncKeyValue
 from key_value.aio.wrappers.base import BaseWrapper
+from key_value.shared.managed_entry import estimate_serialized_size
 
 # Special keys used to store compressed data
 _COMPRESSED_DATA_KEY = "__compressed_data__"
@@ -104,7 +104,7 @@ class CompressionWrapper(BaseWrapper):
 
             # Parse JSON
             json_str = json_bytes.decode("utf-8")
-            return json.loads(json_str)  # type: ignore[no-any-return]
+            return json.loads(json_str)
         except Exception:
             # If decompression fails, return the original value
             # This handles cases where data might be corrupted

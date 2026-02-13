@@ -1,16 +1,16 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.18                                                                                #
-# Generated on 2026-02-05T18:18:14.401790                                                            #
+# MF version: 2.19.19                                                                                #
+# Generated on 2026-02-09T14:58:07.268615                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.events
-    import metaflow.metaflow_current
     import metaflow.plugins.cards.component_serializer
+    import metaflow.metaflow_current
+    import metaflow.events
 
 
 TYPE_CHECKING: bool
@@ -270,19 +270,6 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def trigger(self) -> "metaflow.events.Trigger":
-        """
-        (only in the presence of the @trigger, or @trigger_on_finish decorators)
-        
-        Returns `Trigger` if the current run is triggered by an event
-        
-        Returns
-        -------
-        Trigger
-            `Trigger` if triggered by an event
-        """
-        ...
-    @property
     def project_name(self) -> str:
         """
         (only in the presence of the @project decorator)
@@ -347,6 +334,19 @@ class Current(object, metaclass=type):
         -------
         bool
             True if the flow is deployed with `--production`.
+        """
+        ...
+    @property
+    def trigger(self) -> "metaflow.events.Trigger":
+        """
+        (only in the presence of the @trigger, or @trigger_on_finish decorators)
+        
+        Returns `Trigger` if the current run is triggered by an event
+        
+        Returns
+        -------
+        Trigger
+            `Trigger` if triggered by an event
         """
         ...
     ...

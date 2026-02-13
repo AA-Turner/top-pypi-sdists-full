@@ -4,7 +4,6 @@ import sys
 from enum import IntEnum
 from itertools import chain
 from pathlib import Path
-from typing import List
 
 from exasol.error._parse import (
     Validator,
@@ -55,8 +54,8 @@ def generate_command(args: argparse.Namespace) -> ExitCode:
             "errorCodes": [e for e in errors],
         }
 
-    all_definitions: List[ErrorCodeDetails] = list()
-    all_warnings: List[Validator.Warning] = list()
+    all_definitions: list[ErrorCodeDetails] = []
+    all_warnings: list[Validator.Warning] = []
     paths = [Path(p) for p in args.root]
     files = {f for f in chain.from_iterable([root.glob("**/*.py") for root in paths])}
     for f in files:

@@ -13,7 +13,6 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.get_app_by_path_with_draft_response_200_extra_perms import GetAppByPathWithDraftResponse200ExtraPerms
     from ..models.get_app_by_path_with_draft_response_200_policy import GetAppByPathWithDraftResponse200Policy
-    from ..models.get_app_by_path_with_draft_response_200_value import GetAppByPathWithDraftResponse200Value
 
 
 T = TypeVar("T", bound="GetAppByPathWithDraftResponse200")
@@ -30,7 +29,7 @@ class GetAppByPathWithDraftResponse200:
         versions (List[int]):
         created_by (str):
         created_at (datetime.datetime):
-        value (GetAppByPathWithDraftResponse200Value):
+        value (Any):
         policy (GetAppByPathWithDraftResponse200Policy):
         execution_mode (GetAppByPathWithDraftResponse200ExecutionMode):
         extra_perms (GetAppByPathWithDraftResponse200ExtraPerms):
@@ -48,7 +47,7 @@ class GetAppByPathWithDraftResponse200:
     versions: List[int]
     created_by: str
     created_at: datetime.datetime
-    value: "GetAppByPathWithDraftResponse200Value"
+    value: Any
     policy: "GetAppByPathWithDraftResponse200Policy"
     execution_mode: GetAppByPathWithDraftResponse200ExecutionMode
     extra_perms: "GetAppByPathWithDraftResponse200ExtraPerms"
@@ -69,8 +68,7 @@ class GetAppByPathWithDraftResponse200:
         created_by = self.created_by
         created_at = self.created_at.isoformat()
 
-        value = self.value.to_dict()
-
+        value = self.value
         policy = self.policy.to_dict()
 
         execution_mode = self.execution_mode.value
@@ -118,7 +116,6 @@ class GetAppByPathWithDraftResponse200:
             GetAppByPathWithDraftResponse200ExtraPerms,
         )
         from ..models.get_app_by_path_with_draft_response_200_policy import GetAppByPathWithDraftResponse200Policy
-        from ..models.get_app_by_path_with_draft_response_200_value import GetAppByPathWithDraftResponse200Value
 
         d = src_dict.copy()
         id = d.pop("id")
@@ -135,7 +132,7 @@ class GetAppByPathWithDraftResponse200:
 
         created_at = isoparse(d.pop("created_at"))
 
-        value = GetAppByPathWithDraftResponse200Value.from_dict(d.pop("value"))
+        value = d.pop("value")
 
         policy = GetAppByPathWithDraftResponse200Policy.from_dict(d.pop("policy"))
 

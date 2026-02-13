@@ -1,4 +1,4 @@
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.pod_exec_result import PodExecResult
 
@@ -11,7 +11,7 @@ class CassandraNodes:
              command: str,
              throw_err = False,
              shell = '/bin/sh',
-             ctx: Context = Context.NULL) -> PodExecResult:
+             ctx = NULL) -> PodExecResult:
 
         if not ctx.debug:
             ctx.log(Pods.get_command_printable(pod_name, "cassandra", namespace, command, shell, ctx=ctx))

@@ -3602,6 +3602,7 @@ class CfnCommand(
                     ul="ul"
                 ),
                 description="description",
+                type="type",
                 value=iot.CfnCommand.CommandParameterValueProperty(
                     b=False,
                     bin="bin",
@@ -3610,14 +3611,33 @@ class CfnCommand(
                     l="l",
                     s="s",
                     ul="ul"
-                )
+                ),
+                value_conditions=[iot.CfnCommand.CommandParameterValueConditionProperty(
+                    comparison_operator="comparisonOperator",
+                    operand=iot.CfnCommand.CommandParameterValueComparisonOperandProperty(
+                        number="number",
+                        number_range=iot.CfnCommand.CommandParameterValueNumberRangeProperty(
+                            max="max",
+                            min="min"
+                        ),
+                        numbers=["numbers"],
+                        string="string",
+                        strings=["strings"]
+                    )
+                )]
             )],
             namespace="namespace",
             payload=iot.CfnCommand.CommandPayloadProperty(
                 content="content",
                 content_type="contentType"
             ),
+            payload_template="payloadTemplate",
             pending_deletion=False,
+            preprocessor=iot.CfnCommand.CommandPreprocessorProperty(
+                aws_json_substitution=iot.CfnCommand.AwsJsonSubstitutionCommandPreprocessorConfigProperty(
+                    output_format="outputFormat"
+                )
+            ),
             role_arn="roleArn",
             tags=[CfnTag(
                 key="key",
@@ -3640,7 +3660,9 @@ class CfnCommand(
         mandatory_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCommand.CommandParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         namespace: typing.Optional[builtins.str] = None,
         payload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCommand.CommandPayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        payload_template: typing.Optional[builtins.str] = None,
         pending_deletion: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        preprocessor: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCommand.CommandPreprocessorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         role_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -3657,7 +3679,9 @@ class CfnCommand(
         :param mandatory_parameters: 
         :param namespace: The namespace to which the command belongs.
         :param payload: 
+        :param payload_template: The payload template associated with the command.
         :param pending_deletion: Indicates whether the command is pending deletion.
+        :param preprocessor: 
         :param role_arn: The customer role associated with the command.
         :param tags: The tags to be associated with the command.
         '''
@@ -3675,7 +3699,9 @@ class CfnCommand(
             mandatory_parameters=mandatory_parameters,
             namespace=namespace,
             payload=payload,
+            payload_template=payload_template,
             pending_deletion=pending_deletion,
+            preprocessor=preprocessor,
             role_arn=role_arn,
             tags=tags,
         )
@@ -3934,6 +3960,19 @@ class CfnCommand(
         jsii.set(self, "payload", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="payloadTemplate")
+    def payload_template(self) -> typing.Optional[builtins.str]:
+        '''The payload template associated with the command.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "payloadTemplate"))
+
+    @payload_template.setter
+    def payload_template(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ab9dda92e2e47c1cbc1161ab880ee81e9abe8f19d2283e14af8c66d7fddf17c1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "payloadTemplate", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="pendingDeletion")
     def pending_deletion(
         self,
@@ -3950,6 +3989,23 @@ class CfnCommand(
             type_hints = typing.get_type_hints(_typecheckingstub__168433ddf3dc08672d53b72a1ed7d0f06c27c11abf74395951551302abbf0058)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "pendingDeletion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="preprocessor")
+    def preprocessor(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCommand.CommandPreprocessorProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCommand.CommandPreprocessorProperty"]], jsii.get(self, "preprocessor"))
+
+    @preprocessor.setter
+    def preprocessor(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCommand.CommandPreprocessorProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ddc5688e737a3ff5e34097c943e786529ff843cd8e45bff6792c559476300df0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "preprocessor", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -3978,13 +4034,65 @@ class CfnCommand(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnCommand.AwsJsonSubstitutionCommandPreprocessorConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"output_format": "outputFormat"},
+    )
+    class AwsJsonSubstitutionCommandPreprocessorConfigProperty:
+        def __init__(self, *, output_format: builtins.str) -> None:
+            '''
+            :param output_format: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-awsjsonsubstitutioncommandpreprocessorconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                aws_json_substitution_command_preprocessor_config_property = iot.CfnCommand.AwsJsonSubstitutionCommandPreprocessorConfigProperty(
+                    output_format="outputFormat"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__bd86ba2c36defb4a7083f4e57ae254e043ca8fe32a6498212e5e17cc45e761f3)
+                check_type(argname="argument output_format", value=output_format, expected_type=type_hints["output_format"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "output_format": output_format,
+            }
+
+        @builtins.property
+        def output_format(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-awsjsonsubstitutioncommandpreprocessorconfig.html#cfn-iot-command-awsjsonsubstitutioncommandpreprocessorconfig-outputformat
+            '''
+            result = self._values.get("output_format")
+            assert result is not None, "Required property 'output_format' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AwsJsonSubstitutionCommandPreprocessorConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_iot.CfnCommand.CommandParameterProperty",
         jsii_struct_bases=[],
         name_mapping={
             "name": "name",
             "default_value": "defaultValue",
             "description": "description",
+            "type": "type",
             "value": "value",
+            "value_conditions": "valueConditions",
         },
     )
     class CommandParameterProperty:
@@ -3994,13 +4102,17 @@ class CfnCommand(
             name: builtins.str,
             default_value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCommand.CommandParameterValueProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             description: typing.Optional[builtins.str] = None,
+            type: typing.Optional[builtins.str] = None,
             value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCommand.CommandParameterValueProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            value_conditions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCommand.CommandParameterValueConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''
             :param name: 
             :param default_value: 
             :param description: 
+            :param type: 
             :param value: 
+            :param value_conditions: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-commandparameter.html
             :exampleMetadata: fixture=_generated
@@ -4025,6 +4137,7 @@ class CfnCommand(
                         ul="ul"
                     ),
                     description="description",
+                    type="type",
                     value=iot.CfnCommand.CommandParameterValueProperty(
                         b=False,
                         bin="bin",
@@ -4033,7 +4146,20 @@ class CfnCommand(
                         l="l",
                         s="s",
                         ul="ul"
-                    )
+                    ),
+                    value_conditions=[iot.CfnCommand.CommandParameterValueConditionProperty(
+                        comparison_operator="comparisonOperator",
+                        operand=iot.CfnCommand.CommandParameterValueComparisonOperandProperty(
+                            number="number",
+                            number_range=iot.CfnCommand.CommandParameterValueNumberRangeProperty(
+                                max="max",
+                                min="min"
+                            ),
+                            numbers=["numbers"],
+                            string="string",
+                            strings=["strings"]
+                        )
+                    )]
                 )
             '''
             if __debug__:
@@ -4041,7 +4167,9 @@ class CfnCommand(
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument default_value", value=default_value, expected_type=type_hints["default_value"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+                check_type(argname="argument value_conditions", value=value_conditions, expected_type=type_hints["value_conditions"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "name": name,
             }
@@ -4049,8 +4177,12 @@ class CfnCommand(
                 self._values["default_value"] = default_value
             if description is not None:
                 self._values["description"] = description
+            if type is not None:
+                self._values["type"] = type
             if value is not None:
                 self._values["value"] = value
+            if value_conditions is not None:
+                self._values["value_conditions"] = value_conditions
 
         @builtins.property
         def name(self) -> builtins.str:
@@ -4080,6 +4212,14 @@ class CfnCommand(
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
+        def type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-commandparameter.html#cfn-iot-command-commandparameter-type
+            '''
+            result = self._values.get("type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
         def value(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCommand.CommandParameterValueProperty"]]:
@@ -4089,6 +4229,16 @@ class CfnCommand(
             result = self._values.get("value")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCommand.CommandParameterValueProperty"]], result)
 
+        @builtins.property
+        def value_conditions(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCommand.CommandParameterValueConditionProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-commandparameter.html#cfn-iot-command-commandparameter-valueconditions
+            '''
+            result = self._values.get("value_conditions")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCommand.CommandParameterValueConditionProperty"]]]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -4097,6 +4247,271 @@ class CfnCommand(
 
         def __repr__(self) -> str:
             return "CommandParameterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnCommand.CommandParameterValueComparisonOperandProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "number": "number",
+            "number_range": "numberRange",
+            "numbers": "numbers",
+            "string": "string",
+            "strings": "strings",
+        },
+    )
+    class CommandParameterValueComparisonOperandProperty:
+        def __init__(
+            self,
+            *,
+            number: typing.Optional[builtins.str] = None,
+            number_range: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCommand.CommandParameterValueNumberRangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            numbers: typing.Optional[typing.Sequence[builtins.str]] = None,
+            string: typing.Optional[builtins.str] = None,
+            strings: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''
+            :param number: 
+            :param number_range: 
+            :param numbers: 
+            :param string: 
+            :param strings: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-commandparametervaluecomparisonoperand.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                command_parameter_value_comparison_operand_property = iot.CfnCommand.CommandParameterValueComparisonOperandProperty(
+                    number="number",
+                    number_range=iot.CfnCommand.CommandParameterValueNumberRangeProperty(
+                        max="max",
+                        min="min"
+                    ),
+                    numbers=["numbers"],
+                    string="string",
+                    strings=["strings"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__7c0345f0ba5e9fda8fe5b0625ed3cdcf185a4a5ca943a3c6d079e0361dfea21d)
+                check_type(argname="argument number", value=number, expected_type=type_hints["number"])
+                check_type(argname="argument number_range", value=number_range, expected_type=type_hints["number_range"])
+                check_type(argname="argument numbers", value=numbers, expected_type=type_hints["numbers"])
+                check_type(argname="argument string", value=string, expected_type=type_hints["string"])
+                check_type(argname="argument strings", value=strings, expected_type=type_hints["strings"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if number is not None:
+                self._values["number"] = number
+            if number_range is not None:
+                self._values["number_range"] = number_range
+            if numbers is not None:
+                self._values["numbers"] = numbers
+            if string is not None:
+                self._values["string"] = string
+            if strings is not None:
+                self._values["strings"] = strings
+
+        @builtins.property
+        def number(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-commandparametervaluecomparisonoperand.html#cfn-iot-command-commandparametervaluecomparisonoperand-number
+            '''
+            result = self._values.get("number")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def number_range(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCommand.CommandParameterValueNumberRangeProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-commandparametervaluecomparisonoperand.html#cfn-iot-command-commandparametervaluecomparisonoperand-numberrange
+            '''
+            result = self._values.get("number_range")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCommand.CommandParameterValueNumberRangeProperty"]], result)
+
+        @builtins.property
+        def numbers(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-commandparametervaluecomparisonoperand.html#cfn-iot-command-commandparametervaluecomparisonoperand-numbers
+            '''
+            result = self._values.get("numbers")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def string(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-commandparametervaluecomparisonoperand.html#cfn-iot-command-commandparametervaluecomparisonoperand-string
+            '''
+            result = self._values.get("string")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def strings(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-commandparametervaluecomparisonoperand.html#cfn-iot-command-commandparametervaluecomparisonoperand-strings
+            '''
+            result = self._values.get("strings")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CommandParameterValueComparisonOperandProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnCommand.CommandParameterValueConditionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "comparison_operator": "comparisonOperator",
+            "operand": "operand",
+        },
+    )
+    class CommandParameterValueConditionProperty:
+        def __init__(
+            self,
+            *,
+            comparison_operator: builtins.str,
+            operand: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCommand.CommandParameterValueComparisonOperandProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''
+            :param comparison_operator: 
+            :param operand: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-commandparametervaluecondition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                command_parameter_value_condition_property = iot.CfnCommand.CommandParameterValueConditionProperty(
+                    comparison_operator="comparisonOperator",
+                    operand=iot.CfnCommand.CommandParameterValueComparisonOperandProperty(
+                        number="number",
+                        number_range=iot.CfnCommand.CommandParameterValueNumberRangeProperty(
+                            max="max",
+                            min="min"
+                        ),
+                        numbers=["numbers"],
+                        string="string",
+                        strings=["strings"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1f14ec93256ecc4197876045af877d742ef2591aa73888fe98f8920e22d03d65)
+                check_type(argname="argument comparison_operator", value=comparison_operator, expected_type=type_hints["comparison_operator"])
+                check_type(argname="argument operand", value=operand, expected_type=type_hints["operand"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "comparison_operator": comparison_operator,
+                "operand": operand,
+            }
+
+        @builtins.property
+        def comparison_operator(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-commandparametervaluecondition.html#cfn-iot-command-commandparametervaluecondition-comparisonoperator
+            '''
+            result = self._values.get("comparison_operator")
+            assert result is not None, "Required property 'comparison_operator' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def operand(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnCommand.CommandParameterValueComparisonOperandProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-commandparametervaluecondition.html#cfn-iot-command-commandparametervaluecondition-operand
+            '''
+            result = self._values.get("operand")
+            assert result is not None, "Required property 'operand' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCommand.CommandParameterValueComparisonOperandProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CommandParameterValueConditionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnCommand.CommandParameterValueNumberRangeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"max": "max", "min": "min"},
+    )
+    class CommandParameterValueNumberRangeProperty:
+        def __init__(self, *, max: builtins.str, min: builtins.str) -> None:
+            '''
+            :param max: 
+            :param min: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-commandparametervaluenumberrange.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                command_parameter_value_number_range_property = iot.CfnCommand.CommandParameterValueNumberRangeProperty(
+                    max="max",
+                    min="min"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ad276358ab11af02f3efbfa8538d6e04566dc6df2272ce76430f629d7113f258)
+                check_type(argname="argument max", value=max, expected_type=type_hints["max"])
+                check_type(argname="argument min", value=min, expected_type=type_hints["min"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "max": max,
+                "min": min,
+            }
+
+        @builtins.property
+        def max(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-commandparametervaluenumberrange.html#cfn-iot-command-commandparametervaluenumberrange-max
+            '''
+            result = self._values.get("max")
+            assert result is not None, "Required property 'max' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def min(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-commandparametervaluenumberrange.html#cfn-iot-command-commandparametervaluenumberrange-min
+            '''
+            result = self._values.get("min")
+            assert result is not None, "Required property 'min' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CommandParameterValueNumberRangeProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -4314,6 +4729,63 @@ class CfnCommand(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnCommand.CommandPreprocessorProperty",
+        jsii_struct_bases=[],
+        name_mapping={"aws_json_substitution": "awsJsonSubstitution"},
+    )
+    class CommandPreprocessorProperty:
+        def __init__(
+            self,
+            *,
+            aws_json_substitution: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCommand.AwsJsonSubstitutionCommandPreprocessorConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param aws_json_substitution: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-commandpreprocessor.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                command_preprocessor_property = iot.CfnCommand.CommandPreprocessorProperty(
+                    aws_json_substitution=iot.CfnCommand.AwsJsonSubstitutionCommandPreprocessorConfigProperty(
+                        output_format="outputFormat"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d8e3e8f30a6ef677beefdc6b143d6fa7b0c971145e5359b502bfc8d9a9aa4664)
+                check_type(argname="argument aws_json_substitution", value=aws_json_substitution, expected_type=type_hints["aws_json_substitution"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if aws_json_substitution is not None:
+                self._values["aws_json_substitution"] = aws_json_substitution
+
+        @builtins.property
+        def aws_json_substitution(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCommand.AwsJsonSubstitutionCommandPreprocessorConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-commandpreprocessor.html#cfn-iot-command-commandpreprocessor-awsjsonsubstitution
+            '''
+            result = self._values.get("aws_json_substitution")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCommand.AwsJsonSubstitutionCommandPreprocessorConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CommandPreprocessorProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_iot.CfnCommandProps",
@@ -4328,7 +4800,9 @@ class CfnCommand(
         "mandatory_parameters": "mandatoryParameters",
         "namespace": "namespace",
         "payload": "payload",
+        "payload_template": "payloadTemplate",
         "pending_deletion": "pendingDeletion",
+        "preprocessor": "preprocessor",
         "role_arn": "roleArn",
         "tags": "tags",
     },
@@ -4346,7 +4820,9 @@ class CfnCommandProps:
         mandatory_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCommand.CommandParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         namespace: typing.Optional[builtins.str] = None,
         payload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCommand.CommandPayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        payload_template: typing.Optional[builtins.str] = None,
         pending_deletion: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        preprocessor: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCommand.CommandPreprocessorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         role_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -4361,7 +4837,9 @@ class CfnCommandProps:
         :param mandatory_parameters: 
         :param namespace: The namespace to which the command belongs.
         :param payload: 
+        :param payload_template: The payload template associated with the command.
         :param pending_deletion: Indicates whether the command is pending deletion.
+        :param preprocessor: 
         :param role_arn: The customer role associated with the command.
         :param tags: The tags to be associated with the command.
 
@@ -4398,6 +4876,7 @@ class CfnCommandProps:
                         ul="ul"
                     ),
                     description="description",
+                    type="type",
                     value=iot.CfnCommand.CommandParameterValueProperty(
                         b=False,
                         bin="bin",
@@ -4406,14 +4885,33 @@ class CfnCommandProps:
                         l="l",
                         s="s",
                         ul="ul"
-                    )
+                    ),
+                    value_conditions=[iot.CfnCommand.CommandParameterValueConditionProperty(
+                        comparison_operator="comparisonOperator",
+                        operand=iot.CfnCommand.CommandParameterValueComparisonOperandProperty(
+                            number="number",
+                            number_range=iot.CfnCommand.CommandParameterValueNumberRangeProperty(
+                                max="max",
+                                min="min"
+                            ),
+                            numbers=["numbers"],
+                            string="string",
+                            strings=["strings"]
+                        )
+                    )]
                 )],
                 namespace="namespace",
                 payload=iot.CfnCommand.CommandPayloadProperty(
                     content="content",
                     content_type="contentType"
                 ),
+                payload_template="payloadTemplate",
                 pending_deletion=False,
+                preprocessor=iot.CfnCommand.CommandPreprocessorProperty(
+                    aws_json_substitution=iot.CfnCommand.AwsJsonSubstitutionCommandPreprocessorConfigProperty(
+                        output_format="outputFormat"
+                    )
+                ),
                 role_arn="roleArn",
                 tags=[CfnTag(
                     key="key",
@@ -4432,7 +4930,9 @@ class CfnCommandProps:
             check_type(argname="argument mandatory_parameters", value=mandatory_parameters, expected_type=type_hints["mandatory_parameters"])
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
             check_type(argname="argument payload", value=payload, expected_type=type_hints["payload"])
+            check_type(argname="argument payload_template", value=payload_template, expected_type=type_hints["payload_template"])
             check_type(argname="argument pending_deletion", value=pending_deletion, expected_type=type_hints["pending_deletion"])
+            check_type(argname="argument preprocessor", value=preprocessor, expected_type=type_hints["preprocessor"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4454,8 +4954,12 @@ class CfnCommandProps:
             self._values["namespace"] = namespace
         if payload is not None:
             self._values["payload"] = payload
+        if payload_template is not None:
+            self._values["payload_template"] = payload_template
         if pending_deletion is not None:
             self._values["pending_deletion"] = pending_deletion
+        if preprocessor is not None:
+            self._values["preprocessor"] = preprocessor
         if role_arn is not None:
             self._values["role_arn"] = role_arn
         if tags is not None:
@@ -4548,6 +5052,15 @@ class CfnCommandProps:
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCommand.CommandPayloadProperty"]], result)
 
     @builtins.property
+    def payload_template(self) -> typing.Optional[builtins.str]:
+        '''The payload template associated with the command.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-payloadtemplate
+        '''
+        result = self._values.get("payload_template")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def pending_deletion(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
@@ -4557,6 +5070,16 @@ class CfnCommandProps:
         '''
         result = self._values.get("pending_deletion")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def preprocessor(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCommand.CommandPreprocessorProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-command.html#cfn-iot-command-preprocessor
+        '''
+        result = self._values.get("preprocessor")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCommand.CommandPreprocessorProperty"]], result)
 
     @builtins.property
     def role_arn(self) -> typing.Optional[builtins.str]:
@@ -24343,7 +24866,9 @@ def _typecheckingstub__52a5cb4afc582c05e5d1b2fa90cfc417ff3948833b71595e4f4dfe2cc
     mandatory_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCommand.CommandParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     namespace: typing.Optional[builtins.str] = None,
     payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCommand.CommandPayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    payload_template: typing.Optional[builtins.str] = None,
     pending_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    preprocessor: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCommand.CommandPreprocessorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     role_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -24444,8 +24969,20 @@ def _typecheckingstub__c3f5f713dd2cc757210c4e779e7be62cdcc9f2946712dbdacee9c4e68
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ab9dda92e2e47c1cbc1161ab880ee81e9abe8f19d2283e14af8c66d7fddf17c1(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__168433ddf3dc08672d53b72a1ed7d0f06c27c11abf74395951551302abbf0058(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ddc5688e737a3ff5e34097c943e786529ff843cd8e45bff6792c559476300df0(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCommand.CommandPreprocessorProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24462,12 +24999,48 @@ def _typecheckingstub__796bc40f0d34b9617c2b284b8f6c6da82f9403d435e15f09fab295e70
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__bd86ba2c36defb4a7083f4e57ae254e043ca8fe32a6498212e5e17cc45e761f3(
+    *,
+    output_format: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__fcaa63ef2f3906ab3ed31601ae5d107341ee7fd5b3b68d47b2b189c442a1dba1(
     *,
     name: builtins.str,
     default_value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCommand.CommandParameterValueProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
+    type: typing.Optional[builtins.str] = None,
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCommand.CommandParameterValueProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    value_conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCommand.CommandParameterValueConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7c0345f0ba5e9fda8fe5b0625ed3cdcf185a4a5ca943a3c6d079e0361dfea21d(
+    *,
+    number: typing.Optional[builtins.str] = None,
+    number_range: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCommand.CommandParameterValueNumberRangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    numbers: typing.Optional[typing.Sequence[builtins.str]] = None,
+    string: typing.Optional[builtins.str] = None,
+    strings: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1f14ec93256ecc4197876045af877d742ef2591aa73888fe98f8920e22d03d65(
+    *,
+    comparison_operator: builtins.str,
+    operand: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCommand.CommandParameterValueComparisonOperandProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad276358ab11af02f3efbfa8538d6e04566dc6df2272ce76430f629d7113f258(
+    *,
+    max: builtins.str,
+    min: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24493,6 +25066,13 @@ def _typecheckingstub__1e2e87d93da3ad14b634890062b3687c3deae32866ba45aa8cc32f4b9
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d8e3e8f30a6ef677beefdc6b143d6fa7b0c971145e5359b502bfc8d9a9aa4664(
+    *,
+    aws_json_substitution: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCommand.AwsJsonSubstitutionCommandPreprocessorConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7f1907b613493674dd49112994a015f8447b573d2fc020fcae55d5b6feb02113(
     *,
     command_id: builtins.str,
@@ -24504,7 +25084,9 @@ def _typecheckingstub__7f1907b613493674dd49112994a015f8447b573d2fc020fcae55d5b6f
     mandatory_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCommand.CommandParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     namespace: typing.Optional[builtins.str] = None,
     payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCommand.CommandPayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    payload_template: typing.Optional[builtins.str] = None,
     pending_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    preprocessor: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCommand.CommandPreprocessorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     role_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

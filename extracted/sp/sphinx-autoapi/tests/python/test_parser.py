@@ -1,6 +1,9 @@
 """Test Python parser"""
 
+import sys
+
 import astroid
+import pytest
 
 from autoapi._parser import Parser
 
@@ -124,3 +127,21 @@ class TestPythonParser:
         """
         data = self.parse(source)[0]
         assert data["name"] == "COLOUR"
+
+    @pytest.mark.skipif(
+        sys.version_info < (3, 12), reason="Type params are supported in Python 3.12+"
+    )
+    def test_parses_typeparams(self):
+        """Check PEP 695 style type params are parsed"""
+        source = """
+        def generic_fn[T](val:T) -> T:
+            pass
+        """
+        data = self.parse(source)[0]
+        assert data["name"] == "generic_fn"
+        assert data["type"] == "function"
+        assert "type_params" in data
+        assert len(data["type_params"]) == 1
+        param = data["type_params"][0]
+        assert param.name == "T"
+        assert param.annotation is None

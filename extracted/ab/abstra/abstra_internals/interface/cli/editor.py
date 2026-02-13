@@ -12,7 +12,12 @@ from abstra_internals.cloud_api import connect_tunnel
 from abstra_internals.controllers.codebase_events import CodebaseEventController
 from abstra_internals.controllers.execution.consumer import ConsumerController
 from abstra_internals.controllers.main import MainController
-from abstra_internals.environment import EDITOR_MODE, HOST, RABBITMQ_CONNECTION_URI
+from abstra_internals.environment import (
+    EDITOR_MODE,
+    HOST,
+    RABBITMQ_CONNECTION_URI,
+    WORKER_LOG_TO_QUEUE,
+)
 from abstra_internals.interface.cli.messages import serve_message
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.logs_watcher import LogsWatcher, on_logs_update
@@ -108,6 +113,10 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
     AbstraLogger.info(
         f"[Editor] Configuration: EDITOR_MODE={EDITOR_MODE}, RABBITMQ_CONNECTION_URI={'SET' if RABBITMQ_CONNECTION_URI else 'NOT SET'}"
     )
+    if WORKER_LOG_TO_QUEUE:
+        AbstraLogger.warning(
+            "[Editor] ABSTRA_WORKER_LOG_TO_QUEUE=true, will receive execution logs from workers via RabbitMQ"
+        )
 
     if use_rabbitmq_workers:
         AbstraLogger.info(

@@ -28,11 +28,6 @@ class Shell(Command):
 
         with self.validate(args, state) as (args, _):
             with validate_args(args, state, at_least=0) as args_str:
-                # sts = state.sts
-                # pod = state.pod
-                # pods = StatefulSets.pod_names(state.sts, state.namespace)
-                # tables = cassandra_table_names(state)
-                # cql = partial(run_cql, state, Context.new(show_out=True))
                 if args_str:
                     os.system(args_str)
                     log2()
@@ -47,9 +42,6 @@ class Shell(Command):
                             os.environ['TABLES'] = ' '.join(cassandra_table_names(state))
 
                     os.system('QING_DROPPED=true bash')
-
-                    # function cql() { kubectl exec $POD -n $NAMESPACE -- cqlsh -u cs-a7b13e29bd-superuser -p lDed6uXQAQP72kHOYuML -e "$@"; }
-                    # for table in $TABLES; do cql "select count(*) from $table"; done
 
             return state
 

@@ -261,6 +261,7 @@ class ElasticsearchCommonSearchBackendTests(BackendTests):
                 "modelsearchtest_searchtests_author",
                 "modelsearchtest_searchtests_book",
                 "modelsearchtest_searchtests_advertwithcustomuuidprimarykey",
+                "modelsearchtest_searchtests_meeting",
             ],
         )
 
@@ -275,6 +276,6 @@ class ElasticsearchCommonSearchBackendTests(BackendTests):
         results = self.backend.search("JavaScript", models.Book)
         self.assertEqual(results.count(), 0)
 
-    @unittest.skip("Elasticsearch does not support ORDER BY expressions")
+    @unittest.expectedFailure  # Elasticsearch does not support ORDER BY expressions
     def test_order_by_expression(self):
         return super().test_order_by_expression()

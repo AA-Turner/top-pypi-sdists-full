@@ -10,6 +10,7 @@ import structlog
 from starlette.exceptions import HTTPException
 from typing_extensions import TypedDict
 
+from langgraph_api.auth.noop import UnauthenticatedUser
 from langgraph_api.encryption.middleware import encrypt_request
 from langgraph_api.encryption.shared import (
     using_custom_encryption,
@@ -244,8 +245,11 @@ async def create_valid_run(
     if ctx:
         user = cast("BaseUser | None", ctx.user)
         user_id = get_user_id(user)
-        # Store user as-is; encryption middleware will serialize if needed
-        configurable["langgraph_auth_user"] = user
+        # Store user as-is; encryption middleware will serialize if needed.
+        # UnauthenticatedUser is stored as None for consistency.
+        configurable["langgraph_auth_user"] = (
+            None if isinstance(user, UnauthenticatedUser) else user
+        )
         configurable["langgraph_auth_user_id"] = user_id
         configurable["langgraph_auth_permissions"] = ctx.permissions
     else:

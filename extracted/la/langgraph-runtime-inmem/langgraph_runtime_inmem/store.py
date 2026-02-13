@@ -89,7 +89,7 @@ BATCHED_STORE = threading.local()
 
 def set_store_config(config: dict) -> None:
     global _STORE_CONFIG, STORE
-    from langgraph_api.graph import resolve_embeddings
+    from langgraph_api.graph import resolve_embeddings  # noqa: PLC0415
 
     _STORE_CONFIG = config.copy()
     index_config = _STORE_CONFIG.get("index", {})

@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import hashlib
 import os
 import sys
 from difflib import unified_diff
 from typing import TYPE_CHECKING
 
 import typer
-from rich import console
+from rich.console import Console
 from robot.api import get_model
 from robot.errors import DataError
 
@@ -15,47 +14,27 @@ from robocop.formatter import (
     disablers,  # TODO compare robocop vs robotidy disablers, if we can merge something
 )
 from robocop.formatter.utils import misc
+from robocop.runtime.resolver import ConfigResolver
+from robocop.source_file import SourceFile, StatementLinesCollector
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from robot.parsing import File
 
-    from robocop.config import Config, ConfigManager
+    from robocop.config import Config
+    from robocop.config.manager import ConfigManager
+    from robocop.runtime.resolved_config import ResolvedConfig
 
 
-console = console.Console()
+console = Console()
 
 
 class RobocopFormatter:
-    def __init__(self, config_manager: ConfigManager):
+    def __init__(self, config_manager: ConfigManager) -> None:
         self.config_manager = config_manager
+        self.config_resolver = ConfigResolver(load_formatters=True)
         self.config: Config = self.config_manager.default_config
-
-    def get_model(self, source: Path) -> File:
-        if misc.rf_supports_lang():
-            return get_model(source, lang=self.config.formatter.languages)
-        return get_model(source)
-
-    @staticmethod
-    def _compute_cache_key(config: Config) -> str:
-        """
-        Compute cache key combining formatter config hash with language.
-
-        Uses SHA256 for stable hashing across Python processes, unlike the built-in
-        hash() which can vary due to hash randomization (PEP 456).
-
-        Returns:
-            A string representing the cache key as a hexadecimal digest.
-
-        """
-        hasher = hashlib.sha256()
-        # Hash the formatter config
-        hasher.update(str(hash(config.formatter)).encode("utf-8"))
-        # Hash the language configuration (affects parsing)
-        language_str = ":".join(sorted(config.language or []))
-        hasher.update(language_str.encode("utf-8"))
-        return hasher.hexdigest()
 
     def run(self) -> int:
         changed_files = 0
@@ -65,7 +44,7 @@ class RobocopFormatter:
         previous_changed_files = 0  # TODO: hold in one container
         stdin = False
 
-        for source, config in self.config_manager.paths:
+        for source_file in self.config_manager.paths:
             try:
                 # stdin = False
                 # if str(source) == "-":
@@ -74,35 +53,37 @@ class RobocopFormatter:
                 #         click.echo("Loading file from stdin")
                 #     source = self.load_from_stdin()
                 if self.config.verbose:
-                    print(f"Formatting {source} file")
-                self.config = config
+                    print(f"Formatting {source_file.path} file")
+                self.config = source_file.config
 
                 all_files += 1
 
-                # Check cache - if file hasn't changed and didn't need formatting before, skip it
-                config_hash = self._compute_cache_key(config)
-                cached_entry = self.config_manager.cache.get_formatter_entry(source, config_hash)
-
-                if cached_entry is not None and not cached_entry.needs_formatting:
-                    # File hasn't changed and didn't need formatting - skip it
-                    cached_files += 1
-                    continue
+                if source_file.config.cache.enabled:
+                    # Check cache - if file hasn't changed and didn't need formatting before, skip it
+                    cached_entry = self.config_manager.cache.get_formatter_entry(
+                        source_file.path, source_file.config.hash
+                    )
+                    if cached_entry is not None and not cached_entry.needs_formatting:
+                        # File hasn't changed and didn't need formatting - skip it
+                        cached_files += 1
+                        continue
                 previous_changed_files = changed_files
-                model = self.get_model(source)
-                diff, old_model, new_model, model = self.format_until_stable(model)
+                diff, old_model, new_model, model = self.format_until_stable(source_file)
                 # if stdin:
                 #     self.print_to_stdout(new_model)
-                if diff:
-                    model_path = model.source or source
+                if diff and old_model and new_model:
+                    model_path = model.source or source_file.path
                     self.save_model(model_path, model)
-                    self.log_formatted_source(source, stdin)
+                    self.log_formatted_source(source_file.path, stdin)
                     self.output_diff(model_path, old_model, new_model)
                     changed_files += 1
                 # Cache result - after formatting (or if no changes needed), file is now clean
-                self.config_manager.cache.set_formatter_entry(source, config_hash, needs_formatting=False)
+                self.config_manager.cache.set_formatter_entry(
+                    source_file.path, source_file.config.hash, needs_formatting=False
+                )
             except DataError as err:
-                if not config.silent:
-                    print(f"Failed to decode {source} with an error: {err}\nSkipping file")  # TODO stderr
+                if not source_file.config.silent:
+                    print(f"Failed to decode {source_file.path} with an error: {err}\nSkipping file")  # TODO stderr
                 changed_files = previous_changed_files
                 skipped_files += 1
 
@@ -122,7 +103,7 @@ class RobocopFormatter:
             changed_files_plurar = "" if changed_files == 1 else "s"
             skipped_files_plurar = "" if skipped_files == 1 else "s"
 
-            future_tense = "" if self.config.formatter.overwrite_files else " would be"
+            future_tense = "" if self.config.formatter.overwrite else " would be"
             print(
                 f"\n{changed_files} file{changed_files_plurar}{future_tense} reformatted, "
                 f"{all_files} file{all_files_plurar}{future_tense} left unchanged."
@@ -136,38 +117,42 @@ class RobocopFormatter:
             return exit_code
         raise typer.Exit(code=exit_code)
 
-    def format_until_stable(self, model: File):
+    def format_until_stable(
+        self, source_file: SourceFile
+    ) -> tuple[bool, StatementLinesCollector | None, StatementLinesCollector | None, File]:
+        model = source_file.model
+        resolved_config = self.config_resolver.resolve_config(source_file.config)
         disabler_finder = disablers.RegisterDisablers(self.config.formatter.start_line, self.config.formatter.end_line)
         disabler_finder.visit(model)
         if disabler_finder.is_disabled_in_file(disablers.ALL_FORMATTERS):
             return False, None, None, model
-        diff, old_model, new_model = self.format(model, disabler_finder.disablers)
+        diff, old_model, new_model = self.format(model, disabler_finder.disablers, resolved_config)
         reruns = self.config.formatter.reruns
         while diff and reruns:
             model = get_model(new_model.text)
             disabler_finder.visit(model)
-            new_diff, _, new_model = self.format(model, disabler_finder.disablers)
+            new_diff, _, new_model = self.format(model, disabler_finder.disablers, resolved_config)
             if not new_diff:
                 break
             reruns -= 1
         return diff, old_model, new_model, model
 
     def format(
-        self, model: File, disablers: disablers.DisablersInFile
-    ) -> tuple[bool, misc.StatementLinesCollector, misc.StatementLinesCollector]:
-        old_model = misc.StatementLinesCollector(model)
-        for name, formatter in self.config.formatter.formatters.items():
+        self, model: File, disablers: disablers.DisablersInFile, resolved_config: ResolvedConfig
+    ) -> tuple[bool, StatementLinesCollector, StatementLinesCollector]:
+        old_model = StatementLinesCollector(model)
+        for name, formatter in resolved_config.formatters.items():
             formatter.disablers = disablers  # set dynamically to allow using external formatters
             if disablers.is_disabled_in_file(name):
                 continue
             formatter.visit(model)
-        new_model = misc.StatementLinesCollector(model)
+        new_model = StatementLinesCollector(model)
         return new_model != old_model, old_model, new_model
 
-    def log_formatted_source(self, source: Path, stdin: bool):
+    def log_formatted_source(self, source: Path, stdin: bool) -> None:
         if stdin or self.config.silent:
             return
-        if not self.config.formatter.overwrite_files:
+        if not self.config.formatter.overwrite:
             print(f"Would reformat {source}")  # TODO: replace prints with typer equivalent (if needed)
         else:
             print(f"Reformatted {source}")
@@ -176,16 +161,16 @@ class RobocopFormatter:
     def load_from_stdin() -> str:
         return sys.stdin.read()
 
-    def print_to_stdout(self, collected_lines):
+    def print_to_stdout(self, collected_lines: StatementLinesCollector) -> None:
         if not self.config.formatter.diff:
             print(collected_lines.text)
 
-    def save_model(self, source, model):
-        if self.config.formatter.overwrite_files:
+    def save_model(self, source: Path, model: File) -> None:
+        if self.config.formatter.overwrite:
             output = self.config.formatter.output or source
-            misc.ModelWriter(output=output, newline=self.get_line_ending(source)).write(model)
+            misc.ModelWriter(output=str(output), newline=self.get_line_ending(str(source))).write(model)
 
-    def get_line_ending(self, path: str):
+    def get_line_ending(self, path: str) -> str:
         if self.config.formatter.whitespace_config.line_ending == "auto":
             with open(path) as f:
                 f.readline()
@@ -199,11 +184,12 @@ class RobocopFormatter:
     def output_diff(
         self,
         path: Path,
-        old_model: misc.StatementLinesCollector,
-        new_model: misc.StatementLinesCollector,
-    ):
+        old_model: StatementLinesCollector,
+        new_model: StatementLinesCollector,
+    ) -> None:
         if not self.config.formatter.diff:
             return
+        # TODO: handle printing with rich console, with markup disabled
         old = [line + "\n" for line in old_model.text.splitlines()]
         new = [line + "\n" for line in new_model.text.splitlines()]
         lines = list(unified_diff(old, new, fromfile=f"{path}\tbefore", tofile=f"{path}\tafter"))

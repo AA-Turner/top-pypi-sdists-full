@@ -176,7 +176,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/change_wls_domain_compartment.py.html>`__ to see an example of how to use change_wls_domain_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/change_wls_domain_compartment.py.html>`__ to see an example of how to use change_wls_domain_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId']
@@ -305,7 +305,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/create_agreement_record.py.html>`__ to see an example of how to use create_agreement_record API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/create_agreement_record.py.html>`__ to see an example of how to use create_agreement_record API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId']
@@ -433,7 +433,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/delete_wls_domain.py.html>`__ to see an example of how to use delete_wls_domain API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/delete_wls_domain.py.html>`__ to see an example of how to use delete_wls_domain API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId']
@@ -538,7 +538,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/get_agreement.py.html>`__ to see an example of how to use get_agreement API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/get_agreement.py.html>`__ to see an example of how to use get_agreement API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -633,7 +633,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/get_managed_instance.py.html>`__ to see an example of how to use get_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/get_managed_instance.py.html>`__ to see an example of how to use get_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId']
@@ -747,7 +747,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/get_managed_instance_server.py.html>`__ to see an example of how to use get_managed_instance_server API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/get_managed_instance_server.py.html>`__ to see an example of how to use get_managed_instance_server API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId', 'serverId']
@@ -855,7 +855,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/get_wls_domain.py.html>`__ to see an example of how to use get_wls_domain API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/get_wls_domain.py.html>`__ to see an example of how to use get_wls_domain API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId']
@@ -967,7 +967,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/get_wls_domain_credential.py.html>`__ to see an example of how to use get_wls_domain_credential API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/get_wls_domain_credential.py.html>`__ to see an example of how to use get_wls_domain_credential API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId', 'credentialType']
@@ -1082,7 +1082,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/get_wls_domain_server.py.html>`__ to see an example of how to use get_wls_domain_server API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/get_wls_domain_server.py.html>`__ to see an example of how to use get_wls_domain_server API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId', 'serverId']
@@ -1204,7 +1204,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/get_wls_domain_server_backup.py.html>`__ to see an example of how to use get_wls_domain_server_backup API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/get_wls_domain_server_backup.py.html>`__ to see an example of how to use get_wls_domain_server_backup API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId', 'serverId', 'backupId']
@@ -1327,7 +1327,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/get_wls_domain_server_backup_content.py.html>`__ to see an example of how to use get_wls_domain_server_backup_content API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/get_wls_domain_server_backup_content.py.html>`__ to see an example of how to use get_wls_domain_server_backup_content API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId', 'serverId', 'backupId']
@@ -1436,7 +1436,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -1560,7 +1560,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/install_latest_patches_on_wls_domain.py.html>`__ to see an example of how to use install_latest_patches_on_wls_domain API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/install_latest_patches_on_wls_domain.py.html>`__ to see an example of how to use install_latest_patches_on_wls_domain API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId']
@@ -1691,7 +1691,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/list_agreement_records.py.html>`__ to see an example of how to use list_agreement_records API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/list_agreement_records.py.html>`__ to see an example of how to use list_agreement_records API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId']
@@ -1851,7 +1851,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/list_applicable_patches.py.html>`__ to see an example of how to use list_applicable_patches API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/list_applicable_patches.py.html>`__ to see an example of how to use list_applicable_patches API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId']
@@ -2016,7 +2016,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/list_managed_instance_scan_results.py.html>`__ to see an example of how to use list_managed_instance_scan_results API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/list_managed_instance_scan_results.py.html>`__ to see an example of how to use list_managed_instance_scan_results API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId']
@@ -2180,7 +2180,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/list_managed_instance_server_installed_patches.py.html>`__ to see an example of how to use list_managed_instance_server_installed_patches API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/list_managed_instance_server_installed_patches.py.html>`__ to see an example of how to use list_managed_instance_server_installed_patches API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId', 'serverId']
@@ -2345,7 +2345,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/list_managed_instance_servers.py.html>`__ to see an example of how to use list_managed_instance_servers API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/list_managed_instance_servers.py.html>`__ to see an example of how to use list_managed_instance_servers API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId']
@@ -2523,7 +2523,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/list_managed_instances.py.html>`__ to see an example of how to use list_managed_instances API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/list_managed_instances.py.html>`__ to see an example of how to use list_managed_instances API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2659,7 +2659,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/list_required_policies.py.html>`__ to see an example of how to use list_required_policies API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/list_required_policies.py.html>`__ to see an example of how to use list_required_policies API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2761,7 +2761,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/list_wls_domain_credentials.py.html>`__ to see an example of how to use list_wls_domain_credentials API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/list_wls_domain_credentials.py.html>`__ to see an example of how to use list_wls_domain_credentials API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId']
@@ -2893,7 +2893,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/list_wls_domain_scan_results.py.html>`__ to see an example of how to use list_wls_domain_scan_results API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/list_wls_domain_scan_results.py.html>`__ to see an example of how to use list_wls_domain_scan_results API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId']
@@ -3055,7 +3055,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/list_wls_domain_server_backups.py.html>`__ to see an example of how to use list_wls_domain_server_backups API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/list_wls_domain_server_backups.py.html>`__ to see an example of how to use list_wls_domain_server_backups API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId', 'serverId']
@@ -3216,7 +3216,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/list_wls_domain_server_installed_patches.py.html>`__ to see an example of how to use list_wls_domain_server_installed_patches API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/list_wls_domain_server_installed_patches.py.html>`__ to see an example of how to use list_wls_domain_server_installed_patches API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId', 'serverId']
@@ -3381,7 +3381,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/list_wls_domain_servers.py.html>`__ to see an example of how to use list_wls_domain_servers API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/list_wls_domain_servers.py.html>`__ to see an example of how to use list_wls_domain_servers API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId']
@@ -3575,7 +3575,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/list_wls_domains.py.html>`__ to see an example of how to use list_wls_domains API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/list_wls_domains.py.html>`__ to see an example of how to use list_wls_domains API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3762,7 +3762,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/list_wls_domains_sharing_middlewares.py.html>`__ to see an example of how to use list_wls_domains_sharing_middlewares API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/list_wls_domains_sharing_middlewares.py.html>`__ to see an example of how to use list_wls_domains_sharing_middlewares API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId']
@@ -3913,7 +3913,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -4064,7 +4064,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -4229,7 +4229,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -4384,7 +4384,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/restart_wls_domain.py.html>`__ to see an example of how to use restart_wls_domain API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/restart_wls_domain.py.html>`__ to see an example of how to use restart_wls_domain API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId']
@@ -4513,7 +4513,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/restore_wls_domain.py.html>`__ to see an example of how to use restore_wls_domain API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/restore_wls_domain.py.html>`__ to see an example of how to use restore_wls_domain API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId']
@@ -4639,7 +4639,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/scan_managed_instance.py.html>`__ to see an example of how to use scan_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/scan_managed_instance.py.html>`__ to see an example of how to use scan_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId']
@@ -4763,7 +4763,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/scan_wls_domain.py.html>`__ to see an example of how to use scan_wls_domain API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/scan_wls_domain.py.html>`__ to see an example of how to use scan_wls_domain API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId']
@@ -4890,7 +4890,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/set_restart_order.py.html>`__ to see an example of how to use set_restart_order API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/set_restart_order.py.html>`__ to see an example of how to use set_restart_order API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId']
@@ -5018,7 +5018,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/start_wls_domain.py.html>`__ to see an example of how to use start_wls_domain API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/start_wls_domain.py.html>`__ to see an example of how to use start_wls_domain API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId']
@@ -5145,7 +5145,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/stop_wls_domain.py.html>`__ to see an example of how to use stop_wls_domain API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/stop_wls_domain.py.html>`__ to see an example of how to use stop_wls_domain API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId']
@@ -5256,7 +5256,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/summarize_resource_inventory.py.html>`__ to see an example of how to use summarize_resource_inventory API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/summarize_resource_inventory.py.html>`__ to see an example of how to use summarize_resource_inventory API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -5375,7 +5375,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/update_managed_instance.py.html>`__ to see an example of how to use update_managed_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/update_managed_instance.py.html>`__ to see an example of how to use update_managed_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['managedInstanceId']
@@ -5499,7 +5499,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/update_wls_domain.py.html>`__ to see an example of how to use update_wls_domain API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/update_wls_domain.py.html>`__ to see an example of how to use update_wls_domain API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId']
@@ -5625,7 +5625,7 @@ class WeblogicManagementServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/wlms/update_wls_domain_credential.py.html>`__ to see an example of how to use update_wls_domain_credential API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/wlms/update_wls_domain_credential.py.html>`__ to see an example of how to use update_wls_domain_credential API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['wlsDomainId', 'credentialType']

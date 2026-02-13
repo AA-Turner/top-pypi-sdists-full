@@ -34,7 +34,6 @@ async def sample_data(client):
     "redis_basic_raw",
     "redis_cluster",
     "redis_cluster_raw",
-    "redis_basic_resp2",
 )
 @pytest.mark.min_server_version("8.0.0")
 class TestVectorSets:
@@ -76,6 +75,7 @@ class TestVectorSets:
         assert pytest.approx(0.99, 1e-2) == links_with_scores[-1][_s("a2")]
         assert pytest.approx(0.99, 1e-2) == links_with_scores[-1][_s("a3")]
 
+    @pytest.mark.min_server_version("8.2")
     async def test_vsim(self, client, sample_data, _s):
         assert () == await client.vsim("missing", element="missing")
         with pytest.raises(ResponseError, match="element not found"):
@@ -128,7 +128,7 @@ class TestVectorSets:
             await client.vsim("sample", element="a1", truth=True)
         )[-3:]
 
-    @pytest.mark.min_server_version("8.1.240")
+    @pytest.mark.min_server_version("8.2")
     async def test_vsim_withattribs(self, client, sample_data, _s):
         similarity_with_attribs = await client.vsim("sample", element="a1", withattribs=True)
         assert similarity_with_attribs[_s("a1")] == {"group": "a"}
@@ -195,6 +195,13 @@ class TestVectorSets:
         assert set(await client.vrandmember("sample", count=100)) == all_elements
         assert None is await client.vrandmember("missing")
         assert () == await client.vrandmember("missing", 10)
+
+    @pytest.mark.min_server_version("8.4")
+    async def test_vrange(self, client, sample_data, _s):
+        all_elements = {_s(k) for k in sample_data.keys()}
+        assert all_elements == set(await client.vrange("sample", "-", "+"))
+        assert (_s("a1"), _s("a2")) == await client.vrange("sample", "-", "+", 2)
+        assert (_s("a1"), _s("a2"), _s("a3")) == await client.vrange("sample", "[a", "(b")
 
     @pytest.mark.min_server_version("8.2")
     async def test_vismember(self, client, sample_data, _s):

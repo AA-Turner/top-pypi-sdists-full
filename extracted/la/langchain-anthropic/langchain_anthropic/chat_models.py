@@ -17,7 +17,7 @@ from langchain_core.callbacks import (
     AsyncCallbackManagerForLLMRun,
     CallbackManagerForLLMRun,
 )
-from langchain_core.exceptions import OutputParserException
+from langchain_core.exceptions import ContextOverflowError, OutputParserException
 from langchain_core.language_models import (
     LanguageModelInput,
     ModelProfile,
@@ -643,6 +643,17 @@ def _format_messages(
                 _lc_tool_calls_to_anthropic_tool_use_blocks(missing_tool_calls),
             )
 
+        if role == "assistant" and _i == len(merged_messages) - 1:
+            if isinstance(content, str):
+                content = content.rstrip()
+            elif (
+                isinstance(content, list)
+                and content
+                and isinstance(content[-1], dict)
+                and content[-1].get("type") == "text"
+            ):
+                content[-1]["text"] = content[-1]["text"].rstrip()
+
         if not content and role == "assistant" and _i < len(merged_messages) - 1:
             # anthropic.BadRequestError: Error code: 400: all messages must have
             # non-empty content except for the optional final assistant message
@@ -710,8 +721,16 @@ def _is_code_execution_related_block(
     return False
 
 
+class AnthropicContextOverflowError(anthropic.BadRequestError, ContextOverflowError):
+    """BadRequestError raised when input exceeds Anthropic's context limit."""
+
+
 def _handle_anthropic_bad_request(e: anthropic.BadRequestError) -> None:
     """Handle Anthropic BadRequestError."""
+    if "prompt is too long" in e.message:
+        raise AnthropicContextOverflowError(
+            message=e.message, response=e.response, body=e.body
+        ) from e
     if ("messages: at least one message is required") in e.message:
         message = "Received only system message(s). "
         warnings.warn(message, stacklevel=2)
@@ -853,7 +872,7 @@ class ChatAnthropic(BaseChatModel):
     `#!python {"type": "adaptive"}`
     """
 
-    effort: Literal["high", "medium", "low"] | None = None
+    effort: Literal["max", "high", "medium", "low"] | None = None
     """Control how many tokens Claude uses when responding.
 
     This parameter will be merged into the `output_config` parameter when making
@@ -868,13 +887,8 @@ class ChatAnthropic(BaseChatModel):
 
     !!! note "Model Support"
 
-        This feature is currently only supported by Claude Opus 4.5.
-
-    !!! note "Automatic beta header"
-
-        The required `effort-2025-11-24` beta header is
-        automatically appended to the request when using `effort`, so you
-        don't need to manually specify it in the `betas` parameter.
+        This feature is generally available on Claude Opus 4.6 and Claude Opus 4.5.
+        The `max` effort level is only supported by Claude Opus 4.6.
     """
 
     mcp_servers: list[dict[str, Any]] | None = None
@@ -1144,16 +1158,6 @@ class ChatAnthropic(BaseChatModel):
 
         if output_config:
             payload["output_config"] = output_config
-
-            # Auto-append required beta for effort
-            if "effort" in output_config:
-                required_beta = "effort-2025-11-24"
-                if payload["betas"]:
-                    # Merge with existing betas
-                    if required_beta not in payload["betas"]:
-                        payload["betas"] = [*payload["betas"], required_beta]
-                else:
-                    payload["betas"] = [required_beta]
 
         if "response_format" in payload:
             # response_format present when using agents.create_agent's ProviderStrategy

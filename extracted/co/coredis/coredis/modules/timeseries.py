@@ -59,7 +59,7 @@ class RedisTimeSeries(Module[AnyStr]):
 data structure. It is designed to be used as a database for time series data,
 and is optimized for fast insertion and retrieval of time series data.
     """
-    DOCUMENTATION_URL = "https://redis.io/docs/stack/timeseries/"
+    DOCUMENTATION_URL = "https://redis.io/docs/develop/data-types/timeseries/"
 
 
 @versionadded(version="4.12")
@@ -433,6 +433,8 @@ class TimeSeries(ModuleGroup[AnyStr]):
             PureToken.TWA,
             PureToken.VAR_P,
             PureToken.VAR_S,
+            PureToken.COUNTALL,
+            PureToken.COUNTNAN,
         ],
         bucketduration: int | timedelta,
         aligntimestamp: int | None = None,
@@ -529,6 +531,8 @@ class TimeSeries(ModuleGroup[AnyStr]):
                 PureToken.TWA,
                 PureToken.VAR_P,
                 PureToken.VAR_S,
+                PureToken.COUNTALL,
+                PureToken.COUNTNAN,
             ]
         ) = None,
         bucketduration: int | timedelta | None = None,
@@ -634,6 +638,8 @@ class TimeSeries(ModuleGroup[AnyStr]):
                 PureToken.TWA,
                 PureToken.VAR_P,
                 PureToken.VAR_S,
+                PureToken.COUNTALL,
+                PureToken.COUNTNAN,
             ]
         ) = None,
         bucketduration: int | timedelta | None = None,
@@ -744,6 +750,8 @@ class TimeSeries(ModuleGroup[AnyStr]):
                 PureToken.TWA,
                 PureToken.VAR_P,
                 PureToken.VAR_S,
+                PureToken.COUNTALL,
+                PureToken.COUNTNAN,
             ]
         ) = None,
         bucketduration: int | timedelta | None = None,
@@ -894,6 +902,8 @@ class TimeSeries(ModuleGroup[AnyStr]):
                 PureToken.TWA,
                 PureToken.VAR_P,
                 PureToken.VAR_S,
+                PureToken.COUNTALL,
+                PureToken.COUNTNAN,
             ]
         ) = None,
         bucketduration: int | timedelta | None = None,

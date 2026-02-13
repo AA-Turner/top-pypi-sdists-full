@@ -13,7 +13,7 @@
 
 from __future__ import absolute_import
 
-__version__ = "3.15.1"
+__version__ = "3.16.0"
 
 # import apis into sdk package
 from phrase_api.api.accounts_api import AccountsApi
@@ -66,6 +66,7 @@ from phrase_api.api.style_guides_api import StyleGuidesApi
 from phrase_api.api.tags_api import TagsApi
 from phrase_api.api.teams_api import TeamsApi
 from phrase_api.api.translations_api import TranslationsApi
+from phrase_api.api.upload_batches_api import UploadBatchesApi
 from phrase_api.api.uploads_api import UploadsApi
 from phrase_api.api.users_api import UsersApi
 from phrase_api.api.variables_api import VariablesApi
@@ -238,6 +239,8 @@ from phrase_api.models.release_update_parameters import ReleaseUpdateParameters
 from phrase_api.models.release_update_parameters1 import ReleaseUpdateParameters1
 from phrase_api.models.repo_sync import RepoSync
 from phrase_api.models.repo_sync_event import RepoSyncEvent
+from phrase_api.models.repo_sync_export_parameters import RepoSyncExportParameters
+from phrase_api.models.repo_sync_import_parameters import RepoSyncImportParameters
 from phrase_api.models.screenshot import Screenshot
 from phrase_api.models.screenshot_marker import ScreenshotMarker
 from phrase_api.models.screenshot_marker_create_parameters import ScreenshotMarkerCreateParameters
@@ -292,6 +295,8 @@ from phrase_api.models.translations_unreview_parameters import TranslationsUnrev
 from phrase_api.models.translations_unverify_parameters import TranslationsUnverifyParameters
 from phrase_api.models.translations_verify_parameters import TranslationsVerifyParameters
 from phrase_api.models.upload import Upload
+from phrase_api.models.upload_batch import UploadBatch
+from phrase_api.models.upload_batches_create_parameters import UploadBatchesCreateParameters
 from phrase_api.models.upload_summary import UploadSummary
 from phrase_api.models.user import User
 from phrase_api.models.user_preview import UserPreview

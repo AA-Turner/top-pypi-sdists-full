@@ -3,7 +3,7 @@ Type annotations for pcs service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pcs/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -51,6 +51,7 @@ ClusterStatusType = Literal[
     "CREATING",
     "DELETE_FAILED",
     "DELETING",
+    "RESUMING",
     "SUSPENDED",
     "SUSPENDING",
     "UPDATE_FAILED",
@@ -63,6 +64,7 @@ ComputeNodeGroupStatusType = Literal[
     "DELETED",
     "DELETE_FAILED",
     "DELETING",
+    "RESUMING",
     "SUSPENDED",
     "SUSPENDING",
     "UPDATE_FAILED",
@@ -80,6 +82,7 @@ QueueStatusType = Literal[
     "CREATING",
     "DELETE_FAILED",
     "DELETING",
+    "RESUMING",
     "SUSPENDED",
     "SUSPENDING",
     "UPDATE_FAILED",
@@ -233,7 +236,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",

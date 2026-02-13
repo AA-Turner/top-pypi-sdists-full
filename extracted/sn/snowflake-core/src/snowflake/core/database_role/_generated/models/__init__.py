@@ -24,6 +24,8 @@ from snowflake.core.database_role._generated.models.grant import Grant
 from snowflake.core.database_role._generated.models.securable import Securable
 from snowflake.core.database_role._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.database_role._generated.models.success_response import SuccessResponse
+from snowflake.core.database_role._generated.models.tag_assignment import TagAssignment
+from snowflake.core.database_role._generated.models.tag_reference import TagReference
 
 __all__ = [
     "ContainingScope",
@@ -34,4 +36,6 @@ __all__ = [
     "Securable",
     "SuccessAcceptedResponse",
     "SuccessResponse",
+    "TagAssignment",
+    "TagReference",
 ]

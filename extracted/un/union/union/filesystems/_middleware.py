@@ -103,6 +103,24 @@ class AuthInterceptor:
     def __init__(self, authenticator: Authenticator):
         self._authenticator = authenticator
 
+    async def _call_with_auth_retry(
+        self, client_call_details: grpc.aio.ClientCallDetails, call: Callable
+    ) -> typing.Any:
+        """
+        Calls `call` with auth metadata and retries once on UNAUTHENTICATED/UNKNOWN after refresh.
+        """
+        new_client_call_details = await self._call_details_with_auth_metadata(client_call_details)
+        try:
+            return await call(new_client_call_details)
+        except Exception as e:
+            if not hasattr(e, "code"):
+                raise
+            if e.code() == grpc.StatusCode.UNAUTHENTICATED or e.code() == grpc.StatusCode.UNKNOWN:
+                self._authenticator.refresh_credentials()
+                updated_call_details = await self._call_details_with_auth_metadata(client_call_details)
+                return await call(updated_call_details)
+            raise
+
     async def _call_details_with_auth_metadata(
         self, client_call_details: grpc.aio.ClientCallDetails
     ) -> grpc.aio.ClientCallDetails:
@@ -131,44 +149,38 @@ class UnaryUnaryClientAuthInterceptor(grpc.aio.UnaryUnaryClientInterceptor, Auth
     async def intercept_unary_unary(
         self, continuation: Callable, client_call_details: grpc.aio.ClientCallDetails, request: typing.Any
     ) -> typing.Any:
-        new_client_call_details = await super()._call_details_with_auth_metadata(client_call_details)
-        try:
-            continuation = await continuation(new_client_call_details, request)
-            return continuation
-        except Exception as e:
-            if not hasattr(e, "code"):
-                raise e
-            if e.code() == grpc.StatusCode.UNAUTHENTICATED or e.code() == grpc.StatusCode.UNKNOWN:
-                self._authenticator.refresh_credentials()
-                updated_call_details = await super()._call_details_with_auth_metadata(client_call_details)
-                return continuation(updated_call_details, request)
+        async def _call(updated_call_details: grpc.aio.ClientCallDetails) -> typing.Any:
+            return await continuation(updated_call_details, request)
+
+        return await super()._call_with_auth_retry(client_call_details, _call)
 
 
 class UnaryStreamClientAuthInterceptor(grpc.aio.UnaryStreamClientInterceptor, AuthInterceptor):
     async def intercept_unary_stream(
         self, continuation: Callable, client_call_details: grpc.aio.ClientCallDetails, request: any
     ) -> AsyncIterable:
-        new_client_call_details = await super()._call_details_with_auth_metadata(client_call_details)
-        return await continuation(new_client_call_details, request)
+        async def _open_stream() -> AsyncIterable:
+            call_details = await self._call_details_with_auth_metadata(client_call_details)
+            return await continuation(call_details, request)
+
+        stream = await _open_stream()
+
+        async def _auth_retry_iterator():
+            nonlocal stream
+            while True:
+                try:
+                    async for response in stream:
+                        yield response
+                    return
+                except grpc.aio.AioRpcError as e:
+                    if e.code() not in (grpc.StatusCode.UNAUTHENTICATED, grpc.StatusCode.UNKNOWN):
+                        raise
+                    logger.info("Stream received %s, refreshing credentials and reconnecting", e.code())
+                    self._authenticator.refresh_credentials()
+                    stream = await _open_stream()
+
+        return _auth_retry_iterator()
 
 
-class StreamUnaryClientAuthInterceptor(grpc.aio.StreamUnaryClientInterceptor, AuthInterceptor):
-    async def intercept_stream_unary(
-        self,
-        continuation: Callable,
-        client_call_details: grpc.aio.ClientCallDetails,
-        request_iterator: any,
-    ) -> grpc.aio.StreamUnaryCall:
-        new_client_call_details = await super()._call_details_with_auth_metadata(client_call_details)
-        return await continuation(new_client_call_details, request_iterator)
-
-
-class StreamStreamClientAuthInterceptor(grpc.aio.StreamStreamClientInterceptor, AuthInterceptor):
-    async def intercept_stream_stream(
-        self,
-        continuation: Callable,
-        client_call_details: grpc.aio.ClientCallDetails,
-        request_iterator: typing.AsyncIterator[any],
-    ) -> grpc.aio.Call:
-        new_client_call_details = await super()._call_details_with_auth_metadata(client_call_details)
-        return await continuation(new_client_call_details, request_iterator)
+# TODO: Add auth-refresh retry logic for stream-unary and stream-stream client interceptors if/when
+# secure channel usage requires them. Streaming request iterators are often not replayable.

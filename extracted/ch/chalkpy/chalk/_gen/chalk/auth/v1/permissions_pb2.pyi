@@ -79,3 +79,5 @@ SLUG_FIELD_NUMBER: _ClassVar[int]
 slug: _descriptor.FieldDescriptor
 PERMISSION_FIELD_NUMBER: _ClassVar[int]
 permission: _descriptor.FieldDescriptor
+TEAM_PERMISSION_FIELD_NUMBER: _ClassVar[int]
+team_permission: _descriptor.FieldDescriptor

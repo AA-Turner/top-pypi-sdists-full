@@ -5,9 +5,9 @@ import functools
 import hmac
 import logging
 import re
-import sys
 import time
 import unicodedata
+from importlib import import_module
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs as battery_parse_qs
 from urllib.parse import unquote, urlencode, urlparse, urlunparse
@@ -25,7 +25,7 @@ from .exceptions import (
 
 if TYPE_CHECKING:
     from .backends.base import BaseAuth
-    from .storage import UserProtocol
+    from .storage import PartialMixin, UserProtocol
     from .strategy import BaseStrategy
 
 SETTING_PREFIX = "SOCIAL_AUTH"
@@ -36,11 +36,6 @@ PARTIAL_TOKEN_SESSION_NAME = "partial_pipeline_token"
 social_logger = logging.getLogger("social")
 
 
-def import_module(name):
-    __import__(name)
-    return sys.modules[name]
-
-
 def module_member(name):
     mod, member = name.rsplit(".", 1)
     module = import_module(mod)
@@ -49,7 +44,7 @@ def module_member(name):
 
 def user_agent():
     """Builds a simple User-Agent string to send in requests"""
-    return "social-auth-" + social_core.__version__
+    return f"social-auth-{social_core.__version__}"
 
 
 def url_add_parameters(
@@ -75,7 +70,7 @@ def setting_name(*names: str) -> str:
     return to_setting_name(*((SETTING_PREFIX, *names)))
 
 
-def sanitize_redirect(hosts, redirect_to):
+def sanitize_redirect(hosts: list[str], redirect_to: str | Any) -> str | None:
     """
     Given a list of hostnames and an untrusted URL to redirect to,
     this method tests it to make sure it isn't garbage/harmful
@@ -85,7 +80,7 @@ def sanitize_redirect(hosts, redirect_to):
     # Avoid redirect on evil URLs like ///evil.com
     if (
         not redirect_to
-        or not hasattr(redirect_to, "startswith")
+        or not isinstance(redirect_to, str)
         or redirect_to.startswith("///")
     ):
         return None
@@ -94,10 +89,11 @@ def sanitize_redirect(hosts, redirect_to):
         # Don't redirect to a host that's not in the list
         netloc = urlparse(redirect_to)[1] or hosts[0]
     except (TypeError, AttributeError):
-        pass
-    else:
-        if netloc in hosts:
-            return redirect_to
+        return None
+
+    if netloc in hosts:
+        return redirect_to
+    return None
 
 
 def user_is_authenticated(user: UserProtocol | None) -> bool:
@@ -166,7 +162,13 @@ def drop_lists(value):
     return out
 
 
-def partial_pipeline_data(backend, user=None, partial_token=None, *args, **kwargs):
+def partial_pipeline_data(
+    backend: BaseAuth,
+    user: UserProtocol | None = None,
+    partial_token: str | None = None,
+    *args,
+    **kwargs,
+) -> PartialMixin | None:
     request_data = backend.strategy.request_data()
 
     partial_argument_name = backend.setting(
@@ -179,7 +181,7 @@ def partial_pipeline_data(backend, user=None, partial_token=None, *args, **kwarg
     )
 
     if partial_token:
-        partial = backend.strategy.partial_load(partial_token)
+        partial: PartialMixin | None = backend.strategy.partial_load(partial_token)
         partial_matches_request = False
 
         if partial and partial.backend == backend.name:
@@ -196,7 +198,7 @@ def partial_pipeline_data(backend, user=None, partial_token=None, *args, **kwarg
                 if id_from_partial != id_from_request:
                     partial_matches_request = False
 
-        if partial_matches_request:
+        if partial and partial_matches_request:
             if user:  # don't update user if it's None
                 kwargs.setdefault("user", user)
             kwargs.setdefault("request", request_data)
@@ -256,11 +258,11 @@ def handle_http_errors(func):
             )
 
             if err.response.status_code == 400:
-                raise AuthCanceled(args[0], response=err.response)
+                raise AuthCanceled(args[0], response=err.response) from err
             if err.response.status_code == 401:
-                raise AuthForbidden(args[0])
+                raise AuthForbidden(args[0]) from err
             if err.response.status_code == 503:
-                raise AuthUnreachableProvider(args[0])
+                raise AuthUnreachableProvider(args[0]) from err
             raise
 
     return wrapper
@@ -272,7 +274,9 @@ def wrap_access_token_error(backend: BaseAuth):
         yield
     except requests.HTTPError as error:
         if error.response.status_code == 401:
-            raise AuthTokenError(backend, "Invalid key/secret, perhaps expired")
+            raise AuthTokenError(
+                backend, "Invalid key/secret, perhaps expired"
+            ) from error
         raise
 
 
@@ -322,6 +326,7 @@ class cache:
                 try:
                     cached_value = fn(this)
                     self.cache[this.__class__] = (now, cached_value)
+                # pylint: disable-next=broad-exception-caught
                 except Exception:
                     # Use previously cached value when call fails, if available
                     if not cached_value:

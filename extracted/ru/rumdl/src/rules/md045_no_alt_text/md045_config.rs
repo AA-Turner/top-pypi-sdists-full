@@ -1,26 +1,13 @@
 use crate::rule_config_serde::RuleConfig;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// MD045 is diagnostic-only and has no configurable options.
+/// The struct accepts (and ignores) the legacy `placeholder-text` field
+/// for backward compatibility with existing config files.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct MD045Config {
-    #[serde(
-        default = "default_placeholder_text",
-        rename = "placeholder-text",
-        alias = "placeholder_text"
-    )]
-    pub placeholder_text: String,
-}
-
-impl Default for MD045Config {
-    fn default() -> Self {
-        Self {
-            placeholder_text: default_placeholder_text(),
-        }
-    }
-}
-
-fn default_placeholder_text() -> String {
-    "TODO: Add image description".to_string()
+    #[serde(default, rename = "placeholder-text", alias = "placeholder_text", skip_serializing)]
+    _placeholder_text: Option<String>,
 }
 
 impl RuleConfig for MD045Config {

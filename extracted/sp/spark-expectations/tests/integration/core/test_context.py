@@ -1,6 +1,10 @@
 # pylint: disable=pointless-statement
 from datetime import datetime, timedelta
 from unittest.mock import patch
+from importlib import metadata as importlib_metadata
+import sys
+import types
+import spark_expectations.core.context as context_module
 import pytest
 from spark_expectations.core import get_spark_session
 from spark_expectations.config.user_config import Constants as user_config
@@ -559,6 +563,16 @@ def test_set_mail_smtp_password():
     context.set_mail_smtp_password("test_password")
     assert context._mail_smtp_password == "test_password"
     assert context.get_mail_smtp_password == "test_password"
+
+
+def test_set_mail_smtp_user_name():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    # Default is None
+    assert context.get_mail_smtp_user_name is None
+    # Set and verify
+    context.set_mail_smtp_user_name("smtp_user@example.com")
+    assert context._mail_smtp_user_name == "smtp_user@example.com"
+    assert context.get_mail_smtp_user_name == "smtp_user@example.com"
 
 
 def test_set_smtp_creds_dict():
@@ -1248,15 +1262,169 @@ def test_get_dq_run_time():
 
 def test_get_dbr_version():
     context = SparkExpectationsContext(product_id="product1", spark=spark)
+
+    # Standard compute returns numeric version strings
     os.environ["DATABRICKS_RUNTIME_VERSION"] = "13"
-    assert context.get_dbr_version == 13
+    assert context.get_dbr_version == "13"
 
     os.environ["DATABRICKS_RUNTIME_VERSION"] = "13.3"
-    assert context.get_dbr_version == 13.3
+    assert context.get_dbr_version == "13.3"
 
-    # Remove the mock to test non-Databricks environment
+    # Serverless compute returns 'client.' prefixed version string
+    os.environ["DATABRICKS_RUNTIME_VERSION"] = "client.1.13"
+    assert context.get_dbr_version == "client.1.13"
+
+    # Non-Databricks environment returns None
     del os.environ["DATABRICKS_RUNTIME_VERSION"]
-    assert context.get_dbr_version == None
+    assert context.get_dbr_version is None
+
+
+def test_get_dbr_workspace_id_from_env():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    os.environ["DATABRICKS_WORKSPACE_ID"] = "test_workspace_123"
+    assert context.get_dbr_workspace_id == "test_workspace_123"
+    del os.environ["DATABRICKS_WORKSPACE_ID"]
+
+
+def test_get_dbr_workspace_id_fallback_to_local():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    if "DATABRICKS_WORKSPACE_ID" in os.environ:
+        del os.environ["DATABRICKS_WORKSPACE_ID"]
+    assert context.get_dbr_workspace_id == "local"
+
+
+def test_get_dbr_workspace_url_from_env():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    os.environ["DATABRICKS_HOST"] = "https://test-workspace.cloud.databricks.com"
+    result = context.get_dbr_workspace_url
+    assert result == "test-workspace.cloud.databricks.com"
+    del os.environ["DATABRICKS_HOST"]
+
+
+def test_get_dbr_workspace_url_removes_protocol():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    os.environ["DATABRICKS_HOST"] = "http://test-workspace.databricks.com"
+    result = context.get_dbr_workspace_url
+    assert result == "test-workspace.databricks.com"
+    del os.environ["DATABRICKS_HOST"]
+
+
+def test_get_dbr_workspace_url_fallback_to_local():
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    if "DATABRICKS_HOST" in os.environ:
+        del os.environ["DATABRICKS_HOST"]
+    assert context.get_dbr_workspace_url == "local"
+
+
+def test_get_dbr_workspace_id_from_dbruntime_context():
+    """Test getting workspace ID from dbruntime context when env var is not set"""
+    from unittest.mock import MagicMock
+    import sys
+
+    if "DATABRICKS_WORKSPACE_ID" in os.environ:
+        del os.environ["DATABRICKS_WORKSPACE_ID"]
+
+    # Create mock dbruntime module
+    mock_dbr_context = MagicMock()
+    mock_dbr_context.workspaceId = "dbruntime_workspace_456"
+    mock_get_context = MagicMock(return_value=mock_dbr_context)
+    mock_repl_context = MagicMock()
+    mock_repl_context.get_context = mock_get_context
+    mock_dbruntime = MagicMock()
+
+    # Patch sys.modules before import happens inside the property
+    with patch.dict(sys.modules, {
+        "dbruntime": mock_dbruntime,
+        "dbruntime.databricks_repl_context": mock_repl_context
+    }):
+        context = SparkExpectationsContext(product_id="product1", spark=spark)
+        result = context.get_dbr_workspace_id
+        assert result == "dbruntime_workspace_456"
+
+
+def test_get_dbr_workspace_id_dbruntime_import_error():
+    """Test workspace ID fallback when dbruntime import fails"""
+    if "DATABRICKS_WORKSPACE_ID" in os.environ:
+        del os.environ["DATABRICKS_WORKSPACE_ID"]
+
+    # dbruntime is not installed, so ImportError will be raised
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+    result = context.get_dbr_workspace_id
+    assert result == "local"
+
+
+def test_get_dbr_workspace_url_from_dbruntime_context():
+    """Test getting workspace URL from dbruntime context when env var is not set"""
+    from unittest.mock import MagicMock
+    import sys
+
+    if "DATABRICKS_HOST" in os.environ:
+        del os.environ["DATABRICKS_HOST"]
+
+    mock_dbr_context = MagicMock()
+    mock_dbr_context.browserHostName = "https://dbruntime-workspace.databricks.com"
+    mock_get_context = MagicMock(return_value=mock_dbr_context)
+    mock_repl_context = MagicMock()
+    mock_repl_context.get_context = mock_get_context
+    mock_dbruntime = MagicMock()
+
+    with patch.dict(sys.modules, {
+        "dbruntime": mock_dbruntime,
+        "dbruntime.databricks_repl_context": mock_repl_context
+    }):
+        context = SparkExpectationsContext(product_id="product1", spark=spark)
+        result = context.get_dbr_workspace_url
+        assert result == "dbruntime-workspace.databricks.com"
+
+
+def test_get_dbr_workspace_url_from_spark_conf():
+    """Test getting workspace URL from spark conf"""
+    from unittest.mock import MagicMock
+    if "DATABRICKS_HOST" in os.environ:
+        del os.environ["DATABRICKS_HOST"]
+
+    mock_spark = MagicMock()
+    mock_spark.conf.get.return_value = "https://spark-conf-workspace.databricks.com"
+
+    context = SparkExpectationsContext(product_id="product1", spark=mock_spark)
+    result = context.get_dbr_workspace_url
+    assert result == "spark-conf-workspace.databricks.com"
+
+
+def test_get_dbr_workspace_url_spark_conf_exception():
+    """Test workspace URL when spark.conf.get throws exception"""
+    from unittest.mock import MagicMock
+    if "DATABRICKS_HOST" in os.environ:
+        del os.environ["DATABRICKS_HOST"]
+
+    mock_spark = MagicMock()
+    mock_spark.conf.get.side_effect = Exception("Spark conf not available")
+
+    context = SparkExpectationsContext(product_id="product1", spark=mock_spark)
+    result = context.get_dbr_workspace_url
+    assert result == "local"
+
+
+def test_get_dbr_workspace_id_outer_exception():
+    """Test workspace ID outer exception handler"""
+    from unittest.mock import MagicMock, PropertyMock
+
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+
+    # Patch os.environ.get to raise an exception to trigger outer except
+    with patch("os.environ.get", side_effect=Exception("Unexpected error")):
+        result = context.get_dbr_workspace_id
+        assert result == "local"
+
+
+def test_get_dbr_workspace_url_outer_exception():
+    """Test workspace URL outer exception handler"""
+    context = SparkExpectationsContext(product_id="product1", spark=spark)
+
+    # Patch os.environ.get to raise an exception to trigger outer except
+    with patch("os.environ.get", side_effect=Exception("Unexpected error")):
+        result = context.get_dbr_workspace_url
+        assert result == "local"
 
 
 def test_get_run_id_name():
@@ -2215,6 +2383,209 @@ def test_get_job_metadata():
     # testing for None condition
     context._job_metadata = None
     assert context.get_job_metadata is None
+
+
+def test_set_se_job_metadata_dict():
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    context.set_se_job_metadata({"job": "test_job_metadata"})
+    result = context.get_se_job_metadata
+    assert result.get("user_metadata") == {"job": "test_job_metadata"}
+    assert result.get("runtime_env", {}).get("host") == "local"
+    assert "se_version" in result
+    assert "spark_version" in result
+
+
+def test_set_se_job_metadata_str_dict():
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    context.set_se_job_metadata("{'job': 'test_job_metadata'}")
+    result = context.get_se_job_metadata
+    assert result.get("user_metadata") == {"job": "test_job_metadata"}
+
+
+def test_set_se_job_metadata_str_non_dict():
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    context.set_se_job_metadata("test_job_metadata")
+    result = context.get_se_job_metadata
+    assert result.get("user_metadata") == {"job_metadata": "test_job_metadata"}
+
+
+def test_set_se_job_metadata_invalid_str():
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    context.set_se_job_metadata("{invalid")
+    result = context.get_se_job_metadata
+    assert result.get("user_metadata") == {"job_metadata": "{invalid"}
+
+
+def test_set_se_job_metadata_non_str_object():
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    payload = ["job", 1]
+    context.set_se_job_metadata(payload)
+    result = context.get_se_job_metadata
+    assert result.get("user_metadata") == {"job_metadata": str(payload)}
+
+
+def test_get_se_job_metadata_databricks_env(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "13.3")
+    monkeypatch.setenv("DATABRICKS_WORKSPACE_ID", "12345")
+    monkeypatch.setenv("DATABRICKS_HOST", "https://dbc-123.cloud.databricks.com")
+
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    result = context.get_se_job_metadata
+
+    assert result.get("runtime_env", {}).get("host") == "databricks"
+    assert result.get("runtime_env", {}).get("info", {}).get("workspace_id") == "12345"
+    assert result.get("runtime_env", {}).get("info", {}).get("workspace_url") == "dbc-123.cloud.databricks.com"
+    assert result.get("runtime_env", {}).get("info", {}).get("dbr_version") == "13.3"
+    assert result.get("runtime_env", {}).get("info", {}).get("job_id") == "local"
+
+
+def test_get_dbr_job_id_from_context(monkeypatch):
+    fake_context = types.SimpleNamespace(jobId=98765)
+    fake_module = types.SimpleNamespace(get_context=lambda: fake_context)
+    monkeypatch.setitem(sys.modules, "dbruntime.databricks_repl_context", fake_module)
+
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    assert context.get_dbr_job_id == "98765"
+
+
+def test_get_dbr_job_id_from_context_none(monkeypatch):
+    fake_context = types.SimpleNamespace(jobId=None)
+    fake_module = types.SimpleNamespace(get_context=lambda: fake_context)
+    monkeypatch.setitem(sys.modules, "dbruntime.databricks_repl_context", fake_module)
+
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    assert context.get_dbr_job_id == "local"
+
+
+def test_get_dbr_job_id_import_error(monkeypatch):
+    fake_module = types.SimpleNamespace()
+    monkeypatch.setitem(sys.modules, "dbruntime.databricks_repl_context", fake_module)
+
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    assert context.get_dbr_job_id == "local"
+
+
+def test_get_dbr_workspace_from_context(monkeypatch):
+    fake_context = types.SimpleNamespace(workspaceId="999", browserHostName="dbc-999.cloud.databricks.com")
+    fake_module = types.SimpleNamespace(get_context=lambda: fake_context)
+    monkeypatch.setitem(sys.modules, "dbruntime.databricks_repl_context", fake_module)
+
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    assert context.get_dbr_workspace_id == "999"
+    assert context.get_dbr_workspace_url == "dbc-999.cloud.databricks.com"
+
+
+def test_set_se_job_metadata_none():
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    context.set_se_job_metadata({"job": "test_job_metadata"})
+    context.set_se_job_metadata(None)
+    result = context.get_se_job_metadata
+    assert "user_metadata" not in result
+    assert "job" not in result
+    assert "job_metadata" not in result
+
+
+def test_get_spark_version_exception():
+    class BadSpark:
+        @property
+        def version(self):
+            raise Exception("boom")
+
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    context.spark = BadSpark()
+    assert context.get_spark_version == "unknown"
+
+
+def test_get_spark_version_exception_logs_warning(caplog):
+    """Test that get_spark_version logs a warning when an exception occurs"""
+    import logging
+    from spark_expectations import _log as se_log
+
+    class BadSpark:
+        @property
+        def version(self):
+            raise RuntimeError("spark unavailable")
+
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    context.spark = BadSpark()
+    se_log.propagate = True
+    try:
+        with caplog.at_level(logging.WARNING, logger="spark_expectations"):
+            result = context.get_spark_version
+        assert result == "unknown"
+        assert "Failed to retrieve Spark version" in caplog.text
+        assert "spark unavailable" in caplog.text
+    finally:
+        se_log.propagate = False
+
+
+def test_set_se_job_metadata_invalid_str_logs_warning(caplog):
+    """Test that set_se_job_metadata logs a warning when string parsing fails"""
+    import logging
+    from spark_expectations import _log as se_log
+
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    se_log.propagate = True
+    try:
+        with caplog.at_level(logging.WARNING, logger="spark_expectations"):
+            context.set_se_job_metadata("{invalid")
+        assert "Failed to parse se_job_metadata string as dict" in caplog.text
+    finally:
+        se_log.propagate = False
+
+
+def test_get_dbr_workspace_id_dbruntime_import_error_logs_info(caplog):
+    """Test that get_dbr_workspace_id logs info when dbruntime import fails"""
+    import logging
+    from spark_expectations import _log as se_log
+
+    if "DATABRICKS_WORKSPACE_ID" in os.environ:
+        del os.environ["DATABRICKS_WORKSPACE_ID"]
+
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    se_log.propagate = True
+    try:
+        with caplog.at_level(logging.INFO, logger="spark_expectations"):
+            result = context.get_dbr_workspace_id
+        assert result == "local"
+        assert "Unable to retrieve Databricks workspace ID via dbruntime" in caplog.text
+    finally:
+        se_log.propagate = False
+
+
+def test_get_dbr_workspace_id_outer_exception_logs_info(caplog):
+    """Test that get_dbr_workspace_id logs info when outer exception occurs"""
+    import logging
+    from spark_expectations import _log as se_log
+
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    se_log.propagate = True
+    try:
+        with patch("os.environ.get", side_effect=Exception("Unexpected error")):
+            with caplog.at_level(logging.INFO, logger="spark_expectations"):
+                result = context.get_dbr_workspace_id
+        assert result == "local"
+        assert "Failed to retrieve Databricks workspace ID" in caplog.text
+    finally:
+        se_log.propagate = False
+
+
+def test_get_spark_expectations_version_package_not_found(monkeypatch):
+    def raise_not_found(_name):
+        raise importlib_metadata.PackageNotFoundError
+
+    monkeypatch.setattr(context_module.metadata, "version", raise_not_found)
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    assert context.get_spark_expectations_version == "unknown"
+
+
+def test_get_spark_expectations_version_exception(monkeypatch):
+    def raise_error(_name):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(context_module.metadata, "version", raise_error)
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    assert context.get_spark_expectations_version == "unknown"
 
 
 def test_set_enable_obs_dq_report_result():

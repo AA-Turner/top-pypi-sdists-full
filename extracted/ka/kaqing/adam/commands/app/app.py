@@ -25,11 +25,12 @@ class App(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with extract_options(args, '--force') as (args, forced):
-                with app(state) as http:
-                    http.post(args, forced=forced, ctx=self.context())
+            with self.context(args, ignore_bg=True) as (_, ctx):
+                with extract_options(args, '--force') as (args, forced):
+                    with app(state) as http:
+                        http.post(args, forced=forced, ctx=ctx)
 
-                return state
+                    return state
 
     def completion(self, _: ReplState):
         return {}

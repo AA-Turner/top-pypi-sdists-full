@@ -26,7 +26,10 @@ def test_get_backlinks() -> None:
     """Check that backlinks can be retrieved."""
     plugin = AutorefsPlugin()
     plugin.record_backlinks = True
-    plugin.map_urls(create_page("foo.html"), create_anchor_link("Foo", "foo"))
+    page = create_page("foo.html")
+    anchor = create_anchor_link("Foo", "foo")
+    plugin.register_anchor(page, anchor.id, title=anchor.title, primary=True)
+    plugin._register_breadcrumbs(page, anchor)
     plugin._primary_url_map["bar"] = ["bar.html#bar"]
     plugin._record_backlink("bar", "referenced-by", "foo", "foo.html")
     assert plugin.get_backlinks("bar", from_url="") == {

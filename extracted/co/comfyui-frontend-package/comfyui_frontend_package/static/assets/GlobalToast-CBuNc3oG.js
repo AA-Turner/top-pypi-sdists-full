@@ -1,8 +1,0 @@
-import{r as e}from"./rolldown-runtime-DCMCV6zW.js";import{o as t,pt as n}from"./vendor-primevue-DsBxnwSO.js";import{$ as r,A as i,Bt as a,D as o,F as s,Ft as c,K as l,L as u,ft as d,ht as f,x as p}from"./vendor-vue-core-D3IvUUeM.js";import{Tt as m}from"./api-CVS00it9.js";import{i as h}from"./dialogService-ZayamrQl.js";var g={class:`flex items-center gap-2`},_=u({__name:`GlobalToast`,setup(e){let u=n(),_=m(),v=h();d(()=>_.messagesToAdd,e=>{e.length!==0&&(e.forEach(e=>{u.add(e)}),_.messagesToAdd=[])},{deep:!0}),d(()=>_.messagesToRemove,e=>{e.length!==0&&(e.forEach(e=>{u.remove(e)}),_.messagesToRemove=[])},{deep:!0}),d(()=>_.removeAllRequested,e=>{e&&(u.removeAllGroups(),_.removeAllRequested=!1)});function updateToastPosition(){let e=document.getElementById(`dynamic-toast-style`)||createStyleElement(),t=document.querySelector(`.graph-canvas-container`)?.getBoundingClientRect();t&&(e.textContent=`
-    .p-toast.p-component.p-toast-top-right {
-      top: ${t.top+100}px !important;
-      right: ${window.innerWidth-(t.left+t.width)+20}px !important;
-       z-index: 10000 !important;
-    }
-  `)}function createStyleElement(){let e=document.createElement(`style`);return e.id=`dynamic-toast-style`,document.head.appendChild(e),e}return d(()=>v.get(`Comfy.UseNewMenu`),()=>l(updateToastPosition),{immediate:!0}),d(()=>v.get(`Comfy.Sidebar.Location`),()=>l(updateToastPosition),{immediate:!0}),(e,n)=>(r(),i(p,null,[s(c(t)),s(c(t),{group:`billing-operation`,position:`top-right`},{message:f(e=>[o(`div`,g,[n[0]||=o(`i`,{class:`pi pi-spin pi-spinner text-primary`},null,-1),o(`span`,null,a(e.message.summary),1)])]),_:1})],64))}});export{_ as t};
-//# sourceMappingURL=GlobalToast-CBuNc3oG.js.map

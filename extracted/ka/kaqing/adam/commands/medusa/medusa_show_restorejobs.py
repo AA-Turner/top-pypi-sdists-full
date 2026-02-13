@@ -27,20 +27,21 @@ class MedusaShowRestoreJobs(Command):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
 
-        with self.validate(args, state) as (args, state):
-            ns = state.namespace
-            dc = StatefulSets.get_datacenter(state.sts, ns)
-            if not dc:
+        with self.context(args) as (args, ctx):
+            with self.validate(args, state) as (args, state):
+                ns = state.namespace
+                dc = StatefulSets.get_datacenter(state.sts, ns)
+                if not dc:
+                    return state
+
+                with log_exc(lambda e: "Exception: MedusaShowRestoreJobs failed: %s\n" % e):
+                    tabulize(CustomResources.medusa_show_restorejobs(dc, ns),
+                            header='NAME\tCREATED\tFINISHED',
+                            separator='\t',
+                            err=True,
+                            ctx=ctx)
+
                 return state
-
-            with log_exc(lambda e: "Exception: MedusaShowRestoreJobs failed: %s\n" % e):
-                tabulize(CustomResources.medusa_show_restorejobs(dc, ns),
-                         header='NAME\tCREATED\tFINISHED',
-                         separator='\t',
-                         err=True,
-                         ctx=self.context())
-
-            return state
 
     def completion(self, state: ReplState):
         return super().completion(state)

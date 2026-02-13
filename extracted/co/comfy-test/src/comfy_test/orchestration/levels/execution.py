@@ -143,7 +143,8 @@ def run(ctx: LevelContext) -> LevelContext:
             ensure_dependencies,
         )
 
-        if not ensure_dependencies(log_callback=ctx.log):
+        python_path = ctx.paths.python if ctx.paths else None
+        if not ensure_dependencies(python_path=python_path, log_callback=ctx.log):
             raise ImportError("Failed to install screenshot dependencies")
         check_dependencies()
 
@@ -158,6 +159,8 @@ def run(ctx: LevelContext) -> LevelContext:
         ctx.log("WARNING: Screenshots disabled (playwright not installed)")
         ScreenshotError = Exception  # Fallback for error handling
 
+    ctx.log(f"Execution path: {'browser (Playwright)' if ws else 'Python converter'}")
+
     # Initialize results tracking
     results = []
     logs_dir = ctx.output_base / "logs"
@@ -170,8 +173,8 @@ def run(ctx: LevelContext) -> LevelContext:
         all_errors = []
 
         for idx, workflow_file in enumerate(workflows, 1):
-            # Clear execution cache
-            ctx.api.free_memory(unload_models=False)
+            # Unload models and clear cache before each workflow
+            ctx.api.free_memory(unload_models=True)
 
             # Reset workflow log
             current_workflow_log.clear()
@@ -196,22 +199,35 @@ def run(ctx: LevelContext) -> LevelContext:
             spinner.start()
 
             is_gpu_test = os.environ.get("COMFY_TEST_GPU") == "1"
-            resource_monitor = ResourceMonitor(interval=1.0, monitor_gpu=is_gpu_test)
+            server_pid = getattr(ctx.server, 'pid', None)
+            resource_monitor = ResourceMonitor(interval=1.0, monitor_gpu=is_gpu_test, pid=server_pid)
             resource_monitor.start()
 
             try:
                 if ws and videos_dir:
                     workflow_video_dir = videos_dir / workflow_file.stem
                     final_screenshot_path = screenshots_dir / f"{workflow_file.stem}_executed.png"
-                    frames = ws.capture_execution_frames(
-                        _resolve_workflow_path(ctx, workflow_file),
-                        output_dir=workflow_video_dir,
-                        log_lines=current_workflow_log,
-                        webp_quality=60,
-                        final_screenshot_path=final_screenshot_path,
-                        final_screenshot_delay_ms=5000,
-                    )
-                    capture_log(f"    Captured {len(frames)} video frames")
+                    try:
+                        frames = ws.capture_execution_frames(
+                            _resolve_workflow_path(ctx, workflow_file),
+                            output_dir=workflow_video_dir,
+                            log_lines=current_workflow_log,
+                            webp_quality=60,
+                            final_screenshot_path=final_screenshot_path,
+                            final_screenshot_delay_ms=5000,
+                        )
+                        capture_log(f"    Captured {len(frames)} video frames")
+                    except (WorkflowError, ScreenshotError) as browser_err:
+                        if "class_type" in str(browser_err):
+                            capture_log(f"    Browser execution failed: {browser_err.message}")
+                            capture_log("    Retrying with Python converter...")
+                            result = runner.run_workflow(
+                                _resolve_workflow_path(ctx, workflow_file),
+                                timeout=get_workflow_timeout(ctx.config.workflow.timeout),
+                            )
+                            capture_log(f"    Status: {result.status}")
+                        else:
+                            raise
                 else:
                     result = runner.run_workflow(
                         workflow_file,
@@ -236,14 +252,13 @@ def run(ctx: LevelContext) -> LevelContext:
             # Save resource timeline to CSV
             if resource_metrics.get("timeline"):
                 csv_path = logs_dir / f"{workflow_file.stem}_resources.csv"
-                cpu_count = resource_metrics.get("cpu_count", 1)
                 total_ram = resource_metrics.get("total_ram_gb", 16)
                 with open(csv_path, 'w') as f:
-                    f.write(f"# cpu_count={cpu_count},total_ram_gb={total_ram}\n")
-                    f.write("t,cpu_cores,ram_gb,gpu_pct\n")
+                    f.write(f"# total_ram_gb={total_ram}\n")
+                    f.write("t,ram_gb,vram_gb\n")
                     for sample in resource_metrics["timeline"]:
-                        gpu_val = sample['gpu'] if sample['gpu'] is not None else ''
-                        f.write(f"{sample['t']},{sample['cpu']},{sample['ram']},{gpu_val}\n")
+                        vram_val = sample['vram'] if sample['vram'] is not None else ''
+                        f.write(f"{sample['t']},{sample['ram']},{vram_val}\n")
                 resource_metrics.pop("timeline", None)
 
             results.append({
@@ -262,6 +277,9 @@ def run(ctx: LevelContext) -> LevelContext:
             if ws:
                 ws.save_console_logs(logs_dir / f"{workflow_file.stem}_console.log")
                 ws.clear_console_logs()
+
+            # Unload models after each workflow to prevent OOM on limited VRAM GPUs
+            ctx.api.free_memory(unload_models=True)
 
     finally:
         if ws:
@@ -284,6 +302,17 @@ def run(ctx: LevelContext) -> LevelContext:
     results_file = ctx.output_base / "results.json"
     results_file.write_text(json.dumps(results_data, indent=2), encoding='utf-8')
     ctx.log(f"Results saved to {results_file}")
+
+    # Log model directory state
+    if ctx.paths and ctx.paths.comfyui_dir:
+        from ..model_tracker import build_models_report, save_models_report
+        models_dir = ctx.paths.comfyui_dir / "models"
+        if models_dir.exists():
+            report = build_models_report(models_dir)
+            if report["folders"]:
+                report_path = save_models_report(report, ctx.output_base)
+                ctx.log(f"Model report: {report['summary']['total_files']} files, "
+                        f"{report['summary']['total_size_human']} -> {report_path}")
 
     # Generate HTML report
     from ...reporting.html_report import generate_html_report

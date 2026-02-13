@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal, Union, cast, overload
@@ -37,6 +37,7 @@ from ..tool import (
     ImageGenerationTool,
     LocalShellTool,
     ShellTool,
+    ShellToolEnvironment,
     Tool,
     WebSearchTool,
 )
@@ -271,8 +272,14 @@ class OpenAIResponsesModel(Model):
         should_omit_model = prompt is not None and not self._model_is_explicit
         model_param: str | ChatModel | Omit = self.model if not should_omit_model else omit
         should_omit_tools = prompt is not None and len(converted_tools_payload) == 0
+        # In prompt-managed tool flows without local tools payload, omit only named tool choices
+        # that must match an explicit tool list. Keep control literals like "none"/"required".
+        should_omit_tool_choice = should_omit_tools and isinstance(tool_choice, dict)
         tools_param: list[ToolParam] | Omit = (
             converted_tools_payload if not should_omit_tools else omit
+        )
+        tool_choice_param: response_create_params.ToolChoice | Omit = (
+            tool_choice if not should_omit_tool_choice else omit
         )
 
         include_set: set[str] = set(converted_tools.includes)
@@ -300,7 +307,7 @@ class OpenAIResponsesModel(Model):
                 f"{input_json}\n"
                 f"Tools:\n{tools_json}\n"
                 f"Stream: {stream}\n"
-                f"Tool choice: {tool_choice}\n"
+                f"Tool choice: {tool_choice_param}\n"
                 f"Response format: {response_format}\n"
                 f"Previous response id: {previous_response_id}\n"
                 f"Conversation id: {conversation_id}\n"
@@ -330,7 +337,7 @@ class OpenAIResponsesModel(Model):
             top_p=self._non_null_or_omit(model_settings.top_p),
             truncation=self._non_null_or_omit(model_settings.truncation),
             max_output_tokens=self._non_null_or_omit(model_settings.max_tokens),
-            tool_choice=tool_choice,
+            tool_choice=tool_choice_param,
             parallel_tool_calls=parallel_tool_calls,
             stream=cast(Any, stream_param),
             extra_headers=self._merge_headers(model_settings),
@@ -411,6 +418,19 @@ class ConvertedTools:
 
 
 class Converter:
+    @classmethod
+    def _convert_shell_environment(cls, environment: ShellToolEnvironment | None) -> dict[str, Any]:
+        """Convert shell environment settings to OpenAI payload shape."""
+        if environment is None:
+            return {"type": "local"}
+        if not isinstance(environment, Mapping):
+            raise UserError("Shell environment must be a mapping.")
+
+        payload = dict(environment)
+        if "type" not in payload:
+            payload["type"] = "local"
+        return payload
+
     @classmethod
     def convert_tool_choice(
         cls, tool_choice: Literal["auto", "required", "none"] | str | MCPToolChoice | None
@@ -561,7 +581,13 @@ class Converter:
             converted_tool = cast(ToolParam, {"type": "apply_patch"})
             includes = None
         elif isinstance(tool, ShellTool):
-            converted_tool = cast(ToolParam, {"type": "shell"})
+            converted_tool = cast(
+                ToolParam,
+                {
+                    "type": "shell",
+                    "environment": cls._convert_shell_environment(tool.environment),
+                },
+            )
             includes = None
         elif isinstance(tool, ImageGenerationTool):
             converted_tool = tool.tool_config

@@ -31,22 +31,22 @@ class GenerateReport(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            ctx = self.context()
-            results = run_checks(state.sts,
-                                    state.namespace,
-                                    state.pod,
-                                    status=CassandraStatus.snapshot(state, ctx=ctx),
-                                    ctx=ctx)
-            output = CheckResult.report(results)
+            with self.context(args) as (args, ctx):
+                results = run_checks(state.sts,
+                                     state.namespace,
+                                     state.pod,
+                                     status=CassandraStatus.snapshot(state, ctx=ctx),
+                                     ctx=ctx)
+                output = CheckResult.report(results)
 
-            if state.in_repl:
-                with kaqing_log_file() as json_file:
-                    json.dump(output, json_file, indent=2)
-                    log2(f'Report stored in {json_file.name}.')
-            else:
-                click.echo(json.dumps(output, indent=2))
+                if state.in_repl:
+                    with kaqing_log_file() as json_file:
+                        json.dump(output, json_file, indent=2)
+                        log2(f'Report stored in {json_file.name}.')
+                else:
+                    click.echo(json.dumps(output, indent=2))
 
-            return output
+                return output
 
     def completion(self, state: ReplState):
         return super().completion(state)

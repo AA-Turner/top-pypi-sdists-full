@@ -1,14 +1,20 @@
 """Use pytz timezones."""
 
 from __future__ import annotations
-import pytz
-from .. import cal
+
 from datetime import datetime, tzinfo
+from typing import TYPE_CHECKING
+
+import pytz
 from pytz.tzinfo import DstTzInfo
-from typing import Optional
+
 from .provider import TZProvider
-from icalendar import prop
-from dateutil.rrule import rrule
+
+if TYPE_CHECKING:
+    from dateutil.rrule import rrule
+
+    from icalendar import prop
+    from icalendar.cal import Timezone
 
 
 class PYTZ(TZProvider):
@@ -27,18 +33,18 @@ class PYTZ(TZProvider):
         """Localize a datetime to a timezone."""
         return tz.localize(dt)
 
-    def knows_timezone_id(self, id: str) -> bool:
+    def knows_timezone_id(self, tzid: str) -> bool:
         """Whether the timezone is already cached by the implementation."""
-        return id in pytz.all_timezones
+        return tzid in pytz.all_timezones
 
     def fix_rrule_until(self, rrule: rrule, ical_rrule: prop.vRecur) -> None:
-        """Make sure the until value works for the rrule generated from the ical_rrule."""
+        """Make sure the until value works for rrules generated from the ical_rrule."""
         if not {"UNTIL", "COUNT"}.intersection(ical_rrule.keys()):
             # pytz.timezones don't know any transition dates after 2038
             # either
-            rrule._until = datetime(2038, 12, 31, tzinfo=pytz.UTC)
+            rrule._until = datetime(2038, 12, 31, tzinfo=pytz.UTC)  # noqa: SLF001
 
-    def create_timezone(self, tz: cal.Timezone) -> tzinfo:
+    def create_timezone(self, tz: Timezone.Timezone) -> tzinfo:
         """Create a pytz timezone from the given information."""
         transition_times, transition_info = tz.get_transitions()
         name = tz.tz_name
@@ -53,7 +59,7 @@ class PYTZ(TZProvider):
         )
         return cls()
 
-    def timezone(self, name: str) -> Optional[tzinfo]:
+    def timezone(self, name: str) -> tzinfo | None:
         """Return a timezone with a name or None if we cannot find it."""
         try:
             return pytz.timezone(name)

@@ -5,7 +5,7 @@ import typing
 import uuid
 
 from contextlib import contextmanager, suppress
-from typing import Any
+from typing import Any, Iterator
 
 import pytest
 
@@ -14,7 +14,7 @@ from pydantic import StrictStr
 import snowflake.connector
 
 from snowflake.connector import SnowflakeConnection
-from snowflake.core import Root
+from snowflake.core import CreateMode, Root
 from snowflake.core.alert import AlertCollection
 from snowflake.core.api_integration import ApiIntegrationCollection
 from snowflake.core.catalog_integration import CatalogIntegration
@@ -47,7 +47,7 @@ from snowflake.core.stage import StageCollection
 from snowflake.core.stream import StreamCollection
 from snowflake.core.streamlit import StreamlitCollection
 from snowflake.core.table import TableCollection
-from snowflake.core.tag import TagCollection
+from snowflake.core.tag import Tag, TagCollection, TagResource
 from snowflake.core.user import UserCollection
 from snowflake.core.user_defined_function import UserDefinedFunctionCollection
 from snowflake.core.view import ViewCollection
@@ -65,11 +65,16 @@ from .fixtures.constants import (
     TEST_IMAGE_REPO,
     TEST_IMAGE_REPO_QUALIFIED_SCHEMA,
     TEST_SCHEMA,
+    TEST_SHARED_TAG_DATABASE,
+    TEST_SHARED_TAG_NAME,
+    TEST_SHARED_TAG_SCHEMA,
+    TEST_SHARED_TAG_VALUE,
     TEST_WAREHOUSE,
 )
 from .fixtures.objects_setup import (  # noqa: F401 # pylint: disable=unused-import
     setup_basic,
     setup_credentials_fixture,
+    shared_tag_setup,
     spcs_setup_objects,
     warehouse_setup,
 )
@@ -92,11 +97,13 @@ from .fixtures.temp_objects import (  # noqa: F401 # pylint: disable=unused-impo
     temp_ir,
     temp_schema,
     temp_schema_case_sensitive,
+    temp_schema_upper_case,
     temp_service,
     temp_service_from_spec_inline,
     temp_stage,
     temp_stage_case_sensitive,
     temp_table,
+    temp_tag_upper_case,
     test_schema,
 )
 from .utils import connection_config, connection_keys
@@ -119,6 +126,18 @@ def shared_compute_pool(spcs_setup_objects, connection):  # noqa: F811
     print(f"Cleaning up services and jobs in the compute pool {spcs_setup_objects.compute_pool}")
     with connection.cursor() as cur:
         cur.execute(f"alter compute pool {spcs_setup_objects.compute_pool} stop all")
+
+
+@pytest.fixture(scope="session")
+def shared_account_tag(root, shared_tag_setup) -> TagResource:  # noqa: F811
+    tags = root.databases[TEST_SHARED_TAG_DATABASE].schemas[TEST_SHARED_TAG_SCHEMA].tags
+    tag = tags.create(Tag(name=TEST_SHARED_TAG_NAME), mode=CreateMode.if_not_exists)
+    root.connection.execute_string(
+        f"ALTER ACCOUNT "
+        f"SET TAG {TEST_SHARED_TAG_DATABASE}.{TEST_SHARED_TAG_SCHEMA}.{TEST_SHARED_TAG_NAME}"
+        f" = '{TEST_SHARED_TAG_VALUE}'"
+    )
+    return tags[tag.name]
 
 
 @pytest.fixture(scope="session")
@@ -469,6 +488,15 @@ def sequences(schema) -> SequenceCollection:
 @pytest.fixture(scope="session")
 def tags(schema) -> TagCollection:
     return schema.tags
+
+
+@pytest.fixture(scope="module")
+def tag(tags) -> Iterator[TagResource]:
+    tag = tags.create(Tag(name="TEST_TAG"))
+    try:
+        yield tags[tag.name]
+    finally:
+        tag.drop(if_exists=True)
 
 
 @pytest.fixture(scope="function")

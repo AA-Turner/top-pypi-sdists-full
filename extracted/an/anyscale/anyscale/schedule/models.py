@@ -96,6 +96,22 @@ class ScheduleState(ModelEnum):
     }
 
 
+class ScheduleSortField(ModelEnum):
+    """Fields available for sorting schedules."""
+
+    NAME = "NAME"
+    ID = "ID"
+    CREATED_AT = "CREATED_AT"
+    NEXT_TRIGGER_AT = "NEXT_TRIGGER_AT"
+
+    __docstrings__: ClassVar[Dict[str, str]] = {
+        NAME: "Sort by schedule name.",
+        ID: "Sort by schedule ID.",
+        CREATED_AT: "Sort by creation timestamp.",
+        NEXT_TRIGGER_AT: "Sort by next trigger timestamp.",
+    }
+
+
 @dataclass(frozen=True)
 class ScheduleStatus(ModelBase):
     """Current status of a schedule."""

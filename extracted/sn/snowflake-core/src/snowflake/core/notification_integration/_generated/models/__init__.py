@@ -38,6 +38,8 @@ from snowflake.core.notification_integration._generated.models.notification_queu
 from snowflake.core.notification_integration._generated.models.notification_webhook import NotificationWebhook
 from snowflake.core.notification_integration._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.notification_integration._generated.models.success_response import SuccessResponse
+from snowflake.core.notification_integration._generated.models.tag_assignment import TagAssignment
+from snowflake.core.notification_integration._generated.models.tag_reference import TagReference
 from snowflake.core.notification_integration._generated.models.webhook_secret import WebhookSecret
 
 __all__ = [
@@ -53,5 +55,7 @@ __all__ = [
     "NotificationWebhook",
     "SuccessAcceptedResponse",
     "SuccessResponse",
+    "TagAssignment",
+    "TagReference",
     "WebhookSecret",
 ]

@@ -140,8 +140,14 @@ class TasksController:
             List all tasks
             Listing all tasks...
         """
+        project = self.repos.project.load(include_disabled_stages=True)
+        valid_stage_ids = {stage.id for stage in project.workflow_stages}
+
         items = []
         for task in self.repos.tasks.get_all_tasks():
+            # Skip tasks with deleted target stages
+            if task.target_stage_id not in valid_stage_ids:
+                continue
             if (
                 req
                 and req.filter.stage

@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -335,6 +335,16 @@ NetTracerData::requires_booleans (unsigned int from_layer) const
   } 
 
   return r->second;
+}
+
+std::set<unsigned int>
+NetTracerData::original_layers () const
+{
+  std::set<unsigned int> ol;
+  for (std::map <unsigned int, std::set <unsigned int> >::const_iterator g = m_original_layers.begin (); g != m_original_layers.end (); ++g) {
+    ol.insert (g->second.begin (), g->second.end ());
+  }
+  return ol;
 }
 
 void

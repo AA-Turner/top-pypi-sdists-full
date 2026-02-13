@@ -635,8 +635,43 @@ class AppDeployer(TypedCoreConfig):
                 self._deploy_config._core_config.tags or []
             ) + self._state["default_tags"]
 
+        # Get the new configuration flags
+        use_base_image_command = self._deploy_config._core_config.use_base_image_command
+        skip_code_package = self._deploy_config._core_config.skip_code_package
+        commands = self._deploy_config._core_config.commands
+
+        # Validate commands: required unless use_base_image_command is True
+        if not use_base_image_command and not commands:
+            raise AppConfigError(
+                "commands is required for deployment. Either provide commands or set "
+                "use_base_image_command=True to rely on the container's entrypoint.\n\n"
+                "Example with commands:\n"
+                "    deployer = AppDeployer(..., commands=['python app.py'])\n\n"
+                "Example with container entrypoint:\n"
+                "    deployer = AppDeployer(..., use_base_image_command=True)\n"
+            )
+
+        # Set state for use_base_image_command
+        if use_base_image_command:
+            self._deploy_config.set_state("use_base_image_command", True)
+
         # Handle code_package if provided - extract url and key to state
-        code_package = getattr(self._deploy_config._core_config, "code_package", None)
+        code_package = self._deploy_config._core_config.code_package
+
+        # Validate skip_code_package conflicts with code_package
+        if skip_code_package and code_package is not None:
+            raise CodePackagingException(
+                "Cannot provide code_package when skip_code_package=True. "
+                "Either remove code_package or set skip_code_package=False.\n\n"
+                "Example with skip_code_package:\n"
+                "    deployer = AppDeployer(..., skip_code_package=True)  # No code_package\n\n"
+                "Example with code_package:\n"
+                "    pkg = package_code(src_paths=['./src'])\n"
+                "    deployer = AppDeployer(..., code_package=pkg, skip_code_package=False)\n"
+            )
+
+        # if skip_code_package is set the code_package is not passed. So if it is passed
+        # then we should validate it correctly and set it to state.
         if code_package is not None:
             # Validate that code_package is a PackagedCode namedtuple
             if not isinstance(code_package, PackagedCode):
@@ -653,14 +688,19 @@ class AppDeployer(TypedCoreConfig):
             # Clear the code_package field to avoid serialization issues
             self._deploy_config._core_config.code_package = None
 
-        # Verify code_package is present (either from code_package param or from state)
-        if (
+        # Set state for skip_code_package
+        if skip_code_package:
+            self._deploy_config.set_state("skip_code_package", True)
+
+        # Verify code_package is present unless skip_code_package is True
+        if not skip_code_package and (
             self._state.get("code_package_url") is None
             and self._deploy_config.get_state("code_package_url") is None
         ):
             raise CodePackagingException(
                 "code_package is required for deployment. "
-                "Use package_code() to create a code package:\n\n"
+                "Use package_code() to create a code package, or set skip_code_package=True "
+                "to rely on the container's embedded source code:\n\n"
                 "    from metaflow.apps import package_code, AppDeployer\n\n"
                 "    pkg = package_code(src_paths=['./src'])\n"
                 "    deployer = AppDeployer(..., code_package=pkg)\n"

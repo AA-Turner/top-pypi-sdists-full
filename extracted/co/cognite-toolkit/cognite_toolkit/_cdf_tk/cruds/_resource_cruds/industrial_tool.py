@@ -14,6 +14,7 @@ from packaging.requirements import Requirement
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.streamlit_ import (
     Streamlit,
     StreamlitList,
@@ -86,7 +87,7 @@ class StreamlitCRUD(ResourceCRUD[str, StreamlitWrite, Streamlit]):
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, item["dataSetExternalId"]
+            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
@@ -187,7 +188,7 @@ class StreamlitCRUD(ResourceCRUD[str, StreamlitWrite, Streamlit]):
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[Streamlit]:
         for file in self.client.files:
             if file.directory == "/streamlit-apps/":

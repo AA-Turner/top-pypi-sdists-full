@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scylla-driver
-Version: 3.29.7
+Version: 3.29.8
 Summary: Scylla Driver for Apache Cassandra
 Author: ScyllaDB
 License-Expression: Apache-2.0
@@ -29,13 +29,16 @@ License-File: LICENSE
 Requires-Dist: geomet>=1.1
 Requires-Dist: pyyaml>5.0
 Provides-Extra: graph
-Requires-Dist: gremlinpython==3.7.4; extra == "graph"
+Requires-Dist: gremlinpython<4,>=3.7.4; extra == "graph"
 Provides-Extra: cle
-Requires-Dist: cryptography>=35.0; extra == "cle"
+Requires-Dist: cryptography>=42.0; extra == "cle"
 Provides-Extra: compress-lz4
 Requires-Dist: lz4; extra == "compress-lz4"
 Provides-Extra: compress-snappy
 Requires-Dist: python-snappy; extra == "compress-snappy"
+Provides-Extra: auth-kerberos
+Requires-Dist: kerberos; platform_system != "Windows" and extra == "auth-kerberos"
+Requires-Dist: winkerberos; platform_system == "Windows" and extra == "auth-kerberos"
 Dynamic: license-file
 
 .. |license| image:: https://img.shields.io/badge/License-Apache%202.0-blue.svg

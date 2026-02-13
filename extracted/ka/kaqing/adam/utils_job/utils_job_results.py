@@ -9,21 +9,22 @@ from adam.utils_color import Color
 from adam.utils_cassandra.cassandra_status import CassandraStatus
 from adam.utils_cassandra.node_schedules import NodeSchedules
 from adam.utils_concurrent import parallelize
-from adam.utils_job.utils_fs import LogLine, proc_for_pid
+from adam.directories import Directories
+from adam.utils_job.utils_ps import LogLine, proc_for_pid
 from adam.utils_k8s.k8s_context import K8sContext
 from adam.utils_tabulize import tabulize
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.utils_k8s.pod_files import PodFiles
 from adam.utils_k8s.pods import Pods, strip_pod_name
-from adam.utils_log import PodLogFile, log2, pod_log_dir
+from adam.utils_log import PodLogFile, log2
 from adam.utils_job.job import Job
 
-def show_last_results(state: ReplState, args: str = None, ctx: Context = Context.NULL):
+def show_last_results(state: ReplState, args: str = None, ctx = NULL):
     job_id = args
     if job_id and isinstance(job_id, list):
         job_id = job_id[0]
 
-    cmd: Job = Job.last_command(job_id)
+    cmd: Job = Job.last_job(job_id)
     if not cmd:
         if job_id:
             log2(f'Last command with job_id: {job_id} was NOT found.')
@@ -45,17 +46,17 @@ def show_last_results(state: ReplState, args: str = None, ctx: Context = Context
     # default to finding logs from pods
     show_last_results_with_pod_logs(state, cmd, ctx=ctx)
 
-def show_last_results_with_local_log(state: ReplState, job: Job, ctx: Context = Context.NULL):
+def show_last_results_with_local_log(state: ReplState, job: Job, ctx = NULL):
         ctx.log2(f'[{job.job_id}] {job.command}')
         show_local_log(job)
         ctx.log2()
 
-def show_last_results_with_pod_logs(state: ReplState, job: Job, ctx: Context = Context.NULL):
+def show_last_results_with_pod_logs(state: ReplState, job: Job, ctx = NULL):
     container = device(state).default_container(state)
 
     with parallelize(device(state).pod_names(state),
                      msg='d`Running|Ran find-files onto {size} pods') as exec:
-        results: list[LogLine] = exec.map(lambda pod: find_logs_for_pod(pod, container, state.namespace, pod_log_dir(), job, remote=True, ctx=ctx))
+        results: list[LogLine] = exec.map(lambda pod: find_logs_for_pod(pod, container, state.namespace, Directories.remote_log_dir(), job, remote=True, ctx=ctx))
 
         tabulize(sorted([l for l in results if l.pod_name != '-'], key=lambda l: l.pod_name),
                  fn=lambda l: l.table_line(),
@@ -63,7 +64,25 @@ def show_last_results_with_pod_logs(state: ReplState, job: Job, ctx: Context = C
                  separator='\t',
                  ctx=ctx)
 
-def show_last_results_for_export(state: ReplState, job: Job, ctx: Context = Context.NULL):
+def find_failed_pods(state: ReplState, job: Job, ctx = NULL) -> list[str]:
+    pods = []
+
+    for pod, code in find_exit_codes(state, job, ctx):
+        # if code and code.isdigit():
+        #     pods.append(pod)
+        if code and code.isdigit() and int(code):
+            pods.append(pod)
+
+    return pods
+
+def find_exit_codes(state: ReplState, job: Job, ctx = NULL) -> list[tuple[str, str]]:
+    container = device(state).default_container(state)
+
+    with parallelize(device(state).pod_names(state),
+                     msg='d`Running|Ran find-files onto {size} pods') as exec:
+        return exec.map(lambda pod: (pod, find_exit_code_for_pod(pod, container, state.namespace, Directories.remote_log_dir(), job.job_id, remote=True, ctx=ctx)))
+
+def show_last_results_for_export(state: ReplState, job: Job, ctx = NULL):
     if 'session' not in job.extra:
         ctx.log2(f'[{job.job_id}] {job.command}')
 
@@ -74,7 +93,7 @@ def show_last_results_for_export(state: ReplState, job: Job, ctx: Context = Cont
         ctx.log2(f'show export session {session}', text_color='gray')
         sessions.show_session(session)
 
-def show_last_results_for_background_jobs(state: ReplState, job: Job, ctx: Context = Context.NULL):
+def show_last_results_for_background_jobs(state: ReplState, job: Job, ctx = NULL):
         lines = []
 
         waiting_ons: dict[tuple[str, str], str] = NodeSchedules.waiting_ons()
@@ -121,7 +140,7 @@ def show_last_results_for_background_jobs(state: ReplState, job: Job, ctx: Conte
         if any(d.startswith('GP: ') for d in waiting_ons.values()):
             ctx.log2('  *GP  node is in grace period after restart')
 
-def find_logs_for_pod(pod: str, container: str, namespace: str, dir: str, job: Job, remote: bool, ctx: Context = Context.NULL):
+def find_logs_for_pod(pod: str, container: str, namespace: str, dir: str, job: Job, remote: bool, ctx = NULL):
     ctx = ctx.copy(show_out=True, text_color=Color.gray)
     logs: list[PodLogFile] = PodFiles.find_files(pod, container, namespace, f'{dir}/{job.job_id}*', remote=remote, capture_pid=True, ctx=ctx)
 
@@ -160,6 +179,15 @@ def find_logs_for_pod(pod: str, container: str, namespace: str, dir: str, job: J
             line.last_arg = tokens[-1].strip('"')
 
     return line
+
+def find_exit_code_for_pod(pod: str, container: str, namespace: str, dir: str, job_id: str, remote: bool, ctx = NULL):
+    ctx = ctx.copy(show_out=True, text_color=Color.gray)
+    logs: list[PodLogFile] = PodFiles.find_files(pod, container, namespace, f'{dir}/{job_id}*.pid', remote=remote, capture_pid=True, ctx=ctx)
+    for log in logs:
+        if log.exit_code:
+            return log.exit_code
+
+    return None
 
 def pod_suffix(pod_name: str):
     if groups := re.match(r'.*-(.*-\d+)$', pod_name):

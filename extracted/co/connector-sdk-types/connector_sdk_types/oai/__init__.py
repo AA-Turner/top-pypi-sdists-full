@@ -1,6 +1,7 @@
 from .capability import AuthRequest, Request
 from .fingerprint import request_fingerprint
 from .modules import (
+    AUTH_TYPE_MAP,
     OAUTH_FLOW_TYPE_CAPABILITIES,
     AuthModel,
     AuthSetting,
@@ -37,4 +38,5 @@ __all__ = [
     "ValidateCredentialConfigCallable",
     "OAUTH_FLOW_TYPE_CAPABILITIES",
     "CredentialsSettings",
+    "AUTH_TYPE_MAP",
 ]

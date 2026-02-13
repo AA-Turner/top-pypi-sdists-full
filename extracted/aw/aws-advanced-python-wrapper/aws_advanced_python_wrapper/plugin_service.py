@@ -23,6 +23,8 @@ from aws_advanced_python_wrapper.blue_green_plugin import \
     BlueGreenPluginFactory
 from aws_advanced_python_wrapper.custom_endpoint_plugin import \
     CustomEndpointPluginFactory
+from aws_advanced_python_wrapper.failover_v2_plugin import \
+    FailoverV2PluginFactory
 from aws_advanced_python_wrapper.fastest_response_strategy_plugin import \
     FastestResponseStrategyPluginFactory
 from aws_advanced_python_wrapper.federated_plugin import \
@@ -257,6 +259,9 @@ class PluginService(ExceptionHandler, Protocol):
     def force_refresh_host_list(self, connection: Optional[Connection] = None):
         ...
 
+    def force_monitoring_refresh_host_list(self, should_verify_writer: bool, timeout_ms: int) -> bool:
+        ...
+
     def connect(self, host_info: HostInfo, props: Properties, plugin_to_skip: Optional[Plugin] = None) -> Connection:
         """
         Establishes a connection to the given host using the given driver protocol and properties. If a
@@ -346,6 +351,7 @@ class PluginServiceImpl(PluginService, HostListProviderService, CanReleaseResour
         self._driver_dialect = driver_dialect
         self._database_dialect = self._dialect_provider.get_dialect(driver_dialect.dialect_code, props)
         self._session_state_service = session_state_service if session_state_service is not None else SessionStateServiceImpl(self, props)
+        self._thread_pool = ThreadPoolContainer.get_thread_pool(self._executor_name)
 
     @property
     def all_hosts(self) -> Tuple[HostInfo, ...]:
@@ -449,11 +455,11 @@ class PluginServiceImpl(PluginService, HostListProviderService, CanReleaseResour
             next((host_info for host_info in all_hosts if host_info.role == HostRole.WRITER), None))
         if self._current_host_info:
             allowed_hosts = self.hosts
-            if not Utils.contains_url(allowed_hosts, self._current_host_info.url):
+            if not Utils.contains_host_and_port(allowed_hosts, self._current_host_info.get_host_and_port()):
                 raise AwsWrapperError(
                     Messages.get_formatted(
                         "PluginServiceImpl.CurrentHostNotAllowed",
-                        self._current_host_info.url, LogUtils.log_topology(allowed_hosts)))
+                        self._current_host_info.get_host_and_port(), LogUtils.log_topology(allowed_hosts)))
         else:
             allowed_hosts = self.hosts
             if len(allowed_hosts) > 0:
@@ -539,7 +545,7 @@ class PluginServiceImpl(PluginService, HostListProviderService, CanReleaseResour
                 self.driver_dialect)
 
         if original_dialect != self._database_dialect:
-            host_list_provider_init = self._database_dialect.get_host_list_provider_supplier()
+            host_list_provider_init = self._database_dialect.get_host_list_provider_supplier(self)
             self.host_list_provider = host_list_provider_init(self, self._props)
             self.refresh_host_list(connection)
 
@@ -575,6 +581,18 @@ class PluginServiceImpl(PluginService, HostListProviderService, CanReleaseResour
         if updated_host_list != self._all_hosts:
             self._update_host_availability(updated_host_list)
             self._update_hosts(updated_host_list)
+
+    def force_monitoring_refresh_host_list(self, should_verify_writer: bool, timeout_sec: int) -> bool:
+        try:
+            updated_host_list = self.host_list_provider.force_monitoring_refresh(should_verify_writer, timeout_sec)
+            if updated_host_list is not None:
+                self._update_host_availability(updated_host_list)
+                self._update_hosts(updated_host_list)
+                return True
+        except TimeoutError:
+            logger.debug(f"Force refresh timeout after {timeout_sec} sec")
+
+        return False
 
     def connect(self, host_info: HostInfo, props: Properties, plugin_to_skip: Optional[Plugin] = None) -> Connection:
         plugin_manager: PluginManager = self._container.plugin_manager
@@ -614,7 +632,7 @@ class PluginServiceImpl(PluginService, HostListProviderService, CanReleaseResour
         try:
             timeout_sec = WrapperProperties.AUXILIARY_QUERY_TIMEOUT_SEC.get(self._props)
             cursor_execute_func_with_timeout = preserve_transaction_status_with_timeout(
-                ThreadPoolContainer.get_thread_pool(PluginServiceImpl._executor_name), timeout_sec, driver_dialect, connection)(self._fill_aliases)
+                self._thread_pool, timeout_sec, driver_dialect, connection)(self._fill_aliases)
             cursor_execute_func_with_timeout(connection, host_info)
         except TimeoutError as e:
             raise QueryTimeoutError(Messages.get("PluginServiceImpl.FillAliasesTimeout")) from e
@@ -644,6 +662,10 @@ class PluginServiceImpl(PluginService, HostListProviderService, CanReleaseResour
 
     def is_login_exception(self, error: Optional[Exception] = None, sql_state: Optional[str] = None) -> bool:
         return self._exception_manager.is_login_exception(
+            dialect=self.database_dialect, error=error, sql_state=sql_state)
+
+    def is_read_only_connection_exception(self, error: Optional[Exception] = None, sql_state: Optional[str] = None) -> bool:
+        return self._exception_manager.is_read_only_connection_exception(
             dialect=self.database_dialect, error=error, sql_state=sql_state)
 
     def get_connection_provider_manager(self) -> ConnectionProviderManager:
@@ -762,6 +784,7 @@ class PluginManager(CanReleaseResources):
         "host_monitoring": HostMonitoringPluginFactory,
         "host_monitoring_v2": HostMonitoringV2PluginFactory,
         "failover": FailoverPluginFactory,
+        "failover_v2": FailoverV2PluginFactory,
         "read_write_splitting": ReadWriteSplittingPluginFactory,
         "srw": SimpleReadWriteSplittingPluginFactory,
         "fastest_response_strategy": FastestResponseStrategyPluginFactory,
@@ -790,6 +813,7 @@ class PluginManager(CanReleaseResources):
         ReadWriteSplittingPluginFactory: 300,
         SimpleReadWriteSplittingPluginFactory: 310,
         FailoverPluginFactory: 400,
+        FailoverV2PluginFactory: 410,
         HostMonitoringPluginFactory: 500,
         HostMonitoringV2PluginFactory: 510,
         BlueGreenPluginFactory: 550,
@@ -921,7 +945,7 @@ class PluginManager(CanReleaseResources):
             raise AwsWrapperError(Messages.get_formatted("PluginManager.MethodInvokedAgainstOldConnection", target))
 
         if conn is None and method in [DbApiMethod.CONNECTION_CLOSE, DbApiMethod.CURSOR_CLOSE]:
-            return
+            return None
 
         context: TelemetryContext | None
         context = self._telemetry_factory.open_telemetry_context(method.method_name, TelemetryTraceLevel.TOP_LEVEL)

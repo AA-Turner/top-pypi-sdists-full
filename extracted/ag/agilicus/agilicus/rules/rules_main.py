@@ -2,6 +2,9 @@ import json
 
 import click
 import click_extension
+import calendar
+import datetime
+from zoneinfo import ZoneInfo
 
 from .. import context
 from . import rules
@@ -410,16 +413,61 @@ def cli_command_add_scope_condition_rule(ctx, action, scope, **kwargs):
 
 
 @click.command(name="add-timeframe-condition-rule")
-@click.argument("start-time", type=click.DateTime())
-@click.argument("end-time", type=click.DateTime())
+@click.argument("start-time", type=str)
+@click.argument("end-time", type=str)
 @click.option("--name", required=True)
+@click.option("--timezone", default="UTC")
 @click.option("--action", required=True, multiple=True, type=click.Choice(rules.ACTIONS))
 @click.option("--purpose", default=None)
 @click.option("--org-id", default=None)
 @click.option("--standalone-rule-policy-id", default=None)
+@click.option("--negated", type=bool, default=False)
 @click.pass_context
-def cli_command_add_timeframe_condition_rule(ctx, action, **kwargs):
-    output_entry(ctx, rules.add_timeframe_condition_rule(ctx, actions=action, **kwargs))
+def cli_command_add_timeframe_condition_rule(
+    ctx, action, start_time, end_time, timezone, **kwargs
+):
+
+    # the click DateTime does not support timezone aware strings
+    def _make_date_time(date_time_str):
+        result = datetime.datetime.fromisoformat(date_time_str)
+        if not result.tzinfo:
+            return result.replace(tzinfo=ZoneInfo(timezone))
+        return result
+
+    start_time = _make_date_time(start_time)
+    end_time = _make_date_time(end_time)
+    output_entry(
+        ctx,
+        rules.add_timeframe_condition_rule(
+            ctx, start_time=start_time, end_time=end_time, actions=action, **kwargs
+        ),
+    )
+
+
+# add timeperiod condition rule
+@click.command(name="add-timeperiod-condition-rule")
+@click.option("--day", multiple=True, type=click.Choice(list(calendar.day_name)))
+@click.option("--start-hour", default=None, type=int)
+@click.option("--end-hour", default=None, type=int)
+@click.option("--start-minute", default=None, type=int)
+@click.option("--end-minute", default=None, type=int)
+@click.option("--timezone", default="UTC")
+@click.option("--name", required=True)
+@click.option("--action", required=True, multiple=True, type=click.Choice(rules.ACTIONS))
+@click.option("--purpose", default=None)
+@click.option("--org-id", default=None)
+@click.option("--negated", type=bool, default=False)
+@click.option("--standalone-rule-policy-id", default=None)
+@click.pass_context
+def cli_command_add_timeperiod_condition_rule(ctx, action, day, **kwargs):
+    if not day:
+        raise Exception("at least one day is required")
+    output_entry(
+        ctx,
+        rules.add_timeperiod_condition_rule(
+            ctx, actions=action, days=list(day or []), **kwargs
+        ),
+    )
 
 
 @click.command(name="add-always-match-condition-rule")

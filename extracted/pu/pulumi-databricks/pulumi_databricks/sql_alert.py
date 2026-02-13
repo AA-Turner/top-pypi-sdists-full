@@ -26,6 +26,7 @@ class SqlAlertArgs:
                  created_at: Optional[pulumi.Input[_builtins.str]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  parent: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input['SqlAlertProviderConfigArgs']] = None,
                  rearm: Optional[pulumi.Input[_builtins.int]] = None,
                  updated_at: Optional[pulumi.Input[_builtins.str]] = None):
         """
@@ -44,6 +45,8 @@ class SqlAlertArgs:
             pulumi.set(__self__, "name", name)
         if parent is not None:
             pulumi.set(__self__, "parent", parent)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
         if rearm is not None:
             pulumi.set(__self__, "rearm", rearm)
         if updated_at is not None:
@@ -107,6 +110,15 @@ class SqlAlertArgs:
         pulumi.set(self, "parent", value)
 
     @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional[pulumi.Input['SqlAlertProviderConfigArgs']]:
+        return pulumi.get(self, "provider_config")
+
+    @provider_config.setter
+    def provider_config(self, value: Optional[pulumi.Input['SqlAlertProviderConfigArgs']]):
+        pulumi.set(self, "provider_config", value)
+
+    @_builtins.property
     @pulumi.getter
     def rearm(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
@@ -135,6 +147,7 @@ class _SqlAlertState:
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  options: Optional[pulumi.Input['SqlAlertOptionsArgs']] = None,
                  parent: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input['SqlAlertProviderConfigArgs']] = None,
                  query_id: Optional[pulumi.Input[_builtins.str]] = None,
                  rearm: Optional[pulumi.Input[_builtins.int]] = None,
                  updated_at: Optional[pulumi.Input[_builtins.str]] = None):
@@ -154,6 +167,8 @@ class _SqlAlertState:
             pulumi.set(__self__, "options", options)
         if parent is not None:
             pulumi.set(__self__, "parent", parent)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
         if query_id is not None:
             pulumi.set(__self__, "query_id", query_id)
         if rearm is not None:
@@ -207,6 +222,15 @@ class _SqlAlertState:
         pulumi.set(self, "parent", value)
 
     @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional[pulumi.Input['SqlAlertProviderConfigArgs']]:
+        return pulumi.get(self, "provider_config")
+
+    @provider_config.setter
+    def provider_config(self, value: Optional[pulumi.Input['SqlAlertProviderConfigArgs']]):
+        pulumi.set(self, "provider_config", value)
+
+    @_builtins.property
     @pulumi.getter(name="queryId")
     def query_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -250,6 +274,7 @@ class SqlAlert(pulumi.CustomResource):
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  options: Optional[pulumi.Input[Union['SqlAlertOptionsArgs', 'SqlAlertOptionsArgsDict']]] = None,
                  parent: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input[Union['SqlAlertProviderConfigArgs', 'SqlAlertProviderConfigArgsDict']]] = None,
                  query_id: Optional[pulumi.Input[_builtins.str]] = None,
                  rearm: Optional[pulumi.Input[_builtins.int]] = None,
                  updated_at: Optional[pulumi.Input[_builtins.str]] = None,
@@ -298,28 +323,6 @@ class SqlAlert(pulumi.CustomResource):
         * SqlQuery to manage Databricks SQL [Queries](https://docs.databricks.com/sql/user/queries/index.html).
         * SqlEndpoint to manage Databricks SQL [Endpoints](https://docs.databricks.com/sql/admin/sql-endpoints.html).
         * Directory to manage directories in [Databricks Workpace](https://docs.databricks.com/workspace/workspace-objects.html).
-
-        ## Import
-
-        This resource can be imported using alert ID:
-
-        hcl
-
-        import {
-
-          to = databricks_sql_alert.this
-
-          id = "<alert-id>"
-
-        }
-
-        Alternatively, when using `terraform` version 1.4 or earlier, import using the `pulumi import` command:
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/sqlAlert:SqlAlert this "<alert-id>"
-        ```
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -380,28 +383,6 @@ class SqlAlert(pulumi.CustomResource):
         * SqlEndpoint to manage Databricks SQL [Endpoints](https://docs.databricks.com/sql/admin/sql-endpoints.html).
         * Directory to manage directories in [Databricks Workpace](https://docs.databricks.com/workspace/workspace-objects.html).
 
-        ## Import
-
-        This resource can be imported using alert ID:
-
-        hcl
-
-        import {
-
-          to = databricks_sql_alert.this
-
-          id = "<alert-id>"
-
-        }
-
-        Alternatively, when using `terraform` version 1.4 or earlier, import using the `pulumi import` command:
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/sqlAlert:SqlAlert this "<alert-id>"
-        ```
-
         :param str resource_name: The name of the resource.
         :param SqlAlertArgs args: The arguments to use to populate this resource's properties.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -421,6 +402,7 @@ class SqlAlert(pulumi.CustomResource):
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  options: Optional[pulumi.Input[Union['SqlAlertOptionsArgs', 'SqlAlertOptionsArgsDict']]] = None,
                  parent: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input[Union['SqlAlertProviderConfigArgs', 'SqlAlertProviderConfigArgsDict']]] = None,
                  query_id: Optional[pulumi.Input[_builtins.str]] = None,
                  rearm: Optional[pulumi.Input[_builtins.int]] = None,
                  updated_at: Optional[pulumi.Input[_builtins.str]] = None,
@@ -439,6 +421,7 @@ class SqlAlert(pulumi.CustomResource):
                 raise TypeError("Missing required property 'options'")
             __props__.__dict__["options"] = options
             __props__.__dict__["parent"] = parent
+            __props__.__dict__["provider_config"] = provider_config
             if query_id is None and not opts.urn:
                 raise TypeError("Missing required property 'query_id'")
             __props__.__dict__["query_id"] = query_id
@@ -458,6 +441,7 @@ class SqlAlert(pulumi.CustomResource):
             name: Optional[pulumi.Input[_builtins.str]] = None,
             options: Optional[pulumi.Input[Union['SqlAlertOptionsArgs', 'SqlAlertOptionsArgsDict']]] = None,
             parent: Optional[pulumi.Input[_builtins.str]] = None,
+            provider_config: Optional[pulumi.Input[Union['SqlAlertProviderConfigArgs', 'SqlAlertProviderConfigArgsDict']]] = None,
             query_id: Optional[pulumi.Input[_builtins.str]] = None,
             rearm: Optional[pulumi.Input[_builtins.int]] = None,
             updated_at: Optional[pulumi.Input[_builtins.str]] = None) -> 'SqlAlert':
@@ -482,6 +466,7 @@ class SqlAlert(pulumi.CustomResource):
         __props__.__dict__["name"] = name
         __props__.__dict__["options"] = options
         __props__.__dict__["parent"] = parent
+        __props__.__dict__["provider_config"] = provider_config
         __props__.__dict__["query_id"] = query_id
         __props__.__dict__["rearm"] = rearm
         __props__.__dict__["updated_at"] = updated_at
@@ -515,6 +500,11 @@ class SqlAlert(pulumi.CustomResource):
         The identifier of the workspace folder containing the alert. The default is ther user's home folder. The folder identifier is formatted as `folder/<folder_id>`.
         """
         return pulumi.get(self, "parent")
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> pulumi.Output[Optional['outputs.SqlAlertProviderConfig']]:
+        return pulumi.get(self, "provider_config")
 
     @_builtins.property
     @pulumi.getter(name="queryId")

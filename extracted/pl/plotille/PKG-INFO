@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plotille
-Version: 6.0.3
+Version: 6.0.4
 Summary: Plot in the terminal using braille dots.
 Keywords: plot,scatter,histogram,terminal,braille,unicode,timeseries
 Author: Tammo Ippen

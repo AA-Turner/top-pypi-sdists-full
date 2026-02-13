@@ -41,7 +41,7 @@ def process_data_with_ocr(
     ocr_agent: str = OCR_AGENT_TESSERACT,
     ocr_languages: str = "eng",
     ocr_mode: str = OCRMode.FULL_PAGE.value,
-    pdf_image_dpi: int = 200,
+    pdf_image_dpi: int = env_config.PDF_RENDER_DPI,
     ocr_layout_dumper: Optional[OCRLayoutDumper] = None,
     password: Optional[str] = None,
     table_ocr_agent: str = OCR_AGENT_TESSERACT,
@@ -68,7 +68,8 @@ def process_data_with_ocr(
         page and will be merged with the output layout. If choose "individual_blocks" OCR,
         OCR is performed on individual elements by cropping the image.
 
-    - pdf_image_dpi (int, optional): DPI (dots per inch) for processing PDF images. Defaults to 200.
+    - pdf_image_dpi (int, optional): DPI (dots per inch) for processing PDF images. Defaults to
+      env_config.PDF_RENDER_DPI's value.
 
     - ocr_layout_dumper (OCRLayoutDumper, optional): The OCR layout dumper to save the OCR layout.
 
@@ -110,7 +111,7 @@ def process_file_with_ocr(
     ocr_agent: str = OCR_AGENT_TESSERACT,
     ocr_languages: str = "eng",
     ocr_mode: str = OCRMode.FULL_PAGE.value,
-    pdf_image_dpi: int = 200,
+    pdf_image_dpi: int = env_config.PDF_RENDER_DPI,
     ocr_layout_dumper: Optional[OCRLayoutDumper] = None,
     password: Optional[str] = None,
     table_ocr_agent: str = OCR_AGENT_TESSERACT,
@@ -139,7 +140,8 @@ def process_file_with_ocr(
         page and will be merged with the output layout. If choose "individual_blocks" OCR,
         OCR is performed on individual elements by cropping the image.
 
-    - pdf_image_dpi (int, optional): DPI (dots per inch) for processing PDF images. Defaults to 200.
+    - pdf_image_dpi (int, optional): DPI (dots per inch) for processing PDF images. Defaults to
+      env_config.PDF_RENDER_DPI.
 
     Returns:
         DocumentLayout: The merged layout information obtained after OCR processing.
@@ -471,13 +473,9 @@ def supplement_layout_with_ocr_elements(
         else:
             ocr_regions_to_add = ocr_layout
     else:
-        mask = (
-            ~bboxes1_is_almost_subregion_of_bboxes2(
-                ocr_layout.element_coords, layout.element_coords, subregion_threshold
-            )
-            .sum(axis=1)
-            .astype(bool)
-        )
+        mask = ~bboxes1_is_almost_subregion_of_bboxes2(
+            ocr_layout.element_coords, layout.element_coords, subregion_threshold
+        ).sum(axis=1).astype(bool)
 
         # add ocr regions that are not covered by layout
         ocr_regions_to_add = ocr_layout.slice(mask)

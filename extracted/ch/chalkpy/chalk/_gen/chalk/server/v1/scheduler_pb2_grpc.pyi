@@ -10,6 +10,12 @@ from abc import (
 from chalk._gen.chalk.server.v1.scheduler_pb2 import (
     CancelScheduledResolverRunRequest,
     CancelScheduledResolverRunResponse,
+    GetActiveScheduledResolversRequest,
+    GetActiveScheduledResolversResponse,
+    GetLatestHighWaterMarkRequest,
+    GetLatestHighWaterMarkResponse,
+    GetScheduledResolverControlRequest,
+    GetScheduledResolverControlResponse,
     GetScheduledResolverRunRequest,
     GetScheduledResolverRunResponse,
     ListScheduledResolverRunsRequest,
@@ -18,6 +24,8 @@ from chalk._gen.chalk.server.v1.scheduler_pb2 import (
     ManualTriggerCronResolverResponse,
     ManualTriggerScheduledQueryRequest,
     ManualTriggerScheduledQueryResponse,
+    UpdateScheduledResolverControlRequest,
+    UpdateScheduledResolverControlResponse,
 )
 from grpc import (
     Channel,
@@ -47,6 +55,22 @@ class SchedulerServiceStub:
     CancelScheduledResolverRun: UnaryUnaryMultiCallable[
         CancelScheduledResolverRunRequest,
         CancelScheduledResolverRunResponse,
+    ]
+    GetActiveScheduledResolvers: UnaryUnaryMultiCallable[
+        GetActiveScheduledResolversRequest,
+        GetActiveScheduledResolversResponse,
+    ]
+    GetScheduledResolverControl: UnaryUnaryMultiCallable[
+        GetScheduledResolverControlRequest,
+        GetScheduledResolverControlResponse,
+    ]
+    UpdateScheduledResolverControl: UnaryUnaryMultiCallable[
+        UpdateScheduledResolverControlRequest,
+        UpdateScheduledResolverControlResponse,
+    ]
+    GetLatestHighWaterMark: UnaryUnaryMultiCallable[
+        GetLatestHighWaterMarkRequest,
+        GetLatestHighWaterMarkResponse,
     ]
 
 class SchedulerServiceServicer(metaclass=ABCMeta):
@@ -80,5 +104,29 @@ class SchedulerServiceServicer(metaclass=ABCMeta):
         request: CancelScheduledResolverRunRequest,
         context: ServicerContext,
     ) -> CancelScheduledResolverRunResponse: ...
+    @abstractmethod
+    def GetActiveScheduledResolvers(
+        self,
+        request: GetActiveScheduledResolversRequest,
+        context: ServicerContext,
+    ) -> GetActiveScheduledResolversResponse: ...
+    @abstractmethod
+    def GetScheduledResolverControl(
+        self,
+        request: GetScheduledResolverControlRequest,
+        context: ServicerContext,
+    ) -> GetScheduledResolverControlResponse: ...
+    @abstractmethod
+    def UpdateScheduledResolverControl(
+        self,
+        request: UpdateScheduledResolverControlRequest,
+        context: ServicerContext,
+    ) -> UpdateScheduledResolverControlResponse: ...
+    @abstractmethod
+    def GetLatestHighWaterMark(
+        self,
+        request: GetLatestHighWaterMarkRequest,
+        context: ServicerContext,
+    ) -> GetLatestHighWaterMarkResponse: ...
 
 def add_SchedulerServiceServicer_to_server(servicer: SchedulerServiceServicer, server: Server) -> None: ...

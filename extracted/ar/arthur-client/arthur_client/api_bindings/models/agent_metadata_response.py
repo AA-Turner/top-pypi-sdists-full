@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from arthur_client.api_bindings.models.gcp_agent_metadata_response import GCPAgentMetadataResponse
 from arthur_client.api_bindings.models.registered_agent_provider import RegisteredAgentProvider
@@ -30,7 +30,8 @@ class AgentMetadataResponse(BaseModel):
     """ # noqa: E501
     provider: RegisteredAgentProvider = Field(description="Provider of the registered agent.")
     gcp_metadata: Optional[GCPAgentMetadataResponse] = None
-    __properties: ClassVar[List[str]] = ["provider", "gcp_metadata"]
+    service_names: Optional[List[StrictStr]] = None
+    __properties: ClassVar[List[str]] = ["provider", "gcp_metadata", "service_names"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -79,6 +80,11 @@ class AgentMetadataResponse(BaseModel):
         if self.gcp_metadata is None and "gcp_metadata" in self.model_fields_set:
             _dict['gcp_metadata'] = None
 
+        # set to None if service_names (nullable) is None
+        # and model_fields_set contains the field
+        if self.service_names is None and "service_names" in self.model_fields_set:
+            _dict['service_names'] = None
+
         return _dict
 
     @classmethod
@@ -92,7 +98,8 @@ class AgentMetadataResponse(BaseModel):
 
         _obj = cls.model_validate({
             "provider": obj.get("provider"),
-            "gcp_metadata": GCPAgentMetadataResponse.from_dict(obj["gcp_metadata"]) if obj.get("gcp_metadata") is not None else None
+            "gcp_metadata": GCPAgentMetadataResponse.from_dict(obj["gcp_metadata"]) if obj.get("gcp_metadata") is not None else None,
+            "service_names": obj.get("service_names")
         })
         return _obj
 

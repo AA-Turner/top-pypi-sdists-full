@@ -13,6 +13,8 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import NotRequired, TypedDict, TypeAlias
 from . import _utilities
+from . import outputs
+from ._inputs import *
 
 __all__ = ['WorkspaceBindingArgs', 'WorkspaceBinding']
 
@@ -22,12 +24,14 @@ class WorkspaceBindingArgs:
                  workspace_id: pulumi.Input[_builtins.str],
                  binding_type: Optional[pulumi.Input[_builtins.str]] = None,
                  catalog_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input['WorkspaceBindingProviderConfigArgs']] = None,
                  securable_name: Optional[pulumi.Input[_builtins.str]] = None,
                  securable_type: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a WorkspaceBinding resource.
         :param pulumi.Input[_builtins.str] workspace_id: ID of the workspace. Change forces creation of a new resource.
         :param pulumi.Input[_builtins.str] binding_type: Binding mode. Default to `BINDING_TYPE_READ_WRITE`. Possible values are `BINDING_TYPE_READ_ONLY`, `BINDING_TYPE_READ_WRITE`.
+        :param pulumi.Input['WorkspaceBindingProviderConfigArgs'] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] securable_name: Name of securable. Change forces creation of a new resource.
         :param pulumi.Input[_builtins.str] securable_type: Type of securable. Can be `catalog`, `external_location`, `storage_credential` or `credential`. Default to `catalog`. Change forces creation of a new resource.
         """
@@ -39,6 +43,8 @@ class WorkspaceBindingArgs:
             pulumi.log.warn("""catalog_name is deprecated: Please use 'securable_name' and 'securable_type instead.""")
         if catalog_name is not None:
             pulumi.set(__self__, "catalog_name", catalog_name)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
         if securable_name is not None:
             pulumi.set(__self__, "securable_name", securable_name)
         if securable_type is not None:
@@ -79,6 +85,18 @@ class WorkspaceBindingArgs:
         pulumi.set(self, "catalog_name", value)
 
     @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional[pulumi.Input['WorkspaceBindingProviderConfigArgs']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
+
+    @provider_config.setter
+    def provider_config(self, value: Optional[pulumi.Input['WorkspaceBindingProviderConfigArgs']]):
+        pulumi.set(self, "provider_config", value)
+
+    @_builtins.property
     @pulumi.getter(name="securableName")
     def securable_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -108,12 +126,14 @@ class _WorkspaceBindingState:
     def __init__(__self__, *,
                  binding_type: Optional[pulumi.Input[_builtins.str]] = None,
                  catalog_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input['WorkspaceBindingProviderConfigArgs']] = None,
                  securable_name: Optional[pulumi.Input[_builtins.str]] = None,
                  securable_type: Optional[pulumi.Input[_builtins.str]] = None,
                  workspace_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering WorkspaceBinding resources.
         :param pulumi.Input[_builtins.str] binding_type: Binding mode. Default to `BINDING_TYPE_READ_WRITE`. Possible values are `BINDING_TYPE_READ_ONLY`, `BINDING_TYPE_READ_WRITE`.
+        :param pulumi.Input['WorkspaceBindingProviderConfigArgs'] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] securable_name: Name of securable. Change forces creation of a new resource.
         :param pulumi.Input[_builtins.str] securable_type: Type of securable. Can be `catalog`, `external_location`, `storage_credential` or `credential`. Default to `catalog`. Change forces creation of a new resource.
         :param pulumi.Input[_builtins.str] workspace_id: ID of the workspace. Change forces creation of a new resource.
@@ -125,6 +145,8 @@ class _WorkspaceBindingState:
             pulumi.log.warn("""catalog_name is deprecated: Please use 'securable_name' and 'securable_type instead.""")
         if catalog_name is not None:
             pulumi.set(__self__, "catalog_name", catalog_name)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
         if securable_name is not None:
             pulumi.set(__self__, "securable_name", securable_name)
         if securable_type is not None:
@@ -153,6 +175,18 @@ class _WorkspaceBindingState:
     @catalog_name.setter
     def catalog_name(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "catalog_name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional[pulumi.Input['WorkspaceBindingProviderConfigArgs']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
+
+    @provider_config.setter
+    def provider_config(self, value: Optional[pulumi.Input['WorkspaceBindingProviderConfigArgs']]):
+        pulumi.set(self, "provider_config", value)
 
     @_builtins.property
     @pulumi.getter(name="securableName")
@@ -199,36 +233,44 @@ class WorkspaceBinding(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None,
                  binding_type: Optional[pulumi.Input[_builtins.str]] = None,
                  catalog_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input[Union['WorkspaceBindingProviderConfigArgs', 'WorkspaceBindingProviderConfigArgsDict']]] = None,
                  securable_name: Optional[pulumi.Input[_builtins.str]] = None,
                  securable_type: Optional[pulumi.Input[_builtins.str]] = None,
                  workspace_id: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
-        ## Import
+        If you use workspaces to isolate user data access, you may want to limit access to catalog, external locations or storage credentials from specific workspaces in your account, also known as workspace binding
 
-        This resource can be imported by using combination of workspace ID, securable type and name:
+        > This resource can only be used with a workspace-level provider!
 
-        hcl
+        By default, Databricks assigns the securable to all workspaces attached to the current metastore. By using `WorkspaceBinding`, the securable will be unassigned from all workspaces and only assigned explicitly using this resource.
 
-        import {
+        > To use this resource the securable must have its isolation mode set to `ISOLATED` (for databricks_catalog) or `ISOLATION_MODE_ISOLATED` (for  (for databricks_external_location, StorageCredential or databricks_credential) for the `isolation_mode` attribute. Alternatively, the isolation mode can be set using the UI or API by following [this guide](https://docs.databricks.com/data-governance/unity-catalog/create-catalogs.html#configuration), [this guide](https://docs.databricks.com/en/connect/unity-catalog/external-locations.html#workspace-binding) or [this guide](https://docs.databricks.com/en/connect/unity-catalog/storage-credentials.html#optional-assign-a-storage-credential-to-specific-workspaces).
 
-          to = databricks_workspace_binding.this
+        > If the securable's isolation mode was set to `ISOLATED` using Pulumi then the securable will have been automatically bound to the workspace it was created from.
 
-          id = "<workspace_id>|<securable_type>|<securable_name>"
+        ## Example Usage
 
-        }
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
 
-        Alternatively, when using `terraform` version 1.4 or earlier, import using the `pulumi import` command:
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/workspaceBinding:WorkspaceBinding this "<workspace_id>|<securable_type>|<securable_name>"
+        sandbox = databricks.Catalog("sandbox",
+            name="sandbox",
+            isolation_mode="ISOLATED")
+        sandbox_workspace_binding = databricks.WorkspaceBinding("sandbox",
+            securable_name=sandbox.name,
+            workspace_id=other["workspaceId"])
         ```
+
+        ## Migration from CatalogWorkspaceBinding
+
+        You can migrate from the deprecated `CatalogWorkspaceBinding` to `WorkspaceBinding` without re-binding catalog.
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] binding_type: Binding mode. Default to `BINDING_TYPE_READ_WRITE`. Possible values are `BINDING_TYPE_READ_ONLY`, `BINDING_TYPE_READ_WRITE`.
+        :param pulumi.Input[Union['WorkspaceBindingProviderConfigArgs', 'WorkspaceBindingProviderConfigArgsDict']] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] securable_name: Name of securable. Change forces creation of a new resource.
         :param pulumi.Input[_builtins.str] securable_type: Type of securable. Can be `catalog`, `external_location`, `storage_credential` or `credential`. Default to `catalog`. Change forces creation of a new resource.
         :param pulumi.Input[_builtins.str] workspace_id: ID of the workspace. Change forces creation of a new resource.
@@ -240,27 +282,33 @@ class WorkspaceBinding(pulumi.CustomResource):
                  args: WorkspaceBindingArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        ## Import
+        If you use workspaces to isolate user data access, you may want to limit access to catalog, external locations or storage credentials from specific workspaces in your account, also known as workspace binding
 
-        This resource can be imported by using combination of workspace ID, securable type and name:
+        > This resource can only be used with a workspace-level provider!
 
-        hcl
+        By default, Databricks assigns the securable to all workspaces attached to the current metastore. By using `WorkspaceBinding`, the securable will be unassigned from all workspaces and only assigned explicitly using this resource.
 
-        import {
+        > To use this resource the securable must have its isolation mode set to `ISOLATED` (for databricks_catalog) or `ISOLATION_MODE_ISOLATED` (for  (for databricks_external_location, StorageCredential or databricks_credential) for the `isolation_mode` attribute. Alternatively, the isolation mode can be set using the UI or API by following [this guide](https://docs.databricks.com/data-governance/unity-catalog/create-catalogs.html#configuration), [this guide](https://docs.databricks.com/en/connect/unity-catalog/external-locations.html#workspace-binding) or [this guide](https://docs.databricks.com/en/connect/unity-catalog/storage-credentials.html#optional-assign-a-storage-credential-to-specific-workspaces).
 
-          to = databricks_workspace_binding.this
+        > If the securable's isolation mode was set to `ISOLATED` using Pulumi then the securable will have been automatically bound to the workspace it was created from.
 
-          id = "<workspace_id>|<securable_type>|<securable_name>"
+        ## Example Usage
 
-        }
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
 
-        Alternatively, when using `terraform` version 1.4 or earlier, import using the `pulumi import` command:
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/workspaceBinding:WorkspaceBinding this "<workspace_id>|<securable_type>|<securable_name>"
+        sandbox = databricks.Catalog("sandbox",
+            name="sandbox",
+            isolation_mode="ISOLATED")
+        sandbox_workspace_binding = databricks.WorkspaceBinding("sandbox",
+            securable_name=sandbox.name,
+            workspace_id=other["workspaceId"])
         ```
+
+        ## Migration from CatalogWorkspaceBinding
+
+        You can migrate from the deprecated `CatalogWorkspaceBinding` to `WorkspaceBinding` without re-binding catalog.
 
         :param str resource_name: The name of the resource.
         :param WorkspaceBindingArgs args: The arguments to use to populate this resource's properties.
@@ -279,6 +327,7 @@ class WorkspaceBinding(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None,
                  binding_type: Optional[pulumi.Input[_builtins.str]] = None,
                  catalog_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input[Union['WorkspaceBindingProviderConfigArgs', 'WorkspaceBindingProviderConfigArgsDict']]] = None,
                  securable_name: Optional[pulumi.Input[_builtins.str]] = None,
                  securable_type: Optional[pulumi.Input[_builtins.str]] = None,
                  workspace_id: Optional[pulumi.Input[_builtins.str]] = None,
@@ -293,6 +342,7 @@ class WorkspaceBinding(pulumi.CustomResource):
 
             __props__.__dict__["binding_type"] = binding_type
             __props__.__dict__["catalog_name"] = catalog_name
+            __props__.__dict__["provider_config"] = provider_config
             __props__.__dict__["securable_name"] = securable_name
             __props__.__dict__["securable_type"] = securable_type
             if workspace_id is None and not opts.urn:
@@ -310,6 +360,7 @@ class WorkspaceBinding(pulumi.CustomResource):
             opts: Optional[pulumi.ResourceOptions] = None,
             binding_type: Optional[pulumi.Input[_builtins.str]] = None,
             catalog_name: Optional[pulumi.Input[_builtins.str]] = None,
+            provider_config: Optional[pulumi.Input[Union['WorkspaceBindingProviderConfigArgs', 'WorkspaceBindingProviderConfigArgsDict']]] = None,
             securable_name: Optional[pulumi.Input[_builtins.str]] = None,
             securable_type: Optional[pulumi.Input[_builtins.str]] = None,
             workspace_id: Optional[pulumi.Input[_builtins.str]] = None) -> 'WorkspaceBinding':
@@ -321,6 +372,7 @@ class WorkspaceBinding(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] binding_type: Binding mode. Default to `BINDING_TYPE_READ_WRITE`. Possible values are `BINDING_TYPE_READ_ONLY`, `BINDING_TYPE_READ_WRITE`.
+        :param pulumi.Input[Union['WorkspaceBindingProviderConfigArgs', 'WorkspaceBindingProviderConfigArgsDict']] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] securable_name: Name of securable. Change forces creation of a new resource.
         :param pulumi.Input[_builtins.str] securable_type: Type of securable. Can be `catalog`, `external_location`, `storage_credential` or `credential`. Default to `catalog`. Change forces creation of a new resource.
         :param pulumi.Input[_builtins.str] workspace_id: ID of the workspace. Change forces creation of a new resource.
@@ -331,6 +383,7 @@ class WorkspaceBinding(pulumi.CustomResource):
 
         __props__.__dict__["binding_type"] = binding_type
         __props__.__dict__["catalog_name"] = catalog_name
+        __props__.__dict__["provider_config"] = provider_config
         __props__.__dict__["securable_name"] = securable_name
         __props__.__dict__["securable_type"] = securable_type
         __props__.__dict__["workspace_id"] = workspace_id
@@ -349,6 +402,14 @@ class WorkspaceBinding(pulumi.CustomResource):
     @_utilities.deprecated("""Please use 'securable_name' and 'securable_type instead.""")
     def catalog_name(self) -> pulumi.Output[Optional[_builtins.str]]:
         return pulumi.get(self, "catalog_name")
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> pulumi.Output[Optional['outputs.WorkspaceBindingProviderConfig']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
 
     @_builtins.property
     @pulumi.getter(name="securableName")

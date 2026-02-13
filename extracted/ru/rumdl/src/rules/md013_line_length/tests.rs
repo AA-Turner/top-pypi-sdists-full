@@ -131,7 +131,10 @@ fn test_table_checked_when_enabled() {
     let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
-    assert_eq!(result.len(), 2); // Both table lines exceed limit
+    // Header row has spaces and prefix exceeds limit → flagged.
+    // Delimiter row has no spaces (one continuous token) → trailing-word forgiveness applies.
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].line, 1);
 }
 
 #[test]
@@ -170,7 +173,7 @@ fn test_issue_78_tables_with_inline_code() {
 | `var with very long name` | `val exceeding limit` |
 | value 1 | value 2 |
 
-This line exceeds limit"#;
+This line has extra words that exceed the limit even after trailing-word forgiveness"#;
     let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
@@ -247,13 +250,15 @@ fn test_strict_mode() {
 }
 
 #[test]
-fn test_blockquote_exemption() {
+fn test_blockquote_wrappable_text_is_flagged() {
     let rule = MD013LineLength::new(30, false, false, false, false);
-    let content = "> This is a very long line inside a blockquote that should be ignored.";
+    // Blockquote with wrappable text — the text before the last word exceeds the limit
+    let content = "> This is a very long line inside a blockquote that should be flagged.";
     let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
-    assert_eq!(result.len(), 0);
+    // Blockquotes with wrappable text should be flagged (matches markdownlint behavior)
+    assert_eq!(result.len(), 1);
 }
 
 #[test]
@@ -285,7 +290,8 @@ fn test_no_fix_without_reflow() {
 
 #[test]
 fn test_character_vs_byte_counting() {
-    let rule = MD013LineLength::new(10, false, false, false, false);
+    // Use strict mode to test pure character counting without trailing-word forgiveness
+    let rule = MD013LineLength::new(10, false, false, false, true);
     // Unicode characters should count as 1 character each
     let content = "你好世界这是测试文字超过限制"; // 14 characters
     let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
@@ -306,7 +312,8 @@ fn test_empty_content() {
 
 #[test]
 fn test_excess_range_calculation() {
-    let rule = MD013LineLength::new(10, false, false, false, false);
+    // Use strict mode to test range calculation without trailing-word forgiveness
+    let rule = MD013LineLength::new(10, false, false, false, true);
     let content = "12345678901234567890"; // 20 chars, limit is 10
     let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
@@ -390,39 +397,37 @@ fn test_rule_metadata() {
 fn test_url_embedded_in_text() {
     let rule = MD013LineLength::new(50, false, false, false, false);
 
-    // This line would be 85 chars, but only ~45 without the URL
+    // 79 chars, limit 50 — flagged (actual length used, no URL stripping)
     let content = "Check the docs at https://example.com/very/long/url/that/exceeds/limit for info";
     let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
-    // Should not flag because effective length (with URL placeholder) is under 50
-    assert_eq!(result.len(), 0);
+    assert_eq!(result.len(), 1);
 }
 
 #[test]
 fn test_multiple_urls_in_line() {
     let rule = MD013LineLength::new(50, false, false, false, false);
 
-    // Line with multiple URLs
+    // 77 chars, limit 50 — flagged (actual length used, no URL stripping)
     let content = "See https://first-url.com/long and https://second-url.com/also/very/long here";
     let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
 
     let result = rule.check(&ctx).unwrap();
 
-    // Should not flag because effective length is reasonable
-    assert_eq!(result.len(), 0);
+    assert_eq!(result.len(), 1);
 }
 
 #[test]
 fn test_markdown_link_with_long_url() {
     let rule = MD013LineLength::new(50, false, false, false, false);
 
-    // Markdown link with very long URL
+    // 95 chars, limit 50. Text-only: "Check the [documentation] for details" = 38 chars.
+    // Since URL removal brings line within limit, the warning is suppressed.
     let content = "Check the [documentation](https://example.com/very/long/path/to/documentation/page) for details";
     let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
-    // Should not flag because effective length counts link as short
     assert_eq!(result.len(), 0);
 }
 
@@ -453,16 +458,273 @@ fn test_strict_mode_counts_urls() {
 }
 
 #[test]
-fn test_documentation_example_from_md051() {
+fn test_trailing_link_forgiven_in_non_strict() {
     let rule = MD013LineLength::new(80, false, false, false, false);
 
-    // This is the actual line from md051.md that was causing issues
+    // 119 chars, but the text before the trailing link token fits within 80 chars.
+    // "For more information, see the [CommonMark " = 42 chars → under 80
     let content = r#"For more information, see the [CommonMark specification](https://spec.commonmark.org/0.30/#link-reference-definitions)."#;
     let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
-    // Should not flag because the URL is in a markdown link
+    // Not flagged: the trailing token is what pushes it over the limit
     assert_eq!(result.len(), 0);
+}
+
+#[test]
+fn test_trailing_link_flagged_in_strict() {
+    let rule = MD013LineLength::new(80, false, false, false, true); // strict=true
+
+    let content = r#"For more information, see the [CommonMark specification](https://spec.commonmark.org/0.30/#link-reference-definitions)."#;
+    let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // In strict mode, the full line length is checked — flagged
+    assert_eq!(result.len(), 1);
+}
+
+#[test]
+fn test_warning_reports_actual_length() {
+    // Verify that the warning message reports the actual line length, not a reduced URL-stripped length
+    let rule = MD013LineLength::new(50, false, false, false, false);
+    let content = "This line has a URL https://example.com/long/url and trailing text here";
+    let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert_eq!(result.len(), 1);
+    // Should report actual length (71), not a URL-stripped length
+    assert!(
+        result[0].message.contains("71"),
+        "Expected actual length 71 in message: {}",
+        result[0].message
+    );
+}
+
+// =============================================================================
+// Trailing-word forgiveness tests (issue #393, markdownlint non-strict parity)
+// =============================================================================
+
+#[test]
+fn test_issue_393_list_item_with_link_chain() {
+    // Original issue: list item with chained markdown links has no breakable position
+    let rule = MD013LineLength::new(99, false, false, false, false);
+    let content =
+        "- [@kevinsuttle](https://kevinsuttle.com/)/[macOS-Defaults](https://github.com/kevinSuttle/macOS-Defaults)";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // 106 chars, but everything after "- " is a single non-whitespace token.
+    // After trailing-word replacement: "- #" = 3 chars → under 99
+    assert_eq!(result.len(), 0);
+}
+
+#[test]
+fn test_single_long_token_no_spaces() {
+    let rule = MD013LineLength::new(50, false, false, false, false);
+    let content = "ThisIsASingleVeryLongTokenWithNoSpacesAtAllThatExceedsLimit";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // No whitespace at all → entire line is one token → check_length = 1
+    assert_eq!(result.len(), 0);
+}
+
+#[test]
+fn test_single_long_token_in_strict_mode() {
+    let rule = MD013LineLength::new(50, false, false, false, true); // strict
+    let content = "ThisIsASingleVeryLongTokenWithNoSpacesAtAllThatExceedsLimit";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // In strict mode, no trailing-word forgiveness
+    assert_eq!(result.len(), 1);
+}
+
+#[test]
+fn test_list_item_with_single_long_token() {
+    let rule = MD013LineLength::new(50, false, false, false, false);
+    let content = "- ThisIsAVeryLongListItemTokenThatExceedsTheLimitButCannotBeBroken";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // After "- " the rest is a single token → "- #" = 3 chars
+    assert_eq!(result.len(), 0);
+}
+
+#[test]
+fn test_trailing_url_forgiven() {
+    let rule = MD013LineLength::new(50, false, false, false, false);
+    let content = "short text https://github.com/kevinSuttle/macOS-Defaults/really/long/path";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // "short text " = 11 chars → check_length = 12 → under 50
+    assert_eq!(result.len(), 0);
+}
+
+#[test]
+fn test_trailing_url_flagged_when_prefix_exceeds_limit() {
+    let rule = MD013LineLength::new(50, false, false, false, false);
+    let content = "This text is already very long before the URL even starts here https://example.com";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // "This text is already very long before the URL even starts here " = 63 chars
+    // check_length = 63 + 1 = 64 → over 50 → flagged
+    assert_eq!(result.len(), 1);
+}
+
+#[test]
+fn test_bold_link_forgiven() {
+    let rule = MD013LineLength::new(50, false, false, false, false);
+    let content = "**[Bold link text](https://github.com/kevinSuttle/macOS-Defaults/really/long/path)**";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // Last whitespace is before "text](...)**"
+    // "**[Bold link " = 13 chars → check_length = 14 → under 50
+    assert_eq!(result.len(), 0);
+}
+
+#[test]
+fn test_links_with_text_between_suppressed_when_text_short() {
+    let rule = MD013LineLength::new(50, false, false, false, false);
+    let content =
+        "See [Link One](https://example.com/long/path) and also [Link Two](https://example.com/long/path) here";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // Text-only: "See [Link One] and also [Link Two] here" = 40 chars, under 50.
+    // URLs account for the excess, so the warning is suppressed.
+    assert_eq!(result.len(), 0);
+}
+
+#[test]
+fn test_blockquote_ending_with_url_forgiven() {
+    let rule = MD013LineLength::new(50, false, false, false, false);
+    let content = "> See https://github.com/kevinSuttle/macOS-Defaults/really/long/path";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // "> See " = 6 chars → check_length = 7 → under 50
+    assert_eq!(result.len(), 0);
+}
+
+#[test]
+fn test_blockquote_with_wrappable_text_flagged() {
+    let rule = MD013LineLength::new(50, false, false, false, false);
+    let content = "> This is a very long blockquote line with lots of wrappable text that exceeds the limit easily";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // Even after trailing-word replacement, the prefix exceeds 50 → flagged
+    assert_eq!(result.len(), 1);
+}
+
+#[test]
+fn test_link_ref_definition_exempt_in_strict_mode() {
+    let rule = MD013LineLength::new(50, false, false, false, true); // strict=true
+    let content = "[reference]: https://example.com/very/long/url/that/exceeds/the/configured/limit";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // Reference definitions are always exempt, even in strict mode
+    assert_eq!(result.len(), 0);
+}
+
+#[test]
+fn test_link_ref_definition_exempt_in_non_strict_mode() {
+    let rule = MD013LineLength::new(50, false, false, false, false);
+    let content = "[reference]: https://example.com/very/long/url/that/exceeds/the/configured/limit";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(result.len(), 0);
+}
+
+#[test]
+fn test_trailing_word_replacement_preserves_warning_length() {
+    // The warning message should report ACTUAL line length, not the check_length
+    let rule = MD013LineLength::new(50, false, false, false, false);
+    // 87 chars total. After trailing-word replacement:
+    // "This line is already very long before the trailing " = 51 chars → check_length = 52 → over 50
+    let content = "This line is already very long before the trailing https://example.com/long/url/path";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(result.len(), 1);
+    // Warning must report the actual 84 chars, not 52
+    assert!(
+        result[0].message.contains("84"),
+        "Expected actual length in message: {}",
+        result[0].message
+    );
+}
+
+#[test]
+fn test_image_ref_without_spaces_forgiven() {
+    let rule = MD013LineLength::new(50, false, false, false, false);
+    let content = "![very-long-image-alt-text-that-exceeds-the-line-limit-by-a-lot][ref]";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // No whitespace → check_length = 1
+    assert_eq!(result.len(), 0);
+}
+
+#[test]
+fn test_markdownlint_documentation_examples() {
+    // From markdownlint docs, assuming limit = 40 ("IF THIS LINE IS THE MAXIMUM LENGTH")
+    let rule = MD013LineLength::new(40, false, false, false, false);
+
+    // "This line is okay because there are-no-spaces-beyond-that-length"
+    // Last whitespace before "are-no-spaces-beyond-that-length"
+    // "This line is okay because there " = 32 chars → check_length = 33 → under 40
+    let content = "This line is okay because there are-no-spaces-beyond-that-length";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    assert_eq!(
+        rule.check(&ctx).unwrap().len(),
+        0,
+        "should pass: no spaces beyond limit"
+    );
+
+    // "This line is a violation because there are spaces beyond that length"
+    // Last word "length" → prefix = "This line is a violation because there are spaces beyond that " = 62 chars
+    // check_length = 63 → over 40 → flagged
+    let content = "This line is a violation because there are spaces beyond that length";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    assert_eq!(rule.check(&ctx).unwrap().len(), 1, "should flag: spaces beyond limit");
+
+    // "This-line-is-okay-because-there-are-no-spaces-anywhere-within"
+    // No whitespace → check_length = 1 → passes
+    let content = "This-line-is-okay-because-there-are-no-spaces-anywhere-within";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    assert_eq!(rule.check(&ctx).unwrap().len(), 0, "should pass: no spaces anywhere");
+}
+
+#[test]
+fn test_issue_384_reflow_with_urls() {
+    // Reproduces the exact scenario from issue #384: list items with markdown links
+    // that exceed the line limit should be reflowed
+    let config = MD013Config {
+        line_length: crate::types::LineLength::from_const(120),
+        reflow: true,
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "- Use [`pre-commit`](https://pre-commit.com) (with [`prek`](https://prek.j178.dev)) to format and lint code. to format and lint code.";
+    let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // Should have a warning (133 chars > 120 limit)
+    assert!(!result.is_empty(), "Should flag: 133 chars > 120");
+
+    // The fix should reflow the line to fit within the limit
+    let fixed = rule.fix(&ctx).unwrap();
+    for line in fixed.lines() {
+        let len = line.chars().count();
+        assert!(len <= 120, "Line still too long after reflow: {line} ({len} chars)");
+    }
 }
 
 #[test]
@@ -2313,4 +2575,442 @@ fn test_mixed_content_with_templates() {
 
     let content2 = "Start {{#something}} end";
     assert!(!is_template_directive_only(content2));
+}
+
+#[test]
+fn test_reflow_preserves_mkdocstrings_autodoc_block() {
+    // Issue #396: mkdocstrings autodoc blocks with indented YAML options must not be reflowed
+    let config = MD013Config {
+        line_length: crate::types::LineLength::from_const(80),
+        paragraphs: true,
+        code_blocks: true,
+        tables: true,
+        headings: true,
+        strict: false,
+        reflow: true,
+        reflow_mode: ReflowMode::SemanticLineBreaks,
+        length_mode: LengthMode::default(),
+        abbreviations: Vec::new(),
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "::: path.to.module\n    options:\n      group_by_category: false\n      members:\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
+    let result = rule.check(&ctx).unwrap();
+
+    let reflow_fixes: Vec<_> = result.iter().filter(|w| w.fix.is_some()).collect();
+    assert!(
+        reflow_fixes.is_empty(),
+        "mkdocstrings autodoc blocks should not be reflowed, got {reflow_fixes:?}"
+    );
+}
+
+#[test]
+fn test_reflow_preserves_mkdocstrings_with_identifier() {
+    let config = MD013Config {
+        line_length: crate::types::LineLength::from_const(80),
+        paragraphs: true,
+        code_blocks: true,
+        tables: true,
+        headings: true,
+        strict: false,
+        reflow: true,
+        reflow_mode: ReflowMode::SentencePerLine,
+        length_mode: LengthMode::default(),
+        abbreviations: Vec::new(),
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content =
+        "::: my_module.MyClass\n    handler: python\n    options:\n      show_source: true\n      heading_level: 3\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
+    let result = rule.check(&ctx).unwrap();
+
+    let reflow_fixes: Vec<_> = result.iter().filter(|w| w.fix.is_some()).collect();
+    assert!(
+        reflow_fixes.is_empty(),
+        "mkdocstrings autodoc blocks should not produce reflow fixes, got {reflow_fixes:?}"
+    );
+}
+
+#[test]
+fn test_reflow_preserves_mkdocstrings_surrounded_by_paragraphs() {
+    let config = MD013Config {
+        line_length: crate::types::LineLength::from_const(40),
+        paragraphs: true,
+        code_blocks: true,
+        tables: true,
+        headings: true,
+        strict: false,
+        reflow: true,
+        reflow_mode: ReflowMode::SemanticLineBreaks,
+        length_mode: LengthMode::default(),
+        abbreviations: Vec::new(),
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "This is a long paragraph that exceeds the forty character line length limit.\n\n::: my_module.MyClass\n    handler: python\n    options:\n      show_source: true\n\nAnother long paragraph that also exceeds the forty character line length limit.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
+    let result = rule.check(&ctx).unwrap();
+
+    for warning in &result {
+        if let Some(ref fix) = warning.fix {
+            let fixed = &fix.replacement;
+            assert!(
+                !fixed.contains("handler:") && !fixed.contains("show_source:"),
+                "mkdocstrings YAML options should not appear in reflow fixes: {fixed}"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_reflow_mkdocstrings_not_detected_in_standard_flavor() {
+    let config = MD013Config {
+        line_length: crate::types::LineLength::from_const(80),
+        paragraphs: true,
+        code_blocks: true,
+        tables: true,
+        headings: true,
+        strict: false,
+        reflow: true,
+        reflow_mode: ReflowMode::SemanticLineBreaks,
+        length_mode: LengthMode::default(),
+        abbreviations: Vec::new(),
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    // In standard flavor, this content is not treated as mkdocstrings
+    let content = "::: my_module.MyClass\n    handler: python\n    options:\n      show_source: true\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let _result = rule.check(&ctx).unwrap();
+    // Just verify it doesn't panic — behavior differs per flavor
+}
+
+#[test]
+fn test_reflow_preserves_mkdocstrings_with_blank_line_in_block() {
+    // Blank lines within an autodoc block should not break preservation
+    let config = MD013Config {
+        line_length: crate::types::LineLength::from_const(80),
+        paragraphs: true,
+        code_blocks: true,
+        tables: true,
+        headings: true,
+        strict: false,
+        reflow: true,
+        reflow_mode: ReflowMode::SemanticLineBreaks,
+        length_mode: LengthMode::default(),
+        abbreviations: Vec::new(),
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "::: path.to.module\n    handler: python\n\n    options:\n      show_source: true\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
+    let result = rule.check(&ctx).unwrap();
+
+    let reflow_fixes: Vec<_> = result.iter().filter(|w| w.fix.is_some()).collect();
+    assert!(
+        reflow_fixes.is_empty(),
+        "mkdocstrings blocks with blank lines should not be reflowed, got {reflow_fixes:?}"
+    );
+}
+
+// ─── Semantic link understanding tests ───
+
+#[test]
+fn test_semantic_link_basic_suppression() {
+    // Line is 70 chars. With limit 40, it exceeds.
+    // But text without URL is: "Click [here] now." = 18 chars, well under 40.
+    let rule = MD013LineLength::new(40, false, false, false, false);
+    let content = "Click [here](https://example.com/very/long/path/to/resource/page) now.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        result.is_empty(),
+        "Should suppress warning when URL removal brings line within limit"
+    );
+}
+
+#[test]
+fn test_semantic_link_text_still_too_long() {
+    // Even removing URLs, the text content itself exceeds the limit
+    let rule = MD013LineLength::new(30, false, false, false, false);
+    let content = "This is very long text that exceeds the limit [link](https://example.com) more text here";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(!result.is_empty(), "Should warn when text alone exceeds limit");
+}
+
+#[test]
+fn test_semantic_link_multiple_links() {
+    // Two inline links on one line. Text-only: "See [foo] and [bar] here." = 26 chars
+    let rule = MD013LineLength::new(40, false, false, false, false);
+    let content = "See [foo](https://example.com/foo/path) and [bar](https://example.com/bar/path) here.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        result.is_empty(),
+        "Should suppress when multiple links' URLs account for the excess"
+    );
+}
+
+#[test]
+fn test_semantic_link_image_suppression() {
+    // Image: ![photo](long-url) → text-only is "![photo]" (8 chars)
+    let rule = MD013LineLength::new(40, false, false, false, false);
+    let content = "See ![photo](https://example.com/images/very/long/path/photo.jpg) here.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        result.is_empty(),
+        "Should suppress when image URL accounts for the excess"
+    );
+}
+
+#[test]
+fn test_semantic_link_reference_links_no_savings() {
+    // Reference links have no inline URL to strip — no savings possible.
+    let rule = MD013LineLength::new(30, false, false, false, false);
+    let content = "This is a line with a [reference link][ref] that is quite long and exceeds the limit.\n\n[ref]: https://example.com";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    // Line 1 has no inline URLs, so semantic link check can't help
+    let line1_warnings: Vec<_> = result.iter().filter(|w| w.line == 1).collect();
+    assert!(!line1_warnings.is_empty(), "Reference links provide no URL savings");
+}
+
+#[test]
+fn test_semantic_link_strict_mode_no_suppression() {
+    // In strict mode, semantic link understanding is disabled
+    let rule = MD013LineLength::new(40, false, false, false, true);
+    let content = "Click [here](https://example.com/very/long/path/to/resource/page) now.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        !result.is_empty(),
+        "Strict mode should not suppress even when URL accounts for excess"
+    );
+}
+
+#[test]
+fn test_semantic_link_with_title() {
+    // Link with title: [text](url "title") — entire construct is savings
+    let rule = MD013LineLength::new(40, false, false, false, false);
+    let content = "Click [here](https://example.com/path \"A helpful title\") now.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        result.is_empty(),
+        "Should suppress when link with title URL accounts for excess"
+    );
+}
+
+#[test]
+fn test_semantic_link_nested_badge() {
+    // Nested: [![badge](img-url)](link-url) — outer construct contains inner
+    let rule = MD013LineLength::new(40, false, false, false, false);
+    let content =
+        "Status [![build](https://img.shields.io/badge/build-passing-green)](https://ci.example.com/builds/latest)";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(result.is_empty(), "Should suppress for nested badge constructs");
+}
+
+#[test]
+fn test_semantic_link_no_links_on_line() {
+    // No links at all — should behave exactly as before (warning)
+    let rule = MD013LineLength::new(30, false, false, false, false);
+    let content = "This is a very long line without any links that definitely exceeds thirty chars.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(!result.is_empty(), "Should warn when no links to strip");
+}
+
+#[test]
+fn test_semantic_link_autolinks_no_savings() {
+    // Autolinks <url> can't be shortened — they display the URL itself.
+    // Autolinks are LinkType::Autolink, not Inline — they don't contribute savings.
+    // This test verifies autolinks don't interfere with the semantic link check.
+    let rule = MD013LineLength::new(40, false, false, false, false);
+    let content = "Visit <https://example.com/very/long/path/to/resource/page> for details.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let _result = rule.check(&ctx).unwrap();
+}
+
+#[test]
+fn test_semantic_link_mixed_inline_and_reference() {
+    // One inline link and one reference link — only the inline link provides savings
+    let rule = MD013LineLength::new(50, false, false, false, false);
+    let content = "See [docs](https://example.com/long/docs/path) and [more][ref] for details and info.\n\n[ref]: https://example.com";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    let line1_warnings: Vec<_> = result.iter().filter(|w| w.line == 1).collect();
+    assert!(
+        line1_warnings.is_empty(),
+        "Inline link savings should bring line within limit"
+    );
+}
+
+#[test]
+fn test_semantic_link_bold_text_in_link() {
+    // Bold formatting inside link text: [**bold**](url)
+    // link.text is raw source "**bold**", so text_only_len correctly includes the ** markers
+    let rule = MD013LineLength::new(40, false, false, false, false);
+    let content = "Click [**important docs**](https://example.com/very/long/path/docs) now.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    // text-only: "Click [**important docs**] now." = 31 chars, under 40
+    assert!(result.is_empty(), "Should handle markdown formatting inside link text");
+}
+
+#[test]
+fn test_semantic_link_code_span_in_link() {
+    // Code span inside link text: [`code`](url)
+    let rule = MD013LineLength::new(30, false, false, false, false);
+    let content = "See [`Config`](https://example.com/long/api/Config) here.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    // text-only: "See [`Config`] here." = 20 chars, under 30
+    assert!(result.is_empty(), "Should handle code spans inside link text");
+}
+
+#[test]
+fn test_semantic_link_url_with_parentheses() {
+    // URL with parentheses (e.g., Wikipedia links)
+    let rule = MD013LineLength::new(40, false, false, false, false);
+    let content = "See [article](https://en.wikipedia.org/wiki/Rust_(programming_language)) here.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    // text-only: "See [article] here." = 19 chars, under 40
+    assert!(result.is_empty(), "Should handle URLs with parentheses");
+}
+
+#[test]
+fn test_semantic_link_only_partial_savings() {
+    // Link provides some savings but not enough
+    let rule = MD013LineLength::new(50, false, false, false, false);
+    // 75 chars raw. Link construct is [link](https://x.co) = 21 chars. text-only = [link] = 6 chars.
+    // savings = 15. text_only_length = 75 - 15 = 60, still over 50.
+    let content = "This is quite a long line of text with a short [link](https://x.co) and more text after it.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        !result.is_empty(),
+        "Should warn when savings aren't enough to bring under limit"
+    );
+}
+
+#[test]
+fn test_semantic_link_boundary_exactly_at_limit() {
+    // Text-only length is exactly equal to the limit — should suppress (<=)
+    // "X [t](https://example.com/path1234)" = 37 chars raw
+    // Text-only: "X [t]" = 5 chars
+    // We need text-only == limit. Let's construct carefully:
+    // limit=20, text-only should be exactly 20
+    let rule = MD013LineLength::new(20, false, false, false, false);
+    // "abcdefghijklm [xy](https://example.com/long)" = text-only is "abcdefghijklm [xy]" = 19 chars
+    // Need exactly 20: "abcdefghijklmnop [x](https://example.com/long/path)" text-only = "abcdefghijklmnop [x]" = 20
+    let content = "abcdefghijklmnop [x](https://example.com/long/path)";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        result.is_empty(),
+        "Should suppress when text-only length equals limit exactly"
+    );
+}
+
+#[test]
+fn test_semantic_link_boundary_one_over_limit() {
+    // Text-only length is one over the limit — should warn.
+    // Must also fail the trailing-word check to reach the semantic check.
+    // Content: two links close together so trailing-word replacement doesn't help.
+    let rule = MD013LineLength::new(40, false, false, false, false);
+    // text-only = "abcdefghijklmnopqrstuvwxyz0123456789ab [x] [y]" = 47 chars, over 40
+    // trailing-word check: last word is "[y](url2)" → replacement still over 40
+    let content = "abcdefghijklmnopqrstuvwxyz0123456789ab [x](https://a.co/1) [y](https://b.co/2)";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(!result.is_empty(), "Should warn when text-only length exceeds limit");
+}
+
+#[test]
+fn test_semantic_link_empty_link_text() {
+    // Empty link text: [](url) is valid — text-only is "[]" (2 chars)
+    let rule = MD013LineLength::new(20, false, false, false, false);
+    let content = "See [](https://example.com/very/long/path/to/resource) here.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(result.is_empty(), "Should handle empty link text correctly");
+}
+
+#[test]
+fn test_semantic_link_empty_image_alt() {
+    // Empty alt text: ![](url) is valid — text-only is "![]" (3 chars)
+    let rule = MD013LineLength::new(20, false, false, false, false);
+    let content = "See ![](https://example.com/very/long/path/to/resource) here.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(result.is_empty(), "Should handle empty image alt text correctly");
+}
+
+#[test]
+fn test_semantic_link_entire_line_is_link() {
+    // The entire line is a single link
+    let rule = MD013LineLength::new(30, false, false, false, false);
+    let content = "[documentation](https://example.com/very/long/path/to/documentation/page/section)";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    // Text-only: "[documentation]" = 15 chars, under 30
+    assert!(
+        result.is_empty(),
+        "Should suppress when entire line is a link with short text"
+    );
+}
+
+#[test]
+fn test_semantic_link_in_blockquote() {
+    // Blockquote with inline link
+    let rule = MD013LineLength::new(40, false, false, false, false);
+    let content = "> See the [guide](https://example.com/very/long/path/to/guide) for details.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    // Text-only: "> See the [guide] for details." = ~31 chars, under 40
+    assert!(result.is_empty(), "Should suppress link URL excess in blockquotes");
+}
+
+#[test]
+fn test_semantic_link_long_text_short_url() {
+    // Long link text but short URL — savings are tiny, won't help
+    let rule = MD013LineLength::new(40, false, false, false, false);
+    let content = "See the [very long descriptive link text that explains everything](https://x.co) here.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    // Text-only: "See the [very long descriptive link text that explains everything] here." = 72 chars
+    // Still well over 40
+    assert!(!result.is_empty(), "Should warn when link text itself is long");
+}
+
+#[test]
+fn test_semantic_link_multiple_images() {
+    // Multiple images on one line
+    let rule = MD013LineLength::new(40, false, false, false, false);
+    let content = "![a](https://example.com/img/long1.png) ![b](https://example.com/img/long2.png)";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    // Text-only: "![a] ![b]" = 9 chars, well under 40
+    assert!(
+        result.is_empty(),
+        "Should suppress when multiple image URLs account for excess"
+    );
+}
+
+#[test]
+fn test_semantic_link_in_list_item() {
+    // List item with inline link
+    let rule = MD013LineLength::new(40, false, false, false, false);
+    let content = "- Click [here](https://example.com/very/long/path/to/resource/page) now.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    // Text-only: "- Click [here] now." = 19 chars, under 40
+    assert!(result.is_empty(), "Should suppress link URL excess in list items");
 }

@@ -266,6 +266,7 @@ __all__ = (
     "VisibilityType",
     "VocabularyLanguageCodeType",
     "VocabularyStateType",
+    "VoiceEnhancementModeType",
     "VoiceRecordingTrackType",
     "WorkspaceFontFamilyType",
 )
@@ -1083,6 +1084,7 @@ VocabularyLanguageCodeType = Literal[
 VocabularyStateType = Literal[
     "ACTIVE", "CREATION_FAILED", "CREATION_IN_PROGRESS", "DELETE_IN_PROGRESS"
 ]
+VoiceEnhancementModeType = Literal["NOISE_SUPPRESSION", "NONE", "VOICE_ISOLATION"]
 VoiceRecordingTrackType = Literal["ALL", "FROM_AGENT", "TO_AGENT"]
 WorkspaceFontFamilyType = Literal[
     "Arial", "Courier New", "Georgia", "Times New Roman", "Trebuchet", "Verdana"

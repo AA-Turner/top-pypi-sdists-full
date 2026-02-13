@@ -94,6 +94,9 @@ class CreateBenchmarkRequest(_message.Message):
         "image_override",
         "warmup_container_spec",
         "container_spec",
+        "resource_group",
+        "trace_sample_rate",
+        "data_sample_rate",
     )
     WARMUP_QPS_FIELD_NUMBER: _ClassVar[int]
     WARMUP_DURATION_FIELD_NUMBER: _ClassVar[int]
@@ -105,6 +108,9 @@ class CreateBenchmarkRequest(_message.Message):
     IMAGE_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
     WARMUP_CONTAINER_SPEC_FIELD_NUMBER: _ClassVar[int]
     CONTAINER_SPEC_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    TRACE_SAMPLE_RATE_FIELD_NUMBER: _ClassVar[int]
+    DATA_SAMPLE_RATE_FIELD_NUMBER: _ClassVar[int]
     warmup_qps: int
     warmup_duration: _duration_pb2.Duration
     qps: int
@@ -115,6 +121,9 @@ class CreateBenchmarkRequest(_message.Message):
     image_override: str
     warmup_container_spec: ContainerSpec
     container_spec: ContainerSpec
+    resource_group: str
+    trace_sample_rate: float
+    data_sample_rate: float
     def __init__(
         self,
         warmup_qps: _Optional[int] = ...,
@@ -127,6 +136,9 @@ class CreateBenchmarkRequest(_message.Message):
         image_override: _Optional[str] = ...,
         warmup_container_spec: _Optional[_Union[ContainerSpec, _Mapping]] = ...,
         container_spec: _Optional[_Union[ContainerSpec, _Mapping]] = ...,
+        resource_group: _Optional[str] = ...,
+        trace_sample_rate: _Optional[float] = ...,
+        data_sample_rate: _Optional[float] = ...,
     ) -> None: ...
 
 class CreateBenchmarkResponse(_message.Message):
@@ -201,3 +213,13 @@ class GetResultFileUrlsResponse(_message.Message):
     PRESIGNED_URLS_FIELD_NUMBER: _ClassVar[int]
     presigned_urls: _containers.RepeatedScalarFieldContainer[str]
     def __init__(self, presigned_urls: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class KillBenchmarkRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class KillBenchmarkResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...

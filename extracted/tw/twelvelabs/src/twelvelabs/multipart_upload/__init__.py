@@ -2,3 +2,6 @@
 
 # isort: skip_file
 
+from .types import CreateAssetUploadRequestType
+
+__all__ = ["CreateAssetUploadRequestType"]

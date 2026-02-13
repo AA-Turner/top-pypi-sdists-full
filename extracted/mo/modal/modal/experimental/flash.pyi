@@ -447,6 +447,9 @@ class _FlashContainerEntry:
     This ensures the container is deregistered first, preventing new requests from being routed to it
     while exit handlers execute and the exit grace period elapses, before finally closing the tunnel.
     """
+
+    flash_manager: typing.Optional[FlashManager]
+
     def __init__(self, http_config: modal_proto.api_pb2.HTTPConfig):
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...

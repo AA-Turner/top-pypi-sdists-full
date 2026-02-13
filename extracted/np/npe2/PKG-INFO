@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: npe2
-Version: 0.8.0
+Version: 0.8.1
 Summary: napari plugin engine v2
 Project-URL: homepage, https://github.com/napari/npe2
 Project-URL: repository, https://github.com/napari/npe2
@@ -21,40 +21,48 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: build>=1
-Requires-Dist: platformdirs
+Requires-Dist: platformdirs>=4.3.0
 Requires-Dist: psygnal>=0.3.0
-Requires-Dist: pydantic-extra-types
-Requires-Dist: pydantic>1
-Requires-Dist: pyyaml
-Requires-Dist: rich
-Requires-Dist: tomli-w
-Requires-Dist: tomli; python_version < '3.11'
-Requires-Dist: typer
+Requires-Dist: pydantic-extra-types>=2.8
+Requires-Dist: pydantic>=2.8
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: rich>=14.0.0
+Requires-Dist: tomli-w>=1.0.0
+Requires-Dist: tomli>=2.0.2; python_version < '3.11'
+Requires-Dist: typer>=0.15.4
 Provides-Extra: dev
-Requires-Dist: ipython; extra == 'dev'
-Requires-Dist: isort; extra == 'dev'
-Requires-Dist: mypy; extra == 'dev'
-Requires-Dist: pre-commit; extra == 'dev'
-Requires-Dist: ruff; extra == 'dev'
+Requires-Dist: furo>=2025.12.19; extra == 'dev'
+Requires-Dist: jinja2>=3.1.0; extra == 'dev'
+Requires-Dist: jsonschema>=4.20; extra == 'dev'
+Requires-Dist: jupyter-book<2,>=1.0.3; extra == 'dev'
+Requires-Dist: magicgui>=0.10.0; extra == 'dev'
+Requires-Dist: magicgui>=0.3.3; extra == 'dev'
+Requires-Dist: napari-plugin-engine>=0.2.0; extra == 'dev'
+Requires-Dist: napari-svg==0.1.5; extra == 'dev'
+Requires-Dist: numpy>=1.24.2; extra == 'dev'
+Requires-Dist: pip>=23.0; extra == 'dev'
+Requires-Dist: pytest-cov>=7.0.0; extra == 'dev'
+Requires-Dist: pytest-pretty>=1.2.0; extra == 'dev'
+Requires-Dist: pytest>=9.0.2; extra == 'dev'
+Requires-Dist: sphinx-tabs>=3.4.7; extra == 'dev'
 Provides-Extra: docs
-Requires-Dist: furo; extra == 'docs'
-Requires-Dist: jinja2; extra == 'docs'
-Requires-Dist: jupyter-book<2; extra == 'docs'
+Requires-Dist: furo>=2025.12.19; extra == 'docs'
+Requires-Dist: jinja2>=3.1.0; extra == 'docs'
+Requires-Dist: jupyter-book<2,>=1.0.3; extra == 'docs'
 Requires-Dist: magicgui>=0.3.3; extra == 'docs'
-Requires-Dist: sphinx-tabs; extra == 'docs'
+Requires-Dist: sphinx-tabs>=3.4.7; extra == 'docs'
 Provides-Extra: json
-Requires-Dist: jsonschema; extra == 'json'
+Requires-Dist: jsonschema>=4.20; extra == 'json'
 Provides-Extra: testing
-Requires-Dist: build; extra == 'testing'
-Requires-Dist: jsonschema; extra == 'testing'
-Requires-Dist: magicgui; extra == 'testing'
-Requires-Dist: napari-plugin-engine; extra == 'testing'
+Requires-Dist: jsonschema>=4.20; extra == 'testing'
+Requires-Dist: magicgui>=0.10.0; extra == 'testing'
+Requires-Dist: napari-plugin-engine>=0.2.0; extra == 'testing'
 Requires-Dist: napari-svg==0.1.5; extra == 'testing'
-Requires-Dist: numpy; extra == 'testing'
-Requires-Dist: pip; extra == 'testing'
-Requires-Dist: pytest; extra == 'testing'
-Requires-Dist: pytest-cov; extra == 'testing'
-Requires-Dist: pytest-pretty; extra == 'testing'
+Requires-Dist: numpy>=1.24.2; extra == 'testing'
+Requires-Dist: pip>=23.0; extra == 'testing'
+Requires-Dist: pytest-cov>=7.0.0; extra == 'testing'
+Requires-Dist: pytest-pretty>=1.2.0; extra == 'testing'
+Requires-Dist: pytest>=9.0.2; extra == 'testing'
 Description-Content-Type: text/markdown
 
 # npe2 - napari plugin engine version 2

@@ -42,6 +42,11 @@ class JinjaTemplateProcessor:
         # to make unit testing easier
         self.__environment = jinja2.Environment(loader=loader, **self._env_args)
 
+    def _is_cli_script(self, script: str | Path) -> bool:
+        """Check if the script is a CLI migration file (.cli.yml)."""
+        script_lower = str(script).lower()
+        return script_lower.endswith(".cli.yml") or script_lower.endswith(".cli.yml.jinja")
+
     def render(self, script: str, variables: dict[str, Any] | None) -> str:
         if not variables:
             variables = {}
@@ -51,77 +56,154 @@ class JinjaTemplateProcessor:
         raw_content = template.render(**variables)
 
         # Remove UTF-8 BOM if present (issue #250)
-        # The BOM character (\ufeff) causes Snowflake SQL compilation errors
+        # The BOM character (\ufeff) causes errors
         # Common in files saved with "UTF-8 with BOM" encoding (Windows/VS Code)
         if raw_content.startswith("\ufeff"):
             logger.debug("Removing UTF-8 BOM from script", script=script)
             raw_content = raw_content[1:]
 
+        # For CLI scripts (.cli.yml), return the rendered YAML without SQL-specific processing
+        if self._is_cli_script(script):
+            content = raw_content.strip()
+            if not content:
+                raise ValueError(
+                    f"CLI script '{script}' rendered to empty content after Jinja processing.\n"
+                    f"Ensure the file contains valid YAML with a 'steps' key."
+                )
+            return content
+
+        # SQL-specific processing below
         content = raw_content.strip()
+
+        # Strip trailing semicolon for checksum stability (issue #417)
+        # This ensures checksums remain consistent regardless of trailing semicolon
         content = content[:-1] if content.endswith(";") else content
 
         # Validate content is not empty after processing
         if not content or content.isspace():
-            error_msg = (
-                f"Script '{script}' rendered to empty SQL content after Jinja processing.\n"
-                f"This can happen when:\n"
-                f"  1. The file contains only whitespace\n"
-                f"  2. All Jinja conditional blocks evaluate to false\n"
-                f"  3. Template variables are missing or incorrect\n"
-                f"  4. The file contains only a semicolon after rendering\n"
-                f"\nRaw content preview (first 500 chars):\n{raw_content[:500]}\n"
-                f"\nProvided variables: {list(variables.keys()) if variables else 'None'}"
+            raise ValueError(
+                f"Script '{script}' rendered to empty content. Check Jinja variables and conditional blocks."
             )
-            logger.error("Empty SQL content after rendering", script=script, raw_content_length=len(raw_content))
-            raise ValueError(error_msg)
 
-        # Check if content contains only SQL comments (would be empty after Snowflake strips them)
-        # This catches the common case where Snowflake connector strips comments and tries to execute empty string
-        # Pattern explanation:
-        # - Remove single-line comments: -- comment
-        # - Remove multi-line comments: /* comment */
-        # Note: This is a simplified check that handles most cases. Complex SQL with comments in strings
-        # would require a full SQL parser. We're being pragmatic and catching 95% of issues.
-        content_without_comments = re.sub(r"--[^\n]*", "", content)  # Remove -- comments
-        content_without_comments = re.sub(
-            r"/\*.*?\*/", "", content_without_comments, flags=re.DOTALL
-        )  # Remove /* */ comments
-        content_without_comments = content_without_comments.strip()
+        # Check if content is only comments (would fail in Snowflake)
+        content_without_comments = re.sub(r"--[^\n]*", "", content)
+        content_without_comments = re.sub(r"/\*.*?\*/", "", content_without_comments, flags=re.DOTALL)
+        content_without_comments = content_without_comments.replace(";", "").strip()
 
-        # Case 1: Script contains ONLY comments (no SQL at all) - this is an error
-        if not content_without_comments or content_without_comments.isspace():
-            error_msg = (
-                f"Script '{script}' contains only SQL comments after Jinja processing.\n"
-                f"When Snowflake strips comments, this results in an empty SQL statement.\n"
-                f"\nOriginal content:\n{content[:500]}\n"
-                f"\nContent after comment removal:\n'{content_without_comments}'\n"
-                f"\nTo fix:\n"
-                f"  1. Add actual SQL statements to the script\n"
-                f"  2. Remove comment-only scripts from your migrations\n"
-                f"  3. If this is a placeholder, add a no-op statement like: SELECT 1; -- placeholder\n"
-                f"\nProvided variables: {list(variables.keys()) if variables else 'None'}"
+        if not content_without_comments:
+            raise ValueError(
+                f"Script '{script}' contains only comments or semicolons. Add SQL statements or remove the script."
             )
-            logger.error("SQL content contains only comments", script=script, original_length=len(content))
-            raise ValueError(error_msg)
 
-        # Case 2: Script has valid SQL but ends with comment lines
-        # Snowflake connector may strip trailing comments leaving the last statement empty
-        # Check if the last non-empty line is a comment
-        lines = content.rstrip().split("\n")
-        last_line = lines[-1].strip() if lines else ""
+        # NOTE: Trailing comment handling is NOT done here to preserve checksum stability.
+        # Use prepare_for_execution() before sending to Snowflake. (issue #414)
+        return content
 
-        if last_line.startswith("--") or (last_line.startswith("/*") and last_line.endswith("*/")):
-            # Append a no-op statement to ensure Snowflake has something to execute after stripping comments
-            # This preserves metadata comments while preventing "Empty SQL Statement" errors
-            content = (
-                content.rstrip()
-                + "\nSELECT 1; -- schemachange: no-op statement to prevent empty SQL after comment stripping"
-            )
+    def prepare_for_execution(self, content: str, script: str | Path) -> str:
+        """Apply execution-time SQL transformations to rendered content.
+
+        This handles Snowflake-specific quirks like trailing comments that would
+        cause "Empty SQL Statement" errors. Call this AFTER checksum computation,
+        BEFORE sending to Snowflake for execution.
+
+        Args:
+            content: The rendered script content (from render())
+            script: The script path (for logging and CLI detection)
+
+        Returns:
+            Content ready for Snowflake execution
+
+        Note:
+            This separation ensures checksums are computed on user content,
+            not on internal workarounds. See issue #414.
+        """
+        if self._is_cli_script(script):
+            return content
+
+        # Handle trailing comments after last semicolon (issue #258, #406)
+        # When content after the last ; is only whitespace/comments, Snowflake's
+        # execute_string() sees it as a new empty statement and errors.
+        return self._handle_trailing_comments(content, str(script))
+
+    def _find_last_real_semicolon(self, content: str) -> int:
+        """Find the last semicolon that is NOT inside a comment.
+
+        Returns the index of the last real semicolon, or -1 if none found.
+        """
+        # Track whether we're inside a comment
+        i = 0
+        last_real_semicolon = -1
+
+        while i < len(content):
+            # Check for single-line comment start
+            if content[i : i + 2] == "--":
+                # Skip to end of line
+                newline_idx = content.find("\n", i)
+                if newline_idx == -1:
+                    break  # Rest of content is a comment
+                i = newline_idx + 1
+                continue
+
+            # Check for multi-line comment start
+            if content[i : i + 2] == "/*":
+                # Skip to end of comment
+                end_idx = content.find("*/", i + 2)
+                if end_idx == -1:
+                    break  # Rest of content is a comment
+                i = end_idx + 2
+                continue
+
+            # Check for semicolon (not in a comment)
+            if content[i] == ";":
+                last_real_semicolon = i
+
+            i += 1
+
+        return last_real_semicolon
+
+    def _handle_trailing_comments(self, content: str, script: str) -> str:
+        """Append SELECT 1; if there are trailing comments on NEW LINES after the last semicolon.
+
+        Snowflake's execute_string() splits on semicolons. If there's content after
+        the last ; that is only whitespace/comments ON NEW LINES, Snowflake strips
+        the comments and tries to execute an empty string, causing "Empty SQL Statement".
+
+        Inline comments on the same line as ; are fine (e.g., "SELECT 1; -- comment")
+        Only comments on separate lines after ; cause the error.
+
+        This method detects that specific case and appends a no-op SELECT 1;
+        """
+        # Find the last semicolon that's NOT inside a comment
+        last_semicolon_idx = self._find_last_real_semicolon(content)
+        if last_semicolon_idx == -1:
+            # No semicolon in content - Snowflake executes as single statement
+            return content
+
+        # Get content after the last real semicolon
+        after_semicolon = content[last_semicolon_idx + 1 :]
+
+        # Only problematic if there's a newline after the semicolon
+        # Inline comments on the same line as ; are handled fine by Snowflake
+        if "\n" not in after_semicolon:
+            return content
+
+        # Check if content after ; is only whitespace and/or comments
+        after_stripped = after_semicolon
+        # Remove single-line comments
+        after_stripped = re.sub(r"--[^\n]*", "", after_stripped)
+        # Remove multi-line comments
+        after_stripped = re.sub(r"/\*.*?\*/", "", after_stripped, flags=re.DOTALL)
+        # Remove whitespace
+        after_stripped = after_stripped.strip()
+
+        if not after_stripped and after_semicolon.strip():
+            # There IS content after ; on new lines, but it's only comments
+            # Append SELECT 1; to prevent empty statement error
             logger.debug(
-                "Script ends with comment - appending no-op statement",
+                "Appending SELECT 1; to handle trailing comments after last semicolon",
                 script=script,
-                last_line_preview=last_line[:100],
             )
+            content = content.rstrip() + "\nSELECT 1; -- schemachange: trailing comment fix"
 
         return content
 

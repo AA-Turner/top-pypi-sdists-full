@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -50,6 +50,7 @@ namespace lay
 
 class LayoutViewBase;
 class RedrawThread;
+class EditorOptionsPage;
 
 /**
  *  @brief A class representing one entry in the image cache
@@ -459,7 +460,10 @@ private:
   tl::Mutex m_mutex;
 
   virtual void key_event (unsigned int key, unsigned int buttons);
+  virtual bool shortcut_override_event (unsigned int key, unsigned int buttons);
   virtual void resize_event (unsigned int width, unsigned int height);
+  lay::EditorOptionsPage *first_toolbox_widget ();
+
 #if defined(HAVE_QT)
   virtual void gtf_probe ();
   virtual void paint_event ();

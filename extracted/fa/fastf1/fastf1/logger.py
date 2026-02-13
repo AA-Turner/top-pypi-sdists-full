@@ -2,7 +2,8 @@ import functools
 import logging
 import os
 import warnings
-from typing import Union
+
+from fastf1.exceptions import FastF1CriticalError
 
 
 class LoggingManager:
@@ -67,7 +68,7 @@ def get_logger(name: str):
     return LoggingManager.get_child(name)
 
 
-def set_log_level(level: Union[str, int]):
+def set_log_level(level: str | int):
     """Set the log level for all parts of FastF1.
 
     When setting the log level for FastF1, only messages with this level or
@@ -109,6 +110,9 @@ def soft_exceptions(descr_name: str, msg: str, logger: logging.Logger):
             if not LoggingManager.debug:
                 try:
                     return func(*args, **kwargs)
+                except FastF1CriticalError:
+                    # specific category of errors that should always be raised
+                    raise
                 except Exception as exc:
                     logger.warning(msg)
                     logger.debug(f"Traceback for failure in {descr_name}",

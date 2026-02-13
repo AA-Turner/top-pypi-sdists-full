@@ -11,7 +11,7 @@ from anyscale._private.anyscale_client.common import (
     WORKSPACE_CLUSTER_NAME_PREFIX,
 )
 from anyscale._private.models.image_uri import ImageURI
-from anyscale._private.models.integrations import ConnectionType
+from anyscale._private.models.integrations import _ConnectionMethodType
 from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.models import (
     AdminCreatedUser,
@@ -421,7 +421,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self,
         connection_id: str,
         name: str,
-        connection_type: str = ConnectionType.DATABRICKS_U2M,
+        connection_type: str = _ConnectionMethodType.DATABRICKS_U2M,
     ) -> None:
         """Add a mock third-party connection for testing."""
         mock_conn = Mock()
@@ -1894,6 +1894,8 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         creator_id: Optional[str] = None,  # noqa: ARG002
         count: Optional[int] = None,
         paging_token: Optional[str] = None,  # noqa: ARG002
+        sort_field: Optional[str] = None,  # noqa: ARG002
+        sort_order: Optional[str] = None,  # noqa: ARG002
     ) -> DecoratedscheduleListResponse:
         """Mock implementation of list_schedules API for testing.
 

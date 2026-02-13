@@ -42,7 +42,14 @@ from anyscale.job.commands import (
     terminate as terminate,
     wait as wait,
 )
-from anyscale.job.models import JobConfig, JobLogMode, JobState, JobStatus
+from anyscale.job.models import (
+    ConnectionConfig,  # noqa: F401
+    ConnectionType,  # noqa: F401
+    JobConfig,
+    JobLogMode,
+    JobState,
+    JobStatus,
+)
 
 
 class JobSDK:

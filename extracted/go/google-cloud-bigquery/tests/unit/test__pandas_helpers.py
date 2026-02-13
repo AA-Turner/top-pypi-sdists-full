@@ -13,12 +13,14 @@
 # limitations under the License.
 
 import collections
+import concurrent.futures
 import datetime
 import decimal
 import functools
 import gc
 import operator
 import queue
+import time
 from typing import Union
 from unittest import mock
 import warnings
@@ -2177,3 +2179,207 @@ def test_determine_requested_streams_invalid_max_stream_count():
     """Tests that a ValueError is raised if max_stream_count is negative."""
     with pytest.raises(ValueError):
         determine_requested_streams(preserve_order=False, max_stream_count=-1)
+
+
+@pytest.mark.skipif(
+    bigquery_storage is None, reason="Requires google-cloud-bigquery-storage"
+)
+def test__download_table_bqstorage_w_timeout_error(module_under_test):
+    from google.cloud.bigquery import dataset
+    from google.cloud.bigquery import table
+    from unittest import mock
+
+    mock_bqstorage_client = mock.create_autospec(
+        bigquery_storage.BigQueryReadClient, instance=True
+    )
+    fake_session = mock.Mock(streams=[mock.Mock()])
+    mock_bqstorage_client.create_read_session.return_value = fake_session
+
+    table_ref = table.TableReference(
+        dataset.DatasetReference("project-x", "dataset-y"),
+        "table-z",
+    )
+
+    def slow_download_stream(
+        download_state, bqstorage_client, session, stream, worker_queue, page_to_item
+    ):
+        # Block until the main thread sets done=True (which it will on timeout)
+        while not download_state.done:
+            time.sleep(0.01)
+
+    with mock.patch.object(
+        module_under_test, "_download_table_bqstorage_stream", new=slow_download_stream
+    ):
+        # Use a very small timeout
+        result_gen = module_under_test._download_table_bqstorage(
+            "some-project", table_ref, mock_bqstorage_client, timeout=0.01
+        )
+        with pytest.raises(concurrent.futures.TimeoutError, match="timed out"):
+            list(result_gen)
+
+
+@pytest.mark.skipif(
+    bigquery_storage is None, reason="Requires google-cloud-bigquery-storage"
+)
+def test__download_table_bqstorage_w_timeout_success(module_under_test):
+    from google.cloud.bigquery import dataset
+    from google.cloud.bigquery import table
+    from unittest import mock
+
+    mock_bqstorage_client = mock.create_autospec(
+        bigquery_storage.BigQueryReadClient, instance=True
+    )
+    fake_session = mock.Mock(streams=["stream/s0"])
+    mock_bqstorage_client.create_read_session.return_value = fake_session
+
+    table_ref = table.TableReference(
+        dataset.DatasetReference("project-x", "dataset-y"),
+        "table-z",
+    )
+
+    def fast_download_stream(
+        download_state, bqstorage_client, session, stream, worker_queue, page_to_item
+    ):
+        worker_queue.put("result_page")
+
+    with mock.patch.object(
+        module_under_test, "_download_table_bqstorage_stream", new=fast_download_stream
+    ):
+        # Use a generous timeout
+        result_gen = module_under_test._download_table_bqstorage(
+            "some-project", table_ref, mock_bqstorage_client, timeout=10.0
+        )
+        results = list(result_gen)
+
+    assert results == ["result_page"]
+
+
+@pytest.mark.skipif(pandas is None, reason="Requires `pandas`")
+@pytest.mark.skipif(isinstance(pyarrow, mock.Mock), reason="Requires `pyarrow`")
+@pytest.mark.parametrize(
+    "sleep_time, timeout, should_timeout",
+    [
+        (0.1, 0.05, True),  # Timeout case
+        (0, 10.0, False),  # Success case
+    ],
+)
+def test_download_arrow_row_iterator_with_timeout(
+    module_under_test, sleep_time, timeout, should_timeout
+):
+    bq_schema = [schema.SchemaField("name", "STRING")]
+
+    # Mock page with to_arrow method
+    mock_page = mock.Mock()
+    mock_page.to_arrow.return_value = pyarrow.RecordBatch.from_arrays(
+        [pyarrow.array(["foo"])],
+        names=["name"],
+    )
+    mock_page.__iter__ = lambda self: iter(["row1"])
+    mock_page._columns = [["foo"]]
+
+    def pages_gen():
+        # First page yields quickly
+        yield mock_page
+        if sleep_time > 0:
+            time.sleep(sleep_time)
+        yield mock_page
+
+    iterator = module_under_test.download_arrow_row_iterator(
+        pages_gen(), bq_schema, timeout=timeout
+    )
+
+    # First item should always succeed
+    next(iterator)
+
+    if should_timeout:
+        with pytest.raises(concurrent.futures.TimeoutError):
+            next(iterator)
+    else:
+        # Should succeed and complete
+        results = list(iterator)
+        assert len(results) == 1  # 1 remaining item
+
+
+@pytest.mark.skipif(pandas is None, reason="Requires `pandas`")
+@pytest.mark.skipif(isinstance(pyarrow, mock.Mock), reason="Requires `pyarrow`")
+@pytest.mark.parametrize(
+    "sleep_time, timeout, should_timeout",
+    [
+        (0.1, 0.05, True),  # Timeout case
+        (0, 10.0, False),  # Success case
+    ],
+)
+def test_download_dataframe_row_iterator_with_timeout(
+    module_under_test, sleep_time, timeout, should_timeout
+):
+    bq_schema = [schema.SchemaField("name", "STRING")]
+    dtypes = {}
+
+    # Mock page
+    mock_page = mock.Mock()
+    # Mock iterator for _row_iterator_page_to_dataframe checking next(iter(page))
+    mock_page.__iter__ = lambda self: iter(["row1"])
+    mock_page._columns = [["foo"]]
+
+    def pages_gen():
+        yield mock_page
+        if sleep_time > 0:
+            time.sleep(sleep_time)
+        yield mock_page
+
+    iterator = module_under_test.download_dataframe_row_iterator(
+        pages_gen(), bq_schema, dtypes, timeout=timeout
+    )
+
+    next(iterator)
+
+    if should_timeout:
+        with pytest.raises(concurrent.futures.TimeoutError):
+            next(iterator)
+    else:
+        results = list(iterator)
+        assert len(results) == 1
+
+
+@pytest.mark.skipif(
+    bigquery_storage is None, reason="Requires `google-cloud-bigquery-storage`"
+)
+def test_download_arrow_bqstorage_passes_timeout_to_create_read_session(
+    module_under_test,
+):
+    # Mock dependencies
+    project_id = "test-project"
+    table = mock.Mock()
+    table.table_id = "test_table"
+    table.to_bqstorage.return_value = "projects/test/datasets/test/tables/test"
+
+    bqstorage_client = mock.create_autospec(
+        bigquery_storage.BigQueryReadClient, instance=True
+    )
+    # Mock create_read_session to return a session with no streams so the function returns early
+    # (Checking start of loop logic vs empty streams return)
+    session = mock.Mock()
+    # If streams is empty, _download_table_bqstorage returns early, which is fine for this test
+    session.streams = []
+    bqstorage_client.create_read_session.return_value = session
+
+    # Call the function
+    timeout = 123.456
+    # download_arrow_bqstorage yields frames, so we need to iterate to trigger execution
+    list(
+        module_under_test.download_arrow_bqstorage(
+            project_id, table, bqstorage_client, timeout=timeout
+        )
+    )
+
+    # Verify timeout and retry were passed
+    bqstorage_client.create_read_session.assert_called_once()
+    _, kwargs = bqstorage_client.create_read_session.call_args
+    assert "timeout" in kwargs
+    assert kwargs["timeout"] == timeout
+
+    assert "retry" in kwargs
+    retry_policy = kwargs["retry"]
+    assert retry_policy is not None
+    # Check if deadline is set correctly in the retry policy
+    assert retry_policy._deadline == timeout

@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -60,6 +60,15 @@ void
 PluginDeclaration::get_options (std::vector < std::pair<std::string, std::string> > &options) const
 {
   options.push_back (std::pair<std::string, std::string> (cfg_images_visible, "true"));
+}
+
+std::vector<std::string>
+PluginDeclaration::additional_editor_options_pages () const
+{
+  std::vector<std::string> names;
+  //  TODO: provide in a central place instead of borrowing from the edt module
+  names.push_back ("GenericEditorOptions");
+  return names;
 }
 
 static tl::RegisteredClass<lay::PluginDeclaration> config_decl (new img::PluginDeclaration (), 4000, "img::Plugin");

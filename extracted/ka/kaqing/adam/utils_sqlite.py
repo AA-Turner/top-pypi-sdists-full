@@ -4,11 +4,10 @@ import os
 import sqlite3
 import pandas
 
-from adam.config import Config
-from adam.utils_fs import creating_dir
+from adam.directories import Directories, local_db_dir
 from adam.utils_log import wait_log
 from adam.utils_tabulize import tabulize
-from adam.utils_context import Context
+from adam.utils_context import NULL
 
 class CursorHandler:
     def __init__(self, conn: sqlite3.Connection):
@@ -53,9 +52,6 @@ class SQLite:
     def cursor(conn: sqlite3.Connection):
         return CursorHandler(conn)
 
-    def local_db_dir():
-        return creating_dir(Config().get('export.sqlite.local-db-dir', '/tmp/qing-db/q/export/db'))
-
     def keyspace(database: str):
         return '_'.join(database.replace(".db", "").split('_')[1:])
 
@@ -63,9 +59,9 @@ class SQLite:
     def database_names(prefix: str = None):
         wait_log('Inspecting export databases...')
 
-        pattern = f'{SQLite.local_db_dir()}/s*.db'
+        pattern = f'{local_db_dir()}/s*.db'
         if prefix:
-            pattern = f'{SQLite.local_db_dir()}/{prefix}*'
+            pattern = f'{local_db_dir()}/{prefix}*'
         return [os.path.basename(f) for f in glob.glob(pattern)]
 
     def clear_cache(cache: str = None):
@@ -81,7 +77,7 @@ class SQLite:
       conn = None
       tables = []
       try:
-         conn = sqlite3.connect(f'{SQLite.local_db_dir()}/{ts_prefix}_{keyspace}.db')
+         conn = sqlite3.connect(f'{local_db_dir()}/{ts_prefix}_{keyspace}.db')
          with SQLite.cursor(conn) as cursor:
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;")
 
@@ -97,13 +93,13 @@ class SQLite:
 
     def connect(database: str, keyspace: str = None):
         if keyspace:
-            return sqlite3.connect(f'{SQLite.local_db_dir()}/{database}_{keyspace}.db')
+            return sqlite3.connect(f'{local_db_dir()}/{database}_{keyspace}.db')
         else:
-            conn = sqlite3.connect(f'{SQLite.local_db_dir()}/{database}_root.db')
+            conn = sqlite3.connect(f'{local_db_dir()}/{database}_root.db')
             with SQLite.cursor(conn) as cursor:
                 for d in SQLite.database_names(database):
                     if d != f'{database}.db':
-                        q = f"ATTACH DATABASE '{SQLite.local_db_dir()}/{d}' AS {SQLite.keyspace(d)}"
+                        q = f"ATTACH DATABASE '{local_db_dir()}/{d}' AS {SQLite.keyspace(d)}"
                         cursor.execute(q)
 
             return conn
@@ -112,11 +108,11 @@ class SQLite:
     def column_names(tables: list[str] = [], database: str = None, function: str = 'audit', partition_cols_only = False):
         pass
 
-    def run_query(query: str, database: str = None, ctx: Context = Context.NULL) -> int:
+    def run_query(query: str, database: str = None, ctx = NULL) -> int:
         with sqlite(database) as conn:
             return SQLite.run_query_with_conn(conn, query, ctx=ctx)
 
-    def run_query_with_conn(conn, query: str, ctx: Context = Context.NULL) -> int:
+    def run_query_with_conn(conn, query: str, ctx = NULL) -> int:
         df = SQLite.query(conn, query)
         lines = ['\t'.join(map(str, line)) for line in df.values.tolist()]
         tabulize(lines,

@@ -173,6 +173,7 @@ class LogGroup(AWSObject):
 
     props: PropsDictType = {
         "DataProtectionPolicy": (dict, False),
+        "DeletionProtectionEnabled": (boolean, False),
         "FieldIndexPolicies": (Tags, False),
         "KmsKeyId": (str, False),
         "LogGroupClass": (str, False),
@@ -265,6 +266,63 @@ class ResourcePolicy(AWSObject):
     props: PropsDictType = {
         "PolicyDocument": (validate_resource_policy, True),
         "PolicyName": (str, True),
+    }
+
+
+class S3Configuration(AWSProperty):
+    """
+    `S3Configuration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-logs-scheduledquery-s3configuration.html>`__
+    """
+
+    props: PropsDictType = {
+        "DestinationIdentifier": (str, True),
+        "RoleArn": (str, True),
+    }
+
+
+class DestinationConfiguration(AWSProperty):
+    """
+    `DestinationConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-logs-scheduledquery-destinationconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "S3Configuration": (S3Configuration, False),
+    }
+
+
+class TagsItems(AWSProperty):
+    """
+    `TagsItems <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-logs-scheduledquery-tagsitems.html>`__
+    """
+
+    props: PropsDictType = {
+        "Key": (str, True),
+        "Value": (str, True),
+    }
+
+
+class ScheduledQuery(AWSObject):
+    """
+    `ScheduledQuery <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-scheduledquery.html>`__
+    """
+
+    resource_type = "AWS::Logs::ScheduledQuery"
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "DestinationConfiguration": (DestinationConfiguration, False),
+        "ExecutionRoleArn": (str, True),
+        "LogGroupIdentifiers": ([str], False),
+        "Name": (str, True),
+        "QueryLanguage": (str, True),
+        "QueryString": (str, True),
+        "ScheduleEndTime": (double, False),
+        "ScheduleExpression": (str, True),
+        "ScheduleStartTime": (double, False),
+        "StartTimeOffset": (integer, False),
+        "State": (str, False),
+        "Tags": ([TagsItems], False),
+        "Timezone": (str, False),
     }
 
 
@@ -493,6 +551,7 @@ class ParseToOCSF(AWSProperty):
 
     props: PropsDictType = {
         "EventSource": (str, True),
+        "MappingVersion": (str, False),
         "OcsfVersion": (str, True),
         "Source": (str, False),
     }

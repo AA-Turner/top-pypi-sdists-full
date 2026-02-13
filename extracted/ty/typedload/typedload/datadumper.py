@@ -3,7 +3,7 @@ typedload
 This module is the inverse of dataloader. It converts typed
 data structures to things that json can serialize.
 """
-# Copyright (C) 2018-2024 Salvo "LtWorf" Tomaselli
+# Copyright (C) 2018-2026 Salvo "LtWorf" Tomaselli
 #
 # typedload is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -32,6 +32,7 @@ from typing import Any, Callable, get_type_hints, Type
 
 from .exceptions import TypedloadValueError
 from .typechecks import is_attrs, NONETYPE, is_literal
+from . import moretypes
 
 
 __all__ = [
@@ -138,6 +139,7 @@ class Dumper:
                 ipaddress.IPv4Interface,
                 ipaddress.IPv6Interface,
                 uuid.UUID,
+                moretypes.HexRGB,
             }
 
         self.handlers = [

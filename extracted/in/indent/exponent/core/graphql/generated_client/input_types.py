@@ -7,7 +7,14 @@ from uuid import UUID
 from pydantic import Field
 
 from .base_model import BaseModel
-from .enums import ExponentModels, ModelName, ReasoningLevel, ToolPermissionStatus
+from .enums import (
+    AgentSubtype,
+    ChatMode,
+    ModelName,
+    ReasoningLevel,
+    SandboxProvider,
+    ToolPermissionStatus,
+)
 
 
 class AttachmentInput(BaseModel):
@@ -31,12 +38,9 @@ class AttachmentInput(BaseModel):
     )
 
 
-class ChatConfig(BaseModel):
-    chat_uuid: str = Field(alias="chatUuid")
+class ChatConfigInput(BaseModel):
+    chat_uuid: UUID = Field(alias="chatUuid")
     model: Optional[ModelName] = None
-    exponent_model: Optional[ExponentModels] = Field(
-        alias="exponentModel", default=None
-    )
     require_confirmation: Optional[bool] = Field(
         alias="requireConfirmation", default=False
     )
@@ -49,14 +53,15 @@ class ChatConfig(BaseModel):
 
 
 class ChatInput(BaseModel):
-    prompt: Optional["Prompt"] = None
-    client_sourced_event_uuid: Optional[str] = Field(
+    prompt: Optional["PromptInput"] = None
+    prompt_input: Optional["PromptInput"] = Field(alias="promptInput", default=None)
+    client_sourced_event_uuid: Optional[UUID] = Field(
         alias="clientSourcedEventUuid", default=None
     )
     permission_status: Optional[ToolPermissionStatus] = Field(
         alias="permissionStatus", default=None
     )
-    table_filter_config_uuid: Optional[str] = Field(
+    table_filter_config_uuid: Optional[UUID] = Field(
         alias="tableFilterConfigUuid", default=None
     )
     planning_required: Optional[bool] = Field(alias="planningRequired", default=None)
@@ -72,8 +77,26 @@ class ChatInput(BaseModel):
     )
 
 
+class ChatResourceConfigInput(BaseModel):
+    mode: ChatMode
+    repositories: Optional[list["RepositoryResourceConfigInput"]] = None
+    databases: Optional[list["DatabaseResourceConfigInput"]] = None
+    mcp_server_configs: Optional["McpServerConfigsInput"] = Field(
+        alias="mcpServerConfigs", default=None
+    )
+    skill_configs: Optional["SkillConfigsInput"] = Field(
+        alias="skillConfigs", default=None
+    )
+    sandbox_provider: Optional[SandboxProvider] = Field(
+        alias="sandboxProvider", default=None
+    )
+    cloud_agent_subtype: Optional[AgentSubtype] = Field(
+        alias="cloudAgentSubtype", default=None
+    )
+
+
 class DatabaseResourceConfigInput(BaseModel):
-    database_config_uuid: str = Field(alias="databaseConfigUuid")
+    database_config_uuid: UUID = Field(alias="databaseConfigUuid")
 
 
 class FileAttachmentInput(BaseModel):
@@ -98,14 +121,14 @@ class McpServerConfigsInput(BaseModel):
     )
 
 
-class Prompt(BaseModel):
-    message: str
-    attachments: list["AttachmentInput"]
-
-
 class PromptAttachmentInput(BaseModel):
     prompt_name: str = Field(alias="promptName")
     prompt_content: str = Field(alias="promptContent")
+
+
+class PromptInput(BaseModel):
+    message: str
+    attachments: list["AttachmentInput"]
 
 
 class RepositoryInput(BaseModel):
@@ -126,6 +149,14 @@ class SkillAttachmentInput(BaseModel):
     skill_name: str = Field(alias="skillName")
 
 
+class SkillConfigInput(BaseModel):
+    skill_id: str = Field(alias="skillId")
+
+
+class SkillConfigsInput(BaseModel):
+    skill_configs: list["SkillConfigInput"] = Field(alias="skillConfigs")
+
+
 class TableSchemaAttachmentInput(BaseModel):
     table_name: str = Field(alias="tableName")
     table_schema: Any = Field(alias="tableSchema")
@@ -138,6 +169,8 @@ class URLAttachmentInput(BaseModel):
 
 AttachmentInput.model_rebuild()
 ChatInput.model_rebuild()
+ChatResourceConfigInput.model_rebuild()
 FileAttachmentInput.model_rebuild()
 McpServerConfigsInput.model_rebuild()
-Prompt.model_rebuild()
+PromptInput.model_rebuild()
+SkillConfigsInput.model_rebuild()

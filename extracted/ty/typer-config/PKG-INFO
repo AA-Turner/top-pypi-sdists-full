@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: typer-config
-Version: 1.4.3
+Version: 1.5.0
 Summary: Utilities for working with configuration files in typer CLIs. 
 Keywords: typer,config,configuration,configuration-file,yaml,toml,json,dotenv,cli
 Author: Matt Anderson
@@ -22,7 +22,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: MIT License
 Requires-Dist: typer==0.*

@@ -297,6 +297,21 @@ class RedshiftSettings(AWSProperty):
     }
 
 
+class SybaseAseSettings(AWSProperty):
+    """
+    `SybaseAseSettings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-sybaseasesettings.html>`__
+    """
+
+    props: PropsDictType = {
+        "CertificateArn": (str, False),
+        "DatabaseName": (str, False),
+        "EncryptPassword": (boolean, False),
+        "Port": (integer, True),
+        "ServerName": (str, True),
+        "SslMode": (str, True),
+    }
+
+
 class Settings(AWSProperty):
     """
     `Settings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-settings.html>`__
@@ -313,6 +328,7 @@ class Settings(AWSProperty):
         "OracleSettings": (OracleSettings, False),
         "PostgreSqlSettings": (PostgreSqlSettings, False),
         "RedshiftSettings": (RedshiftSettings, False),
+        "SybaseAseSettings": (SybaseAseSettings, False),
     }
 
 

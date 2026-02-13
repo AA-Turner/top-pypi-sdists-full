@@ -76,6 +76,7 @@ from .exadb_stack_collection import ExadbStackCollection
 from .exadb_stack_discovery_details import ExadbStackDiscoveryDetails
 from .exadb_stack_fsu_collection_summary import ExadbStackFsuCollectionSummary
 from .exadb_stack_fsu_goal_version_details import ExadbStackFsuGoalVersionDetails
+from .exadb_vm_cluster_target_summary import ExadbVmClusterTargetSummary
 from .failed_jobs_rollback_details import FailedJobsRollbackDetails
 from .fifty_fifty_batching_strategy_details import FiftyFiftyBatchingStrategyDetails
 from .freeform_tag_filter_entry import FreeformTagFilterEntry
@@ -289,6 +290,7 @@ fleet_software_update_type_mapping = {
     "ExadbStackDiscoveryDetails": ExadbStackDiscoveryDetails,
     "ExadbStackFsuCollectionSummary": ExadbStackFsuCollectionSummary,
     "ExadbStackFsuGoalVersionDetails": ExadbStackFsuGoalVersionDetails,
+    "ExadbVmClusterTargetSummary": ExadbVmClusterTargetSummary,
     "FailedJobsRollbackDetails": FailedJobsRollbackDetails,
     "FiftyFiftyBatchingStrategyDetails": FiftyFiftyBatchingStrategyDetails,
     "FreeformTagFilterEntry": FreeformTagFilterEntry,

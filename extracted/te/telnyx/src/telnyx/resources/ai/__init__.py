@@ -24,6 +24,14 @@ from .audio import (
     AudioResourceWithStreamingResponse,
     AsyncAudioResourceWithStreamingResponse,
 )
+from .openai import (
+    OpenAIResource,
+    AsyncOpenAIResource,
+    OpenAIResourceWithRawResponse,
+    AsyncOpenAIResourceWithRawResponse,
+    OpenAIResourceWithStreamingResponse,
+    AsyncOpenAIResourceWithStreamingResponse,
+)
 from .clusters import (
     ClustersResource,
     AsyncClustersResource,
@@ -31,6 +39,14 @@ from .clusters import (
     AsyncClustersResourceWithRawResponse,
     ClustersResourceWithStreamingResponse,
     AsyncClustersResourceWithStreamingResponse,
+)
+from .missions import (
+    MissionsResource,
+    AsyncMissionsResource,
+    MissionsResourceWithRawResponse,
+    AsyncMissionsResourceWithRawResponse,
+    MissionsResourceWithStreamingResponse,
+    AsyncMissionsResourceWithStreamingResponse,
 )
 from .assistants import (
     AssistantsResource,
@@ -136,6 +152,18 @@ __all__ = [
     "AsyncMcpServersResourceWithRawResponse",
     "McpServersResourceWithStreamingResponse",
     "AsyncMcpServersResourceWithStreamingResponse",
+    "MissionsResource",
+    "AsyncMissionsResource",
+    "MissionsResourceWithRawResponse",
+    "AsyncMissionsResourceWithRawResponse",
+    "MissionsResourceWithStreamingResponse",
+    "AsyncMissionsResourceWithStreamingResponse",
+    "OpenAIResource",
+    "AsyncOpenAIResource",
+    "OpenAIResourceWithRawResponse",
+    "AsyncOpenAIResourceWithRawResponse",
+    "OpenAIResourceWithStreamingResponse",
+    "AsyncOpenAIResourceWithStreamingResponse",
     "AIResource",
     "AsyncAIResource",
     "AIResourceWithRawResponse",

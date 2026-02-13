@@ -33,6 +33,10 @@ Usage::
         NatGatewayDeletedWaiter,
         NetworkInterfaceAvailableWaiter,
         PasswordDataAvailableWaiter,
+        SecondaryNetworkCreateCompleteWaiter,
+        SecondaryNetworkDeleteCompleteWaiter,
+        SecondarySubnetCreateCompleteWaiter,
+        SecondarySubnetDeleteCompleteWaiter,
         SecurityGroupExistsWaiter,
         SecurityGroupVpcAssociationAssociatedWaiter,
         SecurityGroupVpcAssociationDisassociatedWaiter,
@@ -77,6 +81,10 @@ Usage::
     nat_gateway_deleted_waiter: NatGatewayDeletedWaiter = client.get_waiter("nat_gateway_deleted")
     network_interface_available_waiter: NetworkInterfaceAvailableWaiter = client.get_waiter("network_interface_available")
     password_data_available_waiter: PasswordDataAvailableWaiter = client.get_waiter("password_data_available")
+    secondary_network_create_complete_waiter: SecondaryNetworkCreateCompleteWaiter = client.get_waiter("secondary_network_create_complete")
+    secondary_network_delete_complete_waiter: SecondaryNetworkDeleteCompleteWaiter = client.get_waiter("secondary_network_delete_complete")
+    secondary_subnet_create_complete_waiter: SecondarySubnetCreateCompleteWaiter = client.get_waiter("secondary_subnet_create_complete")
+    secondary_subnet_delete_complete_waiter: SecondarySubnetDeleteCompleteWaiter = client.get_waiter("secondary_subnet_delete_complete")
     security_group_exists_waiter: SecurityGroupExistsWaiter = client.get_waiter("security_group_exists")
     security_group_vpc_association_associated_waiter: SecurityGroupVpcAssociationAssociatedWaiter = client.get_waiter("security_group_vpc_association_associated")
     security_group_vpc_association_disassociated_waiter: SecurityGroupVpcAssociationDisassociatedWaiter = client.get_waiter("security_group_vpc_association_disassociated")
@@ -127,6 +135,10 @@ from .type_defs import (
     DescribeNatGatewaysRequestWaitExtraTypeDef,
     DescribeNatGatewaysRequestWaitTypeDef,
     DescribeNetworkInterfacesRequestWaitTypeDef,
+    DescribeSecondaryNetworksRequestWaitExtraTypeDef,
+    DescribeSecondaryNetworksRequestWaitTypeDef,
+    DescribeSecondarySubnetsRequestWaitExtraTypeDef,
+    DescribeSecondarySubnetsRequestWaitTypeDef,
     DescribeSecurityGroupsRequestWaitTypeDef,
     DescribeSecurityGroupVpcAssociationsRequestWaitExtraTypeDef,
     DescribeSecurityGroupVpcAssociationsRequestWaitTypeDef,
@@ -174,6 +186,10 @@ __all__ = (
     "NatGatewayDeletedWaiter",
     "NetworkInterfaceAvailableWaiter",
     "PasswordDataAvailableWaiter",
+    "SecondaryNetworkCreateCompleteWaiter",
+    "SecondaryNetworkDeleteCompleteWaiter",
+    "SecondarySubnetCreateCompleteWaiter",
+    "SecondarySubnetDeleteCompleteWaiter",
     "SecurityGroupExistsWaiter",
     "SecurityGroupVpcAssociationAssociatedWaiter",
     "SecurityGroupVpcAssociationDisassociatedWaiter",
@@ -507,6 +523,66 @@ class PasswordDataAvailableWaiter(Waiter):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/waiter/PasswordDataAvailable.html#EC2.Waiter.PasswordDataAvailable.wait)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/waiters/#passworddataavailablewaiter)
+        """
+
+
+class SecondaryNetworkCreateCompleteWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/waiter/SecondaryNetworkCreateComplete.html#EC2.Waiter.SecondaryNetworkCreateComplete)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/waiters/#secondarynetworkcreatecompletewaiter)
+    """
+
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeSecondaryNetworksRequestWaitTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/waiter/SecondaryNetworkCreateComplete.html#EC2.Waiter.SecondaryNetworkCreateComplete.wait)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/waiters/#secondarynetworkcreatecompletewaiter)
+        """
+
+
+class SecondaryNetworkDeleteCompleteWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/waiter/SecondaryNetworkDeleteComplete.html#EC2.Waiter.SecondaryNetworkDeleteComplete)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/waiters/#secondarynetworkdeletecompletewaiter)
+    """
+
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeSecondaryNetworksRequestWaitExtraTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/waiter/SecondaryNetworkDeleteComplete.html#EC2.Waiter.SecondaryNetworkDeleteComplete.wait)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/waiters/#secondarynetworkdeletecompletewaiter)
+        """
+
+
+class SecondarySubnetCreateCompleteWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/waiter/SecondarySubnetCreateComplete.html#EC2.Waiter.SecondarySubnetCreateComplete)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/waiters/#secondarysubnetcreatecompletewaiter)
+    """
+
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeSecondarySubnetsRequestWaitTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/waiter/SecondarySubnetCreateComplete.html#EC2.Waiter.SecondarySubnetCreateComplete.wait)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/waiters/#secondarysubnetcreatecompletewaiter)
+        """
+
+
+class SecondarySubnetDeleteCompleteWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/waiter/SecondarySubnetDeleteComplete.html#EC2.Waiter.SecondarySubnetDeleteComplete)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/waiters/#secondarysubnetdeletecompletewaiter)
+    """
+
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeSecondarySubnetsRequestWaitExtraTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/waiter/SecondarySubnetDeleteComplete.html#EC2.Waiter.SecondarySubnetDeleteComplete.wait)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/waiters/#secondarysubnetdeletecompletewaiter)
         """
 
 

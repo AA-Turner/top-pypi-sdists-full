@@ -2,6 +2,7 @@
 # Source: exponent/core/graphql/operations
 
 from typing import Annotated, Any, Literal, Optional, Union
+from uuid import UUID
 
 from pydantic import Field
 
@@ -10,23 +11,17 @@ from .enums import PRStatus
 
 
 class Chats(BaseModel):
-    chats: Union["ChatsChatsUnauthenticatedError", "ChatsChatsChats"] = Field(
-        discriminator="typename__"
+    organization_chats_page: "ChatsOrganizationChatsPage" = Field(
+        alias="organizationChatsPage"
     )
 
 
-class ChatsChatsUnauthenticatedError(BaseModel):
-    typename__: Literal["UnauthenticatedError"] = Field(alias="__typename")
-    message: str
+class ChatsOrganizationChatsPage(BaseModel):
+    chats: list["ChatsOrganizationChatsPageChats"]
 
 
-class ChatsChatsChats(BaseModel):
-    typename__: Literal["Chats"] = Field(alias="__typename")
-    chats: list["ChatsChatsChatsChats"]
-
-
-class ChatsChatsChatsChats(BaseModel):
-    chat_uuid: str = Field(alias="chatUuid")
+class ChatsOrganizationChatsPageChats(BaseModel):
+    chat_uuid: UUID = Field(alias="chatUuid")
     name: Optional[str]
     subtitle: Optional[str]
     is_shared: bool = Field(alias="isShared")
@@ -35,25 +30,25 @@ class ChatsChatsChatsChats(BaseModel):
     pr_status: list[
         Annotated[
             Union[
-                "ChatsChatsChatsChatsPrStatusPRInfo",
-                "ChatsChatsChatsChatsPrStatusNotFoundError",
+                "ChatsOrganizationChatsPageChatsPrStatusPRInfo",
+                "ChatsOrganizationChatsPageChatsPrStatusNotFoundError",
             ],
             Field(discriminator="typename__"),
         ]
     ] = Field(alias="prStatus")
 
 
-class ChatsChatsChatsChatsPrStatusPRInfo(BaseModel):
+class ChatsOrganizationChatsPageChatsPrStatusPRInfo(BaseModel):
     typename__: Literal["PRInfo"] = Field(alias="__typename")
     number: int
     title: str
     status: PRStatus
 
 
-class ChatsChatsChatsChatsPrStatusNotFoundError(BaseModel):
+class ChatsOrganizationChatsPageChatsPrStatusNotFoundError(BaseModel):
     typename__: Literal["NotFoundError"] = Field(alias="__typename")
 
 
 Chats.model_rebuild()
-ChatsChatsChats.model_rebuild()
-ChatsChatsChatsChats.model_rebuild()
+ChatsOrganizationChatsPage.model_rebuild()
+ChatsOrganizationChatsPageChats.model_rebuild()

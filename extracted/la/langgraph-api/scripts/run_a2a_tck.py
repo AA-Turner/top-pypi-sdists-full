@@ -26,6 +26,10 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 
 TCK_REPO = "https://github.com/a2aproject/a2a-tck.git"
+# Pin to last commit before 1.0.0 RC spec update (d36f441) which renamed
+# all JSON-RPC methods (message/send -> SendMessage, etc.). Update this
+# when our A2A implementation supports the new method names.
+TCK_REF = "b03fefc"
 TCK_CACHE_DIR = Path.home() / ".cache" / "a2a-tck"
 
 
@@ -34,23 +38,29 @@ def setup_tck() -> None:
     TCK_CACHE_DIR.parent.mkdir(parents=True, exist_ok=True)
 
     if (TCK_CACHE_DIR / ".git").exists():
-        logger.info("Updating A2A TCK...")
+        logger.info("Updating A2A TCK to %s...", TCK_REF)
         subprocess.run(
-            ["git", "fetch", "--depth=1"],
+            ["git", "fetch", "origin", TCK_REF],
             cwd=TCK_CACHE_DIR,
             check=True,
             capture_output=True,
         )
         subprocess.run(
-            ["git", "reset", "--hard", "origin/HEAD"],
+            ["git", "reset", "--hard", TCK_REF],
             cwd=TCK_CACHE_DIR,
             check=True,
             capture_output=True,
         )
     else:
-        logger.info("Cloning A2A TCK...")
+        logger.info("Cloning A2A TCK at %s...", TCK_REF)
         subprocess.run(
-            ["git", "clone", "--depth=1", TCK_REPO, str(TCK_CACHE_DIR)],
+            ["git", "clone", TCK_REPO, str(TCK_CACHE_DIR)],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "checkout", TCK_REF],
+            cwd=TCK_CACHE_DIR,
             check=True,
             capture_output=True,
         )

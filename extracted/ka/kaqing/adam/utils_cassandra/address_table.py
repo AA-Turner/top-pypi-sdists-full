@@ -4,7 +4,7 @@ import threading
 from adam.utils_log import log_timing
 from adam.utils_cassandra.cassandra_status import CassandraStatus
 from adam.utils_cassandra.pod_service import cassandra
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.repl_state import ReplState
 from adam.utils_k8s.pod_exec_result import PodExecResult
 from adam.utils_net import is_valid_ip
@@ -18,7 +18,7 @@ class AddressTable:
 
     lock = threading.Lock()
 
-    def snapshot(state: ReplState, ctx: Context = Context.NULL):
+    def snapshot(state: ReplState, ctx = NULL):
         host_ids_by_ip = {}
 
         try:

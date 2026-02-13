@@ -195,7 +195,7 @@ def goto_to_proto(goto: Send | str) -> engine_common_pb2.Goto:
 
 
 def missing_to_proto() -> engine_common_pb2.ChannelValue:
-    from google.protobuf import empty_pb2
+    from google.protobuf import empty_pb2  # noqa: PLC0415
 
     return engine_common_pb2.ChannelValue(missing=empty_pb2.Empty())
 

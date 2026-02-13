@@ -43,6 +43,7 @@ nav:
       - Linter: linter/linter.md
       - Rules: linter/rules.md
       - "Rules list": rules_list.md
+      - "Auto fixing": linter/auto_fix.md
       - "Custom rules": linter/custom_rules.md
       - "Reports":
           - linter/reports/reports.md
@@ -63,7 +64,6 @@ nav:
   - Formatter:
       - Formatter: formatter/formatter.md
       - Formatters:
-          - AddMissingEnd: formatter/formatters/AddMissingEnd.md
           - AlignKeywordsSection: formatter/formatters/AlignKeywordsSection.md
           - AlignSettingsSection: formatter/formatters/AlignSettingsSection.md
           - AlignTemplatedTestCases: formatter/formatters/AlignTemplatedTestCases.md
@@ -90,7 +90,6 @@ nav:
           - RenameVariables: formatter/formatters/RenameVariables.md
           - ReplaceBreakContinue: formatter/formatters/ReplaceBreakContinue.md
           - ReplaceEmptyValues: formatter/formatters/ReplaceEmptyValues.md
-          - ReplaceReturns: formatter/formatters/ReplaceReturns.md
           - ReplaceRunKeywordIf: formatter/formatters/ReplaceRunKeywordIf.md
           - ReplaceWithVAR: formatter/formatters/ReplaceWithVAR.md
           - SmartSortKeywords: formatter/formatters/SmartSortKeywords.md

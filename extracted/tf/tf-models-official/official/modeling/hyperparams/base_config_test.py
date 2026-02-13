@@ -1,4 +1,4 @@
-# Copyright 2024 The TensorFlow Authors. All Rights Reserved.
+# Copyright 2025 The TensorFlow Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -333,6 +333,17 @@ class BaseConfigTest(parameterized.TestCase, tf.test.TestCase):
     self.assertEqual(type(params.a[1]), base_config.Config)
     self.assertEqual(type(params.a[1].c), base_config.Config)
     self.assertEqual(pprint.pformat(params.a[1].c.d), '5')
+
+  def test_override_scalar_with_dict_replaces_the_whole_value(self):
+    params = base_config.Config({'a': 1})
+    params.override({'a': {'b': 2}}, is_strict=False)
+    self.assertEqual(type(params.a), base_config.Config)
+    self.assertEqual(params.a.b, 2)
+
+  def test_override_dict_with_scalar_replaces_the_whole_value(self):
+    params = base_config.Config({'a': {'b': 2}})
+    params.override({'a': 1}, is_strict=False)
+    self.assertEqual(params.a, 1)
 
   @parameterized.parameters(
       ([{}],),

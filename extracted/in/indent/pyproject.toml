@@ -70,7 +70,7 @@ include = ["exponent"]
 # ignore unnecessary folders to increase test discovery speed
 norecursedirs = ".git .github client"
 # execution options, we are skipping markers here.
-addopts = "-vv -m 'not system_prompts' -W 'ignore:_type_definition is deprecated:UserWarning:strawberry.utils.deprecations'"
+addopts = "-vv -n auto -m 'not system_prompts' -W 'ignore:_type_definition is deprecated:UserWarning:strawberry.utils.deprecations'"
 # with this setting on, async tests will be automatically wrapped in @pytest.mark.asyncio
 asyncio_mode = "auto"
 # required for pytest >9 compatibility

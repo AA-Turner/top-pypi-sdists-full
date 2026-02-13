@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydocket
-Version: 0.17.5
+Version: 0.17.7
 Summary: A distributed background task system for Python functions
 Project-URL: Homepage, https://github.com/chrisguidry/docket
 Project-URL: Bug Tracker, https://github.com/chrisguidry/docket/issues

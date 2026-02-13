@@ -95,7 +95,7 @@ class InMemorySaver(InMemorySaverBase):
                     pass
             return d
 
-        from langgraph_api.serde import Serializer
+        from langgraph_api.serde import Serializer  # noqa: PLC0415
 
         super().__init__(
             serde=serde if serde is not None else Serializer(),
@@ -158,12 +158,14 @@ class InMemorySaver(InMemorySaverBase):
 
     async def _decrypt_json(self, data: dict[str, Any]) -> dict[str, Any]:
         """Decrypt a dict if custom encryption is configured."""
-        from langgraph_api import config as api_config
+        from langgraph_api import config as api_config  # noqa: PLC0415
 
         if not api_config.LANGGRAPH_ENCRYPTION:
             return data
-        from langgraph_api.encryption import get_encryption
-        from langgraph_api.encryption.middleware import decrypt_json_if_needed
+        from langgraph_api.encryption import get_encryption  # noqa: PLC0415
+        from langgraph_api.encryption.middleware import (  # noqa: PLC0415
+            decrypt_json_if_needed,
+        )
 
         result = await decrypt_json_if_needed(data, get_encryption(), "checkpoint")
         if result is None:
@@ -179,7 +181,9 @@ class InMemorySaver(InMemorySaverBase):
         # Decrypt metadata if encryption is enabled
         decrypted_metadata = await self._decrypt_json(tuple_.metadata)
 
-        from langgraph.checkpoint.base import CheckpointTuple as CPTuple
+        from langgraph.checkpoint.base import (  # noqa: PLC0415
+            CheckpointTuple as CPTuple,
+        )
 
         return CPTuple(
             config=tuple_.config,
@@ -198,7 +202,9 @@ class InMemorySaver(InMemorySaverBase):
         limit: int | None = None,
     ) -> AsyncIterator[CheckpointTuple]:
         """List checkpoints with decrypted metadata."""
-        from langgraph.checkpoint.base import CheckpointTuple as CPTuple
+        from langgraph.checkpoint.base import (  # noqa: PLC0415
+            CheckpointTuple as CPTuple,
+        )
 
         for tuple_ in self.list(config, filter=filter, before=before, limit=limit):
             # Decrypt metadata if encryption is enabled
@@ -232,7 +238,7 @@ def Checkpointer(*args, unpack_hook=None, **kwargs):
             __persistence_hook__=register_persistent_dict,
         )
     if unpack_hook is not None:
-        from langgraph_api.serde import Serializer
+        from langgraph_api.serde import Serializer  # noqa: PLC0415
 
         saver = InMemorySaver(
             serde=Serializer(__unpack_ext_hook__=unpack_hook),

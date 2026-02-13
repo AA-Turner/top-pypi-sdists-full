@@ -439,6 +439,7 @@ class CommandName(CaseAndEncodingInsensitiveEnum):
     VGETATTR = b"VGETATTR"  # Since redis: 8.0.0
     VRANDMEMBER = b"VRANDMEMBER"  # Since redis: 8.0.0
     VISMEMBER = b"VISMEMBER"  # Since redis: 8.2.0
+    VRANGE = b"VRANGE"  # Since redis: 8.4.0
 
     #: Commands for json
     JSON_DEL = b"JSON.DEL"  # Since RedisJSON: 1.0.0
@@ -546,19 +547,6 @@ class CommandName(CaseAndEncodingInsensitiveEnum):
     TS_MREVRANGE = b"TS.MREVRANGE"  # Since timeseries: 1.4.0
     TS_DEL = b"TS.DEL"  # Since timeseries: 1.6.0
 
-    #: Commands for graph
-    GRAPH_QUERY = b"GRAPH.QUERY"  # Since graph: 1.0.0
-    GRAPH_DELETE = b"GRAPH.DELETE"  # Since graph: 1.0.0
-    GRAPH_EXPLAIN = b"GRAPH.EXPLAIN"  # Since graph: 2.0.0
-    GRAPH_PROFILE = b"GRAPH.PROFILE"  # Since graph: 2.0.0
-    GRAPH_SLOWLOG = b"GRAPH.SLOWLOG"  # Since graph: 2.0.12
-    GRAPH_CONSTRAINT_DROP = b"GRAPH.CONSTRAINT DROP"  # Since graph: 2.12.0
-    GRAPH_CONSTRAINT_CREATE = b"GRAPH.CONSTRAINT CREATE"  # Since graph: 2.12.0
-    GRAPH_CONFIG_GET = b"GRAPH.CONFIG GET"  # Since graph: 2.2.11
-    GRAPH_CONFIG_SET = b"GRAPH.CONFIG SET"  # Since graph: 2.2.11
-    GRAPH_RO_QUERY = b"GRAPH.RO_QUERY"  # Since graph: 2.2.8
-    GRAPH_LIST = b"GRAPH.LIST"  # Since graph: 2.4.3
-
     #: Commands for search
     FT_CREATE = b"FT.CREATE"  # Since search: 1.0.0
     FT_INFO = b"FT.INFO"  # Since search: 1.0.0
@@ -582,6 +570,7 @@ class CommandName(CaseAndEncodingInsensitiveEnum):
     FT_DROPINDEX = b"FT.DROPINDEX"  # Since search: 2.0.0
     FT__LIST = b"FT._LIST"  # Since search: 2.0.0
     FT_PROFILE = b"FT.PROFILE"  # Since search: 2.2.0
+    FT_HYBRID = b"FT.HYBRID"  # Since search: 8.4.4
     FT_CONFIG_SET = b"FT.CONFIG SET"  # Deprecated in search: 8.0.0
     FT_CONFIG_GET = b"FT.CONFIG GET"  # Deprecated in search: 8.0.0
     FT_CONFIG_HELP = b"FT.CONFIG HELP"  # Deprecated in search: 8.0.0
@@ -626,7 +615,6 @@ class CommandGroup(enum.Enum):
     CONNECTION = "connection"
     GENERIC = "generic"
     GEO = "geo"
-    GRAPH = "graph"
     HASH = "hash"
     HYPERLOGLOG = "hyperloglog"
     JSON = "json"

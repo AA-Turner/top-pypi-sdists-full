@@ -7,8 +7,8 @@ implementations, and CLI commands across the package dependency ecosystem.
 
 Key functions:
     walk_package: Recursive package traversal for discovery
-    import_pkg_with_dir_fallback: Import with direct file fallback
-    get_modules_and_packages_from_package: Extract direct children from a package
+    import_package_with_dir_fallback: Import with direct file fallback
+    modules_and_packages_from_package: Extract direct children from a package
 """
 
 import importlib.machinery
@@ -46,12 +46,12 @@ def module_is_package(obj: ModuleType) -> bool:
     return hasattr(obj, "__path__")
 
 
-def import_pkg_from_dir(package_dir: Path) -> ModuleType:
+def import_package_from_dir(package_dir: Path) -> ModuleType:
     """Import a package directly from a directory path.
 
     Low-level import that bypasses `sys.modules` caching. Creates a module spec
     from the directory's ``__init__.py`` and executes it. Use
-    ``import_pkg_with_dir_fallback`` for normal imports with fallback behavior.
+    ``import_package_with_dir_fallback`` for normal imports with fallback behavior.
 
     Args:
         package_dir: Directory containing the package (must have ``__init__.py``).
@@ -76,12 +76,12 @@ def import_pkg_from_dir(package_dir: Path) -> ModuleType:
     return module
 
 
-def import_pkg_with_dir_fallback(path: Path) -> ModuleType:
+def import_package_with_dir_fallback(path: Path) -> ModuleType:
     """Import a package, falling back to direct directory import if needed.
 
     Primary package import function with two-stage strategy:
         1. Attempts standard import via ``import_module`` (uses ``sys.modules``)
-        2. Falls back to direct file import via ``import_pkg_from_dir``
+        2. Falls back to direct file import via ``import_package_from_dir``
 
     The fallback handles packages not yet in ``sys.modules``, such as dynamically
     created packages or packages in non-standard locations.
@@ -98,18 +98,18 @@ def import_pkg_with_dir_fallback(path: Path) -> ModuleType:
     """
     path = path.resolve()
     module_name = ModulePath.absolute_path_to_module_name(path)
-    pkg = import_module_with_default(module_name)
-    if isinstance(pkg, ModuleType):
-        return pkg
-    return import_pkg_from_dir(path)
+    package = import_module_with_default(module_name)
+    if isinstance(package, ModuleType):
+        return package
+    return import_package_from_dir(path)
 
 
-def import_pkg_with_dir_fallback_with_default(
+def import_package_with_dir_fallback_with_default(
     path: Path, default: Any = None
 ) -> ModuleType | Any:
     """Import a package, returning a default value if the package doesn't exist.
 
-    Wrapper around ``import_pkg_with_dir_fallback`` that catches
+    Wrapper around ``import_package_with_dir_fallback`` that catches
     ``FileNotFoundError`` and returns a default value instead.
 
     Note:
@@ -125,12 +125,12 @@ def import_pkg_with_dir_fallback_with_default(
         missing files.
     """
     try:
-        return import_pkg_with_dir_fallback(path)
+        return import_package_with_dir_fallback(path)
     except FileNotFoundError:
         return default
 
 
-def get_modules_and_packages_from_package(
+def modules_and_packages_from_package(
     package: ModuleType,
 ) -> tuple[list[ModuleType], list[ModuleType]]:
     """Extract and import all direct subpackages and modules from a package.
@@ -162,11 +162,11 @@ def get_modules_and_packages_from_package(
     )
     packages: list[ModuleType] = []
     modules: list[ModuleType] = []
-    for _finder, name, is_pkg in modules_and_packages:
-        if is_pkg:
-            path = ModulePath.pkg_name_to_relative_dir_path(name)
-            pkg = import_pkg_with_dir_fallback(path)
-            packages.append(pkg)
+    for _finder, name, is_package in modules_and_packages:
+        if is_package:
+            path = ModulePath.package_name_to_relative_dir_path(name)
+            package = import_package_with_dir_fallback(path)
+            packages.append(package)
         else:
             path = ModulePath.module_name_to_relative_file_path(name)
             mod = import_module_with_file_fallback(path)
@@ -190,7 +190,7 @@ def walk_package(
     is complete before discovery queries.
 
     Used by:
-        - ``get_all_subclasses``: Ensures subclasses are imported before querying
+        - ``subclasses``: Ensures subclasses are imported before querying
         - ``create_tests_for_package``: Generates test files for all modules
         - Session fixtures: Validates package structure and imports
 
@@ -202,7 +202,7 @@ def walk_package(
         module children (not subpackages) in that package.
     """
     logger.debug("Walking package: %s", package.__name__)
-    subpackages, submodules = get_modules_and_packages_from_package(package)
+    subpackages, submodules = modules_and_packages_from_package(package)
     yield package, submodules
     for subpackage in subpackages:
         yield from walk_package(subpackage)

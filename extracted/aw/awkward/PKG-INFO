@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awkward
-Version: 2.8.12
+Version: 2.9.0
 Summary: Manipulate JSON-like data with NumPy-like idioms.
 Project-URL: Bug Tracker, https://github.com/scikit-hep/awkward-1.0/issues
 Project-URL: Chat, https://gitter.im/Scikit-HEP/awkward-array
@@ -23,7 +23,6 @@ Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -37,11 +36,11 @@ Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Scientific/Engineering :: Physics
 Classifier: Topic :: Software Development
 Classifier: Topic :: Utilities
-Requires-Python: >=3.9
-Requires-Dist: awkward-cpp==51
+Requires-Python: >=3.10
+Requires-Dist: awkward-cpp==52
 Requires-Dist: fsspec>=2022.11.0
 Requires-Dist: importlib-metadata>=4.13.0; python_version < '3.12'
-Requires-Dist: numpy>=1.18.0
+Requires-Dist: numpy>=1.21.3
 Requires-Dist: packaging
 Requires-Dist: typing-extensions>=4.1.0; python_version < '3.11'
 Description-Content-Type: text/markdown
@@ -53,7 +52,7 @@ Description-Content-Type: text/markdown
 
 [![PyPI version](https://badge.fury.io/py/awkward.svg)](https://pypi.org/project/awkward)
 [![Conda-Forge](https://img.shields.io/conda/vn/conda-forge/awkward)](https://github.com/conda-forge/awkward-feedstock)
-[![Python 3.9‒3.14](https://img.shields.io/badge/python-3.9%E2%80%923.14-blue)](https://www.python.org)
+[![Python 3.10‒3.14](https://img.shields.io/badge/python-3.10%E2%80%923.14-blue)](https://www.python.org)
 [![BSD-3 Clause License](https://img.shields.io/badge/license-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 [![Build Test](https://github.com/scikit-hep/awkward/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/scikit-hep/awkward/actions/workflows/test.yml)
 

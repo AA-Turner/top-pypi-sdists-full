@@ -33,3 +33,5 @@ from snowflake.core.catalog_integration._generated.models.rest_authentication im
 from snowflake.core.catalog_integration._generated.models.rest_config import RestConfig
 from snowflake.core.catalog_integration._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.catalog_integration._generated.models.success_response import SuccessResponse
+from snowflake.core.catalog_integration._generated.models.tag_assignment import TagAssignment
+from snowflake.core.catalog_integration._generated.models.tag_reference import TagReference

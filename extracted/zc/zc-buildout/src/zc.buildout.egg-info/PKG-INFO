@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zc.buildout
-Version: 5.1.1
+Version: 5.1.2
 Summary: System for managing development buildouts
 Home-page: http://buildout.org
 Author: Jim Fulton
@@ -21,7 +21,7 @@ Classifier: Topic :: Software Development :: Build Tools
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.9
 License-File: LICENSE.txt
-Requires-Dist: setuptools<81,>=61.0.0
+Requires-Dist: setuptools<82,>=61.0.0
 Requires-Dist: packaging>=23.2
 Requires-Dist: pip
 Requires-Dist: wheel
@@ -173,6 +173,17 @@ Change History
    https://github.com/buildout/buildout/blob/master/doc/ADD-A-NEWS-ITEM.rst
 
 .. towncrier release notes start
+
+5.1.2 (2026-02-10)
+------------------
+
+Bug fixes:
+
+
+- Accept ``setuptools`` 81.
+  Require ``setuptools<82``.
+  [maurits]
+
 
 5.1.1 (2025-11-25)
 ------------------

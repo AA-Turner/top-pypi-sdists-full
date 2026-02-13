@@ -17,6 +17,7 @@ from ibm_watsonx_ai.wml_client_error import ResourceIdByNameNotFound, WMLClientE
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
+    from httpx import Response
     from pandas import DataFrame
 
     from ibm_watsonx_ai import APIClient
@@ -30,6 +31,18 @@ class SwSpec(WMLResource):
 
     def __init__(self, client: APIClient):
         WMLResource.__init__(self, __name__, client)
+
+    def _get_details_process_response(self, response: Response) -> dict:
+        """Helper method for `(a)get_details` methods.
+        Handle 'get_details(sw_spec_id)' request response and return details of a software specification.
+        """
+        response_data = self._handle_response(200, "get sw spec details", response)
+
+        if response.status_code == 200:
+            self._raise_warning_if_sw_spec_not_supported(response_data)
+            return self._get_required_element_from_response(response_data)
+        else:
+            return response_data
 
     def get_details(
         self, sw_spec_id: str | None = None, state_info: bool = False, **kwargs: Any
@@ -74,12 +87,7 @@ class SwSpec(WMLResource):
                 headers=self._client._get_headers(),
             )
 
-            response_data = self._handle_response(200, "get sw spec details", response)
-            if response.status_code == 200:
-                self._raise_warning_if_sw_spec_not_supported(response_data)
-                return self._get_required_element_from_response(response_data)
-            else:
-                return response_data
+            return self._get_details_process_response(response)
 
         if state_info:
             response = self._client.httpx_client.get(
@@ -148,11 +156,7 @@ class SwSpec(WMLResource):
                 headers=await self._client._aget_headers(),
             )
 
-            response_data = self._handle_response(200, "get sw spec details", response)
-            if response.status_code == 200:
-                return self._get_required_element_from_response(response_data)
-            else:
-                return response_data
+            return self._get_details_process_response(response)
 
         if state_info:
             response = await self._client.async_httpx_client.get(
@@ -179,6 +183,17 @@ class SwSpec(WMLResource):
                 for x in response_data["resources"]
             ]
         }
+
+    def _store_generate_metadata_json(self, meta_props: dict) -> str:
+        """Helper method for `(a)store` methods.
+        Validate `meta_props` type. Generate software specification metadata, convert it to the json format and return.
+        """
+        SwSpec._validate_type(meta_props, "meta_props", dict, True)
+        sw_spec_meta = self.ConfigurationMetaNames._generate_resource_metadata(
+            meta_props, with_validation=True, client=self._client
+        )
+
+        return json.dumps(sw_spec_meta)
 
     def store(self, meta_props: dict) -> dict:
         """Create a software specification.
@@ -211,12 +226,7 @@ class SwSpec(WMLResource):
             sw_spec_details = client.software_specifications.store(meta_props)
 
         """
-        SwSpec._validate_type(meta_props, "meta_props", dict, True)
-        sw_spec_meta = self.ConfigurationMetaNames._generate_resource_metadata(
-            meta_props, with_validation=True, client=self._client
-        )
-
-        sw_spec_meta_json = json.dumps(sw_spec_meta)
+        sw_spec_meta_json = self._store_generate_metadata_json(meta_props)
 
         response = self._client.httpx_client.post(
             url=self._client._href_definitions.get_sw_specs_href(),
@@ -225,11 +235,7 @@ class SwSpec(WMLResource):
             content=sw_spec_meta_json,
         )
 
-        sw_spec_details = self._handle_response(
-            201, "creating software specifications", response
-        )
-
-        return sw_spec_details
+        return self._handle_response(201, "creating software specifications", response)
 
     async def astore(self, meta_props: dict) -> dict:
         """Create a software specification asynchronously.
@@ -264,12 +270,7 @@ class SwSpec(WMLResource):
             )
 
         """
-        SwSpec._validate_type(meta_props, "meta_props", dict, True)
-        sw_spec_meta = self.ConfigurationMetaNames._generate_resource_metadata(
-            meta_props, with_validation=True, client=self._client
-        )
-
-        sw_spec_meta_json = json.dumps(sw_spec_meta)
+        sw_spec_meta_json = self._store_generate_metadata_json(meta_props)
 
         response = await self._client.async_httpx_client.post(
             url=self._client._href_definitions.get_sw_specs_href(),
@@ -278,11 +279,7 @@ class SwSpec(WMLResource):
             content=sw_spec_meta_json,
         )
 
-        sw_spec_details = self._handle_response(
-            201, "creating software specifications", response
-        )
-
-        return sw_spec_details
+        return self._handle_response(201, "creating software specifications", response)
 
     def list(
         self,
@@ -387,6 +384,32 @@ class SwSpec(WMLResource):
         warn(get_uid_method_deprecated_warning, category=DeprecationWarning)
         return SwSpec.get_id(sw_spec_details)
 
+    def _get_query_params_with_name(self, sw_spec_name: str) -> dict:
+        """Validate `sw_spec_name` and return parameters including the name for a request."""
+        SwSpec._validate_type(sw_spec_name, "sw_spec_name", str, True)
+
+        parameters = self._client._params(skip_space_project_chk=True)
+        parameters["name"] = sw_spec_name
+
+        return parameters
+
+    def _get_id_by_name_process_response(
+        self, response: Response, sw_spec_name: str
+    ) -> str:
+        """Helper method for `(a)get_id_by_name` methods.
+        Handle request response and return ID of a software specification.
+        """
+        response_data = self._handle_response(200, "list assets", response)
+        if not response_data["total_results"]:
+            raise ResourceIdByNameNotFound(sw_spec_name, "software spec")
+
+        sw_spec_details = self._handle_response(200, "list assets", response)[
+            "resources"
+        ]
+        self._raise_warning_if_sw_spec_not_supported(sw_spec_details[0])
+
+        return sw_spec_details[0]["metadata"]["asset_id"]
+
     def get_id_by_name(self, sw_spec_name: str) -> str:
         """Get the unique ID of a software specification.
 
@@ -405,26 +428,13 @@ class SwSpec(WMLResource):
             )
 
         """
-
-        SwSpec._validate_type(sw_spec_name, "sw_spec_name", str, True)
-        parameters = self._client._params(skip_space_project_chk=True)
-        parameters.update(name=sw_spec_name)
-
         response = self._client.httpx_client.get(
             url=self._client._href_definitions.get_sw_specs_href(),
-            params=parameters,
+            params=self._get_query_params_with_name(sw_spec_name),
             headers=self._client._get_headers(),
         )
 
-        response_data = self._handle_response(200, "list assets", response)
-        if not response_data["total_results"]:
-            raise ResourceIdByNameNotFound(sw_spec_name, "software spec")
-
-        sw_spec_details = self._handle_response(200, "list assets", response)[
-            "resources"
-        ]
-        self._raise_warning_if_sw_spec_not_supported(sw_spec_details[0])
-        return sw_spec_details[0]["metadata"]["asset_id"]
+        return self._get_id_by_name_process_response(response, sw_spec_name)
 
     async def aget_id_by_name(self, sw_spec_name: str) -> str:
         """Get the unique ID of a software specification asynchronously.
@@ -444,25 +454,13 @@ class SwSpec(WMLResource):
             )
 
         """
-
-        SwSpec._validate_type(sw_spec_name, "sw_spec_name", str, True)
-        parameters = self._client._params(skip_space_project_chk=True)
-        parameters.update(name=sw_spec_name)
-
         response = await self._client.async_httpx_client.get(
             url=self._client._href_definitions.get_sw_specs_href(),
-            params=parameters,
+            params=self._get_query_params_with_name(sw_spec_name),
             headers=await self._client._aget_headers(),
         )
 
-        response_data = self._handle_response(200, "list assets", response)
-        if not response_data["total_results"]:
-            raise ResourceIdByNameNotFound(sw_spec_name, "software spec")
-
-        sw_spec_details = self._handle_response(200, "list assets", response)[
-            "resources"
-        ]
-        return sw_spec_details[0]["metadata"]["asset_id"]
+        return self._get_id_by_name_process_response(response, sw_spec_name)
 
     def get_uid_by_name(self, sw_spec_name: str) -> str:
         """Get the unique ID of a software specification.
@@ -511,6 +509,18 @@ class SwSpec(WMLResource):
             sw_spec_details, "sw_spec_details", ["metadata", "href"], str
         )
 
+    def _delete_process_response(self, response: Response) -> Literal["SUCCESS"]:
+        """Helper method for `(a)delete` methods.
+        Handle request response and return "SUCCESS" if deletion is successful.
+        """
+        if response.status_code == 200:
+            return self._get_required_element_from_response(response.json())  # type: ignore
+        else:
+            return cast(
+                Literal["SUCCESS"],
+                self._handle_response(204, "delete software specification", response),
+            )
+
     def delete(
         self, sw_spec_id: str | None = None, **kwargs: Any
     ) -> Literal["SUCCESS"]:
@@ -542,13 +552,7 @@ class SwSpec(WMLResource):
             headers=self._client._get_headers(),
         )
 
-        if response.status_code == 200:
-            return self._get_required_element_from_response(response.json())  # type: ignore
-        else:
-            return cast(
-                Literal["SUCCESS"],
-                self._handle_response(204, "delete software specification", response),
-            )
+        return self._delete_process_response(response)
 
     async def adelete(self, sw_spec_id: str) -> Literal["SUCCESS"]:
         """Delete a software specification asynchronously.
@@ -576,13 +580,36 @@ class SwSpec(WMLResource):
             headers=await self._client._aget_headers(),
         )
 
-        if response.status_code == 200:
-            return self._get_required_element_from_response(response.json())  # type: ignore
+        return self._delete_process_response(response)
+
+    def _add_delete_pkg_extn_validate(
+        self,
+        sw_spec_id: str | None,
+        pkg_extn_id: str | None,
+    ) -> None:
+        """Helper method for `(a)add_package_extension` and `(a)delete_package_extension` methods.
+        Validate `sw_spec_id` and `pkg_extn_id` passed to any of above method.
+        Also, check if either space or project ID is set.
+        """
+        # For CP4D, check if either space or project ID is set
+        self._client._check_if_either_is_set()
+
+        self._validate_type(sw_spec_id, "sw_spec_id", str, True)
+        self._validate_type(pkg_extn_id, "pkg_extn_id", str, True)
+
+    def _add_package_extension_process_response(
+        self,
+        response: Response,
+    ) -> Literal["SUCCESS"]:
+        """Helper method for `(a)add_package_extension` methods.
+        Handle request response and return "SUCCESS" if adding package extension is successful.
+        """
+        if response.status_code == 204:
+            print("SUCCESS")
+            return "SUCCESS"
         else:
-            return cast(
-                Literal["SUCCESS"],
-                self._handle_response(204, "delete software specification", response),
-            )
+            # raise an ApiRequestFailure exception
+            return self._handle_response(204, "pkg spec add", response, False)  # type: ignore[return-value]
 
     def add_package_extension(
         self,
@@ -620,11 +647,7 @@ class SwSpec(WMLResource):
             kwargs, sw_spec_id, "sw_spec", can_be_none=False
         )
 
-        # For CP4D, check if either space or project ID is set
-        self._client._check_if_either_is_set()
-
-        self._validate_type(sw_spec_id, "sw_spec_id", str, True)
-        self._validate_type(pkg_extn_id, "pkg_extn_id", str, True)
+        self._add_delete_pkg_extn_validate(sw_spec_id, pkg_extn_id)
 
         response = self._client.httpx_client.put(
             url=self._client._href_definitions.get_sw_spec_pkg_extn_href(
@@ -634,12 +657,7 @@ class SwSpec(WMLResource):
             headers=self._client._get_headers(),
         )
 
-        if response.status_code == 204:
-            print("SUCCESS")
-            return "SUCCESS"
-        else:
-            # raise an ApiRequestFailure exception
-            return self._handle_response(204, "pkg spec add", response, False)  # type: ignore[return-value]
+        return self._add_package_extension_process_response(response)
 
     async def aadd_package_extension(
         self,
@@ -668,12 +686,7 @@ class SwSpec(WMLResource):
             )
 
         """
-
-        # For CP4D, check if either space or project ID is set
-        self._client._check_if_either_is_set()
-
-        self._validate_type(sw_spec_id, "sw_spec_id", str, True)
-        self._validate_type(pkg_extn_id, "pkg_extn_id", str, True)
+        self._add_delete_pkg_extn_validate(sw_spec_id, pkg_extn_id)
 
         response = await self._client.async_httpx_client.put(
             url=self._client._href_definitions.get_sw_spec_pkg_extn_href(
@@ -683,12 +696,7 @@ class SwSpec(WMLResource):
             headers=await self._client._aget_headers(),
         )
 
-        if response.status_code == 204:
-            print("SUCCESS")
-            return "SUCCESS"
-        else:
-            # raise an ApiRequestFailure exception
-            return self._handle_response(204, "pkg spec add", response, False)  # type: ignore[return-value]
+        return self._add_package_extension_process_response(response)
 
     def delete_package_extension(
         self,
@@ -726,11 +734,7 @@ class SwSpec(WMLResource):
             kwargs, sw_spec_id, "sw_spec", can_be_none=False
         )
 
-        # For CP4D, check if either space or project ID is set
-        self._client._check_if_either_is_set()
-
-        self._validate_type(sw_spec_id, "sw_spec_id", str, True)
-        self._validate_type(pkg_extn_id, "pkg_extn_id", str, True)
+        self._add_delete_pkg_extn_validate(sw_spec_id, pkg_extn_id)
 
         response = self._client.httpx_client.delete(
             url=self._client._href_definitions.get_sw_spec_pkg_extn_href(
@@ -772,11 +776,7 @@ class SwSpec(WMLResource):
             )
 
         """
-        # For CP4D, check if either space or project ID is set
-        self._client._check_if_either_is_set()
-
-        self._validate_type(sw_spec_id, "sw_spec_id", str, True)
-        self._validate_type(pkg_extn_id, "pkg_extn_id", str, True)
+        self._add_delete_pkg_extn_validate(sw_spec_id, pkg_extn_id)
 
         response = await self._client.async_httpx_client.delete(
             url=self._client._href_definitions.get_sw_spec_pkg_extn_href(

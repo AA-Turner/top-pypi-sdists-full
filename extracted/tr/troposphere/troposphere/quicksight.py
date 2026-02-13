@@ -10,6 +10,180 @@ from . import AWSObject, AWSProperty, PropsDictType, Tags
 from .validators import boolean, double, integer
 
 
+class APIKeyConnectionMetadata(AWSProperty):
+    """
+    `APIKeyConnectionMetadata <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-actionconnector-apikeyconnectionmetadata.html>`__
+    """
+
+    props: PropsDictType = {
+        "ApiKey": (str, True),
+        "BaseEndpoint": (str, True),
+        "Email": (str, False),
+    }
+
+
+class AuthorizationCodeGrantDetails(AWSProperty):
+    """
+    `AuthorizationCodeGrantDetails <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-actionconnector-authorizationcodegrantdetails.html>`__
+    """
+
+    props: PropsDictType = {
+        "AuthorizationEndpoint": (str, True),
+        "ClientId": (str, True),
+        "ClientSecret": (str, True),
+        "TokenEndpoint": (str, True),
+    }
+
+
+class AuthorizationCodeGrantCredentialsDetails(AWSProperty):
+    """
+    `AuthorizationCodeGrantCredentialsDetails <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-actionconnector-authorizationcodegrantcredentialsdetails.html>`__
+    """
+
+    props: PropsDictType = {
+        "AuthorizationCodeGrantDetails": (AuthorizationCodeGrantDetails, True),
+    }
+
+
+class AuthorizationCodeGrantMetadata(AWSProperty):
+    """
+    `AuthorizationCodeGrantMetadata <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-actionconnector-authorizationcodegrantmetadata.html>`__
+    """
+
+    props: PropsDictType = {
+        "AuthorizationCodeGrantCredentialsDetails": (
+            AuthorizationCodeGrantCredentialsDetails,
+            False,
+        ),
+        "AuthorizationCodeGrantCredentialsSource": (str, False),
+        "BaseEndpoint": (str, True),
+        "RedirectUrl": (str, True),
+    }
+
+
+class BasicAuthConnectionMetadata(AWSProperty):
+    """
+    `BasicAuthConnectionMetadata <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-actionconnector-basicauthconnectionmetadata.html>`__
+    """
+
+    props: PropsDictType = {
+        "BaseEndpoint": (str, True),
+        "Password": (str, True),
+        "Username": (str, True),
+    }
+
+
+class ClientCredentialsGrantDetails(AWSProperty):
+    """
+    `ClientCredentialsGrantDetails <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-actionconnector-clientcredentialsgrantdetails.html>`__
+    """
+
+    props: PropsDictType = {
+        "ClientId": (str, True),
+        "ClientSecret": (str, True),
+        "TokenEndpoint": (str, True),
+    }
+
+
+class ClientCredentialsDetails(AWSProperty):
+    """
+    `ClientCredentialsDetails <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-actionconnector-clientcredentialsdetails.html>`__
+    """
+
+    props: PropsDictType = {
+        "ClientCredentialsGrantDetails": (ClientCredentialsGrantDetails, True),
+    }
+
+
+class ClientCredentialsGrantMetadata(AWSProperty):
+    """
+    `ClientCredentialsGrantMetadata <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-actionconnector-clientcredentialsgrantmetadata.html>`__
+    """
+
+    props: PropsDictType = {
+        "BaseEndpoint": (str, True),
+        "ClientCredentialsDetails": (ClientCredentialsDetails, False),
+        "ClientCredentialsSource": (str, False),
+    }
+
+
+class IAMConnectionMetadata(AWSProperty):
+    """
+    `IAMConnectionMetadata <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-actionconnector-iamconnectionmetadata.html>`__
+    """
+
+    props: PropsDictType = {
+        "RoleArn": (str, True),
+    }
+
+
+class NoneConnectionMetadata(AWSProperty):
+    """
+    `NoneConnectionMetadata <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-actionconnector-noneconnectionmetadata.html>`__
+    """
+
+    props: PropsDictType = {
+        "BaseEndpoint": (str, True),
+    }
+
+
+class AuthenticationMetadata(AWSProperty):
+    """
+    `AuthenticationMetadata <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-actionconnector-authenticationmetadata.html>`__
+    """
+
+    props: PropsDictType = {
+        "ApiKeyConnectionMetadata": (APIKeyConnectionMetadata, False),
+        "AuthorizationCodeGrantMetadata": (AuthorizationCodeGrantMetadata, False),
+        "BasicAuthConnectionMetadata": (BasicAuthConnectionMetadata, False),
+        "ClientCredentialsGrantMetadata": (ClientCredentialsGrantMetadata, False),
+        "IamConnectionMetadata": (IAMConnectionMetadata, False),
+        "NoneConnectionMetadata": (NoneConnectionMetadata, False),
+    }
+
+
+class AuthConfig(AWSProperty):
+    """
+    `AuthConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-actionconnector-authconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "AuthenticationMetadata": (AuthenticationMetadata, True),
+        "AuthenticationType": (str, True),
+    }
+
+
+class ResourcePermission(AWSProperty):
+    """
+    `ResourcePermission <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-theme-resourcepermission.html>`__
+    """
+
+    props: PropsDictType = {
+        "Actions": ([str], True),
+        "Principal": (str, True),
+    }
+
+
+class ActionConnector(AWSObject):
+    """
+    `ActionConnector <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-quicksight-actionconnector.html>`__
+    """
+
+    resource_type = "AWS::QuickSight::ActionConnector"
+
+    props: PropsDictType = {
+        "ActionConnectorId": (str, True),
+        "AuthenticationConfig": (AuthConfig, False),
+        "AwsAccountId": (str, True),
+        "Description": (str, False),
+        "Name": (str, True),
+        "Permissions": ([ResourcePermission], False),
+        "Tags": (Tags, False),
+        "Type": (str, True),
+        "VpcConnectionArn": (str, False),
+    }
+
+
 class FreeFormLayoutScreenCanvasSizeOptions(AWSProperty):
     """
     `FreeFormLayoutScreenCanvasSizeOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-template-freeformlayoutscreencanvassizeoptions.html>`__
@@ -6845,17 +7019,6 @@ class Parameters(AWSProperty):
     }
 
 
-class ResourcePermission(AWSProperty):
-    """
-    `ResourcePermission <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-theme-resourcepermission.html>`__
-    """
-
-    props: PropsDictType = {
-        "Actions": ([str], True),
-        "Principal": (str, True),
-    }
-
-
 class Sheet(AWSProperty):
     """
     `Sheet <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-template-sheet.html>`__
@@ -6908,13 +7071,17 @@ class Capabilities(AWSProperty):
     """
 
     props: PropsDictType = {
+        "Action": (str, False),
         "AddOrRunAnomalyDetectionForAnalyses": (str, False),
         "Analysis": (str, False),
+        "Automate": (str, False),
+        "ChatAgent": (str, False),
         "CreateAndUpdateDashboardEmailReports": (str, False),
         "CreateAndUpdateDataSources": (str, False),
         "CreateAndUpdateDatasets": (str, False),
         "CreateAndUpdateThemes": (str, False),
         "CreateAndUpdateThresholdAlerts": (str, False),
+        "CreateChatAgents": (str, False),
         "CreateSPICEDataset": (str, False),
         "CreateSharedFolders": (str, False),
         "Dashboard": (str, False),
@@ -6924,14 +7091,22 @@ class Capabilities(AWSProperty):
         "ExportToExcelInScheduledReports": (str, False),
         "ExportToPdf": (str, False),
         "ExportToPdfInScheduledReports": (str, False),
+        "Flow": (str, False),
         "IncludeContentInScheduledReportsEmail": (str, False),
+        "KnowledgeBase": (str, False),
+        "PerformFlowUiTask": (str, False),
         "PrintReports": (str, False),
+        "PublishWithoutApproval": (str, False),
         "RenameSharedFolders": (str, False),
+        "Research": (str, False),
         "ShareAnalyses": (str, False),
         "ShareDashboards": (str, False),
         "ShareDataSources": (str, False),
         "ShareDatasets": (str, False),
+        "Space": (str, False),
         "SubscribeDashboardEmailReports": (str, False),
+        "UseAgentWebSearch": (str, False),
+        "UseBedrockModels": (str, False),
         "ViewAccountSPICECapacity": (str, False),
     }
 
@@ -8584,6 +8759,18 @@ class CredentialPair(AWSProperty):
     }
 
 
+class KeyPairCredentials(AWSProperty):
+    """
+    `KeyPairCredentials <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-datasource-keypaircredentials.html>`__
+    """
+
+    props: PropsDictType = {
+        "KeyPairUsername": (str, True),
+        "PrivateKey": (str, True),
+        "PrivateKeyPassphrase": (str, False),
+    }
+
+
 class DataSourceCredentials(AWSProperty):
     """
     `DataSourceCredentials <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-datasource-datasourcecredentials.html>`__
@@ -8592,6 +8779,7 @@ class DataSourceCredentials(AWSProperty):
     props: PropsDictType = {
         "CopySourceArn": (str, False),
         "CredentialPair": (CredentialPair, False),
+        "KeyPairCredentials": (KeyPairCredentials, False),
         "SecretArn": (str, False),
     }
 
@@ -9404,6 +9592,29 @@ class DashboardError(AWSProperty):
         "Message": (str, False),
         "Type": (str, False),
         "ViolatedEntities": ([Entity], False),
+    }
+
+
+class GridLayoutElementBackgroundStyle(AWSProperty):
+    """
+    `GridLayoutElementBackgroundStyle <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-dashboard-gridlayoutelementbackgroundstyle.html>`__
+    """
+
+    props: PropsDictType = {
+        "Color": (str, False),
+        "Visibility": (str, False),
+    }
+
+
+class GridLayoutElementBorderStyle(AWSProperty):
+    """
+    `GridLayoutElementBorderStyle <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-dashboard-gridlayoutelementborderstyle.html>`__
+    """
+
+    props: PropsDictType = {
+        "Color": (str, False),
+        "Visibility": (str, False),
+        "Width": (str, False),
     }
 
 

@@ -211,7 +211,7 @@ class AutorefsPlugin(BasePlugin[AutorefsConfig]):
 
         Returns:
             The same Markdown. We only use this hook to keep a reference to the current page URL,
-                used during Markdown conversion by the anchor scanner tree processor.
+                used during Markdown conversion by the anchor/heading scanner tree processors.
         """
         # YORE: Bump 2: Remove line.
         self._url_to_page[page.url] = page
@@ -219,12 +219,11 @@ class AutorefsPlugin(BasePlugin[AutorefsConfig]):
         return markdown
 
     def on_page_content(self, html: str, page: Page, **kwargs: Any) -> str:  # noqa: ARG002
-        """Map anchors to URLs.
+        """Register breadcrumbs.
 
         Hook for the [`on_page_content` event](https://www.mkdocs.org/user-guide/plugins/#on_page_content).
-        In this hook, we map the IDs of every anchor found in the table of contents to the anchors absolute URLs.
-        This mapping will be used later to fix unresolved reference of the form `[title][identifier]` or
-        `[identifier][]`.
+        In this hook, we register breadcrumbs for each heading on each page.
+        These breadcrumbs are used to provide contextual information in backlinks.
 
         Arguments:
             html: HTML converted from Markdown.
@@ -232,14 +231,12 @@ class AutorefsPlugin(BasePlugin[AutorefsConfig]):
             kwargs: Additional arguments passed by MkDocs.
 
         Returns:
-            The same HTML. We only use this hook to map anchors to URLs.
+            The same HTML.
         """
         self.current_page = page
-        # Collect `std`-domain URLs.
-        if self.scan_toc:
-            _log.debug("Mapping identifiers to URLs for page %s", page.file.src_path)
+        if self.record_backlinks:
             for item in page.toc.items:
-                self.map_urls(page, item)
+                self._register_breadcrumbs(page, item)
         return html
 
     @event_priority(-50)  # Late, after mkdocstrings has finished loading inventories.
@@ -268,10 +265,10 @@ class AutorefsPlugin(BasePlugin[AutorefsConfig]):
             if file.page and file.page.content:
                 _log.debug("Applying cross-refs in page %s", file.page.file.src_path)
 
-                # YORE: Bump 2: Replace `, fallback=self.get_fallback_anchor` with `` within line.
                 url_mapper = functools.partial(
                     self.get_item_url,
                     from_url=file.page.url,
+                    # YORE: Bump 2: Remove line.
                     fallback=self.get_fallback_anchor,
                 )
                 backlink_recorder = (
@@ -299,9 +296,12 @@ class AutorefsPlugin(BasePlugin[AutorefsConfig]):
     # ----------------------------------------------------------------------- #
     # Utilities                                                               #
     # ----------------------------------------------------------------------- #
-    # TODO: Maybe stop exposing this method in the future.
+    # YORE: Bump 2: Remove block.
     def map_urls(self, page: Page, anchor: AnchorLink) -> None:
-        """Recurse on every anchor to map its ID to its absolute URL.
+        """Deprecated. Recurse on every anchor to map its ID to its absolute URL.
+
+        This method is deprecated and will be removed in a future release.
+        Please use the `register_anchor` or `register_url` methods instead.
 
         This method populates `self._primary_url_map` by side-effect.
 
@@ -309,20 +309,30 @@ class AutorefsPlugin(BasePlugin[AutorefsConfig]):
             page: The page containing the anchors.
             anchor: The anchor to process and to recurse on.
         """
-        return self._map_urls(page, anchor)
+        warn(
+            "The `map_urls` method is deprecated and will be removed in a future release. "
+            "Please use the `register_anchor` or `register_url` methods instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self._map_urls(page, anchor)
 
-    def _map_urls(self, page: Page, anchor: AnchorLink, parent: BacklinkCrumb | None = None) -> None:
-        # YORE: Bump 2: Remove block.
+    # YORE: Bump 2: Remove block.
+    def _map_urls(self, page: Page | str, anchor: AnchorLink) -> None:
         if isinstance(page, str):
             try:
                 page = self._url_to_page[page]
             except KeyError:
                 page = self.current_page  # type: ignore[assignment]
 
-        self.register_anchor(page, anchor.id, title=anchor.title, primary=True)
+        self.register_anchor(page, anchor.id, title=anchor.title, primary=True)  # type: ignore[arg-type]
+        self._register_breadcrumbs(page, anchor)  # type: ignore[arg-type]
+
+    def _register_breadcrumbs(self, page: Page, anchor: AnchorLink, parent: BacklinkCrumb | None = None) -> None:
+        # Getting a breadcrumb has a side-effect of registering it in the breadcrumbs map.
         breadcrumb = self._get_breadcrumb(page, anchor, parent)
         for child in anchor.children:
-            self._map_urls(page, child, breadcrumb)
+            self._register_breadcrumbs(page, child, breadcrumb)
 
     def _get_breadcrumb(
         self,

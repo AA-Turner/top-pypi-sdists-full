@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-a2a
-Version: 1.0.0b260130
+Version: 1.0.0b260212
 Summary: A2A integration for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: agent-framework-core
+Requires-Dist: agent-framework-core>=1.0.0b260212
 Requires-Dist: a2a-sdk>=0.3.5
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
@@ -37,7 +37,7 @@ The A2A agent integration enables communication with remote A2A-compliant agents
 
 ### Basic Usage Example
 
-See the [A2A agent examples](https://github.com/microsoft/agent-framework/tree/main/python/samples/getting_started/agents/a2a/) which demonstrate:
+See the [A2A agent examples](../../samples/04-hosting/a2a/) which demonstrate:
 
 - Connecting to remote A2A agents
 - Sending messages and receiving responses

@@ -28252,7 +28252,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: list[WorkloadConnectionCredentials]
+        :return: ClusterConnectionCredentialsResponse
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -28279,7 +28279,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: tuple(list[WorkloadConnectionCredentials], status_code(int), headers(HTTPHeaderDict))
+        :return: tuple(ClusterConnectionCredentialsResponse, status_code(int), headers(HTTPHeaderDict))
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -28340,7 +28340,7 @@ class DefaultApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='list[WorkloadConnectionCredentials]',  # noqa: E501
+            response_type='ClusterConnectionCredentialsResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -31009,6 +31009,8 @@ class DefaultApi(object):
         :param str cloud_id: cloud_id to filter by
         :param str name: name to filter by
         :param str creator_id: filter by creator id
+        :param ScheduleSortField sort_field: Field to sort by. If absent, defaults to CREATED_AT descending.
+        :param SortOrder sort_order: If sort_field is absent, this field is ignored. If absent, this field defaults to ascending.
         :param str paging_token:
         :param int count:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -31039,6 +31041,8 @@ class DefaultApi(object):
         :param str cloud_id: cloud_id to filter by
         :param str name: name to filter by
         :param str creator_id: filter by creator id
+        :param ScheduleSortField sort_field: Field to sort by. If absent, defaults to CREATED_AT descending.
+        :param SortOrder sort_order: If sort_field is absent, this field is ignored. If absent, this field defaults to ascending.
         :param str paging_token:
         :param int count:
         :param _return_http_data_only: response data without head status code
@@ -31062,6 +31066,8 @@ class DefaultApi(object):
             'cloud_id',
             'name',
             'creator_id',
+            'sort_field',
+            'sort_order',
             'paging_token',
             'count'
         ]
@@ -31100,6 +31106,10 @@ class DefaultApi(object):
             query_params.append(('name', local_var_params['name']))  # noqa: E501
         if 'creator_id' in local_var_params and local_var_params['creator_id'] is not None:  # noqa: E501
             query_params.append(('creator_id', local_var_params['creator_id']))  # noqa: E501
+        if 'sort_field' in local_var_params and local_var_params['sort_field'] is not None:  # noqa: E501
+            query_params.append(('sort_field', local_var_params['sort_field']))  # noqa: E501
+        if 'sort_order' in local_var_params and local_var_params['sort_order'] is not None:  # noqa: E501
+            query_params.append(('sort_order', local_var_params['sort_order']))  # noqa: E501
         if 'paging_token' in local_var_params and local_var_params['paging_token'] is not None:  # noqa: E501
             query_params.append(('paging_token', local_var_params['paging_token']))  # noqa: E501
         if 'count' in local_var_params and local_var_params['count'] is not None:  # noqa: E501
@@ -31985,6 +31995,7 @@ class DefaultApi(object):
         :param str source_cron_job_id: filter by cron_job_id id
         :param ArchiveStatus archive_status: The archive status to filter by. Defaults to unarchived.
         :param str cloud_id: cloud_id to filter by
+        :param str job_queue_id: job_queue_id to filter by
         :param list[str] tag_filter: Repeatable filter of tags in the form key:value. Can be specified multiple times. Values with the same key are ORed; keys are ANDed.
         :param HaJobsSortField sort_field: If absent, the sort order will be determined according to the type_filter.
         :param SortOrder sort_order: If sort_field is absent, this field is ignored.If absent, this field defaults to ascending.
@@ -32022,6 +32033,7 @@ class DefaultApi(object):
         :param str source_cron_job_id: filter by cron_job_id id
         :param ArchiveStatus archive_status: The archive status to filter by. Defaults to unarchived.
         :param str cloud_id: cloud_id to filter by
+        :param str job_queue_id: job_queue_id to filter by
         :param list[str] tag_filter: Repeatable filter of tags in the form key:value. Can be specified multiple times. Values with the same key are ORed; keys are ANDed.
         :param HaJobsSortField sort_field: If absent, the sort order will be determined according to the type_filter.
         :param SortOrder sort_order: If sort_field is absent, this field is ignored.If absent, this field defaults to ascending.
@@ -32053,6 +32065,7 @@ class DefaultApi(object):
             'source_cron_job_id',
             'archive_status',
             'cloud_id',
+            'job_queue_id',
             'tag_filter',
             'sort_field',
             'sort_order',
@@ -32105,6 +32118,8 @@ class DefaultApi(object):
             query_params.append(('archive_status', local_var_params['archive_status']))  # noqa: E501
         if 'cloud_id' in local_var_params and local_var_params['cloud_id'] is not None:  # noqa: E501
             query_params.append(('cloud_id', local_var_params['cloud_id']))  # noqa: E501
+        if 'job_queue_id' in local_var_params and local_var_params['job_queue_id'] is not None:  # noqa: E501
+            query_params.append(('job_queue_id', local_var_params['job_queue_id']))  # noqa: E501
         if 'tag_filter' in local_var_params and local_var_params['tag_filter'] is not None:  # noqa: E501
             query_params.append(('tag_filter', local_var_params['tag_filter']))  # noqa: E501
             collection_formats['tag_filter'] = 'multi'  # noqa: E501
@@ -32905,176 +32920,6 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='DecoratedproductionjobstatetransitionListResponse',  # noqa: E501
-            auth_settings=auth_settings,
-            async_req=local_var_params.get('async_req'),
-            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
-            _preload_content=local_var_params.get('_preload_content', True),
-            _request_timeout=local_var_params.get('_request_timeout'),
-            collection_formats=collection_formats)
-
-    def list_jobs_api_v2_decorated_unified_jobs_get(self, **kwargs):  # noqa: E501
-        """List Jobs  # noqa: E501
-
-        List all Jobs the user has access to.  # noqa: E501
-        This method makes a synchronous HTTP request by default. To make an
-        asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.list_jobs_api_v2_decorated_unified_jobs_get(async_req=True)
-        >>> result = thread.get()
-
-        :param async_req bool: execute request asynchronously
-        :param str name_contains: Name that contains the provided value, to filter by. If absent, no filtering is done.
-        :param list[UnifiedJobStatus] status: Statuses to filter by. If absent, no filtering is done.
-        :param str creator_id: User to filter by. If absent, no filtering is done.
-        :param ArchiveStatus archive_status: Archive status to filter by. If absent, archived jobs are excluded.
-        :param str project_id: Project to filter by. If absent, no filtering is done.
-        :param str workspace_id: Workspace to filter by. If absent, no filtering is done.
-        :param str cloud_id: Search for job with cloud_id
-        :param str job_queue_id: Job queue to filter by. If absent, no filtering is done.
-        :param UnifiedJobSortField sort_field: If absent, jobs will be ordered by status (active first). See order declared in `UnifiedJobSortField`
-        :param SortOrder sort_order: If sort_field is absent, this field is ignored.If sort_order is absent, this field defaults to descending.
-        :param str paging_token:
-        :param int count:
-        :param _preload_content: if False, the urllib3.HTTPResponse object will
-                                 be returned without reading/decoding response
-                                 data. Default is True.
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :return: DecoratedunifiedjobListResponse
-                 If the method is called asynchronously,
-                 returns the request thread.
-        """
-        kwargs['_return_http_data_only'] = True
-        return self.list_jobs_api_v2_decorated_unified_jobs_get_with_http_info(**kwargs)  # noqa: E501
-
-    def list_jobs_api_v2_decorated_unified_jobs_get_with_http_info(self, **kwargs):  # noqa: E501
-        """List Jobs  # noqa: E501
-
-        List all Jobs the user has access to.  # noqa: E501
-        This method makes a synchronous HTTP request by default. To make an
-        asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.list_jobs_api_v2_decorated_unified_jobs_get_with_http_info(async_req=True)
-        >>> result = thread.get()
-
-        :param async_req bool: execute request asynchronously
-        :param str name_contains: Name that contains the provided value, to filter by. If absent, no filtering is done.
-        :param list[UnifiedJobStatus] status: Statuses to filter by. If absent, no filtering is done.
-        :param str creator_id: User to filter by. If absent, no filtering is done.
-        :param ArchiveStatus archive_status: Archive status to filter by. If absent, archived jobs are excluded.
-        :param str project_id: Project to filter by. If absent, no filtering is done.
-        :param str workspace_id: Workspace to filter by. If absent, no filtering is done.
-        :param str cloud_id: Search for job with cloud_id
-        :param str job_queue_id: Job queue to filter by. If absent, no filtering is done.
-        :param UnifiedJobSortField sort_field: If absent, jobs will be ordered by status (active first). See order declared in `UnifiedJobSortField`
-        :param SortOrder sort_order: If sort_field is absent, this field is ignored.If sort_order is absent, this field defaults to descending.
-        :param str paging_token:
-        :param int count:
-        :param _return_http_data_only: response data without head status code
-                                       and headers
-        :param _preload_content: if False, the urllib3.HTTPResponse object will
-                                 be returned without reading/decoding response
-                                 data. Default is True.
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :return: tuple(DecoratedunifiedjobListResponse, status_code(int), headers(HTTPHeaderDict))
-                 If the method is called asynchronously,
-                 returns the request thread.
-        """
-
-        local_var_params = locals()
-
-        all_params = [
-            'name_contains',
-            'status',
-            'creator_id',
-            'archive_status',
-            'project_id',
-            'workspace_id',
-            'cloud_id',
-            'job_queue_id',
-            'sort_field',
-            'sort_order',
-            'paging_token',
-            'count'
-        ]
-        all_params.extend(
-            [
-                'async_req',
-                '_return_http_data_only',
-                '_preload_content',
-                '_request_timeout'
-            ]
-        )
-
-        for key, val in six.iteritems(local_var_params['kwargs']):
-            if key not in all_params:
-                raise ApiTypeError(
-                    "Got an unexpected keyword argument '%s'"
-                    " to method list_jobs_api_v2_decorated_unified_jobs_get" % key
-                )
-            local_var_params[key] = val
-        del local_var_params['kwargs']
-
-        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] > 50:  # noqa: E501
-            raise ApiValueError("Invalid value for parameter `count` when calling `list_jobs_api_v2_decorated_unified_jobs_get`, must be a value less than or equal to `50`")  # noqa: E501
-        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] < 0:  # noqa: E501
-            raise ApiValueError("Invalid value for parameter `count` when calling `list_jobs_api_v2_decorated_unified_jobs_get`, must be a value greater than or equal to `0`")  # noqa: E501
-        collection_formats = {}
-
-        path_params = {}
-
-        query_params = []
-        if 'name_contains' in local_var_params and local_var_params['name_contains'] is not None:  # noqa: E501
-            query_params.append(('name_contains', local_var_params['name_contains']))  # noqa: E501
-        if 'status' in local_var_params and local_var_params['status'] is not None:  # noqa: E501
-            query_params.append(('status', local_var_params['status']))  # noqa: E501
-            collection_formats['status'] = 'multi'  # noqa: E501
-        if 'creator_id' in local_var_params and local_var_params['creator_id'] is not None:  # noqa: E501
-            query_params.append(('creator_id', local_var_params['creator_id']))  # noqa: E501
-        if 'archive_status' in local_var_params and local_var_params['archive_status'] is not None:  # noqa: E501
-            query_params.append(('archive_status', local_var_params['archive_status']))  # noqa: E501
-        if 'project_id' in local_var_params and local_var_params['project_id'] is not None:  # noqa: E501
-            query_params.append(('project_id', local_var_params['project_id']))  # noqa: E501
-        if 'workspace_id' in local_var_params and local_var_params['workspace_id'] is not None:  # noqa: E501
-            query_params.append(('workspace_id', local_var_params['workspace_id']))  # noqa: E501
-        if 'cloud_id' in local_var_params and local_var_params['cloud_id'] is not None:  # noqa: E501
-            query_params.append(('cloud_id', local_var_params['cloud_id']))  # noqa: E501
-        if 'job_queue_id' in local_var_params and local_var_params['job_queue_id'] is not None:  # noqa: E501
-            query_params.append(('job_queue_id', local_var_params['job_queue_id']))  # noqa: E501
-        if 'sort_field' in local_var_params and local_var_params['sort_field'] is not None:  # noqa: E501
-            query_params.append(('sort_field', local_var_params['sort_field']))  # noqa: E501
-        if 'sort_order' in local_var_params and local_var_params['sort_order'] is not None:  # noqa: E501
-            query_params.append(('sort_order', local_var_params['sort_order']))  # noqa: E501
-        if 'paging_token' in local_var_params and local_var_params['paging_token'] is not None:  # noqa: E501
-            query_params.append(('paging_token', local_var_params['paging_token']))  # noqa: E501
-        if 'count' in local_var_params and local_var_params['count'] is not None:  # noqa: E501
-            query_params.append(('count', local_var_params['count']))  # noqa: E501
-
-        header_params = {}
-
-        form_params = []
-        local_var_files = {}
-
-        body_params = None
-        # HTTP header `Accept`
-        header_params['Accept'] = self.api_client.select_header_accept(
-            ['application/json'])  # noqa: E501
-
-        # Authentication setting
-        auth_settings = []  # noqa: E501
-
-        return self.api_client.call_api(
-            '/api/v2/decorated_unified_jobs/', 'GET',
-            path_params,
-            query_params,
-            header_params,
-            body=body_params,
-            post_params=form_params,
-            files=local_var_files,
-            response_type='DecoratedunifiedjobListResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501

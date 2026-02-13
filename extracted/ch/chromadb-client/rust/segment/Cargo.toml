@@ -5,7 +5,10 @@ edition = "2021"
 
 [dependencies]
 async-trait = { workspace = true }
+bytes = { workspace = true }
+chrono = { workspace = true }
 futures = { workspace = true }
+prost = { workspace = true }
 regex = { workspace = true }
 roaring = { workspace = true }
 sea-query = { workspace = true }

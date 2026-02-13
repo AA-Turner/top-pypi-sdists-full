@@ -26,26 +26,26 @@ class ReaperRuns(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            ctx = self.context()
-            with reaper(state) as http:
-                response = http.get('repair_run?state=RUNNING', params={
-                    'cluster_name': 'all',
-                    'limit': Config().get('reaper.show-runs-batch', 10)
-                })
+            with self.context(args) as (args, ctx):
+                with reaper(state) as http:
+                    response = http.get('repair_run?state=RUNNING', params={
+                        'cluster_name': 'all',
+                        'limit': Config().get('reaper.show-runs-batch', 10)
+                    })
 
-                if not Reapers.tabulize_runs(state, response, ctx=ctx):
-                    ctx.log2('No running runs found.')
-                    ctx.log2()
+                    if not Reapers.tabulize_runs(state, response, ctx=ctx):
+                        ctx.log2('No running runs found.')
+                        ctx.log2()
 
-                response = http.get('repair_run?state=PAUSED,ABORTED,DONE', params={
-                    'cluster_name': 'all',
-                    'limit': Config().get('reaper.show-runs-batch', 10)
-                })
+                    response = http.get('repair_run?state=PAUSED,ABORTED,DONE', params={
+                        'cluster_name': 'all',
+                        'limit': Config().get('reaper.show-runs-batch', 10)
+                    })
 
-                if not Reapers.tabulize_runs(state, response, ctx=ctx):
-                    ctx.log2('No runs found.')
+                    if not Reapers.tabulize_runs(state, response, ctx=ctx):
+                        ctx.log2('No runs found.')
 
-            return state
+                return state
 
     def completion(self, state: ReplState):
         if state.sts:

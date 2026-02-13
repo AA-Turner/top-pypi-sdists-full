@@ -33,6 +33,8 @@ class SecurableType(str, Enum):
     FUNCTION = 'function'
     VOLUME = 'volume'
     REGISTERED_MODEL = 'registered_model'
+    EXTERNAL_LOCATION = 'external_location'
+    CREDENTIAL = 'credential'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

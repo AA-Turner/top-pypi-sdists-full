@@ -8,7 +8,6 @@ import requests
 
 from social_core.exceptions import AuthConnectionError, AuthUnknownError
 from social_core.registry import REGISTRY
-from social_core.storage import UserProtocol
 from social_core.utils import module_member, parse_qs, social_logger, user_agent
 
 if TYPE_CHECKING:
@@ -17,8 +16,8 @@ if TYPE_CHECKING:
     from requests import Response
     from requests.auth import AuthBase
 
-    from social_core.storage import UserProtocol
-    from social_core.strategy import HttpResponseProtocol
+    from social_core.storage import PartialMixin, UserProtocol
+    from social_core.strategy import BaseStrategy, HttpResponseProtocol
 
 
 class BaseAuth:
@@ -33,9 +32,10 @@ class BaseAuth:
     REQUIRES_EMAIL_VALIDATION = False
     SEND_USER_AGENT = True
 
-    def __init__(self, strategy=None, redirect_uri: str | None = None) -> None:
-        # TODO: temporary type override
-        self.strategy: Any = (
+    def __init__(
+        self, strategy: BaseStrategy | None = None, redirect_uri: str | None = None
+    ) -> None:
+        self.strategy: BaseStrategy = (
             strategy if strategy is not None else REGISTRY.default_strategy
         )
         self.redirect_uri = redirect_uri
@@ -57,7 +57,7 @@ class BaseAuth:
             return self.strategy.redirect(self.auth_url())
         return self.strategy.html(self.auth_html())
 
-    def complete(self, *args, **kwargs) -> UserProtocol | None:
+    def complete(self, *args, **kwargs) -> HttpResponseProtocol | UserProtocol | None:
         return self.auth_complete(*args, **kwargs)
 
     def auth_url(self) -> str:
@@ -68,7 +68,9 @@ class BaseAuth:
         """Must return login HTML content returned by provider"""
         return "Implement in subclass"
 
-    def auth_complete(self, *args, **kwargs) -> UserProtocol | None:
+    def auth_complete(
+        self, *args, **kwargs
+    ) -> HttpResponseProtocol | UserProtocol | None:
         """Completes login process, must return user instance"""
         raise NotImplementedError("Implement in subclass")
 
@@ -194,8 +196,14 @@ class BaseAuth:
     def auth_allowed(self, response, details):
         """Return True if the user should be allowed to authenticate, by
         default check if email is whitelisted (if there's a whitelist)"""
-        emails = [email.lower() for email in self.setting("WHITELISTED_EMAILS", [])]
-        domains = [domain.lower() for domain in self.setting("WHITELISTED_DOMAINS", [])]
+        emails = [
+            email.lower()
+            for email in cast("list[str]", self.setting("WHITELISTED_EMAILS", []))
+        ]
+        domains = [
+            domain.lower()
+            for domain in cast("list[str]", self.setting("WHITELISTED_DOMAINS", []))
+        ]
         email = details.get("email")
         allowed = True
         if email and (emails or domains):
@@ -249,7 +257,9 @@ class BaseAuth:
         """
         return self.strategy.get_user(user_id)
 
-    def continue_pipeline(self, partial):
+    def continue_pipeline(
+        self, partial: PartialMixin
+    ) -> UserProtocol | HttpResponseProtocol | None:
         """Continue previous halted pipeline"""
         return self.strategy.authenticate(
             self, *partial.args, pipeline_index=partial.next_step, **partial.kwargs
@@ -269,13 +279,14 @@ class BaseAuth:
         otherwise return false."""
         return True
 
-    def request(
+    def request(  # noqa: PLR0913
         self,
         url: str,
         *,
         method: Literal["GET", "POST", "DELETE"] = "GET",
         headers: Mapping[str, str | bytes] | None = None,
-        data: dict | bytes | str | None = None,
+        data: dict | None = None,
+        json: dict | None = None,
         auth: tuple[str, str] | AuthBase | None = None,
         params: dict | None = None,
         timeout: float | None = None,
@@ -298,6 +309,7 @@ class BaseAuth:
                 url,
                 headers=headers,
                 data=data,
+                json=json,
                 auth=auth,
                 params=params,
                 timeout=timeout,
@@ -309,12 +321,13 @@ class BaseAuth:
         response.raise_for_status()
         return response
 
-    def get_json(
+    def get_json(  # noqa: PLR0913
         self,
         url: str,
         method: Literal["GET", "POST", "DELETE"] = "GET",
         headers: Mapping[str, str | bytes] | None = None,
-        data: dict | bytes | str | None = None,
+        data: dict | None = None,
+        json: dict | None = None,
         auth: tuple[str, str] | AuthBase | None = None,
         params: dict | None = None,
         timeout: float | None = None,
@@ -324,6 +337,7 @@ class BaseAuth:
             method=method,
             headers=headers,
             data=data,
+            json=json,
             auth=auth,
             params=params,
             timeout=timeout,
@@ -336,7 +350,7 @@ class BaseAuth:
         """Return tuple with Consumer Key and Consumer Secret for current
         service provider. Must return (key, secret), order *must* be respected.
         """
-        return self.setting("KEY"), self.setting("SECRET")
+        return cast("str", self.setting("KEY")), cast("str", self.setting("SECRET"))
 
     def get_key_and_secret_basic_auth(self) -> bytes:
         """Generate HTTP Basic Authentication header value from KEY and SECRET.

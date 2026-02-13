@@ -8,23 +8,26 @@ datetime.tzinfo object.
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import date, time, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from dateutil.tz import tz
 
 from icalendar.timezone import equivalent_timezone_ids_result
+from icalendar.tools import is_date
 
 if TYPE_CHECKING:
     from datetime import datetime, tzinfo
 
 DATEUTIL_UTC = tz.gettz("UTC")
-DATEUTIL_UTC_PATH : Optional[str] = getattr(DATEUTIL_UTC, "_filename", None)
+DATEUTIL_UTC_PATH: str | None = getattr(DATEUTIL_UTC, "_filename", None)
 DATEUTIL_ZONEINFO_PATH = (
     None if DATEUTIL_UTC_PATH is None else Path(DATEUTIL_UTC_PATH).parent
 )
 
-def tzids_from_tzinfo(tzinfo: Optional[tzinfo]) -> tuple[str]:
+
+def tzids_from_tzinfo(tzinfo: tzinfo | None) -> tuple[str]:
     """Get several timezone ids if we can identify the timezone.
 
     >>> import zoneinfo
@@ -35,9 +38,12 @@ def tzids_from_tzinfo(tzinfo: Optional[tzinfo]) -> tuple[str]:
     >>> tzids_from_tzinfo(gettz("Europe/Berlin"))
     ('Europe/Berlin', 'Arctic/Longyearbyen', 'Atlantic/Jan_Mayen', 'Europe/Budapest', 'Europe/Copenhagen', 'Europe/Oslo', 'Europe/Stockholm', 'Europe/Vienna')
 
-    """  # The example might need to change if you recreate the lookup tree
+    """  # The example might need to change if you recreate the lookup tree  # noqa: E501
     if tzinfo is None:
         return ()
+    if isinstance(tzinfo, timezone):
+        # fixed offset timezone with name
+        return get_equivalent_tzids(tzinfo.tzname(None))
     if hasattr(tzinfo, "zone"):
         return get_equivalent_tzids(tzinfo.zone)  # pytz implementation
     if hasattr(tzinfo, "key"):
@@ -46,7 +52,7 @@ def tzids_from_tzinfo(tzinfo: Optional[tzinfo]) -> tuple[str]:
         return get_equivalent_tzids(tzinfo._tzid)  # noqa: SLF001
     if isinstance(tzinfo, tz.tzstr):
         return get_equivalent_tzids(tzinfo._s)  # noqa: SLF001
-    if hasattr(tzinfo, "_filename"): # dateutil.tz.tzfile  # noqa: SIM102
+    if hasattr(tzinfo, "_filename"):  # dateutil.tz.tzfile  # noqa: SIM102
         if DATEUTIL_ZONEINFO_PATH is not None:
             # tzfile('/usr/share/zoneinfo/Europe/Berlin')
             path = tzinfo._filename  # noqa: SLF001
@@ -59,11 +65,11 @@ def tzids_from_tzinfo(tzinfo: Optional[tzinfo]) -> tuple[str]:
     return ()
 
 
-def tzid_from_tzinfo(tzinfo: Optional[tzinfo]) -> Optional[str]:
+def tzid_from_tzinfo(tzinfo: tzinfo | None) -> str | None:
     """Retrieve the timezone id from the tzinfo object.
 
     Some timezones are equivalent.
-    Thus, we might return one ID that is equivelant to others.
+    Thus, we might return one ID that is equivalent to others.
     """
     tzids = tzids_from_tzinfo(tzinfo)
     if "UTC" in tzids:
@@ -73,7 +79,7 @@ def tzid_from_tzinfo(tzinfo: Optional[tzinfo]) -> Optional[str]:
     return tzids[0]
 
 
-def tzid_from_dt(dt: datetime) -> Optional[str]:
+def tzid_from_dt(dt: datetime) -> str | None:
     """Retrieve the timezone id from the datetime object."""
     tzid = tzid_from_tzinfo(dt.tzinfo)
     if tzid is None:
@@ -81,12 +87,13 @@ def tzid_from_dt(dt: datetime) -> Optional[str]:
     return tzid
 
 
-_EQUIVALENT_IDS : dict[str, set[str]] = defaultdict(set)
+_EQUIVALENT_IDS: dict[str, set[str]] = defaultdict(set)
 
-def _add_equivalent_ids(value:tuple|dict|set):
+
+def _add_equivalent_ids(value: tuple | dict | set):
     """This adds equivalent ids/
 
-    As soon as one timezone implementation used claims their equivalence, 
+    As soon as one timezone implementation used claims their equivalence,
     they are considered equivalent.
     Have a look at icalendar.timezone.equivalent_timezone_ids.
     """
@@ -96,12 +103,16 @@ def _add_equivalent_ids(value:tuple|dict|set):
     elif isinstance(value, tuple):
         _add_equivalent_ids(value[1])
     elif isinstance(value, dict):
-        for value in value.values():
-            _add_equivalent_ids(value)
+        for value2 in value.values():
+            _add_equivalent_ids(value2)
     else:
-        raise TypeError(f"Expected tuple, dict or set, not {value.__class__.__name__}: {value!r}")
+        raise TypeError(
+            f"Expected tuple, dict or set, not {value.__class__.__name__}: {value!r}"
+        )
+
 
 _add_equivalent_ids(equivalent_timezone_ids_result.lookup)
+
 
 def get_equivalent_tzids(tzid: str) -> tuple[str]:
     """This returns the tzids which are equivalent to this one."""
@@ -109,4 +120,12 @@ def get_equivalent_tzids(tzid: str) -> tuple[str]:
     return (tzid,) + tuple(sorted(ids - {tzid}))
 
 
-__all__ = ["tzid_from_tzinfo", "tzid_from_dt", "tzids_from_tzinfo"]
+def is_utc(t: datetime | time | date | tzinfo) -> bool:
+    """Whether this date is in UTC."""
+    if is_date(t):
+        return False
+    tzid = tzid_from_dt(t) if hasattr(t, "tzinfo") else tzid_from_tzinfo(t)
+    return tzid == "UTC"
+
+
+__all__ = ["is_utc", "tzid_from_dt", "tzid_from_tzinfo", "tzids_from_tzinfo"]

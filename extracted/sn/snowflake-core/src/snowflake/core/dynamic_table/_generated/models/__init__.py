@@ -27,6 +27,8 @@ from snowflake.core.dynamic_table._generated.models.point_of_time_statement impo
 from snowflake.core.dynamic_table._generated.models.point_of_time_timestamp import PointOfTimeTimestamp
 from snowflake.core.dynamic_table._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.dynamic_table._generated.models.success_response import SuccessResponse
+from snowflake.core.dynamic_table._generated.models.tag_assignment import TagAssignment
+from snowflake.core.dynamic_table._generated.models.tag_reference import TagReference
 from snowflake.core.dynamic_table._generated.models.target_lag import TargetLag
 from snowflake.core.dynamic_table._generated.models.user_defined_lag import UserDefinedLag
 
@@ -42,6 +44,8 @@ __all__ = [
     "PointOfTimeTimestamp",
     "SuccessAcceptedResponse",
     "SuccessResponse",
+    "TagAssignment",
+    "TagReference",
     "TargetLag",
     "UserDefinedLag",
 ]

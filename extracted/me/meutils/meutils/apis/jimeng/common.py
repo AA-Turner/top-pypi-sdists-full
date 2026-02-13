@@ -31,7 +31,7 @@ def get_headers(url, token: str = "693701c43e477b7c405cc7e2fef0ddbd"):
 
     headers = {
         'appid': '513695',
-        'appvr': '5.8.0',
+        'appvr': '8.4.0',
         'device-time': device_time,
         'pf': '7',
         'sign': sign,
@@ -41,6 +41,8 @@ def get_headers(url, token: str = "693701c43e477b7c405cc7e2fef0ddbd"):
 
         'content-type': 'application/json',
         # "Referer": "https://jimeng.jianying.com/ai-tool/image/generate",
+        'app-sdk-version': "48.0.0"
+
     }
     return headers
 

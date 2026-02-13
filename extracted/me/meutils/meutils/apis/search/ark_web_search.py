@@ -29,7 +29,7 @@ class Completions(object):
         data = to_openai_params(request)
         return await self.client.chat.completions.create(**data)
 
-    @rcache(noself=True, ttl=15 * 60)
+    @rcache(ttl=15 * 60)
     async def query(self, q: str):
         request = CompletionRequest(
             model="bot-20250401164325-s7945",  # todo

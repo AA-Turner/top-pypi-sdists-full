@@ -5,8 +5,8 @@ use std::time::{Duration, SystemTime};
 use chroma_config::assignment::assignment_policy::AssignmentPolicy;
 use chroma_log::{CollectionInfo, CollectionRecord, Log};
 use chroma_memberlist::memberlist_provider::Memberlist;
-use chroma_sysdb::{GetCollectionsOptions, SysDb};
-use chroma_types::{CollectionUuid, JobId};
+use chroma_sysdb::{DatabaseOrTopology, GetCollectionsOptions, SysDb};
+use chroma_types::{CollectionUuid, DatabaseName, JobId};
 use figment::providers::Env;
 use figment::Figment;
 use opentelemetry::metrics::Counter;
@@ -41,12 +41,14 @@ impl SchedulerMetrics {
 
 struct InProgressJob {
     expires_at: SystemTime,
+    database_name: DatabaseName,
 }
 
 impl InProgressJob {
-    fn new(job_expiry_seconds: u64) -> Self {
+    fn new(job_expiry_seconds: u64, database_name: DatabaseName) -> Self {
         Self {
             expires_at: SystemTime::now() + Duration::from_secs(job_expiry_seconds),
+            database_name,
         }
     }
 
@@ -68,7 +70,7 @@ pub(crate) struct Scheduler {
     oneoff_collections: HashSet<CollectionUuid>,
     disabled_collections: HashSet<CollectionUuid>,
     deleted_collections: HashSet<CollectionUuid>,
-    collections_needing_repair: HashMap<CollectionUuid, i64>,
+    collections_needing_repair: HashMap<CollectionUuid, (DatabaseName, i64)>,
     in_progress_jobs: HashMap<JobId, InProgressJob>,
     job_expiry_seconds: u64,
     max_failure_count: i32,
@@ -127,13 +129,23 @@ impl Scheduler {
         self.deleted_collections.drain().collect()
     }
 
-    pub(crate) fn drain_collections_requiring_repair(&mut self) -> Vec<(CollectionUuid, i64)> {
-        self.collections_needing_repair.drain().collect()
+    pub(crate) fn drain_collections_requiring_repair(
+        &mut self,
+    ) -> Vec<(DatabaseName, CollectionUuid, i64)> {
+        self.collections_needing_repair
+            .drain()
+            .map(|(k, (d, o))| (d, k, o))
+            .collect()
     }
 
-    pub(crate) fn require_repair(&mut self, collection_id: CollectionUuid, offset_in_sysdb: i64) {
+    pub(crate) fn require_repair(
+        &mut self,
+        collection_id: CollectionUuid,
+        database_name: DatabaseName,
+        offset_in_sysdb: i64,
+    ) {
         self.collections_needing_repair
-            .insert(collection_id, offset_in_sysdb);
+            .insert(collection_id, (database_name, offset_in_sysdb));
     }
 
     async fn get_collections_with_new_data(&mut self) -> Vec<CollectionInfo> {
@@ -174,7 +186,12 @@ impl Scheduler {
             let result = self
                 .sysdb
                 .get_collections(GetCollectionsOptions {
-                    collection_id: Some(collection_info.collection_id),
+                    collection_ids: Some(vec![collection_info.collection_id]),
+                    database_or_topology: collection_info
+                        .topology_name
+                        .map(DatabaseOrTopology::Topology),
+                    limit: Some(1),
+                    offset: 0,
                     ..Default::default()
                 })
                 .await;
@@ -245,6 +262,7 @@ impl Scheduler {
                     collection_records.push(CollectionRecord {
                         collection_id: collection[0].collection_id,
                         tenant_id: collection[0].tenant.clone(),
+                        database_name: collection[0].database.clone(),
                         last_compaction_time,
                         first_record_time: collection_info.first_log_ts,
                         offset,
@@ -294,6 +312,19 @@ impl Scheduler {
         self.job_queue.clear();
         let mut scheduled_collections = Vec::new();
         for record in collection_records {
+            tracing::info!("Processing collection: {}", record.collection_id);
+            let database_name = match DatabaseName::new(record.database_name.clone()) {
+                Some(db_name) => db_name,
+                None => {
+                    tracing::warn!(
+                        "Invalid database name for collection {}: {}",
+                        record.collection_id,
+                        record.database_name
+                    );
+                    continue;
+                }
+            };
+
             if self.is_job_in_progress(&record.collection_id).await {
                 tracing::info!(
                     "Compaction for {} is already in progress, skipping",
@@ -308,6 +339,7 @@ impl Scheduler {
                 );
                 self.job_queue.push(CompactionJob {
                     collection_id: record.collection_id,
+                    database_name,
                 });
                 self.oneoff_collections.remove(&record.collection_id);
                 if self.job_queue.len() == self.max_concurrent_jobs {
@@ -336,20 +368,25 @@ impl Scheduler {
         // At this point, nobody should modify the job queue and every collection
         // in the job queue will definitely be compacted. It is now safe to add
         // them to the in-progress set.
-        let job_ids: Vec<_> = self.job_queue.iter().map(|j| j.collection_id).collect();
-        for collection_id in job_ids {
-            self.add_in_progress(collection_id);
+        let job_ids: Vec<_> = self
+            .job_queue
+            .iter()
+            .map(|j| (j.collection_id, j.database_name.clone()))
+            .collect();
+        for (collection_id, database_name) in job_ids {
+            self.add_in_progress(collection_id, database_name);
         }
     }
 
     async fn is_job_in_progress(&mut self, collection_id: &CollectionUuid) -> bool {
-        match self.in_progress_jobs.get(&(*collection_id).into()) {
+        let job_id = (*collection_id).into();
+        match self.in_progress_jobs.get(&job_id) {
             Some(job) if job.is_expired() => {
                 tracing::info!(
                     "Compaction for {} is expired, removing from dedup set.",
                     collection_id
                 );
-                self.fail_job((*collection_id).into()).await;
+                self.fail_job(job_id).await;
                 false
             }
             Some(_) => true,
@@ -357,14 +394,15 @@ impl Scheduler {
         }
     }
 
-    fn add_in_progress(&mut self, collection_id: CollectionUuid) {
+    fn add_in_progress(&mut self, collection_id: CollectionUuid, database_name: DatabaseName) {
         self.in_progress_jobs.insert(
             collection_id.into(),
-            InProgressJob::new(self.job_expiry_seconds),
+            InProgressJob::new(self.job_expiry_seconds, database_name),
         );
     }
 
     pub(crate) fn succeed_job(&mut self, job_id: JobId) {
+        tracing::info!("Compaction for {} just successfully finished", job_id);
         if self.in_progress_jobs.remove(&job_id).is_none() {
             tracing::warn!(
                 "Expired compaction for {} just successfully finished.",
@@ -375,28 +413,38 @@ impl Scheduler {
 
     /// Marks a job as failed and persists the failure count to sysdb.
     pub(crate) async fn fail_job(&mut self, job_id: JobId) {
-        if self.in_progress_jobs.remove(&job_id).is_none() {
-            tracing::warn!(
-                "Expired compaction for {} just unsuccessfully finished.",
-                job_id
-            );
-        }
+        tracing::info!("Failing compaction for {}", job_id.0);
+        // Get the database_name and remove the job in one operation
+        let db_entry = self
+            .in_progress_jobs
+            .remove(&job_id)
+            .map(|job| job.database_name);
 
-        // Record the failure in metrics
         self.metrics.increment_job_failure_count();
 
-        // Increment failure count in sysdb for persistent tracking across nodes
-        let collection_id = CollectionUuid(job_id.0);
-        if let Err(e) = self
-            .sysdb
-            .increment_compaction_failure_count(collection_id)
-            .await
-        {
-            tracing::warn!(
-                "Failed to increment compaction failure count in sysdb for {}: {:?}.",
-                job_id,
-                e
-            );
+        match db_entry {
+            Some(database_name) => {
+                // Increment failure count in sysdb for persistent tracking across nodes
+                let collection_id = CollectionUuid(job_id.0);
+
+                if let Err(e) = self
+                    .sysdb
+                    .increment_compaction_failure_count(collection_id, &database_name)
+                    .await
+                {
+                    tracing::warn!(
+                        "Failed to increment compaction failure count in sysdb for {}: {:?}.",
+                        job_id,
+                        e
+                    );
+                }
+            }
+            None => {
+                tracing::warn!(
+                    "Expired compaction for {} just unsuccessfully finished.",
+                    job_id
+                );
+            }
         }
     }
 
@@ -794,7 +842,12 @@ mod tests {
             },
         );
         let _ = log
-            .update_collection_log_offset(&tenant_1, collection_uuid_1, 2)
+            .update_collection_log_offset(
+                &tenant_1,
+                chroma_types::DatabaseName::new("test_db").unwrap(),
+                collection_uuid_1,
+                2,
+            )
             .await;
 
         let mut sysdb = SysDb::Test(TestSysDb::new());

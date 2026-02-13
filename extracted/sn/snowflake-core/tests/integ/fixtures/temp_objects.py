@@ -16,6 +16,7 @@ from snowflake.core.schema import Schema, SchemaResource
 from snowflake.core.service import Service, ServiceResource, ServiceSpecInlineText, ServiceSpecStageFile
 from snowflake.core.stage import Stage, StageDirectoryTable, StageEncryption, StageResource
 from snowflake.core.table import Table, TableColumn, TableResource
+from snowflake.core.tag import Tag, TagResource
 
 from ..utils import backup_role, random_string
 from .constants import TEST_SCHEMA
@@ -177,6 +178,18 @@ def temp_schema_case_sensitive(schemas, backup_database_schema) -> Iterator[Sche
         sc.drop()
 
 
+@pytest.fixture
+def temp_schema_upper_case(schemas, backup_database_schema) -> Iterator[SchemaResource]:
+    del backup_database_schema
+    schema_name_upper_case = random_string(5, "test_schema_upper_case_").upper()
+    test_schema = Schema(name=schema_name_upper_case, comment="created by temp_schema_upper_case")
+    sc = schemas.create(test_schema)
+    try:
+        yield sc
+    finally:
+        sc.drop()
+
+
 @pytest.fixture(scope="session")
 def temp_customer_organization(require_sf, sf_cursor) -> str:
     org_name = random_string(5, "testorg")
@@ -282,3 +295,13 @@ def temp_directory_table(stages) -> Iterator[StageResource]:
         yield st
     finally:
         st.drop()
+
+
+@pytest.fixture
+def temp_tag_upper_case(temp_schema_upper_case) -> Iterator[TagResource]:
+    tag_name = random_string(5, "temp_tag_").upper()
+    temp_tag = temp_schema_upper_case.tags.create(Tag(name=tag_name))
+    try:
+        yield temp_schema_upper_case.tags[temp_tag.name]
+    finally:
+        temp_tag.drop(if_exists=True)

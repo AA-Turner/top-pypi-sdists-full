@@ -1,4 +1,4 @@
-from adam.commands import extract_options, extract_sequence, extract_trailing_options
+from adam.commands import extract_sequence
 from adam.commands.command import Command
 from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
@@ -19,18 +19,21 @@ class ShowProcesses(Command):
     def command(self):
         return ShowProcesses.COMMAND
 
+    def aliases(self):
+        return ['sp']
+
     def required(self):
         return RequiredState.CLUSTER_OR_POD
 
-    def aliases(self):
-        return ['sp']
+    def backgrounable(self):
+        return True
 
     def run(self, cmd: str, state: ReplState):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with extract_trailing_options(args, '&') as (args, background):
+            with self.context(args, show_out=False) as (args, ctx):
                 with extract_sequence(args, ['with', 'recipe', '=', 'mpstat']) as (_, recipe_qing):
                     cols = Config().get('processes.columns', 'pod,cpu-metrics,mem')
                     header = Config().get('processes.header', 'POD_NAME,M_CPU(USAGE/LIMIT),MEM/LIMIT')
@@ -39,13 +42,13 @@ class ShowProcesses(Command):
                         header = Config().get('processes-mpstat.header', 'POD_NAME,Q_CPU/TOTAL,MEM/LIMIT')
 
                     with renderer(state) as pods:
-                        pods.display_table(cols, header, find_issues=False, ctx=self.context().copy(show_out=False, background=background))
+                        pods.display_table(cols, header, find_issues=False, ctx=ctx)
 
                     return state
 
     def completion(self, state: ReplState):
         recipes = ['metrics', 'mpstat']
-        return super().completion(state, {'with': {'recipe': {'=': {r: {'&': None} for r in recipes}}}, '&': None})
+        return super().completion(state, {'with': {'recipe': {'=': {r: None for r in recipes}}}})
 
     def help(self, state: ReplState):
-        return super().help(state, 'show process overview  & background', args='[with recipe=metrics|mpstat] [&]')
+        return super().help(state, 'show process overview', args='[with recipe=metrics|mpstat]')

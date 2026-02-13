@@ -213,6 +213,7 @@ from .type_defs import (
     InstanceMetadataOptionsResponseTypeDef,
     InstanceNetworkInterfaceTypeDef,
     InstanceNetworkPerformanceOptionsTypeDef,
+    InstanceSecondaryInterfaceTypeDef,
     InstanceStateTypeDef,
     InternetGatewayAttachmentTypeDef,
     InternetGatewayCreateTagsRequestTypeDef,
@@ -3076,6 +3077,7 @@ class Instance(ServiceResource):
     current_instance_boot_mode: InstanceBootModeValuesType
     network_performance_options: InstanceNetworkPerformanceOptionsTypeDef
     operator: OperatorResponseTypeDef
+    secondary_interfaces: list[InstanceSecondaryInterfaceTypeDef]
     instance_id: str
     image_id: str
     state: InstanceStateTypeDef

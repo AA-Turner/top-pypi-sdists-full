@@ -81,6 +81,9 @@ from synkro.api import (
 )
 from synkro.core.dataset import Dataset
 from synkro.core.policy import Policy
+
+# Policy Guard (Verification API)
+from synkro.guard import GuardResult, PolicyGuard
 from synkro.ingestion import PolicyConfig, ingest, load_config
 
 # HITL editing functions
@@ -201,6 +204,9 @@ __all__ = [
     "Report",
     "Result",
     "Verdict",
+    # Policy Guard (Verification API)
+    "PolicyGuard",
+    "GuardResult",
     # Policy Remediation
     "PolicyDetector",
     "PolicyRefiner",

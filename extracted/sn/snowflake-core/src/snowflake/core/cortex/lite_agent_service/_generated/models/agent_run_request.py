@@ -30,6 +30,10 @@ from snowflake.core.cortex.lite_agent_service._generated.models.agent_orchestrat
     AgentOrchestration,
     AgentOrchestrationModel,
 )
+from snowflake.core.cortex.lite_agent_service._generated.models.mcp_server_wrapper import (
+    McpServerWrapper,
+    McpServerWrapperModel,
+)
 from snowflake.core.cortex.lite_agent_service._generated.models.message import Message, MessageModel
 from snowflake.core.cortex.lite_agent_service._generated.models.tool import Tool, ToolModel
 from snowflake.core.cortex.lite_agent_service._generated.models.tool_choice import ToolChoice, ToolChoiceModel
@@ -86,6 +90,9 @@ class AgentRunRequest(BaseModel):
     client_metadata : object, optional
         Client-provided metadata for the request. Can be used by clients
         to pass additional context or configuration.
+    mcp_servers : list[McpServerWrapper], optional
+        List of MCP (Model Context Protocol) servers to use for this request.
+        Each server is specified with a server_spec containing its fully qualified name.
     """
 
     models: Optional[AgentModels] = None
@@ -124,6 +131,8 @@ class AgentRunRequest(BaseModel):
 
     client_metadata: Optional[Dict[str, Any]] = None
 
+    mcp_servers: Optional[List[McpServerWrapper]] = None
+
     __properties = [
         "models",
         "orchestration",
@@ -143,6 +152,7 @@ class AgentRunRequest(BaseModel):
         "origin_application",
         "internal_metadata",
         "client_metadata",
+        "mcp_servers",
     ]
 
     @field_validator("origin_application")
@@ -217,6 +227,14 @@ class AgentRunRequest(BaseModel):
         if self.tool_choice:
             _dict["tool_choice"] = self.tool_choice.to_dict()
 
+        # override the default output from pydantic by calling `to_dict()` of each item in mcp_servers (list)
+        _items = []
+        if self.mcp_servers:
+            for _item in self.mcp_servers:
+                if _item:
+                    _items.append(_item.to_dict())
+            _dict["mcp_servers"] = _items
+
         # set to None if tool_choice (nullable) is None
         if self.tool_choice is None:
             _dict["tool_choice"] = None
@@ -268,6 +286,9 @@ class AgentRunRequest(BaseModel):
                 else "external",
                 "internal_metadata": obj.get("internal_metadata"),
                 "client_metadata": obj.get("client_metadata"),
+                "mcp_servers": [McpServerWrapper.from_dict(_item) for _item in obj.get("mcp_servers")]
+                if obj.get("mcp_servers") is not None
+                else None,
             }
         )
 
@@ -296,6 +317,7 @@ class AgentRunRequestModel:
         origin_application: Optional[str] = "external",
         internal_metadata: Optional[object] = None,
         client_metadata: Optional[object] = None,
+        mcp_servers: Optional[list[McpServerWrapper]] = None,
     ):
         """A model object representing the AgentRunRequest resource.
 
@@ -358,6 +380,10 @@ class AgentRunRequestModel:
                 client_metadata : object, optional
                     Client-provided metadata for the request. Can be used by clients
         to pass additional context or configuration.
+
+                mcp_servers : list[McpServerWrapper], optional
+                    List of MCP (Model Context Protocol) servers to use for this request.
+        Each server is specified with a server_spec containing its fully qualified name.
         """
         self.models = models
         self.orchestration = orchestration
@@ -377,6 +403,7 @@ class AgentRunRequestModel:
         self.origin_application = origin_application
         self.internal_metadata = internal_metadata
         self.client_metadata = client_metadata
+        self.mcp_servers = mcp_servers
 
     __properties = [
         "models",
@@ -397,6 +424,7 @@ class AgentRunRequestModel:
         "origin_application",
         "internal_metadata",
         "client_metadata",
+        "mcp_servers",
     ]
 
     def __repr__(self) -> str:
@@ -422,6 +450,7 @@ class AgentRunRequestModel:
             origin_application=self.origin_application,
             internal_metadata=self.internal_metadata,
             client_metadata=self.client_metadata,
+            mcp_servers=[x._to_model() for x in self.mcp_servers] if self.mcp_servers is not None else None,
         )
 
     @classmethod
@@ -445,6 +474,9 @@ class AgentRunRequestModel:
             origin_application=model.origin_application,
             internal_metadata=model.internal_metadata,
             client_metadata=model.client_metadata,
+            mcp_servers=[McpServerWrapperModel._from_model(x) for x in model.mcp_servers]
+            if model.mcp_servers
+            else None,
         )
 
     def to_dict(self):

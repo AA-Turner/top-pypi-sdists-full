@@ -266,6 +266,7 @@ class UserMixin:
         cls,
         user: UserProtocol,
         provider: str | None = None,
+        # pylint: disable-next=redefined-builtin
         id: int | None = None,  # noqa: A002
     ):
         """Return all the UserSocialAuth instances for given user"""
@@ -285,12 +286,12 @@ class NonceMixin:
     salt = ""
 
     @classmethod
-    def use(cls, server_url, timestamp, salt):
+    def use(cls, server_url: str, timestamp, salt: str):
         """Create a Nonce instance"""
         raise NotImplementedError("Implement in subclass")
 
     @classmethod
-    def get(cls, server_url, salt):
+    def get(cls, server_url: str, salt: str):
         """Retrieve a Nonce instance"""
         raise NotImplementedError("Implement in subclass")
 

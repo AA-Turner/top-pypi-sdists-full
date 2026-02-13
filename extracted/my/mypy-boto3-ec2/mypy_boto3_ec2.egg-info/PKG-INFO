@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-ec2
-Version: 1.42.38
-Summary: Type annotations for boto3 EC2 1.42.38 service generated with mypy-boto3-builder 8.12.0
+Version: 1.42.48
+Summary: Type annotations for boto3 EC2 1.42.48 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 EC2 1.42.38](https://pypi.org/project/boto3/)
+Type annotations for [boto3 EC2 1.42.48](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -109,7 +109,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.42.38' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.48' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `EC2` service.
 4. Use provided commands to install generated packages.
@@ -456,6 +456,9 @@ from mypy_boto3_ec2.paginator import (
     DescribeRouteTablesPaginator,
     DescribeScheduledInstanceAvailabilityPaginator,
     DescribeScheduledInstancesPaginator,
+    DescribeSecondaryInterfacesPaginator,
+    DescribeSecondaryNetworksPaginator,
+    DescribeSecondarySubnetsPaginator,
     DescribeSecurityGroupRulesPaginator,
     DescribeSecurityGroupVpcAssociationsPaginator,
     DescribeSecurityGroupsPaginator,
@@ -794,6 +797,15 @@ describe_scheduled_instance_availability_paginator: DescribeScheduledInstanceAva
 describe_scheduled_instances_paginator: DescribeScheduledInstancesPaginator = client.get_paginator(
     "describe_scheduled_instances"
 )
+describe_secondary_interfaces_paginator: DescribeSecondaryInterfacesPaginator = (
+    client.get_paginator("describe_secondary_interfaces")
+)
+describe_secondary_networks_paginator: DescribeSecondaryNetworksPaginator = client.get_paginator(
+    "describe_secondary_networks"
+)
+describe_secondary_subnets_paginator: DescribeSecondarySubnetsPaginator = client.get_paginator(
+    "describe_secondary_subnets"
+)
 describe_security_group_rules_paginator: DescribeSecurityGroupRulesPaginator = client.get_paginator(
     "describe_security_group_rules"
 )
@@ -1051,6 +1063,10 @@ from mypy_boto3_ec2.waiter import (
     NatGatewayDeletedWaiter,
     NetworkInterfaceAvailableWaiter,
     PasswordDataAvailableWaiter,
+    SecondaryNetworkCreateCompleteWaiter,
+    SecondaryNetworkDeleteCompleteWaiter,
+    SecondarySubnetCreateCompleteWaiter,
+    SecondarySubnetDeleteCompleteWaiter,
     SecurityGroupExistsWaiter,
     SecurityGroupVpcAssociationAssociatedWaiter,
     SecurityGroupVpcAssociationDisassociatedWaiter,
@@ -1111,6 +1127,18 @@ network_interface_available_waiter: NetworkInterfaceAvailableWaiter = client.get
 )
 password_data_available_waiter: PasswordDataAvailableWaiter = client.get_waiter(
     "password_data_available"
+)
+secondary_network_create_complete_waiter: SecondaryNetworkCreateCompleteWaiter = client.get_waiter(
+    "secondary_network_create_complete"
+)
+secondary_network_delete_complete_waiter: SecondaryNetworkDeleteCompleteWaiter = client.get_waiter(
+    "secondary_network_delete_complete"
+)
+secondary_subnet_create_complete_waiter: SecondarySubnetCreateCompleteWaiter = client.get_waiter(
+    "secondary_subnet_create_complete"
+)
+secondary_subnet_delete_complete_waiter: SecondarySubnetDeleteCompleteWaiter = client.get_waiter(
+    "secondary_subnet_delete_complete"
 )
 security_group_exists_waiter: SecurityGroupExistsWaiter = client.get_waiter("security_group_exists")
 security_group_vpc_association_associated_waiter: SecurityGroupVpcAssociationAssociatedWaiter = (

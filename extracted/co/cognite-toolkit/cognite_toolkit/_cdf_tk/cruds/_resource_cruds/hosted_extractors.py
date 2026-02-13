@@ -110,7 +110,7 @@ class HostedExtractorSourceCRUD(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[HostedExtractorSourceResponseUnion]:
         for sources in self.client.tool.hosted_extractors.sources.iterate():
             yield from sources
@@ -228,7 +228,7 @@ class HostedExtractorDestinationCRUD(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[HostedExtractorDestinationResponse]:
         for destinations in self.client.tool.hosted_extractors.destinations.iterate():
             yield from destinations
@@ -257,7 +257,7 @@ class HostedExtractorDestinationCRUD(
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "targetDataSetId" in item:
-            yield DataSetsCRUD, item["targetDataSetId"]
+            yield DataSetsCRUD, ExternalId(external_id=item["targetDataSetId"])
 
     def sensitive_strings(self, item: HostedExtractorDestinationRequest) -> Iterable[str]:
         if item.credentials:
@@ -337,7 +337,7 @@ class HostedExtractorJobCRUD(ResourceCRUD[ExternalId, HostedExtractorJobRequest,
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[HostedExtractorJobResponse]:
         for jobs in self.client.tool.hosted_extractors.jobs.iterate():
             yield from jobs
@@ -414,7 +414,7 @@ class HostedExtractorMappingCRUD(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[HostedExtractorMappingResponse]:
         for mappings in self.client.tool.hosted_extractors.mappings.iterate():
             yield from mappings

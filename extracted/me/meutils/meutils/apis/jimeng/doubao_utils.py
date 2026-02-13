@@ -110,6 +110,24 @@ def generate_params():
     return params
 
 
+def generate_jimeng_params():
+    params = {
+        "aid": "513695",
+        "device_platform": "web",
+        "region": "cn",
+        "webId": int(WEB_ID),
+        "da_version": "3.3.9",
+        "os": "mac",
+        "web_component_open_flag": "1",
+        "web_version": "7.5.0",
+        "aigc_features": "app_lip_sync",
+        "msToken": generate_fake_ms_token(),
+        "a_bogus": generate_fake_a_bogus()
+    }
+
+    return params
+
+
 def generate_cookie(refresh_token: str, ms_token: Optional[str] = None) -> str:
     """
     生成cookie

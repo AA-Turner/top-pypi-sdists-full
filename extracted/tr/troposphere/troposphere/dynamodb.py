@@ -29,6 +29,16 @@ class AttributeDefinition(AWSProperty):
     }
 
 
+class GlobalReadProvisionedThroughputSettings(AWSProperty):
+    """
+    `GlobalReadProvisionedThroughputSettings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globalreadprovisionedthroughputsettings.html>`__
+    """
+
+    props: PropsDictType = {
+        "ReadCapacityUnits": (integer, False),
+    }
+
+
 class KeySchema(AWSProperty):
     """
     `KeySchema <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-keyschema.html>`__
@@ -48,6 +58,16 @@ class Projection(AWSProperty):
     props: PropsDictType = {
         "NonKeyAttributes": ([str], False),
         "ProjectionType": (projection_type_validator, False),
+    }
+
+
+class ReadOnDemandThroughputSettings(AWSProperty):
+    """
+    `ReadOnDemandThroughputSettings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-readondemandthroughputsettings.html>`__
+    """
+
+    props: PropsDictType = {
+        "MaxReadRequestUnits": (integer, False),
     }
 
 
@@ -120,6 +140,11 @@ class GlobalTableGlobalSecondaryIndex(AWSProperty):
         "IndexName": (str, True),
         "KeySchema": ([KeySchema], True),
         "Projection": (Projection, True),
+        "ReadOnDemandThroughputSettings": (ReadOnDemandThroughputSettings, False),
+        "ReadProvisionedThroughputSettings": (
+            GlobalReadProvisionedThroughputSettings,
+            False,
+        ),
         "WarmThroughput": (WarmThroughput, False),
         "WriteOnDemandThroughputSettings": (WriteOnDemandThroughputSettings, False),
         "WriteProvisionedThroughputSettings": (
@@ -195,16 +220,6 @@ class PointInTimeRecoverySpecification(AWSProperty):
     }
 
 
-class ReadOnDemandThroughputSettings(AWSProperty):
-    """
-    `ReadOnDemandThroughputSettings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-readondemandthroughputsettings.html>`__
-    """
-
-    props: PropsDictType = {
-        "MaxReadRequestUnits": (integer, False),
-    }
-
-
 class ReadProvisionedThroughputSettings(AWSProperty):
     """
     `ReadProvisionedThroughputSettings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-readprovisionedthroughputsettings.html>`__
@@ -268,6 +283,7 @@ class ReplicaSpecification(AWSProperty):
         "ContributorInsightsSpecification": (ContributorInsightsSpecification, False),
         "DeletionProtectionEnabled": (boolean, False),
         "GlobalSecondaryIndexes": ([ReplicaGlobalSecondaryIndexSpecification], False),
+        "GlobalTableSettingsReplicationMode": (str, False),
         "KinesisStreamSpecification": (KinesisStreamSpecification, False),
         "PointInTimeRecoverySpecification": (PointInTimeRecoverySpecification, False),
         "ReadOnDemandThroughputSettings": (ReadOnDemandThroughputSettings, False),
@@ -311,13 +327,19 @@ class GlobalTable(AWSObject):
     resource_type = "AWS::DynamoDB::GlobalTable"
 
     props: PropsDictType = {
-        "AttributeDefinitions": ([AttributeDefinition], True),
+        "AttributeDefinitions": ([AttributeDefinition], False),
         "BillingMode": (str, False),
         "GlobalSecondaryIndexes": ([GlobalTableGlobalSecondaryIndex], False),
+        "GlobalTableSourceArn": (str, False),
         "GlobalTableWitnesses": ([GlobalTableWitness], False),
-        "KeySchema": ([KeySchema], True),
+        "KeySchema": ([KeySchema], False),
         "LocalSecondaryIndexes": ([LocalSecondaryIndex], False),
         "MultiRegionConsistency": (str, False),
+        "ReadOnDemandThroughputSettings": (ReadOnDemandThroughputSettings, False),
+        "ReadProvisionedThroughputSettings": (
+            GlobalReadProvisionedThroughputSettings,
+            False,
+        ),
         "Replicas": ([ReplicaSpecification], True),
         "SSESpecification": (GlobalTableSSESpecification, False),
         "StreamSpecification": (StreamSpecification, False),

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tf-models-official
-Version: 2.19.1
+Version: 2.20.0
 Summary: TensorFlow Official Models
 Home-page: https://github.com/tensorflow/models
 Author: Google Inc.
@@ -35,8 +35,8 @@ Requires-Dist: sentencepiece
 Requires-Dist: sacrebleu
 Requires-Dist: immutabledict
 Requires-Dist: ai-edge-litert>=1.0.1
-Requires-Dist: tensorflow~=2.19.0
-Requires-Dist: tensorflow-text~=2.19.0
+Requires-Dist: tensorflow~=2.20.0
+Requires-Dist: tensorflow-text~=2.20.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: description

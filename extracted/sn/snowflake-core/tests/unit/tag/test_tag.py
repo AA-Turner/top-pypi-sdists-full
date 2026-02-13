@@ -1,21 +1,9 @@
 from unittest import mock
 
-import pytest
-
 from snowflake.core import PollingOperation
 from snowflake.core.tag import Tag, TagResource
 
 from ...utils import BASE_URL, extra_params, mock_http_response
-
-
-@pytest.fixture
-def tags(schema):
-    return schema.tags
-
-
-@pytest.fixture
-def tag(tags):
-    return tags["my_tag"]
 
 
 API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"

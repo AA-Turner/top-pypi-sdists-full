@@ -4,27 +4,28 @@ Related:
 
 - :rfc:`5545`, Section 3.2. Property Parameters
 - :rfc:`7986`, Section 6. Property Parameters
+- :rfc:`9253`
 - https://github.com/collective/icalendar/issues/798
 """
+
 from __future__ import annotations
 
 import functools
-from typing import TYPE_CHECKING, Callable, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, TypeVar
 
 from icalendar import enums
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+    from datetime import timedelta
     from enum import Enum
 
-    from icalendar.parser import Parameters
+
+if TYPE_CHECKING:
+    from icalendar.prop import VPROPERTY
 
 
-class IcalendarProperty:
-    """Interface provided by properties in icalendar.prop."""
-    params: Parameters
-
-
-def _default_return_none() -> Optional[str]:
+def _default_return_none() -> str | None:
     """Return None by default."""
     return None
 
@@ -33,31 +34,36 @@ def _default_return_string() -> str:
     """Return None by default."""
     return ""
 
+
 T = TypeVar("T")
 
+
 def string_parameter(
-        name:str,
-        doc:str,
-        default:Callable = _default_return_none,
-        convert:Optional[Callable[[str], T]] = None,
-        convert_to:Optional[Callable[[T], str]] = None
-    ) -> property:
+    name: str,
+    doc: str,
+    default: Callable = _default_return_none,
+    convert: Callable[[str], T] | None = None,
+    convert_to: Callable[[T], str] | None = None,
+) -> property:
     """Return a parameter with a quoted value (case sensitive)."""
 
     if convert_to is None:
         convert_to = convert
 
     @functools.wraps(default)
-    def fget(self: IcalendarProperty) -> Optional[str]:
+    def fget(self: VPROPERTY) -> str | None:
         value = self.params.get(name)
         if value is None:
             return default()
         return convert(value) if convert else value
 
-    def fset(self: IcalendarProperty, value: str):
-        self.params[name] = convert_to(value) if convert_to else value
+    def fset(self: VPROPERTY, value: str | None):
+        if value is None:
+            fdel(self)
+        else:
+            self.params[name] = convert_to(value) if convert_to else value
 
-    def fdel(self: IcalendarProperty):
+    def fdel(self: VPROPERTY):
         self.params.pop(name, None)
 
     return property(fget, fset, fdel, doc=doc)
@@ -80,7 +86,8 @@ Description:
     allowed for this parameter, Content Identifier (CID) :rfc:`2392`,
     HTTP :rfc:`2616`, and HTTPS :rfc:`2818` are the URI schemes most
     commonly used by current implementations.
-""")
+""",
+)
 
 CN = string_parameter(
     "CN",
@@ -94,22 +101,25 @@ Description:
     display text to be associated with the calendar address specified
     by the property.
 """,
-    default=_default_return_string
+    default=_default_return_string,
 )
 
-def _default_return_individual() -> enums.CUTYPE|str:
+
+def _default_return_individual() -> enums.CUTYPE | str:
     """Default value."""
     return enums.CUTYPE.INDIVIDUAL
 
-def _convert_enum(enum: type[Enum]) -> Callable[[str], Enum]:
 
+def _convert_enum(enum: type[Enum]) -> Callable[[str], Enum]:
     def convert(value: str) -> str:
         """Convert if possible."""
         try:
             return enum(value.upper())
         except ValueError:
             return value
+
     return convert
+
 
 CUTYPE = string_parameter(
     "CUTYPE",
@@ -122,13 +132,16 @@ Description:
     property that allows this parameter, the default is INDIVIDUAL.
     Applications MUST treat x-name and iana-token values they don't
     recognize the same way as they would the UNKNOWN value.
-""", default=_default_return_individual, convert=_convert_enum(enums.CUTYPE))
+""",
+    default=_default_return_individual,
+    convert=_convert_enum(enums.CUTYPE),
+)
 
 
 def quoted_list_parameter(name: str, doc: str) -> property:
     """Return a parameter that contains a quoted list."""
 
-    def fget(self: IcalendarProperty) -> tuple[str]:
+    def fget(self: VPROPERTY) -> tuple[str]:
         value = self.params.get(name)
         if value is None:
             return ()
@@ -136,13 +149,13 @@ def quoted_list_parameter(name: str, doc: str) -> property:
             return tuple(value.split(","))
         return value
 
-    def fset(self: IcalendarProperty, value: str|tuple[str]):
+    def fset(self: VPROPERTY, value: str | tuple[str]):
         if value == ():
             fdel(self)
         else:
             self.params[name] = (value,) if isinstance(value, str) else value
 
-    def fdel(self: IcalendarProperty):
+    def fdel(self: VPROPERTY):
         self.params.pop(name, None)
 
     return property(fget, fset, fdel, doc=doc)
@@ -159,7 +172,8 @@ Description:
     event or to-do to the calendar user specified by the property.
     The individual calendar address parameter values MUST each be
     specified in a quoted-string.
-""")
+""",  # noqa: E501
+)
 
 DELEGATED_TO = quoted_list_parameter(
     "DELEGATED-TO",
@@ -172,7 +186,8 @@ Description:
     event or to-do by the calendar user specified by the property.
     The individual calendar address parameter values MUST each be
     specified in a quoted-string.
-    """)
+    """,  # noqa: E501
+)
 
 DIR = string_parameter(
     "DIR",
@@ -192,11 +207,14 @@ Description:
     :rfc:`1738`, FTP :rfc:`1738`, HTTP :rfc:`2616`, HTTPS :rfc:`2818`, LDAP
     :rfc:`4516`, and MID :rfc:`2392` are the URI schemes most commonly
     used by current implementations.
-""")
+""",  # noqa: E501
+)
 
-def _default_return_busy() -> enums.FBTYPE|str:
+
+def _default_return_busy() -> enums.FBTYPE | str:
     """Default value."""
     return enums.FBTYPE.BUSY
+
 
 FBTYPE = string_parameter(
     "FBTYPE",
@@ -215,7 +233,10 @@ Description:
     parameter, the default is BUSY.  Applications MUST treat x-name
     and iana-token values they don't recognize the same way as they
     would the BUSY value.
-""", default=_default_return_busy, convert=_convert_enum(enums.FBTYPE))
+""",
+    default=_default_return_busy,
+    convert=_convert_enum(enums.FBTYPE),
+)
 
 LANGUAGE = string_parameter(
     "LANGUAGE",
@@ -230,7 +251,8 @@ Description:
     For transport in a MIME entity, the Content-Language header field
     can be used to set the default language for the entire body part.
     Otherwise, no default language is assumed.
-""")
+""",
+)
 
 MEMBER = quoted_list_parameter(
     "MEMBER",
@@ -244,12 +266,14 @@ Description:
     quoted-string or a COMMA-separated list of calendar addresses,
     each in a quoted-string.  The individual calendar address
     parameter values MUST each be specified in a quoted-string.
-"""
+""",  # noqa: E501
 )
 
-def _default_return_needs_action() -> enums.PARTSTAT|str:
+
+def _default_return_needs_action() -> enums.PARTSTAT | str:
     """Default value."""
     return enums.PARTSTAT.NEEDS_ACTION
+
 
 PARTSTAT = string_parameter(
     "PARTSTAT",
@@ -266,10 +290,15 @@ Description:
     allows this parameter, the default value is NEEDS-ACTION.
     Applications MUST treat x-name and iana-token values they don't
     recognize the same way as they would the NEEDS-ACTION value.
-""", default=_default_return_needs_action, convert=_convert_enum(enums.PARTSTAT))
+""",
+    default=_default_return_needs_action,
+    convert=_convert_enum(enums.PARTSTAT),
+)
 
-def _default_range_none() -> Optional[enums.RANGE|str]:
+
+def _default_range_none() -> enums.RANGE | str | None:
     return None
+
 
 RANGE = string_parameter(
     "RANGE",
@@ -287,10 +316,15 @@ Description:
     defined by the recurrence identifier and all subsequent instances.
     The value "THISANDPRIOR" is deprecated by this revision of
     iCalendar and MUST NOT be generated by applications.
-""", default=_default_range_none, convert=_convert_enum(enums.RANGE))
+""",  # noqa: E501
+    default=_default_range_none,
+    convert=_convert_enum(enums.RANGE),
+)
 
-def _default_related() -> enums.RELATED|str:
+
+def _default_related() -> enums.RELATED | str:
     return enums.RELATED.START
+
 
 RELATED = string_parameter(
     "RELATED",
@@ -306,11 +340,15 @@ Description:
     off the end of the calendar component.  If the parameter is not
     specified on an allowable property, then the default is START.
 
-""", default=_default_related, convert=_convert_enum(enums.RANGE))
+""",  # noqa: E501
+    default=_default_related,
+    convert=_convert_enum(enums.RELATED),
+)
 
 
-def _default_req_participant() -> enums.ROLE|str:
+def _default_req_participant() -> enums.ROLE | str:
     return enums.ROLE.REQ_PARTICIPANT
+
 
 ROLE = string_parameter(
     "ROLE",
@@ -324,11 +362,13 @@ Description:
     allows this parameter, the default value is REQ-PARTICIPANT.
     Applications MUST treat x-name and iana-token values they don't
     recognize the same way as they would the REQ-PARTICIPANT value.
-""", default=_default_req_participant, convert=_convert_enum(enums.ROLE)
+""",
+    default=_default_req_participant,
+    convert=_convert_enum(enums.ROLE),
 )
 
-def boolean_parameter(name: str, default:bool, doc: str) -> property:
 
+def boolean_parameter(name: str, default: bool, doc: str) -> property:
     def _default() -> bool:
         return default
 
@@ -339,6 +379,7 @@ def boolean_parameter(name: str, default:bool, doc: str) -> property:
         convert=lambda x: x.upper() == "TRUE",
         convert_to=lambda x: "TRUE" if x else "FALSE",
     )
+
 
 RSVP = boolean_parameter(
     "RSVP",
@@ -353,7 +394,7 @@ Description:
     participation status reply from an "Attendee" of a group-scheduled
     event or to-do.  If not specified on a property that allows this
     parameter, the default value is ``False``.
-"""
+""",  # noqa: E501
 )
 
 SENT_BY = string_parameter(
@@ -367,7 +408,7 @@ Description:
     property.  The parameter value MUST be a mailto URI as defined in
     :rfc:`2368`.  The individual calendar address parameter values MUST
     each be specified in a quoted-string.
-"""
+""",  # noqa: E501
 )
 
 TZID = string_parameter(
@@ -407,15 +448,21 @@ Description:
     as the public-domain TZ database (TZDB). The specification of
     globally unique time zone identifiers is not addressed by this
     document and is left for future study.
-"""
+""",  # noqa: E501
 )
+
 
 def _default_return_parent() -> enums.RELTYPE:
     return enums.RELTYPE.PARENT
 
+
 RELTYPE = string_parameter(
     "RELTYPE",
-    """Specify the type of hierarchical relationship associated with the calendar component specified by the property.
+    """Specify the type of hierarchical relationship associated with a component.
+
+Conformance:
+    :rfc:`5545` introduces the RELTYPE property parameter.
+    :rfc:`9253` adds new values.
 
 Description:
     This parameter can be specified on a property that
@@ -430,11 +477,302 @@ Description:
     allowable property, the default relationship type is PARENT.
     Applications MUST treat x-name and iana-token values they don't
     recognize the same way as they would the PARENT value.
-""", default=_default_return_parent, convert=_convert_enum(enums.RELTYPE))
+""",
+    default=_default_return_parent,
+    convert=_convert_enum(enums.RELTYPE),
+)
+
+
+def _get_value(self: VPROPERTY) -> str:
+    """The VALUE parameter or the default.
+
+    Purpose:
+        VALUE explicitly specify the value type format for a property value.
+
+    Description:
+        This parameter specifies the value type and format of
+        the property value.  The property values MUST be of a single value
+        type.  For example, a "RDATE" property cannot have a combination
+        of DATE-TIME and TIME value types.
+
+        If the property's value is the default value type, then this
+        parameter need not be specified.  However, if the property's
+        default value type is overridden by some other allowable value
+        type, then this parameter MUST be specified.
+
+        Applications MUST preserve the value data for ``x-name`` and
+        ``iana-token`` values that they don't recognize without attempting
+        to interpret or parse the value data.
+
+    Returns:
+        The VALUE parameter or the default.
+
+    Examples:
+        The VALUE defaults to the name of the property.
+        Note that it is case-insensitive but always uppercase.
+
+        .. code-block:: pycon
+
+            >>> from icalendar import vBoolean
+            >>> b = vBoolean(True)
+            >>> b.VALUE
+            'BOOLEAN'
+
+        Setting the VALUE parameter of a typed property usually does not make sense.
+        For convenience, using this property, the value will be converted to
+        an uppercase string.
+        If you have some custom property, you might use it like this:
+
+        .. code-block:: pycon
+
+            >>> from icalendar import vUnknown, Event
+            >>> v = vUnknown("Some property text.")
+            >>> v.VALUE = "x-type"  # lower case
+            >>> v.VALUE
+            'X-TYPE'
+            >>> event = Event()
+            >>> event.add("x-prop", v)
+            >>> print(event.to_ical())
+            BEGIN:VEVENT
+            X-PROP;VALUE=X-TYPE:Some property text.
+            END:VEVENT
+
+    """
+    value = self.params.value
+    if value is None:
+        _get_default_value = getattr(self, "_get_value", None)
+        if _get_default_value is not None:
+            value = _get_default_value()
+    return self.default_value if value is None else value
+
+
+def _set_value(self: VPROPERTY, value: str | None):
+    """Set the VALUE parameter."""
+    self.params.value = value
+
+
+def _del_value(self: VPROPERTY):
+    """Delete the VALUE parameter."""
+    del self.params.value
+
+
+VALUE = property(_get_value, _set_value, _del_value)
+
+LABEL = string_parameter(
+    "LABEL",
+    """LABEL provides a human-readable label.
+
+Conformance:
+    This property parameter is specified in :rfc:`7986`,
+    iCalendar Property Extensions.
+
+    :rfc:`9253` makes use of this for the LINK property.
+    This parameter maps to the "title"
+    attribute defined in Section 3.4.1 of :rfc:`8288`.
+    LABEL is used to label the destination
+    of a link such that it can be used as a human-readable identifier
+    (e.g., a menu entry) in the language indicated by the LANGUAGE
+    (if present). The LABEL MUST NOT
+    appear more than once in a given link; occurrences after the first
+    MUST be ignored by parsers.
+
+Description:
+    This property parameter MAY be specified on the
+    "CONFERENCE" property.  It is anticipated that other extensions to
+    iCalendar will reuse this property parameter on new properties
+    that they define.  As a result, clients MUST expect to find this
+    property parameter present on many different properties.  It
+    provides a human-readable label that can be presented to calendar
+    users to allow them to discriminate between properties that might
+    be similar or provide additional information for properties that
+    are not self-describing.  The "LANGUAGE" property parameter can be
+    used to specify the language of the text in the parameter value
+    (as per Section 3.2.10 of :rfc:`5545`).
+
+Examples:
+    This is a label of a chat.
+
+    .. code-block:: text
+
+        CONFERENCE;VALUE=URI;FEATURE=VIDEO;
+            LABEL="Web video chat, access code=76543";
+            :https://video-chat.example.com/;group-id=1234
+
+""",
+)
+
+FMTTYPE = string_parameter(
+    "FMTTYPE",
+    """FMTTYPE specfies the content type of a referenced object.
+
+Conformance:
+    :rfc:`5545` specifies the FMTTYPE.
+    :rfc:`9253` adds FMTTYPE to LINK properties. In a LINK,
+    FMTTYPE maps to the "type"
+    attribute defined in Section 3.4.1 of :rfc:`8288`.
+    See :rfc:`6838`.
+
+Description:
+    This parameter can be specified on properties that are
+    used to reference an object.  The parameter specifies the media
+    type :rfc:`4288` of the referenced object. For example, on the
+    "ATTACH" property, an FTP type URI value does not, by itself,
+    necessarily convey the type of content associated with the
+    resource.  The parameter value MUST be the text for either an
+    IANA-registered media type or a non-standard media type.
+
+Example:
+    A Microsoft Word document:
+
+    .. code-block:: text
+
+        ATTACH;FMTTYPE=application/msword:ftp://example.com/pub/docs/
+         agenda.doc
+
+    A website:
+
+    .. code-block:: text
+
+        LINK;FMTTYPE=text/html;LINKREL=SOURCE;LABEL=Venue;VALUE=URI:
+         https://example.com/venue
+
+    """,
+)
+
+LINKREL = string_parameter(
+    "LINKREL",
+    """LINKREL
+
+Purpose:
+    LINKREL specifies the relationship of data referenced
+    by a LINK property.
+
+Conformance:
+    LINKREL is specified in :rfc:`9253`.
+    This parameter maps to the link relation type defined in
+    Section 2.1 of :rfc:`8288`.
+    It is always quoted.
+
+Description:
+    This parameter MUST be specified on all LINK properties and define
+    the type of reference.
+    This allows programs consuming this data to automatically scan
+    for references they support.
+    There is no default relation type. Any link relation in the
+    link registry established by :rfc:`8288`, or new link relations,
+    may be used.
+    It is expected that link relation types seeing significant usage
+    in calendaring will have the calendaring usage described in an RFC.
+
+    In the simplest case, a link relation type identifies the semantics
+    of a link.  For example, a link with the relation type "copyright"
+    indicates that the current link context has a copyright resource at
+    the link target.
+
+    Link relation types can also be used to indicate that the target
+    resource has particular attributes, or exhibits particular
+    behaviours; for example, a "service" link implies that the link
+    target can be used as part of a defined protocol (in this case, a
+    service description).
+
+Registration:
+    There are two kinds of relation types: registered and extension.
+    These relation types are registered in :rfc:`8288`.
+
+.. seealso::
+
+    `Registered Link Relation Types
+    <https://www.iana.org/assignments/link-relations/link-relations.xhtml>`_.
+
+
+Examples:
+    This identifies the latest version of the event information.
+
+    .. code-block:: text
+
+        LINKREL=latest-version
+
+""",
+)
+
+
+def _get_GAP(prop) -> timedelta | None:  # noqa: N802
+    """GAP
+
+    Purpose:
+        GAP specifies the length of the gap, positive or negative,
+        between two components with a temporal relationship.
+
+    Format Definition:
+        Same as the DURATION value type defined in :rfc:`5545`, Section 3.3.6.
+
+    Description:
+        This parameter MAY be specified on the RELATED-TO property and defines
+        the duration of time between the predecessor and successor in an interval.
+        When positive, it defines the lag time between a task and its logical successor.
+        When negative, it defines the lead time.
+
+    Examples:
+        An example of lag time might be if Task-A is "paint the room" and Task-B is
+        "lay the carpets". Then, Task-A may be related to Task-B with
+        RELTYPE=FINISHTOSTART with a gap of 1 day -- long enough for the paint to dry.
+
+        .. code-block:: text
+
+            ====================
+            |  paint the room  |--+
+            ====================  |
+                                  |(lag of one day)
+                                  |
+                                  |  ===================
+                                  +->| lay the carpet  |
+                                     ===================
+
+        For an example of lead time, in constructing a two-story building,
+        the electrical work must be done before painting. However,
+        the painter can move in to the first floor as the electricians move upstairs.
+
+        .. code-block:: text
+
+            =====================
+            |  electrical work  |--+
+            =====================  |
+                     +-------------+
+                     |(lead of estimated time)
+                     |  ==================
+                     +->|    painting    |
+                        ==================
+    """
+    value = prop.params.get("GAP")
+    if value is None:
+        return None
+    from icalendar.prop import vDuration
+
+    if isinstance(value, str):
+        return vDuration.from_ical(value)
+    if not isinstance(value, vDuration):
+        raise TypeError("Value MUST be a vDuration instance")
+    return value.td
+
+
+def _set_GAP(prop, value: timedelta | str | None):  # noqa: N802
+    """Set the GAP parameter as a timedelta."""
+    if value is None:
+        prop.params.pop("GAP", None)
+        return
+    from icalendar.prop import vDuration
+
+    prop.params["GAP"] = vDuration(value)
+
+
+def _del_GAP(prop):  # noqa: N802
+    """Delete the GAP parameter."""
+    prop.params.pop("GAP", None)
+
+
+GAP = property(_get_GAP, _set_GAP, _del_GAP)
 
 __all__ = [
-    "string_parameter",
-    "quoted_list_parameter",
     "ALTREP",
     "CN",
     "CUTYPE",
@@ -442,7 +780,11 @@ __all__ = [
     "DELEGATED_TO",
     "DIR",
     "FBTYPE",
+    "FMTTYPE",
+    "GAP",
+    "LABEL",
     "LANGUAGE",
+    "LINKREL",
     "MEMBER",
     "PARTSTAT",
     "RANGE",
@@ -451,4 +793,7 @@ __all__ = [
     "RSVP",
     "SENT_BY",
     "TZID",
+    "VALUE",
+    "quoted_list_parameter",
+    "string_parameter",
 ]

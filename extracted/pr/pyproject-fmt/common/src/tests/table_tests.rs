@@ -956,6 +956,155 @@ fn test_collapse_sub_table_keeps_wide_array_tables() {
 }
 
 #[test]
+fn test_collapse_array_of_tables_preserves_comments() {
+    let toml = indoc! {r#"
+        [tool.cibuildwheel]
+        name = "foo"
+
+        [[tool.cibuildwheel.overrides]]
+        # iOS environment comment
+        select = "*_iphoneos"
+
+        [[tool.cibuildwheel.overrides]]
+        # iOS simulator comment
+        select = "*_iphonesimulator"
+
+        [[tool.cibuildwheel.overrides]]
+        select = "*-win32"
+    "#};
+    let root_ast = parse(toml);
+    let mut tables = Tables::from_ast(&root_ast);
+
+    collapse_sub_table(&mut tables, "tool.cibuildwheel", "overrides", 120);
+
+    let parent = tables.get("tool.cibuildwheel").unwrap();
+    let parent_table = parent[0].borrow();
+    let result = parent_table.iter().map(|e| e.to_string()).collect::<String>();
+    insta::assert_snapshot!(result, @r#"
+    [tool.cibuildwheel]
+    name = "foo"
+    overrides = [
+      # iOS environment comment
+      { select = "*_iphoneos" },
+      # iOS simulator comment
+      { select = "*_iphonesimulator" },
+      { select = "*-win32" },
+    ]
+    "#);
+}
+
+#[test]
+fn test_collapse_array_of_tables_preserves_multiple_comments_per_entry() {
+    let toml = indoc! {r#"
+        [tool.cibuildwheel]
+        name = "foo"
+
+        [[tool.cibuildwheel.overrides]]
+        # iOS environment comment
+        # yeah
+        select = "*_iphoneos"
+        # s
+        pure = "ss"
+        # oh yeah
+    "#};
+    let root_ast = parse(toml);
+    let mut tables = Tables::from_ast(&root_ast);
+
+    collapse_sub_table(&mut tables, "tool.cibuildwheel", "overrides", 120);
+
+    let parent = tables.get("tool.cibuildwheel").unwrap();
+    let parent_table = parent[0].borrow();
+    let result = parent_table.iter().map(|e| e.to_string()).collect::<String>();
+    insta::assert_snapshot!(result, @r#"
+    [tool.cibuildwheel]
+    name = "foo"
+    overrides = [
+      # iOS environment comment
+      # yeah
+      { select = "*_iphoneos" },
+      # s
+      # oh yeah
+      { pure = "ss" },
+    ]
+    "#);
+}
+
+#[test]
+fn test_collapse_array_of_tables_no_comments() {
+    let toml = indoc! {r#"
+        [project]
+        name = "foo"
+
+        [[project.authors]]
+        name = "Alice"
+
+        [[project.authors]]
+        name = "Bob"
+    "#};
+    let root_ast = parse(toml);
+    let mut tables = Tables::from_ast(&root_ast);
+
+    collapse_sub_table(&mut tables, "project", "authors", 120);
+
+    let parent = tables.get("project").unwrap();
+    let parent_table = parent[0].borrow();
+    let result = parent_table.iter().map(|e| e.to_string()).collect::<String>();
+    insta::assert_snapshot!(result, @r#"
+    [project]
+    name = "foo"
+    authors = [{ name = "Alice" }, { name = "Bob" }]
+    "#);
+}
+
+#[test]
+fn test_collapse_array_of_tables_wide_with_comments_between_keys() {
+    let toml = indoc! {r#"
+        [tool.test]
+        name = "foo"
+
+        [[tool.test.items]]
+        # comment before first key
+        first = "value"
+        # comment before second key
+        second = "another"
+    "#};
+    let root_ast = parse(toml);
+    let mut tables = Tables::from_ast(&root_ast);
+
+    collapse_sub_table(&mut tables, "tool.test", "items", 20);
+
+    let items = tables.get("tool.test.items").unwrap();
+    let items_table = items[0].borrow();
+    assert!(
+        !items_table.is_empty(),
+        "wide entries with comments between keys should not be collapsed"
+    );
+}
+
+#[test]
+fn test_collapse_array_of_tables_wide_with_leading_comments() {
+    let toml = indoc! {r#"
+        [tool.test]
+        name = "foo"
+
+        [[tool.test.items]]
+        # leading comment
+        key = "this-is-a-very-long-value-that-exceeds-column-width"
+    "#};
+    let root_ast = parse(toml);
+    let mut tables = Tables::from_ast(&root_ast);
+
+    collapse_sub_table(&mut tables, "tool.test", "items", 30);
+
+    let items = tables.get("tool.test.items").unwrap();
+    let items_table = items[0].borrow();
+    assert!(
+        !items_table.is_empty(),
+        "wide entries with leading comments should not be collapsed"
+    );
+}
+
+#[test]
 fn test_collapse_sub_table_non_existent() {
     let toml = indoc! {r#"
         [project]
@@ -1204,6 +1353,36 @@ fn test_collapse_sub_table_empty_sub_table() {
     let mut tables = Tables::from_ast(&root_ast);
 
     collapse_sub_table(&mut tables, "project", "urls", 120);
+
+    let main = tables.get("project").unwrap();
+    let table = main[0].borrow();
+    let txt = table.iter().map(|e| e.to_string()).collect::<String>();
+    insta::assert_snapshot!(txt, @r#"
+    [project]
+    name = "foo"
+    urls = {}
+    "#);
+}
+
+#[test]
+fn test_collapse_sub_tables_deeply_nested_empty_table() {
+    let toml = indoc! {r#"
+        [tool.hatch]
+
+        [tool.hatch.metadata.hooks.docstring-description]
+    "#};
+    let root_ast = parse(toml);
+    let mut tables = Tables::from_ast(&root_ast);
+
+    collapse_sub_tables(&mut tables, "tool.hatch");
+
+    let main = tables.get("tool.hatch").unwrap();
+    let table = main[0].borrow();
+    let txt = table.iter().map(|e| e.to_string()).collect::<String>();
+    insta::assert_snapshot!(txt, @r#"
+    [tool.hatch]
+    metadata.hooks.docstring-description = {}
+    "#);
 }
 
 #[test]
@@ -1668,5 +1847,185 @@ fn test_reorder_array_of_tables_multiple_entries() {
 
     [[project.authors]]
     name = "Bob"
+    "#);
+}
+
+#[test]
+fn test_apply_table_formatting_with_nested_subtables_and_direct_entries() {
+    let toml = indoc! {r#"
+        [tool.ruff]
+        line-length = 120
+
+        [tool.ruff.lint]
+        select = ["ALL"]
+
+        [tool.ruff.lint.extra]
+        ok = 1
+    "#};
+    let root_ast = parse(toml);
+    let mut tables = Tables::from_ast(&root_ast);
+
+    let mut all_sub_tables: Vec<String> = Vec::new();
+    collect_all_sub_tables(&tables, "tool.ruff", &mut all_sub_tables);
+    eprintln!("All sub-tables: {:?}", all_sub_tables);
+
+    apply_table_formatting(&mut tables, |_| true, &["tool.ruff"], 120);
+
+    let main = tables.get("tool.ruff").unwrap();
+    let table = main[0].borrow();
+    let txt = table.iter().map(|e| e.to_string()).collect::<String>();
+    insta::assert_snapshot!(txt, @r#"
+    [tool.ruff]
+    line-length = 120
+    lint.select = ["ALL"]
+
+    lint.extra.ok = 1
+    "#);
+}
+
+#[test]
+fn test_apply_table_formatting_with_empty_intermediate_table() {
+    let toml = indoc! {r#"
+        [tool.ruff]
+        line-length = 120
+
+        [tool.ruff.lint]
+
+        [tool.ruff.lint.extra]
+        ok = 1
+    "#};
+    let root_ast = parse(toml);
+    let mut tables = Tables::from_ast(&root_ast);
+
+    apply_table_formatting(&mut tables, |_| true, &["tool.ruff"], 120);
+
+    let main = tables.get("tool.ruff").unwrap();
+    let table = main[0].borrow();
+    let txt = table.iter().map(|e| e.to_string()).collect::<String>();
+    insta::assert_snapshot!(txt, @r#"
+    [tool.ruff]
+    line-length = 120
+    lint.extra.ok = 1
+    "#);
+}
+
+#[test]
+fn test_collapse_sub_table_trailing_comment_on_single_line_array() {
+    let toml = indoc! {r#"
+        [tool.coverage.run]
+        core = "sysmon" # default for 3.14+, available for 3.12+
+        disable_warnings = [ "no-sysmon" ] # 3.11 and earlier
+    "#};
+    let root_ast = parse(toml);
+    let mut tables = Tables::from_ast(&root_ast);
+    collapse_sub_table(&mut tables, "tool.coverage", "run", 120);
+    tables.reorder(&root_ast, &["tool.coverage", "tool.coverage.run"], &[]);
+    let result = format_toml(&root_ast, 120);
+    insta::assert_snapshot!(result, @r#"
+    [tool.coverage]
+    run.core = "sysmon"  # default for 3.14+, available for 3.12+
+    run.disable_warnings = [ "no-sysmon" ]  # 3.11 and earlier
+    "#);
+}
+
+#[test]
+fn test_collapse_sub_table_empty_parent_with_subtable() {
+    let toml = indoc! {r#"
+        [parent]
+        name = "test"
+
+        [parent.child]
+
+        [parent.child.nested]
+        value = 1
+    "#};
+    let root_ast = parse(toml);
+    let mut tables = Tables::from_ast(&root_ast);
+
+    collapse_sub_table(&mut tables, "parent.child", "nested", 120);
+
+    let txt = {
+        let main = tables.get("parent.child").unwrap();
+        let table = main[0].borrow();
+        table.iter().map(|e| e.to_string()).collect::<String>()
+    };
+    insta::assert_snapshot!(txt, @r#"
+    [parent.child]
+    nested.value = 1
+    "#);
+
+    collapse_sub_table(&mut tables, "parent", "child", 120);
+
+    let txt2 = {
+        let main2 = tables.get("parent").unwrap();
+        let table2 = main2[0].borrow();
+        table2.iter().map(|e| e.to_string()).collect::<String>()
+    };
+    insta::assert_snapshot!(txt2, @r#"
+    [parent]
+    name = "test"
+    child.nested.value = 1
+    "#);
+}
+
+#[test]
+fn test_reorder_table_keys_mixed_quote_styles() {
+    let start = indoc! {r#"
+        [tool.ruff]
+        lint.per-file-ignores.'tests/*' = [ "T20" ]
+        lint.per-file-ignores."flexget/*" = [ "PTH" ]
+    "#};
+    let root_ast = parse(start);
+    let tables = Tables::from_ast(&root_ast);
+    reorder_table_keys(
+        &mut tables.get("tool.ruff").unwrap()[0].borrow_mut(),
+        &["lint.per-file-ignores"],
+    );
+    let res1 = format_toml(&root_ast, 120);
+
+    let root_ast2 = parse(&res1);
+    let tables2 = Tables::from_ast(&root_ast2);
+    reorder_table_keys(
+        &mut tables2.get("tool.ruff").unwrap()[0].borrow_mut(),
+        &["lint.per-file-ignores"],
+    );
+    let res2 = format_toml(&root_ast2, 120);
+
+    assert_eq!(res1, res2, "formatting should be idempotent");
+    insta::assert_snapshot!(res1, @r#"
+    [tool.ruff]
+    lint.per-file-ignores.'tests/*' = [ "T20" ]
+    lint.per-file-ignores."flexget/*" = [ "PTH" ]
+    "#);
+}
+
+#[test]
+fn test_reorder_table_keys_mixed_quote_styles_reverse() {
+    let start = indoc! {r#"
+        [tool.ruff]
+        lint.per-file-ignores."flexget/*" = [ "PTH" ]
+        lint.per-file-ignores.'tests/*' = [ "T20" ]
+    "#};
+    let root_ast = parse(start);
+    let tables = Tables::from_ast(&root_ast);
+    reorder_table_keys(
+        &mut tables.get("tool.ruff").unwrap()[0].borrow_mut(),
+        &["lint.per-file-ignores"],
+    );
+    let res1 = format_toml(&root_ast, 120);
+
+    let root_ast2 = parse(&res1);
+    let tables2 = Tables::from_ast(&root_ast2);
+    reorder_table_keys(
+        &mut tables2.get("tool.ruff").unwrap()[0].borrow_mut(),
+        &["lint.per-file-ignores"],
+    );
+    let res2 = format_toml(&root_ast2, 120);
+
+    assert_eq!(res1, res2, "formatting should be idempotent");
+    insta::assert_snapshot!(res1, @r#"
+    [tool.ruff]
+    lint.per-file-ignores."flexget/*" = [ "PTH" ]
+    lint.per-file-ignores.'tests/*' = [ "T20" ]
     "#);
 }

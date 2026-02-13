@@ -9,9 +9,9 @@ from anyscale._private.anyscale_client import (
     WORKSPACE_CLUSTER_NAME_PREFIX,
 )
 from anyscale._private.models.integrations import (
-    CONNECTION_TYPE_TO_INTEGRATION_TYPE,
+    _CONNECTION_METHOD_TO_CONNECTION_TYPE,
     ConnectionConfig,
-    IntegrationType,
+    ConnectionType,
 )
 from anyscale._private.sdk.base_sdk import BaseSDK, Timer
 from anyscale.cli_logger import BlockLogger
@@ -519,24 +519,24 @@ class WorkloadSDK(BaseSDK):
             compute_config
         ).config
 
-    def get_integration_type_from_connection_type(
-        self, connection_type: str
-    ) -> IntegrationType:
-        """Get the integration type from the connection type."""
-        integration_type = CONNECTION_TYPE_TO_INTEGRATION_TYPE.get(connection_type)
-        if integration_type is None:
-            raise ValueError(f"Unsupported connection type: {connection_type}")
-        return integration_type
+    def get_connection_type_from_connection_method_type(
+        self, internal_type: str
+    ) -> ConnectionType:
+        """Get the connection type from the connection method type."""
+        connection_type = _CONNECTION_METHOD_TO_CONNECTION_TYPE.get(internal_type)
+        if connection_type is None:
+            raise ValueError(f"Unsupported connection type: {internal_type}")
+        return connection_type
 
     def get_connection_config_from_connection(
         self, connection: Any
     ) -> ConnectionConfig:
         """Get the connection config from the connection."""
-        integration_type = self.get_integration_type_from_connection_type(
+        connection_type = self.get_connection_type_from_connection_method_type(
             connection.connection_type
         )
         return ConnectionConfig(
-            integration_type=integration_type, connection_name=connection.name,
+            connection_type=connection_type, connection_name=connection.name,
         )
 
     def resolve_connection_ids(
@@ -544,24 +544,24 @@ class WorkloadSDK(BaseSDK):
     ) -> Optional[List[str]]:
         """Resolve ConnectionConfig objects to connection IDs.
 
-        Looks up connections by name and integration type and returns their IDs.
-        Raises ValueError if a connection is not found, if an invalid integration
-        type is specified, or if duplicate integration types are specified.
+        Looks up connections by name and connection type and returns their IDs.
+        Raises ValueError if a connection is not found, if an invalid connection
+        type is specified, or if duplicate connection types are specified.
         """
         if not connections:
             return None
 
-        # Check for duplicate integration types (only one connection per type allowed)
+        # Check for duplicate connection types (only one connection per type allowed)
         seen_types: set = set()
         for conn_config in connections:
-            # integration_type is guaranteed to be IntegrationType by ConnectionConfig validation
-            integration_type = conn_config.integration_type
-            if integration_type in seen_types:
+            # connection_type is guaranteed to be ConnectionType by ConnectionConfig validation
+            connection_type = conn_config.connection_type
+            if connection_type in seen_types:
                 raise ValueError(
-                    f"Duplicate integration type '{integration_type.value}' specified. "
-                    f"Only one connection per integration type is allowed."
+                    f"Duplicate connection type '{connection_type.value}' specified. "
+                    f"Only one connection per connection type is allowed."
                 )
-            seen_types.add(integration_type)
+            seen_types.add(connection_type)
 
         # Get connection IDs for each connection
         connection_ids = []
@@ -580,7 +580,7 @@ class WorkloadSDK(BaseSDK):
 
     def resolve_connection_ids_to_configs(
         self, connection_ids: Optional[List[str]]
-    ) -> List[ConnectionConfig]:
+    ) -> Optional[List[ConnectionConfig]]:
         """Resolve connection IDs back to ConnectionConfig objects.
 
         Used when fetching job/workspace status to convert stored connection IDs
@@ -591,7 +591,7 @@ class WorkloadSDK(BaseSDK):
         data is already available (e.g., from DecoratedProductionJob.connections).
         """
         if not connection_ids:
-            return []
+            return None
 
         connections = []
         for connection_id in connection_ids:
@@ -602,14 +602,14 @@ class WorkloadSDK(BaseSDK):
 
     def resolve_decorated_connections_to_configs(
         self, decorated_connections: Optional[List]
-    ) -> List[ConnectionConfig]:
+    ) -> Optional[List[ConnectionConfig]]:
         """Convert decorated connection objects to ConnectionConfig objects.
 
         Used when decorated connection data is already available (e.g., from
         DecoratedProductionJob.connections), avoiding additional API calls.
         """
         if not decorated_connections:
-            return []
+            return None
 
         connections = []
         for decorated_conn in decorated_connections:

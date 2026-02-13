@@ -92,6 +92,12 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
 from chalk._gen.chalk.server.v1.team_pb2_grpc import TeamServiceStub
 from chalk._gen.chalk.streaming.v1.simple_streaming_service_pb2_grpc import SimpleStreamingServiceStub
 from chalk.client import ChalkAuthException, FeatureReference
+from chalk.client.client_headers import (
+    CHALK_DEPLOYMENT_TAG_HEADER_LOWERCASE,
+    CHALK_DEPLOYMENT_TYPE_HEADER_LOWERCASE,
+    CHALK_ENV_ID_HEADER_LOWERCASE,
+    CHALK_GRPC_TRACE_ID_HEADER,
+)
 from chalk.client.client_impl import _validate_context_dict  # pyright: ignore[reportPrivateUsage]
 from chalk.client.models import (
     BulkOnlineQueryResponse,
@@ -143,8 +149,6 @@ if TYPE_CHECKING:
     from chalk._gen.chalk.server.v1.builder_pb2 import StartBranchResponse
     from chalk._gen.chalk.server.v1.builder_pb2_grpc import BuilderServiceStub
     from chalk.client import ChalkError
-
-CHALK_GRPC_TRACE_ID_HEADER: str = "x-chalk-trace-id"
 
 
 @dataclasses.dataclass
@@ -471,9 +475,9 @@ class StubProvider:
             )
 
             query_server = query_server or t.grpc_engines.get(self.environment_id, None)
-        engine_headers = additional_headers_nonempty + [("x-chalk-deployment-type", "engine-grpc")]
+        engine_headers = additional_headers_nonempty + [(CHALK_DEPLOYMENT_TYPE_HEADER_LOWERCASE, "engine-grpc")]
         if deployment_tag is not None:
-            engine_headers += [("x-chalk-deployment-tag", deployment_tag)]
+            engine_headers += [(CHALK_DEPLOYMENT_TAG_HEADER_LOWERCASE, deployment_tag)]
         interceptors: List[grpc.UnaryUnaryClientInterceptor] = [
             (
                 AuthenticatedChalkClientInterceptor(
@@ -485,7 +489,7 @@ class StubProvider:
                 if token_refresher is not None
                 else UnauthenticatedChalkClientInterceptor(
                     server="engine",
-                    additional_headers=engine_headers + [("x-chalk-env-id", self.environment_id)],
+                    additional_headers=engine_headers + [(CHALK_ENV_ID_HEADER_LOWERCASE, self.environment_id)],
                 )
             )
         ]

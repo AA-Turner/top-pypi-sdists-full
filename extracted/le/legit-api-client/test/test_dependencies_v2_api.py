@@ -47,6 +47,13 @@ class TestDependenciesV2Api(unittest.TestCase):
         """
         pass
 
+    def test_get_dependency_licenses_data(self) -> None:
+        """Test case for get_dependency_licenses_data
+
+        Get the licenses for dependencies with additional data
+        """
+        pass
+
     def test_get_dependency_related_issue_ids(self) -> None:
         """Test case for get_dependency_related_issue_ids
 

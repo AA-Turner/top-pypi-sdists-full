@@ -49,14 +49,12 @@ def beautify_fill(
         :return: geom:
     New flipped faces and edges.
 
-    type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
+    type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
     """
 
 def bevel(
     bm: bmesh.types.BMesh,
-    geom: list[bmesh.types.BMEdge]
-    | list[bmesh.types.BMFace]
-    | list[bmesh.types.BMVert] = [],
+    geom: list[bmesh.types.BMVert | bmesh.types.BMEdge | bmesh.types.BMFace] = [],
     offset: float = 0,
     offset_type: typing.Literal[
         "OFFSET", "WIDTH", "DEPTH", "PERCENT", "ABSOLUTE"
@@ -75,7 +73,7 @@ def bevel(
     miter_outer: typing.Literal["SHARP", "PATCH", "ARC"] = "SHARP",
     miter_inner: typing.Literal["SHARP", "PATCH", "ARC"] = "SHARP",
     spread: float = 0,
-    custom_profile: bpy.types.bpy_struct | None = None,
+    custom_profile: None | bpy.types.bpy_struct | None = None,
     vmesh_method: typing.Literal["ADJ", "CUTOFF"] = "ADJ",
 ) -> dict[str, typing.Any]:
     """Bevel.Bevels edges and vertices
@@ -96,31 +94,33 @@ def bevel(
         :param harden_normals: Harden normals.
         :param face_strength_mode: Whether to set face strength, and which faces to set if so.
         :param miter_outer: Outer miter kind.
-        :param miter_inner: Outer miter kind.
-        :param spread: Amount to offset beveled edge.
+        :param miter_inner: Inner miter kind.
+        :param spread: Amount to spread the miter.
         :param custom_profile: CurveProfile, if None ignored
         :param vmesh_method: The method to use to create meshes at intersections.
         :return: faces:
     Output faces.
 
-    type list of (`bmesh.types.BMFace`)
+    type list[`bmesh.types.BMFace`]
 
     edges:
     Output edges.
 
-    type list of (`bmesh.types.BMEdge`)
+    type list[`bmesh.types.BMEdge`]
 
     verts:
     Output verts.
 
-    type list of (`bmesh.types.BMVert`)
+    type list[`bmesh.types.BMVert`]
     """
 
 def bisect_edges(
     bm: bmesh.types.BMesh,
     edges: list[bmesh.types.BMEdge] = [],
     cuts: int = 0,
-    edge_percents={},
+    edge_percents: dict[
+        bmesh.types.BMVert | bmesh.types.BMEdge | bmesh.types.BMFace, float
+    ] = {},
 ) -> dict[str, typing.Any]:
     """Edge Bisect.Splits input edges (but doesnt do anything else).
     This creates a 2-valence vert.
@@ -132,14 +132,12 @@ def bisect_edges(
         :return: geom_split:
     Newly created vertices and edges.
 
-    type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
+    type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
     """
 
 def bisect_plane(
     bm: bmesh.types.BMesh,
-    geom: list[bmesh.types.BMEdge]
-    | list[bmesh.types.BMFace]
-    | list[bmesh.types.BMVert] = [],
+    geom: list[bmesh.types.BMVert | bmesh.types.BMEdge | bmesh.types.BMFace] = [],
     dist: float = 0,
     plane_co: collections.abc.Sequence[float] | mathutils.Vector = mathutils.Vector(),
     plane_no: collections.abc.Sequence[float] | mathutils.Vector = mathutils.Vector(),
@@ -153,19 +151,23 @@ def bisect_plane(
         :param geom: Input geometry.
         :param dist: Minimum distance when testing if a vert is exactly on the plane.
         :param plane_co: Point on the plane.
+
+    Accepts any sequence of 3 floats.
         :param plane_no: Direction of the plane.
+
+    Accepts any sequence of 3 floats.
         :param use_snap_center: Snap axis aligned verts to the center.
-        :param clear_outer: When enabled. remove all geometry on the positive side of the plane.
-        :param clear_inner: When enabled. remove all geometry on the negative side of the plane.
+        :param clear_outer: When enabled, remove all geometry on the positive side of the plane.
+        :param clear_inner: When enabled, remove all geometry on the negative side of the plane.
         :return: geom_cut:
     Output geometry aligned with the plane (new and existing).
 
-    type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`)
+    type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge`]
 
     geom:
     Input and output geometry (result of cut).
 
-    type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
+    type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
     """
 
 def bmesh_to_mesh(
@@ -199,12 +201,12 @@ def bridge_loops(
         :return: faces:
     New faces.
 
-    type list of (`bmesh.types.BMFace`)
+    type list[`bmesh.types.BMFace`]
 
     edges:
     New edges.
 
-    type list of (`bmesh.types.BMEdge`)
+    type list[`bmesh.types.BMEdge`]
     """
 
 def collapse(
@@ -238,7 +240,7 @@ def connect_vert_pair(
         :param faces_exclude: Input faces to explicitly exclude from connecting.
         :return: edges:
 
-    type list of (`bmesh.types.BMEdge`)
+    type list[`bmesh.types.BMEdge`]
     """
 
 def connect_verts(
@@ -255,7 +257,7 @@ def connect_verts(
         :param check_degenerate: Prevent splits with overlaps & intersections.
         :return: edges:
 
-    type list of (`bmesh.types.BMEdge`)
+    type list[`bmesh.types.BMEdge`]
     """
 
 def connect_verts_concave(
@@ -267,35 +269,33 @@ def connect_verts_concave(
         :param faces: Input faces.
         :return: edges:
 
-    type list of (`bmesh.types.BMEdge`)
+    type list[`bmesh.types.BMEdge`]
 
     faces:
 
-    type list of (`bmesh.types.BMFace`)
+    type list[`bmesh.types.BMFace`]
     """
 
 def connect_verts_nonplanar(
     bm: bmesh.types.BMesh, angle_limit: float = 0, faces: list[bmesh.types.BMFace] = []
 ) -> dict[str, typing.Any]:
-    """Connect Verts Across non Planer Faces.Split faces by connecting edges along non planer faces.
+    """Connect Verts Across non Planar Faces.Split faces by connecting edges along non planar faces.
 
         :param bm: The bmesh to operate on.
         :param angle_limit: Total rotation angle (radians).
         :param faces: Input faces.
         :return: edges:
 
-    type list of (`bmesh.types.BMEdge`)
+    type list[`bmesh.types.BMEdge`]
 
     faces:
 
-    type list of (`bmesh.types.BMFace`)
+    type list[`bmesh.types.BMFace`]
     """
 
 def contextual_create(
     bm: bmesh.types.BMesh,
-    geom: list[bmesh.types.BMEdge]
-    | list[bmesh.types.BMFace]
-    | list[bmesh.types.BMVert] = [],
+    geom: list[bmesh.types.BMVert | bmesh.types.BMEdge | bmesh.types.BMFace] = [],
     mat_nr: int = 0,
     use_smooth: bool = False,
 ) -> dict[str, typing.Any]:
@@ -311,19 +311,17 @@ def contextual_create(
         :return: faces:
     Newly-made face(s).
 
-    type list of (`bmesh.types.BMFace`)
+    type list[`bmesh.types.BMFace`]
 
     edges:
     Newly-made edge(s).
 
-    type list of (`bmesh.types.BMEdge`)
+    type list[`bmesh.types.BMEdge`]
     """
 
 def convex_hull(
     bm: bmesh.types.BMesh,
-    input: list[bmesh.types.BMEdge]
-    | list[bmesh.types.BMFace]
-    | list[bmesh.types.BMVert] = [],
+    input: list[bmesh.types.BMVert | bmesh.types.BMEdge | bmesh.types.BMFace] = [],
     use_existing_faces: bool = False,
 ) -> dict[str, typing.Any]:
     """Convex HullBuilds a convex hull from the vertices in input.If use_existing_faces is true, the hull will not output triangles
@@ -339,19 +337,19 @@ def convex_hull(
         :param use_existing_faces: Skip hull triangles that are covered by a pre-existing face.
         :return: geom:
 
-    type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
+    type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
 
     geom_interior:
 
-    type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
+    type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
 
     geom_unused:
 
-    type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
+    type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
 
     geom_holes:
 
-    type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
+    type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
     """
 
 def create_circle(
@@ -376,7 +374,7 @@ def create_circle(
         :return: verts:
     Output verts.
 
-    type list of (`bmesh.types.BMVert`)
+    type list[`bmesh.types.BMVert`]
     """
 
 def create_cone(
@@ -398,14 +396,14 @@ def create_cone(
         :param cap_tris: Fill ends with triangles instead of ngons.
         :param segments: Number of vertices in the base circle.
         :param radius1: Radius of one end.
-        :param radius2: Radius of the opposite.
+        :param radius2: Radius of the opposite end.
         :param depth: Distance between ends.
         :param matrix: Matrix to multiply the new geometry with.
         :param calc_uvs: Calculate default UVs.
         :return: verts:
     Output verts.
 
-    type list of (`bmesh.types.BMVert`)
+    type list[`bmesh.types.BMVert`]
     """
 
 def create_cube(
@@ -424,7 +422,7 @@ def create_cube(
         :return: verts:
     Output verts.
 
-    type list of (`bmesh.types.BMVert`)
+    type list[`bmesh.types.BMVert`]
     """
 
 def create_grid(
@@ -447,7 +445,7 @@ def create_grid(
         :return: verts:
     Output verts.
 
-    type list of (`bmesh.types.BMVert`)
+    type list[`bmesh.types.BMVert`]
     """
 
 def create_icosphere(
@@ -458,7 +456,7 @@ def create_icosphere(
     | mathutils.Matrix = mathutils.Matrix.Identity(4),
     calc_uvs: bool = False,
 ) -> dict[str, typing.Any]:
-    """Create Ico-Sphere.Creates a grid with a variable number of subdivisions
+    """Create Ico-Sphere.Creates an ico-sphere with a variable number of subdivisions.
 
         :param bm: The bmesh to operate on.
         :param subdivisions: How many times to recursively subdivide the sphere.
@@ -468,7 +466,7 @@ def create_icosphere(
         :return: verts:
     Output verts.
 
-    type list of (`bmesh.types.BMVert`)
+    type list[`bmesh.types.BMVert`]
     """
 
 def create_monkey(
@@ -485,7 +483,7 @@ def create_monkey(
         :return: verts:
     Output verts.
 
-    type list of (`bmesh.types.BMVert`)
+    type list[`bmesh.types.BMVert`]
     """
 
 def create_uvsphere(
@@ -497,18 +495,18 @@ def create_uvsphere(
     | mathutils.Matrix = mathutils.Matrix.Identity(4),
     calc_uvs: bool = False,
 ) -> dict[str, typing.Any]:
-    """Create UV Sphere.Creates a grid with a variable number of subdivisions
+    """Create UV Sphere.Creates a UV sphere with a variable number of subdivisions.
 
         :param bm: The bmesh to operate on.
         :param u_segments: Number of u segments.
-        :param v_segments: Number of v segment.
+        :param v_segments: Number of v segments.
         :param radius: Radius.
         :param matrix: Matrix to multiply the new geometry with.
         :param calc_uvs: Calculate default UVs.
         :return: verts:
     Output verts.
 
-    type list of (`bmesh.types.BMVert`)
+    type list[`bmesh.types.BMVert`]
     """
 
 def create_vert(
@@ -520,17 +518,17 @@ def create_vert(
 
         :param bm: The bmesh to operate on.
         :param co: The coordinate of the new vert.
+
+    Accepts any sequence of 3 floats.
         :return: vert:
     The new vert.
 
-    type list of (`bmesh.types.BMVert`)
+    type list[`bmesh.types.BMVert`]
     """
 
 def delete(
     bm: bmesh.types.BMesh,
-    geom: list[bmesh.types.BMEdge]
-    | list[bmesh.types.BMFace]
-    | list[bmesh.types.BMVert] = [],
+    geom: list[bmesh.types.BMVert | bmesh.types.BMEdge | bmesh.types.BMFace] = [],
     context: typing.Literal[
         "VERTS",
         "EDGES",
@@ -575,7 +573,7 @@ def dissolve_edges(
     Disabled by default.
         :return: region:
 
-    type list of (`bmesh.types.BMFace`)
+    type list[`bmesh.types.BMFace`]
     """
 
 def dissolve_faces(
@@ -588,7 +586,7 @@ def dissolve_faces(
         :param use_verts: Dissolve verts left between only 2 edges.
         :return: region:
 
-    type list of (`bmesh.types.BMFace`)
+    type list[`bmesh.types.BMFace`]
     """
 
 def dissolve_limit(
@@ -597,7 +595,7 @@ def dissolve_limit(
     use_dissolve_boundaries: bool = False,
     verts: list[bmesh.types.BMVert] = [],
     edges: list[bmesh.types.BMEdge] = [],
-    delimit=set(),
+    delimit: set[typing.Literal["NORMAL", "MATERIAL", "SEAM", "SHARP", "UV"]] = set(),
 ) -> dict[str, typing.Any]:
     """Limited Dissolve.Dissolve planar faces and co-linear edges.
 
@@ -609,7 +607,7 @@ def dissolve_limit(
         :param delimit: Delimit dissolve operation.
         :return: region:
 
-    type list of (`bmesh.types.BMFace`)
+    type list[`bmesh.types.BMFace`]
     """
 
 def dissolve_verts(
@@ -628,10 +626,8 @@ def dissolve_verts(
 
 def duplicate(
     bm: bmesh.types.BMesh,
-    geom: list[bmesh.types.BMEdge]
-    | list[bmesh.types.BMFace]
-    | list[bmesh.types.BMVert] = [],
-    dest: bmesh.types.BMesh | None = None,
+    geom: list[bmesh.types.BMVert | bmesh.types.BMEdge | bmesh.types.BMFace] = [],
+    dest: None | bmesh.types.BMesh | None = None,
     use_select_history: bool = False,
     use_edge_flip_from_face: bool = False,
 ) -> dict[str, typing.Any]:
@@ -640,38 +636,38 @@ def duplicate(
 
         :param bm: The bmesh to operate on.
         :param geom: Input geometry.
-        :param dest: Destination bmesh, if None will use current on.
+        :param dest: Destination bmesh, if None will use current one.
         :param use_select_history: Undocumented.
         :param use_edge_flip_from_face: Undocumented.
         :return: geom_orig:
 
-    type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
+    type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
 
     geom:
 
-    type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
+    type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
 
     vert_map:
 
-    type dict mapping vert/edge/face types to `bmesh.types.BMVert`/`bmesh.types.BMEdge`/`bmesh.types.BMFace`
+    type dict[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`, `bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
 
     edge_map:
 
-    type dict mapping vert/edge/face types to `bmesh.types.BMVert`/`bmesh.types.BMEdge`/`bmesh.types.BMFace`
+    type dict[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`, `bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
 
     face_map:
 
-    type dict mapping vert/edge/face types to `bmesh.types.BMVert`/`bmesh.types.BMEdge`/`bmesh.types.BMFace`
+    type dict[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`, `bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
 
     boundary_map:
     Boundary edges from the split geometry that maps edges from the original geometry
     to the destination edges.
 
-    type dict mapping vert/edge/face types to `bmesh.types.BMVert`/`bmesh.types.BMEdge`/`bmesh.types.BMFace`
+    type dict[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`, `bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
 
     isovert_map:
 
-    type dict mapping vert/edge/face types to `bmesh.types.BMVert`/`bmesh.types.BMEdge`/`bmesh.types.BMFace`
+    type dict[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`, `bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
     """
 
 def edgeloop_fill(
@@ -689,7 +685,7 @@ def edgeloop_fill(
         :return: faces:
     New faces.
 
-    type list of (`bmesh.types.BMFace`)
+    type list[`bmesh.types.BMFace`]
     """
 
 def edgenet_fill(
@@ -709,7 +705,7 @@ def edgenet_fill(
         :return: faces:
     New faces.
 
-    type list of (`bmesh.types.BMFace`)
+    type list[`bmesh.types.BMFace`]
     """
 
 def edgenet_prepare(
@@ -723,7 +719,7 @@ def edgenet_prepare(
         :return: edges:
     New edges.
 
-    type list of (`bmesh.types.BMEdge`)
+    type list[`bmesh.types.BMEdge`]
     """
 
 def extrude_discrete_faces(
@@ -741,7 +737,7 @@ def extrude_discrete_faces(
         :return: faces:
     Output faces.
 
-    type list of (`bmesh.types.BMFace`)
+    type list[`bmesh.types.BMFace`]
     """
 
 def extrude_edge_only(
@@ -754,21 +750,21 @@ def extrude_edge_only(
     winged extrusion.
 
         :param bm: The bmesh to operate on.
-        :param edges: Input vertices.
+        :param edges: Input edges.
         :param use_normal_flip: Create faces with reversed direction.
         :param use_select_history: Pass to duplicate.
         :return: geom:
     Output geometry.
 
-    type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
+    type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
     """
 
 def extrude_face_region(
     bm: bmesh.types.BMesh,
-    geom: list[bmesh.types.BMEdge]
-    | list[bmesh.types.BMFace]
-    | list[bmesh.types.BMVert] = [],
-    edges_exclude=set(),
+    geom: list[bmesh.types.BMVert | bmesh.types.BMEdge | bmesh.types.BMFace] = [],
+    edges_exclude: set[
+        bmesh.types.BMVert | bmesh.types.BMEdge | bmesh.types.BMFace
+    ] = set(),
     use_keep_orig: bool = False,
     use_normal_flip: bool = False,
     use_normal_from_adjacent: bool = False,
@@ -789,7 +785,7 @@ def extrude_face_region(
         :param skip_input_flip: Skip flipping of input faces to preserve original orientation.
         :return: geom:
 
-    type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
+    type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
     """
 
 def extrude_vert_indiv(
@@ -805,12 +801,12 @@ def extrude_vert_indiv(
         :return: edges:
     Output wire edges.
 
-    type list of (`bmesh.types.BMEdge`)
+    type list[`bmesh.types.BMEdge`]
 
     verts:
     Output vertices.
 
-    type list of (`bmesh.types.BMVert`)
+    type list[`bmesh.types.BMVert`]
     """
 
 def face_attribute_fill(
@@ -828,7 +824,7 @@ def face_attribute_fill(
         :return: faces_fail:
     Faces that could not be handled.
 
-    type list of (`bmesh.types.BMFace`)
+    type list[`bmesh.types.BMFace`]
     """
 
 def find_doubles(
@@ -838,7 +834,7 @@ def find_doubles(
     use_connected: bool = False,
     dist: float = 0,
 ) -> dict[str, typing.Any]:
-    """Find Doubles.Takes input verts and find vertices they should weld to.
+    """Find Doubles.Takes input verts and finds vertices they should weld to.
     Outputs a mapping slot suitable for use with the weld verts BMOP.If keep_verts is used, vertices outside that set can only be merged
     with vertices in that set.
 
@@ -849,7 +845,7 @@ def find_doubles(
         :param dist: Maximum distance.
         :return: targetmap:
 
-    type dict mapping vert/edge/face types to `bmesh.types.BMVert`/`bmesh.types.BMEdge`/`bmesh.types.BMFace`
+    type dict[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`, `bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
     """
 
 def flip_quad_tessellation(
@@ -878,7 +874,7 @@ def grid_fill(
         :return: faces:
     New faces.
 
-    type list of (`bmesh.types.BMFace`)
+    type list[`bmesh.types.BMFace`]
     """
 
 def holes_fill(
@@ -892,7 +888,7 @@ def holes_fill(
         :return: faces:
     New faces.
 
-    type list of (`bmesh.types.BMFace`)
+    type list[`bmesh.types.BMFace`]
     """
 
 def inset_individual(
@@ -916,7 +912,7 @@ def inset_individual(
         :return: faces:
     Output faces.
 
-    type list of (`bmesh.types.BMFace`)
+    type list[`bmesh.types.BMFace`]
     """
 
 def inset_region(
@@ -948,7 +944,7 @@ def inset_region(
         :return: faces:
     Output faces.
 
-    type list of (`bmesh.types.BMFace`)
+    type list[`bmesh.types.BMFace`]
     """
 
 def join_triangles(
@@ -985,7 +981,7 @@ def join_triangles(
         :return: faces:
     Joined faces.
 
-    type list of (`bmesh.types.BMFace`)
+    type list[`bmesh.types.BMFace`]
     """
 
 def mesh_to_bmesh(
@@ -1005,9 +1001,7 @@ def mesh_to_bmesh(
 
 def mirror(
     bm: bmesh.types.BMesh,
-    geom: list[bmesh.types.BMEdge]
-    | list[bmesh.types.BMFace]
-    | list[bmesh.types.BMVert] = [],
+    geom: list[bmesh.types.BMVert | bmesh.types.BMEdge | bmesh.types.BMFace] = [],
     matrix: collections.abc.Sequence[collections.abc.Sequence[float]]
     | mathutils.Matrix = mathutils.Matrix.Identity(4),
     merge_dist: float = 0,
@@ -1033,7 +1027,7 @@ def mirror(
         :return: geom:
     Output geometry, mirrored.
 
-    type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
+    type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
     """
 
 def object_load_bmesh(
@@ -1043,7 +1037,7 @@ def object_load_bmesh(
     BMOP.
 
         :param bm: The bmesh to operate on.
-        :param scene: Pointer to an scene structure.
+        :param scene: Pointer to a scene structure.
         :param object: Pointer to an object structure.
     """
 
@@ -1060,7 +1054,7 @@ def offset_edgeloops(
         :return: edges:
     Output edges.
 
-    type list of (`bmesh.types.BMEdge`)
+    type list[`bmesh.types.BMEdge`]
     """
 
 def planar_faces(
@@ -1078,7 +1072,7 @@ def planar_faces(
         :return: geom:
     Output slot, computed boundary geometry.
 
-    type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
+    type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
     """
 
 def pointmerge(
@@ -1088,9 +1082,11 @@ def pointmerge(
 ) -> None:
     """Point Merge.Merge verts together at a point.
 
-    :param bm: The bmesh to operate on.
-    :param verts: Input vertices (all verts will be merged into the first).
-    :param merge_co: Position to merge at.
+        :param bm: The bmesh to operate on.
+        :param verts: Input vertices (all verts will be merged into the first).
+        :param merge_co: Position to merge at.
+
+    Accepts any sequence of 3 floats.
     """
 
 def pointmerge_facedata(
@@ -1122,12 +1118,12 @@ def poke(
         :return: verts:
     Output verts.
 
-    type list of (`bmesh.types.BMVert`)
+    type list[`bmesh.types.BMVert`]
 
     faces:
     Output faces.
 
-    type list of (`bmesh.types.BMFace`)
+    type list[`bmesh.types.BMFace`]
     """
 
 def recalc_face_normals(
@@ -1141,9 +1137,7 @@ def recalc_face_normals(
 
 def region_extend(
     bm: bmesh.types.BMesh,
-    geom: list[bmesh.types.BMEdge]
-    | list[bmesh.types.BMFace]
-    | list[bmesh.types.BMVert] = [],
+    geom: list[bmesh.types.BMVert | bmesh.types.BMEdge | bmesh.types.BMFace] = [],
     use_contract: bool = False,
     use_faces: bool = False,
     use_face_step: bool = False,
@@ -1161,7 +1155,7 @@ def region_extend(
         :return: geom:
     Output slot, computed boundary geometry.
 
-    type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
+    type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
     """
 
 def remove_doubles(
@@ -1176,7 +1170,7 @@ def remove_doubles(
         :param bm: The bmesh to operate on.
         :param verts: Input verts.
         :param use_connected: Limit the search for doubles by connected geometry.
-        :param dist: Minimum distance.
+        :param dist: Maximum distance.
     """
 
 def reverse_colors(
@@ -1221,12 +1215,14 @@ def rotate(
 ) -> None:
     """Rotate.Rotate vertices around a center, using a 3x3 rotation matrix.
 
-    :param bm: The bmesh to operate on.
-    :param cent: Center of rotation.
-    :param matrix: Matrix defining rotation.
-    :param verts: Input vertices.
-    :param space: Matrix to define the space (typically object matrix).
-    :param use_shapekey: Transform shape keys too.
+        :param bm: The bmesh to operate on.
+        :param cent: Center of rotation.
+
+    Accepts any sequence of 3 floats.
+        :param matrix: Matrix defining rotation.
+        :param verts: Input vertices.
+        :param space: Matrix to define the space (typically object matrix).
+        :param use_shapekey: Transform shape keys too.
     """
 
 def rotate_colors(
@@ -1255,7 +1251,7 @@ def rotate_edges(
         :return: edges:
     Newly spun edges.
 
-    type list of (`bmesh.types.BMEdge`)
+    type list[`bmesh.types.BMEdge`]
     """
 
 def rotate_uvs(
@@ -1276,13 +1272,15 @@ def scale(
     verts: list[bmesh.types.BMVert] = [],
     use_shapekey: bool = False,
 ) -> None:
-    """Scale.Scales vertices by an offset.
+    """Scale.Scales vertices by a factor.
 
-    :param bm: The bmesh to operate on.
-    :param vec: Scale factor.
-    :param space: Matrix to define the space (typically object matrix).
-    :param verts: Input vertices.
-    :param use_shapekey: Transform shape keys too.
+        :param bm: The bmesh to operate on.
+        :param vec: Scale factor.
+
+    Accepts any sequence of 3 floats.
+        :param space: Matrix to define the space (typically object matrix).
+        :param verts: Input vertices.
+        :param use_shapekey: Transform shape keys too.
     """
 
 def smooth_laplacian_vert(
@@ -1295,7 +1293,7 @@ def smooth_laplacian_vert(
     use_z: bool = False,
     preserve_volume: bool = False,
 ) -> None:
-    """Vertex Smooth Laplacian.Smooths vertices by using Laplacian smoothing propose by.
+    """Vertex Smooth Laplacian.Smooths vertices by using Laplacian smoothing proposed by
     Desbrun, et al. Implicit Fairing of Irregular Meshes using Diffusion and Curvature Flow.
 
         :param bm: The bmesh to operate on.
@@ -1336,9 +1334,7 @@ def smooth_vert(
 
 def solidify(
     bm: bmesh.types.BMesh,
-    geom: list[bmesh.types.BMEdge]
-    | list[bmesh.types.BMFace]
-    | list[bmesh.types.BMVert] = [],
+    geom: list[bmesh.types.BMVert | bmesh.types.BMEdge | bmesh.types.BMFace] = [],
     thickness: float = 0,
 ) -> dict[str, typing.Any]:
     """Solidify.Turns a mesh into a shell with thickness
@@ -1348,14 +1344,12 @@ def solidify(
         :param thickness: Thickness.
         :return: geom:
 
-    type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
+    type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
     """
 
 def spin(
     bm: bmesh.types.BMesh,
-    geom: list[bmesh.types.BMEdge]
-    | list[bmesh.types.BMFace]
-    | list[bmesh.types.BMVert] = [],
+    geom: list[bmesh.types.BMVert | bmesh.types.BMEdge | bmesh.types.BMFace] = [],
     cent: collections.abc.Sequence[float] | mathutils.Vector = mathutils.Vector(),
     axis: collections.abc.Sequence[float] | mathutils.Vector = mathutils.Vector(),
     dvec: collections.abc.Sequence[float] | mathutils.Vector = mathutils.Vector(),
@@ -1373,26 +1367,30 @@ def spin(
         :param bm: The bmesh to operate on.
         :param geom: Input geometry.
         :param cent: Rotation center.
+
+    Accepts any sequence of 3 floats.
         :param axis: Rotation axis.
+
+    Accepts any sequence of 3 floats.
         :param dvec: Translation delta per step.
+
+    Accepts any sequence of 3 floats.
         :param angle: Total rotation angle (radians).
         :param space: Matrix to define the space (typically object matrix).
         :param steps: Number of steps.
         :param use_merge: Merge first/last when the angle is a full revolution.
         :param use_normal_flip: Create faces with reversed direction.
-        :param use_duplicate: Duplicate or extrude?.
+        :param use_duplicate: Duplicate the geometry, otherwise extrude.
         :return: geom_last:
     Result of last step.
 
-    type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
+    type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
     """
 
 def split(
     bm: bmesh.types.BMesh,
-    geom: list[bmesh.types.BMEdge]
-    | list[bmesh.types.BMFace]
-    | list[bmesh.types.BMVert] = [],
-    dest: bmesh.types.BMesh | None = None,
+    geom: list[bmesh.types.BMVert | bmesh.types.BMEdge | bmesh.types.BMFace] = [],
+    dest: None | bmesh.types.BMesh | None = None,
     use_only_faces: bool = False,
 ) -> dict[str, typing.Any]:
     """Split Off Geometry.Disconnect geometry from adjacent edges and faces,
@@ -1401,10 +1399,10 @@ def split(
         :param bm: The bmesh to operate on.
         :param geom: Input geometry.
         :param dest: Destination bmesh, if None will use current one.
-        :param use_only_faces: When enabled. dont duplicate loose verts/edges.
+        :param use_only_faces: When enabled, dont duplicate loose verts/edges.
         :return: geom:
 
-    type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
+    type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
 
     boundary_map:
     Boundary edges from the split geometry that maps edges from the original geometry
@@ -1413,11 +1411,11 @@ def split(
     When the source edges have been deleted, the destination edge will be used
     for both the key and the value.
 
-    type dict mapping vert/edge/face types to `bmesh.types.BMVert`/`bmesh.types.BMEdge`/`bmesh.types.BMFace`
+    type dict[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`, `bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
 
     isovert_map:
 
-    type dict mapping vert/edge/face types to `bmesh.types.BMVert`/`bmesh.types.BMEdge`/`bmesh.types.BMFace`
+    type dict[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`, `bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
     """
 
 def split_edges(
@@ -1435,7 +1433,7 @@ def split_edges(
         :return: edges:
     Old output disconnected edges.
 
-    type list of (`bmesh.types.BMEdge`)
+    type list[`bmesh.types.BMEdge`]
     """
 
 def subdivide_edgering(
@@ -1452,7 +1450,7 @@ def subdivide_edgering(
     """Subdivide Edge-Ring.Take an edge-ring, and subdivide with interpolation options.
 
         :param bm: The bmesh to operate on.
-        :param edges: Input vertices.
+        :param edges: Input edges.
         :param interp_mode: Interpolation method.
         :param smooth: Smoothness factor.
         :param cuts: Number of cuts.
@@ -1461,7 +1459,7 @@ def subdivide_edgering(
         :return: faces:
     Output faces.
 
-    type list of (`bmesh.types.BMFace`)
+    type list[`bmesh.types.BMFace`]
     """
 
 def subdivide_edges(
@@ -1475,8 +1473,10 @@ def subdivide_edges(
     along_normal: float = 0,
     cuts: int = 0,
     seed: int = 0,
-    custom_patterns={},
-    edge_percents={},
+    custom_patterns: dict = {},
+    edge_percents: dict[
+        bmesh.types.BMVert | bmesh.types.BMEdge | bmesh.types.BMFace, float
+    ] = {},
     quad_corner_type: typing.Literal[
         "STRAIGHT_CUT", "INNER_VERT", "PATH", "FAN"
     ] = "STRAIGHT_CUT",
@@ -1507,23 +1507,21 @@ def subdivide_edges(
         :param use_smooth_even: Maintain even offset when smoothing.
         :return: geom_inner:
 
-    type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
+    type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
 
     geom_split:
 
-    type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
+    type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
 
     geom:
     Contains all output geometry.
 
-    type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
+    type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
     """
 
 def symmetrize(
     bm: bmesh.types.BMesh,
-    input: list[bmesh.types.BMEdge]
-    | list[bmesh.types.BMFace]
-    | list[bmesh.types.BMVert] = [],
+    input: list[bmesh.types.BMVert | bmesh.types.BMEdge | bmesh.types.BMFace] = [],
     direction: typing.Literal["-X", "-Y", "-Z", "X", "Y", "Z"] = "-X",
     dist: float = 0,
     use_shapekey: bool = False,
@@ -1540,7 +1538,7 @@ def symmetrize(
         :param use_shapekey: Transform shape keys too.
         :return: geom:
 
-    type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
+    type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
     """
 
 def transform(
@@ -1572,11 +1570,13 @@ def translate(
 ) -> None:
     """Translate.Translate vertices by an offset.
 
-    :param bm: The bmesh to operate on.
-    :param vec: Translation offset.
-    :param space: Matrix to define the space (typically object matrix).
-    :param verts: Input vertices.
-    :param use_shapekey: Transform shape keys too.
+        :param bm: The bmesh to operate on.
+        :param vec: Translation offset.
+
+    Accepts any sequence of 3 floats.
+        :param space: Matrix to define the space (typically object matrix).
+        :param verts: Input vertices.
+        :param use_shapekey: Transform shape keys too.
     """
 
 def triangle_fill(
@@ -1593,10 +1593,12 @@ def triangle_fill(
         :param use_dissolve: Dissolve resulting faces.
         :param edges: Input edges.
         :param normal: Optionally pass the fill normal to use.
+
+    Accepts any sequence of 3 floats.
         :return: geom:
     New faces and edges.
 
-    type list of (`bmesh.types.BMVert`, `bmesh.types.BMEdge`, `bmesh.types.BMFace`)
+    type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
     """
 
 def triangulate(
@@ -1615,20 +1617,20 @@ def triangulate(
         :param ngon_method: Method for splitting the polygons into triangles.
         :return: edges:
 
-    type list of (`bmesh.types.BMEdge`)
+    type list[`bmesh.types.BMEdge`]
 
     faces:
 
-    type list of (`bmesh.types.BMFace`)
+    type list[`bmesh.types.BMFace`]
 
     face_map:
 
-    type dict mapping vert/edge/face types to `bmesh.types.BMVert`/`bmesh.types.BMEdge`/`bmesh.types.BMFace`
+    type dict[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`, `bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
 
     face_map_double:
     Duplicate faces.
 
-    type dict mapping vert/edge/face types to `bmesh.types.BMVert`/`bmesh.types.BMEdge`/`bmesh.types.BMFace`
+    type dict[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`, `bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
     """
 
 def unsubdivide(
@@ -1641,7 +1643,14 @@ def unsubdivide(
     :param iterations: Number of times to unsubdivide.
     """
 
-def weld_verts(bm: bmesh.types.BMesh, targetmap={}, use_centroid: bool = False) -> None:
+def weld_verts(
+    bm: bmesh.types.BMesh,
+    targetmap: dict[
+        bmesh.types.BMVert | bmesh.types.BMEdge | bmesh.types.BMFace,
+        bmesh.types.BMVert | bmesh.types.BMEdge | bmesh.types.BMFace,
+    ] = {},
+    use_centroid: bool = False,
+) -> None:
     """Weld Verts.Welds verts together (kind-of like remove doubles, merge, etc, all of which
     use or will use this BMOP). You pass in mappings from vertices to the vertices
     they weld with.
@@ -1681,5 +1690,5 @@ def wireframe(
         :return: faces:
     Output faces.
 
-    type list of (`bmesh.types.BMFace`)
+    type list[`bmesh.types.BMFace`]
     """

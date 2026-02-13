@@ -89,6 +89,18 @@ class FortiManagerProxy:
         verify: bool = True,
         timeout: float = 60.0,
         adom: str | None = None,
+        max_retries: int = 3,
+        circuit_breaker_threshold: int = 5,
+        circuit_breaker_timeout: float = 60.0,
+        rate_limit: bool = False,
+        rate_limit_strategy: str = "queue",
+        rate_limit_max_requests: int = 100,
+        rate_limit_window_seconds: float = 60.0,
+        rate_limit_queue_size: int = 100,
+        rate_limit_queue_timeout: float = 30.0,
+        rate_limit_queue_overflow: str = "block",
+        circuit_breaker: bool = False,
+        circuit_breaker_half_open_calls: int = 3,
     ) -> None: ...
     
     @property

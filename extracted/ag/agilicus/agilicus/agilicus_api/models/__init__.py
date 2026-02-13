@@ -856,6 +856,8 @@ from agilicus_api.model.totp_enrollment_status import TOTPEnrollmentStatus
 from agilicus_api.model.template_extraction import TemplateExtraction
 from agilicus_api.model.template_path import TemplatePath
 from agilicus_api.model.time_interval_metrics import TimeIntervalMetrics
+from agilicus_api.model.time_of_day_condition import TimeOfDayCondition
+from agilicus_api.model.time_period_condition import TimePeriodCondition
 from agilicus_api.model.time_validity import TimeValidity
 from agilicus_api.model.timeframe_condition import TimeframeCondition
 from agilicus_api.model.token import Token

@@ -232,7 +232,7 @@ def pbs_install_python(python_version: str) -> str | None:
             version_dir=True,
             implementation=implementation,
         )
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001
         logger.warning(f"Failed to install a pbs version for {python_version=}: {err}")
         return None
 
@@ -444,7 +444,7 @@ class CondaEnv(ProcessEnv):
         venv_params: Sequence[str] = (),
         conda_cmd: str = "conda",
         **kwargs: Any,
-    ):
+    ) -> None:
         self.location_name = location
         self.location = os.path.abspath(location)
         self.interpreter = interpreter
@@ -537,7 +537,7 @@ class CondaEnv(ProcessEnv):
         try:
             # DNS resolution to detect situation (1) or (2).
             host = gethostbyname("repo.anaconda.com")
-        except BaseException:  # pragma: no cover
+        except OSError:  # pragma: no cover
             return True
         return host is None
 
@@ -579,7 +579,7 @@ class VirtualEnv(ProcessEnv):
         reuse_existing: bool = False,
         venv_backend: str = "virtualenv",
         venv_params: Sequence[str] = (),
-    ):
+    ) -> None:
         # "pypy-" -> "pypy"
         if interpreter and interpreter.startswith("pypy-"):
             interpreter = interpreter[:4] + interpreter[5:]
@@ -802,6 +802,8 @@ class VirtualEnv(ProcessEnv):
                 self._resolved_interpreter if self.interpreter else sys.executable,
                 self.location,
             ]
+            if version.Version("0.8") <= UV_VERSION:
+                cmd += ["--clear"]
         else:
             cmd = [self._resolved_interpreter, "-m", "venv", self.location]
         cmd.extend(self.venv_params)

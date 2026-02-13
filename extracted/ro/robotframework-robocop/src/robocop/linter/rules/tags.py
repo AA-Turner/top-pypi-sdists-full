@@ -3,17 +3,26 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeAlias
 
 from robot.api import Token
 
 from robocop.linter import sonar_qube
 from robocop.linter.rules import Rule, RuleSeverity, VisitorChecker
-from robocop.linter.utils import variable_matcher
+from robocop.parsing.variables import VariableMatches  # type: ignore[attr-defined]
 
 if TYPE_CHECKING:
     from robot.parsing import File
-    from robot.parsing.model.statements import Node
+    from robot.parsing.model.blocks import Keyword, KeywordSection, TestCase
+    from robot.parsing.model.statements import (
+        DefaultTags,
+        Documentation,
+        ForceTags,
+        KeywordTags,
+        Tags,
+    )
+
+TagNode: TypeAlias = "ForceTags | DefaultTags | Tags | KeywordTags"
 
 
 class TagWithSpaceRule(Rule):
@@ -47,13 +56,12 @@ class TagWithOrAndRule(Rule):
     ``OR`` or ``AND`` keyword found in the tag.
 
     ``OR`` and ``AND`` words are used to combine tags when selecting tests to be run in Robot Framework. Using
-    following configuration:
+    the following configuration:
 
         robocop check --include tagANDtag2
 
     Robot Framework will only execute tests that contain ``tag`` and ``tag2``. That's why it's best to avoid ``AND``
-    and ``OR`` in tag names. See
-    `docs <https://robotframework.org/robotframework/latest/RobotFrameworkUserGuide.html#tag-patterns>`_
+    and ``OR`` in tag names. See [docs](https://robotframework.org/robotframework/latest/RobotFrameworkUserGuide.html#tag-patterns)
     for more information.
 
     Tag matching is case-insensitive. If your tag contains ``OR`` or ``AND`` you can use lowercase to match it.
@@ -76,9 +84,9 @@ class TagWithReservedWordRule(Rule):
     """
     Tag is prefixed with reserved work ``robot:``.
 
-    ``robot:`` prefix is used by Robot Framework special tags. More details
-    `here <https://robotframework.org/robotframework/latest/RobotFrameworkUserGuide.html#reserved-tags>`_.
-    Special tags currently in use:
+    ``robot:`` prefix is used by Robot Framework special tags. More details in
+    [RF User Guide](https://robotframework.org/robotframework/latest/RobotFrameworkUserGuide.html#reserved-tags).
+    Special tags that are currently in use:
 
         - robot:exit
         - robot:flatten
@@ -108,9 +116,10 @@ class TagWithReservedWordRule(Rule):
 
 class CouldBeTestTagsRule(Rule):
     """
-    All tests share the same tags which can be moved to ``Test Tags`` setting.
+    All tests share the same tags which can be moved to the ``Test Tags`` setting.
 
     Example:
+
         *** Test Cases ***
         Test
             [Tags]  featureX  smoke
@@ -140,7 +149,7 @@ class CouldBeTestTagsRule(Rule):
     deprecated_names = ("0605",)
 
 
-class TagAlreadySetInTestTagsRule(Rule):
+class TagAlreadySetInTestTagsRule(Rule):  # TODO: support -tag
     """
     Tag is already set in the ``Test Tags`` setting.
 
@@ -189,7 +198,7 @@ class UnnecessaryDefaultTagsRule(Rule):
             [Tags]  tag4
             Step
 
-    Since ``Test`` and ``Test 2`` have ``[Tags]`` section, ``Default Tags`` setting is never used.
+    Since ``Test`` and ``Test 2`` have the ``[Tags]`` section, the ``Default Tags`` setting is never used.
 
     """
 
@@ -208,7 +217,7 @@ class EmptyTagsRule(Rule):
     """
     ``[Tags]`` setting without any value.
 
-    If you want to use empty ``[Tags]`` (for example to overwrite ``Default Tags``) then use ``NONE`` value
+    If you want to use empty ``[Tags]`` (for example, to overwrite ``Default Tags``), then use the ``NONE`` value
     to be explicit.
 
     """
@@ -229,7 +238,7 @@ class DuplicatedTagsRule(Rule):
     Duplicated tags found.
 
     Tags are free text, but they are normalized so that they are converted to lowercase and all spaces are removed.
-    Only first tag is used, other occurrences are ignored.
+    Only the first tag is used, other occurrences are ignored.
 
     Example of duplicated tags:
 
@@ -252,9 +261,10 @@ class DuplicatedTagsRule(Rule):
 
 class CouldBeKeywordTagsRule(Rule):
     """
-    All keywords share the same tags which can be moved to ``Keyword Tags`` setting.
+    All keywords share the same tags which can be moved to the ``Keyword Tags`` setting.
 
     Example:
+
         *** Keywords ***
         Keyword
             [Tags]  featureX  smoke
@@ -336,12 +346,12 @@ class TagNameChecker(VisitorChecker):
         "robot:private",
     }
 
-    def visit_ForceTags(self, node: type[Node]) -> None:  # noqa: N802
+    def visit_ForceTags(self, node: ForceTags) -> None:  # noqa: N802
         self.check_tags(node)
 
     visit_DefaultTags = visit_Tags = visit_KeywordTags = visit_ForceTags  # noqa: N815
 
-    def visit_Documentation(self, node: type[Node]) -> None:  # noqa: N802
+    def visit_Documentation(self, node: Documentation) -> None:  # noqa: N802
         """
         Parse tags from last line of documentation.
 
@@ -378,20 +388,20 @@ class TagNameChecker(VisitorChecker):
         subtoken.col_offset = col_offset
         return subtoken
 
-    def visit_Keyword(self, node: type[Node]) -> None:  # noqa: N802
+    def visit_Keyword(self, node: Keyword) -> None:  # noqa: N802
         self.is_keyword = True
         super().generic_visit(node)
         self.is_keyword = False
 
-    def check_tags(self, node: type[Node]) -> None:
-        tags = defaultdict(list)
+    def check_tags(self, node: TagNode) -> None:
+        tags: defaultdict[str, list[Token]] = defaultdict(list)
         for tag in node.data_tokens[1:]:
             normalized_tag = tag.value.lower().replace(" ", "")
             tags[normalized_tag].append(tag)
             self.check_tag(tag, node)
         self.check_duplicates(tags)
 
-    def check_duplicates(self, tags: defaultdict[list]) -> None:
+    def check_duplicates(self, tags: defaultdict[str, list[Token]]) -> None:
         for nodes in tags.values():
             for duplicate in nodes[1:]:
                 self.report(
@@ -404,11 +414,11 @@ class TagNameChecker(VisitorChecker):
                     end_col=duplicate.end_col_offset + 1,
                 )
 
-    def check_tag(self, tag_token: Token, node: type[Node]) -> None:
+    def check_tag(self, tag_token: Token, node: TagNode | Documentation) -> None:
         var_found = False
         substrings = []
         after = tag_token.value
-        for match in variable_matcher.VariableMatches(tag_token.value, ignore_errors=True):
+        for match in VariableMatches(tag_token.value, ignore_errors=True):
             substrings.append(match.before)
             var_found = var_found or bool(match.match)
             after = match.after
@@ -427,7 +437,7 @@ class TagNameChecker(VisitorChecker):
                 end_col=tag_token.end_col_offset + 1,
             )
 
-    def check_tag_substring(self, substring: str, tag: Token, node: type[Node]) -> bool:
+    def check_tag_substring(self, substring: str, tag: Token, node: TagNode | Documentation) -> bool:
         res = False
         if " " in substring:
             self.report(
@@ -460,12 +470,12 @@ class TagScopeChecker(VisitorChecker):
     unnecessary_default_tags: UnnecessaryDefaultTagsRule
     empty_tags: EmptyTagsRule
 
-    def __init__(self):
-        self.tags = []
-        self.test_tags = set()
-        self.default_tags = set()
-        self.test_tags_node = None
-        self.default_tags_node = None
+    def __init__(self) -> None:
+        self.tags: list[list[str]] = []
+        self.test_tags: set[str] = set()
+        self.default_tags: set[str] = set()
+        self.test_tags_node: ForceTags | None = None
+        self.default_tags_node: DefaultTags | None = None
         self.test_cases_count = 0
         self.in_keywords = False
         super().__init__()
@@ -494,32 +504,32 @@ class TagScopeChecker(VisitorChecker):
         common_tags = set.intersection(*[set(tags) for tags in self.tags])
         common_tags = common_tags - self.test_tags
         if common_tags:
-            common_tags = sorted(common_tags)
+            common_tags_sorted = sorted(common_tags)
             report_node = node if self.test_tags_node is None else self.test_tags_node
             self.report(
                 self.could_be_test_tags,
-                tags=", ".join(common_tags),
+                tags=", ".join(common_tags_sorted),
                 node=report_node,
             )
 
-    def visit_KeywordSection(self, node: type[Node]) -> None:  # noqa: N802
+    def visit_KeywordSection(self, node: KeywordSection) -> None:  # noqa: N802
         self.in_keywords = True
         self.generic_visit(node)
         self.in_keywords = False
 
-    def visit_TestCase(self, node: type[Node]) -> None:  # noqa: N802
+    def visit_TestCase(self, node: TestCase) -> None:  # noqa: N802
         self.test_cases_count += 1
         self.generic_visit(node)
 
-    def visit_ForceTags(self, node: type[Node]) -> None:  # noqa: N802
+    def visit_ForceTags(self, node: ForceTags) -> None:  # noqa: N802
         self.test_tags = {token.value for token in node.data_tokens[1:]}
         self.test_tags_node = node
 
-    def visit_DefaultTags(self, node: type[Node]) -> None:  # noqa: N802
+    def visit_DefaultTags(self, node: DefaultTags) -> None:  # noqa: N802
         self.default_tags = {token.value for token in node.data_tokens[1:]}
         self.default_tags_node = node
 
-    def visit_Tags(self, node: type[Node]) -> None:  # noqa: N802
+    def visit_Tags(self, node: Tags) -> None:  # noqa: N802
         if not node.values:
             suffix = "" if self.in_keywords else ". Consider using NONE if you want to overwrite the Default Tags"
             self.report(
@@ -531,6 +541,8 @@ class TagScopeChecker(VisitorChecker):
             )
         if not self.in_keywords:
             self.tags.append([tag.value for tag in node.data_tokens[1:] if not tag.value.startswith("robot:")])
+        if self.test_tags_node is None:
+            return
         for tag in node.data_tokens[1:]:
             if self.in_keywords or tag.value not in self.test_tags:
                 continue
@@ -552,10 +564,10 @@ class KeywordTagsChecker(VisitorChecker):
     could_be_keyword_tags: CouldBeKeywordTagsRule
     tag_already_set_in_keyword_tags: TagAlreadySetInKeywordTagsRule
 
-    def __init__(self):
-        self.tags_in_keywords = []
-        self.keyword_tags = set()
-        self.keyword_tags_node = None
+    def __init__(self) -> None:
+        self.tags_in_keywords: list[list[str]] = []
+        self.keyword_tags: set[str] = set()
+        self.keyword_tags_node: KeywordTags | None = None
         self.keywords_count = 0
         self.in_keywords = False
         super().__init__()
@@ -575,32 +587,34 @@ class KeywordTagsChecker(VisitorChecker):
         common_keyword_tags = set.intersection(*[set(tags) for tags in self.tags_in_keywords])
         common_keyword_tags = common_keyword_tags - self.keyword_tags
         if common_keyword_tags:
-            common_keyword_tags = sorted(common_keyword_tags)
+            common_keyword_tags_sorted = sorted(common_keyword_tags)
             report_node = node if self.keyword_tags_node is None else self.keyword_tags_node
             self.report(
                 self.could_be_keyword_tags,
-                tags=", ".join(common_keyword_tags),
+                tags=", ".join(common_keyword_tags_sorted),
                 node=report_node,
             )
 
-    def visit_Keyword(self, node: type[Node]) -> None:  # noqa: N802
+    def visit_Keyword(self, node: Keyword) -> None:  # noqa: N802
         self.keywords_count += 1
         self.generic_visit(node)
 
-    def visit_KeywordTags(self, node: type[Node]) -> None:  # noqa: N802
+    def visit_KeywordTags(self, node: KeywordTags) -> None:  # noqa: N802
         self.keyword_tags = {token.value for token in node.data_tokens[1:]}
         self.keyword_tags_node = node
 
-    def visit_KeywordSection(self, node: type[Node]) -> None:  # noqa: N802
+    def visit_KeywordSection(self, node: KeywordSection) -> None:  # noqa: N802
         self.in_keywords = True
         self.generic_visit(node)
         self.in_keywords = False
 
-    def visit_Tags(self, node: type[Node]) -> None:  # noqa: N802
+    def visit_Tags(self, node: Tags) -> None:  # noqa: N802
         if self.in_keywords:
             self.tags_in_keywords.append(
                 [tag.value for tag in node.data_tokens[1:] if not tag.value.startswith("robot:")]
             )
+        if self.keyword_tags_node is None:
+            return
         for tag in node.data_tokens[1:]:
             if not self.in_keywords or tag.value not in self.keyword_tags:
                 continue

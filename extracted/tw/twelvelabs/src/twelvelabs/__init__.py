@@ -14,6 +14,7 @@ from .types import (
     AudioSegment,
     AudioSegmentation,
     AudioSegmentationFixed,
+    AudioSegmentationStrategy,
     BadRequestErrorBody,
     BaseEmbeddingMetadata,
     BaseSegment,
@@ -23,6 +24,7 @@ from .types import (
     ChunkInfo,
     ChunkInfoStatus,
     CompletedChunk,
+    CompletedChunkProofType,
     Confidence,
     CreateAssetUploadResponse,
     CreatedAt,
@@ -57,7 +59,6 @@ from .types import (
     ExpiresAt,
     FinishReason,
     ForbiddenErrorBody,
-    GenerateResponse,
     GetUploadStatusResponse,
     Gist,
     GistRequestTypesItem,
@@ -97,6 +98,7 @@ from .types import (
     ReportChunkBatchResponse,
     RequestAdditionalPresignedUrLsResponse,
     ResponseFormat,
+    ResponseFormatType,
     ScoreSearchTerms,
     SearchItem,
     SearchItemClipsItem,
@@ -158,16 +160,17 @@ from .types import (
     VideoVectorSystemMetadata,
 )
 from .errors import BadRequestError, ForbiddenError, InternalServerError, NotFoundError, TooManyRequestsError
-from . import assets, embed, entity_collections, indexes, manage_entities, multipart_upload, search, tasks
+from . import assets, embed, entity_collections, indexes, multipart_upload, search, tasks
 from .assets import AssetsCreateRequestMethod, AssetsListRequestAssetTypesItem, AssetsListResponse
 from .client import AsyncTwelveLabs, TwelveLabs
 from .entity_collections import EntityCollectionsListRequestSortBy, EntityCollectionsListResponse
 from .environment import TwelveLabsEnvironment
 from .indexes import IndexesCreateRequestModelsItem, IndexesCreateResponse, IndexesListResponse
-from .manage_entities import ListAllEntitiesRequestSortBy, ListAllEntitiesRequestStatus, ListAllEntitiesResponse
+from .multipart_upload import CreateAssetUploadRequestType
 from .search import (
     SearchCreateRequestGroupBy,
     SearchCreateRequestOperator,
+    SearchCreateRequestQueryMediaType,
     SearchCreateRequestSearchOptionsItem,
     SearchCreateRequestSortOption,
     SearchCreateRequestTranscriptionOptionsItem,
@@ -199,6 +202,7 @@ __all__ = [
     "AudioSegment",
     "AudioSegmentation",
     "AudioSegmentationFixed",
+    "AudioSegmentationStrategy",
     "BadRequestError",
     "BadRequestErrorBody",
     "BaseEmbeddingMetadata",
@@ -209,7 +213,9 @@ __all__ = [
     "ChunkInfo",
     "ChunkInfoStatus",
     "CompletedChunk",
+    "CompletedChunkProofType",
     "Confidence",
+    "CreateAssetUploadRequestType",
     "CreateAssetUploadResponse",
     "CreatedAt",
     "EmbeddingAudioMetadata",
@@ -246,7 +252,6 @@ __all__ = [
     "FinishReason",
     "ForbiddenError",
     "ForbiddenErrorBody",
-    "GenerateResponse",
     "GetUploadStatusResponse",
     "Gist",
     "GistRequestTypesItem",
@@ -273,9 +278,6 @@ __all__ = [
     "InternalServerError",
     "InternalServerErrorBody",
     "LimitPerPageSimple",
-    "ListAllEntitiesRequestSortBy",
-    "ListAllEntitiesRequestStatus",
-    "ListAllEntitiesResponse",
     "ListIncompleteUploadsResponse",
     "MediaEmbeddingTask",
     "MediaEmbeddingTaskAudioEmbedding",
@@ -294,9 +296,11 @@ __all__ = [
     "ReportChunkBatchResponse",
     "RequestAdditionalPresignedUrLsResponse",
     "ResponseFormat",
+    "ResponseFormatType",
     "ScoreSearchTerms",
     "SearchCreateRequestGroupBy",
     "SearchCreateRequestOperator",
+    "SearchCreateRequestQueryMediaType",
     "SearchCreateRequestSearchOptionsItem",
     "SearchCreateRequestSortOption",
     "SearchCreateRequestTranscriptionOptionsItem",
@@ -373,7 +377,6 @@ __all__ = [
     "embed",
     "entity_collections",
     "indexes",
-    "manage_entities",
     "multipart_upload",
     "search",
     "tasks",

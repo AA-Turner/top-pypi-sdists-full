@@ -357,7 +357,8 @@ class BatchClient(BaseClient):
     ) -> GetJobQueueSnapshotResponseTypeDef:
         """
         Provides a list of the first 100 <code>RUNNABLE</code> jobs associated to a
-        single job queue.
+        single job queue and includes capacity utilization, including total usage and
+        breakdown by share for fairshare scheduling job queues.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/get_job_queue_snapshot.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_batch/client/#get_job_queue_snapshot)

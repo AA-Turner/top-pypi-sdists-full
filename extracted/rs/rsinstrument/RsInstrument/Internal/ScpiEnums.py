@@ -68,7 +68,7 @@ class ScpiEnum:
         If the item contains a comma, the function checks if there is a comma defined in the enum_members.
         - If no, the comma and all after it is removed.
         - If yes, the comma is kept.
-        You can override the behaviour by forcing the removal of the comma
+        You can override the behavior by forcing the removal of the comma
         Returns found index in the enum_members list."""
         if ',' in item:
             trim_comma = True

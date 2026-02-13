@@ -406,39 +406,44 @@ class Tomography(Experiment):
         decimations = np.sort(decimations)
 
         num_elements = self.params.acoustic['probe']['num_elements']
-        Width = self.params.acoustic['probe']['element_width']  # en m
-        kerf = self.params.acoustic['probe'].get('kerf', 0.00000)  # en m
-        Nactuators = self.params.acoustic['probe']['num_elements']
+        Width = self.params.acoustic['probe']['element_width']
+        kerf = self.params.acoustic['probe'].get('kerf', 0.00000)
+        Nactuators = num_elements
 
         # --- Calcul du nombre de Scans ---
-        if 0 in decimations:
+        has_zero = 0 in decimations
+        if has_zero:
             Nscans = 4 * len(angles) * (len(decimations) - 1) + len(angles)
         else:
             Nscans = 4 * len(angles) * len(decimations)
 
         ActiveLIST = np.ones((num_elements, Nscans))
 
-        # --- Calcul des positions centrées des éléments (en m) ---
+        # --- Calcul des positions ---
         Xc = (Width + (Nactuators - 1) * (kerf + Width)) / 2
         Xm = np.array([Width * (i - 1) + Width / 2 - Xc for i in range(1, Nactuators + 1)])
 
-        # --- Gestion de l'onde plane (tous les piezo ON) au début ---
-        if 0 in decimations:
+        # --- Offset initial ---
+        # Si on a un 0, les motifs modulés commencent après l'onde plane
+        # Sinon, ils commencent à l'indice 0
+        current_offset = len(angles) if has_zero else 0
+
+        if has_zero:
             I_plane = np.arange(len(angles))
-            ActiveLIST[:, I_plane] = 1  # Tous les piezo ON pour les len(angles) premières colonnes
+            ActiveLIST[:, I_plane] = 1 
 
         # --- Traitement des décimations non nulles ---
         active_decimations = decimations[decimations != 0]
-        dFx = 1 / (Nactuators * Width)  # fx de base (en m^-1)
+        dFx = 1 / (Nactuators * Width)
 
         for i_dec in range(len(active_decimations)):
-            # Décalage des indices pour placer les motifs modulés après l'onde plane
-            I = np.arange(len(angles)) + len(angles) + (i_dec * 4 * len(angles))
+            # Calcul des indices relatif à l'offset de départ
+            I = np.arange(len(angles)) + current_offset + (i_dec * 4 * len(angles))
 
             Icos   = I
-            Incos  = I + 1* len(angles)
+            Incos  = I + 1 * len(angles)
+            Insin  = I + 2 * len(angles) # Insin avant Isin pour respecter ton ordre de stockage
             Isin   = I + 3 * len(angles)
-            Insin  = I + 2 * len(angles)
 
             fx = dFx * active_decimations[i_dec]
 
@@ -448,14 +453,14 @@ class Tomography(Experiment):
             ActiveLIST[:, Isin] = calc_mat_os(Xm, fx, ActiveLIST[:, Isin[:1]], 'sin')
             ActiveLIST[:, Insin] = 1 - ActiveLIST[:, Isin]
 
-        # --- Conversion au format attendu ---
+        # --- Conversion et formatage ---
         hexa_list = convert_to_hex_list(ActiveLIST)
-
+        
         def format_angle(a):
             return f"{'1' if a < 0 else '0'}{abs(a):02d}"
 
         patterns = []
-        print(f"Generating {Nscans} patterns from decimations and angles...")
+        print(f"Generating {Nscans} patterns...")
         for i in range(Nscans):
             angle_val = angles[i % len(angles)]
             hex_pattern = hexa_list[i]

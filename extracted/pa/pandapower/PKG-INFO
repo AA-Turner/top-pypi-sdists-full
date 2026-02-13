@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pandapower
-Version: 3.3.2
+Version: 3.4.0
 Summary: An easy to use open source tool for power system modeling, analysis and optimization with a high degree of automation.
 Author-email: Leon Thurner <leon.thurner@retoflow.de>, Alexander Scheidler <alexander.scheidler@iee.fraunhofer.de>, Mike Vogt <mike.vogt@iee.fraunhofer.de>
 Maintainer-email: pandapower Developers <info@pandapower.org>
@@ -26,6 +26,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
@@ -33,7 +34,7 @@ License-File: AUTHORS
 Requires-Dist: pandas~=2.3
 Requires-Dist: networkx~=3.4
 Requires-Dist: scipy<1.17
-Requires-Dist: numpy~=2.2
+Requires-Dist: numpy<2.4,>=1.26
 Requires-Dist: packaging~=25.0
 Requires-Dist: tqdm~=4.67
 Requires-Dist: deepdiff~=8.6
@@ -48,19 +49,21 @@ Requires-Dist: sphinx_rtd_theme~=3.0; extra == "docs"
 Requires-Dist: sphinx-pyproject~=0.3; extra == "docs"
 Requires-Dist: sphinxcontrib-imagesvg~=0.1; extra == "docs"
 Requires-Dist: pandapower[converter]; extra == "docs"
+Requires-Dist: geopandas~=1.1; extra == "docs"
 Provides-Extra: plotting
 Requires-Dist: plotly~=6.3; extra == "plotting"
 Requires-Dist: matplotlib~=3.10; extra == "plotting"
 Requires-Dist: igraph; extra == "plotting"
 Requires-Dist: geopandas~=1.1; extra == "plotting"
 Provides-Extra: test
-Requires-Dist: pytest~=8.4; extra == "test"
+Requires-Dist: pytest~=9.0; extra == "test"
 Requires-Dist: pytest-xdist~=3.8; extra == "test"
 Requires-Dist: nbmake~=1.5; extra == "test"
+Requires-Dist: pytest-timeout; extra == "test"
 Provides-Extra: performance
 Requires-Dist: ortools~=9.14; extra == "performance"
 Requires-Dist: numba~=0.61; extra == "performance"
-Requires-Dist: lightsim2grid~=0.10.3; extra == "performance"
+Requires-Dist: lightsim2grid~=0.12.2; extra == "performance"
 Provides-Extra: fileio
 Requires-Dist: xlsxwriter~=3.2; extra == "fileio"
 Requires-Dist: openpyxl~=3.1; extra == "fileio"
@@ -77,6 +80,11 @@ Provides-Extra: control
 Requires-Dist: shapely~=2.1; extra == "control"
 Provides-Extra: pandamodels
 Requires-Dist: juliacall~=0.9; extra == "pandamodels"
+Provides-Extra: tutorials
+Requires-Dist: juliacall~=0.9; extra == "tutorials"
+Requires-Dist: seaborn; extra == "tutorials"
+Requires-Dist: jupyter; extra == "tutorials"
+Requires-Dist: notebook; extra == "tutorials"
 Provides-Extra: typing
 Requires-Dist: mypy~=1.18; extra == "typing"
 Requires-Dist: pandas-stubs~=2.3; extra == "typing"
@@ -88,7 +96,9 @@ Requires-Dist: types-tqdm~=4.67; extra == "typing"
 Requires-Dist: scipy-stubs~=1.15; extra == "typing"
 Requires-Dist: pandera[mypy]~=0.26.1; extra == "typing"
 Provides-Extra: all
-Requires-Dist: pandapower[control,converter,docs,fileio,performance,pgm,plotting,test,typing]; extra == "all"
+Requires-Dist: pandapower[control,converter,fileio,performance,pgm,plotting]; extra == "all"
+Provides-Extra: dev
+Requires-Dist: pandapower[all,docs,pandamodels,test,tutorials,typing]; extra == "dev"
 Dynamic: license-file
 
 

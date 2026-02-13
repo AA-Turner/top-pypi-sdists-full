@@ -73,6 +73,12 @@ def ensure_cloudflared() -> Path:
             path.write_bytes(data)
             if is_archive:
                 with tarfile.open(path) as tf:
+                    for member in tf.getmembers():
+                        member_path = os.path.normpath(os.path.join(tmpd, member.name))
+                        if not member_path.startswith(str(tmpd) + os.sep):
+                            raise ValueError(
+                                f"Tar member {member.name!r} escapes target directory"
+                            )
                     tf.extractall(tmpd)
                 src = tmpd / "cloudflared"
             else:

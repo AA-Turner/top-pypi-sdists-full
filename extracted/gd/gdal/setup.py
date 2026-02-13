@@ -18,7 +18,7 @@ from setuptools import setup
 from setuptools import find_packages
 from setuptools import Extension
 
-version = '3.12.1'
+version = '3.12.2'
 
 # If CXX is defined in the environment, it will be used to link the .so
 # but setuptools will be confused if it is made of several words like 'ccache g++'

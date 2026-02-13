@@ -2,11 +2,11 @@ from collections.abc import Sequence
 from dataclasses import is_dataclass
 from typing import Any, TypeVar, get_args, get_origin
 
-from key_value.shared.type_checking.bear_spray import bear_spray
 from pydantic.type_adapter import TypeAdapter
 
 from key_value.aio.adapters.pydantic.base import BasePydanticAdapter
 from key_value.aio.protocols.key_value import AsyncKeyValue
+from key_value.shared.beartype import bear_spray
 
 T = TypeVar("T")
 
@@ -45,10 +45,10 @@ class DataclassAdapter(BasePydanticAdapter[T]):
         self._key_value = key_value
 
         origin = get_origin(dataclass_type)
-        self._is_list_model = origin is not None and isinstance(origin, type) and issubclass(origin, Sequence)
+        self._needs_wrapping = origin is not None and isinstance(origin, type) and issubclass(origin, Sequence)
 
         # Extract the inner type for list models
-        if self._is_list_model:
+        if self._needs_wrapping:
             args = get_args(dataclass_type)
             if not args:
                 msg = f"List type {dataclass_type} must have a type argument"

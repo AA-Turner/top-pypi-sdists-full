@@ -1,4 +1,5 @@
 from .credentials_module_types import (
+    AUTH_TYPE_MAP,
     AuthModel,
     AuthSetting,
     CredentialConfig,
@@ -34,4 +35,5 @@ __all__ = [
     "ValidateCredentialConfigCallable",
     "OAUTH_FLOW_TYPE_CAPABILITIES",
     "CredentialsSettings",
+    "AUTH_TYPE_MAP",
 ]

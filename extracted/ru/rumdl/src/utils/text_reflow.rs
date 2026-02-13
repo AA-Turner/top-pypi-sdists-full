@@ -17,6 +17,28 @@ use crate::utils::sentence_utils::{
 };
 use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 use std::collections::HashSet;
+use unicode_width::UnicodeWidthStr;
+
+/// Length calculation mode for reflow
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum ReflowLengthMode {
+    /// Count Unicode characters (grapheme clusters)
+    Chars,
+    /// Count visual display width (CJK = 2 columns, emoji = 2, etc.)
+    #[default]
+    Visual,
+    /// Count raw bytes
+    Bytes,
+}
+
+/// Calculate the display length of a string based on the length mode
+fn display_len(s: &str, mode: ReflowLengthMode) -> usize {
+    match mode {
+        ReflowLengthMode::Chars => s.chars().count(),
+        ReflowLengthMode::Visual => s.width(),
+        ReflowLengthMode::Bytes => s.len(),
+    }
+}
 
 /// Options for reflowing text
 #[derive(Clone)]
@@ -29,10 +51,14 @@ pub struct ReflowOptions {
     pub preserve_breaks: bool,
     /// Whether to enforce one sentence per line
     pub sentence_per_line: bool,
+    /// Whether to use semantic line breaks (cascading split strategy)
+    pub semantic_line_breaks: bool,
     /// Custom abbreviations for sentence detection
     /// Periods are optional - both "Dr" and "Dr." work the same
     /// Custom abbreviations are always added to the built-in defaults
     pub abbreviations: Option<Vec<String>>,
+    /// How to measure string length for line-length comparisons
+    pub length_mode: ReflowLengthMode,
 }
 
 impl Default for ReflowOptions {
@@ -42,7 +68,9 @@ impl Default for ReflowOptions {
             break_on_sentences: true,
             preserve_breaks: false,
             sentence_per_line: false,
+            semantic_line_breaks: false,
             abbreviations: None,
+            length_mode: ReflowLengthMode::default(),
         }
     }
 }
@@ -176,9 +204,9 @@ fn is_sentence_boundary(text: &str, pos: usize, abbreviations: &HashSet<String>)
 
     // Look back to check for common abbreviations (only applies to periods)
     if pos > 0 && c == '.' {
-        // Check if the text up to and including this period ends with an abbreviation
-        // Note: text[..=pos] includes the character at pos (the period)
-        if text_ends_with_abbreviation(&text[..=pos], abbreviations) {
+        // Convert char index to byte offset for string slicing
+        let byte_offset: usize = chars[..=pos].iter().map(|ch| ch.len_utf8()).sum();
+        if text_ends_with_abbreviation(&text[..byte_offset], abbreviations) {
             return false;
         }
 
@@ -297,6 +325,44 @@ fn is_numbered_list_item(line: &str) -> bool {
     false
 }
 
+/// Check if a trimmed line is an unordered list item (-, *, + followed by space)
+fn is_unordered_list_marker(s: &str) -> bool {
+    matches!(s.as_bytes().first(), Some(b'-' | b'*' | b'+'))
+        && !is_horizontal_rule(s)
+        && (s.len() == 1 || s.as_bytes().get(1) == Some(&b' '))
+}
+
+/// Shared structural checks for block boundary detection.
+/// Checks elements that only depend on the trimmed line content.
+fn is_block_boundary_core(trimmed: &str) -> bool {
+    trimmed.is_empty()
+        || trimmed.starts_with('#')
+        || trimmed.starts_with("```")
+        || trimmed.starts_with("~~~")
+        || trimmed.starts_with('>')
+        || (trimmed.starts_with('[') && trimmed.contains("]:"))
+        || is_horizontal_rule(trimmed)
+        || is_unordered_list_marker(trimmed)
+        || is_numbered_list_item(trimmed)
+        || is_definition_list_item(trimmed)
+        || trimmed.starts_with(":::")
+}
+
+/// Check if a trimmed line starts a new structural block element.
+/// Used for paragraph boundary detection in `reflow_markdown()`.
+fn is_block_boundary(trimmed: &str) -> bool {
+    is_block_boundary_core(trimmed) || trimmed.starts_with('|')
+}
+
+/// Check if a line starts a new structural block for paragraph boundary detection
+/// in `reflow_paragraph_at_line()`. Extends the core checks with indented code blocks
+/// (≥4 spaces) and table row detection via `is_potential_table_row`.
+fn is_paragraph_boundary(trimmed: &str, line: &str) -> bool {
+    is_block_boundary_core(trimmed)
+        || ElementCache::calculate_indentation_width_default(line) >= 4
+        || crate::utils::table_utils::TableUtils::is_potential_table_row(line)
+}
+
 /// Check if a line ends with a hard break (either two spaces or backslash)
 ///
 /// CommonMark supports two formats for hard line breaks:
@@ -350,9 +416,15 @@ pub fn reflow_line(line: &str, options: &ReflowOptions) -> Vec<String> {
         return reflow_elements_sentence_per_line(&elements, &options.abbreviations);
     }
 
+    // For semantic line breaks mode, use cascading split strategy
+    if options.semantic_line_breaks {
+        let elements = parse_markdown_elements(line);
+        return reflow_elements_semantic(&elements, options);
+    }
+
     // Quick check: if line is already short enough or no wrapping requested, return as-is
     // line_length = 0 means no wrapping (unlimited line length)
-    if options.line_length == 0 || line.chars().count() <= options.line_length {
+    if options.line_length == 0 || display_len(line, options.length_mode) <= options.line_length {
         return vec![line.to_string()];
     }
 
@@ -422,6 +494,8 @@ enum Element {
     DisplayMath(String),
     /// Emoji shortcode :emoji:
     EmojiShortcode(String),
+    /// Autolink <https://...> or <mailto:...> or <user@domain.com>
+    Autolink(String),
     /// HTML tag <tag> or </tag> or <tag/>
     HtmlTag(String),
     /// HTML entity &nbsp; or &#123;
@@ -477,6 +551,7 @@ impl std::fmt::Display for Element {
             Element::InlineMath(s) => write!(f, "${s}$"),
             Element::DisplayMath(s) => write!(f, "$${s}$$"),
             Element::EmojiShortcode(s) => write!(f, ":{s}:"),
+            Element::Autolink(s) => write!(f, "{s}"),
             Element::HtmlTag(s) => write!(f, "{s}"),
             Element::HtmlEntity(s) => write!(f, "{s}"),
             Element::HugoShortcode(s) => write!(f, "{s}"),
@@ -500,49 +575,12 @@ impl std::fmt::Display for Element {
 }
 
 impl Element {
-    fn len(&self) -> usize {
-        match self {
-            Element::Text(s) => s.chars().count(),
-            Element::Link { text, url } => text.chars().count() + url.chars().count() + 4, // [text](url)
-            Element::ReferenceLink { text, reference } => text.chars().count() + reference.chars().count() + 4, // [text][ref]
-            Element::EmptyReferenceLink { text } => text.chars().count() + 4, // [text][]
-            Element::ShortcutReference { reference } => reference.chars().count() + 2, // [ref]
-            Element::InlineImage { alt, url } => alt.chars().count() + url.chars().count() + 5, // ![alt](url)
-            Element::ReferenceImage { alt, reference } => alt.chars().count() + reference.chars().count() + 5, // ![alt][ref]
-            Element::EmptyReferenceImage { alt } => alt.chars().count() + 5, // ![alt][]
-            Element::LinkedImage {
-                alt,
-                img_source,
-                link_target,
-            } => {
-                // Calculate length based on variant
-                // Base: [ + ![alt] + ] = 4 chars for outer brackets and !
-                let alt_len = alt.chars().count();
-                let img_len = match img_source {
-                    LinkedImageSource::Inline(url) => url.chars().count() + 2, // (url)
-                    LinkedImageSource::Reference(r) => r.chars().count() + 2,  // [ref]
-                };
-                let link_len = match link_target {
-                    LinkedImageTarget::Inline(url) => url.chars().count() + 2, // (url)
-                    LinkedImageTarget::Reference(r) => r.chars().count() + 2,  // [ref]
-                };
-                // [![alt](img)](link) = [ + ! + [ + alt + ] + (img) + ] + (link)
-                //                     = 1 + 1 + 1 + alt + 1 + img_len + 1 + link_len = 5 + alt + img + link
-                5 + alt_len + img_len + link_len
-            }
-            Element::FootnoteReference { note } => note.chars().count() + 3, // [^note]
-            Element::Strikethrough(s) => s.chars().count() + 4,              // ~~text~~
-            Element::WikiLink(s) => s.chars().count() + 4,                   // [[wiki]]
-            Element::InlineMath(s) => s.chars().count() + 2,                 // $math$
-            Element::DisplayMath(s) => s.chars().count() + 4,                // $$math$$
-            Element::EmojiShortcode(s) => s.chars().count() + 2,             // :emoji:
-            Element::HtmlTag(s) => s.chars().count(),                        // <tag> - already includes brackets
-            Element::HtmlEntity(s) => s.chars().count(),                     // &nbsp; - already complete
-            Element::HugoShortcode(s) => s.chars().count(),                  // {{< ... >}} - already complete
-            Element::Code(s) => s.chars().count() + 2,                       // `code`
-            Element::Bold { content, .. } => content.chars().count() + 4,    // **text** or __text__
-            Element::Italic { content, .. } => content.chars().count() + 2,  // *text* or _text_
-        }
+    /// Calculate the display width of this element using the given length mode.
+    /// This formats the element and computes its width, correctly handling
+    /// visual width for CJK characters and other wide glyphs.
+    fn display_width(&self, mode: ReflowLengthMode) -> usize {
+        let formatted = format!("{self}");
+        display_len(&formatted, mode)
     }
 }
 
@@ -830,7 +868,9 @@ fn parse_markdown_elements(text: &str) -> Vec<Element> {
                 EMAIL_PATTERN.is_match(content)
             };
 
-            if !is_url_autolink && !is_email_autolink {
+            if is_url_autolink || is_email_autolink {
+                earliest_match = Some((m.start(), "autolink", m));
+            } else {
                 earliest_match = Some((m.start(), "html_tag", m));
             }
         }
@@ -1091,6 +1131,11 @@ fn parse_markdown_elements(text: &str) -> Vec<Element> {
                     elements.push(Element::HugoShortcode(match_obj.as_str().to_string()));
                     remaining = &remaining[match_obj.end()..];
                 }
+                "autolink" => {
+                    // Autolinks are atomic elements - preserve them exactly
+                    elements.push(Element::Autolink(match_obj.as_str().to_string()));
+                    remaining = &remaining[match_obj.end()..];
+                }
                 "html_tag" => {
                     // HTML tags are captured whole - use as_str() to get just the matched content
                     elements.push(Element::HtmlTag(match_obj.as_str().to_string()));
@@ -1167,7 +1212,7 @@ fn reflow_elements_sentence_per_line(elements: &[Element], custom_abbreviations:
     let mut lines = Vec::new();
     let mut current_line = String::new();
 
-    for element in elements.iter() {
+    for (idx, element) in elements.iter().enumerate() {
         let element_str = format!("{element}");
 
         // For text elements, split into sentences
@@ -1246,8 +1291,19 @@ fn reflow_elements_sentence_per_line(elements: &[Element], custom_abbreviations:
             handle_emphasis_sentence_split(content, "~~", &abbreviations, &mut current_line, &mut lines);
         } else {
             // Non-text, non-emphasis elements (Code, Links, etc.)
-            // Add space before element if needed (unless it's after an opening paren/bracket)
-            if !current_line.is_empty()
+            // Check if this element is adjacent to the preceding text (no space between)
+            let is_adjacent = if idx > 0 {
+                match &elements[idx - 1] {
+                    Element::Text(t) => !t.is_empty() && !t.ends_with(char::is_whitespace),
+                    _ => true,
+                }
+            } else {
+                false
+            };
+
+            // Add space before element if needed, but not for adjacent elements
+            if !is_adjacent
+                && !current_line.is_empty()
                 && !current_line.ends_with(' ')
                 && !current_line.ends_with('(')
                 && !current_line.ends_with('[')
@@ -1350,15 +1406,326 @@ fn handle_emphasis_sentence_split(
     }
 }
 
+/// English break-words used for semantic line break splitting.
+/// These are conjunctions and relative pronouns where a line break
+/// reads naturally.
+const BREAK_WORDS: &[&str] = &[
+    "and",
+    "or",
+    "but",
+    "nor",
+    "yet",
+    "so",
+    "for",
+    "which",
+    "that",
+    "because",
+    "when",
+    "if",
+    "while",
+    "where",
+    "although",
+    "though",
+    "unless",
+    "since",
+    "after",
+    "before",
+    "until",
+    "as",
+    "once",
+    "whether",
+    "however",
+    "therefore",
+    "moreover",
+    "furthermore",
+    "nevertheless",
+    "whereas",
+];
+
+/// Check if a character is clause punctuation for semantic line breaks
+fn is_clause_punctuation(c: char) -> bool {
+    matches!(c, ',' | ';' | ':' | '\u{2014}') // comma, semicolon, colon, em dash
+}
+
+/// Compute element spans for a flat text representation of elements.
+/// Returns Vec of (start, end) byte offsets for non-Text elements,
+/// so we can check that a split position doesn't fall inside them.
+fn compute_element_spans(elements: &[Element]) -> Vec<(usize, usize)> {
+    let mut spans = Vec::new();
+    let mut offset = 0;
+    for element in elements {
+        let rendered = format!("{element}");
+        let len = rendered.len();
+        if !matches!(element, Element::Text(_)) {
+            spans.push((offset, offset + len));
+        }
+        offset += len;
+    }
+    spans
+}
+
+/// Check if a byte position falls inside any non-Text element span
+fn is_inside_element(pos: usize, spans: &[(usize, usize)]) -> bool {
+    spans.iter().any(|(start, end)| pos > *start && pos < *end)
+}
+
+/// Minimum fraction of line_length that the first part of a split must occupy.
+/// Prevents awkwardly short first lines like "A," or "Note:" on their own.
+const MIN_SPLIT_RATIO: f64 = 0.3;
+
+/// Split a line at the latest clause punctuation that keeps the first part
+/// within `line_length`. Returns None if no valid split point exists or if
+/// the split would create an unreasonably short first line.
+fn split_at_clause_punctuation(
+    text: &str,
+    line_length: usize,
+    element_spans: &[(usize, usize)],
+    length_mode: ReflowLengthMode,
+) -> Option<(String, String)> {
+    let chars: Vec<char> = text.chars().collect();
+    let min_first_len = ((line_length as f64) * MIN_SPLIT_RATIO) as usize;
+
+    // Find the char index where accumulated display width exceeds line_length
+    let mut width_acc = 0;
+    let mut search_end_char = 0;
+    for (idx, &c) in chars.iter().enumerate() {
+        let c_width = display_len(&c.to_string(), length_mode);
+        if width_acc + c_width > line_length {
+            break;
+        }
+        width_acc += c_width;
+        search_end_char = idx + 1;
+    }
+
+    let mut best_pos = None;
+    for i in (0..search_end_char).rev() {
+        if is_clause_punctuation(chars[i]) {
+            // Convert char position to byte position for element span check
+            let byte_pos: usize = chars[..=i].iter().map(|c| c.len_utf8()).sum();
+            if !is_inside_element(byte_pos, element_spans) {
+                best_pos = Some(i);
+                break;
+            }
+        }
+    }
+
+    let pos = best_pos?;
+
+    // Reject splits that create very short first lines
+    let first: String = chars[..=pos].iter().collect();
+    let first_display_len = display_len(&first, length_mode);
+    if first_display_len < min_first_len {
+        return None;
+    }
+
+    // Split after the punctuation character
+    let rest: String = chars[pos + 1..].iter().collect();
+    let rest = rest.trim_start().to_string();
+
+    if rest.is_empty() {
+        return None;
+    }
+
+    Some((first, rest))
+}
+
+/// Split a line before the latest break-word that keeps the first part
+/// within `line_length`. Returns None if no valid split point exists or if
+/// the split would create an unreasonably short first line.
+fn split_at_break_word(
+    text: &str,
+    line_length: usize,
+    element_spans: &[(usize, usize)],
+    length_mode: ReflowLengthMode,
+) -> Option<(String, String)> {
+    let lower = text.to_lowercase();
+    let min_first_len = ((line_length as f64) * MIN_SPLIT_RATIO) as usize;
+    let mut best_split: Option<(usize, usize)> = None; // (byte_start, word_len_bytes)
+
+    for &word in BREAK_WORDS {
+        let mut search_start = 0;
+        while let Some(pos) = lower[search_start..].find(word) {
+            let abs_pos = search_start + pos;
+
+            // Verify it's a word boundary: preceded by space, followed by space
+            let preceded_by_space = abs_pos == 0 || text.as_bytes().get(abs_pos - 1) == Some(&b' ');
+            let followed_by_space = text.as_bytes().get(abs_pos + word.len()) == Some(&b' ');
+
+            if preceded_by_space && followed_by_space {
+                // The break goes BEFORE the word, so first part ends at abs_pos - 1
+                let first_part = text[..abs_pos].trim_end();
+                let first_part_len = display_len(first_part, length_mode);
+
+                if first_part_len >= min_first_len
+                    && first_part_len <= line_length
+                    && !is_inside_element(abs_pos, element_spans)
+                {
+                    // Prefer the latest valid split point
+                    if best_split.is_none_or(|(prev_pos, _)| abs_pos > prev_pos) {
+                        best_split = Some((abs_pos, word.len()));
+                    }
+                }
+            }
+
+            search_start = abs_pos + word.len();
+        }
+    }
+
+    let (byte_start, _word_len) = best_split?;
+
+    let first = text[..byte_start].trim_end().to_string();
+    let rest = text[byte_start..].to_string();
+
+    if first.is_empty() || rest.trim().is_empty() {
+        return None;
+    }
+
+    Some((first, rest))
+}
+
+/// Recursively cascade-split a line that exceeds line_length.
+/// Tries clause punctuation first, then break-words, then word wrap.
+fn cascade_split_line(
+    text: &str,
+    line_length: usize,
+    abbreviations: &Option<Vec<String>>,
+    length_mode: ReflowLengthMode,
+) -> Vec<String> {
+    if line_length == 0 || display_len(text, length_mode) <= line_length {
+        return vec![text.to_string()];
+    }
+
+    let elements = parse_markdown_elements(text);
+    let element_spans = compute_element_spans(&elements);
+
+    // Try clause punctuation split
+    if let Some((first, rest)) = split_at_clause_punctuation(text, line_length, &element_spans, length_mode) {
+        let mut result = vec![first];
+        result.extend(cascade_split_line(&rest, line_length, abbreviations, length_mode));
+        return result;
+    }
+
+    // Try break-word split
+    if let Some((first, rest)) = split_at_break_word(text, line_length, &element_spans, length_mode) {
+        let mut result = vec![first];
+        result.extend(cascade_split_line(&rest, line_length, abbreviations, length_mode));
+        return result;
+    }
+
+    // Fallback: word wrap using existing reflow_elements
+    let options = ReflowOptions {
+        line_length,
+        break_on_sentences: false,
+        preserve_breaks: false,
+        sentence_per_line: false,
+        semantic_line_breaks: false,
+        abbreviations: abbreviations.clone(),
+        length_mode,
+    };
+    reflow_elements(&elements, &options)
+}
+
+/// Reflow elements using semantic line breaks strategy:
+/// 1. Split at sentence boundaries (always)
+/// 2. For lines exceeding line_length, cascade through clause punct → break-words → word wrap
+fn reflow_elements_semantic(elements: &[Element], options: &ReflowOptions) -> Vec<String> {
+    // Step 1: Split into sentences using existing sentence-per-line logic
+    let sentence_lines = reflow_elements_sentence_per_line(elements, &options.abbreviations);
+
+    // Step 2: For each sentence line, apply cascading splits if it exceeds line_length
+    // When line_length is 0 (unlimited), skip cascading — sentence splits only
+    if options.line_length == 0 {
+        return sentence_lines;
+    }
+
+    let length_mode = options.length_mode;
+    let mut result = Vec::new();
+    for line in sentence_lines {
+        if display_len(&line, length_mode) <= options.line_length {
+            result.push(line);
+        } else {
+            result.extend(cascade_split_line(
+                &line,
+                options.line_length,
+                &options.abbreviations,
+                length_mode,
+            ));
+        }
+    }
+
+    // Step 3: Merge very short trailing lines back into the previous line.
+    // Word wrap can produce lines like "was" or "see" on their own, which reads poorly.
+    let min_line_len = ((options.line_length as f64) * MIN_SPLIT_RATIO) as usize;
+    let mut merged: Vec<String> = Vec::with_capacity(result.len());
+    for line in result {
+        if !merged.is_empty() && display_len(&line, length_mode) < min_line_len && !line.trim().is_empty() {
+            // Don't merge across sentence boundaries — sentence splits are intentional
+            let prev_ends_at_sentence = {
+                let trimmed = merged.last().unwrap().trim_end();
+                trimmed
+                    .chars()
+                    .rev()
+                    .find(|c| !matches!(c, '"' | '\'' | '\u{201D}' | '\u{2019}' | ')' | ']'))
+                    .is_some_and(|c| matches!(c, '.' | '!' | '?'))
+            };
+
+            if !prev_ends_at_sentence {
+                let prev = merged.last_mut().unwrap();
+                let combined = format!("{prev} {line}");
+                // Only merge if the combined line doesn't wildly exceed the limit
+                // (allow up to 10% overflow to avoid orphan words)
+                if display_len(&combined, length_mode) <= options.line_length + options.line_length / 10 {
+                    *prev = combined;
+                    continue;
+                }
+            }
+        }
+        merged.push(line);
+    }
+    merged
+}
+
+/// Find the last space in `line` that is safe to split at.
+/// Safe spaces are those NOT inside rendered non-Text elements.
+/// `element_spans` contains (start, end) byte ranges of non-Text elements in the line.
+/// Find the last space in `line` that is not inside any element span.
+/// Spans use exclusive bounds (pos > start && pos < end) because element
+/// delimiters (e.g., `[`, `]`, `(`, `)`, `<`, `>`, `` ` ``) are never
+/// spaces, so only interior positions need protection.
+fn rfind_safe_space(line: &str, element_spans: &[(usize, usize)]) -> Option<usize> {
+    line.char_indices()
+        .rev()
+        .map(|(pos, _)| pos)
+        .find(|&pos| line.as_bytes()[pos] == b' ' && !element_spans.iter().any(|(s, e)| pos > *s && pos < *e))
+}
+
 /// Reflow elements into lines that fit within the line length
 fn reflow_elements(elements: &[Element], options: &ReflowOptions) -> Vec<String> {
     let mut lines = Vec::new();
     let mut current_line = String::new();
     let mut current_length = 0;
+    // Track byte spans of non-Text elements in current_line for safe splitting
+    let mut current_line_element_spans: Vec<(usize, usize)> = Vec::new();
+    let length_mode = options.length_mode;
 
-    for element in elements {
+    for (idx, element) in elements.iter().enumerate() {
         let element_str = format!("{element}");
-        let element_len = element.len();
+        let element_len = element.display_width(length_mode);
+
+        // Determine adjacency from the original elements, not from current_line.
+        // Elements are adjacent when there's no whitespace between them in the source:
+        // - Text("v") → HugoShortcode("{{<...>}}") = adjacent (text has no trailing space)
+        // - Text(" and ") → InlineLink("[a](url)") = NOT adjacent (text has trailing space)
+        // - HugoShortcode("{{<...>}}") → Text(",") = adjacent (text has no leading space)
+        let is_adjacent_to_prev = if idx > 0 {
+            match (&elements[idx - 1], element) {
+                (Element::Text(t), _) => !t.is_empty() && !t.ends_with(char::is_whitespace),
+                (_, Element::Text(t)) => !t.is_empty() && !t.starts_with(char::is_whitespace),
+                _ => true,
+            }
+        } else {
+            false
+        };
 
         // For text elements that might need breaking
         if let Element::Text(text) = element {
@@ -1368,17 +1735,45 @@ fn reflow_elements(elements: &[Element], options: &ReflowOptions) -> Vec<String>
             let words: Vec<&str> = text.split_whitespace().collect();
 
             for (i, word) in words.iter().enumerate() {
-                let word_len = word.chars().count();
+                let word_len = display_len(word, length_mode);
                 // Check if this "word" is just punctuation that should stay attached
                 let is_trailing_punct = word
                     .chars()
                     .all(|c| matches!(c, ',' | '.' | ':' | ';' | '!' | '?' | ')' | ']' | '}'));
 
-                if current_length > 0 && current_length + 1 + word_len > options.line_length && !is_trailing_punct {
+                // First word of text adjacent to preceding non-text element
+                // must stay attached (e.g., shortcode followed by punctuation or text)
+                let is_first_adjacent = i == 0 && is_adjacent_to_prev;
+
+                if is_first_adjacent {
+                    // Attach directly without space, preventing line break
+                    if current_length + word_len > options.line_length && current_length > 0 {
+                        // Would exceed — break before the adjacent group
+                        // Use element-aware space search to avoid splitting inside links/code/etc.
+                        if let Some(last_space) = rfind_safe_space(&current_line, &current_line_element_spans) {
+                            let before = current_line[..last_space].trim_end().to_string();
+                            let after = current_line[last_space + 1..].to_string();
+                            lines.push(before);
+                            current_line = format!("{after}{word}");
+                            current_length = display_len(&current_line, length_mode);
+                            current_line_element_spans.clear();
+                        } else {
+                            current_line.push_str(word);
+                            current_length += word_len;
+                        }
+                    } else {
+                        current_line.push_str(word);
+                        current_length += word_len;
+                    }
+                } else if current_length > 0
+                    && current_length + 1 + word_len > options.line_length
+                    && !is_trailing_punct
+                {
                     // Start a new line (but never for trailing punctuation)
                     lines.push(current_line.trim().to_string());
                     current_line = word.to_string();
                     current_length = word_len;
+                    current_line_element_spans.clear();
                 } else {
                     // Add word to current line
                     // Only add space if: we have content AND (this isn't the first word OR original had leading space)
@@ -1394,22 +1789,54 @@ fn reflow_elements(elements: &[Element], options: &ReflowOptions) -> Vec<String>
         } else {
             // For non-text elements (code, links, references), treat as atomic units
             // These should never be broken across lines
-            if current_length > 0 && current_length + 1 + element_len > options.line_length {
-                // Start a new line
+
+            if is_adjacent_to_prev {
+                // Adjacent to preceding text — attach directly without space
+                if current_length + element_len > options.line_length {
+                    // Would exceed limit — break before the adjacent word group
+                    // Use element-aware space search to avoid splitting inside links/code/etc.
+                    if let Some(last_space) = rfind_safe_space(&current_line, &current_line_element_spans) {
+                        let before = current_line[..last_space].trim_end().to_string();
+                        let after = current_line[last_space + 1..].to_string();
+                        lines.push(before);
+                        current_line = format!("{after}{element_str}");
+                        current_length = display_len(&current_line, length_mode);
+                        current_line_element_spans.clear();
+                        // Record the element span in the new current_line
+                        let start = after.len();
+                        current_line_element_spans.push((start, start + element_str.len()));
+                    } else {
+                        // No safe space to break at — accept the long line
+                        let start = current_line.len();
+                        current_line.push_str(&element_str);
+                        current_length += element_len;
+                        current_line_element_spans.push((start, current_line.len()));
+                    }
+                } else {
+                    let start = current_line.len();
+                    current_line.push_str(&element_str);
+                    current_length += element_len;
+                    current_line_element_spans.push((start, current_line.len()));
+                }
+            } else if current_length > 0 && current_length + 1 + element_len > options.line_length {
+                // Not adjacent, would exceed — start new line
                 lines.push(current_line.trim().to_string());
-                current_line = element_str;
+                current_line = element_str.clone();
                 current_length = element_len;
+                current_line_element_spans.clear();
+                current_line_element_spans.push((0, element_str.len()));
             } else {
-                // Add element to current line
-                // Don't add space if the current line ends with an opening bracket/paren
+                // Not adjacent, fits — add with space
                 let ends_with_opener =
                     current_line.ends_with('(') || current_line.ends_with('[') || current_line.ends_with('{');
                 if current_length > 0 && !ends_with_opener {
                     current_line.push(' ');
                     current_length += 1;
                 }
+                let start = current_line.len();
                 current_line.push_str(&element_str);
                 current_length += element_len;
+                current_line_element_spans.push((start, current_line.len()));
             }
         }
     }
@@ -1441,6 +1868,13 @@ pub fn reflow_markdown(content: &str, options: &ReflowOptions) -> String {
 
         // Preserve headings as-is
         if trimmed.starts_with('#') {
+            result.push(line.to_string());
+            i += 1;
+            continue;
+        }
+
+        // Preserve Quarto/Pandoc div markers (:::) as-is
+        if trimmed.starts_with(":::") {
             result.push(line.to_string());
             i += 1;
             continue;
@@ -1504,16 +1938,7 @@ pub fn reflow_markdown(content: &str, options: &ReflowOptions) -> String {
         }
 
         // Preserve lists (but not horizontal rules)
-        // A valid unordered list marker must be followed by a space (or be alone on line)
-        // This prevents emphasis markers like "*text*" from being parsed as list items
-        let is_unordered_list = |s: &str, marker: char| -> bool {
-            s.starts_with(marker) && !is_horizontal_rule(s) && (s.len() == 1 || s.chars().nth(1) == Some(' '))
-        };
-        if is_unordered_list(trimmed, '-')
-            || is_unordered_list(trimmed, '*')
-            || is_unordered_list(trimmed, '+')
-            || is_numbered_list_item(trimmed)
-        {
+        if is_unordered_list_marker(trimmed) || is_numbered_list_item(trimmed) {
             // Find the list marker and preserve indentation
             let indent = line.len() - line.trim_start().len();
             let indent_str = " ".repeat(indent);
@@ -1560,23 +1985,7 @@ pub fn reflow_markdown(content: &str, options: &ReflowOptions) -> String {
                 let next_trimmed = next_line.trim();
 
                 // Stop if we hit an empty line or another list item or special block
-                if next_trimmed.is_empty()
-                    || next_trimmed.starts_with('#')
-                    || next_trimmed.starts_with("```")
-                    || next_trimmed.starts_with("~~~")
-                    || next_trimmed.starts_with('>')
-                    || next_trimmed.starts_with('|')
-                    || (next_trimmed.starts_with('[') && next_line.contains("]:"))
-                    || is_horizontal_rule(next_trimmed)
-                    || (next_trimmed.starts_with('-')
-                        && (next_trimmed.len() == 1 || next_trimmed.chars().nth(1) == Some(' ')))
-                    || (next_trimmed.starts_with('*')
-                        && (next_trimmed.len() == 1 || next_trimmed.chars().nth(1) == Some(' ')))
-                    || (next_trimmed.starts_with('+')
-                        && (next_trimmed.len() == 1 || next_trimmed.chars().nth(1) == Some(' ')))
-                    || is_numbered_list_item(next_trimmed)
-                    || is_definition_list_item(next_trimmed)
-                {
+                if is_block_boundary(next_trimmed) {
                     break;
                 }
 
@@ -1660,33 +2069,15 @@ pub fn reflow_markdown(content: &str, options: &ReflowOptions) -> String {
         // Check if this is a single line that doesn't need processing
         let mut is_single_line_paragraph = true;
         if i + 1 < lines.len() {
-            let next_line = lines[i + 1];
-            let next_trimmed = next_line.trim();
-            // Check if next line starts a new block
-            if !next_trimmed.is_empty()
-                && !next_trimmed.starts_with('#')
-                && !next_trimmed.starts_with("```")
-                && !next_trimmed.starts_with("~~~")
-                && !next_trimmed.starts_with('>')
-                && !next_trimmed.starts_with('|')
-                && !(next_trimmed.starts_with('[') && next_line.contains("]:"))
-                && !is_horizontal_rule(next_trimmed)
-                && !(next_trimmed.starts_with('-')
-                    && !is_horizontal_rule(next_trimmed)
-                    && (next_trimmed.len() == 1 || next_trimmed.chars().nth(1) == Some(' ')))
-                && !(next_trimmed.starts_with('*')
-                    && !is_horizontal_rule(next_trimmed)
-                    && (next_trimmed.len() == 1 || next_trimmed.chars().nth(1) == Some(' ')))
-                && !(next_trimmed.starts_with('+')
-                    && (next_trimmed.len() == 1 || next_trimmed.chars().nth(1) == Some(' ')))
-                && !is_numbered_list_item(next_trimmed)
-            {
+            let next_trimmed = lines[i + 1].trim();
+            // Check if next line continues this paragraph
+            if !is_block_boundary(next_trimmed) {
                 is_single_line_paragraph = false;
             }
         }
 
         // If it's a single line that fits, just add it as-is
-        if is_single_line_paragraph && line.chars().count() <= options.line_length {
+        if is_single_line_paragraph && display_len(line, options.length_mode) <= options.line_length {
             result.push(line.to_string());
             i += 1;
             continue;
@@ -1734,25 +2125,7 @@ pub fn reflow_markdown(content: &str, options: &ReflowOptions) -> String {
                 let next_trimmed = next_line.trim();
 
                 // Stop at empty lines or special blocks
-                if next_trimmed.is_empty()
-                    || next_trimmed.starts_with('#')
-                    || next_trimmed.starts_with("```")
-                    || next_trimmed.starts_with("~~~")
-                    || next_trimmed.starts_with('>')
-                    || next_trimmed.starts_with('|')
-                    || (next_trimmed.starts_with('[') && next_line.contains("]:"))
-                    || is_horizontal_rule(next_trimmed)
-                    || (next_trimmed.starts_with('-')
-                        && !is_horizontal_rule(next_trimmed)
-                        && (next_trimmed.len() == 1 || next_trimmed.chars().nth(1) == Some(' ')))
-                    || (next_trimmed.starts_with('*')
-                        && !is_horizontal_rule(next_trimmed)
-                        && (next_trimmed.len() == 1 || next_trimmed.chars().nth(1) == Some(' ')))
-                    || (next_trimmed.starts_with('+')
-                        && (next_trimmed.len() == 1 || next_trimmed.chars().nth(1) == Some(' ')))
-                    || is_numbered_list_item(next_trimmed)
-                    || is_definition_list_item(next_trimmed)
-                {
+                if is_block_boundary(next_trimmed) {
                     break;
                 }
 
@@ -1863,6 +2236,16 @@ pub struct ParagraphReflow {
 /// or `None` if the line number is out of bounds or the content at that
 /// line shouldn't be reflowed (e.g., code blocks, headings, etc.)
 pub fn reflow_paragraph_at_line(content: &str, line_number: usize, line_length: usize) -> Option<ParagraphReflow> {
+    reflow_paragraph_at_line_with_mode(content, line_number, line_length, ReflowLengthMode::default())
+}
+
+/// Reflow a paragraph at the given line with a specific length mode.
+pub fn reflow_paragraph_at_line_with_mode(
+    content: &str,
+    line_number: usize,
+    line_length: usize,
+    length_mode: ReflowLengthMode,
+) -> Option<ParagraphReflow> {
     if line_number == 0 {
         return None;
     }
@@ -1879,21 +2262,7 @@ pub fn reflow_paragraph_at_line(content: &str, line_number: usize, line_length: 
     let trimmed = target_line.trim();
 
     // Don't reflow special blocks
-    if trimmed.is_empty()
-        || trimmed.starts_with('#')
-        || trimmed.starts_with("```")
-        || trimmed.starts_with("~~~")
-        || ElementCache::calculate_indentation_width_default(target_line) >= 4
-        || trimmed.starts_with('>')
-        || crate::utils::table_utils::TableUtils::is_potential_table_row(target_line) // Tables
-        || (trimmed.starts_with('[') && target_line.contains("]:")) // Reference definitions
-        || is_horizontal_rule(trimmed)
-        || ((trimmed.starts_with('-') || trimmed.starts_with('*') || trimmed.starts_with('+'))
-            && !is_horizontal_rule(trimmed)
-            && (trimmed.len() == 1 || trimmed.chars().nth(1) == Some(' ')))
-        || is_numbered_list_item(trimmed)
-        || is_definition_list_item(trimmed)
-    {
+    if is_paragraph_boundary(trimmed, target_line) {
         return None;
     }
 
@@ -1905,21 +2274,7 @@ pub fn reflow_paragraph_at_line(content: &str, line_number: usize, line_length: 
         let prev_trimmed = prev_line.trim();
 
         // Stop at blank line or special blocks
-        if prev_trimmed.is_empty()
-            || prev_trimmed.starts_with('#')
-            || prev_trimmed.starts_with("```")
-            || prev_trimmed.starts_with("~~~")
-            || ElementCache::calculate_indentation_width_default(prev_line) >= 4
-            || prev_trimmed.starts_with('>')
-            || crate::utils::table_utils::TableUtils::is_potential_table_row(prev_line)
-            || (prev_trimmed.starts_with('[') && prev_line.contains("]:"))
-            || is_horizontal_rule(prev_trimmed)
-            || ((prev_trimmed.starts_with('-') || prev_trimmed.starts_with('*') || prev_trimmed.starts_with('+'))
-                && !is_horizontal_rule(prev_trimmed)
-                && (prev_trimmed.len() == 1 || prev_trimmed.chars().nth(1) == Some(' ')))
-            || is_numbered_list_item(prev_trimmed)
-            || is_definition_list_item(prev_trimmed)
-        {
+        if is_paragraph_boundary(prev_trimmed, prev_line) {
             break;
         }
 
@@ -1934,21 +2289,7 @@ pub fn reflow_paragraph_at_line(content: &str, line_number: usize, line_length: 
         let next_trimmed = next_line.trim();
 
         // Stop at blank line or special blocks
-        if next_trimmed.is_empty()
-            || next_trimmed.starts_with('#')
-            || next_trimmed.starts_with("```")
-            || next_trimmed.starts_with("~~~")
-            || ElementCache::calculate_indentation_width_default(next_line) >= 4
-            || next_trimmed.starts_with('>')
-            || crate::utils::table_utils::TableUtils::is_potential_table_row(next_line)
-            || (next_trimmed.starts_with('[') && next_line.contains("]:"))
-            || is_horizontal_rule(next_trimmed)
-            || ((next_trimmed.starts_with('-') || next_trimmed.starts_with('*') || next_trimmed.starts_with('+'))
-                && !is_horizontal_rule(next_trimmed)
-                && (next_trimmed.len() == 1 || next_trimmed.chars().nth(1) == Some(' ')))
-            || is_numbered_list_item(next_trimmed)
-            || is_definition_list_item(next_trimmed)
-        {
+        if is_paragraph_boundary(next_trimmed, next_line) {
             break;
         }
 
@@ -1987,7 +2328,9 @@ pub fn reflow_paragraph_at_line(content: &str, line_number: usize, line_length: 
         break_on_sentences: true,
         preserve_breaks: false,
         sentence_per_line: false,
+        semantic_line_breaks: false,
         abbreviations: None,
+        length_mode,
     };
 
     // Reflow the paragraph using reflow_markdown to handle it properly
@@ -2053,5 +2396,108 @@ mod tests {
         assert!(!text_ends_with_abbreviation("paradigms?", &abbreviations)); // question mark
         assert!(!text_ends_with_abbreviation("word", &abbreviations)); // no punctuation
         assert!(!text_ends_with_abbreviation("", &abbreviations)); // empty string
+    }
+
+    #[test]
+    fn test_is_unordered_list_marker() {
+        // Valid unordered list markers
+        assert!(is_unordered_list_marker("- item"));
+        assert!(is_unordered_list_marker("* item"));
+        assert!(is_unordered_list_marker("+ item"));
+        assert!(is_unordered_list_marker("-")); // lone marker
+        assert!(is_unordered_list_marker("*"));
+        assert!(is_unordered_list_marker("+"));
+
+        // Not list markers
+        assert!(!is_unordered_list_marker("---")); // horizontal rule
+        assert!(!is_unordered_list_marker("***")); // horizontal rule
+        assert!(!is_unordered_list_marker("- - -")); // horizontal rule
+        assert!(!is_unordered_list_marker("* * *")); // horizontal rule
+        assert!(!is_unordered_list_marker("*emphasis*")); // emphasis, not list
+        assert!(!is_unordered_list_marker("-word")); // no space after marker
+        assert!(!is_unordered_list_marker("")); // empty
+        assert!(!is_unordered_list_marker("text")); // plain text
+        assert!(!is_unordered_list_marker("# heading")); // heading
+    }
+
+    #[test]
+    fn test_is_block_boundary() {
+        // Block boundaries
+        assert!(is_block_boundary("")); // empty line
+        assert!(is_block_boundary("# Heading")); // ATX heading
+        assert!(is_block_boundary("## Level 2")); // ATX heading
+        assert!(is_block_boundary("```rust")); // code fence
+        assert!(is_block_boundary("~~~")); // tilde code fence
+        assert!(is_block_boundary("> quote")); // blockquote
+        assert!(is_block_boundary("| cell |")); // table
+        assert!(is_block_boundary("[link]: http://example.com")); // reference def
+        assert!(is_block_boundary("---")); // horizontal rule
+        assert!(is_block_boundary("***")); // horizontal rule
+        assert!(is_block_boundary("- item")); // unordered list
+        assert!(is_block_boundary("* item")); // unordered list
+        assert!(is_block_boundary("+ item")); // unordered list
+        assert!(is_block_boundary("1. item")); // ordered list
+        assert!(is_block_boundary("10. item")); // ordered list
+        assert!(is_block_boundary(": definition")); // definition list
+        assert!(is_block_boundary(":::")); // div marker
+        assert!(is_block_boundary("::::: {.callout-note}")); // div marker with attrs
+
+        // NOT block boundaries (paragraph continuation)
+        assert!(!is_block_boundary("regular text"));
+        assert!(!is_block_boundary("*emphasis*")); // emphasis, not list
+        assert!(!is_block_boundary("[link](url)")); // inline link, not reference def
+        assert!(!is_block_boundary("some words here"));
+    }
+
+    #[test]
+    fn test_definition_list_boundary_in_single_line_paragraph() {
+        // Verifies that a definition list item after a single-line paragraph
+        // is treated as a block boundary, not merged into the paragraph
+        let options = ReflowOptions {
+            line_length: 80,
+            ..Default::default()
+        };
+        let input = "Term\n: Definition of the term";
+        let result = reflow_markdown(input, &options);
+        // The definition list marker should remain on its own line
+        assert!(
+            result.contains(": Definition"),
+            "Definition list item should not be merged into previous line. Got: {result:?}"
+        );
+        let lines: Vec<&str> = result.lines().collect();
+        assert_eq!(lines.len(), 2, "Should remain two separate lines. Got: {lines:?}");
+        assert_eq!(lines[0], "Term");
+        assert_eq!(lines[1], ": Definition of the term");
+    }
+
+    #[test]
+    fn test_is_paragraph_boundary() {
+        // Core block boundary checks are inherited
+        assert!(is_paragraph_boundary("# Heading", "# Heading"));
+        assert!(is_paragraph_boundary("- item", "- item"));
+        assert!(is_paragraph_boundary(":::", ":::"));
+        assert!(is_paragraph_boundary(": definition", ": definition"));
+
+        // Indented code blocks (≥4 spaces or tab)
+        assert!(is_paragraph_boundary("code", "    code"));
+        assert!(is_paragraph_boundary("code", "\tcode"));
+
+        // Table rows via is_potential_table_row
+        assert!(is_paragraph_boundary("| a | b |", "| a | b |"));
+        assert!(is_paragraph_boundary("a | b", "a | b")); // pipe-delimited without leading pipe
+
+        // Not paragraph boundaries
+        assert!(!is_paragraph_boundary("regular text", "regular text"));
+        assert!(!is_paragraph_boundary("text", "  text")); // 2-space indent is not code
+    }
+
+    #[test]
+    fn test_div_marker_boundary_in_reflow_paragraph_at_line() {
+        // Verifies that div markers (:::) are treated as paragraph boundaries
+        // in reflow_paragraph_at_line, preventing reflow across div boundaries
+        let content = "Some paragraph text here.\n\n::: {.callout-note}\nThis is a callout.\n:::\n";
+        // Line 3 is the div marker — should not be reflowed
+        let result = reflow_paragraph_at_line(content, 3, 80);
+        assert!(result.is_none(), "Div marker line should not be reflowed");
     }
 }

@@ -42,6 +42,10 @@ class OracleCloneMigrationDetails(CloneMigrationDetails):
             The value to assign to the target_database_connection_id property of this OracleCloneMigrationDetails.
         :type target_database_connection_id: str
 
+        :param assessment_id:
+            The value to assign to the assessment_id property of this OracleCloneMigrationDetails.
+        :type assessment_id: str
+
         :param freeform_tags:
             The value to assign to the freeform_tags property of this OracleCloneMigrationDetails.
         :type freeform_tags: dict(str, str)
@@ -65,6 +69,7 @@ class OracleCloneMigrationDetails(CloneMigrationDetails):
             'compartment_id': 'str',
             'source_database_connection_id': 'str',
             'target_database_connection_id': 'str',
+            'assessment_id': 'str',
             'freeform_tags': 'dict(str, str)',
             'defined_tags': 'dict(str, dict(str, object))',
             'source_container_database_connection_id': 'str',
@@ -76,6 +81,7 @@ class OracleCloneMigrationDetails(CloneMigrationDetails):
             'compartment_id': 'compartmentId',
             'source_database_connection_id': 'sourceDatabaseConnectionId',
             'target_database_connection_id': 'targetDatabaseConnectionId',
+            'assessment_id': 'assessmentId',
             'freeform_tags': 'freeformTags',
             'defined_tags': 'definedTags',
             'source_container_database_connection_id': 'sourceContainerDatabaseConnectionId',
@@ -86,6 +92,7 @@ class OracleCloneMigrationDetails(CloneMigrationDetails):
         self._compartment_id = None
         self._source_database_connection_id = None
         self._target_database_connection_id = None
+        self._assessment_id = None
         self._freeform_tags = None
         self._defined_tags = None
         self._source_container_database_connection_id = None

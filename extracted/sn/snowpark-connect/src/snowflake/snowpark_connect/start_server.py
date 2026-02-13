@@ -72,7 +72,6 @@ if __name__ == "__main__":
 
     # Create stop_event and optionally set up signal handlers in start_server
     stop_event = threading.Event()
-
     start_session(
         is_daemon=False,
         tcp_port=tcp_port,

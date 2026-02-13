@@ -9099,22 +9099,18 @@ class IOidcProvider(
     @builtins.property
     @jsii.member(jsii_name="openIdConnectProviderArn")
     def open_id_connect_provider_arn(self) -> builtins.str:
-        '''(deprecated) The Amazon Resource Name (ARN) of the IAM OpenID Connect provider.
+        '''Alias for ``oidcProviderArn`` to maintain backwards compatibility for constructs which accept ``iam.IOpenIdConnectProvider``.
 
-        :deprecated: Use ``oidcProviderArn`` instead. This property exists for backward compatibility with existing constructs as migrating between the 2 constructs (OpenIdConnectProvider and OidcProviderNative) is not reasonably feasible as it requires a manual step (cdk import) since the resource type is changing between OpenIdConnectProvider and OidcProviderNative.
-
-        :stability: deprecated
+        Use ``oidcProviderArn`` instead. This property exists for backward compatibility with existing constructs as migrating between the 2 constructs (OpenIdConnectProvider and OidcProviderNative) is not reasonably feasible as it requires a manual step (cdk import) since the resource type is changing between OpenIdConnectProvider and OidcProviderNative.
         '''
         ...
 
     @builtins.property
     @jsii.member(jsii_name="openIdConnectProviderIssuer")
     def open_id_connect_provider_issuer(self) -> builtins.str:
-        '''(deprecated) The issuer for OIDC Provider.
+        '''Alias for ``oidcProviderIssuer`` to maintain backwards compatibility for constructs which accept `iam.IOpenIdConnectProvider.
 
-        :deprecated: Use ``oidcProviderIssuer`` instead. This property exists for backward compatibility with existing constructs as migrating between the 2 constructs (OpenIdConnectProvider and OidcProviderNative) is not reasonably feasible as it requires a manual step (cdk import) since the resource type is changing between OpenIdConnectProvider and OidcProviderNative.
-
-        :stability: deprecated
+        Use ``oidcProviderIssuer`` instead. This property exists for backward compatibility with existing constructs as migrating between the 2 constructs (OpenIdConnectProvider and OidcProviderNative) is not reasonably feasible as it requires a manual step (cdk import) since the resource type is changing between OpenIdConnectProvider and OidcProviderNative.
         '''
         ...
 
@@ -9148,22 +9144,18 @@ class _IOidcProviderProxy(
     @builtins.property
     @jsii.member(jsii_name="openIdConnectProviderArn")
     def open_id_connect_provider_arn(self) -> builtins.str:
-        '''(deprecated) The Amazon Resource Name (ARN) of the IAM OpenID Connect provider.
+        '''Alias for ``oidcProviderArn`` to maintain backwards compatibility for constructs which accept ``iam.IOpenIdConnectProvider``.
 
-        :deprecated: Use ``oidcProviderArn`` instead. This property exists for backward compatibility with existing constructs as migrating between the 2 constructs (OpenIdConnectProvider and OidcProviderNative) is not reasonably feasible as it requires a manual step (cdk import) since the resource type is changing between OpenIdConnectProvider and OidcProviderNative.
-
-        :stability: deprecated
+        Use ``oidcProviderArn`` instead. This property exists for backward compatibility with existing constructs as migrating between the 2 constructs (OpenIdConnectProvider and OidcProviderNative) is not reasonably feasible as it requires a manual step (cdk import) since the resource type is changing between OpenIdConnectProvider and OidcProviderNative.
         '''
         return typing.cast(builtins.str, jsii.get(self, "openIdConnectProviderArn"))
 
     @builtins.property
     @jsii.member(jsii_name="openIdConnectProviderIssuer")
     def open_id_connect_provider_issuer(self) -> builtins.str:
-        '''(deprecated) The issuer for OIDC Provider.
+        '''Alias for ``oidcProviderIssuer`` to maintain backwards compatibility for constructs which accept `iam.IOpenIdConnectProvider.
 
-        :deprecated: Use ``oidcProviderIssuer`` instead. This property exists for backward compatibility with existing constructs as migrating between the 2 constructs (OpenIdConnectProvider and OidcProviderNative) is not reasonably feasible as it requires a manual step (cdk import) since the resource type is changing between OpenIdConnectProvider and OidcProviderNative.
-
-        :stability: deprecated
+        Use ``oidcProviderIssuer`` instead. This property exists for backward compatibility with existing constructs as migrating between the 2 constructs (OpenIdConnectProvider and OidcProviderNative) is not reasonably feasible as it requires a manual step (cdk import) since the resource type is changing between OpenIdConnectProvider and OidcProviderNative.
         '''
         return typing.cast(builtins.str, jsii.get(self, "openIdConnectProviderIssuer"))
 
@@ -10400,22 +10392,18 @@ class OidcProviderNative(
     @builtins.property
     @jsii.member(jsii_name="openIdConnectProviderArn")
     def open_id_connect_provider_arn(self) -> builtins.str:
-        '''(deprecated) The Amazon Resource Name (ARN) of the IAM OpenID Connect provider.
+        '''Alias for ``oidcProviderArn`` to maintain backwards compatibility for constructs which accept ``iam.IOpenIdConnectProvider``.
 
-        :deprecated: Use ``oidcProviderArn`` instead. This property exists for backward compatibility with existing constructs as migrating between the 2 constructs (OpenIdConnectProvider and OidcProviderNative) is not reasonably feasible as it requires a manual step (cdk import) since the resource type is changing between OpenIdConnectProvider and OidcProviderNative.
-
-        :stability: deprecated
+        Use ``oidcProviderArn`` instead. This property exists for backward compatibility with existing constructs as migrating between the 2 constructs (OpenIdConnectProvider and OidcProviderNative) is not reasonably feasible as it requires a manual step (cdk import) since the resource type is changing between OpenIdConnectProvider and OidcProviderNative.
         '''
         return typing.cast(builtins.str, jsii.get(self, "openIdConnectProviderArn"))
 
     @builtins.property
     @jsii.member(jsii_name="openIdConnectProviderIssuer")
     def open_id_connect_provider_issuer(self) -> builtins.str:
-        '''(deprecated) The issuer for OIDC Provider.
+        '''Alias for ``oidcProviderIssuer`` to maintain backwards compatibility for constructs which accept `iam.IOpenIdConnectProvider.
 
-        :deprecated: use ``oidcProviderIssuer`` instead. This property exists for backward compatibility with existing constructs as migrating between the 2 constructs (OpenIdConnectProvider and OidcProviderNative) is not reasonably feasible as it requires a manual step (cdk import) since the resource type is changing between OpenIdConnectProvider and OidcProviderNative.
-
-        :stability: deprecated
+        Use ``oidcProviderIssuer`` instead. This property exists for backward compatibility with existing constructs as migrating between the 2 constructs (OpenIdConnectProvider and OidcProviderNative) is not reasonably feasible as it requires a manual step (cdk import) since the resource type is changing between OpenIdConnectProvider and OidcProviderNative.
         '''
         return typing.cast(builtins.str, jsii.get(self, "openIdConnectProviderIssuer"))
 

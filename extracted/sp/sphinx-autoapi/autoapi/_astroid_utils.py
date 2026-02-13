@@ -4,19 +4,10 @@ import builtins
 from collections.abc import Iterable
 import itertools
 import re
-import sys
 from typing import Any, NamedTuple
 
 import astroid
 import astroid.nodes
-
-
-if sys.version_info < (3, 10):  # PY310
-    from stdlib_list import in_stdlib
-else:
-
-    def in_stdlib(module_name: str) -> bool:
-        return module_name in sys.stdlib_module_names
 
 
 class ArgInfo(NamedTuple):
@@ -93,6 +84,10 @@ def resolve_qualname(node: astroid.nodes.NodeNG, basename: str) -> str:
     else:
         lookup_node = node.scope()
 
+    type_params: set[str] = set()
+    if hasattr(lookup_node, "type_params"):
+        type_params = {x.name for x in lookup_node.type_params}
+
     assigns = lookup_node.lookup(top_level_name)[1]
 
     for assignment in assigns:
@@ -108,7 +103,10 @@ def resolve_qualname(node: astroid.nodes.NodeNG, basename: str) -> str:
             full_basename = assignment.qname()
             break
         if isinstance(assignment, astroid.nodes.AssignName):
-            full_basename = f"{assignment.scope().qname()}.{assignment.name}"
+            if assignment in type_params:
+                full_basename = assignment.name
+            else:
+                full_basename = f"{assignment.scope().qname()}.{assignment.name}"
 
     if isinstance(node, astroid.nodes.Call):
         full_basename = re.sub(r"\(.*\)", "()", full_basename)
@@ -522,6 +520,8 @@ def _resolve_annotation(annotation: astroid.nodes.NodeNG) -> str:
 
     if resolved.startswith("typing."):
         return resolved[len("typing.") :]
+    if resolved.startswith("typing_extensions."):
+        return resolved[len("typing_extensions.") :]
 
     # Sphinx is capable of linking anything in the same module
     # without needing a fully qualified path.
@@ -658,6 +658,28 @@ def get_args_info(args_node: astroid.nodes.Arguments) -> list[ArgInfo]:
 
     if args_node.parent.type in ("method", "classmethod") and result:
         result.pop(0)
+
+    return result
+
+
+def get_type_params_info(
+    params: list[
+        astroid.nodes.TypeVar | astroid.nodes.ParamSpec | astroid.nodes.TypeVarTuple
+    ],
+) -> list[ArgInfo]:
+    """Extract information about each given :pep:`695` style type param."""
+    result: list[ArgInfo] = []
+
+    for x in params:
+        if isinstance(x, astroid.nodes.TypeVar):
+            bound: str | None = None
+            if x.bound is not None:
+                bound = _resolve_annotation(x.bound)
+            result.append(ArgInfo(None, x.name.name, bound, None))
+        elif isinstance(x, astroid.nodes.TypeVarTuple):
+            result.append(ArgInfo("*", x.name.name, None, None))
+        elif isinstance(x, astroid.nodes.ParamSpec):
+            result.append(ArgInfo("**", x.name.name, None, None))
 
     return result
 

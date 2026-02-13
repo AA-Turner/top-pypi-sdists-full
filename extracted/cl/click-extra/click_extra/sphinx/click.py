@@ -19,7 +19,7 @@
     These directives are based on `Pallets' Sphinx Themes
     <https://github.com/pallets/pallets-sphinx-themes/blob/main/src/pallets_sphinx_themes/themes/click/domain.py>`_,
     `released under a BSD-3-Clause license
-    <https://github.com/pallets/pallets-sphinx-themes/tree/main?tab=BSD-3-Clause-1-ov-file#readme>`_.
+    <https://github.com/pallets/pallets-sphinx-themes/blob/main/LICENSE.txt>`_.
 
     Compared to the latter, it:
 
@@ -253,7 +253,7 @@ class ClickRunner(ExtraCliRunner):
                     python_lineno = node.lineno
                     python_line = source_lines[python_lineno - 1]
                     # Compute the absolute line number in the document.
-                    if directive.is_myst_syntax:  # type:ignore[attr-defined]
+                    if directive.is_myst_syntax:
                         # In MyST, the content offset is the position of the first line
                         # of the source code, relative to the directive itself.
                         doc_lineno = (
@@ -299,7 +299,7 @@ class ClickDirective(SphinxDirective):
     """Options supported by this directive.
 
     Support the `same options
-    <https://github.com/sphinx-doc/sphinx/blob/ead64df/sphinx/directives/code.py#L108-L117>`_
+    <https://github.com/sphinx-doc/sphinx/blob/cc7c6f4/sphinx/directives/code.py#L108-L117>`_
     as :class:`sphinx.directives.code.CodeBlock`, and some specific to Click
     directives.
     """
@@ -343,7 +343,7 @@ class ClickDirective(SphinxDirective):
         if "language" in self.options:
             return self.options["language"]  # type: ignore[no-any-return]
         if self.arguments:
-            return self.arguments[0]
+            return str(self.arguments[0])
         return self.default_language
 
     @cached_property
@@ -392,7 +392,7 @@ class ClickDirective(SphinxDirective):
     @cached_property
     def is_myst_syntax(self) -> bool:
         """Check if the current directive is written with MyST syntax."""
-        return self.state.__module__.split(".", 1)[0] == "myst_parser"
+        return bool(self.state.__module__.split(".", 1)[0] == "myst_parser")
 
     def render_code_block(self, lines: Iterable[str], language: str) -> list[str]:
         """Render the code block with the source code and results."""
@@ -409,10 +409,9 @@ class ClickDirective(SphinxDirective):
             # Indent the line in rST code block.
             block.append(line if self.is_myst_syntax else RST_INDENT + line)
 
-        # rST code directives needs a blank line before the body of the block else the
-        # first line will be interpreted as a directive option.
-        if not self.is_myst_syntax:
-            block.append("")
+        # Both rST and MyST need a blank line before the body of the block else the
+        # first line will be interpreted as a directive option or argument.
+        block.append("")
 
         for line in lines:
             block.append(line if self.is_myst_syntax else RST_INDENT + line)

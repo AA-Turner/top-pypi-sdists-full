@@ -8,8 +8,8 @@ from mcstatus.responses import RawJavaResponseMotdWhenDict
 
 
 class TestMotdParse:
-    def test_correct_result(self, source):
-        assert Motd.parse(source) == Motd(
+    def test_correct_result(self, source_bedrock):
+        assert Motd.parse(source_bedrock) == Motd(
             [
                 "top", Formatting.RESET,
                 "1", Formatting.RESET,
@@ -32,13 +32,24 @@ class TestMotdParse:
                 MinecraftColor.YELLOW, "18", Formatting.RESET,
                 MinecraftColor.WHITE, "19", Formatting.RESET,
                 MinecraftColor.MINECOIN_GOLD, "20", Formatting.RESET,
-                Formatting.RESET, "21", Formatting.RESET,
+                MinecraftColor.MATERIAL_QUARTZ, "21", Formatting.RESET,
+                MinecraftColor.MATERIAL_IRON, "22", Formatting.RESET,
+                MinecraftColor.MATERIAL_NETHERITE, "23", Formatting.RESET,
+                MinecraftColor.MATERIAL_REDSTONE, "24", Formatting.RESET,
+                MinecraftColor.MATERIAL_COPPER, "25", Formatting.RESET,
+                MinecraftColor.MATERIAL_GOLD, "26", Formatting.RESET,
+                MinecraftColor.MATERIAL_EMERALD, "27", Formatting.RESET,
+                MinecraftColor.MATERIAL_DIAMOND, "28", Formatting.RESET,
+                MinecraftColor.MATERIAL_LAPIS, "29", Formatting.RESET,
+                MinecraftColor.MATERIAL_AMETHYST, "30", Formatting.RESET,
+                MinecraftColor.MATERIAL_RESIN, "31", Formatting.RESET,
+                Formatting.RESET, "32", Formatting.RESET,
                 TranslationTag("some.random.string"), Formatting.RESET,
             ],
-            raw=source,
+            raw=source_bedrock,
         )  # fmt: skip
 
-    @pytest.mark.parametrize("bedrock", (True, False))
+    @pytest.mark.parametrize("bedrock", [True, False])
     def test_bedrock_parameter_nothing_changes(self, bedrock: bool):
         assert Motd.parse([{"color": "minecoin_gold", "text": " "}], bedrock=bedrock).parsed == [
             Formatting.RESET,
@@ -47,22 +58,22 @@ class TestMotdParse:
             Formatting.RESET,
         ]
 
-    @pytest.mark.parametrize("bedrock,expected", ((True, MinecraftColor.MINECOIN_GOLD), (False, "&g")))
+    @pytest.mark.parametrize(("bedrock", "expected"), [(True, MinecraftColor.MINECOIN_GOLD), (False, "&g")])
     def test_parse_as_str_ignore_minecoin_gold_on_java(self, bedrock: bool, expected):
         assert Motd.parse("&g", bedrock=bedrock).parsed == [expected]
 
     def test_parse_incorrect_color_passes(self):
         """See `https://github.com/py-mine/mcstatus/pull/335#discussion_r985084188`_."""
-        assert Motd.parse("&j").parsed == ["&j"]
+        assert Motd.parse("&z").parsed == ["&z"]
 
     def test_parse_uppercase_passes(self):
         assert Motd.parse("&A").parsed == ["", MinecraftColor.GREEN, ""]
 
     @pytest.mark.parametrize(
-        "input,expected", [("", [""]), ([], [Formatting.RESET]), ({"extra": [], "text": ""}, ["", Formatting.RESET])]
+        ("input_", "expected"), [("", [""]), ([], [Formatting.RESET]), ({"extra": [], "text": ""}, ["", Formatting.RESET])]
     )
-    def test_empty_input_also_empty_raw(self, input, expected):
-        assert Motd.parse(input).parsed == expected
+    def test_empty_input_also_empty_raw(self, input_, expected):
+        assert Motd.parse(input_).parsed == expected
 
     def test_top_level_formatting_applies_to_all_in_extra(self) -> None:
         """As described `here <https://minecraft.wiki/w/Java_Edition_protocol/Chat?direction=prev&oldid=2763844#Inheritance>`_."""
@@ -128,11 +139,15 @@ class TestMotdParse:
         assert Motd.parse({"text": "&aHello!"}).parsed == ["", MinecraftColor.GREEN, "Hello!", Formatting.RESET]
 
     def test_invalid_raw_input(self):
-        with pytest.raises(TypeError):
-            Motd.parse(object())  # type: ignore
+        obj = object()
+        with pytest.raises(
+            TypeError,
+            match=f"^Expected list, string or dict data, got <class 'object'> \\({obj!r}\\), report this!$",
+        ):
+            Motd.parse(obj)  # pyright: ignore[reportArgumentType]
 
     def test_invalid_color(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"^Unable to parse color: 'a', report this!$"):
             Motd._parse_color("a")
 
     def test_multiple_times_nested_extras(self):
@@ -186,6 +201,6 @@ class TestMotdParse:
             Formatting.RESET,
         ]  # fmt: skip
 
-    def test_raw_attribute(self, source):
-        motd = Motd.parse(source)
-        assert motd.raw == source
+    def test_raw_attribute(self, source_bedrock):
+        motd = Motd.parse(source_bedrock)
+        assert motd.raw == source_bedrock

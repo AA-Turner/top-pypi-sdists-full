@@ -67,8 +67,10 @@ S3_CN_NORTH_HOST = "s3.cn-north-1.amazonaws.com.cn"
 S3_CN_NORTHWEST_HOST = "s3.cn-northwest-1.amazonaws.com.cn"
 S3_EU_WEST_HOST = "s3-eu-west-1.amazonaws.com"
 S3_EU_WEST2_HOST = "s3-eu-west-2.amazonaws.com"
+S3_EU_WEST3_HOST = "s3-eu-west-3.amazonaws.com"
 S3_EU_CENTRAL_HOST = "s3-eu-central-1.amazonaws.com"
 S3_EU_NORTH1_HOST = "s3-eu-north-1.amazonaws.com"
+S3_EU_SOUTH1_HOST = "s3-eu-south-1.amazonaws.com"
 S3_AP_SOUTH_HOST = "s3-ap-south-1.amazonaws.com"
 S3_AP_SOUTHEAST_HOST = "s3-ap-southeast-1.amazonaws.com"
 S3_AP_SOUTHEAST2_HOST = "s3-ap-southeast-2.amazonaws.com"
@@ -92,8 +94,9 @@ REGION_TO_HOST_MAP = {
     "cn-northwest-1": S3_CN_NORTHWEST_HOST,
     "eu-west-1": S3_EU_WEST_HOST,
     "eu-west-2": S3_EU_WEST2_HOST,
-    "eu-west-3": "s3.eu-west-3.amazonaws.com",
+    "eu-west-3": S3_EU_WEST3_HOST,
     "eu-north-1": "s3.eu-north-1.amazonaws.com",
+    "eu-south-1": "s3.eu-south-1.amazonaws.com",
     "eu-central-1": S3_EU_CENTRAL_HOST,
     "ap-south-1": S3_AP_SOUTH_HOST,
     "ap-southeast-1": S3_AP_SOUTHEAST_HOST,
@@ -106,6 +109,7 @@ REGION_TO_HOST_MAP = {
     "ca-central-1": S3_CA_CENTRAL_HOST,
     "me-south-1": "s3.me-south-1.amazonaws.com",
     "af-south-1": S3_AF_SOUTH1_HOST,
+    "me-central-1": "s3.me-central-1.amazonaws.com",
 }
 
 API_VERSION = "2006-03-01"

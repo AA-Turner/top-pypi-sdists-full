@@ -104,9 +104,6 @@ class SageMakerStudioAPI:
         execution_config.domain_identifier = self._utils._get_domain_id()
         if execution_config.domain_identifier:
             execution_config.project_identifier = self._utils._get_project_id(self.datazone_api)
-        execution_config.datazone_stage = self._utils._get_datazone_stage()
-        execution_config.datazone_endpoint = self._utils._get_datazone_endpoint(self.default_region)
-        execution_config.datazone_environment_id = self._utils._get_datazone_environment_id()
         execution_config.datazone_domain_region = self._utils._get_domain_region()
         if (
             not execution_config.local

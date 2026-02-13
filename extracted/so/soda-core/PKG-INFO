@@ -1,27 +1,15 @@
 Metadata-Version: 2.4
 Name: soda-core
-Version: 4.0.5
+Version: 4.0.7
 Summary: Soda core library & CLI
-Author: Soda Data N.V.
-Author-email: info@soda.io
-Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: Other/Proprietary License
-Classifier: Operating System :: Microsoft :: Windows
-Classifier: Operating System :: MacOS :: MacOS X
-Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.10
-Requires-Python: >=3.9
+Author-email: "Soda Data N.V." <info@soda.io>
+License: Proprietary
+Requires-Python: >=3.10
 Requires-Dist: ruamel.yaml<0.18.0,>=0.17.0
 Requires-Dist: requests<2.33.0,>=2.32.3
-Requires-Dist: pydantic<3.0,>=2.0
+Requires-Dist: pydantic<3.0,>=2.11
 Requires-Dist: opentelemetry-api<2.0.0,>=1.16.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.16.0
 Requires-Dist: tabulate[widechars]
 Requires-Dist: python-dotenv~=1.0
 Requires-Dist: sqlglot
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary

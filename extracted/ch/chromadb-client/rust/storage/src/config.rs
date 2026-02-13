@@ -1,3 +1,4 @@
+use chroma_config::SpannerConfig;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug, Serialize, Clone)]
@@ -28,12 +29,52 @@ impl Default for StorageConfig {
     }
 }
 
-#[derive(Default, Deserialize, PartialEq, Debug, Clone, Serialize)]
+#[derive(Default, Deserialize, PartialEq, Clone, Serialize)]
 pub enum S3CredentialsConfig {
     #[default]
     Minio,
     Localhost,
     AWS,
+    /// Explicit credentials for customer buckets or S3-compatible services.
+    /// Use this when you need to connect to arbitrary S3 buckets with specific
+    /// credentials, rather than using the default AWS credential chain.
+    Explicit {
+        access_key_id: String,
+        #[serde(skip_serializing)]
+        secret_access_key: String,
+        #[serde(default, skip_serializing)]
+        session_token: Option<String>,
+        #[serde(default)]
+        custom_endpoint: Option<String>,
+        region: String,
+    },
+}
+
+impl std::fmt::Debug for S3CredentialsConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Minio => write!(f, "Minio"),
+            Self::Localhost => write!(f, "Localhost"),
+            Self::AWS => write!(f, "AWS"),
+            Self::Explicit {
+                access_key_id,
+                session_token,
+                custom_endpoint,
+                region,
+                ..
+            } => f
+                .debug_struct("Explicit")
+                .field("access_key_id", access_key_id)
+                .field("secret_access_key", &"[REDACTED]")
+                .field(
+                    "session_token",
+                    &session_token.as_ref().map(|_| "[REDACTED]"),
+                )
+                .field("custom_endpoint", custom_endpoint)
+                .field("region", region)
+                .finish(),
+        }
+    }
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize)]
@@ -123,8 +164,16 @@ pub struct AdmissionControlledS3StorageConfig {
     pub rate_limiting_policy: RateLimitingConfig,
     #[serde(default)]
     pub s3_config: S3StorageConfig,
+    #[serde(default = "AdmissionControlledS3StorageConfig::default_spawn_fetches")]
+    pub spawn_fetches: bool,
     #[serde(default)]
     pub use_object_store_client: bool,
+}
+
+impl AdmissionControlledS3StorageConfig {
+    fn default_spawn_fetches() -> bool {
+        false
+    }
 }
 
 #[derive(Deserialize, Debug, Clone, Serialize)]
@@ -241,4 +290,16 @@ impl Default for ObjectStorageConfig {
             upload_part_size_bytes: Self::default_upload_part_size_bytes(),
         }
     }
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct RegionalStorage {
+    #[serde(default)]
+    pub storage: StorageConfig,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct TopologicalStorage {
+    #[serde(default)]
+    pub spanner: SpannerConfig,
 }

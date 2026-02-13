@@ -38,7 +38,7 @@ classifiers = [
 dependencies = [
     "mkdocs>=1.5",
 ]
-version = "1.2.0"
+version = "1.2.1"
 
 [project.optional-dependencies]
 all = [

@@ -336,7 +336,9 @@ class OnlineMessageHandler(BaseMessageHandler):
             if (
                 isinstance(response, ConnectionError)
                 or isinstance(response, requests.ConnectionError)
-                or isinstance(response, S3UploadError)
+                or (
+                    isinstance(response, S3UploadError) and response.is_connection_error
+                )
             ):
                 self._on_messages_sent_completed(
                     [message_id],

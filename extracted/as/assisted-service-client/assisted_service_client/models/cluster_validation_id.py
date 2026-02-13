@@ -51,6 +51,7 @@ class ClusterValidationId(object):
     MTV_REQUIREMENTS_SATISFIED = "mtv-requirements-satisfied"
     OSC_REQUIREMENTS_SATISFIED = "osc-requirements-satisfied"
     NETWORK_TYPE_VALID = "network-type-valid"
+    CUSTOM_MANIFESTS_REQUIREMENTS_SATISFIED = "custom-manifests-requirements-satisfied"
     PLATFORM_REQUIREMENTS_SATISFIED = "platform-requirements-satisfied"
     NODE_FEATURE_DISCOVERY_REQUIREMENTS_SATISFIED = "node-feature-discovery-requirements-satisfied"
     NVIDIA_GPU_REQUIREMENTS_SATISFIED = "nvidia-gpu-requirements-satisfied"

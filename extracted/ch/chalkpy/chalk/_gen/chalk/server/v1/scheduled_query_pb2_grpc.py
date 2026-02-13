@@ -3,6 +3,7 @@
 
 import grpc
 
+from chalk._gen.chalk.server.v1 import scheduled_query_pb2 as chalk_dot_server_dot_v1_dot_scheduled__query__pb2
 from chalk._gen.chalk.server.v1 import scheduled_query_run_pb2 as chalk_dot_server_dot_v1_dot_scheduled__query__run__pb2
 
 
@@ -25,6 +26,26 @@ class ScheduledQueryServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_scheduled__query__run__pb2.GetScheduledQueryRunsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_scheduled__query__run__pb2.GetScheduledQueryRunsResponse.FromString,
         )
+        self.GetActiveScheduledQueries = channel.unary_unary(
+            "/chalk.server.v1.ScheduledQueryService/GetActiveScheduledQueries",
+            request_serializer=chalk_dot_server_dot_v1_dot_scheduled__query__pb2.GetActiveScheduledQueriesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_scheduled__query__pb2.GetActiveScheduledQueriesResponse.FromString,
+        )
+        self.GetScheduledQueryControl = channel.unary_unary(
+            "/chalk.server.v1.ScheduledQueryService/GetScheduledQueryControl",
+            request_serializer=chalk_dot_server_dot_v1_dot_scheduled__query__pb2.GetScheduledQueryControlRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_scheduled__query__pb2.GetScheduledQueryControlResponse.FromString,
+        )
+        self.UpdateScheduledQueryControl = channel.unary_unary(
+            "/chalk.server.v1.ScheduledQueryService/UpdateScheduledQueryControl",
+            request_serializer=chalk_dot_server_dot_v1_dot_scheduled__query__pb2.UpdateScheduledQueryControlRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_scheduled__query__pb2.UpdateScheduledQueryControlResponse.FromString,
+        )
+        self.GetScheduledQuerySchedule = channel.unary_unary(
+            "/chalk.server.v1.ScheduledQueryService/GetScheduledQuerySchedule",
+            request_serializer=chalk_dot_server_dot_v1_dot_scheduled__query__pb2.GetScheduledQueryScheduleRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_scheduled__query__pb2.GetScheduledQueryScheduleResponse.FromString,
+        )
 
 
 class ScheduledQueryServiceServicer(object):
@@ -42,6 +63,30 @@ class ScheduledQueryServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetActiveScheduledQueries(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetScheduledQueryControl(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpdateScheduledQueryControl(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetScheduledQuerySchedule(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_ScheduledQueryServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -54,6 +99,26 @@ def add_ScheduledQueryServiceServicer_to_server(servicer, server):
             servicer.GetScheduledQueryRuns,
             request_deserializer=chalk_dot_server_dot_v1_dot_scheduled__query__run__pb2.GetScheduledQueryRunsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_scheduled__query__run__pb2.GetScheduledQueryRunsResponse.SerializeToString,
+        ),
+        "GetActiveScheduledQueries": grpc.unary_unary_rpc_method_handler(
+            servicer.GetActiveScheduledQueries,
+            request_deserializer=chalk_dot_server_dot_v1_dot_scheduled__query__pb2.GetActiveScheduledQueriesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_scheduled__query__pb2.GetActiveScheduledQueriesResponse.SerializeToString,
+        ),
+        "GetScheduledQueryControl": grpc.unary_unary_rpc_method_handler(
+            servicer.GetScheduledQueryControl,
+            request_deserializer=chalk_dot_server_dot_v1_dot_scheduled__query__pb2.GetScheduledQueryControlRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_scheduled__query__pb2.GetScheduledQueryControlResponse.SerializeToString,
+        ),
+        "UpdateScheduledQueryControl": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateScheduledQueryControl,
+            request_deserializer=chalk_dot_server_dot_v1_dot_scheduled__query__pb2.UpdateScheduledQueryControlRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_scheduled__query__pb2.UpdateScheduledQueryControlResponse.SerializeToString,
+        ),
+        "GetScheduledQuerySchedule": grpc.unary_unary_rpc_method_handler(
+            servicer.GetScheduledQuerySchedule,
+            request_deserializer=chalk_dot_server_dot_v1_dot_scheduled__query__pb2.GetScheduledQueryScheduleRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_scheduled__query__pb2.GetScheduledQueryScheduleResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.ScheduledQueryService", rpc_method_handlers)
@@ -112,6 +177,122 @@ class ScheduledQueryService(object):
             "/chalk.server.v1.ScheduledQueryService/GetScheduledQueryRuns",
             chalk_dot_server_dot_v1_dot_scheduled__query__run__pb2.GetScheduledQueryRunsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_scheduled__query__run__pb2.GetScheduledQueryRunsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetActiveScheduledQueries(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ScheduledQueryService/GetActiveScheduledQueries",
+            chalk_dot_server_dot_v1_dot_scheduled__query__pb2.GetActiveScheduledQueriesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_scheduled__query__pb2.GetActiveScheduledQueriesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetScheduledQueryControl(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ScheduledQueryService/GetScheduledQueryControl",
+            chalk_dot_server_dot_v1_dot_scheduled__query__pb2.GetScheduledQueryControlRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_scheduled__query__pb2.GetScheduledQueryControlResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpdateScheduledQueryControl(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ScheduledQueryService/UpdateScheduledQueryControl",
+            chalk_dot_server_dot_v1_dot_scheduled__query__pb2.UpdateScheduledQueryControlRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_scheduled__query__pb2.UpdateScheduledQueryControlResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetScheduledQuerySchedule(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ScheduledQueryService/GetScheduledQuerySchedule",
+            chalk_dot_server_dot_v1_dot_scheduled__query__pb2.GetScheduledQueryScheduleRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_scheduled__query__pb2.GetScheduledQueryScheduleResponse.FromString,
             options,
             channel_credentials,
             insecure,

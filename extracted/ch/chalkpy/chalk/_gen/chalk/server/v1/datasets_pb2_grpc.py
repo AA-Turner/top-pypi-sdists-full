@@ -40,6 +40,16 @@ class DatasetMetadataServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionDownloadLinksRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionDownloadLinksResponse.FromString,
         )
+        self.RenameDataset = channel.unary_unary(
+            "/chalk.server.v1.DatasetMetadataService/RenameDataset",
+            request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.RenameDatasetRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.RenameDatasetResponse.FromString,
+        )
+        self.ArchiveDatasetRevision = channel.unary_unary(
+            "/chalk.server.v1.DatasetMetadataService/ArchiveDatasetRevision",
+            request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.ArchiveDatasetRevisionRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.ArchiveDatasetRevisionResponse.FromString,
+        )
 
 
 class DatasetMetadataServiceServicer(object):
@@ -75,6 +85,18 @@ class DatasetMetadataServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def RenameDataset(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ArchiveDatasetRevision(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_DatasetMetadataServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -102,6 +124,16 @@ def add_DatasetMetadataServiceServicer_to_server(servicer, server):
             servicer.GetDatasetRevisionDownloadLinks,
             request_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionDownloadLinksRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionDownloadLinksResponse.SerializeToString,
+        ),
+        "RenameDataset": grpc.unary_unary_rpc_method_handler(
+            servicer.RenameDataset,
+            request_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.RenameDatasetRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.RenameDatasetResponse.SerializeToString,
+        ),
+        "ArchiveDatasetRevision": grpc.unary_unary_rpc_method_handler(
+            servicer.ArchiveDatasetRevision,
+            request_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.ArchiveDatasetRevisionRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.ArchiveDatasetRevisionResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -249,6 +281,64 @@ class DatasetMetadataService(object):
             "/chalk.server.v1.DatasetMetadataService/GetDatasetRevisionDownloadLinks",
             chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionDownloadLinksRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionDownloadLinksResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def RenameDataset(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DatasetMetadataService/RenameDataset",
+            chalk_dot_server_dot_v1_dot_datasets__pb2.RenameDatasetRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_datasets__pb2.RenameDatasetResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ArchiveDatasetRevision(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DatasetMetadataService/ArchiveDatasetRevision",
+            chalk_dot_server_dot_v1_dot_datasets__pb2.ArchiveDatasetRevisionRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_datasets__pb2.ArchiveDatasetRevisionResponse.FromString,
             options,
             channel_credentials,
             insecure,

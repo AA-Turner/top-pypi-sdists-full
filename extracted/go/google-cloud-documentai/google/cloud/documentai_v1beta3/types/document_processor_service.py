@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.documentai_v1beta3.types import document_schema as gcd_document_schema
@@ -86,6 +86,7 @@ __protobuf__ = proto.module(
         "ImportProcessorVersionRequest",
         "ImportProcessorVersionResponse",
         "ImportProcessorVersionMetadata",
+        "UpdateProcessorVersionMetadata",
     },
 )
 
@@ -156,6 +157,8 @@ class ProcessOptions(proto.Message):
             enable_table_annotation (bool):
                 Optional. Whether to include table
                 annotations in layout parser response.
+            enable_table_split (bool):
+                Optional. Whether to split table.
         """
 
         class ChunkingConfig(proto.Message):
@@ -224,6 +227,10 @@ class ProcessOptions(proto.Message):
         enable_table_annotation: bool = proto.Field(
             proto.BOOL,
             number=6,
+        )
+        enable_table_split: bool = proto.Field(
+            proto.BOOL,
+            number=8,
         )
 
     class IndividualPageSelector(proto.Message):
@@ -2042,6 +2049,24 @@ class ImportProcessorVersionResponse(proto.Message):
 class ImportProcessorVersionMetadata(proto.Message):
     r"""The long-running operation metadata for the
     [ImportProcessorVersion][google.cloud.documentai.v1beta3.DocumentProcessorService.ImportProcessorVersion]
+    method.
+
+    Attributes:
+        common_metadata (google.cloud.documentai_v1beta3.types.CommonOperationMetadata):
+            The basic metadata for the long-running
+            operation.
+    """
+
+    common_metadata: operation_metadata.CommonOperationMetadata = proto.Field(
+        proto.MESSAGE,
+        number=1,
+        message=operation_metadata.CommonOperationMetadata,
+    )
+
+
+class UpdateProcessorVersionMetadata(proto.Message):
+    r"""The long-running operation metadata for the
+    [UpdateProcessorVersion][google.cloud.documentai.v1beta3.DocumentProcessorService.UpdateProcessorVersion]
     method.
 
     Attributes:

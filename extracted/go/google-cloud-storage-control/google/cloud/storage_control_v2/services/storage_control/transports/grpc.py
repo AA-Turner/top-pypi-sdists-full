@@ -23,10 +23,10 @@ from google.api_core import gapic_v1, grpc_helpers, operations_v1
 import google.auth  # type: ignore
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.protobuf.json_format import MessageToJson
 import google.protobuf.message
 import grpc  # type: ignore
@@ -484,6 +484,35 @@ class StorageControlGrpcTransport(StorageControlTransport):
                 response_deserializer=operations_pb2.Operation.FromString,
             )
         return self._stubs["rename_folder"]
+
+    @property
+    def delete_folder_recursive(
+        self,
+    ) -> Callable[
+        [storage_control.DeleteFolderRecursiveRequest], operations_pb2.Operation
+    ]:
+        r"""Return a callable for the delete folder recursive method over gRPC.
+
+        Deletes a folder recursively. This operation is only
+        applicable to a hierarchical namespace enabled bucket.
+
+        Returns:
+            Callable[[~.DeleteFolderRecursiveRequest],
+                    ~.Operation]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "delete_folder_recursive" not in self._stubs:
+            self._stubs["delete_folder_recursive"] = self._logged_channel.unary_unary(
+                "/google.storage.control.v2.StorageControl/DeleteFolderRecursive",
+                request_serializer=storage_control.DeleteFolderRecursiveRequest.serialize,
+                response_deserializer=operations_pb2.Operation.FromString,
+            )
+        return self._stubs["delete_folder_recursive"]
 
     @property
     def get_storage_layout(

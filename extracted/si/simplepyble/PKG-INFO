@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: simplepyble
-Version: 0.11.0
+Version: 0.12.1
 Summary: The ultimate fully-fledged cross-platform BLE library, designed for simplicity and ease of use.
 Home-page: https://github.com/simpleble/simpleble
 Author: Kevin Dewald
-Author-email: kevin@dewald.me
+Author-email: kevin@simpleble.org
 Platform: Windows
 Platform: macOS
 Platform: Linux
@@ -17,14 +17,11 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE.md
-Provides-Extra: server
-Requires-Dist: fastapi; extra == "server"
-Requires-Dist: uvicorn; extra == "server"
-Requires-Dist: pydantic; extra == "server"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -33,11 +30,10 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license-file
 Dynamic: platform
-Dynamic: provides-extra
 Dynamic: requires-python
 Dynamic: summary
 
-|Latest Documentation Status| |PyPI Licence|
+|PyPI Licence|
 
 SimplePyBLE
 ===========
@@ -57,7 +53,7 @@ Support & Resources
 
 We're here to help you succeed with SimpleBLE:
 
-* **Documentation**: Visit our `ReadTheDocs`_ page for comprehensive guides
+* **Documentation**: Visit our `Documentation`_ page for comprehensive guides
 * **Commercial Support**: Check out |website|_ or |email|_ about licensing and professional services.
 * **Community**: Join our `Discord`_ server for discussions and help
 
@@ -70,15 +66,38 @@ You can install SimplePyBLE from PyPI using pip: ::
 
    pip install simplepyble
 
-If you want to use the built-in REST server, you can install the optional dependencies: ::
-
-   pip install simplepyble[server]
-
 Usage
 -----
 
 Please review our `code examples`_ on GitHub for more information on how to use
 SimplePyBLE.
+
+Asynchronous Support
+--------------------
+
+SimplePyBLE provides an asynchronous API via the ``simplepyble.aio`` module. This module
+is designed to work with ``asyncio`` and provides a more idiomatic way to handle
+asynchronous operations in Python.
+
+Example: ::
+
+   import asyncio
+   from simplepyble.aio import Adapter
+
+   async def main():
+       adapters = Adapter.get_adapters()
+       adapter = adapters[0]
+
+       async with adapter:
+           await adapter.scan_for(5000)
+           peripherals = adapter.scan_get_results()
+           for peripheral in peripherals:
+               print(f"Found: {peripheral.identifier()} [{peripheral.address()}]")
+
+   if __name__ == "__main__":
+       asyncio.run(main())
+
+Check out the `async examples`_ for more details.
 
 To run the built-in REST server, you can use the following command: ::
 
@@ -117,16 +136,16 @@ For further enquiries, please |email|_ or |leavemessage|_ and we can discuss the
 .. _email: mailto:contact@simpleble.org
 
 .. |leavemessage| replace:: leave us a message on our website
-.. _leavemessage: https://www.simpleble.org/contact?utm_source=pypi&utm_medium=referral&utm_campaign=simplepyble_readme
+.. _leavemessage: https://www.simpleble.org/contact?utm_source=pypi_simplepyble&utm_medium=referral&utm_campaign=simplepyble_readme
 
 .. |website| replace:: our website
-.. _website: https://simpleble.org?utm_source=pypi&utm_medium=referral&utm_campaign=simplepyble_readme
+.. _website: https://simpleble.org?utm_source=pypi_simplepyble&utm_medium=referral&utm_campaign=simplepyble_readme
 
 .. |website-url| replace:: www.simpleble.org
-.. _website-url: https://simpleble.org?utm_source=pypi&utm_medium=referral&utm_campaign=simplepyble_readme
+.. _website-url: https://simpleble.org?utm_source=pypi_simplepyble&utm_medium=referral&utm_campaign=simplepyble_readme
 
 .. |caos| replace:: **The California Open Source Company**
-.. _caos: https://californiaopensource.com?utm_source=pypi&utm_medium=referral&utm_campaign=simplepyble_readme
+.. _caos: https://californiaopensource.com?utm_source=pypi_simplepyble&utm_medium=referral&utm_campaign=simplepyble_readme
 
 .. _SimplePyBLE: https://pypi.org/project/simplepyble/
 
@@ -134,11 +153,10 @@ For further enquiries, please |email|_ or |leavemessage|_ and we can discuss the
 
 .. _code examples: https://github.com/simpleble/simpleble/tree/main/examples/simplepyble
 
+.. _async examples: https://github.com/simpleble/simpleble/tree/main/examples/simplepyble
+
 .. _Discord: https://discord.gg/N9HqNEcvP3
 
-.. _ReadTheDocs: https://simpleble.readthedocs.io/en/latest/
-
-.. |Latest Documentation Status| image:: https://readthedocs.org/projects/simpleble/badge?version=latest
-   :target: http://simpleble.readthedocs.org/en/latest
+.. _Documentation: https://docs.simpleble.org
 
 .. |PyPI Licence| image:: https://img.shields.io/pypi/l/simplepyble

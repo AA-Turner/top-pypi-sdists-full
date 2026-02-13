@@ -7,6 +7,7 @@ from functools import cached_property
 from operator import itemgetter
 from typing import (
     Any,
+    AsyncIterator,
     Callable,
     Dict,
     Iterator,
@@ -21,7 +22,7 @@ from typing import (
 )
 
 from databricks import sdk
-from langchain_core.callbacks import CallbackManagerForLLMRun
+from langchain_core.callbacks import AsyncCallbackManagerForLLMRun, CallbackManagerForLLMRun
 from langchain_core.language_models import BaseChatModel
 from langchain_core.language_models.base import LanguageModelInput
 from langchain_core.messages import (
@@ -34,10 +35,13 @@ from langchain_core.messages import (
     FunctionMessage,
     HumanMessage,
     HumanMessageChunk,
+    InputTokenDetails,
+    OutputTokenDetails,
     SystemMessage,
     SystemMessageChunk,
     ToolMessage,
     ToolMessageChunk,
+    UsageMetadata,
 )
 from langchain_core.messages.ai import UsageMetadata
 from langchain_core.messages.tool import tool_call_chunk
@@ -54,13 +58,14 @@ from langchain_core.runnables import Runnable, RunnableMap, RunnablePassthrough
 from langchain_core.tools import BaseTool
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from langchain_core.utils.pydantic import is_basemodel_subclass
-from openai import OpenAI, Stream
+from openai import AsyncOpenAI, AsyncStream, OpenAI, Stream
 from openai.types.chat import ChatCompletion, ChatCompletionChunk
-from openai.types.responses import Response, ResponseStreamEvent
+from openai.types.completion_usage import CompletionUsage
+from openai.types.responses import Response, ResponseStreamEvent, ResponseUsage
 from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import override
 
-from databricks_langchain.utils import get_openai_client
+from databricks_langchain.utils import get_async_openai_client, get_openai_client
 
 logger = logging.getLogger(__name__)
 
@@ -310,17 +315,28 @@ class ChatDatabricks(BaseChatModel):
         )
         self.model = value
 
-    @cached_property
-    def client(self) -> OpenAI:
-        # Always use OpenAI client (supports both chat completions and responses API)
-        # Prepare kwargs for the SDK call
+    def _get_client_kwargs(self) -> Dict[str, Any]:
+        """Prepare kwargs for OpenAI client initialization."""
         openai_kwargs = {}
         if self.timeout is not None:
             openai_kwargs["timeout"] = self.timeout
         if self.max_retries is not None:
             openai_kwargs["max_retries"] = self.max_retries
+        return openai_kwargs
 
-        return get_openai_client(workspace_client=self.workspace_client, **openai_kwargs)
+    @cached_property
+    def client(self) -> OpenAI:
+        # Always use OpenAI client (supports both chat completions and responses API)
+        return get_openai_client(
+            workspace_client=self.workspace_client, **self._get_client_kwargs()
+        )
+
+    @cached_property
+    def async_client(self) -> AsyncOpenAI:
+        # Async OpenAI client using AsyncDatabricksOpenAI from databricks-openai
+        return get_async_openai_client(
+            workspace_client=self.workspace_client, **self._get_client_kwargs()
+        )
 
     def __init__(self, **kwargs: Any):
         super().__init__(**kwargs)
@@ -376,6 +392,26 @@ class ChatDatabricks(BaseChatModel):
         else:
             # Use OpenAI client with chat completions API
             resp = self.client.chat.completions.create(**data)
+            return self._convert_response_to_chat_result(resp)
+
+    async def _agenerate(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        *,
+        custom_inputs: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        data = self._prepare_inputs(messages, stop, custom_inputs=custom_inputs, **kwargs)
+
+        if self.use_responses_api:
+            # Use async OpenAI client with responses API
+            resp = await self.async_client.responses.create(**data)
+            return self._convert_responses_api_response_to_chat_result(resp)
+        else:
+            # Use async OpenAI client with chat completions API
+            resp = await self.async_client.chat.completions.create(**data)
             return self._convert_response_to_chat_result(resp)
 
     def _prepare_inputs(
@@ -522,12 +558,18 @@ class ChatDatabricks(BaseChatModel):
                 else:
                     content_blocks.append(item)
 
+        usage_metadata = None
+        if response.usage is not None:
+            usage_metadata = ChatDatabricks._convert_responses_usage_to_usage_metadata(
+                response.usage
+            )
         # Create AI message with combined content and tool calls
         message = AIMessage(
             content=content_blocks,
             tool_calls=tool_calls,
             invalid_tool_calls=invalid_tool_calls,
             id=response.id,
+            usage_metadata=usage_metadata,
         )
         if hasattr(response, "custom_outputs"):
             message.custom_outputs = response.custom_outputs  # ty:ignore[unresolved-attribute]
@@ -546,6 +588,79 @@ class ChatDatabricks(BaseChatModel):
         if hasattr(response, "custom_outputs"):
             message.custom_outputs = response.custom_outputs  # ty:ignore[unresolved-attribute]
         return ChatResult(generations=[ChatGeneration(message=message)])
+
+    @staticmethod
+    def _convert_completion_usage_to_usage_metadata(usage: CompletionUsage) -> UsageMetadata:
+        if usage.prompt_tokens_details is not None:
+            # Most likely an OpenAI Model
+            input_token_details = None
+            if usage.prompt_tokens_details:
+                input_token_details = InputTokenDetails(
+                    audio=usage.prompt_tokens_details.audio_tokens or 0,
+                    cache_read=usage.prompt_tokens_details.cached_tokens or 0,
+                )
+
+            output_token_details = None
+            if usage.completion_tokens_details is not None:
+                output_token_details = OutputTokenDetails(
+                    reasoning=usage.completion_tokens_details.reasoning_tokens or 0,
+                    audio=usage.completion_tokens_details.audio_tokens or 0,
+                )
+
+            result: UsageMetadata = {
+                "input_tokens": usage.prompt_tokens or 0,
+                "output_tokens": usage.completion_tokens or 0,
+                "total_tokens": usage.total_tokens or 0,
+            }
+            if input_token_details is not None:
+                result["input_token_details"] = input_token_details
+            if output_token_details is not None:
+                result["output_token_details"] = output_token_details
+            return result
+        elif getattr(usage, "cache_read_input_tokens", None) is not None:
+            # Most likely Claude Model
+            cache_read_input_tokens = getattr(usage, "cache_read_input_tokens", None) or 0
+            cache_creation_input_tokens = getattr(usage, "cache_creation_input_tokens", None) or 0
+
+            usage_metadata = UsageMetadata(
+                input_tokens=(usage.prompt_tokens or 0)
+                + cache_read_input_tokens
+                + cache_creation_input_tokens,
+                output_tokens=usage.completion_tokens or 0,
+                total_tokens=usage.total_tokens or 0,
+                input_token_details=InputTokenDetails(
+                    cache_read=cache_read_input_tokens, cache_creation=cache_creation_input_tokens
+                ),
+            )
+            return usage_metadata
+        else:
+            return UsageMetadata(
+                input_tokens=usage.prompt_tokens or 0,
+                output_tokens=usage.completion_tokens or 0,
+                total_tokens=usage.total_tokens or 0,
+            )
+
+    @staticmethod
+    def _convert_responses_usage_to_usage_metadata(usage: ResponseUsage) -> UsageMetadata:
+        input_token_details = None
+        if usage.input_tokens_details is not None:
+            input_token_details = InputTokenDetails(
+                cache_read=usage.input_tokens_details.cached_tokens or 0,
+            )
+
+        output_token_details = None
+        if usage.output_tokens_details is not None:
+            output_token_details = OutputTokenDetails(
+                reasoning=usage.output_tokens_details.reasoning_tokens or 0,
+            )
+
+        return UsageMetadata(
+            input_tokens=usage.input_tokens,
+            output_tokens=usage.output_tokens,
+            total_tokens=usage.total_tokens,
+            input_token_details=input_token_details,
+            output_token_details=output_token_details,
+        )
 
     def _convert_response_to_chat_result(self, response: ChatCompletion) -> ChatResult:
         # Check if this is a ChatAgent response (has messages but no choices)
@@ -569,7 +684,7 @@ class ChatDatabricks(BaseChatModel):
 
             generations.append(
                 ChatGeneration(
-                    message=_convert_dict_to_message(message_dict),
+                    message=_convert_dict_to_message(message_dict, response.usage),
                     generation_info=generation_info,
                 )
             )
@@ -591,6 +706,124 @@ class ChatDatabricks(BaseChatModel):
 
         return ChatResult(generations=generations, llm_output=llm_output)
 
+    def _extract_response_usage_from_chunk(
+        self, chunk: Any, stream_usage: bool
+    ) -> Optional[ResponseUsage | Dict[str, int]]:
+        """Extract usage information from a chunk if available.
+
+        Args:
+            chunk: The chunk to extract usage from
+            stream_usage: Whether to extract usage information
+
+        Returns:
+            Dictionary with usage info or None if not available
+        """
+        if hasattr(chunk, "response"):
+            response = chunk.response
+            if (
+                hasattr(response, "usage")
+                and response.usage is not None
+                and stream_usage
+                and isinstance(response.usage, ResponseUsage)
+            ):
+                return response.usage
+
+        if not stream_usage or not hasattr(chunk, "usage") or not chunk.usage:
+            return None
+
+        input_tokens = getattr(chunk.usage, "prompt_tokens", None)
+        output_tokens = getattr(chunk.usage, "completion_tokens", None)
+        if input_tokens is not None and output_tokens is not None:
+            return {
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "total_tokens": input_tokens + output_tokens,
+            }
+        return None
+
+    def _extract_completion_usage_from_chunk(
+        self, chunk: Any, stream_usage: bool
+    ) -> Optional[CompletionUsage | Dict[str, int]]:
+        if not stream_usage or not hasattr(chunk, "usage") or not chunk.usage:
+            return None
+
+        if isinstance(chunk.usage, CompletionUsage):
+            return chunk.usage
+
+        input_tokens = getattr(chunk.usage, "prompt_tokens", None)
+        output_tokens = getattr(chunk.usage, "completion_tokens", None)
+        if input_tokens is not None and output_tokens is not None:
+            return {
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "total_tokens": input_tokens + output_tokens,
+            }
+        return None
+
+    def _build_usage_chunk_from_completions(
+        self, usage: CompletionUsage | Dict[str, int]
+    ) -> ChatGenerationChunk:
+        """Build a usage metadata chunk.
+
+        Args:
+            usage: Dictionary containing input_tokens, output_tokens, and total_tokens
+
+        Returns:
+            ChatGenerationChunk with usage metadata
+        """
+
+        if isinstance(usage, CompletionUsage):
+            return ChatGenerationChunk(
+                message=AIMessageChunk(
+                    content="",
+                    usage_metadata=ChatDatabricks._convert_completion_usage_to_usage_metadata(
+                        usage
+                    ),
+                )
+            )
+        else:
+            return ChatGenerationChunk(
+                message=AIMessageChunk(
+                    content="",
+                    usage_metadata=UsageMetadata(
+                        input_tokens=usage["input_tokens"],
+                        output_tokens=usage["output_tokens"],
+                        total_tokens=usage["total_tokens"],
+                    ),
+                )
+            )
+
+    def _build_usage_chunk_from_responses(
+        self, usage: ResponseUsage | Dict[str, int]
+    ) -> ChatGenerationChunk:
+        """Build a usage metadata chunk.
+
+        Args:
+            usage: Dictionary containing input_tokens, output_tokens, and total_tokens
+
+        Returns:
+            ChatGenerationChunk with usage metadata
+        """
+
+        if isinstance(usage, ResponseUsage):
+            return ChatGenerationChunk(
+                message=AIMessageChunk(
+                    content="",
+                    usage_metadata=ChatDatabricks._convert_responses_usage_to_usage_metadata(usage),
+                )
+            )
+        else:
+            return ChatGenerationChunk(
+                message=AIMessageChunk(
+                    content="",
+                    usage_metadata=UsageMetadata(
+                        input_tokens=usage["input_tokens"],
+                        output_tokens=usage["output_tokens"],
+                        total_tokens=usage["total_tokens"],
+                    ),
+                )
+            )
+
     def _stream(
         self,
         messages: List[BaseMessage],
@@ -609,7 +842,7 @@ class ChatDatabricks(BaseChatModel):
         )
 
         usage_chunk_emitted = False
-        final_usage: dict[str, int] | None = None
+        final_usage: ResponseUsage | CompletionUsage | dict[str, int] | None = None
 
         if self.use_responses_api:
             prev_chunk = None
@@ -620,28 +853,12 @@ class ChatDatabricks(BaseChatModel):
                 if chunk_message:
                     yield ChatGenerationChunk(message=chunk_message)
                 # Check for usage in the chunk if available
-                if stream_usage and hasattr(chunk, "usage") and chunk.usage:
-                    input_tokens = getattr(chunk.usage, "prompt_tokens", None)
-                    output_tokens = getattr(chunk.usage, "completion_tokens", None)
-                    if input_tokens is not None and output_tokens is not None:
-                        final_usage = {
-                            "input_tokens": input_tokens,
-                            "output_tokens": output_tokens,
-                            "total_tokens": input_tokens + output_tokens,
-                        }
+                usage = self._extract_response_usage_from_chunk(chunk, stream_usage)
+                if usage:
+                    final_usage = usage
             # Emit special usage chunk at end of stream
             if stream_usage and final_usage and not usage_chunk_emitted:
-                # Usage chunk is an AIMessageChunk with empty content and usage_metadata
-                yield ChatGenerationChunk(
-                    message=AIMessageChunk(
-                        content="",
-                        usage_metadata=UsageMetadata(
-                            input_tokens=final_usage["input_tokens"],
-                            output_tokens=final_usage["output_tokens"],
-                            total_tokens=final_usage["total_tokens"],
-                        ),
-                    )
-                )
+                yield self._build_usage_chunk_from_responses(final_usage)
                 usage_chunk_emitted = True
         else:
             first_chunk_role = None
@@ -674,16 +891,9 @@ class ChatDatabricks(BaseChatModel):
 
                     usage = None
                     # Collect usage info only if both are present
-                    if stream_usage and chunk.usage:
-                        input_tokens = getattr(chunk.usage, "prompt_tokens", None)
-                        output_tokens = getattr(chunk.usage, "completion_tokens", None)
-                        if input_tokens is not None and output_tokens is not None:
-                            usage = {
-                                "input_tokens": input_tokens,
-                                "output_tokens": output_tokens,
-                                "total_tokens": input_tokens + output_tokens,
-                            }
-                            final_usage = usage  # store for usage chunk at end
+                    usage = self._extract_completion_usage_from_chunk(chunk, stream_usage)
+                    if usage:
+                        final_usage = usage  # store for usage chunk at end
                     # Use model_dump instead of manual dict reconstruction
                     chunk_delta_dict = chunk_delta.model_dump(exclude_unset=True)
                     chunk_message = _convert_dict_to_message_chunk(
@@ -710,27 +920,124 @@ class ChatDatabricks(BaseChatModel):
                     # Some models send a final chunk that does not have
                     # a delta or choices, but does have usage info
                     if not usage_chunk_emitted:
-                        input_tokens = getattr(chunk.usage, "prompt_tokens", None)
-                        output_tokens = getattr(chunk.usage, "completion_tokens", None)
-                        if input_tokens is not None and output_tokens is not None:
-                            final_usage = {
-                                "input_tokens": input_tokens,
-                                "output_tokens": output_tokens,
-                                "total_tokens": input_tokens + output_tokens,
-                            }
+                        usage = self._extract_completion_usage_from_chunk(chunk, stream_usage)
+                        if usage:
+                            final_usage = usage
 
             # Emit special usage chunk at end of stream
             if stream_usage and final_usage and not usage_chunk_emitted:
-                yield ChatGenerationChunk(
-                    message=AIMessageChunk(
-                        content="",
-                        usage_metadata=UsageMetadata(
-                            input_tokens=final_usage["input_tokens"],
-                            output_tokens=final_usage["output_tokens"],
-                            total_tokens=final_usage["total_tokens"],
-                        ),
+                yield self._build_usage_chunk_from_completions(final_usage)
+                usage_chunk_emitted = True
+
+    async def _astream(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        *,
+        stream_usage: Optional[bool] = None,
+        custom_inputs: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[ChatGenerationChunk]:
+        if stream_usage is None:
+            stream_usage = self.stream_usage
+
+        data = self._prepare_inputs(
+            messages, stop, stream=True, custom_inputs=custom_inputs, **kwargs
+        )
+
+        usage_chunk_emitted = False
+        final_usage: ResponseUsage | CompletionUsage | dict[str, int] | None = None
+
+        if self.use_responses_api:
+            prev_chunk = None
+            stream = cast(
+                AsyncStream[ResponseStreamEvent],
+                await self.async_client.responses.create(**data),
+            )
+            async for chunk in stream:
+                chunk_message = _convert_responses_api_chunk_to_lc_chunk(chunk, prev_chunk)
+                prev_chunk = chunk
+                if chunk_message:
+                    yield ChatGenerationChunk(message=chunk_message)
+                # Check for usage in the chunk if available
+                usage = self._extract_response_usage_from_chunk(chunk, stream_usage)
+                if usage:
+                    final_usage = usage
+            # Emit special usage chunk at end of stream
+            if stream_usage and final_usage and not usage_chunk_emitted:
+                yield self._build_usage_chunk_from_responses(final_usage)
+                usage_chunk_emitted = True
+        else:
+            first_chunk_role = None
+            stream = cast(
+                AsyncStream[ChatCompletionChunk],
+                await self.async_client.chat.completions.create(**data),
+            )
+            async for chunk in stream:
+                # Handle ChatAgent chunks that don't have choices but have delta
+                if hasattr(chunk, "choices") and chunk.choices is None and hasattr(chunk, "delta"):
+                    delta = chunk.delta
+                    chunk_delta_dict = {
+                        "role": delta.get("role"),
+                        "content": delta.get("content", ""),
+                    }
+                    if hasattr(chunk, "custom_outputs"):
+                        chunk_delta_dict["custom_outputs"] = chunk.custom_outputs
+                    chunk_message = _convert_dict_to_message_chunk(
+                        chunk_delta_dict, first_chunk_role
                     )
-                )
+                    generation_chunk = ChatGenerationChunk(message=chunk_message)
+                    if run_manager:
+                        await run_manager.on_llm_new_token(
+                            generation_chunk.text,
+                            chunk=generation_chunk,
+                        )
+                    yield generation_chunk
+                elif chunk.choices:
+                    choice = chunk.choices[0]
+                    chunk_delta = choice.delta
+                    if first_chunk_role is None:
+                        first_chunk_role = chunk_delta.role
+
+                    usage = None
+                    # Collect usage info only if both are present
+                    usage = self._extract_completion_usage_from_chunk(chunk, stream_usage)
+                    if usage:
+                        final_usage = usage  # store for usage chunk at end
+                    # Use model_dump instead of manual dict reconstruction
+                    chunk_delta_dict = chunk_delta.model_dump(exclude_unset=True)
+                    chunk_message = _convert_dict_to_message_chunk(
+                        chunk_delta_dict, first_chunk_role, usage=usage
+                    )
+                    generation_info = {}
+                    if choice.finish_reason:
+                        generation_info["finish_reason"] = choice.finish_reason
+                    if choice.logprobs:
+                        generation_info["logprobs"] = choice.logprobs
+
+                    generation_chunk = ChatGenerationChunk(
+                        message=chunk_message, generation_info=generation_info or None
+                    )
+
+                    if run_manager:
+                        await run_manager.on_llm_new_token(
+                            generation_chunk.text,
+                            chunk=generation_chunk,
+                            logprobs=generation_info.get("logprobs"),
+                        )
+                    yield generation_chunk
+                elif chunk.usage and stream_usage:
+                    # Some models send a final chunk that does not have
+                    # a delta or choices, but does have usage info
+                    if not usage_chunk_emitted:
+                        usage = self._extract_completion_usage_from_chunk(chunk, stream_usage)
+                        if usage:
+                            final_usage = usage
+
+            # Emit special usage chunk at end of stream
+            if stream_usage and final_usage and not usage_chunk_emitted:
+                yield self._build_usage_chunk_from_completions(final_usage)
                 usage_chunk_emitted = True
 
     @override
@@ -1231,7 +1538,7 @@ def _get_tool_calls_from_ai_message(message: AIMessage) -> List[Dict]:
 
 
 def _convert_dict_to_message(
-    _dict: dict,
+    _dict: dict, usage: Optional[CompletionUsage]
 ) -> HumanMessage | SystemMessage | ToolMessage | AIMessage | ChatMessage:
     role = _dict["role"]
     content = _dict.get("content") or ""
@@ -1260,12 +1567,16 @@ def _convert_dict_to_message(
                     tool_calls.append(parse_tool_call(raw_tool_call, return_id=True))
                 except Exception as e:
                     invalid_tool_calls.append(make_invalid_tool_call(raw_tool_call, str(e)))
+        usage_metadata = None
+        if usage is not None:
+            usage_metadata = ChatDatabricks._convert_completion_usage_to_usage_metadata(usage)
         lc_message = AIMessage(
             content=content,
             additional_kwargs=additional_kwargs,
             id=_dict.get("id"),
             tool_calls=tool_calls,
             invalid_tool_calls=invalid_tool_calls,
+            usage_metadata=usage_metadata,
         )
     else:
         lc_message = ChatMessage(content=content, role=role)
@@ -1278,7 +1589,7 @@ def _convert_dict_to_message(
 def _convert_dict_to_message_chunk(
     _dict: Mapping[str, Any],
     default_role: str | None,
-    usage: dict[str, Any] | None = None,
+    usage: CompletionUsage | dict[str, Any] | None = None,
 ) -> BaseMessageChunk:
     role = _dict.get("role", default_role)
     content = _dict.get("content") or ""
@@ -1314,7 +1625,12 @@ def _convert_dict_to_message_chunk(
                 ]
             except KeyError:
                 pass
-        usage_metadata = UsageMetadata(**usage) if usage else None  # type: ignore
+
+        if isinstance(usage, CompletionUsage):
+            usage_metadata = ChatDatabricks._convert_completion_usage_to_usage_metadata(usage)
+        else:
+            usage_metadata = UsageMetadata(**usage) if usage else None  # type: ignore
+
         lc_chunk = AIMessageChunk(
             content=content,
             additional_kwargs=additional_kwargs,

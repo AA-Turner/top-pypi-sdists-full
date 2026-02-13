@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Optional
 
 from ._generated.api.tag_api_base import TagCollectionBase, TagResourceBase
 
@@ -26,3 +27,19 @@ class TagResource(TagResourceBase):
     """
 
     _plural_name = "tags"
+
+
+@dataclass
+class TagValue:
+    """Represents a value of a Snowflake tag.
+
+    With this object, you can set tags on resources. It is also used when fetching tags.
+
+    Parameters
+    __________
+    value: str
+    level: bool, optional. Read-only; used only when fetching tags and ignored when provided in set-tags call.
+    """
+
+    value: str
+    level: Optional[str] = None

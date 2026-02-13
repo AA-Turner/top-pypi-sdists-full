@@ -2,112 +2,145 @@
 
 from __future__ import annotations
 
-import random
 from datetime import date, datetime, tzinfo
-from string import ascii_letters, digits
-from warnings import warn
+from typing import TYPE_CHECKING, cast
 
-from icalendar.parser_tools import to_unicode
-
-from .error import WillBeRemovedInVersion7
+if TYPE_CHECKING:
+    from icalendar.compatibility import TypeGuard, TypeIs
 
 
-class UIDGenerator:
-    """Use this only if you're too lazy to create real UUIDs.
-    
-    .. deprecated:: 6.2.1
+def is_date(dt: date | datetime) -> bool:
+    """Check if a value is a date but not a datetime.
 
-        Use the Python standard library's :func:`uuid.uuid4` instead.
+    This function distinguishes between ``date`` and ``datetime`` objects,
+    returning ``True`` only for pure ``date`` instances.
+
+    Parameters:
+        dt: The date or datetime object to check.
+
+    Returns:
+        ``True`` if the value is a ``date`` but not a ``datetime``,
+        ``False`` otherwise.
+
+    Example:
+        .. code-block:: pycon
+
+            >>> from datetime import date, datetime
+            >>> from icalendar.tools import is_date
+            >>> is_date(date(2024, 1, 15))
+            True
+            >>> is_date(datetime(2024, 1, 15, 10, 30))
+            False
     """
-
-    chars = list(ascii_letters + digits)
-
-    @staticmethod
-    def rnd_string(length=16) -> str:
-        """Generates a string with random characters of length.
-
-         .. deprecated:: 6.2.1
-
-             Use the Python standard library's :func:`uuid.uuid4` instead.
-        """
-        warn(
-            "Use https://docs.python.org/3/library/uuid.html#uuid.uuid4 instead.",
-            WillBeRemovedInVersion7,
-            stacklevel=1
-        )
-        return "".join([random.choice(UIDGenerator.chars) for _ in range(length)])
-
-    @staticmethod
-    def uid(host_name="example.com", unique=""):
-        """Generates a unique ID consisting of ``datetime-uniquevalue@host``.
-
-        For example:
-            
-            .. code-block:: text
-
-                20050105T225746Z-HKtJMqUgdO0jDUwm@example.com
-        
-        .. deprecated:: 6.2.1
-
-            Use the Python standard library's :func:`uuid.uuid5` instead.
-        """
-        from icalendar.prop import vDatetime, vText
-        warn(
-            "Use https://docs.python.org/3/library/uuid.html#uuid.uuid5 instead.",
-            WillBeRemovedInVersion7,
-            stacklevel=1
-        )
-
-        host_name = to_unicode(host_name)
-        unique = unique or UIDGenerator.rnd_string()
-        today = to_unicode(vDatetime(datetime.today()).to_ical())
-        return vText(f"{today}-{unique}@{host_name}")
-
-
-def is_date(dt: date) -> bool:
-    """Whether this is a date and not a datetime."""
     return isinstance(dt, date) and not isinstance(dt, datetime)
 
 
-def is_datetime(dt: date) -> bool:
-    """Whether this is a date and not a datetime."""
+def is_datetime(dt: date | datetime) -> TypeIs[datetime]:
+    """Check if a value is a datetime.
+
+    Parameters:
+        dt: The date or datetime object to check.
+
+    Returns:
+        ``True`` if the value is a ``datetime``, ``False`` if it is
+        only a ``date``.
+
+    Example:
+        .. code-block:: pycon
+
+            >>> from datetime import date, datetime
+            >>> from icalendar.tools import is_datetime
+            >>> is_datetime(datetime(2024, 1, 15, 10, 30))
+            True
+            >>> is_datetime(date(2024, 1, 15))
+            False
+    """
     return isinstance(dt, datetime)
 
 
-def to_datetime(dt: date) -> datetime:
-    """Make sure we have a datetime, not a date."""
+def to_datetime(dt: date | datetime) -> datetime:
+    """Convert a date to a datetime.
+
+    If the input is already a ``datetime``, it is returned unchanged.
+    If the input is a ``date``, it is converted to a ``datetime`` at midnight.
+
+    Parameters:
+        dt: The date or datetime to convert.
+
+    Returns:
+        A ``datetime`` object. If the input was a ``date``, the time
+        component will be set to midnight (00:00:00).
+
+    Example:
+        .. code-block:: pycon
+
+            >>> from datetime import date, datetime
+            >>> from icalendar.tools import to_datetime
+            >>> to_datetime(date(2024, 1, 15))
+            datetime.datetime(2024, 1, 15, 0, 0)
+            >>> to_datetime(datetime(2024, 1, 15, 10, 30))
+            datetime.datetime(2024, 1, 15, 10, 30)
+    """
     if is_date(dt):
         return datetime(dt.year, dt.month, dt.day)  # noqa: DTZ001
-    return dt
+    return cast("datetime", dt)
 
 
-def is_pytz(tz: tzinfo):
-    """Whether the timezone requires localize() and normalize()."""
+def is_pytz(tz: tzinfo) -> bool:
+    """Check if a timezone is a pytz timezone.
+
+    pytz timezones require special handling with ``localize()`` and
+    ``normalize()`` methods for correct timezone calculations.
+
+    Parameters:
+        tz: The timezone info object to check.
+
+    Returns:
+        ``True`` if the timezone is a pytz timezone (has a ``localize``
+        attribute), ``False`` otherwise.
+    """
     return hasattr(tz, "localize")
 
 
-def is_pytz_dt(dt: date):
-    """Whether the time requires localize() and normalize()."""
-    return is_datetime(dt) and is_pytz(dt.tzinfo)
+def is_pytz_dt(dt: date | datetime) -> TypeGuard[datetime]:
+    """Check if a datetime uses a pytz timezone.
+
+    This function checks whether the datetime has a timezone attached
+    and whether that timezone is a pytz timezone requiring special handling.
+
+    Parameters:
+        dt: The date or datetime object to check.
+
+    Returns:
+        ``True`` if the value is a ``datetime`` with a pytz timezone,
+        ``False`` otherwise.
+    """
+    return is_datetime(dt) and (tzinfo := dt.tzinfo) is not None and is_pytz(tzinfo)
 
 
-def normalize_pytz(dt: date):
-    """We have to normalize the time after a calculation if we use pytz.
+def normalize_pytz(dt: date | datetime) -> date | datetime:
+    """Normalize a datetime after calculations when using pytz.
 
-    pytz requires this function to be used in order to correctly calculate the
-    timezone's offset after calculations.
+    pytz requires the ``normalize()`` function to be called after arithmetic
+    operations to correctly adjust the timezone offset, especially around
+    daylight saving time transitions.
+
+    Parameters:
+        dt: The date or datetime to normalize.
+
+    Returns:
+        The normalized datetime if it uses pytz, otherwise the input unchanged.
     """
     if is_pytz_dt(dt):
-        return dt.tzinfo.normalize(dt)
+        return dt.tzinfo.normalize(dt)  # type: ignore[attr-defined]
     return dt
 
 
 __all__ = [
-    "UIDGenerator",
     "is_date",
     "is_datetime",
-    "to_datetime",
     "is_pytz",
     "is_pytz_dt",
     "normalize_pytz",
+    "to_datetime",
 ]

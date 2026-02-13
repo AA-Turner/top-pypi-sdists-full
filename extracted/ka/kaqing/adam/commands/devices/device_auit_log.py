@@ -3,7 +3,7 @@ from adam.commands.devices.device import Device
 from adam.repl_state import ReplState
 from adam.utils_tabulize import tabulize
 from adam.utils_athena import Athena
-from adam.utils_context import Context
+from adam.utils_context import NULL
 
 class DeviceAuditLog(Command, Device):
     COMMAND = f'{ReplState.L}:'
@@ -34,7 +34,7 @@ class DeviceAuditLog(Command, Device):
     def help(self, state: ReplState):
         return super().help(state, 'move to Audit Log Operations device')
 
-    def ls(self, cmd: str, _: ReplState, ctx: Context = Context.NULL):
+    def ls(self, cmd: str, _: ReplState, ctx = NULL):
         tabulize(Athena.table_names(),
                  header='NAME',
                  separator=',',
@@ -46,10 +46,10 @@ class DeviceAuditLog(Command, Device):
     def try_fallback_action(self, chain: Command, state: ReplState, cmd: str):
         return True, chain.run(f'audit {cmd}', state)
 
-    def show_tables(self, _: ReplState, ctx: Context = Context.NULL):
+    def show_tables(self, _: ReplState, ctx = NULL):
         tabulize(Athena.table_names(),
                  separator=',',
                  ctx=ctx.copy(show_out=True))
 
-    def show_table_preview(self, _: ReplState, table: str, rows: int, ctx: Context = Context.NULL):
+    def show_table_preview(self, _: ReplState, table: str, rows: int, ctx = NULL):
         Athena.run_query(f'select * from {table} limit {rows}', ctx=ctx)

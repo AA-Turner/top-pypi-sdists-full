@@ -2500,6 +2500,7 @@ class OfflineSender(object):
         thumbnail_path = message["thumbnail_path"]
 
         if thumbnail_path:
+            thumbnail_path = join(self.offline_dir, thumbnail_path)
             self.file_upload_manager.upload_thumbnail_thread(
                 options=ThumbnailUploadOptions(
                     api_key=self.api_key,
@@ -2516,6 +2517,9 @@ class OfflineSender(object):
             )
 
         asset_item_url = self.connection.get_upload_url(message["upload_type"])
+        # Resolve asset item file paths relative to offline directory
+        for item_dict in message["items"]:
+            item_dict["file_path"] = join(self.offline_dir, item_dict["file_path"])
         items = asset_item.deserialize_items(message["items"])
         for item in items:
             self.file_upload_manager.upload_asset_item_thread(

@@ -6,8 +6,10 @@ import pytest
 
 import icalendar
 from icalendar import prop
-from icalendar.cal import Calendar, Component, Event
-from icalendar.prop import tzid_from_dt
+from icalendar.cal.calendar import Calendar
+from icalendar.cal.component import Component
+from icalendar.cal.event import Event
+from icalendar.timezone import tzid_from_dt
 
 
 def test_cal_Component(calendar_component):
@@ -66,7 +68,7 @@ def test_get_content_directly(c):
     c.add("prodid", "-//my product//")
     assert c["prodid"] == prop.vText("-//my product//")
     # ... or decoded to a python type
-    assert c.decoded("prodid") == b"-//my product//"
+    assert c.decoded("prodid") == "-//my product//"
 
 
 def test_get_default_value(c):
@@ -92,26 +94,23 @@ def test_nested_component_event_ics(filled_event_component):
     """Check the ical string of the event component."""
     assert filled_event_component.to_ical() == (
         b"BEGIN:VEVENT\r\nDTEND:20000102T000000\r\n"
-        + b"DTSTART:20000101T000000\r\nSUMMARY:A brief history of time\r"
-        + b"\nEND:VEVENT\r\n"
+        b"DTSTART:20000101T000000\r\nSUMMARY:A brief history of time\r"
+        b"\nEND:VEVENT\r\n"
     )
 
 
 def test_nested_components(calendar_component, filled_event_component):
     """Components can be nested, so You can add a subcomponent. Eg a calendar
     holds events."""
-    self.assertEqual(
-        calendar_component.subcomponents,
-        [
-            Event(
-                {
-                    "DTEND": "20000102T000000",
-                    "DTSTART": "20000101T000000",
-                    "SUMMARY": "A brief history of time",
-                }
-            )
-        ],
-    )
+    assert calendar_component.subcomponents == [
+        Event(
+            {
+                "DTEND": "20000102T000000",
+                "DTSTART": "20000101T000000",
+                "SUMMARY": "A brief history of time",
+            }
+        )
+    ]
 
 
 def test_walk_filled_calendar_component(calendar_component, filled_event_component):
@@ -146,6 +145,7 @@ def test_recursive_property_items(calendar_component, filled_event_component):
 
 def test_flat_property_items(calendar_component, filled_event_component):
     """We can also enumerate property items just under the component."""
+    calendar_component.add("attendee", "Max M")
     assert calendar_component.property_items(recursive=False) == [
         ("BEGIN", b"VCALENDAR"),
         ("ATTENDEE", prop.vCalAddress("Max M")),
@@ -153,7 +153,7 @@ def test_flat_property_items(calendar_component, filled_event_component):
     ]
 
 
-def test_flat_property_items(filled_event_component):
+def test_flat_property_items_2(filled_event_component):
     """Flat enumeration on the event."""
     assert filled_event_component.property_items(recursive=False) == [
         ("BEGIN", b"VEVENT"),
@@ -170,7 +170,7 @@ def test_indent():
     c["description"] = "Paragraph one\n\nParagraph two"
     assert c.to_ical() == (
         b"BEGIN:VCALENDAR\r\nDESCRIPTION:Paragraph one\\n\\nParagraph two"
-        + b"\r\nEND:VCALENDAR\r\n"
+        b"\r\nEND:VCALENDAR\r\n"
     )
 
 
@@ -183,7 +183,7 @@ def test_INLINE_properties(calendar_with_resources):
     )
     assert calendar_with_resources.to_ical() == (
         b'BEGIN:VCALENDAR\r\nRESOURCES:Chair\\, Table\\, "Room: 42"\r\n'
-        + b"END:VCALENDAR\r\n"
+        b"END:VCALENDAR\r\n"
     )
 
 
@@ -223,8 +223,7 @@ def test_set_inline(calendar_with_resources):
 
 def test_inline_free_busy_inline(c):
     c["freebusy"] = (
-        "19970308T160000Z/PT3H,19970308T200000Z/PT1H,"
-        + "19970308T230000Z/19970309T000000Z"
+        "19970308T160000Z/PT3H,19970308T200000Z/PT1H,19970308T230000Z/19970309T000000Z"
     )
     assert c.get_inline("freebusy", decode=0) == [
         "19970308T160000Z/PT3H",
@@ -273,7 +272,7 @@ def test_cal_Component_add_property_parameter(comp):
 
 
 comp_prop = pytest.mark.parametrize(
-    "component_name, property_name",
+    ("component_name", "property_name"),
     [
         ("VEVENT", "DTSTART"),
         ("VEVENT", "DTEND"),
@@ -300,7 +299,7 @@ def test_cal_Component_from_ical_2(component_name, property_name, tzp):
     component_str += property_name + ":"
     component_str += "20120404T073000\nEND:" + component_name
     component = Component.from_ical(component_str)
-    assert component[property_name].dt.tzinfo == None
+    assert component[property_name].dt.tzinfo is None
 
 
 def test_cal_Component_to_ical_property_order():
@@ -367,7 +366,7 @@ def test_repr_event(repr_example):
     assert re.match(r"VEVENT\({u?'KEY1': u?'value1'}\)", str(repr_example.event))
 
 
-def test_nested_components(repr_example):
+def test_nested_components_2(repr_example):
     """Representation of nested Components"""
     repr_example.calendar.add_component(repr_example.event)
     print(repr_example.nested)
@@ -406,11 +405,10 @@ def test_minimal_calendar_component_with_one_event():
     event["uid"] = "42"
     event.add("dtstart", datetime(2005, 4, 4, 8, 0, 0))
     cal.add_component(event)
-    assert (
-        cal.subcomponents[0].to_ical()
-        == b"BEGIN:VEVENT\r\nSUMMARY:Python meeting about calendaring\r\n"
-        + b"DTSTART:20050404T080000\r\nUID:42\r\n"
-        + b"END:VEVENT\r\n"
+    assert cal.subcomponents[0].to_ical() == (
+        b"BEGIN:VEVENT\r\nSUMMARY:Python meeting about calendaring\r\n"
+        b"DTSTART:20050404T080000\r\nUID:42\r\n"
+        b"END:VEVENT\r\n"
     )
 
 
@@ -433,7 +431,7 @@ def test_calendar_with_parsing_errors_has_an_error_in_one_event(calendars):
     empty DATE.
     """
     errors = [e.errors for e in calendars.parsing_error.walk("VEVENT")]
-    assert errors == [[], [("EXDATE", "Expected datetime, date, or time, got: ''")]]
+    assert errors == [[], [("EXDATE", "Expected datetime, date, or time. Got: ''")]]
 
 
 def test_cal_strict_parsing(calendars):

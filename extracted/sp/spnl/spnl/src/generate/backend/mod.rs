@@ -4,6 +4,10 @@ pub(crate) mod openai;
 #[cfg(feature = "spnl-api")]
 pub(crate) mod spnl;
 
+#[cfg(feature = "local")]
+pub(crate) mod mistralrs;
+
 pub(crate) mod capabilities;
 
 mod progress;
+pub(crate) mod timing;

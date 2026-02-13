@@ -1,4 +1,4 @@
-# Copyright 2024 The TensorFlow Authors. All Rights Reserved.
+# Copyright 2025 The TensorFlow Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -67,6 +67,72 @@ _BLOCK_SPEC_SCHEMAS = {
         'is_output',
     ]
 }
+
+# Define YOLOv7-pico variant.
+_YoloV7Pico = [
+    ['convbn', -1, 3, 2, 8, False],  # 0-P1/2
+
+    ['convbn', -1, 3, 2, 16, False],  # 1-P2/4
+
+    ['convbn', -1, 1, 1, 8, False],
+    ['convbn', -2, 1, 1, 8, False],
+    ['convbn', -1, 3, 1, 8, False],
+    ['concat', [-1, -2, -3, -4], -1, False],
+    ['convbn', -1, 1, 1, 16, False],  # 7
+
+    ['maxpool2d', -1, 2, 2, 'same', False],  # 8-P3/8
+    ['convbn', -1, 1, 1, 16, False],
+    ['convbn', -2, 1, 1, 16, False],
+    ['convbn', -1, 3, 1, 16, False],
+    ['concat', [-1, -2, -3, -4], -1, False],
+    ['convbn', -1, 1, 1, 32, True],  # 14
+
+    ['maxpool2d', -1, 2, 2, 'same', False],  # 15-P4/16
+    ['convbn', -1, 1, 1, 32, False],
+    ['convbn', -2, 1, 1, 32, False],
+    ['convbn', -1, 3, 1, 32, False],
+    ['concat', [-1, -2, -3, -4], -1, False],
+    ['convbn', -1, 1, 1, 64, True],  # 21
+]
+
+# Define YOLOv7-nano variant.
+
+_YoloV7Nano = [
+    ['convbn', -1, 3, 2, 8, False],  # 0-P1/2
+
+    ['convbn', -1, 3, 2, 16, False],  # 1-P2/4
+
+    ['convbn', -1, 1, 1, 8, False],
+    ['convbn', -2, 1, 1, 8, False],
+    ['convbn', -1, 3, 1, 8, False],
+    ['convbn', -1, 3, 1, 8, False],
+    ['concat', [-1, -2, -3, -4], -1, False],
+    ['convbn', -1, 1, 1, 16, False],  # 7
+
+    ['maxpool2d', -1, 2, 2, 'same', False],  # 8-P3/8
+    ['convbn', -1, 1, 1, 16, False],
+    ['convbn', -2, 1, 1, 16, False],
+    ['convbn', -1, 3, 1, 16, False],
+    ['convbn', -1, 3, 1, 16, False],
+    ['concat', [-1, -2, -3, -4], -1, False],
+    ['convbn', -1, 1, 1, 32, True],  # 14
+
+    ['maxpool2d', -1, 2, 2, 'same', False],  # 15-P4/16
+    ['convbn', -1, 1, 1, 32, False],
+    ['convbn', -2, 1, 1, 32, False],
+    ['convbn', -1, 3, 1, 32, False],
+    ['convbn', -1, 3, 1, 32, False],
+    ['concat', [-1, -2, -3, -4], -1, False],
+    ['convbn', -1, 1, 1, 64, True],  # 21
+
+    ['maxpool2d', -1, 2, 2, 'same', False],  # 22-P5/32
+    ['convbn', -1, 1, 1, 64, False],
+    ['convbn', -2, 1, 1, 64, False],
+    ['convbn', -1, 3, 1, 64, False],
+    ['convbn', -1, 3, 1, 64, False],
+    ['concat', [-1, -2, -3, -4], -1, False],
+    ['convbn', -1, 1, 1, 128, True],  # 28
+]
 
 # Define YOLOv7-tiny variant.
 _YoloV7Tiny = [
@@ -241,6 +307,8 @@ _YoloV7X = [
 
 # Aggregates all variants for YOLOv7 backbones.
 BACKBONES = {
+    'yolov7-nano': _YoloV7Nano,
+    'yolov7-pico': _YoloV7Pico,
     'yolov7-tiny': _YoloV7Tiny,
     'yolov7': _YoloV7,
     'yolov7x': _YoloV7X,

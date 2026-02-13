@@ -3,17 +3,17 @@ import os
 import re
 
 from adam.commands.export.importer import Importer
-from adam.commands.export.utils_export import ExportTableStatus, csv_dir, fs_exec, table_log_dir
+from adam.commands.export.utils_export import ExportTableStatus, fs_exec, remote_export_table_log_dir
 from adam.config import Config
 from adam.repl_state import ReplState
+from adam.directories import Directories, local_downloads_dir
 from adam.utils_log import log2, log
 from adam.utils_cassandra.cassandra_nodes import CassandraNodes
 from adam.utils_concurrent import parallelize
 from adam.utils_tabulize import tabulize
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.utils_k8s.pod_files import PodFiles
 from adam.utils_k8s.statefulsets import StatefulSets
-from adam.utils_local import local_downloads_dir
 
 class ExportSessions:
     def clear_export_session_cache():
@@ -39,13 +39,13 @@ class ExportSessions:
 
         prefix = Importer.prefix_from_importer(importer)
 
-        log_files: list[str] = PodFiles.find_files(pod, 'cassandra', namespace, f'{table_log_dir(pod, namespace)}/{prefix}*_*.log*', remote=True)
+        log_files: list[str] = PodFiles.find_files(pod, 'cassandra', namespace, f'{remote_export_table_log_dir(pod, namespace)}/{prefix}*_*.log*', remote=True)
 
         if not log_files:
             return {}
 
         for log_file in log_files[:limit]:
-            m = re.match(f'{table_log_dir(pod, namespace)}/([ces].*?)_.*\.log?(.*)', log_file)
+            m = re.match(f'{remote_export_table_log_dir(pod, namespace)}/([ces].*?)_.*\.log?(.*)', log_file)
             if m:
                 s = m.group(1)
                 state = m.group(2) # '', '.pending_import', '.done'
@@ -61,20 +61,20 @@ class ExportSessions:
 
         return sessions
 
-    def clean_up_all_sessions(sts: str, pod: str, namespace: str, ctx: Context = Context.NULL):
+    def clean_up_all_sessions(sts: str, pod: str, namespace: str, ctx = NULL):
         if not sts or not namespace:
             return False
 
         if not pod:
             pod = StatefulSets.pod_names(sts, namespace)[0]
 
-        CassandraNodes.exec(pod, namespace, f'rm -rf {csv_dir()}/*', ctx=ctx)
-        cmd = f'rm -rf {table_log_dir(pod, namespace)}/*.log*'
+        CassandraNodes.exec(pod, namespace, f'rm -rf {Directories.export_csv_dir()}/*', ctx=ctx)
+        cmd = f'rm -rf {remote_export_table_log_dir(pod, namespace)}/*.log*'
         fs_exec(pod, namespace, cmd, ctx=ctx)
 
         return True
 
-    def clean_up_sessions(sts: str, pod: str, namespace: str, sessions: list[str], max_workers = 0, ctx: Context = Context.NULL):
+    def clean_up_sessions(sts: str, pod: str, namespace: str, sessions: list[str], max_workers = 0, ctx = NULL):
         if not sessions:
             return []
 
@@ -92,7 +92,7 @@ class ExportSessions:
 
             return csv_cnt, log_cnt
 
-    def clean_up_session(sts: str, pod: str, namespace: str, session: str, multi_tables = True, ctx: Context = Context.NULL):
+    def clean_up_session(sts: str, pod: str, namespace: str, session: str, multi_tables = True, ctx = NULL):
         if not sts or not namespace:
             return 0, 0
 
@@ -105,13 +105,13 @@ class ExportSessions:
         csv_cnt = 0
         log_cnt = 0
 
-        log_files: list[str] = PodFiles.find_files(pod, 'cassandra', namespace, f'{table_log_dir(pod, namespace)}/{session}_*.log*', remote=True)
+        log_files: list[str] = PodFiles.find_files(pod, 'cassandra', namespace, f'{remote_export_table_log_dir(pod, namespace)}/{session}_*.log*', remote=True)
         for log_file in log_files:
-            m = re.match(f'{table_log_dir(pod, namespace)}/{session}_(.*?)\.(.*?)\.log.*', log_file)
+            m = re.match(f'{remote_export_table_log_dir(pod, namespace)}/{session}_(.*?)\.(.*?)\.log.*', log_file)
             if m:
                 table = m.group(2)
 
-                CassandraNodes.exec(pod, namespace, f'rm -rf {csv_dir()}/{session}_{table}', shell='bash', ctx=ctx)
+                CassandraNodes.exec(pod, namespace, f'rm -rf {Directories.export_csv_dir()}/{session}_{table}', shell='bash', ctx=ctx)
                 csv_cnt += 1
 
                 cmd = f'rm -rf {log_file}'
@@ -120,7 +120,7 @@ class ExportSessions:
 
         return csv_cnt, log_cnt
 
-    def show_session(sts: str, pod: str, namespace: str, session: str, ctx: Context = Context.NULL):
+    def show_session(sts: str, pod: str, namespace: str, session: str, ctx = NULL):
         if not pod:
             pod = StatefulSets.pod_names(sts, namespace)[0]
 
@@ -146,7 +146,7 @@ class ExportSessions:
         def download_csv(table):
             from_path: str = table.csv_file
 
-            to_path = from_path.replace(csv_dir(), local_downloads_dir())
+            to_path = from_path.replace(Directories.export_csv_dir(), local_downloads_dir())
             os.makedirs(os.path.dirname(to_path), exist_ok=True)
             PodFiles.download_file(pod, 'cassandra', namespace, from_path, to_path)
 
@@ -169,13 +169,13 @@ class ExportSessionService:
 
         ExportSessions.clear_export_session_cache()
 
-    def clean_up_all(self, ctx: Context = Context.NULL):
+    def clean_up_all(self, ctx = NULL):
         state = self.handler.state
 
         if ExportSessions.clean_up_all_sessions(state.sts, self.pod(), state.namespace, ctx=ctx):
             ExportSessions.clear_export_session_cache()
 
-    def show_all_sessions(self, ctx: Context = Context.NULL):
+    def show_all_sessions(self, ctx = NULL):
         state = self.handler.state
 
         sessions = sorted(ExportSessions.find_export_sessions(self.pod(), state.namespace).items(), reverse=True)
@@ -185,7 +185,7 @@ class ExportSessionService:
                  separator='\t',
                  ctx=ctx.copy(show_out=True))
 
-    def show_session(self, session: str, ctx: Context = Context.NULL):
+    def show_session(self, session: str, ctx = NULL):
         state = self.handler.state
         ExportSessions.show_session(state.sts, self.pod(), state.namespace, session, ctx=ctx)
 

@@ -5,10 +5,9 @@
 
 import pytest
 
-from tests.utils import random_string
-
 from snowflake.core.exceptions import NotFoundError
 from snowflake.core.image_repository import ImageRepository
+from tests.utils import random_string
 
 
 def test_drop(image_repositories):

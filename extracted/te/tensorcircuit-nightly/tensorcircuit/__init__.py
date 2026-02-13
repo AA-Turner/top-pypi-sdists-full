@@ -1,4 +1,4 @@
-__version__ = "1.5.0.dev20260208"
+__version__ = "1.5.0.dev20260212"
 __author__ = "TensorCircuit Authors"
 __creator__ = "refraction-ray"
 
@@ -29,6 +29,7 @@ from .gates import Gate
 from .quditcircuit import QuditCircuit
 from .analogcircuit import AnalogCircuit
 from .circuit import Circuit, expectation
+from .u1circuit import U1Circuit
 from .mpscircuit import MPSCircuit
 from .densitymatrix import DMCircuit as DMCircuit_reference
 from .densitymatrix import DMCircuit2

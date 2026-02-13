@@ -91,6 +91,11 @@ async def inclusao_pedidos_vibra(task: RpaProcessoEntradaDTO):
                 counter += 1
                 await asyncio.sleep(1)
                 
+            #close informativo
+            try:
+                await page.locator("[mat-dialog-close]").click()
+            except:
+                pass
             try:
                 if not new_main_page:
                     try:

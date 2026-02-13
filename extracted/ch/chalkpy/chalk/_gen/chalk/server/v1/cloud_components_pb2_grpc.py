@@ -100,6 +100,21 @@ class CloudComponentsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterGatewayRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterGatewayResponse.FromString,
         )
+        self.CreateBindingPrivateGateway = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/CreateBindingPrivateGateway",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingPrivateGatewayRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingPrivateGatewayResponse.FromString,
+        )
+        self.GetBindingPrivateGateway = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/GetBindingPrivateGateway",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingPrivateGatewayRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingPrivateGatewayResponse.FromString,
+        )
+        self.DeleteBindingPrivateGateway = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/DeleteBindingPrivateGateway",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingPrivateGatewayRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingPrivateGatewayResponse.FromString,
+        )
         self.CreateBindingClusterBackgroundPersistenceDeployment = channel.unary_unary(
             "/chalk.server.v1.CloudComponentsService/CreateBindingClusterBackgroundPersistenceDeployment",
             request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterBackgroundPersistenceDeploymentRequest.SerializeToString,
@@ -237,6 +252,24 @@ class CloudComponentsServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def CreateBindingPrivateGateway(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetBindingPrivateGateway(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteBindingPrivateGateway(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def CreateBindingClusterBackgroundPersistenceDeployment(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -360,6 +393,21 @@ def add_CloudComponentsServiceServicer_to_server(servicer, server):
             servicer.DeleteBindingClusterGateway,
             request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterGatewayRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterGatewayResponse.SerializeToString,
+        ),
+        "CreateBindingPrivateGateway": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateBindingPrivateGateway,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingPrivateGatewayRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingPrivateGatewayResponse.SerializeToString,
+        ),
+        "GetBindingPrivateGateway": grpc.unary_unary_rpc_method_handler(
+            servicer.GetBindingPrivateGateway,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingPrivateGatewayRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingPrivateGatewayResponse.SerializeToString,
+        ),
+        "DeleteBindingPrivateGateway": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteBindingPrivateGateway,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingPrivateGatewayRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingPrivateGatewayResponse.SerializeToString,
         ),
         "CreateBindingClusterBackgroundPersistenceDeployment": grpc.unary_unary_rpc_method_handler(
             servicer.CreateBindingClusterBackgroundPersistenceDeployment,
@@ -885,6 +933,93 @@ class CloudComponentsService(object):
             "/chalk.server.v1.CloudComponentsService/DeleteBindingClusterGateway",
             chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterGatewayRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterGatewayResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateBindingPrivateGateway(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/CreateBindingPrivateGateway",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingPrivateGatewayRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingPrivateGatewayResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetBindingPrivateGateway(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/GetBindingPrivateGateway",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingPrivateGatewayRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingPrivateGatewayResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteBindingPrivateGateway(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/DeleteBindingPrivateGateway",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingPrivateGatewayRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingPrivateGatewayResponse.FromString,
             options,
             channel_credentials,
             insecure,

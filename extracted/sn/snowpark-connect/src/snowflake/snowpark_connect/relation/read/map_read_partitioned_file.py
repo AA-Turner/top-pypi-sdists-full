@@ -33,12 +33,12 @@ from snowflake.snowpark.types import (
 from snowflake.snowpark_connect.config import external_table_location, str_to_bool
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
+from snowflake.snowpark_connect.type_mapping import map_type_to_snowflake_type
 from snowflake.snowpark_connect.utils.context import (
     get_spark_session_id,
     register_request_external_table,
 )
 from snowflake.snowpark_connect.utils.io_utils import cached_file_format
-from snowflake.snowpark_connect.utils.scala_udf_utils import map_type_to_snowflake_type
 
 FileFormat = Literal["parquet", "csv", "json", "text"]
 

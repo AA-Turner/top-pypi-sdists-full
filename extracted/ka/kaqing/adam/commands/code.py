@@ -27,19 +27,20 @@ class Code(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            my_local = globals() | locals()
-            # my_local = globals() | {'StatefulSets': StatefulSets} | locals()
-            lines = [
-                'sts: StatefulSet name',
-                'pod: Pod name',
-                'pods: Pod names in the current StatefulSet',
-                'tables: Cassandra tables names in the current StatefulSet',
-                "cql('select...'): run cql statement"
-            ]
+            with self.context(args) as (args, ctx):
+                my_local = globals() | locals()
+                # my_local = globals() | {'StatefulSets': StatefulSets} | locals()
+                lines = [
+                    'sts: StatefulSet name',
+                    'pod: Pod name',
+                    'pods: Pod names in the current StatefulSet',
+                    'tables: Cassandra tables names in the current StatefulSet',
+                    "cql('select...'): run cql statement"
+                ]
 
-            code.interact(local=my_local, banner=tabulize(lines, header='Variables', separator=':', ctx=self.context()))
+                code.interact(local=my_local, banner=tabulize(lines, header='Variables', separator=':', ctx=ctx))
 
-            return state
+                return state
 
     def completion(self, state: ReplState):
         return super().completion(state)

@@ -36,7 +36,15 @@ class TestCustomerFacingDependencyLicense(unittest.TestCase):
         if include_optional:
             return CustomerFacingDependencyLicense(
                 name = '',
-                source = 'Dependabot'
+                source = 'Dependabot',
+                metadata = legit_api_client.models.customer_facing_license_metadata.CustomerFacingLicenseMetadata(
+                    copyleft_type = null, 
+                    commercial_use_allowed = null, 
+                    source_disclosure_required = True, 
+                    saas_disclosure_clause = True, 
+                    osi_approved = True, 
+                    info_url = '', 
+                    restriction_level = null, )
             )
         else:
             return CustomerFacingDependencyLicense(

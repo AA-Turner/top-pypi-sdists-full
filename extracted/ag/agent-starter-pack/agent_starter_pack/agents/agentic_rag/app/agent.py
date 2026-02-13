@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+{% if cookiecutter.bq_analytics -%}
+import logging
+{% endif -%}
 import os
 
 import google
@@ -19,6 +22,13 @@ import vertexai
 from google.adk.agents import Agent
 from google.adk.apps import App
 from google.adk.models import Gemini
+{%- if cookiecutter.bq_analytics %}
+from google.adk.plugins.bigquery_agent_analytics_plugin import (
+    BigQueryAgentAnalyticsPlugin,
+    BigQueryLoggerConfig,
+)
+from google.cloud import bigquery
+{%- endif %}
 from google.genai import types
 from langchain_google_vertexai import VertexAIEmbeddings
 
@@ -111,6 +121,7 @@ Answer to the best of your ability using the context provided.
 Leverage the Tools you are provided to answer questions.
 If you already know the answer to a question, you can respond directly without using the tools."""
 
+
 root_agent = Agent(
     name="root_agent",
     model=Gemini(
@@ -121,4 +132,38 @@ root_agent = Agent(
     tools=[retrieve_docs],
 )
 
-app = App(root_agent=root_agent, name="{{cookiecutter.agent_directory}}")
+{%- if cookiecutter.bq_analytics %}
+
+# Initialize BigQuery Analytics
+_plugins = []
+_project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
+_dataset_id = os.environ.get("BQ_ANALYTICS_DATASET_ID", "adk_agent_analytics")
+_location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+
+if _project_id:
+    try:
+        bq = bigquery.Client(project=_project_id)
+        bq.create_dataset(f"{_project_id}.{_dataset_id}", exists_ok=True)
+
+        _plugins.append(
+            BigQueryAgentAnalyticsPlugin(
+                project_id=_project_id,
+                dataset_id=_dataset_id,
+                location=_location,
+                config=BigQueryLoggerConfig(
+                    gcs_bucket_name=os.environ.get("BQ_ANALYTICS_GCS_BUCKET"),
+                    connection_id=os.environ.get("BQ_ANALYTICS_CONNECTION_ID"),
+                ),
+            )
+        )
+    except Exception as e:
+        logging.warning(f"Failed to initialize BigQuery Analytics: {e}")
+{%- endif %}
+
+app = App(
+    root_agent=root_agent,
+    name="{{cookiecutter.agent_directory}}",
+{%- if cookiecutter.bq_analytics %}
+    plugins=_plugins,
+{%- endif %}
+)

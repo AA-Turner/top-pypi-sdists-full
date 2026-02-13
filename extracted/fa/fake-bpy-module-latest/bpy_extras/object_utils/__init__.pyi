@@ -7,13 +7,13 @@ import mathutils
 
 class AddObjectHelper:
     def align_update_callback(self, _context) -> None:
-        """
+        """Update callback for the align property, resets rotation for world alignment.
 
         :param _context:
         """
 
 def add_object_align_init(
-    context: bpy.types.Context, operator: bpy.types.Operator
+    context: bpy.types.Context, operator: None | bpy.types.Operator
 ) -> mathutils.Matrix:
     """Return a matrix using the operator settings and view context.
 
@@ -22,34 +22,42 @@ def add_object_align_init(
     :return: the matrix from the context and settings.
     """
 
-def object_add_grid_scale(context) -> None:
+def object_add_grid_scale(context: bpy.types.Context) -> float:
     """Return scale which should be applied on object
-    data to align it to grid scale
+    data to align it to grid scale.
 
+        :param context: The context.
+        :return: The grid scale.
     """
 
-def object_add_grid_scale_apply_operator(operator, context) -> None:
-    """Scale an operators distance values by the grid size."""
+def object_add_grid_scale_apply_operator(
+    operator: bpy.types.Operator, context: bpy.types.Context
+) -> None:
+    """Scale an operators distance values by the grid size.
+
+    :param operator: The operator to scale.
+    :param context: The context.
+    """
 
 def object_data_add(
     context: bpy.types.Context,
     obdata: None | bpy.types.ID,
-    operator: bpy.types.Operator | None = None,
-    name: str | None = None,
+    operator: None | bpy.types.Operator | None = None,
+    name: None | str | None = None,
 ) -> bpy.types.Object:
     """Add an object using the view context and preference to initialize the
     location, rotation and layer.
 
         :param context: The context to use.
-        :param obdata: Valid object data to used for the new object or None.
+        :param obdata: Valid object data to be used for the new object or None.
         :param operator: The operator, checked for location and rotation properties.
         :param name: Optional name
         :return: the newly created object in the scene.
     """
 
 def object_report_if_active_shape_key_is_locked(
-    obj: bpy.types.Object, operator: bpy.types.Operator
-) -> None:
+    obj: bpy.types.Object, operator: None | bpy.types.Operator
+) -> bool:
     """Checks if the active shape key of the specified object is locked, and reports an error if so.If the object has no shape keys, there is nothing to lock, and the function returns False.
 
     :param obj: Object to check.

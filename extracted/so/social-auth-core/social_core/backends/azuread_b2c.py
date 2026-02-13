@@ -29,13 +29,13 @@ See https://nicksnettravels.builttoroam.com/post/2017/01/24/Verifying-Azure-Acti
 
 from __future__ import annotations
 
-import json
-from typing import TYPE_CHECKING, Any, Literal
+from json import dumps
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from cryptography.hazmat.primitives import serialization
 from jwt import DecodeError, ExpiredSignatureError, get_unverified_header
 from jwt import decode as jwt_decode
-from jwt.algorithms import RSAAlgorithm  # ty: ignore[possibly-missing-import]
+from jwt.algorithms import RSAAlgorithm
 
 from social_core.exceptions import AuthException, AuthTokenError
 
@@ -114,7 +114,8 @@ class AzureADB2COAuth2(AzureADOAuth2):
         url: str,
         method: Literal["GET", "POST", "DELETE"] = "GET",
         headers: Mapping[str, str | bytes] | None = None,
-        data: dict | bytes | str | None = None,
+        data: dict | None = None,
+        json: dict | None = None,
         auth: tuple[str, str] | AuthBase | None = None,
         params: dict | None = None,
     ) -> dict[Any, Any]:
@@ -125,7 +126,13 @@ class AzureADB2COAuth2(AzureADOAuth2):
         However, B2C backends provides `id_token`.
         """
         response = super().request_access_token(
-            url, method, headers, data, auth, params
+            url,
+            method=method,
+            headers=headers,
+            data=data,
+            json=json,
+            auth=auth,
+            params=params,
         )
         if "access_token" not in response:
             response["access_token"] = response["id_token"]
@@ -145,7 +152,7 @@ class AzureADB2COAuth2(AzureADOAuth2):
         """
         Builds a PEM formatted key string from a JWT public key dict.
         """
-        pub_key = RSAAlgorithm.from_jwk(json.dumps(key_json_dict))
+        pub_key = RSAAlgorithm.from_jwk(dumps(key_json_dict))
 
         # TODO: clarify the types of this; JWKs can apparently include both public and private,
         # but this code assumes public.
@@ -198,7 +205,7 @@ class AzureADB2COAuth2(AzureADOAuth2):
                 key=key,
                 algorithms=["RS256"],
                 audience=self.setting("KEY"),
-                leeway=self.setting("JWT_LEEWAY", default=0),
+                leeway=cast("int", self.setting("JWT_LEEWAY", default=0)),
             )
         except (DecodeError, ExpiredSignatureError) as error:
-            raise AuthTokenError(self, error)
+            raise AuthTokenError(self, error) from error

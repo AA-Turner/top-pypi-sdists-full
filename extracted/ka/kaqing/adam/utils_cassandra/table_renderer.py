@@ -1,6 +1,5 @@
 from adam.commands.utils_table_render import show_table
-from adam.utils_concurrent import offload
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.repl_state import ReplState
 from adam.utils_k8s.statefulsets import StatefulSets
 
@@ -8,11 +7,10 @@ class TableRenderer:
     def __init__(self, handler: 'CassandraRendererHandler'):
         self.handler = handler
 
-    def display_table(self, cols: str, header: str, find_issues = True, ctx: Context = Context.NULL):
-        with offload(ctx.background) as submit:
-            submit(lambda: self._display_table(cols, header, find_issues=find_issues, ctx=ctx))
+    def display_table(self, cols: str, header: str, find_issues = True, ctx = NULL):
+        ctx.submit(lambda: self._display_table(cols, header, find_issues=find_issues, ctx=ctx))
 
-    def _display_table(self, cols: str, header: str, find_issues=True, ctx: Context = Context.NULL):
+    def _display_table(self, cols: str, header: str, find_issues=True, ctx = NULL):
         state = self.handler.state
 
         if state.pod:

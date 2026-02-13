@@ -31,7 +31,7 @@ setuptools.setup(
     long_description=open("README.rst", encoding="utf-8").read(),
     long_description_content_type="text/x-rst",
     install_requires=[
-        "dulwich>=0.20.6, !=0.20.33 ; python_version>='3.0'",  # https://github.com/jelmer/dulwich/issues/950
+        "dulwich>=0.20.6, !=0.20.33, <1.0.0",  # 1.0.0 introduced breaking changes
         "everett[ini]>=1.0.1,<3.2.0",
         "importlib-metadata; python_version < '3.8'",
         "jsonschema>=2.6.0,!=3.1.0",
@@ -69,5 +69,5 @@ setuptools.setup(
         "Programming Language :: Python :: 3.12",
     ],
     license="MIT",
-    version="3.55.0",
+    version="3.56.0",
 )

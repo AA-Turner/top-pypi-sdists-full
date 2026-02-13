@@ -2577,7 +2577,6 @@ Borrowed from the Azure SDK for Python.
 
 
 class WindowsAzureData:
-
     """
     This is the base of data class.
     It is only used to check whether it is instance or not.
@@ -2674,7 +2673,6 @@ class Credentials(WindowsAzureData):
 
 
 class CertificateSetting(WindowsAzureData):
-
     """
     Initializes a certificate setting.
 
@@ -3141,7 +3139,6 @@ class _Base64String(str):
 
 
 class _ListOf(list):
-
     """
     A list which carries with it the type that's expected to go in it.
     Used for deserializaion and construction of the lists
@@ -3157,7 +3154,6 @@ class _ListOf(list):
 
 
 class ScalarListOf(list):
-
     """
     A list of scalar types which carries with it the type that's
     expected to go in it along with its xml element name.
@@ -3171,7 +3167,6 @@ class ScalarListOf(list):
 
 
 class _DictOf(dict):
-
     """
     A dict which carries with it the xml element names for key,val.
     Used for deserializaion and construction of the lists

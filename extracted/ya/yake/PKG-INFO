@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: yake
-Version: 0.7.1
+Version: 0.7.3
 Summary: Keyword extraction Python package
 Project-URL: Documentation, https://inesctec.github.io/yake/docs/--home
 Project-URL: Source, https://github.com/INESCTEC/yake
@@ -22,7 +22,7 @@ Requires-Python: >=3.10
 Requires-Dist: click>=6.0
 Requires-Dist: jellyfish
 Requires-Dist: networkx
-Requires-Dist: numpy<2.0.0,>=1.24.0
+Requires-Dist: numpy>=1.24.0
 Requires-Dist: segtok
 Requires-Dist: tabulate
 Provides-Extra: benchmark
@@ -38,7 +38,7 @@ Requires-Dist: pytest>=7.0.0; extra == 'dev'
 Requires-Dist: ruff>=0.1.0; extra == 'dev'
 Provides-Extra: lemmatization
 Requires-Dist: nltk>=3.8.0; extra == 'lemmatization'
-Requires-Dist: spacy<3.8.0,>=3.7.0; extra == 'lemmatization'
+Requires-Dist: spacy>=3.8.0; extra == 'lemmatization'
 Description-Content-Type: text/markdown
 
 # YAKE! (Yet Another Keyword Extractor)
@@ -176,7 +176,7 @@ custom_th = TextHighlighter(
 ## Where to Find YAKE!
 
 - 🌐 Online demo: [http://yake.inesctec.pt](http://yake.inesctec.pt)
-- 🔌 Documentation site: [https://inesctec.github.io/yake/docs/--home](https://liaad.github.io/yake/)
+- 🔌 Documentation site: [https://oss.inesctec.pt/yake/](https://oss.inesctec.pt/yake/)
 - 📦 Python package: [https://github.com/INESCTEC/yake](https://github.com/INESCTEC/yake)
 - 💻 Pypi: [https://pypi.org/project/yake/](https://pypi.org/project/yake/)
 

@@ -143,7 +143,7 @@ class ApiRoute(Route):
 
     async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
         # https://asgi.readthedocs.io/en/latest/specs/www.html#http-connection-scope
-        from langgraph_api.logging import set_logging_context
+        from langgraph_api.logging import set_logging_context  # noqa: PLC0415
 
         scope["route"] = self.path
         set_logging_context({"path": self.path, "method": scope.get("method")})
@@ -168,7 +168,7 @@ def _name_otel_span(scope: Scope, route_pattern: str):
     if not config.OTEL_ENABLED:
         return
     try:
-        from opentelemetry.trace import get_current_span
+        from opentelemetry.trace import get_current_span  # noqa: PLC0415
 
         span = get_current_span()
         if span.is_recording():

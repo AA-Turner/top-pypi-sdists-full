@@ -9,23 +9,31 @@ from typing import ClassVar, Literal, TypeVar, get_args, overload
 import questionary
 from cognite.client.data_classes import (
     Asset,
-    DataSet,
     UserProfileList,
     filters,
 )
 from cognite.client.data_classes.aggregations import Count
-from cognite.client.data_classes.data_modeling import ContainerId, NodeList, Space, SpaceList, View, ViewId, ViewList
+from cognite.client.data_classes.data_modeling import ViewId
 from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.utils import ms_to_datetime
 from questionary import Choice
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.request_classes.filters import ViewFilter
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
+    ContainerReference,
+    SpaceResponse,
+    ViewReference,
+    ViewResponse,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.dataset import DataSetResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.canvas import Canvas
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.charts import Chart, ChartList, Visibility
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import ResourceViewMapping
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.raw import RawTable
+from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelResponse
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 
@@ -39,7 +47,7 @@ from .aggregators import (
 )
 from .useful_types import AssetCentricDestinationType
 
-T_Type = TypeVar("T_Type", bound=Asset | DataSet)
+T_Type = TypeVar("T_Type", bound=Asset | DataSetResponse)
 
 
 class AssetCentricInteractiveSelect(ABC):
@@ -60,23 +68,23 @@ class AssetCentricInteractiveSelect(ABC):
         return self._aggregator.count(hierarchies, data_sets)
 
     @lru_cache
-    def _get_available_data_sets(self, hierarchy: str | None = None) -> list[DataSet]:
+    def _get_available_data_sets(self, hierarchy: str | None = None) -> list[DataSetResponse]:
         if hierarchy is not None:
             datasets = self._aggregator.used_data_sets(hierarchy)
-            return list(self.client.data_sets.retrieve_multiple(external_ids=datasets))
+            return self.client.tool.datasets.retrieve(ExternalId.from_external_ids(datasets), ignore_unknown_ids=True)
         else:
-            return list(self.client.data_sets.list(limit=-1))
+            return self.client.tool.datasets.list(limit=None)
 
     @lru_cache
     def _get_available_hierarchies(self, data_set: str | None = None) -> list[Asset]:
         data_set_external_ids = [data_set] if data_set else None
         return list(self.client.assets.list(root=True, limit=-1, data_set_external_ids=data_set_external_ids))
 
-    def _create_choice(self, item: Asset | DataSet) -> tuple[questionary.Choice, int]:
+    def _create_choice(self, item: Asset | DataSetResponse) -> tuple[questionary.Choice, int]:
         """Create a questionary choice for the given item."""
         if item.external_id is None:
             item_count = -1  # No count available for DataSet/Assets without external_id
-        elif isinstance(item, DataSet):
+        elif isinstance(item, DataSetResponse):
             item_count = self.aggregate_count(tuple(), (item.external_id,))
         elif isinstance(item, Asset):
             item_count = self.aggregate_count((item.external_id,), tuple())
@@ -185,7 +193,7 @@ class AssetCentricInteractiveSelect(ABC):
     def _select(
         self,
         what: str,
-        options: Sequence[Asset | DataSet],
+        options: Sequence[Asset | DataSetResponse],
         allow_empty: Literal[True, False],
         plurality: Literal["single", "multiple"],
     ) -> str | list[str] | None:
@@ -350,7 +358,7 @@ class InteractiveCanvasSelect:
                     if user.user_identifier in canvas_by_user
                 ],
             ).unsafe_ask()
-            available_canvases = NodeList[Canvas](user_response)
+            available_canvases = user_response
 
         if select_filter.select_all:
             return [canvas.external_id for canvas in available_canvases]
@@ -488,7 +496,7 @@ class DataModelingSelect:
         self.client = client
         self.operation = operation
         self.console = console or Console()
-        self._available_spaces: SpaceList | None = None
+        self._available_spaces: list[SpaceResponse] | None = None
 
     @cached_property
     def stats_by_space(self) -> dict[str, SpaceStatistics]:
@@ -503,8 +511,8 @@ class DataModelingSelect:
         space: str | None = None,
         message: str | None = None,
         instance_type: Literal["node", "edge", "all"] | None = None,
-        mapped_container: ContainerId | None = None,
-    ) -> View: ...
+        mapped_container: ContainerReference | None = None,
+    ) -> ViewResponse: ...
 
     @overload
     def select_view(
@@ -514,8 +522,8 @@ class DataModelingSelect:
         space: str | None = None,
         message: str | None = None,
         instance_type: Literal["node", "edge", "all"] | None = None,
-        mapped_container: ContainerId | None = None,
-    ) -> ViewList: ...
+        mapped_container: ContainerReference | None = None,
+    ) -> list[ViewResponse]: ...
 
     def select_view(
         self,
@@ -524,8 +532,8 @@ class DataModelingSelect:
         space: str | None = None,
         message: str | None = None,
         instance_type: Literal["node", "edge", "all"] | None = None,
-        mapped_container: ContainerId | None = None,
-    ) -> View | ViewList:
+        mapped_container: ContainerReference | None = None,
+    ) -> ViewResponse | list[ViewResponse]:
         """Select one or more views interactively.
 
         Args:
@@ -554,20 +562,20 @@ class DataModelingSelect:
             ).space
         )
 
-        views = self.client.data_modeling.views.list(
-            space=selected_space,
-            include_inherited_properties=True,
-            limit=-1,
-            include_global=include_global,
+        views = self.client.tool.views.list(
+            filter=ViewFilter(
+                space=selected_space,
+                include_inherited_properties=True,
+                include_global=include_global,
+            ),
+            limit=None,
         )
-        views = ViewList(
-            [
-                view
-                for view in views
-                if instance_type in (None, "all", view.used_for)
-                and (mapped_container is None or mapped_container in view.referenced_containers())
-            ]
-        )
+        views = [
+            view
+            for view in views
+            if instance_type in (None, "all", view.used_for)
+            and (mapped_container is None or mapped_container in view.mapped_containers)
+        ]
         if not views:
             raise ToolkitMissingResourceError(f"No views found in space {selected_space!r}.")
         question = message or f"Which view do you want to use to select instances to {self.operation}?"
@@ -581,15 +589,15 @@ class DataModelingSelect:
         else:
             selected_views = questionary.select(question, choices=choices).unsafe_ask()
         if multiselect:
-            if not isinstance(selected_views, list) or not all(isinstance(v, View) for v in selected_views):
+            if not isinstance(selected_views, list) or not all(isinstance(v, ViewResponse) for v in selected_views):
                 raise ToolkitValueError(f"Selected views is not a valid list of View objects: {selected_views!r}")
-            return ViewList(selected_views)
+            return selected_views
         else:
-            if not isinstance(selected_views, View):
+            if not isinstance(selected_views, ViewResponse):
                 raise ToolkitValueError(f"Selected view is not a valid View object: {selected_views!r}")
             return selected_views
 
-    def select_schema_space(self, include_global: bool, message: str | None = None) -> Space:
+    def select_schema_space(self, include_global: bool, message: str | None = None) -> SpaceResponse:
         message = message or f"Select the space to {self.operation}:"
         spaces = self._get_available_spaces(include_global)
         schema_spaces = {
@@ -597,14 +605,14 @@ class DataModelingSelect:
             for space, stats in self.stats_by_space.items()
             if (stats.containers + stats.views + stats.data_models) > 0
         }
-        spaces = SpaceList([space for space in spaces if space.space in schema_spaces or space.is_global])
+        spaces = [space for space in spaces if space.space in schema_spaces or space.is_global]
         if not spaces:
             raise ToolkitMissingResourceError("No spaces with schema (containers, views, or data models) found.")
         selected_space = questionary.select(
             message,
             [Choice(title=space.space, value=space) for space in sorted(spaces, key=lambda s: s.space)],
         ).unsafe_ask()
-        if not isinstance(selected_space, Space):
+        if not isinstance(selected_space, SpaceResponse):
             raise ToolkitValueError(f"Selected space is not a valid Space object: {selected_space!r}")
         return selected_space
 
@@ -651,7 +659,7 @@ class DataModelingSelect:
     def select_instance_space(
         self,
         multiselect: Literal[False],
-        selected_view: ViewId | None = None,
+        selected_view: ViewReference | None = None,
         instance_type: Literal["node", "edge"] | None = None,
         message: str | None = None,
         include_empty: bool = False,
@@ -661,7 +669,7 @@ class DataModelingSelect:
     def select_instance_space(
         self,
         multiselect: Literal[True] = True,
-        selected_view: ViewId | None = None,
+        selected_view: ViewReference | None = None,
         instance_type: Literal["node", "edge"] | None = None,
         message: str | None = None,
         include_empty: bool = False,
@@ -670,7 +678,7 @@ class DataModelingSelect:
     def select_instance_space(
         self,
         multiselect: bool = True,
-        selected_view: ViewId | None = None,
+        selected_view: ViewReference | None = None,
         instance_type: Literal["node", "edge"] | None = None,
         message: str | None = None,
         include_empty: bool = False,
@@ -755,7 +763,7 @@ class DataModelingSelect:
         return selected_spaces
 
     def _get_instance_count_in_view_by_space(
-        self, all_spaces: SpaceList, view_id: ViewId, instance_type: Literal["node", "edge"]
+        self, all_spaces: list[SpaceResponse], view_id: ViewReference, instance_type: Literal["node", "edge"]
     ) -> dict[str, float]:
         count_by_space: dict[str, float] = {}
         result = self.client.data_modeling.statistics.project()
@@ -774,19 +782,20 @@ class DataModelingSelect:
 
     @lru_cache
     def _instance_count_space(
-        self, space: str, view_id: ViewId, instance_type: Literal["node", "edge"]
+        self, space: str, view_id: ViewReference, instance_type: Literal["node", "edge"]
     ) -> tuple[str, float]:
         """Get the count of instances in a specific space for a given view and instance type."""
+        sdk_view_id = ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version)
         return space, self.client.data_modeling.instances.aggregate(
-            view_id, Count("externalId"), instance_type=instance_type, space=space
+            sdk_view_id, Count("externalId"), instance_type=instance_type, space=space
         ).value or 0.0
 
-    def _get_available_spaces(self, include_global: bool = False) -> SpaceList:
+    def _get_available_spaces(self, include_global: bool = False) -> list[SpaceResponse]:
         if self._available_spaces is None:
-            self._available_spaces = self.client.data_modeling.spaces.list(include_global=True, limit=-1)
+            self._available_spaces = self.client.tool.spaces.list(include_global=True)
         if include_global:
             return self._available_spaces
-        return SpaceList([space for space in self._available_spaces if not space.is_global])
+        return [space for space in self._available_spaces if not space.is_global]
 
 
 class ResourceViewMappingInteractiveSelect:
@@ -794,7 +803,7 @@ class ResourceViewMappingInteractiveSelect:
         self.client = client
         self.operation = operation
 
-    def select_resource_view_mapping(self, resource_type: str) -> ResourceViewMapping:
+    def select_resource_view_mapping(self, resource_type: str) -> ResourceViewMappingResponse:
         """Select a Resource View Mapping interactively.
 
         Args:
@@ -816,9 +825,9 @@ class ResourceViewMappingInteractiveSelect:
             f"Which Resource View Mapping do you want to use to {self.operation}? [identifier] (ingestion view)",
             choices=choices,
         ).unsafe_ask()
-        if not isinstance(selected_mapping, ResourceViewMapping):
+        if not isinstance(selected_mapping, ResourceViewMappingResponse):
             raise ToolkitValueError(
-                f"Selected Resource View Mapping is not a valid ResourceViewMapping object: {selected_mapping!r}"
+                f"Selected Resource View Mapping is not a valid ResourceViewMappingResponse object: {selected_mapping!r}"
             )
         return selected_mapping
 

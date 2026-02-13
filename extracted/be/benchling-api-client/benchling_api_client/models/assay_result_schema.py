@@ -411,6 +411,7 @@ class AssayResultSchema:
 
     @property
     def derived_from(self) -> Optional[str]:
+        """ This feature is no longer supported. """
         if isinstance(self._derived_from, Unset):
             raise NotPresentError(self, "derived_from")
         return self._derived_from

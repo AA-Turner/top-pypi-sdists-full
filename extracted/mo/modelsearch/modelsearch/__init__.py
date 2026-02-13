@@ -1,9 +1,9 @@
 def format_version(version):
     if version[2] == 0:
         # Ignore patch if it's 0
-        formatted = ".".join(str(x) for x in VERSION[:2])
+        formatted = ".".join(str(x) for x in version[:2])
     else:
-        formatted = ".".join(str(x) for x in VERSION[:3])
+        formatted = ".".join(str(x) for x in version[:3])
 
     if version[3] != "final":
         mapping = {"alpha": "a", "beta": "b", "rc": "rc", "dev": ".dev"}
@@ -12,5 +12,5 @@ def format_version(version):
     return formatted
 
 
-VERSION = (1, 1, 1, "final", 0)
+VERSION = (1, 2, 0, "final", 0)
 __version__ = format_version(VERSION)

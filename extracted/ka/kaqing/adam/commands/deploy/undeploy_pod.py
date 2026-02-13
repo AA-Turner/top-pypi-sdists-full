@@ -1,5 +1,5 @@
 from adam.commands.command import Command
-from adam.commands.deploy.deploy_utils import undeploy_frontend
+from adam.commands.deploy.utils_deploy import undeploy_frontend
 from adam.config import Config
 from adam.utils_log import ing
 from adam.utils_k8s.config_maps import ConfigMaps

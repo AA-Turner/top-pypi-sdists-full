@@ -235,8 +235,8 @@ class ApifyRequestQueueSharedClient:
                 processed_request=processed_request,
                 hydrated_request=request,
             )
-        except Exception as exc:
-            logger.debug(f'Error marking request {request.unique_key} as handled: {exc!s}')
+        except Exception:
+            logger.exception(f'Error marking request {request.unique_key} as handled')
             return None
         else:
             return processed_request
@@ -279,8 +279,8 @@ class ApifyRequestQueueSharedClient:
                 if forefront:
                     self._should_check_for_forefront_requests = True
 
-            except Exception as exc:
-                logger.debug(f'Error reclaiming request {request.unique_key}: {exc!s}')
+            except Exception:
+                logger.exception(f'Error reclaiming request {request.unique_key}')
                 return None
             else:
                 return processed_request
@@ -490,6 +490,9 @@ class ApifyRequestQueueSharedClient:
             forefront: Whether the request was added to the forefront of the queue.
             hydrated_request: The hydrated request object, if available.
         """
+        if processed_request.id is None:
+            raise ValueError('ProcessedRequest must have an ID to be cached.')
+
         self._requests_cache[cache_key] = CachedRequest(
             id=processed_request.id,
             was_already_handled=processed_request.was_already_handled,

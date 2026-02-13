@@ -3,7 +3,7 @@ EVENTS_FOR_CHAT_QUERY: str = """query EventsForChat($chatUuid: UUID!) {
     ... on EventHistory {
       events {
         ... on UserEvent {
-          uuid
+          uuid: eventUuid
           parentUuid
           isSidechain
           version
@@ -44,7 +44,7 @@ EVENTS_FOR_CHAT_QUERY: str = """query EventsForChat($chatUuid: UUID!) {
           }
         }
         ... on AssistantEvent {
-          uuid
+          uuid: eventUuid
           parentUuid
           isSidechain
           version
@@ -71,7 +71,7 @@ EVENTS_FOR_CHAT_QUERY: str = """query EventsForChat($chatUuid: UUID!) {
           }
         }
         ... on SystemEvent {
-          uuid
+          uuid: eventUuid
           parentUuid
           isSidechain
           version

@@ -31,7 +31,6 @@ from .dataclasses import (
     UpsertResponse,
     UpdateResponse,
 )
-from .interfaces import IndexInterface
 from .request_factory import IndexRequestFactory
 from .types import (
     SparseVectorTypedDict,
@@ -53,6 +52,11 @@ from ..utils import (
 )
 from .query_results_aggregator import QueryResultsAggregator, QueryNamespacesResults
 from pinecone.openapi_support import OPENAPI_ENDPOINT_PARAMS
+from pinecone.adapters.response_adapters import (
+    adapt_query_response,
+    adapt_fetch_response,
+    UpsertResponseTransformer,
+)
 
 from multiprocessing.pool import ApplyResult
 from multiprocessing import cpu_count
@@ -77,61 +81,15 @@ logger = logging.getLogger(__name__)
 
 
 def parse_query_response(response: OpenAPIQueryResponse) -> QueryResponse:
-    """:meta private:"""
-    # Convert OpenAPI QueryResponse to dataclass QueryResponse
-    from pinecone.utils.response_info import extract_response_info
+    """:meta private:
 
-    response_info = None
-    if hasattr(response, "_response_info"):
-        response_info = response._response_info
-
-    if response_info is None:
-        response_info = extract_response_info({})
-
-    # Remove deprecated 'results' field if present
-    if hasattr(response, "_data_store"):
-        response._data_store.pop("results", None)
-
-    return QueryResponse(
-        matches=response.matches,
-        namespace=response.namespace or "",
-        usage=response.usage if hasattr(response, "usage") and response.usage else None,
-        _response_info=response_info,
-    )
-
-
-class UpsertResponseTransformer:
-    """Transformer for converting ApplyResult[OpenAPIUpsertResponse] to UpsertResponse.
-
-    This wrapper transforms the OpenAPI response to our dataclass when .get() is called,
-    while delegating other methods to the underlying ApplyResult.
+    Deprecated: Use adapt_query_response from pinecone.adapters instead.
+    This function is kept for backward compatibility.
     """
-
-    _apply_result: ApplyResult
-    """ :meta private: """
-
-    def __init__(self, apply_result: ApplyResult) -> None:
-        self._apply_result = apply_result
-
-    def get(self, timeout: float | None = None) -> UpsertResponse:
-        openapi_response = self._apply_result.get(timeout)
-        from pinecone.utils.response_info import extract_response_info
-
-        response_info = None
-        if hasattr(openapi_response, "_response_info"):
-            response_info = openapi_response._response_info
-        if response_info is None:
-            response_info = extract_response_info({})
-        return UpsertResponse(
-            upserted_count=openapi_response.upserted_count, _response_info=response_info
-        )
-
-    def __getattr__(self, name: str) -> Any:
-        # Delegate other methods to the underlying ApplyResult
-        return getattr(self._apply_result, name)
+    return adapt_query_response(response)
 
 
-class Index(PluginAware, IndexInterface):
+class Index(PluginAware):
     """
     A client for interacting with a Pinecone index via REST API.
     For improved performance, use the Pinecone GRPC index client.
@@ -464,9 +422,9 @@ class Index(PluginAware, IndexInterface):
             )
             # When batch_size is provided, async_req cannot be True (checked above),
             # so batch_result is always UpsertResponse, not ApplyResult
-            assert isinstance(
-                batch_result, UpsertResponse
-            ), "batch_result must be UpsertResponse when batch_size is provided"
+            assert isinstance(batch_result, UpsertResponse), (
+                "batch_result must be UpsertResponse when batch_size is provided"
+            )
             pbar.update(batch_result.upserted_count)
             # we can't use here pbar.n for the case show_progress=False
             total_upserted += batch_result.upserted_count
@@ -591,9 +549,9 @@ class Index(PluginAware, IndexInterface):
         last_result = None
         for res in results:
             # upsert_from_dataframe doesn't use async_req, so res is always UpsertResponse
-            assert isinstance(
-                res, UpsertResponse
-            ), "Expected UpsertResponse when not using async_req"
+            assert isinstance(res, UpsertResponse), (
+                "Expected UpsertResponse when not using async_req"
+            )
             upserted_count += res.upserted_count
             last_result = res
 
@@ -895,22 +853,7 @@ class Index(PluginAware, IndexInterface):
         """
         args_dict = parse_non_empty_args([("namespace", namespace)])
         result = self._vector_api.fetch_vectors(ids=ids, **args_dict, **kwargs)
-        # Copy response info from OpenAPI response if present
-        from pinecone.utils.response_info import extract_response_info
-
-        response_info = None
-        if hasattr(result, "_response_info"):
-            response_info = result._response_info
-        if response_info is None:
-            response_info = extract_response_info({})
-
-        fetch_response = FetchResponse(
-            namespace=result.namespace,
-            vectors={k: Vector.from_dict(v) for k, v in result.vectors.items()},
-            usage=result.usage,
-            _response_info=response_info,
-        )
-        return fetch_response
+        return adapt_fetch_response(result)
 
     @validate_and_convert_errors
     def fetch_by_metadata(

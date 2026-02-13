@@ -27,6 +27,7 @@ import hashlib
 import importlib
 import os
 import pickle
+from importlib.util import find_spec
 from pathlib import Path
 from typing import IO, Any
 from urllib.parse import urlparse
@@ -37,13 +38,14 @@ from deepmerge import always_merger
 from yaml import BaseLoader, Loader, YAMLError
 from yaml.constructor import ConstructorError
 
+from zensical.compat.autorefs import get_autorefs_extension
+from zensical.compat.mkdocstrings import get_mkdocstrings_extension
 from zensical.extensions.emoji import to_svg, twemoji
 
 try:
     import tomllib
 except ModuleNotFoundError:
     import tomli as tomllib  # type: ignore[no-redef]
-
 
 # ----------------------------------------------------------------------------
 # Globals
@@ -422,12 +424,28 @@ def _apply_defaults(config: dict, path: str) -> dict:
     # Set up mkdocstrings, which touches plugins and Markdown extensions
     if "mkdocstrings" in config["plugins"]:
         mkdocstrings_config = config["plugins"]["mkdocstrings"]["config"]
-        if mkdocstrings_config.pop("enabled", True):
-            mkdocstrings_config["markdown_extensions"] = [
-                {ext: mdx_configs.get(ext, {})} for ext in markdown_extensions
-            ]
-            config["markdown_extensions"].append("mkdocstrings")
-            config["mdx_configs"]["mkdocstrings"] = mkdocstrings_config
+        if mkdocstrings_config.get("enabled", True):
+            if not find_spec("mkdocstrings"):
+                raise ConfigurationError(
+                    "mkdocstrings plugin is enabled, but mkdocstrings is not "
+                    "installed. Please install mkdocstrings or disable the "
+                    "plugin."
+                )
+            if autorefs := get_autorefs_extension():
+                config["markdown_extensions"].append(autorefs)
+            mkdocstrings = get_mkdocstrings_extension(config, path)
+            config["markdown_extensions"].append(mkdocstrings)
+
+    # Support autorefs in standalone mode
+    elif "autorefs" in config["plugins"]:
+        if autorefs := get_autorefs_extension():
+            config["markdown_extensions"].append(autorefs)
+        else:
+            raise ConfigurationError(
+                "autorefs plugin is enabled, but autorefs is not "
+                "installed. Please install autorefs or disable the "
+                "plugin."
+            )
 
     # List all source files for mkdocstrings
     config["source_files"] = _list_sources(config, path)
@@ -483,7 +501,7 @@ def _list_sources(config: dict, config_file: str) -> list[tuple[str, int]]:
     root = Path(config_file).parent.resolve()
     for python_path in python_paths:
         path = root.joinpath(python_path).resolve()
-        if path.is_dir() and path.is_relative_to(root):
+        if path.is_dir() and path.is_relative_to(root) and path != root:
             for subpath in path.rglob("*"):
                 # Path.rglob can't do patterns, so we need to filter here
                 if subpath.suffix in {

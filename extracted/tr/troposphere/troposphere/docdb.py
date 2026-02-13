@@ -129,3 +129,21 @@ class EventSubscription(AWSObject):
         "SourceType": (str, False),
         "SubscriptionName": (str, False),
     }
+
+
+class GlobalCluster(AWSObject):
+    """
+    `GlobalCluster <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-docdb-globalcluster.html>`__
+    """
+
+    resource_type = "AWS::DocDB::GlobalCluster"
+
+    props: PropsDictType = {
+        "DeletionProtection": (boolean, False),
+        "Engine": (str, False),
+        "EngineVersion": (str, False),
+        "GlobalClusterIdentifier": (str, True),
+        "SourceDBClusterIdentifier": (str, False),
+        "StorageEncrypted": (boolean, False),
+        "Tags": (Tags, False),
+    }

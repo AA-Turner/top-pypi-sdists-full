@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 
 import jwt
 
@@ -108,13 +108,7 @@ class KeycloakOAuth2(BaseOAuth2):  # pylint: disable=abstract-method
         return self.setting("ALGORITHM", default="RS256")
 
     def public_key(self):
-        return "\n".join(
-            [
-                "-----BEGIN PUBLIC KEY-----",
-                self.setting("PUBLIC_KEY"),
-                "-----END PUBLIC KEY-----",
-            ]
-        )
+        return f"-----BEGIN PUBLIC KEY-----\n{self.setting('PUBLIC_KEY')}\n-----END PUBLIC KEY-----"
 
     def user_data(self, access_token: str, *args, **kwargs) -> dict[str, Any] | None:
         """Decode user data from the access_token
@@ -129,7 +123,7 @@ class KeycloakOAuth2(BaseOAuth2):  # pylint: disable=abstract-method
             key=self.public_key(),
             algorithms=self.algorithm(),
             audience=self.audience(),
-            leeway=self.setting("JWT_LEEWAY", default=0),
+            leeway=cast("int", self.setting("JWT_LEEWAY", default=0)),
         )
 
     def get_user_details(self, response):

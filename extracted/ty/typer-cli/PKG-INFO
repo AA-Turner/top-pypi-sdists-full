@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: typer-cli
-Version: 0.21.1
+Version: 0.23.0
 Summary: Typer, build great CLIs. Easy to code. Based on Python type hints.
 Author-Email: =?utf-8?q?Sebasti=C3=A1n_Ram=C3=ADrez?= <tiangolo@gmail.com>
 License-Expression: MIT
@@ -30,7 +30,7 @@ Project-URL: Repository, https://github.com/fastapi/typer
 Project-URL: Issues, https://github.com/fastapi/typer/issues
 Project-URL: Changelog, https://typer.tiangolo.com/release-notes/
 Requires-Python: >=3.9
-Requires-Dist: typer==0.21.1
+Requires-Dist: typer>=0.23.0
 Description-Content-Type: text/markdown
 
 <p align="center">
@@ -63,6 +63,8 @@ Description-Content-Type: text/markdown
 
 Typer is a library for building <abbr title="command line interface, programs executed from a terminal">CLI</abbr> applications that users will **love using** and developers will **love creating**. Based on Python type hints.
 
+It's also a command line tool to run scripts, automatically converting them to CLI applications.
+
 ## Typer CLI
 
 ⚠️ Do not install this package. ⚠️
@@ -73,7 +75,7 @@ All the functionality has been integrated into `typer`.
 
 The only reason this package exists is as a migration path for old projects that used to depend on `typer-cli`, so that they can get the latest version of `typer`.
 
-You probably **should not** install this package.
+You **should not** install this package.
 
 Install instead:
 
@@ -82,6 +84,8 @@ pip install typer
 ```
 
 That includes the `typer` command.
+
+This package is deprecated and will stop receiving any updates and published versions.
 
 ## License
 

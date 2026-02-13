@@ -835,3 +835,109 @@ class TestSearchTermPreparation:
         # Test string that becomes empty after strip
         result3 = search_repository._prepare_single_term("\t\n")
         assert result3 == "\t\n"  # Should return original
+
+
+async def _index_entity_with_metadata(search_repository, session_maker, title, entity_metadata):
+    slug = "-".join(title.lower().split())
+    file_path = f"test/{slug}.md"
+    permalink = f"test/{slug}"
+    now = datetime.now(timezone.utc)
+
+    async with db.scoped_session(session_maker) as session:
+        entity = Entity(
+            project_id=search_repository.project_id,
+            title=title,
+            entity_type="note",
+            permalink=permalink,
+            file_path=file_path,
+            content_type="text/markdown",
+            entity_metadata=entity_metadata,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(entity)
+        await session.flush()
+
+    search_row = SearchIndexRow(
+        id=entity.id,
+        type=SearchItemType.ENTITY.value,
+        title=entity.title,
+        content_stems="metadata filter test",
+        content_snippet="metadata filter test",
+        permalink=entity.permalink,
+        file_path=entity.file_path,
+        entity_id=entity.id,
+        metadata={"entity_type": entity.entity_type},
+        created_at=entity.created_at,
+        updated_at=entity.updated_at,
+        project_id=search_repository.project_id,
+    )
+    await search_repository.index_item(search_row)
+    return entity
+
+
+@pytest.mark.asyncio
+async def test_search_metadata_filters_eq_and_in(search_repository, session_maker):
+    entity_match = await _index_entity_with_metadata(
+        search_repository,
+        session_maker,
+        "Metadata Match",
+        {"status": "in-progress", "priority": "high"},
+    )
+    await _index_entity_with_metadata(
+        search_repository,
+        session_maker,
+        "Metadata Miss",
+        {"status": "done", "priority": "low"},
+    )
+
+    results = await search_repository.search(metadata_filters={"status": "in-progress"})
+    assert {result.id for result in results} == {entity_match.id}
+
+    results = await search_repository.search(
+        metadata_filters={"priority": {"$in": ["high", "critical"]}}
+    )
+    assert {result.id for result in results} == {entity_match.id}
+
+
+@pytest.mark.asyncio
+async def test_search_metadata_filters_contains_tags(search_repository, session_maker):
+    entity_match = await _index_entity_with_metadata(
+        search_repository,
+        session_maker,
+        "Tag Match",
+        {"tags": ["security", "oauth", "architecture"]},
+    )
+    await _index_entity_with_metadata(
+        search_repository,
+        session_maker,
+        "Tag Miss",
+        {"tags": ["security"]},
+    )
+
+    results = await search_repository.search(metadata_filters={"tags": ["security", "oauth"]})
+    assert {result.id for result in results} == {entity_match.id}
+
+
+@pytest.mark.asyncio
+async def test_search_metadata_filters_numeric_comparisons(search_repository, session_maker):
+    entity_high = await _index_entity_with_metadata(
+        search_repository,
+        session_maker,
+        "Confidence High",
+        {"schema": {"confidence": 0.8}},
+    )
+    entity_low = await _index_entity_with_metadata(
+        search_repository,
+        session_maker,
+        "Confidence Low",
+        {"schema": {"confidence": 0.4}},
+    )
+
+    results = await search_repository.search(metadata_filters={"schema.confidence": {"$gt": 0.7}})
+    assert {result.id for result in results} == {entity_high.id}
+
+    results = await search_repository.search(
+        metadata_filters={"schema.confidence": {"$between": [0.3, 0.6]}}
+    )
+    assert {result.id for result in results} == {entity_low.id}

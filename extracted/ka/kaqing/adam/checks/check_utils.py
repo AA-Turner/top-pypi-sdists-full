@@ -10,7 +10,7 @@ from adam.checks.memory import Memory
 from adam.checks.status import Status
 from adam.utils_cassandra.cassandra_status import CassandraStatus
 from adam.utils_concurrent import parallelize
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.utils_k8s.secrets import Secrets
 from adam.utils_k8s.statefulsets import StatefulSets
 from adam.utils_log import log2
@@ -40,7 +40,7 @@ def run_checks(cluster: str = None,
                checks: list[Check] = None,
                find_issues=True,
                status: CassandraStatus = None,
-               ctx: Context = Context.NULL):
+               ctx = NULL):
     if not checks:
         checks = all_checks()
 
@@ -63,7 +63,7 @@ def run_checks(cluster: str = None,
                      msg='d`Running|Ran checks on {size} pods') as exec:
         return exec.collect(lambda sts_ns_pod: run_checks_on_pod(checks, sts_ns_pod[0], sts_ns_pod[1], sts_ns_pod[2], find_issues=find_issues, status=status, ctx=ctx))
 
-def run_checks_on_pod(checks: list[Check], sts: str = None, namespace: str = None, pod: str = None, find_issues = True, status: CassandraStatus = None, ctx: Context = Context.NULL):
+def run_checks_on_pod(checks: list[Check], sts: str = None, namespace: str = None, pod: str = None, find_issues = True, status: CassandraStatus = None, ctx = NULL):
     host_id = status.host_id_from_pod_name(pod)
     user, pw = Secrets.get_user_pass(pod, namespace)
     results = {}

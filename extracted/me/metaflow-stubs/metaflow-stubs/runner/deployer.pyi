@@ -1,19 +1,19 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.18                                                                                #
-# Generated on 2026-02-05T18:18:14.403802                                                            #
+# MF version: 2.19.19                                                                                #
+# Generated on 2026-02-09T14:58:07.270617                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
 import typing
+import metaflow
 if typing.TYPE_CHECKING:
     import metaflow.plugins.argo.argo_workflows_deployer_objects
-    import metaflow.runner.deployer
-    import metaflow.plugins.argo.argo_workflows_deployer
-    import metaflow.plugins.aws.step_functions.step_functions_deployer
     import metaflow.plugins.aws.step_functions.step_functions_deployer_objects
+    import metaflow.plugins.argo.argo_workflows_deployer
+    import metaflow.runner.deployer
+    import metaflow.plugins.aws.step_functions.step_functions_deployer
 
 from ..exception import MetaflowNotFound as MetaflowNotFound
 

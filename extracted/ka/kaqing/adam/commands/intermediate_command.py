@@ -5,7 +5,7 @@ from adam.commands.command_helpers import ClusterCommandHelper
 from adam.repl_state import ReplState
 from adam.utils_log import log2
 from adam.utils_tabulize import tabulize
-from adam.utils_context import Context
+from adam.utils_context import NULL
 
 class IntermediateCommand(Command):
     def run(self, cmd: str, state: ReplState):
@@ -30,23 +30,24 @@ class IntermediateCommand(Command):
                          display_help=True):
         state, _ = self.apply_state(args, state)
 
-        if state.in_repl:
-            if display_help:
-                tabulize(cmds,
-                         lambda c: c.help(state),
-                         separator=separator,
-                         ctx=self.context())
-
-            return 'command-missing'
-        else:
-            # head with the Chain of Responsibility pattern
-            if not self.run_subcommand(cmd, state):
+        with self.context(args) as (_, ctx):
+            if state.in_repl:
                 if display_help:
-                    log2('* Command is missing.')
-                    Command.display_help()
-                return 'command-missing'
+                    tabulize(cmds,
+                            lambda c: c.help(state),
+                            separator=separator,
+                            ctx=ctx)
 
-        return state
+                return 'command-missing'
+            else:
+                # head with the Chain of Responsibility pattern
+                if not self.run_subcommand(cmd, state):
+                    if display_help:
+                        log2('* Command is missing.')
+                        Command.display_help()
+                    return 'command-missing'
+
+            return state
 
     def run_subcommand(self, cmd: str, state: ReplState):
         cmds = Command.chain(self.cmd_list())

@@ -27,17 +27,18 @@ class ShowThreadPools(Command):
         if not self.args(cmd):
             return super().run(cmd, state)
 
-        def line(name: str, pool: ThreadPool):
-            exec: ThreadPoolExecutor = pool.executor()
-            return f'{name}\t{exec._max_workers}\t{pool.max_concurrency}\t{exec._work_queue.qsize()}\t{pool.dispatched - pool.completed}\t{pool.completed}'
+        with self.context() as (_, ctx):
+            def line(name: str, pool: ThreadPool):
+                exec: ThreadPoolExecutor = pool.executor()
+                return f'{name}\t{exec._max_workers}\t{pool.max_concurrency}\t{exec._work_queue.qsize()}\t{pool.dispatched - pool.completed}\t{pool.completed}'
 
-        tabulize([(name, exec) for name, exec in ThreadPool.pools.items()],
-                 fn=lambda p: line(p[0], p[1]),
-                 header='POOL\tWORKERS\tMAX_CONCURRENCY\tPENDING\tRUNNING\tCOMPLETED',
-                 separator='\t',
-                 ctx=self.context())
+            tabulize([(name, exec) for name, exec in ThreadPool.pools.items()],
+                    fn=lambda p: line(p[0], p[1]),
+                    header='POOL\tWORKERS\tMAX_CONCURRENCY\tPENDING\tRUNNING\tCOMPLETED',
+                    separator='\t',
+                    ctx=ctx)
 
-        return state
+            return state
 
     def completion(self, state: ReplState):
         return super().completion(state)

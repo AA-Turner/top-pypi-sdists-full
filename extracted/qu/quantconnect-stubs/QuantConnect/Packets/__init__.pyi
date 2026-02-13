@@ -280,6 +280,15 @@ class PacketType(IntEnum):
     LANGUAGE_MODEL_AGENT_MESSAGE = 51
     """Language model agent message"""
 
+    AGENT_RESEARCH_NODE = 52
+    """Agent research job packet"""
+
+    AGENT_LIVE_NODE = 53
+    """Agent live job packet"""
+
+    AGENT_BACKTEST_NODE = 54
+    """Agent backtest job packet"""
+
 
 class Packet(System.Object):
     """Base class for packet messaging system"""

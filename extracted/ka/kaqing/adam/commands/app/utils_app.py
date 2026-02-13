@@ -3,7 +3,7 @@ from typing import Union
 
 from adam.app_session import AppSession
 from adam.apps import Apps
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.utils_k8s.pod_exec_result import PodExecResult
 from adam.repl_state import ReplState
 from adam.utils_log import log2
@@ -29,7 +29,7 @@ class AppRestHandler:
     def __exit__(self, exc_type, exc_val, exc_tb):
         return False
 
-    def post(self, args: list[str], ctx: Context=Context.NULL) -> Union[ReplState, str]:
+    def post(self, args: list[str], ctx = NULL) -> Union[ReplState, str]:
         if not args:
             return 'arg missing'
 
@@ -59,7 +59,7 @@ class AppPodService:
     def __init__(self, handler: 'AppHandler'):
         self.handler = handler
 
-    def exec(self, command: str, ctx: Context = Context.NULL) -> Union[PodExecResult, list[PodExecResult]]:
+    def exec(self, command: str, ctx = NULL) -> Union[PodExecResult, list[PodExecResult]]:
         state = self.handler.state
 
         if state.app_pod:
@@ -70,7 +70,7 @@ class AppPodService:
 
         return []
 
-    def post(self, args: list[str], forced=False, ctx: Context=Context.NULL) -> Union[ReplState, str]:
+    def post(self, args: list[str], forced=False, ctx = NULL) -> Union[ReplState, str]:
         state = self.handler.state
 
         if not args:

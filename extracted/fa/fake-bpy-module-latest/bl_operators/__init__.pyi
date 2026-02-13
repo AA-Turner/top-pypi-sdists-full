@@ -26,6 +26,7 @@ from . import object_align as object_align
 from . import object_quick_effects as object_quick_effects
 from . import object_randomize_transform as object_randomize_transform
 from . import presets as presets
+from . import render as render
 from . import rigidbody as rigidbody
 from . import screen_play_rendered_anim as screen_play_rendered_anim
 from . import sequencer as sequencer

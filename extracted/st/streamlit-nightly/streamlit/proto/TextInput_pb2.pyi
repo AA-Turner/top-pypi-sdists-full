@@ -67,6 +67,7 @@ class TextInput(_message.Message):
     DISABLED_FIELD_NUMBER: _builtins.int
     LABEL_VISIBILITY_FIELD_NUMBER: _builtins.int
     ICON_FIELD_NUMBER: _builtins.int
+    QUERY_PARAM_KEY_FIELD_NUMBER: _builtins.int
     id: _builtins.str
     label: _builtins.str
     default: _builtins.str
@@ -80,6 +81,8 @@ class TextInput(_message.Message):
     placeholder: _builtins.str
     disabled: _builtins.bool
     icon: _builtins.str
+    query_param_key: _builtins.str
+    """If set, widget value is bound to this query parameter key"""
     @_builtins.property
     def label_visibility(self) -> _LabelVisibility_pb2.LabelVisibility: ...
     def __init__(
@@ -99,17 +102,22 @@ class TextInput(_message.Message):
         disabled: _builtins.bool = ...,
         label_visibility: _LabelVisibility_pb2.LabelVisibility | None = ...,
         icon: _builtins.str = ...,
+        query_param_key: _builtins.str | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_default", b"_default", "_value", b"_value", "default", b"default", "label_visibility", b"label_visibility", "value", b"value"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_default", b"_default", "_query_param_key", b"_query_param_key", "_value", b"_value", "default", b"default", "label_visibility", b"label_visibility", "query_param_key", b"query_param_key", "value", b"value"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_default", b"_default", "_value", b"_value", "autocomplete", b"autocomplete", "default", b"default", "disabled", b"disabled", "form_id", b"form_id", "help", b"help", "icon", b"icon", "id", b"id", "label", b"label", "label_visibility", b"label_visibility", "max_chars", b"max_chars", "placeholder", b"placeholder", "set_value", b"set_value", "type", b"type", "value", b"value"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_default", b"_default", "_query_param_key", b"_query_param_key", "_value", b"_value", "autocomplete", b"autocomplete", "default", b"default", "disabled", b"disabled", "form_id", b"form_id", "help", b"help", "icon", b"icon", "id", b"id", "label", b"label", "label_visibility", b"label_visibility", "max_chars", b"max_chars", "placeholder", b"placeholder", "query_param_key", b"query_param_key", "set_value", b"set_value", "type", b"type", "value", b"value"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__default: _TypeAlias = _typing.Literal["default"]  # noqa: Y015
     _WhichOneofArgType__default: _TypeAlias = _typing.Literal["_default", b"_default"]  # noqa: Y015
+    _WhichOneofReturnType__query_param_key: _TypeAlias = _typing.Literal["query_param_key"]  # noqa: Y015
+    _WhichOneofArgType__query_param_key: _TypeAlias = _typing.Literal["_query_param_key", b"_query_param_key"]  # noqa: Y015
     _WhichOneofReturnType__value: _TypeAlias = _typing.Literal["value"]  # noqa: Y015
     _WhichOneofArgType__value: _TypeAlias = _typing.Literal["_value", b"_value"]  # noqa: Y015
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__default) -> _WhichOneofReturnType__default | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__query_param_key) -> _WhichOneofReturnType__query_param_key | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__value) -> _WhichOneofReturnType__value | None: ...
 

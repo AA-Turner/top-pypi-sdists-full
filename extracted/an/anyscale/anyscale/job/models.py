@@ -3,6 +3,10 @@ from datetime import datetime
 from typing import ClassVar, Dict, List, Optional, Union
 
 from anyscale._private.models import ModelBase, ModelEnum
+from anyscale._private.models.integrations import (
+    ConnectionConfig,  # noqa: F401
+    ConnectionType,  # noqa: F401
+)
 from anyscale._private.workload import WorkloadConfig
 from anyscale.commands import command_examples
 from anyscale.shared_anyscale_utils.utils import INT_MAX
@@ -306,6 +310,9 @@ max_retries: 3 # (Optional) Maximum number of times the job will be retried befo
 tags:
     team: mlops
     purpose: training
+connections: # (Optional) List of third-party connections for credential injection.
+    - connection_type: databricks
+      connection_name: my-databricks-connection
 
 """
 
@@ -332,20 +339,21 @@ tags:
         if not entrypoint:
             raise ValueError("'entrypoint' cannot be empty.")
 
-    max_retries: int = field(
-        default=1,
+    max_retries: Optional[int] = field(
+        default=None,
         repr=False,
         metadata={
             "docstring": "Maximum number of times the job will be retried before being marked failed. Defaults to `1`."
         },
     )
 
-    def _validate_max_retries(self, max_retries: int):
-        if not isinstance(max_retries, int):
-            raise TypeError("'max_retries' must be an int.")
+    def _validate_max_retries(self, max_retries: Optional[int]):
+        if max_retries is not None:
+            if not isinstance(max_retries, int):
+                raise TypeError("'max_retries' must be an int.")
 
-        if max_retries < 0:
-            raise ValueError("'max_retries' must be >= 0.")
+            if max_retries < 0:
+                raise ValueError("'max_retries' must be >= 0.")
 
     job_queue_config: Optional[JobQueueConfig] = field(
         default=None,
@@ -395,6 +403,42 @@ tags:
         for k, v in tags.items():
             if not isinstance(k, str) or not isinstance(v, str):
                 raise TypeError("'tags' must be a Dict[str, str].")
+
+    connections: Optional[List[ConnectionConfig]] = field(
+        default=None,
+        metadata={
+            "docstring": "Connections to third-party integrations (e.g., Databricks) to associate with the job. "
+            "This feature is in beta preview. Contact [Anyscale support](mailto:support@anyscale.com) to request enablement."
+        },
+    )
+
+    def _validate_connections(
+        self, connections: Optional[List[ConnectionConfig]]
+    ) -> Optional[List[ConnectionConfig]]:
+        if connections is None:
+            return None
+        if not isinstance(connections, list):
+            raise TypeError("'connections' must be a list.")
+
+        validated = []
+        for conn in connections:
+            if isinstance(conn, dict):
+                # Convert string connection_type to enum before creating ConnectionConfig
+                conn_copy = conn.copy()
+                if "connection_type" in conn_copy and isinstance(
+                    conn_copy["connection_type"], str
+                ):
+                    conn_copy["connection_type"] = ConnectionType.validate(
+                        conn_copy["connection_type"]
+                    )
+                validated.append(ConnectionConfig.from_dict(conn_copy))
+            elif isinstance(conn, ConnectionConfig):
+                validated.append(conn)
+            else:
+                raise TypeError(
+                    f"Each connection must be a ConnectionConfig or dict (got {type(conn)})."
+                )
+        return validated
 
 
 class JobRunState(ModelEnum):

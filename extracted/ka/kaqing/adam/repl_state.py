@@ -5,7 +5,7 @@ from typing import Callable
 
 from adam.utils_cassandra.cassandra_clusters import CassandraClusters
 from adam.utils_cassandra.cassandra_nodes import CassandraNodes
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.utils_k8s.app_clusters import AppClusters
 from adam.utils_k8s.app_pods import AppPods
 from adam.utils_k8s.kube_context import KubeContext
@@ -22,7 +22,7 @@ class BashSession:
         command = f'cat /tmp/.qing-{self.session_id}'
 
         with device(state) as pods:
-            return pods.exec(command, action='bash', ctx=Context.NULL)
+            return pods.exec(command, action='bash', ctx=NULL)
 
 class RequiredState(Enum):
     CLUSTER = 'cluster'
@@ -463,7 +463,7 @@ class DevicePodService:
     def __init__(self, handler: 'DeviceExecHandler'):
         self.handler = handler
 
-    def exec(self, command: str, action='bash', ctx: Context = Context.NULL):
+    def exec(self, command: str, action='bash', ctx = NULL):
         state = self.handler.state
 
         rs = None

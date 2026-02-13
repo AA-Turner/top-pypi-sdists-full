@@ -127,6 +127,71 @@ class TestFactorial(unittest.TestCase):
             np.array([0.0, 0.0, 3.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
         )
 
+    def test_fracfact_by_res_resolution_III(self):
+        """Test resolution III designs"""
+        # 8 runs should support 4 factors at resolution III
+        actual = fracfact_by_res(4, 3)
+        assert actual.shape[0] == 8
+        assert actual.shape[1] == 4
+
+        # 16 runs should support 7 factors at resolution III
+        actual = fracfact_by_res(7, 3)
+        assert actual.shape[0] == 16
+        assert actual.shape[1] == 7
+
+    def test_fracfact_by_res_resolution_IV(self):
+        """Test resolution IV designs"""
+        # 16 runs should support 4 factors at resolution IV
+        actual = fracfact_by_res(4, 4)
+        assert actual.shape[0] == 16
+        assert actual.shape[1] == 4
+
+        # 32 runs should support 8 factors at resolution IV
+        actual = fracfact_by_res(8, 4)
+        assert actual.shape[0] == 32
+        assert actual.shape[1] == 8
+
+    def test_fracfact_by_res_invalid_n(self):
+        with pytest.raises(ValueError, match="n must be at least 2"):
+            fracfact_by_res(1, 3)
+
+    def test_fracfact_by_res_invalid_resolution(self):
+        with pytest.raises(ValueError, match="resolution must be >= 3"):
+            fracfact_by_res(3, 2)
+
+    def test_fracfact_by_res_table_lookup_path(self):
+        # (6, 3) is explicitly in the DOE table -> k = 3
+        design = fracfact_by_res(6, 3)
+        assert design.shape == (8, 6)  # 2^3 runs, 6 factors
+        assert set(np.unique(design)) == {-1.0, 1.0}
+
+    def test_fracfact_by_res_fallback_calculation_path(self):
+        # (16, 3) is not in the table -> fallback calculation
+        design = fracfact_by_res(16, 3)
+        # k = ceil(log2(17)) = 5 -> 32 runs
+        assert design.shape == (32, 16)
+        assert set(np.unique(design)) == {-1.0, 1.0}
+
+    def test_fracfact_by_res_exceeds_base_factor_limit(self):
+        with pytest.raises(ValueError, match="more than 26 base factors"):
+            fracfact_by_res(2**27, 3)
+
+    def test_fracfact_by_res_too_many_base_factors(self):
+        # Force k > 26 via fallback logic
+        with pytest.raises(ValueError, match="more than 26 base factors"):
+            fracfact_by_res(2**27, 3)
+
+    def test_fracfact_by_res_resolution_five(self):
+        design = fracfact_by_res(6, 5)
+        # From table: (6,5) -> k = 6 -> 64 runs
+        assert design.shape == (64, 6)
+        assert set(np.unique(design)) == {-1.0, 1.0}
+
+    def test_fracfact_by_res_columns_match_n(self):
+        for n, res in [(5, 3), (7, 4), (9, 5)]:
+            design = fracfact_by_res(n, res)
+            assert design.shape[1] == n
+
 
 @pytest.mark.parametrize(
     "n_factors, generator, message",

@@ -1,3 +1,4 @@
+import logging
 from typing import TYPE_CHECKING, Any, cast
 
 import orjson
@@ -35,6 +36,8 @@ CONFIG_KEY_GRAPH_ID = "graph_id"
 CONFIG_KEY_ROOT_STREAM_MODES = "__pregel_root_stream_modes"
 CONFIG_KEY_TRACING_PROJECT = "__langsmith_project__"
 CONFIG_KEY_TRACING_EXAMPLE_ID = "__langsmith_example_id__"
+
+logger = logging.getLogger(__name__)
 
 
 def config_from_proto(
@@ -219,7 +222,21 @@ def config_to_proto(
     # Preserve extra top-level keys (not in KNOWN_CONFIG_KEYS)
     extra = {k: v for k, v in config.items() if k not in KNOWN_CONFIG_KEYS}
     if extra:
-        pb_config.extra_json.update({k: orjson.dumps(v) for k, v in extra.items()})
+        # Note: These aren't really supposed to be supported in any case, but
+        # they've been around for a while so some people may rely on them.
+        extra_json = {}
+        for k, v in extra.items():
+            try:
+                extra_json[k] = orjson.dumps(v)
+            except Exception:
+                logger.warning(
+                    "Ignoring unserializable extra config value",
+                    extra={
+                        "config_key": k,
+                        "config_value_type": str(type(v)),
+                    },
+                )
+        pb_config.extra_json.update(extra_json)
 
     return pb_config
 

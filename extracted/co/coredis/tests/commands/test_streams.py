@@ -24,14 +24,11 @@ async def get_stream_message(client, stream, message_id):
 
 @targets(
     "redis_basic",
-    "redis_basic_resp2",
-    "redis_basic_blocking",
     "redis_basic_raw",
     "redis_cluster",
-    "redis_cluster_blocking",
     "redis_cluster_raw",
+    "dragonfly",
     "valkey",
-    "redict",
 )
 class TestStreams:
     async def test_xadd_with_wrong_id(self, client, _s):
@@ -80,7 +77,6 @@ class TestStreams:
         length = await client.xlen("test_stream")
         assert length == 2
 
-    @pytest.mark.min_server_version("7.0")
     async def test_xadd_with_maxlen_approximately(self, client, _s):
         for idx in range(10):
             await client.xadd(
@@ -106,7 +102,6 @@ class TestStreams:
         length = await client.xlen("test_stream")
         assert length == 10
 
-    @pytest.mark.min_server_version("5.0.0")
     async def test_xclaim(self, client, _s):
         stream = "stream"
         group = "group"
@@ -215,6 +210,7 @@ class TestStreams:
         entries = await client.xrevrange("test_stream", end="3", start="2", count=3)
         assert len(entries) == 2 and entries[0][0] == _s("3-0")
 
+    @pytest.mark.nodragonfly
     async def test_xread(self, client, _s):
         for idx in range(1, 10):
             await client.xadd(
@@ -305,7 +301,6 @@ class TestStreams:
         assert len(group_info) == 1
         assert group_info[0][_s("name")] == _s("test_group")
 
-    @pytest.mark.min_server_version("7.0")
     async def test_xgroup_create_entries_read(self, client, _s):
         with pytest.raises(ResponseError):
             await client.xgroup_create("test_stream", "test_group", "0", entriesread=0)
@@ -332,7 +327,7 @@ class TestStreams:
         group_info = await client.xinfo_groups("test_stream")
         assert group_info[0][_s("pending")] == 5
 
-    @pytest.mark.min_server_version("7.0")
+    @pytest.mark.nodragonfly
     async def test_xgroup_setid_entriesread(self, client, _s):
         for idx in range(1, 10):
             await client.xadd(
@@ -466,7 +461,6 @@ class TestStreams:
             {_s("k1"): _s("v2"), _s("k2"): _s("2")},
         )
 
-    @pytest.mark.min_server_version("7.0.0")
     async def test_xinfo_stream_full(self, client, _s):
         await client.xadd("test_stream", field_values={"k1": "v1", "k2": "1"}, identifier="1")
         await client.xadd("test_stream", field_values={"k1": "v2", "k2": "2"}, identifier="1-1")

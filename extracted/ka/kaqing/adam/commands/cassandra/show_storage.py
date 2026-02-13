@@ -1,9 +1,7 @@
-from adam.commands import extract_options, extract_trailing_options
 from adam.commands.command import Command
 from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
 from adam.utils_cassandra.table_renderer import renderer
-from adam.utils_context import Context
 
 class ShowStorage(Command):
     COMMAND = 'show storage'
@@ -20,27 +18,31 @@ class ShowStorage(Command):
     def command(self):
         return ShowStorage.COMMAND
 
+    def aliases(self):
+        return ['st']
+
     def required(self):
         return RequiredState.CLUSTER_OR_POD
 
-    def aliases(self):
-        return ['st']
+    def backgrounable(self):
+        return True
 
     def run(self, cmd: str, state: ReplState):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with extract_trailing_options(args, '&') as (args, background):
+            with self.context(args, show_out=False) as (args, ctx):
                 cols = Config().get('storage.columns', 'pod,volume_root,volume_cassandra,snapshots,data,compactions')
                 header = Config().get('storage.header', 'POD_NAME,VOLUME /,VOLUME CASS,SNAPSHOTS,DATA,COMPACTIONS')
+
                 with renderer(state) as pods:
-                    pods.display_table(cols, header, ctx=Context.new(cmd, background=background))
+                    pods.display_table(cols, header, ctx=ctx)
 
                 return state
 
     def completion(self, state: ReplState):
-        return super().completion(state, {'&': None})
+        return super().completion(state)
 
     def help(self, state: ReplState):
-        return super().help(state, 'show storage overview  & background', args='[&]')
+        return super().help(state, 'show storage overview')

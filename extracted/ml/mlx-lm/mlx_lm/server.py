@@ -153,7 +153,7 @@ def process_message_content(messages):
 
     """
     for message in messages:
-        content = message["content"]
+        content = message.get("content", None)
         if isinstance(content, list):
             text_fragments = [
                 fragment["text"] for fragment in content if fragment["type"] == "text"
@@ -1486,6 +1486,10 @@ class APIHandler(BaseHTTPRequestHandler):
 
             if gen.finish_reason is not None:
                 finish_reason = gen.finish_reason
+
+        # Flush any remaining tool text (e.g. when tool_call_end is empty)
+        if in_tool_call and tool_text:
+            tool_calls.append(tool_text)
 
         if self.stream:
             response = self.generate_response(

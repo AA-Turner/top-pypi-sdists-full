@@ -181,6 +181,13 @@ def shutter_curve_preset(
     :param shape: Mode
     """
 
+def swap_dimensions(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
+    """Flip X and Y resolutions"""
+
 def view_cancel(
     execution_context: int | str | None = None,
     undo: bool | None = None,

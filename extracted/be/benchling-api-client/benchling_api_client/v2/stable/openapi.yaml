@@ -23493,7 +23493,7 @@ components:
             Folder items created by the correpsonding output processor will be created
             in this folder.
           type: string
-        locatonId:
+        locationId:
           description: The API ID of the location to set for the automation output
             file. Storable items created by the correpsonding output processor will
             be created at this location.
@@ -23822,6 +23822,8 @@ components:
       - $ref: '#/components/schemas/Schema'
       - properties:
           derivedFrom:
+            deprecated: true
+            description: This feature is no longer supported.
             nullable: true
             type: string
           organization:

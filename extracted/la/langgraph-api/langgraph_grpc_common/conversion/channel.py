@@ -152,5 +152,8 @@ def revive_channel(
 ) -> BaseChannel:
     val_pb = channel_pb.checkpoint_result
     val = value_from_proto(val_pb)
-
-    return channel.copy().from_checkpoint(val)
+    # Channels typically check "if checkpoint is not MISSING"; passing None can set
+    # internal state to None and cause AttributeError on a later .copy(). Use MISSING
+    # when there is no checkpoint for any channel type.
+    safe_val = MISSING if (val is None or val is MISSING) else val
+    return channel.copy().from_checkpoint(safe_val)

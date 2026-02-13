@@ -154,6 +154,29 @@ class OfflineMessageHandler(BaseMessageHandler):
         new_message = convert_upload_in_memory_to_file_message(message, self.tmp_dir)
         self._process_upload_message(new_message, context=context)
 
+    def _process_log_3d_cloud_message(
+        self, message: Log3DCloudMessage, context: HandlerContext
+    ) -> None:
+        msg_json = message.to_message_dict()
+        # copy thumbnail to our tmp dir
+        if message.thumbnail_path is not None:
+            shutil.copy(message.thumbnail_path, self.tmp_dir)
+            msg_json["thumbnail_path"] = os.path.basename(message.thumbnail_path)
+
+        # copy asset items
+        if message.items:
+            asset_items = []
+            for asset_item in message.items:
+                shutil.copy(asset_item.file_path, self.tmp_dir)
+                item = asset_item.serialize()
+                item["file_path"] = os.path.basename(asset_item.file_path)
+                asset_items.append(item)
+
+            msg_json["items"] = asset_items
+
+        data = {"type": Log3DCloudMessage.type, "payload": msg_json}
+        self._write(data, context=context)
+
     def _process_message(self, message: BaseMessage, context: HandlerContext):
         msg_json = message.to_message_dict()
 
@@ -183,5 +206,5 @@ class OfflineMessageHandler(BaseMessageHandler):
             LogDependencyMessage: self._process_message,
             RegisterModelMessage: self._process_message,
             RemoteModelMessage: self._process_message,
-            Log3DCloudMessage: self._process_message,
+            Log3DCloudMessage: self._process_log_3d_cloud_message,
         }

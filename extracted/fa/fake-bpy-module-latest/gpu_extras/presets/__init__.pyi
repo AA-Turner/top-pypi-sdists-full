@@ -3,7 +3,6 @@ import collections.abc
 import typing_extensions
 import numpy.typing as npt
 import gpu.types
-import mathutils
 
 def draw_circle_2d(
     position: collections.abc.Sequence[float],
@@ -25,7 +24,7 @@ def draw_circle_2d(
 
 def draw_texture_2d(
     texture: gpu.types.GPUTexture,
-    position: collections.abc.Sequence[float] | mathutils.Vector,
+    position: collections.abc.Sequence[float],
     width: float,
     height: float,
     is_scene_linear_with_rec709_srgb_target: bool = False,
@@ -33,7 +32,7 @@ def draw_texture_2d(
     """Draw a 2d texture.
 
         :param texture: GPUTexture to draw (e.g. gpu.texture.from_image(image) for `bpy.types.Image`).
-        :param position: Position of the lower left corner.
+        :param position: 2D position of the lower left corner.
         :param width: Width of the image when drawn (not necessarily
     the original width of the texture).
         :param height: Height of the image when drawn.

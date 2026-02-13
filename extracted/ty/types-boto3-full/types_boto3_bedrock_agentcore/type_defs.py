@@ -52,6 +52,7 @@ __all__ = (
     "ActorSummaryTypeDef",
     "AutomationStreamTypeDef",
     "AutomationStreamUpdateTypeDef",
+    "BasicAuthTypeDef",
     "BatchCreateMemoryRecordsInputTypeDef",
     "BatchCreateMemoryRecordsOutputTypeDef",
     "BatchDeleteMemoryRecordsInputTypeDef",
@@ -87,6 +88,8 @@ __all__ = (
     "EvaluationTargetTypeDef",
     "EventMetadataFilterExpressionTypeDef",
     "EventTypeDef",
+    "ExternalProxyOutputTypeDef",
+    "ExternalProxyTypeDef",
     "ExtractionJobFilterInputTypeDef",
     "ExtractionJobMessagesTypeDef",
     "ExtractionJobMetadataTypeDef",
@@ -153,6 +156,14 @@ __all__ = (
     "PayloadTypeOutputTypeDef",
     "PayloadTypeTypeDef",
     "PayloadTypeUnionTypeDef",
+    "ProxyBypassOutputTypeDef",
+    "ProxyBypassTypeDef",
+    "ProxyConfigurationOutputTypeDef",
+    "ProxyConfigurationTypeDef",
+    "ProxyConfigurationUnionTypeDef",
+    "ProxyCredentialsTypeDef",
+    "ProxyOutputTypeDef",
+    "ProxyTypeDef",
     "ResourceContentTypeDef",
     "ResourceLocationTypeDef",
     "ResourceNotFoundExceptionTypeDef",
@@ -210,6 +221,10 @@ class AutomationStreamTypeDef(TypedDict):
 
 class AutomationStreamUpdateTypeDef(TypedDict):
     streamStatus: NotRequired[AutomationStreamStatusType]
+
+
+class BasicAuthTypeDef(TypedDict):
+    secretArn: str
 
 
 class MemoryRecordOutputTypeDef(TypedDict):
@@ -496,6 +511,14 @@ class MemoryContentTypeDef(TypedDict):
     text: NotRequired[str]
 
 
+class ProxyBypassOutputTypeDef(TypedDict):
+    domainPatterns: NotRequired[list[str]]
+
+
+class ProxyBypassTypeDef(TypedDict):
+    domainPatterns: NotRequired[Sequence[str]]
+
+
 class S3LocationTypeDef(TypedDict):
     bucket: str
     prefix: str
@@ -550,6 +573,10 @@ class ValidationExceptionFieldTypeDef(TypedDict):
 
 class StreamUpdateTypeDef(TypedDict):
     automationStreamUpdate: NotRequired[AutomationStreamUpdateTypeDef]
+
+
+class ProxyCredentialsTypeDef(TypedDict):
+    basicAuth: NotRequired[BasicAuthTypeDef]
 
 
 class BatchCreateMemoryRecordsOutputTypeDef(TypedDict):
@@ -877,6 +904,20 @@ class UpdateBrowserStreamRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
 
 
+class ExternalProxyOutputTypeDef(TypedDict):
+    server: str
+    port: int
+    domainPatterns: NotRequired[list[str]]
+    credentials: NotRequired[ProxyCredentialsTypeDef]
+
+
+class ExternalProxyTypeDef(TypedDict):
+    server: str
+    port: int
+    domainPatterns: NotRequired[Sequence[str]]
+    credentials: NotRequired[ProxyCredentialsTypeDef]
+
+
 class ToolArgumentsTypeDef(TypedDict):
     code: NotRequired[str]
     language: NotRequired[ProgrammingLanguageType]
@@ -994,6 +1035,14 @@ class BrowserExtensionTypeDef(TypedDict):
     location: ResourceLocationTypeDef
 
 
+class ProxyOutputTypeDef(TypedDict):
+    externalProxy: NotRequired[ExternalProxyOutputTypeDef]
+
+
+class ProxyTypeDef(TypedDict):
+    externalProxy: NotRequired[ExternalProxyTypeDef]
+
+
 class InvokeCodeInterpreterRequestTypeDef(TypedDict):
     codeInterpreterIdentifier: str
     name: ToolNameType
@@ -1051,32 +1100,14 @@ class ListMemoryExtractionJobsOutputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
-class GetBrowserSessionResponseTypeDef(TypedDict):
-    browserIdentifier: str
-    sessionId: str
-    name: str
-    createdAt: datetime
-    viewPort: ViewPortTypeDef
-    extensions: list[BrowserExtensionTypeDef]
-    profileConfiguration: BrowserProfileConfigurationTypeDef
-    sessionTimeoutSeconds: int
-    status: BrowserSessionStatusType
-    streams: BrowserSessionStreamTypeDef
-    sessionReplayArtifact: str
-    lastUpdatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
+class ProxyConfigurationOutputTypeDef(TypedDict):
+    proxies: list[ProxyOutputTypeDef]
+    bypass: NotRequired[ProxyBypassOutputTypeDef]
 
 
-class StartBrowserSessionRequestTypeDef(TypedDict):
-    browserIdentifier: str
-    traceId: NotRequired[str]
-    traceParent: NotRequired[str]
-    name: NotRequired[str]
-    sessionTimeoutSeconds: NotRequired[int]
-    viewPort: NotRequired[ViewPortTypeDef]
-    extensions: NotRequired[Sequence[BrowserExtensionTypeDef]]
-    profileConfiguration: NotRequired[BrowserProfileConfigurationTypeDef]
-    clientToken: NotRequired[str]
+class ProxyConfigurationTypeDef(TypedDict):
+    proxies: Sequence[ProxyTypeDef]
+    bypass: NotRequired[ProxyBypassTypeDef]
 
 
 class InvokeCodeInterpreterResponseTypeDef(TypedDict):
@@ -1150,3 +1181,36 @@ class RetrieveMemoryRecordsInputTypeDef(TypedDict):
     searchCriteria: SearchCriteriaTypeDef
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
+
+
+class GetBrowserSessionResponseTypeDef(TypedDict):
+    browserIdentifier: str
+    sessionId: str
+    name: str
+    createdAt: datetime
+    viewPort: ViewPortTypeDef
+    extensions: list[BrowserExtensionTypeDef]
+    profileConfiguration: BrowserProfileConfigurationTypeDef
+    sessionTimeoutSeconds: int
+    status: BrowserSessionStatusType
+    streams: BrowserSessionStreamTypeDef
+    proxyConfiguration: ProxyConfigurationOutputTypeDef
+    sessionReplayArtifact: str
+    lastUpdatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+ProxyConfigurationUnionTypeDef = Union[ProxyConfigurationTypeDef, ProxyConfigurationOutputTypeDef]
+
+
+class StartBrowserSessionRequestTypeDef(TypedDict):
+    browserIdentifier: str
+    traceId: NotRequired[str]
+    traceParent: NotRequired[str]
+    name: NotRequired[str]
+    sessionTimeoutSeconds: NotRequired[int]
+    viewPort: NotRequired[ViewPortTypeDef]
+    extensions: NotRequired[Sequence[BrowserExtensionTypeDef]]
+    profileConfiguration: NotRequired[BrowserProfileConfigurationTypeDef]
+    proxyConfiguration: NotRequired[ProxyConfigurationUnionTypeDef]
+    clientToken: NotRequired[str]

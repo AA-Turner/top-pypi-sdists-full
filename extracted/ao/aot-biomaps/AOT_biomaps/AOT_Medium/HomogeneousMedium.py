@@ -28,7 +28,7 @@ class HomogeneousMedium(Medium):
                 self.params.general['Zrange'][1] - self.params.general['Zrange'][0])
         pva_nx = int(np.round(width / dx))
         pva_nz = int(np.round(height / dx))
-
+        
         # Ajout des marges d'air si nécessaire
         air_margin = 20 if self.params.acoustic['medium']['isAirReflection'] else 0
         Nx, Nz = pva_nx + 2 * air_margin, pva_nz

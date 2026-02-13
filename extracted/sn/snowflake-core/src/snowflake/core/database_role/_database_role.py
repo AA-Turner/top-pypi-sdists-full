@@ -14,6 +14,10 @@ from snowflake.core.database_role._generated.models.containing_scope import Cont
 from snowflake.core.database_role._generated.models.grant import Grant
 from snowflake.core.database_role._generated.models.securable import Securable
 
+from .._utils import tag_assignment_to_tag_tuple, tag_resource_to_tag_reference, tag_tuple_to_tag_assignment
+from ..tag import TagResource, TagValue
+from ._generated import TagAssignment, TagReference
+
 
 if TYPE_CHECKING:
     from snowflake.core import Root
@@ -920,3 +924,121 @@ class DatabaseRoleResource(DatabaseObjectReferenceMixin[DatabaseRoleCollection])
         """  # noqa: D401
         future = self.collection._api.list_future_grants(self.database.name, self.name, show_limit, async_req=True)
         return PollingOperations.iterator(future)
+
+    @api_telemetry
+    def set_tags(self, tags: dict[TagResource, TagValue], if_exists: Optional[bool] = None) -> None:
+        """Set tags on a database role.
+
+        Parameters
+        __________
+        tags: dict[TagResource, TagValue]
+             (required)
+        if_exists: bool
+             Parameter that specifies how to handle the request for a resource that does not exist: - `true`:
+             The endpoint does not throw an error if the resource does not exist. It returns a 200 success response,
+             but does not take any action on the resource. - `false`: The endpoint throws an error if the resource
+             doesn't exist.
+        """
+        self.collection._api.set_tags(
+            database=self.database.name,
+            name=self.name,
+            tag_assignment=[
+                tag_tuple_to_tag_assignment(TagAssignment, tag_resource, tag_value)
+                for [tag_resource, tag_value] in tags.items()
+            ],
+            if_exists=if_exists,
+        )
+
+    @api_telemetry
+    def set_tags_async(
+        self, tags: dict[TagResource, TagValue], if_exists: Optional[bool] = None
+    ) -> PollingOperation[None]:
+        """An asynchronous version of :func:`set_tags`.
+
+        Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
+        the return type.
+        """  # noqa: D401
+        future = self.collection._api.set_tags(
+            database=self.database.name,
+            name=self.name,
+            tag_assignment=[
+                tag_tuple_to_tag_assignment(TagAssignment, tag_resource, tag_value)
+                for [tag_resource, tag_value] in tags.items()
+            ],
+            if_exists=if_exists,
+            async_req=True,
+        )
+        return PollingOperations.empty(future)
+
+    @api_telemetry
+    def unset_tags(self, tag_resources: set[TagResource], if_exists: Optional[bool] = None) -> None:
+        """Unset tags from a database role.
+
+        Parameters
+        __________
+        tag_resources: set[TagResource]
+             (required)
+        if_exists: bool
+             Parameter that specifies how to handle the request for a resource that does not exist: - `true`:
+             The endpoint does not throw an error if the resource does not exist. It returns a 200 success response,
+             but does not take any action on the resource. - `false`: The endpoint throws an error if the resource
+             doesn't exist.
+        """
+        self.collection._api.unset_tags(
+            database=self.database.name,
+            name=self.name,
+            tag_reference=[tag_resource_to_tag_reference(TagReference, tag_resource) for tag_resource in tag_resources],
+            if_exists=if_exists,
+        )
+
+    @api_telemetry
+    def unset_tags_async(
+        self, tag_resources: set[TagResource], if_exists: Optional[bool] = None
+    ) -> PollingOperation[None]:
+        """An asynchronous version of :func:`unset_tags`.
+
+        Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
+        the return type.
+        """  # noqa: D401
+        future = self.collection._api.unset_tags(
+            database=self.database.name,
+            name=self.name,
+            tag_reference=[tag_resource_to_tag_reference(TagReference, tag_resource) for tag_resource in tag_resources],
+            if_exists=if_exists,
+            async_req=True,
+        )
+        return PollingOperations.empty(future)
+
+    @api_telemetry
+    def get_tags(self, with_lineage: Optional[bool] = None) -> dict[TagResource, TagValue]:
+        """Get the tag assignments for a database role.
+
+        Returns all tags assigned to a database role. This operation requires an active warehouse.
+
+        Parameters
+        __________
+        with_lineage: bool, optional
+            Parameter that specifies whether tag assignments inherited by the object from its ancestors in securable
+            object hierarchy should be returned as well: - `true`: All tags assigned to this object should be returned,
+            inheritance included. - `false`: Only tags explicitly assigned to this object should be returned.
+        """
+        tag_assignments = self.collection._api.get_tags(
+            database=self.database.name,
+            name=self.name,
+            with_lineage=with_lineage,
+        )
+        return dict(tag_assignment_to_tag_tuple(ta, self.root) for ta in tag_assignments)
+
+    @api_telemetry
+    def get_tags_async(self, with_lineage: Optional[bool] = None) -> PollingOperation[dict[TagResource, TagValue]]:
+        """An asynchronous version of :func:`get_tags`.
+
+        Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
+        the return type.
+        """  # noqa: D401
+        future = self.collection._api.get_tags(
+            database=self.database.name, name=self.name, with_lineage=with_lineage, async_req=True
+        )
+        return PollingOperation(
+            future, lambda tag_assignments: dict(tag_assignment_to_tag_tuple(ta, self.root) for ta in tag_assignments)
+        )

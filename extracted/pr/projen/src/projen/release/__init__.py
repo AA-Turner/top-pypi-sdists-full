@@ -3903,6 +3903,25 @@ class ReleaseTrigger(
 
         return typing.cast("ReleaseTrigger", jsii.sinvoke(cls, "scheduled", [options]))
 
+    @jsii.member(jsii_name="tagged")
+    @builtins.classmethod
+    def tagged(
+        cls,
+        *,
+        tags: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> "ReleaseTrigger":
+        '''(experimental) Creates a tag-based release trigger.
+
+        Automated releases will occur on every new tag matching the provided patterns.
+
+        :param tags: (experimental) Tag patterns for which pushes should trigger a release.
+
+        :stability: experimental
+        '''
+        options = TagReleaseOptions(tags=tags)
+
+        return typing.cast("ReleaseTrigger", jsii.sinvoke(cls, "tagged", [options]))
+
     @jsii.member(jsii_name="workflowDispatch")
     @builtins.classmethod
     def workflow_dispatch(cls) -> "ReleaseTrigger":
@@ -3976,6 +3995,15 @@ class ReleaseTrigger(
         '''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "schedule"))
 
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Tag patterns for which pushes will trigger a release.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "tags"))
+
 
 @jsii.data_type(
     jsii_type="projen.release.ScheduledReleaseOptions",
@@ -4020,6 +4048,50 @@ class ScheduledReleaseOptions:
 
     def __repr__(self) -> str:
         return "ScheduledReleaseOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="projen.release.TagReleaseOptions",
+    jsii_struct_bases=[],
+    name_mapping={"tags": "tags"},
+)
+class TagReleaseOptions:
+    def __init__(
+        self,
+        *,
+        tags: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''
+        :param tags: (experimental) Tag patterns for which pushes should trigger a release.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c780e45abd4dc2180a4e3ffcbe5fee656f75dc2e5fa799e018e4b79fca875009)
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Tag patterns for which pushes should trigger a release.
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TagReleaseOptions(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -5677,6 +5749,7 @@ __all__ = [
     "ReleaseProjectOptions",
     "ReleaseTrigger",
     "ScheduledReleaseOptions",
+    "TagReleaseOptions",
 ]
 
 publication.publish()
@@ -6008,6 +6081,13 @@ def _typecheckingstub__cc5e99254de9f29d2ac3b86e193164816e1ed36e491e602128e7d16fb
 def _typecheckingstub__629cc7488dbd6e87168962d964694e088625a8e208d09e45c120eac7e4963baa(
     *,
     schedule: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c780e45abd4dc2180a4e3ffcbe5fee656f75dc2e5fa799e018e4b79fca875009(
+    *,
+    tags: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: extra-platforms
-Version: 8.0.0
+Version: 9.0.0
 Summary: 🔎 Detect architectures, platforms, and CI systems, grouped by family
-Keywords: ALT Linux,Amazon Linux,Android,Arch Linux,Architecture detection,ARM (32-bit),ARM64 (AArch64),ARMv5TE (little-endian),ARMv6 (little-endian),ARMv7 (little-endian),ARMv8 (32-bit, little-endian),AT&T System Five,Azure Pipelines,Bamboo,Buildkite,Buildroot,CachyOS,CentOS,Circle CI,Cirrus CI,CloudLinux OS,CodeBuild,Cygwin,Debian,DragonFly BSD,Exherbo Linux,Fedora,FreeBSD,Gentoo Linux,GitHub Actions runner,GitLab CI,GNU/Hurd,Guix System,Haiku,Heroku CI,IBM AIX,IBM PowerKVM,IBM z/Architecture (s390x),illumos,Intel 80386 (i386),Intel Pentium (i586),Intel Pentium Pro (i686),KVM for IBM z Systems,Linux Mint,LoongArch (64-bit),macOS,Mageia,Mandriva Linux,MidnightBSD,MIPS (32-bit, big-endian),MIPS (32-bit, little-endian),MIPS64 (big-endian),MIPS64 (little-endian),multiplatform,NetBSD,Nobara,OpenBSD,openSUSE,openSUSE Tumbleweed,Oracle Linux,OS detection,Parallels,Pidora,Platform detection,PowerPC (32-bit),PowerPC 64-bit (big-endian),PowerPC 64-bit (little-endian),Pytest,Raspbian,RedHat Enterprise Linux,RISC-V (32-bit),RISC-V (64-bit),Rocky Linux,Scientific Linux,Slackware,Solaris,SPARC (32-bit),SPARC (64-bit),SunOS,SUSE Linux Enterprise Server,TeamCity,Travis CI,Tuxedo OS,Ubuntu,Ultramarine,Unix,WebAssembly (32-bit),WebAssembly (64-bit),Windows,Windows Subsystem for Linux,x86-64 (AMD64),XenServer
+Keywords: Almquist Shell,ALT Linux,Amazon Linux,Android,Arch Linux,Architecture detection,ARM (32-bit),ARM64 (AArch64),ARMv5TE (little-endian),ARMv6 (little-endian),ARMv7 (little-endian),ARMv8 (32-bit, little-endian),AT&T System Five,Azure Pipelines,Bamboo,Bash,Buildkite,Buildroot,C shell,CachyOS,CentOS,Circle CI,Cirrus CI,CloudLinux OS,CodeBuild,Command Prompt,Cygwin,Dash,Debian,DragonFly BSD,Exherbo Linux,Fedora,Fish,FreeBSD,Gentoo Linux,GitHub Actions runner,GitLab CI,GNU/Hurd,Guix System,Haiku,Heroku CI,IBM AIX,IBM PowerKVM,IBM z/Architecture (s390x),illumos,Intel 80386 (i386),Intel Pentium (i586),Intel Pentium Pro (i686),Korn shell,KVM for IBM z Systems,Linux Mint,LoongArch (64-bit),macOS,Mageia,Mandriva Linux,MidnightBSD,MIPS (32-bit, big-endian),MIPS (32-bit, little-endian),MIPS64 (big-endian),MIPS64 (little-endian),multiplatform,NetBSD,Nobara,Nushell,OpenBSD,openSUSE,openSUSE Tumbleweed,Oracle Linux,OS detection,Parallels,Pidora,Platform detection,PowerPC (32-bit),PowerPC 64-bit (big-endian),PowerPC 64-bit (little-endian),PowerShell,Pytest,Raspbian,RedHat Enterprise Linux,RISC-V (32-bit),RISC-V (64-bit),Rocky Linux,Scientific Linux,Slackware,Solaris,SPARC (32-bit),SPARC (64-bit),SunOS,SUSE Linux Enterprise Server,tcsh,TeamCity,Travis CI,Tuxedo OS,Ubuntu,Ultramarine,Unix,WebAssembly (32-bit),WebAssembly (64-bit),Windows,Windows Subsystem for Linux,x86-64 (AMD64),XenServer,Xonsh,Zsh
 Author: Kevin Deldycke
 Author-email: Kevin Deldycke <kevin@deldycke.com>
 License-File: license
@@ -80,7 +80,7 @@ Requires-Dist: pytest>=8.2.1 ; extra == 'pytest'
 Requires-Python: >=3.10
 Project-URL: Changelog, https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md
 Project-URL: Documentation, https://kdeldycke.github.io/extra-platforms
-Project-URL: Download, https://github.com/kdeldycke/extra-platforms/releases/tag/v8.0.0
+Project-URL: Download, https://github.com/kdeldycke/extra-platforms/releases/tag/v9.0.0
 Project-URL: Funding, https://github.com/sponsors/kdeldycke
 Project-URL: Homepage, https://github.com/kdeldycke/extra-platforms
 Project-URL: Issues, https://github.com/kdeldycke/extra-platforms/issues
@@ -100,9 +100,9 @@ Description-Content-Type: text/markdown
 
 ## What is Extra Platforms?
 
-Extra Platforms detects the runtime architecture, operating system (including Linux distribution), and CI environment, and exposes rich, cacheable metadata (version, codename, icon, canonical URL). It also groups platforms and architectures into reusable families.
+Extra Platforms detects the runtime architecture, operating system (including Linux distribution), shell & CI environment, and exposes rich, cacheable metadata (version, codename, icon, canonical URL). It also groups them into reusable families.
 
-- Accurate detection of architecture, OS/distribution, and CI systems using lightweight, cacheable heuristics.
+- Accurate detection of architecture, OS/distribution, shell, and CI systems using lightweight, cacheable heuristics.
 - Rich metadata for platforms: version, codename, icon, canonical URL, and "like" relationships.
 - Grouping and API primitives: predefined families, `is_*()` predicates, `current_*()` accessors, and `Group` membership helpers.
 - Testing helpers: Pytest decorators and markers such as `@skip_<id>` and `@unless_<id>` for concise platform-aware tests.
@@ -316,17 +316,18 @@ mindmap
             (🐉 LOONGARCH64)
         )🏢 IBM_MAINFRAME(
             (🏢 S390X)
-        )☀️ ANY_SPARC(
+        )☀️ ALL_SPARC(
             (☀️ SPARC)
             (☀️ SPARC64)
-        )🔲 ANY_MIPS(
+        )🔲 ALL_MIPS(
             (🔲 MIPS)
             (🔲 MIPS64)
             (🔲 MIPS64EL)
             (🔲 MIPSEL)
-        )📱 ANY_ARM(
+        )📱 ALL_ARM(
             (📱 AARCH64)
             (📱 ARM)
+            (📱 ARMV5TEL)
             (📱 ARMV6L)
             (📱 ARMV7L)
             (📱 ARMV8L)
@@ -354,12 +355,12 @@ mindmap
             (🌞 SOLARIS)
         )🅟 OTHER_POSIX(
             (🍂 HAIKU)
-            (🐃 HURD)
+            (🦬 HURD)
         )≚ LINUX_LAYERS(
             (⊞ WSL1)
             (⊞ WSL2)
         )🐧 LINUX(
-            (🐧 ALTLINUX)
+            (Δ ALTLINUX)
             (⤻ AMZN)
             (🤖 ANDROID)
             (🎗️ ARCH)
@@ -393,14 +394,14 @@ mindmap
             (🎯 UBUNTU)
             (🌊 ULTRAMARINE)
             (Ⓧ XENSERVER)
-        )🅱️+ BSD(
+        )Ⓑ BSD(
             (🪰 DRAGONFLY_BSD)
             (😈 FREEBSD)
             (🍎 MACOS)
             (🌘 MIDNIGHTBSD)
             (🚩 NETBSD)
             (🐡 OPENBSD)
-            (☀️ SUNOS)
+            (🌅 SUNOS)
         )🪟 ALL_WINDOWS(
             (🪟 WINDOWS)
 ```
@@ -409,6 +410,38 @@ mindmap
 
 > [!TIP]
 > More groups exist beyond those shown in the diagram, and more utilities are available for each platform. See the [platform documentation](https://kdeldycke.github.io/extra-platforms/platforms.html#groups-of-platforms) for details.
+
+## Shells
+
+All recognized shells:
+
+<!-- shell-mindmap-start -->
+
+```mermaid
+---
+config: {"mindmap": {"padding": 5}}
+---
+mindmap
+    ((🐚 ALL_SHELLS))
+        )⌨️ WINDOWS_SHELLS(
+            (▶ CMD)
+            (🔷 POWERSHELL)
+        )◇ OTHER_SHELLS(
+            (🐟 FISH)
+            (𝜈 NUSHELL)
+            (🐍 XONSH)
+        )🅲 C_SHELLS(
+            (© CSH)
+            (© TCSH)
+        )💲 BOURNE_SHELLS(
+            (🪶 ASH)
+            (＃ BASH)
+            (💨 DASH)
+            (𝐊 KSH)
+            (ℤ ZSH)
+```
+
+<!-- shell-mindmap-end -->
 
 ## CI systems
 

@@ -8,7 +8,7 @@ from adam.sso.idp import Idp
 from adam.sso.idp_login import IdpLogin
 from adam.config import Config
 from adam.utils import json_to_csv
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.utils_log import Log, debug, debug_trace,log2, log_exc
 from adam.utils_tabulize import tabulize
 from adam.apps import Apps
@@ -45,7 +45,7 @@ class AppSession:
 
         return session
 
-    def run(env: str, app: str, namespace: str, type: str, action: str, payload: any = None, forced = False, ctx: Context=Context.NULL):
+    def run(env: str, app: str, namespace: str, type: str, action: str, payload: any = None, forced = False, ctx = NULL):
         app_session: AppSession = AppSession.create(env, app, namespace)
 
         def run0(app_login: AppLogin, retried: bool):

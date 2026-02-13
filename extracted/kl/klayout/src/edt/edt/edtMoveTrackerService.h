@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -67,6 +67,11 @@ public:
    *  @brief Terminate a "move" operation
    */
   virtual void end_move (const db::DPoint &p, lay::angle_constraint_type ac);
+
+  /**
+   *  @brief Terminate a "move" operation with compulsory move vector
+   */
+  virtual void end_move (const db::DVector &v);
 
   /**
    *  @brief Access to the view object

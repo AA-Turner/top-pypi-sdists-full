@@ -2,7 +2,7 @@ from adam.commands import validate_args
 from adam.commands.command import Command
 from adam.utils_cassandra.node_scheduler import NodeScheduler
 from adam.utils_cassandra.node_schedules import NodeSchedules
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.repl_state import ReplState, RequiredState
 from adam.utils import duration
 from adam.utils_repl.set_completer import SetCompleter
@@ -31,24 +31,24 @@ class CancelRestarts(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state, apply=False) as (args, state):
-            with validate_args(args, state, name='pod name'):
-                pods = self.comma_separated_args(args)
+            with self.context(args) as (_, ctx):
+                with validate_args(args, state, name='pod name'):
+                    pods = self.comma_separated_args(args)
 
-                ctx = self.context()
-                canceled = list(NodeScheduler.cancel_restarts(state, pods, ctx=ctx).items())
-                canceled = sorted(canceled, key=lambda p: p[1])
+                    canceled = list(NodeScheduler.cancel_restarts(state, pods, ctx=ctx).items())
+                    canceled = sorted(canceled, key=lambda p: p[1])
 
-                ctx.log('Canceled restarts:')
-                tabulize(canceled,
-                         fn=lambda p: f'{p[0][0]}\t{p[0][1]}\t{duration(p[1])} ago',
-                         header='POD\tNAMESPACE\tSCHEDULED',
-                         separator='\t',
-                         ctx=ctx)
+                    ctx.log('Canceled restarts:')
+                    tabulize(canceled,
+                            fn=lambda p: f'{p[0][0]}\t{p[0][1]}\t{duration(p[1])} ago',
+                            header='POD\tNAMESPACE\tSCHEDULED',
+                            separator='\t',
+                            ctx=ctx)
 
-                return state
+                    return state
 
     def completion(self, state: ReplState):
-        return super().completion(state, lambda: SetCompleter(NodeSchedules.restarts(namespace=state.namespace, ctx=Context.NULL)))
+        return super().completion(state, lambda: SetCompleter(NodeSchedules.restarts(namespace=state.namespace, ctx=NULL)))
 
     def help(self, state: ReplState):
         return super().help(state, 'cancel restart request on Cassandra nodes', args='<pod-name>,...')

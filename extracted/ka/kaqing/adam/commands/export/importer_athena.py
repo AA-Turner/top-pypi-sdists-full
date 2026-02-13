@@ -8,7 +8,7 @@ from adam.repl_state import ReplState
 from adam.utils import GeneratorStream, bytes_generator_from_file
 from adam.utils_log import debug, log2, ing
 from adam.utils_athena import Athena
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.utils_k8s.pod_files import PodFiles
 from adam.utils_k8s.pods import Pods
 
@@ -31,7 +31,7 @@ class AthenaImporter(Importer):
                         columns: str,
                         multi_tables = True,
                         create_db = False,
-                        ctx: Context = Context.NULL):
+                        ctx = NULL):
         csv_file = self.csv_file(from_session, table, target_table)
         pod = state.pod
         namespace = state.namespace

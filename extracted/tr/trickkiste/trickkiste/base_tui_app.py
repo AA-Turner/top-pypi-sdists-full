@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 import asyncio
 import logging
 from argparse import ArgumentParser
+from contextlib import suppress
 from pathlib import Path
 
 from rich.color import Color
@@ -47,6 +48,7 @@ from textual.message import Message
 from textual.renderables._blend_colors import blend_colors
 from textual.renderables.sparkline import Sparkline as SparklineRenderable
 from textual.scrollbar import ScrollTo
+from textual.types import NoActiveAppError
 from textual.widgets import Label, RichLog
 
 from .logging_helper import (
@@ -83,15 +85,16 @@ class RichLogHandler(RichHandler):
             for arg in record.args
         )
         record.msg = markup_escape(record.msg)
-        self.widget.write(
-            self.render(
-                record=record,
-                message_renderable=self.render_message(
-                    record, self.format(record)
-                ),
-                traceback=None,
+        with suppress(NoActiveAppError):
+            self.widget.write(
+                self.render(
+                    record=record,
+                    message_renderable=self.render_message(
+                        record, self.format(record)
+                    ),
+                    traceback=None,
+                )
             )
-        )
 
 
 class LockingRichLog(RichLog):

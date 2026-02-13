@@ -105,8 +105,10 @@ The following example uses sets up two Resources '/pets' and '/books' in separat
 ```python
 from aws_cdk.aws_apigateway import IntegrationResponse, MethodResponse, IntegrationResponse, MethodResponse
 from constructs import Construct
-from aws_cdk import App, CfnOutput, NestedStack, NestedStackProps, Stack
-from aws_cdk.aws_apigateway import Deployment, Method, MockIntegration, PassthroughBehavior, RestApi, Stage
+from aws_cdk import NestedStackProps
+from aws_cdk import App, CfnOutput, NestedStack, Stack
+from aws_cdk.aws_apigateway import Method
+from aws_cdk.aws_apigateway import Deployment, MockIntegration, PassthroughBehavior, RestApi, Stage
 
 #
 # This file showcases how to split up a RestApi's Resources and Methods across nested stacks.
@@ -151,8 +153,8 @@ class RootStack(Stack):
 
 class PetsStack(NestedStack):
 
-    def __init__(self, scope, *, restApiId, rootResourceId, parameters=None, timeout=None, notificationArns=None, removalPolicy=None, description=None):
-        super().__init__(scope, "integ-restapi-import-PetsStack", restApiId=restApiId, rootResourceId=rootResourceId, parameters=parameters, timeout=timeout, notificationArns=notificationArns, removalPolicy=removalPolicy, description=description)
+    def __init__(self, scope, *, restApiId, rootResourceId, parameters=None, timeout=None, notificationArns=None, removalPolicy=None, description=None, suppressTemplateIndentation=None):
+        super().__init__(scope, "integ-restapi-import-PetsStack", restApiId=restApiId, rootResourceId=rootResourceId, parameters=parameters, timeout=timeout, notificationArns=notificationArns, removalPolicy=removalPolicy, description=description, suppressTemplateIndentation=suppressTemplateIndentation)
 
         api = RestApi.from_rest_api_attributes(self, "RestApi",
             rest_api_id=rest_api_id,
@@ -175,8 +177,8 @@ class PetsStack(NestedStack):
 
 class BooksStack(NestedStack):
 
-    def __init__(self, scope, *, restApiId, rootResourceId, parameters=None, timeout=None, notificationArns=None, removalPolicy=None, description=None):
-        super().__init__(scope, "integ-restapi-import-BooksStack", restApiId=restApiId, rootResourceId=rootResourceId, parameters=parameters, timeout=timeout, notificationArns=notificationArns, removalPolicy=removalPolicy, description=description)
+    def __init__(self, scope, *, restApiId, rootResourceId, parameters=None, timeout=None, notificationArns=None, removalPolicy=None, description=None, suppressTemplateIndentation=None):
+        super().__init__(scope, "integ-restapi-import-BooksStack", restApiId=restApiId, rootResourceId=rootResourceId, parameters=parameters, timeout=timeout, notificationArns=notificationArns, removalPolicy=removalPolicy, description=description, suppressTemplateIndentation=suppressTemplateIndentation)
 
         api = RestApi.from_rest_api_attributes(self, "RestApi",
             rest_api_id=rest_api_id,
@@ -198,8 +200,8 @@ class BooksStack(NestedStack):
         self.methods.push(method)
 
 class DeployStack(NestedStack):
-    def __init__(self, scope, *, restApiId, methods=None, parameters=None, timeout=None, notificationArns=None, removalPolicy=None, description=None):
-        super().__init__(scope, "integ-restapi-import-DeployStack", restApiId=restApiId, methods=methods, parameters=parameters, timeout=timeout, notificationArns=notificationArns, removalPolicy=removalPolicy, description=description)
+    def __init__(self, scope, *, restApiId, methods=None, parameters=None, timeout=None, notificationArns=None, removalPolicy=None, description=None, suppressTemplateIndentation=None):
+        super().__init__(scope, "integ-restapi-import-DeployStack", restApiId=restApiId, methods=methods, parameters=parameters, timeout=timeout, notificationArns=notificationArns, removalPolicy=removalPolicy, description=description, suppressTemplateIndentation=suppressTemplateIndentation)
 
         deployment = Deployment(self, "Deployment",
             api=RestApi.from_rest_api_id(self, "RestApi", rest_api_id)
@@ -24942,8 +24944,10 @@ class RestApiAttributes:
 
             from aws_cdk.aws_apigateway import IntegrationResponse, MethodResponse, IntegrationResponse, MethodResponse
             from constructs import Construct
-            from aws_cdk import App, CfnOutput, NestedStack, NestedStackProps, Stack
-            from aws_cdk.aws_apigateway import Deployment, Method, MockIntegration, PassthroughBehavior, RestApi, Stage
+            from aws_cdk import NestedStackProps
+            from aws_cdk import App, CfnOutput, NestedStack, Stack
+            from aws_cdk.aws_apigateway import Method
+            from aws_cdk.aws_apigateway import Deployment, MockIntegration, PassthroughBehavior, RestApi, Stage
             
             #
             # This file showcases how to split up a RestApi's Resources and Methods across nested stacks.
@@ -24988,8 +24992,8 @@ class RestApiAttributes:
             
             class PetsStack(NestedStack):
             
-                def __init__(self, scope, *, restApiId, rootResourceId, parameters=None, timeout=None, notificationArns=None, removalPolicy=None, description=None):
-                    super().__init__(scope, "integ-restapi-import-PetsStack", restApiId=restApiId, rootResourceId=rootResourceId, parameters=parameters, timeout=timeout, notificationArns=notificationArns, removalPolicy=removalPolicy, description=description)
+                def __init__(self, scope, *, restApiId, rootResourceId, parameters=None, timeout=None, notificationArns=None, removalPolicy=None, description=None, suppressTemplateIndentation=None):
+                    super().__init__(scope, "integ-restapi-import-PetsStack", restApiId=restApiId, rootResourceId=rootResourceId, parameters=parameters, timeout=timeout, notificationArns=notificationArns, removalPolicy=removalPolicy, description=description, suppressTemplateIndentation=suppressTemplateIndentation)
             
                     api = RestApi.from_rest_api_attributes(self, "RestApi",
                         rest_api_id=rest_api_id,
@@ -25012,8 +25016,8 @@ class RestApiAttributes:
             
             class BooksStack(NestedStack):
             
-                def __init__(self, scope, *, restApiId, rootResourceId, parameters=None, timeout=None, notificationArns=None, removalPolicy=None, description=None):
-                    super().__init__(scope, "integ-restapi-import-BooksStack", restApiId=restApiId, rootResourceId=rootResourceId, parameters=parameters, timeout=timeout, notificationArns=notificationArns, removalPolicy=removalPolicy, description=description)
+                def __init__(self, scope, *, restApiId, rootResourceId, parameters=None, timeout=None, notificationArns=None, removalPolicy=None, description=None, suppressTemplateIndentation=None):
+                    super().__init__(scope, "integ-restapi-import-BooksStack", restApiId=restApiId, rootResourceId=rootResourceId, parameters=parameters, timeout=timeout, notificationArns=notificationArns, removalPolicy=removalPolicy, description=description, suppressTemplateIndentation=suppressTemplateIndentation)
             
                     api = RestApi.from_rest_api_attributes(self, "RestApi",
                         rest_api_id=rest_api_id,
@@ -25035,8 +25039,8 @@ class RestApiAttributes:
                     self.methods.push(method)
             
             class DeployStack(NestedStack):
-                def __init__(self, scope, *, restApiId, methods=None, parameters=None, timeout=None, notificationArns=None, removalPolicy=None, description=None):
-                    super().__init__(scope, "integ-restapi-import-DeployStack", restApiId=restApiId, methods=methods, parameters=parameters, timeout=timeout, notificationArns=notificationArns, removalPolicy=removalPolicy, description=description)
+                def __init__(self, scope, *, restApiId, methods=None, parameters=None, timeout=None, notificationArns=None, removalPolicy=None, description=None, suppressTemplateIndentation=None):
+                    super().__init__(scope, "integ-restapi-import-DeployStack", restApiId=restApiId, methods=methods, parameters=parameters, timeout=timeout, notificationArns=notificationArns, removalPolicy=removalPolicy, description=description, suppressTemplateIndentation=suppressTemplateIndentation)
             
                     deployment = Deployment(self, "Deployment",
                         api=RestApi.from_rest_api_id(self, "RestApi", rest_api_id)

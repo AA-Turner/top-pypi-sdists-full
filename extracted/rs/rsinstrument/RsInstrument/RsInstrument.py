@@ -5,6 +5,8 @@ from typing import List, Tuple, ClassVar
 from datetime import datetime, timedelta
 
 from .Fixed_Files.Events import Events
+from .Fixed_Files.ivi_direct_io import IviDirectIo
+from .Fixed_Files.ivi_utility import IviUtility
 from .Internal.Core import Core
 from .Internal.Conversions import BinFloatFormat, BinIntFormat
 from RsInstrument.Internal.InstrumentSettings import OpcSyncQueryMechanism
@@ -18,7 +20,7 @@ from .Internal.ContextManagers import InstrErrorSuppressor, VisaTimeoutSuppresso
 
 class RsInstrument:
 	"""Root class for remote-controlling instrument with SCPI commands."""
-	_driver_version_const = '1.122.0.120'
+	_driver_version_const = '1.124.0.122'
 	_driver_options_const = "SupportedInstrModels = All Rohde & Schwarz Instruments, SupportedIdnPatterns = Rohde\\s*(-|&)\\s*Schwarz/Hameg, SimulationIdnString = Rohde&Schwarz*SimulationDevice*100001*" + _driver_version_const
 	# noinspection PyClassVar
 	_global_logging_relative_timestamp: ClassVar[datetime] = None
@@ -38,8 +40,9 @@ class RsInstrument:
 		Parameter options tokens examples:
 			- ``Simulate=True`` - starts the session in simulation mode. Default: ``False``
 			- ``SelectVisa=socketio`` - uses no VISA implementation for socket connections - you do not need any VISA-C installation
-			- ``SelectVisa=rs`` - forces usage of RohdeSchwarz Visa
-			- ``SelectVisa=ni`` - forces usage of National Instruments Visa
+			- ``SelectVisa=rs`` - prefers usage of RohdeSchwarz VISA
+			- ``SelectVisa=ni`` - prefers usage of National Instruments VISA
+			- ``SelectVisa=pyvisa-py`` - prefers usage of python VISA backend pyvisa-py
 			- ``Profile = HM8123`` - setting profile fitting the specific non-standard instruments. Available values: HM8123, CMQ, ATS, Minimal. Default: ``none``
 			- ``OpenTimeout=5000`` - sets timeout used at the session opening. This timeout is only used in waiting for a locked session to be freed. Default: ``2000ms``
 			- ``ExclusiveLock=True`` - opens the session with exclusive lock on the VISA level. Default: ``False``
@@ -53,7 +56,7 @@ class RsInstrument:
 			- ``VisaTimeout = 5000`` - same as driver.utilities.visa_timeout = 5000. Default: ``10000ms``
 			- ``ViClearExeMode = Disabled`` - viClear() execution mode. Default: ``execute_on_all``
 			- ``OpcQueryAfterWrite = True`` - same as driver.utilities.opc_query_after_write = True. Default: ``False``
-			- ``OpcWaitMode = OpcQuery`` - mode for all the opc-synchronised write/reads. Other modes: StbPolling, StbPollingSlow, StbPollingSuperSlow. Default: ``StbPolling``
+			- ``OpcWaitMode = OpcQuery`` - mode for all the opc-synchronized write/reads. Other modes: StbPolling, StbPollingSlow, StbPollingSuperSlow. Default: ``StbPolling``
 			- ``StbInErrorCheck = False`` - if true, the driver checks errors with *STB? If false, it uses SYST:ERR?. Default: ``True``
 			- ``SkipStatusSystemSettings = False`` - some instruments do not support full status system commands. In such case, set this value to True. Default: ``False``
 			- ``SkipClearStatus = True`` - set to True for instruments that do not support *CLS command. Default: ``False``
@@ -63,7 +66,7 @@ class RsInstrument:
 			- ``CmdReset = RT`` - defines which SCPI command to use for reset. Default: ``*RST``
 			- ``VxiCapable = false`` - you can force a session to a VXI-incapable. Default: <interface-dependent>
 			- ``Encoding = utf-8`` - setting of encoding for strings into bytes and vice versa. Default: ``charmap``
-			- ``OpcSyncQueryMechanism = AlsoCheckMav`` - setting of mechanism for OPC-synchronised queries. Default: ``OnlyCheckMavErrQueue``
+			- ``OpcSyncQueryMechanism = AlsoCheckMav`` - setting of mechanism for OPC-synchronized queries. Default: ``OnlyCheckMavErrQueue``
 			- ``FirstCmds = *CLS`` - first command(s) to sent after init. Separated more commands/queries with ';;'. Default: ````
 			- ``EachCmdPrefix = lf`` - this prefix is added to the beginning of each command sent to the instrument. Default: ````
 			- ``EachCmdSuffix = cr`` - this suffix is added to the end of each command sent to the instrument. Default: ````
@@ -88,8 +91,11 @@ class RsInstrument:
 			direct_session=direct_session,
 			called_from_driver=False)
 		self._core.driver_version = RsInstrument._driver_version_const
+
 		# Custom interfaces
 		self._events = Events(self._core)
+		self._ivi_direct_io = IviDirectIo(self._core)
+		self._ivi_utility = IviUtility(self._core)
 
 	@classmethod
 	def from_existing_session(cls, session: object, options: str = None) -> 'RsInstrument':
@@ -107,7 +113,7 @@ class RsInstrument:
 	def set_global_logging_target(cls, target) -> None:
 		"""Sets global common target stream that each instance can use. To use it, call the following: io.logger.set_logging_target_global().
 		If an instance uses global logging target, it automatically uses the global relative timestamp (if set).
-		You can set the target to None to invalidate it."""
+		You can set the target to None in order to invalidate it."""
 		cls._global_logging_target_stream = target
 
 	@classmethod
@@ -195,6 +201,16 @@ class RsInstrument:
 	def events(self) -> Events:
 		"""Interface for event handlers, see :ref:`here <Events>` """
 		return self._events
+
+	@property
+	def ivi_direct_io(self) -> IviDirectIo:
+		"""Interface for IVI standard Direct IO, see :ref:`here <IviDirectIo>` """
+		return self._ivi_direct_io
+
+	@property
+	def ivi_utility(self) -> IviUtility:
+		"""Interface for IVI standard Utility, see :ref:`here <IviUtility>` """
+		return self._ivi_utility
 
 	@property
 	def logger(self) -> ScpiLogger:

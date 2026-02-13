@@ -1,5 +1,6 @@
 from chalk._gen.chalk.aggregate.v1 import service_pb2 as _service_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
 from chalk._gen.chalk.common.v1 import dataset_response_pb2 as _dataset_response_pb2
 from chalk._gen.chalk.common.v1 import offline_query_pb2 as _offline_query_pb2
 from chalk._gen.chalk.server.v1 import datasets_pb2 as _datasets_pb2
@@ -41,6 +42,23 @@ class OfflineQueryKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     OFFLINE_QUERY_KIND_AGGREGATION_BACKFILL: _ClassVar[OfflineQueryKind]
     OFFLINE_QUERY_KIND_TRAINING_JOB: _ClassVar[OfflineQueryKind]
 
+class BatchOpStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    BATCH_OP_STATUS_UNSPECIFIED: _ClassVar[BatchOpStatus]
+    BATCH_OP_STATUS_INIT: _ClassVar[BatchOpStatus]
+    BATCH_OP_STATUS_COMPUTE_STARTED: _ClassVar[BatchOpStatus]
+    BATCH_OP_STATUS_COMPUTE_ENDED: _ClassVar[BatchOpStatus]
+    BATCH_OP_STATUS_COMPLETED: _ClassVar[BatchOpStatus]
+    BATCH_OP_STATUS_FAILED: _ClassVar[BatchOpStatus]
+
+class BatchOpKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    BATCH_OP_KIND_UNSPECIFIED: _ClassVar[BatchOpKind]
+    BATCH_OP_KIND_OFFLINE_QUERY: _ClassVar[BatchOpKind]
+    BATCH_OP_KIND_RECOMPUTE: _ClassVar[BatchOpKind]
+    BATCH_OP_KIND_CRON: _ClassVar[BatchOpKind]
+    BATCH_OP_KIND_AGGREGATION_BACKFILL: _ClassVar[BatchOpKind]
+
 OFFLINE_QUERY_STATUS_UNSPECIFIED: OfflineQueryStatus
 OFFLINE_QUERY_STATUS_UNKNOWN: OfflineQueryStatus
 OFFLINE_QUERY_STATUS_WORKING: OfflineQueryStatus
@@ -56,6 +74,17 @@ OFFLINE_QUERY_KIND_OFFLINE_QUERY: OfflineQueryKind
 OFFLINE_QUERY_KIND_DATASET_INGESTION: OfflineQueryKind
 OFFLINE_QUERY_KIND_AGGREGATION_BACKFILL: OfflineQueryKind
 OFFLINE_QUERY_KIND_TRAINING_JOB: OfflineQueryKind
+BATCH_OP_STATUS_UNSPECIFIED: BatchOpStatus
+BATCH_OP_STATUS_INIT: BatchOpStatus
+BATCH_OP_STATUS_COMPUTE_STARTED: BatchOpStatus
+BATCH_OP_STATUS_COMPUTE_ENDED: BatchOpStatus
+BATCH_OP_STATUS_COMPLETED: BatchOpStatus
+BATCH_OP_STATUS_FAILED: BatchOpStatus
+BATCH_OP_KIND_UNSPECIFIED: BatchOpKind
+BATCH_OP_KIND_OFFLINE_QUERY: BatchOpKind
+BATCH_OP_KIND_RECOMPUTE: BatchOpKind
+BATCH_OP_KIND_CRON: BatchOpKind
+BATCH_OP_KIND_AGGREGATION_BACKFILL: BatchOpKind
 
 class OfflineQueryMeta(_message.Message):
     __slots__ = (
@@ -399,3 +428,143 @@ class RetryOfflineQueryShardRequest(_message.Message):
 class RetryOfflineQueryShardResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class CancelAsyncOfflineQueryRequest(_message.Message):
+    __slots__ = ("offline_query_id",)
+    OFFLINE_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
+    offline_query_id: str
+    def __init__(self, offline_query_id: _Optional[str] = ...) -> None: ...
+
+class CancelAsyncOfflineQueryResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class BatchProgress(_message.Message):
+    __slots__ = ("total", "computed", "failed", "start", "end", "total_duration_s")
+    TOTAL_FIELD_NUMBER: _ClassVar[int]
+    COMPUTED_FIELD_NUMBER: _ClassVar[int]
+    FAILED_FIELD_NUMBER: _ClassVar[int]
+    START_FIELD_NUMBER: _ClassVar[int]
+    END_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_DURATION_S_FIELD_NUMBER: _ClassVar[int]
+    total: str
+    computed: str
+    failed: str
+    start: _timestamp_pb2.Timestamp
+    end: _timestamp_pb2.Timestamp
+    total_duration_s: float
+    def __init__(
+        self,
+        total: _Optional[str] = ...,
+        computed: _Optional[str] = ...,
+        failed: _Optional[str] = ...,
+        start: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        total_duration_s: _Optional[float] = ...,
+    ) -> None: ...
+
+class ChunkReport(_message.Message):
+    __slots__ = ("progress", "generated_at")
+    PROGRESS_FIELD_NUMBER: _ClassVar[int]
+    GENERATED_AT_FIELD_NUMBER: _ClassVar[int]
+    progress: BatchProgress
+    generated_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        progress: _Optional[_Union[BatchProgress, _Mapping]] = ...,
+        generated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class BatchResolverReport(_message.Message):
+    __slots__ = ("resolver_fqn", "status", "chunks", "progress", "generated_at", "error", "all_errors")
+    RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    CHUNKS_FIELD_NUMBER: _ClassVar[int]
+    PROGRESS_FIELD_NUMBER: _ClassVar[int]
+    GENERATED_AT_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    ALL_ERRORS_FIELD_NUMBER: _ClassVar[int]
+    resolver_fqn: str
+    status: BatchOpStatus
+    chunks: _containers.RepeatedCompositeFieldContainer[ChunkReport]
+    progress: BatchProgress
+    generated_at: _timestamp_pb2.Timestamp
+    error: _chalk_error_pb2.ChalkError
+    all_errors: _containers.RepeatedCompositeFieldContainer[_chalk_error_pb2.ChalkError]
+    def __init__(
+        self,
+        resolver_fqn: _Optional[str] = ...,
+        status: _Optional[_Union[BatchOpStatus, str]] = ...,
+        chunks: _Optional[_Iterable[_Union[ChunkReport, _Mapping]]] = ...,
+        progress: _Optional[_Union[BatchProgress, _Mapping]] = ...,
+        generated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        error: _Optional[_Union[_chalk_error_pb2.ChalkError, _Mapping]] = ...,
+        all_errors: _Optional[_Iterable[_Union[_chalk_error_pb2.ChalkError, _Mapping]]] = ...,
+    ) -> None: ...
+
+class BatchReport(_message.Message):
+    __slots__ = (
+        "operation_id",
+        "operation_kind",
+        "status",
+        "resolvers",
+        "progress",
+        "environment_id",
+        "team_id",
+        "deployment_id",
+        "error",
+        "generated_at",
+        "all_errors",
+        "operation_metadata",
+    )
+    OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
+    OPERATION_KIND_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    RESOLVERS_FIELD_NUMBER: _ClassVar[int]
+    PROGRESS_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    GENERATED_AT_FIELD_NUMBER: _ClassVar[int]
+    ALL_ERRORS_FIELD_NUMBER: _ClassVar[int]
+    OPERATION_METADATA_FIELD_NUMBER: _ClassVar[int]
+    operation_id: str
+    operation_kind: BatchOpKind
+    status: BatchOpStatus
+    resolvers: _containers.RepeatedCompositeFieldContainer[BatchResolverReport]
+    progress: BatchProgress
+    environment_id: str
+    team_id: str
+    deployment_id: str
+    error: _chalk_error_pb2.ChalkError
+    generated_at: _timestamp_pb2.Timestamp
+    all_errors: _containers.RepeatedCompositeFieldContainer[_chalk_error_pb2.ChalkError]
+    operation_metadata: _struct_pb2.Value
+    def __init__(
+        self,
+        operation_id: _Optional[str] = ...,
+        operation_kind: _Optional[_Union[BatchOpKind, str]] = ...,
+        status: _Optional[_Union[BatchOpStatus, str]] = ...,
+        resolvers: _Optional[_Iterable[_Union[BatchResolverReport, _Mapping]]] = ...,
+        progress: _Optional[_Union[BatchProgress, _Mapping]] = ...,
+        environment_id: _Optional[str] = ...,
+        team_id: _Optional[str] = ...,
+        deployment_id: _Optional[str] = ...,
+        error: _Optional[_Union[_chalk_error_pb2.ChalkError, _Mapping]] = ...,
+        generated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        all_errors: _Optional[_Iterable[_Union[_chalk_error_pb2.ChalkError, _Mapping]]] = ...,
+        operation_metadata: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetBatchReportRequest(_message.Message):
+    __slots__ = ("report_id",)
+    REPORT_ID_FIELD_NUMBER: _ClassVar[int]
+    report_id: str
+    def __init__(self, report_id: _Optional[str] = ...) -> None: ...
+
+class GetBatchReportResponse(_message.Message):
+    __slots__ = ("batch_report",)
+    BATCH_REPORT_FIELD_NUMBER: _ClassVar[int]
+    batch_report: BatchReport
+    def __init__(self, batch_report: _Optional[_Union[BatchReport, _Mapping]] = ...) -> None: ...

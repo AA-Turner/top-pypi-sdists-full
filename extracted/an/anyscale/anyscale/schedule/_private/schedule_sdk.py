@@ -1,4 +1,5 @@
 from typing import Optional
+import warnings
 
 from anyscale._private.anyscale_client.common import AnyscaleClientInterface
 from anyscale._private.models.model_base import ResultIterator
@@ -40,6 +41,18 @@ class PrivateScheduleSDK(BaseSDK):
     def apply(self, config: ScheduleConfig) -> str:
         job_config = config.job_config
         assert isinstance(job_config, JobConfig)
+
+        # Add warning for max_retries default change
+        if job_config.max_retries is None:
+            warnings.warn(
+                "The 'max_retries' option was not specified. The current default is 1, "
+                "but this will change to 0 in a future release. To ensure consistent behavior, "
+                "explicitly set 'max_retries' to your desired value.",
+                UserWarning,
+                stacklevel=3,  # Points to user's schedule.apply() call
+            )
+            job_config = job_config.options(max_retries=1)  # Apply current default
+
         name = job_config.name or self._job_sdk.get_default_name()
 
         compute_config_id, cloud_id = self._job_sdk.resolve_compute_config_and_cloud_id(
@@ -56,6 +69,9 @@ class PrivateScheduleSDK(BaseSDK):
                 job_config.job_queue_config
             )
 
+        # Resolve connection names to IDs
+        connection_ids = self._job_sdk.resolve_connection_ids(job_config.connections)
+
         schedule: DecoratedSchedule = self.client.apply_schedule(
             CreateSchedule(
                 name=name,
@@ -65,6 +81,7 @@ class PrivateScheduleSDK(BaseSDK):
                     name=name,
                     cloud_id=cloud_id,
                     compute_config_id=compute_config_id,
+                    connection_ids=connection_ids,
                 ),
                 job_queue_config=job_queue_config,
                 schedule=BackendScheduleConfig(
@@ -244,6 +261,8 @@ class PrivateScheduleSDK(BaseSDK):
         include_all_users: bool = False,
         page_size: Optional[int] = None,
         max_items: Optional[int] = None,
+        sort_field: Optional[str] = None,
+        sort_order: Optional[str] = None,
     ) -> ResultIterator[ScheduleStatus]:
         """List schedules with filtering and pagination.
 
@@ -256,6 +275,8 @@ class PrivateScheduleSDK(BaseSDK):
             include_all_users: Include schedules from all users.
             page_size: Number of items per page.
             max_items: Maximum total items to return.
+            sort_field: Field to sort by (NAME, ID, CREATED_AT, NEXT_TRIGGER_AT).
+            sort_order: Sort order (ASC or DESC).
 
         Returns a ResultIterator that lazily fetches pages of schedules.
         """
@@ -304,6 +325,8 @@ class PrivateScheduleSDK(BaseSDK):
                 creator_id=resolved_creator_id,
                 count=page_size,
                 paging_token=token,
+                sort_field=sort_field,
+                sort_order=sort_order,
             )
 
         def _parse_schedule(decorated_schedule: DecoratedSchedule) -> ScheduleStatus:

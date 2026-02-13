@@ -24,15 +24,16 @@ class Ls(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            if len(args) > 0:
-                arg = args[0]
-                if arg in ['p:', 'c:'] and arg != f'{state.device}:':
-                    state = copy.copy(state)
-                    state.device = arg.replace(':', '')
+            with self.context(args) as (args, ctx):
+                if len(args) > 0:
+                    arg = args[0]
+                    if arg in ['p:', 'c:'] and arg != f'{state.device}:':
+                        state = copy.copy(state)
+                        state.device = arg.replace(':', '')
 
-            device(state).ls(cmd, state, ctx=self.context())
+                device(state).ls(cmd, state, ctx=ctx)
 
-            return state
+                return state
 
     def completion(self, state: ReplState):
         return super().completion(state, {'&': None}, pods=device(state).pods(state, '-'))

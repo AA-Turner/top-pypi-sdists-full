@@ -25,6 +25,8 @@ from snowflake.core.schema._generated.models.schema import Schema
 from snowflake.core.schema._generated.models.schema_clone import SchemaClone
 from snowflake.core.schema._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.schema._generated.models.success_response import SuccessResponse
+from snowflake.core.schema._generated.models.tag_assignment import TagAssignment
+from snowflake.core.schema._generated.models.tag_reference import TagReference
 
 __all__ = [
     "ErrorResponse",
@@ -36,4 +38,6 @@ __all__ = [
     "SchemaClone",
     "SuccessAcceptedResponse",
     "SuccessResponse",
+    "TagAssignment",
+    "TagReference",
 ]

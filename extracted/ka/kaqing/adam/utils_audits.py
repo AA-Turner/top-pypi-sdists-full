@@ -100,4 +100,4 @@ class Audits:
         return f"y = '{y}' and m = '{m}' and d >= '{d}' or y = '{y}' and m > '{m}' or y > '{y}'"
 
 def audit() -> OffloadHandler:
-   return offload(pool=ThreadPool(name='audit', workers=Config().get('audit.workers', 3)))
+   return offload(pool=ThreadPool.create(name='audit', workers=Config().get('audit.workers', 3)))

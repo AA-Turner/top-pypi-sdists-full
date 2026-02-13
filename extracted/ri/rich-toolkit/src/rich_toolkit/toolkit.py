@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional, Union, overload
 
-from rich.console import Console, RenderableType
+from rich.console import RenderableType
 from rich.theme import Theme
 
 from .input import Input
@@ -30,7 +30,7 @@ class RichToolkit:
         if theme is not None:
             self.style = theme.style
             self.style.theme = theme.rich_theme
-            self.style.console = Console(theme=theme.rich_theme)
+            self.style.console.push_theme(theme.rich_theme)
         else:
             assert style is not None
 
@@ -139,6 +139,7 @@ class RichToolkit:
         required: bool = False,
         required_message: str = "",
         inline: bool = False,
+        value: str = "",
         **metadata: Any,
     ) -> str:
         return Input(
@@ -151,6 +152,7 @@ class RichToolkit:
             required_message=required_message,
             inline=inline,
             style=self.style,
+            value=value,
             **metadata,
         ).ask()
 

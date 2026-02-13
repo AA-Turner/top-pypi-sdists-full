@@ -1458,23 +1458,16 @@ try:
                 type = "chain"
                 metadata = metadata or {}
 
-                agent_name = None 
+                agent_name = metadata.get("agent_name", metadata.get("agentName"))
 
-                if name == "AgentExecutor" or name == "PlanAndExecute" or name == "LangGraph" or (name and name.endswith("Agent")):
-                    if name and name.endswith("Agent"):
-                        name = name[:-5]
-                    agent_name = name 
-                if metadata.get("agent_name", metadata.get("agentName")) is not None and agent_name is not None:
-                    agent_name = metadata.get("agent_name", metadata.get("agentName")) 
-                    if agent_name and agent_name.endswith("Agent"):
-                        agent_name = agent_name[:-5]
-                if parent_run_id is not None and type != "agent":
-                    type = "chain"
-                    name = kwargs.get("name", name)
-
+                if name == "AgentExecutor" or name == "PlanAndExecute" or name == "LangGraph":
+                    type = "agent"
                 if agent_name is not None:
                     type = "agent"
                     name = agent_name
+                if parent_run_id is not None and type != "agent":
+                    type = "chain"
+                    name = kwargs.get("name", name)
 
                 if self._should_ignore_run(run.id, run_type=type, name=name):
                     run._ignored = True

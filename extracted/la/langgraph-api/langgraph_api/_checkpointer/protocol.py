@@ -83,6 +83,11 @@ class CheckpointerProtocol(Protocol):
     ) -> None: ...
 
     async def adelete_thread(self, thread_id: str) -> None: ...
+
+    # NOTE: adelete_for_runs, acopy_thread, and aprune are optional extended
+    # capabilities checked at runtime via CheckpointerCapabilities. They are
+    # NOT part of this protocol to avoid breaking isinstance checks.
+
     async def aget_iter(
         self, config: RunnableConfig
     ) -> AsyncIterator[CheckpointTuple]: ...

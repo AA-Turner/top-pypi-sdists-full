@@ -242,7 +242,7 @@ def get_workspace_network_communication_policy(
         A pandas dataframe showing the networking communication policy for the specified workspace.
     """
 
-    return wkspc.get_workspace_network_communication_policy(workspace=workspace)
+    return wkspc.get_network_communication_policy(workspace=workspace)
 
 
 @log
@@ -260,9 +260,9 @@ def set_workspace_network_communication_policy(
 
     Parameters
     ----------
-    inbound_policy : Literal['Allow', 'Deny']
+    inbound_policy : typing.Literal['Allow', 'Deny']
         The policy for all inbound communications to a workspace.
-    outbound_policy : Literal['Allow', 'Deny']
+    outbound_policy : typing.Literal['Allow', 'Deny']
         The policy for all outbound communications to a workspace.
     workspace : str | uuid.UUID, default=None
         The workspace name or ID.
@@ -300,7 +300,7 @@ def get_workspace_git_outbound_policy(workspace: Optional[str | UUID] = None) ->
         The Git outbound policy for the specified workspace.
     """
 
-    return wkspc.get_workspace_git_outbound_policy(workspace=workspace)
+    return wkspc.get_git_outbound_policy(workspace=workspace)
 
 
 @log
@@ -317,7 +317,7 @@ def set_workspace_git_outbound_policy(
 
     Parameters
     ----------
-    policy : Literal['Allow', 'Deny']
+    policy : typing.Literal['Allow', 'Deny']
         The policy for all Git outbound communications from a workspace.
     workspace : str | uuid.UUID, default=None
         The workspace name or ID.
@@ -325,4 +325,4 @@ def set_workspace_git_outbound_policy(
         or if no lakehouse attached, resolves to the workspace of the notebook.
     """
 
-    wkspc.set_workspace_git_outbound_policy(policy=policy, workspace=workspace)
+    wkspc.set_git_outbound_policy(policy=policy, workspace=workspace)

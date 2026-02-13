@@ -18,7 +18,7 @@ from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_do
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n"chalk/server/v1/indexing_job.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/artifacts/v1/export.proto\x1a\x1f\x63halk/auth/v1/permissions.proto"\x99\x01\n\x1bGetIndexingJobStatusRequest\x12#\n\rdeployment_id\x18\x01 \x01(\tR\x0c\x64\x65ploymentId\x12U\n\x15\x64irectory_prefix_enum\x18\x02 \x01(\x0e\x32!.chalk.server.v1.DirectoryOptionsR\x13\x64irectoryPrefixEnum"R\n\x1cGetIndexingJobStatusResponse\x12\x32\n\x06\x65xport\x18\x01 \x01(\x0b\x32\x1a.chalk.artifacts.v1.ExportR\x06\x65xport*\xb2\x01\n\x10\x44irectoryOptions\x12!\n\x1d\x44IRECTORY_OPTIONS_UNSPECIFIED\x10\x00\x12\x1a\n\x16\x44IRECTORY_OPTIONS_MAIN\x10\x01\x12\x1c\n\x18\x44IRECTORY_OPTIONS_SHADOW\x10\x02\x12\x1d\n\x19\x44IRECTORY_OPTIONS_DRY_RUN\x10\x03\x12"\n\x1e\x44IRECTORY_OPTIONS_INDEXING_JOB\x10\x04\x32\x91\x01\n\x12IndexingJobService\x12{\n\x14GetIndexingJobStatus\x12,.chalk.server.v1.GetIndexingJobStatusRequest\x1a-.chalk.server.v1.GetIndexingJobStatusResponse"\x06\x90\x02\x01\x80}\x0b\x42\x99\x01\n\x13\x63om.chalk.server.v1B\x10IndexingJobProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n"chalk/server/v1/indexing_job.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/artifacts/v1/export.proto\x1a\x1f\x63halk/auth/v1/permissions.proto"\x99\x01\n\x1bGetIndexingJobStatusRequest\x12#\n\rdeployment_id\x18\x01 \x01(\tR\x0c\x64\x65ploymentId\x12U\n\x15\x64irectory_prefix_enum\x18\x02 \x01(\x0e\x32!.chalk.server.v1.DirectoryOptionsR\x13\x64irectoryPrefixEnum"R\n\x1cGetIndexingJobStatusResponse\x12\x32\n\x06\x65xport\x18\x01 \x01(\x0b\x32\x1a.chalk.artifacts.v1.ExportR\x06\x65xport*\xd7\x01\n\x10\x44irectoryOptions\x12!\n\x1d\x44IRECTORY_OPTIONS_UNSPECIFIED\x10\x00\x12\x1a\n\x16\x44IRECTORY_OPTIONS_MAIN\x10\x01\x12\x1c\n\x18\x44IRECTORY_OPTIONS_SHADOW\x10\x02\x12\x1d\n\x19\x44IRECTORY_OPTIONS_DRY_RUN\x10\x03\x12"\n\x1e\x44IRECTORY_OPTIONS_INDEXING_JOB\x10\x04\x12#\n\x1f\x44IRECTORY_OPTIONS_VENV_INDEXING\x10\x05\x32\x91\x01\n\x12IndexingJobService\x12{\n\x14GetIndexingJobStatus\x12,.chalk.server.v1.GetIndexingJobStatusRequest\x1a-.chalk.server.v1.GetIndexingJobStatusResponse"\x06\x90\x02\x01\x80}\x0b\x42\x99\x01\n\x13\x63om.chalk.server.v1B\x10IndexingJobProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -34,11 +34,11 @@ if _descriptor._USE_C_DESCRIPTORS == False:
         "GetIndexingJobStatus"
     ]._serialized_options = b"\220\002\001\200}\013"
     _globals["_DIRECTORYOPTIONS"]._serialized_start = 362
-    _globals["_DIRECTORYOPTIONS"]._serialized_end = 540
+    _globals["_DIRECTORYOPTIONS"]._serialized_end = 577
     _globals["_GETINDEXINGJOBSTATUSREQUEST"]._serialized_start = 122
     _globals["_GETINDEXINGJOBSTATUSREQUEST"]._serialized_end = 275
     _globals["_GETINDEXINGJOBSTATUSRESPONSE"]._serialized_start = 277
     _globals["_GETINDEXINGJOBSTATUSRESPONSE"]._serialized_end = 359
-    _globals["_INDEXINGJOBSERVICE"]._serialized_start = 543
-    _globals["_INDEXINGJOBSERVICE"]._serialized_end = 688
+    _globals["_INDEXINGJOBSERVICE"]._serialized_start = 580
+    _globals["_INDEXINGJOBSERVICE"]._serialized_end = 725
 # @@protoc_insertion_point(module_scope)

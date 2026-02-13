@@ -38,7 +38,7 @@ class ExadbStackCollection(FsuCollection):
 
         :param service_type:
             The value to assign to the service_type property of this ExadbStackCollection.
-            Allowed values for this property are: "EXACS", "EXACC"
+            Allowed values for this property are: "EXACS", "EXACC", "EXADBXS"
         :type service_type: str
 
         :param compartment_id:

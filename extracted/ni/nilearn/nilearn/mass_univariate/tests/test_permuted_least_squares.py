@@ -314,6 +314,7 @@ def test_permuted_ols_no_covar_with_ravelized_tested_var(design):
     compare_to_ref_score(output["t"], tested_var, target_var)
 
 
+@pytest.mark.thread_unsafe
 def test_permuted_ols_no_covar_with_intercept(design):
     """Check output when modeling intercept with no confounds."""
     # Add intercept (should be equivalent to centering variates).
@@ -463,6 +464,7 @@ def test_permuted_ols_nocovar_multivariate(rng):
 # Tests for sign swapping permutation scheme
 
 
+@pytest.mark.thread_unsafe
 def test_permuted_ols_intercept_nocovar(rng):
     """Check output when no covariate is passed."""
     n_descriptors = 10
@@ -747,6 +749,7 @@ def test_sanitize_inputs_permuted_ols(design):
     )
 
 
+@pytest.mark.thread_unsafe
 @pytest.mark.single_process
 def test_permuted_ols_warnings_n_perm_n_job(cluster_level_design, masker):
     """Check that proper warning are thrown depending on n_job VS n_perm."""

@@ -18,6 +18,9 @@ from snowflake.core._internal.telemetry import api_telemetry
 from snowflake.core._operation import PollingOperation, PollingOperations
 from snowflake.core._utils import get_function_name_with_args, replace_function_name_in_name_with_args
 from snowflake.core.notification_integration._generated.models.notification_integration import NotificationIntegration
+from snowflake.core.notification_integration._generated.models.tag_assignment import TagAssignment
+from snowflake.core.notification_integration._generated.models.tag_reference import TagReference
+from snowflake.core.tag import TagResource, TagValue
 
 from .notification_integration_api import NotificationIntegrationApi
 
@@ -145,10 +148,11 @@ class NotificationIntegrationResourceBase(ObjectReferenceMixin["NotificationInte
         Parameters
         __________
         """
-        return self.collection._api.fetch_notification_integration(
+        result = self.collection._api.fetch_notification_integration(
             self._identifier,
             async_req=False,
         )
+        return result
 
     @api_telemetry
     def fetch_async(
@@ -165,6 +169,168 @@ class NotificationIntegrationResourceBase(ObjectReferenceMixin["NotificationInte
         )
 
         return PollingOperations.identity(future)
+
+    @api_telemetry
+    def get_tags(
+        self,
+        with_lineage: Optional[bool] = None,
+    ) -> dict[TagResource, TagValue]:
+        """Get the tag assignments for a notification integration.
+
+        Returns all tags assigned to a notification integration. This operation requires an active warehouse.
+
+        Parameters
+        __________
+        with_lineage: bool
+             Parameter that specifies whether tag assignments inherited by the object from its ancestors in securable object hierarchy should be returned as well: - `true`: All tags assigned to this object should be returned, inheritance included. - `false`: Only tags explicitly assigned to this object should be returned.
+        """
+        result = self.collection._api.get_tags(
+            self._identifier,
+            with_lineage=with_lineage,
+            async_req=False,
+        )
+        result = dict(self._to_get_tags_tuple(tag_assignment) for tag_assignment in result)
+        return result
+
+    @api_telemetry
+    def get_tags_async(
+        self,
+        with_lineage: Optional[bool] = None,
+    ) -> PollingOperation[dict[TagResource, TagValue]]:
+        """An asynchronous version of :func:`get_tags`.
+
+        Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
+        the return type.
+        """
+        future = self.collection._api.get_tags(
+            self._identifier,
+            with_lineage=with_lineage,
+            async_req=True,
+        )
+        return PollingOperation(
+            future, lambda tag_assignments: dict(self._to_get_tags_tuple(ta) for ta in tag_assignments)
+        )
+
+    def _to_get_tags_tuple(self, ta: TagAssignment) -> tuple[TagResource, TagValue]:
+        db = ta.tag_database
+        schema = ta.tag_schema
+
+        if db is None:
+            raise ValueError("TagAssignment must have tag_database set.")
+
+        if schema is None:
+            raise ValueError("TagAssignment must have tag_schema set.")
+
+        tag_resource = self.root.databases[db].schemas[schema].tags[ta.tag_name]
+        tag_value = TagValue(ta.tag_value, ta.level)
+        return tag_resource, tag_value
+
+    @api_telemetry
+    def set_tags(
+        self,
+        tags: dict[TagResource, TagValue],
+        if_exists: Optional[bool] = None,
+    ) -> None:
+        """Set tags on a notification integration.
+
+        Parameters
+        __________
+        tags: dict[TagResource, TagValue]
+             (required)
+        if_exists: bool
+             Parameter that specifies how to handle the request for a resource that does not exist: - `true`: The endpoint does not throw an error if the resource does not exist. It returns a 200 success response, but does not take any action on the resource. - `false`: The endpoint throws an error if the resource doesn't exist.
+        """
+        tag_assignment = [
+            self._to_tag_assignment(tag_resource, tag_value) for [tag_resource, tag_value] in tags.items()
+        ]
+        self.collection._api.set_tags(
+            self._identifier,
+            tag_assignment=tag_assignment,
+            if_exists=if_exists,
+            async_req=False,
+        )
+
+    @api_telemetry
+    def set_tags_async(
+        self,
+        tags: dict[TagResource, TagValue],
+        if_exists: Optional[bool] = None,
+    ) -> PollingOperation[None]:
+        """An asynchronous version of :func:`set_tags`.
+
+        Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
+        the return type.
+        """
+        tag_assignment = [
+            self._to_tag_assignment(tag_resource, tag_value) for [tag_resource, tag_value] in tags.items()
+        ]
+        future = self.collection._api.set_tags(
+            self._identifier,
+            tag_assignment=tag_assignment,
+            if_exists=if_exists,
+            async_req=True,
+        )
+        return PollingOperations.empty(future)
+
+    @staticmethod
+    def _to_tag_assignment(tag_resource: TagResource, tag_value: TagValue) -> TagAssignment:
+        return TagAssignment(
+            tag_name=tag_resource.name,
+            tag_schema=tag_resource.schema.name,
+            tag_database=tag_resource.database.name,
+            tag_value=tag_value.value,
+        )
+
+    @api_telemetry
+    def unset_tags(
+        self,
+        tag_resources: set[TagResource],
+        if_exists: Optional[bool] = None,
+    ) -> None:
+        """Unset tags from a notification integration.
+
+        Parameters
+        __________
+        tag_resources: set[TagResource]
+             (required)
+        if_exists: bool
+             Parameter that specifies how to handle the request for a resource that does not exist: - `true`: The endpoint does not throw an error if the resource does not exist. It returns a 200 success response, but does not take any action on the resource. - `false`: The endpoint throws an error if the resource doesn't exist.
+        """
+        tag_reference = [self._to_tag_reference(tag_resource) for tag_resource in tag_resources]
+        self.collection._api.unset_tags(
+            self._identifier,
+            tag_reference=tag_reference,
+            if_exists=if_exists,
+            async_req=False,
+        )
+
+    @api_telemetry
+    def unset_tags_async(
+        self,
+        tag_resources: set[TagResource],
+        if_exists: Optional[bool] = None,
+    ) -> PollingOperation[None]:
+        """An asynchronous version of :func:`unset_tags`.
+
+        Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
+        the return type.
+        """
+        tag_reference = [self._to_tag_reference(tag_resource) for tag_resource in tag_resources]
+        future = self.collection._api.unset_tags(
+            self._identifier,
+            tag_reference=tag_reference,
+            if_exists=if_exists,
+            async_req=True,
+        )
+        return PollingOperations.empty(future)
+
+    @staticmethod
+    def _to_tag_reference(resource: TagResource) -> TagReference:
+        return TagReference(
+            tag_name=resource.name,
+            tag_schema=resource.schema.name,
+            tag_database=resource.database.name,
+        )
 
     @api_telemetry
     def drop(

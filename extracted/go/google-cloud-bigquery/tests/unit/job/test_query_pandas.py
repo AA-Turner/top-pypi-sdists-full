@@ -179,6 +179,8 @@ def test_to_dataframe_bqstorage_preserve_order(query, table_read_options_kwarg):
         parent="projects/test-project",
         read_session=expected_session,
         max_stream_count=1,  # Use a single stream to preserve row order.
+        retry=None,
+        timeout=None,
     )
 
 
@@ -593,6 +595,8 @@ def test_to_dataframe_bqstorage(table_read_options_kwarg):
         parent="projects/bqstorage-billing-project",
         read_session=expected_session,
         max_stream_count=0,  # Use default number of streams for best performance.
+        retry=None,
+        timeout=None,
     )
     bqstorage_client.read_rows.assert_called_once_with(stream_id)
 
@@ -644,6 +648,8 @@ def test_to_dataframe_bqstorage_no_pyarrow_compression():
         parent="projects/bqstorage-billing-project",
         read_session=expected_session,
         max_stream_count=0,
+        retry=None,
+        timeout=None,
     )
 
 
@@ -1023,5 +1029,38 @@ def test_query_job_to_geodataframe_delegation(wait_for_query):
         int_dtype=DefaultPandasDTypes.INT_DTYPE,
         float_dtype=None,
         string_dtype=None,
+        timeout=None,
     )
     assert df is row_iterator.to_geodataframe.return_value
+
+
+@pytest.mark.skipif(pandas is None, reason="Requires `pandas`")
+@mock.patch("google.cloud.bigquery.job.query.wait_for_query")
+def test_query_job_to_dataframe_delegation(wait_for_query):
+    job = _make_job()
+    bqstorage_client = object()
+    timeout = 123.45
+
+    job.to_dataframe(bqstorage_client=bqstorage_client, timeout=timeout)
+
+    wait_for_query.assert_called_once_with(job, None, max_results=None)
+    row_iterator = wait_for_query.return_value
+    row_iterator.to_dataframe.assert_called_once()
+    call_args = row_iterator.to_dataframe.call_args
+    assert call_args.kwargs["timeout"] == timeout
+
+
+@pytest.mark.skipif(pyarrow is None, reason="Requires `pyarrow`")
+@mock.patch("google.cloud.bigquery.job.query.wait_for_query")
+def test_query_job_to_arrow_delegation(wait_for_query):
+    job = _make_job()
+    bqstorage_client = object()
+    timeout = 123.45
+
+    job.to_arrow(bqstorage_client=bqstorage_client, timeout=timeout)
+
+    wait_for_query.assert_called_once_with(job, None, max_results=None)
+    row_iterator = wait_for_query.return_value
+    row_iterator.to_arrow.assert_called_once()
+    call_args = row_iterator.to_arrow.call_args
+    assert call_args.kwargs["timeout"] == timeout

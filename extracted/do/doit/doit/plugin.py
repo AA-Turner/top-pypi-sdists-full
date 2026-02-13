@@ -1,24 +1,19 @@
-import sys
 import importlib
+from importlib.metadata import entry_points
 
 
 def entry_points_impl():
-    # entry_points is available since 3.8 but "horrible inefficient"
-    if sys.version_info < (3, 10):
-        from importlib_metadata import entry_points
-    else:
-        from importlib.metadata import entry_points
     return entry_points
 
 
-class PluginEntry(object):
+class PluginEntry:
     """A Plugin entry point
 
     The entry-point is not loaded/imported on creation.
     Use the method `get()` to import the module and get the attribute.
     """
 
-    class Sentinel(object):
+    class Sentinel:
         pass
 
     # indicate the entry-point object is not loaded yet

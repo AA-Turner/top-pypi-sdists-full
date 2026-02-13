@@ -1,7 +1,6 @@
 use std::{collections::HashMap, time::Duration};
 
 use impit::{
-    emulation::Browser,
     errors::ImpitError,
     impit::{Impit, ImpitBuilder},
     request::RequestOptions,
@@ -56,8 +55,34 @@ impl Client {
 
         let builder = match browser {
             Some(browser) => match browser.to_lowercase().as_str() {
-                "chrome" => builder.with_browser(Browser::Chrome),
-                "firefox" => builder.with_browser(Browser::Firefox),
+                "chrome" | "chrome125" => builder
+                    .with_fingerprint(impit::fingerprint::database::chrome_125::fingerprint()),
+                "chrome100" => builder
+                    .with_fingerprint(impit::fingerprint::database::chrome_100::fingerprint()),
+                "chrome101" => builder
+                    .with_fingerprint(impit::fingerprint::database::chrome_101::fingerprint()),
+                "chrome104" => builder
+                    .with_fingerprint(impit::fingerprint::database::chrome_104::fingerprint()),
+                "chrome107" => builder
+                    .with_fingerprint(impit::fingerprint::database::chrome_107::fingerprint()),
+                "chrome110" => builder
+                    .with_fingerprint(impit::fingerprint::database::chrome_110::fingerprint()),
+                "chrome116" => builder
+                    .with_fingerprint(impit::fingerprint::database::chrome_116::fingerprint()),
+                "chrome131" => builder
+                    .with_fingerprint(impit::fingerprint::database::chrome_131::fingerprint()),
+                "chrome136" => builder
+                    .with_fingerprint(impit::fingerprint::database::chrome_136::fingerprint()),
+                "chrome142" => builder
+                    .with_fingerprint(impit::fingerprint::database::chrome_142::fingerprint()),
+                "firefox128" | "firefox" => builder
+                    .with_fingerprint(impit::fingerprint::database::firefox_128::fingerprint()),
+                "firefox133" => builder
+                    .with_fingerprint(impit::fingerprint::database::firefox_133::fingerprint()),
+                "firefox135" => builder
+                    .with_fingerprint(impit::fingerprint::database::firefox_135::fingerprint()),
+                "firefox144" => builder
+                    .with_fingerprint(impit::fingerprint::database::firefox_144::fingerprint()),
                 _ => panic!("Unsupported browser"),
             },
             None => builder,
@@ -418,7 +443,7 @@ impl Client {
                     "patch" => self.impit.patch(url, Some(body), Some(options)).await,
                     "put" => self.impit.put(url, Some(body), Some(options)).await,
                     "options" => self.impit.options(url, Some(body), Some(options)).await,
-                    "trace" => self.impit.trace(url, Some(options)).await,
+                    "trace" => self.impit.trace(url, Some(body), Some(options)).await,
                     "head" => self.impit.head(url, Some(body), Some(options)).await,
                     "delete" => self.impit.delete(url, Some(body), Some(options)).await,
                     _ => Err(ImpitError::InvalidMethod(method.to_string())),

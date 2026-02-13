@@ -150,6 +150,9 @@ class KafkaSource(_message.Message):
         "sasl_password",
         "late_arrival_deadline",
         "dead_letter_queue_topic",
+        "msk_iam_auth",
+        "aws_region",
+        "aws_role_arn",
     )
     NAME_FIELD_NUMBER: _ClassVar[int]
     BOOTSTRAP_SERVERS_FIELD_NUMBER: _ClassVar[int]
@@ -164,6 +167,9 @@ class KafkaSource(_message.Message):
     SASL_PASSWORD_FIELD_NUMBER: _ClassVar[int]
     LATE_ARRIVAL_DEADLINE_FIELD_NUMBER: _ClassVar[int]
     DEAD_LETTER_QUEUE_TOPIC_FIELD_NUMBER: _ClassVar[int]
+    MSK_IAM_AUTH_FIELD_NUMBER: _ClassVar[int]
+    AWS_REGION_FIELD_NUMBER: _ClassVar[int]
+    AWS_ROLE_ARN_FIELD_NUMBER: _ClassVar[int]
     name: str
     bootstrap_servers: _containers.RepeatedScalarFieldContainer[str]
     topic: str
@@ -177,6 +183,9 @@ class KafkaSource(_message.Message):
     sasl_password: str
     late_arrival_deadline: _duration_pb2.Duration
     dead_letter_queue_topic: str
+    msk_iam_auth: bool
+    aws_region: str
+    aws_role_arn: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -192,6 +201,9 @@ class KafkaSource(_message.Message):
         sasl_password: _Optional[str] = ...,
         late_arrival_deadline: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
         dead_letter_queue_topic: _Optional[str] = ...,
+        msk_iam_auth: bool = ...,
+        aws_region: _Optional[str] = ...,
+        aws_role_arn: _Optional[str] = ...,
     ) -> None: ...
 
 class PubSubSource(_message.Message):

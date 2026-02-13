@@ -6,7 +6,7 @@ Odnoklassniki OAuth2 and Iframe Application backends, docs at:
 from __future__ import annotations
 
 from hashlib import md5
-from typing import Any
+from typing import Any, cast
 from urllib.parse import unquote
 
 from social_core.exceptions import AuthFailed
@@ -102,11 +102,11 @@ class OdnoklassnikiApp(BaseAuth):
             "first_name",
             "last_name",
             "name",
-            *self.setting("EXTRA_USER_DATA_LIST", ()),
+            *cast("tuple[str, ...]", self.setting("EXTRA_USER_DATA_LIST", ())),
         )
         data = {
             "method": "users.getInfo",
-            "uids": "{}".format(response["logged_user_id"]),
+            "uids": str(response["logged_user_id"]),
             "fields": ",".join(fields),
         }
         _client_key, client_secret = self.get_key_and_secret()
@@ -121,14 +121,17 @@ class OdnoklassnikiApp(BaseAuth):
         )
         if len(details) == 1 and "uid" in details[0]:
             details = details[0]
-            auth_data_fields = self.setting(
-                "EXTRA_AUTH_DATA_LIST",
-                (
-                    "api_server",
-                    "apiconnection",
-                    "session_key",
-                    "authorized",
-                    "session_secret_key",
+            auth_data_fields = cast(
+                "tuple[str, ...]",
+                self.setting(
+                    "EXTRA_AUTH_DATA_LIST",
+                    (
+                        "api_server",
+                        "apiconnection",
+                        "session_key",
+                        "authorized",
+                        "session_secret_key",
+                    ),
                 ),
             )
 
@@ -142,11 +145,7 @@ class OdnoklassnikiApp(BaseAuth):
 
     def get_auth_sig(self):
         return odnoklassniki_sig(
-            "{:s}{:s}{:s}".format(
-                self.data["logged_user_id"],
-                self.data["session_key"],
-                self.setting("SECRET"),
-            )
+            f"{self.data['logged_user_id']}{self.data['session_key']}{self.setting('SECRET')}"
         )
 
     def get_response(self):
@@ -175,7 +174,7 @@ def odnoklassniki_oauth_sig(data, client_secret):
         https://apiok.ru/wiki/pages/viewpage.action?pageId=12878032,
     search for "little bit different way"
     """
-    suffix = odnoklassniki_sig("{:s}{:s}".format(data["access_token"], client_secret))
+    suffix = odnoklassniki_sig(f"{data['access_token']}{client_secret}")
     check_list = sorted(
         f"{key:s}={value:s}" for key, value in data.items() if key != "access_token"
     )
@@ -208,4 +207,4 @@ def odnoklassniki_api(
     else:
         msg = "Unknown request type {0}. How should it be signed?"
         raise AuthFailed(backend, msg.format(request_type))
-    return backend.get_json(api_url + "fb.do", params=data)
+    return backend.get_json(f"{api_url}fb.do", params=data)

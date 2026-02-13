@@ -11,7 +11,6 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.get_public_app_by_secret_response_200_extra_perms import GetPublicAppBySecretResponse200ExtraPerms
     from ..models.get_public_app_by_secret_response_200_policy import GetPublicAppBySecretResponse200Policy
-    from ..models.get_public_app_by_secret_response_200_value import GetPublicAppBySecretResponse200Value
 
 
 T = TypeVar("T", bound="GetPublicAppBySecretResponse200")
@@ -28,7 +27,7 @@ class GetPublicAppBySecretResponse200:
         versions (List[int]):
         created_by (str):
         created_at (datetime.datetime):
-        value (GetPublicAppBySecretResponse200Value):
+        value (Any):
         policy (GetPublicAppBySecretResponse200Policy):
         execution_mode (GetPublicAppBySecretResponse200ExecutionMode):
         extra_perms (GetPublicAppBySecretResponse200ExtraPerms):
@@ -44,7 +43,7 @@ class GetPublicAppBySecretResponse200:
     versions: List[int]
     created_by: str
     created_at: datetime.datetime
-    value: "GetPublicAppBySecretResponse200Value"
+    value: Any
     policy: "GetPublicAppBySecretResponse200Policy"
     execution_mode: GetPublicAppBySecretResponse200ExecutionMode
     extra_perms: "GetPublicAppBySecretResponse200ExtraPerms"
@@ -63,8 +62,7 @@ class GetPublicAppBySecretResponse200:
         created_by = self.created_by
         created_at = self.created_at.isoformat()
 
-        value = self.value.to_dict()
-
+        value = self.value
         policy = self.policy.to_dict()
 
         execution_mode = self.execution_mode.value
@@ -104,7 +102,6 @@ class GetPublicAppBySecretResponse200:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.get_public_app_by_secret_response_200_extra_perms import GetPublicAppBySecretResponse200ExtraPerms
         from ..models.get_public_app_by_secret_response_200_policy import GetPublicAppBySecretResponse200Policy
-        from ..models.get_public_app_by_secret_response_200_value import GetPublicAppBySecretResponse200Value
 
         d = src_dict.copy()
         id = d.pop("id")
@@ -121,7 +118,7 @@ class GetPublicAppBySecretResponse200:
 
         created_at = isoparse(d.pop("created_at"))
 
-        value = GetPublicAppBySecretResponse200Value.from_dict(d.pop("value"))
+        value = d.pop("value")
 
         policy = GetPublicAppBySecretResponse200Policy.from_dict(d.pop("policy"))
 

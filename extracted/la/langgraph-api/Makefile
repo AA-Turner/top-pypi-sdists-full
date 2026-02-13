@@ -1,9 +1,9 @@
-.PHONY: build release lint format test test_watch start start-inmem start-inmem-license-oss start start-js-server build-go-server start-go-server stop-go-server check-version check-base-imports test-a2a-tck test-a2a-tck-mandatory start-test-a2a-tck start-test-a2a-tck-mandatory start-test-a2a-tck-watch
+.PHONY: build release lint format test test_watch start start-inmem start-inmem-license-oss start start-js-server build-go-server start-go-server stop-go-server check-version check-base-imports test-a2a-tck test-a2a-tck-mandatory start-test-a2a-tck start-test-a2a-tck-mandatory start-test-a2a-tck-watch test-mcp-conformance start-test-mcp-conformance list-mcp-scenarios
 
 # Environment variables
 FF_USE_CORE_API ?= false
-LANGSERVE_GRAPHS_ALL = '{"agent": {"path": "./tests/graphs/agent.py:graph", "description": "agent"}, "custom_lifespan": "./tests/graphs/my_router.py:graph", "single_node": "./tests/graphs/single_node.py:graph", "benchmark": "./tests/graphs/benchmark.py:graph", "config_graph": "./tests/graphs/config_graph.py:graph", "other": "./tests/graphs/other.py:make_graph", "weather": "./tests/graphs/weather.py:mk_weather_graph", "searchy": "./tests/graphs/searchy.py:graph", "agent_simple": "./tests/graphs/agent_simple.py:graph", "simple_runtime": "./tests/graphs/simple_runtime.py:graph", "agent_interrupt": "./tests/graphs/agent_interrupt.py:graph", "message_type_test": "./tests/graphs/message_type_test.py:graph", "remote_subgraph_parent": "./tests/graphs/remote_subgraph_parent.py:graph", "simple_remote": "./tests/graphs/simple_remote.py:graph", "nested_subgraphs": "./tests/graphs/nested_subgraphs.py:graph", "functional_fibonacci": "./tests/graphs/functional_fibonacci.py:fibonacci", "state_graph_fibonacci": "./tests/graphs/state_graph_fibonacci.py:fibonacci", "max_concurrency_graph": "./tests/graphs/max_concurrency_graph.py:graph", "unserializable_subgraph": "./tests/graphs/unserializable_subgraph.py:graph", "agent_interrupt_text": "./tests/graphs/agent_interrupt_text.py:graph"}'
-LANGSERVE_GRAPHS_AUTH = '{"agent": {"path": "./tests/graphs/agent.py:graph", "description": "agent"}, "config_graph": "./tests/graphs/config_graph.py:graph", "other": "./tests/graphs/other.py:make_graph", "weather": "./tests/graphs/weather.py:mk_weather_graph", "searchy": "./tests/graphs/searchy.py:graph", "agent_simple": "./tests/graphs/agent_simple.py:graph", "simple_runtime": "./tests/graphs/simple_runtime.py:graph", "functional_fibonacci": "./tests/graphs/functional_fibonacci.py:fibonacci", "state_graph_fibonacci": "./tests/graphs/state_graph_fibonacci.py:fibonacci"}'
+LANGSERVE_GRAPHS_ALL = '{"agent": {"path": "./tests/graphs/agent.py:graph", "description": "agent"}, "custom_lifespan": "./tests/graphs/my_router.py:graph", "single_node": "./tests/graphs/single_node.py:graph", "benchmark": "./tests/graphs/benchmark.py:graph", "config_graph": "./tests/graphs/config_graph.py:graph", "other": "./tests/graphs/other.py:make_graph", "weather": "./tests/graphs/weather.py:mk_weather_graph", "searchy": "./tests/graphs/searchy.py:graph", "agent_simple": "./tests/graphs/agent_simple.py:graph", "simple_runtime": "./tests/graphs/simple_runtime.py:graph", "agent_interrupt": "./tests/graphs/agent_interrupt.py:graph", "message_type_test": "./tests/graphs/message_type_test.py:graph", "remote_subgraph_parent": "./tests/graphs/remote_subgraph_parent.py:graph", "simple_remote": "./tests/graphs/simple_remote.py:graph", "nested_subgraphs": "./tests/graphs/nested_subgraphs.py:graph", "functional_fibonacci": "./tests/graphs/functional_fibonacci.py:fibonacci", "state_graph_fibonacci": "./tests/graphs/state_graph_fibonacci.py:fibonacci", "max_concurrency_graph": "./tests/graphs/max_concurrency_graph.py:graph", "unserializable_subgraph": "./tests/graphs/unserializable_subgraph.py:graph", "agent_interrupt_text": "./tests/graphs/agent_interrupt_text.py:graph", "agent_echo_stream": "./tests/graphs/agent_echo_stream.py:graph", "runtime_graph": "./tests/graphs/runtime_graph.py:graph"}'
+LANGSERVE_GRAPHS_AUTH = '{"agent": {"path": "./tests/graphs/agent.py:graph", "description": "agent"}, "config_graph": "./tests/graphs/config_graph.py:graph", "other": "./tests/graphs/other.py:make_graph", "weather": "./tests/graphs/weather.py:mk_weather_graph", "searchy": "./tests/graphs/searchy.py:graph", "agent_simple": "./tests/graphs/agent_simple.py:graph", "simple_runtime": "./tests/graphs/simple_runtime.py:graph", "functional_fibonacci": "./tests/graphs/functional_fibonacci.py:fibonacci", "state_graph_fibonacci": "./tests/graphs/state_graph_fibonacci.py:fibonacci", "runtime_graph": "./tests/graphs/runtime_graph.py:graph"}'
 
 # Go server management
 build-go-server:
@@ -43,15 +43,24 @@ check-base-imports:
 # test commands
 
 TEST ?= tests/ ../runtime_inmem/tests/
+PYTEST_WORKERS ?= 0
 AUTH_TEST ?= "tests/integration_tests/test_custom_auth.py"
 LANGGRAPH_HTTP ?= {"disable_mcp": false, "disable_a2a": false}
 LANGGRAPH_AES_KEY ?= '1234567890123456'
 BG_JOB_TIMEOUT_SECS ?= 3600
+BG_JOB_ISOLATED_LOOPS ?= false
 CRON_SCHEDULER_SLEEP_TIME ?= 0
 RELOAD_ARGS ?= --reload --reload-dir langgraph_api --reload-dir ../runtime_inmem
 
 ifdef CI
 RELOAD_ARGS :=
+endif
+
+# pytest-xdist: pass -n <workers> when PYTEST_WORKERS is set to non-zero
+ifneq ($(PYTEST_WORKERS),0)
+XDIST_ARGS := -n $(PYTEST_WORKERS) --dist loadscope --retries 2
+else
+XDIST_ARGS :=
 endif
 
 START_TARGET ?= start-license-oss
@@ -86,9 +95,9 @@ LANGGRAPH_ENCRYPTION ?=
 
 test-license-oss:
 	@if [ "$(FF_USE_CORE_API)" = "true" ]; then \
-		LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_HTTP='$(HTTP_CONFIG)' LANGGRAPH_STORE='$(STORE_CONFIG)' LANGGRAPH_CHECKPOINTER='$(CHECKPOINTER_CONFIG)' LANGGRAPH_ENCRYPTION='$(LANGGRAPH_ENCRYPTION)' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ FF_USE_CORE_API=true uv run pytest -m sqlite_grpc -v $(TEST); \
+		LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_HTTP='$(HTTP_CONFIG)' LANGGRAPH_STORE='$(STORE_CONFIG)' LANGGRAPH_CHECKPOINTER='$(CHECKPOINTER_CONFIG)' LANGGRAPH_ENCRYPTION='$(LANGGRAPH_ENCRYPTION)' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ FF_USE_CORE_API=true uv run pytest -m sqlite_grpc -v $(XDIST_ARGS) $(TEST); \
 	else \
-		LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_HTTP='$(HTTP_CONFIG)' LANGGRAPH_STORE='$(STORE_CONFIG)' LANGGRAPH_CHECKPOINTER='$(CHECKPOINTER_CONFIG)' LANGGRAPH_ENCRYPTION='$(LANGGRAPH_ENCRYPTION)' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ uv run pytest -v $(TEST); \
+		LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_HTTP='$(HTTP_CONFIG)' LANGGRAPH_STORE='$(STORE_CONFIG)' LANGGRAPH_CHECKPOINTER='$(CHECKPOINTER_CONFIG)' LANGGRAPH_ENCRYPTION='$(LANGGRAPH_ENCRYPTION)' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ uv run pytest -v $(XDIST_ARGS) $(TEST); \
 	fi
 
 test-watch-oss:
@@ -103,7 +112,7 @@ unit-test-watch:
 	LANGGRAPH_RUNTIME_EDITION="inmem" DATABASE_URI="test" REDIS_URI="test" uv run ptw . -- -x -vv --ff --capture=no tests/unit_tests
 
 test-auth:
-	LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_AUTH='{"path": "./tests/graphs/fastapi_jwt_auth.py:auth"}' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ uv run pytest -v $(AUTH_TEST)
+	LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_AUTH='{"path": "./tests/graphs/fastapi_jwt_auth.py:auth"}' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ uv run pytest -v $(XDIST_ARGS) $(AUTH_TEST)
 
 test-with-server:
 	@bash -euo pipefail -c '$(MAKE) $(START_TARGET) LANGGRAPH_HTTP='\''$(LANGGRAPH_HTTP)'\'' & \
@@ -172,6 +181,7 @@ start:
 	LANGSMITH_TRACING=$(LANGSMITH_TRACING) \
 	FF_USE_CORE_API=$(FF_USE_CORE_API) \
 	BG_JOB_TIMEOUT_SECS=$(BG_JOB_TIMEOUT_SECS) \
+	BG_JOB_ISOLATED_LOOPS=$(BG_JOB_ISOLATED_LOOPS) \
 	CRON_SCHEDULER_SLEEP_TIME=$(CRON_SCHEDULER_SLEEP_TIME) \
 	REDIS_URI=fake \
 	DATABASE_URI=:memory: \
@@ -343,3 +353,27 @@ start-test-a2a-tck-watch:
 	npx concurrently -k \
 		"$(MAKE) start" \
 		"sleep $(TCK_STARTUP_DELAY) && npx nodemon --watch langgraph_api/api/a2a.py --ext py --exec '$(MAKE) test-a2a-tck-mandatory'"
+
+# MCP Conformance Test targets
+# Uses the official MCP conformance test suite (https://github.com/modelcontextprotocol/conformance)
+# Requires a running server: make start (in another terminal)
+
+MCP_CONFORMANCE_URL ?= http://localhost:9123/mcp
+MCP_CONFORMANCE_SUITE ?= active
+MCP_CONFORMANCE_BASELINE ?= ../mcp-conformance-baseline.yml
+MCP_STARTUP_DELAY ?= 10
+
+test-mcp-conformance:
+	npx @modelcontextprotocol/conformance server \
+		--url $(MCP_CONFORMANCE_URL) \
+		--suite $(MCP_CONFORMANCE_SUITE) \
+		--expected-failures $(MCP_CONFORMANCE_BASELINE) \
+		--verbose
+
+start-test-mcp-conformance:
+	npx concurrently -k -s first \
+		"$(MAKE) start" \
+		"sleep $(MCP_STARTUP_DELAY) && $(MAKE) test-mcp-conformance"
+
+list-mcp-scenarios:
+	npx @modelcontextprotocol/conformance list --server

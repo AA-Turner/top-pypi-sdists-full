@@ -233,6 +233,7 @@ class GetChartSnapshotRequest(_message.Message):
         "use_start_as_origin",
         "use_sketch_metrics_table",
         "return_sql_query_string",
+        "exclude_incomplete_last_bucket",
     )
     METRIC_CONFIG_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -240,12 +241,14 @@ class GetChartSnapshotRequest(_message.Message):
     USE_START_AS_ORIGIN_FIELD_NUMBER: _ClassVar[int]
     USE_SKETCH_METRICS_TABLE_FIELD_NUMBER: _ClassVar[int]
     RETURN_SQL_QUERY_STRING_FIELD_NUMBER: _ClassVar[int]
+    EXCLUDE_INCOMPLETE_LAST_BUCKET_FIELD_NUMBER: _ClassVar[int]
     metric_config: _chart_pb2.MetricConfig
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     use_start_as_origin: bool
     use_sketch_metrics_table: bool
     return_sql_query_string: bool
+    exclude_incomplete_last_bucket: bool
     def __init__(
         self,
         metric_config: _Optional[_Union[_chart_pb2.MetricConfig, _Mapping]] = ...,
@@ -254,6 +257,7 @@ class GetChartSnapshotRequest(_message.Message):
         use_start_as_origin: bool = ...,
         use_sketch_metrics_table: bool = ...,
         return_sql_query_string: bool = ...,
+        exclude_incomplete_last_bucket: bool = ...,
     ) -> None: ...
 
 class GetChartSnapshotResponse(_message.Message):

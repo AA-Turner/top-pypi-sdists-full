@@ -969,6 +969,34 @@ def test__format_anthropic_messages_with_image_conversion_in_tool() -> None:
     assert expected == actual
 
 
+def test__format_anthropic_messages_strips_extra_fields_from_tool_result_text() -> None:
+    """Test that extra fields are stripped from text content block inside
+    tool_result content."""
+    messages = [
+        ToolMessage(  # type: ignore[misc]
+            content=[
+                {
+                    "type": "text",
+                    "text": "tool output",
+                    "id": "lc_12345",
+                }
+            ],
+            tool_call_id="test_tool_call_123",
+        ),
+        HumanMessage("What happened?"),  # type: ignore[misc]
+    ]
+
+    _, actual = _format_anthropic_messages(messages)
+    tool_result = actual[0]["content"][0]
+    assert tool_result["type"] == "tool_result"
+    assert tool_result["tool_use_id"] == "test_tool_call_123"
+
+    # The text block inside the tool_result should only have "type" and "text"
+    text_block = tool_result["content"][0]
+    assert text_block == {"type": "text", "text": "tool output"}
+    assert "id" not in text_block
+
+
 def test__convert_messages_to_prompt_anthropic_message_is_none() -> None:
     messages = None
     assert convert_messages_to_prompt_anthropic(messages) == ""
@@ -1536,18 +1564,23 @@ def test_bedrock_client_inherits_from_runtime_client(
 
     mock_create_client.side_effect = side_effect
 
-    ChatBedrock(model="us.meta.llama3-3-70b-instruct-v1:0", client=mock_runtime_client)
+    with mock.patch.dict(os.environ, {}, clear=False):
+        os.environ.pop("AWS_BEARER_TOKEN_BEDROCK", None)
+        ChatBedrock(
+            model="us.meta.llama3-3-70b-instruct-v1:0", client=mock_runtime_client
+        )
 
-    mock_create_client.assert_called_with(
-        region_name="us-west-2",
-        credentials_profile_name=None,
-        aws_access_key_id=None,
-        aws_secret_access_key=None,
-        aws_session_token=None,
-        endpoint_url=None,
-        config=mock_client_config,
-        service_name="bedrock",
-    )
+        mock_create_client.assert_called_with(
+            region_name="us-west-2",
+            credentials_profile_name=None,
+            aws_access_key_id=None,
+            aws_secret_access_key=None,
+            aws_session_token=None,
+            endpoint_url=None,
+            config=mock_client_config,
+            service_name="bedrock",
+            api_key=None,
+        )
 
 
 @patch("langchain_aws.llms.bedrock.create_aws_client")
@@ -1573,23 +1606,26 @@ def test_bedrock_client_uses_explicit_values_over_runtime_client(
 
     mock_create_client.side_effect = side_effect
 
-    ChatBedrock(
-        model="us.meta.llama3-3-70b-instruct-v1:0",
-        client=mock_runtime_client,
-        region="us-east-1",
-        config=explicit_config,
-    )
+    with mock.patch.dict(os.environ, {}, clear=False):
+        os.environ.pop("AWS_BEARER_TOKEN_BEDROCK", None)
+        ChatBedrock(
+            model="us.meta.llama3-3-70b-instruct-v1:0",
+            client=mock_runtime_client,
+            region="us-east-1",
+            config=explicit_config,
+        )
 
-    mock_create_client.assert_called_with(
-        region_name="us-east-1",
-        credentials_profile_name=None,
-        aws_access_key_id=None,
-        aws_secret_access_key=None,
-        aws_session_token=None,
-        endpoint_url=None,
-        config=explicit_config,
-        service_name="bedrock",
-    )
+        mock_create_client.assert_called_with(
+            region_name="us-east-1",
+            credentials_profile_name=None,
+            aws_access_key_id=None,
+            aws_secret_access_key=None,
+            aws_session_token=None,
+            endpoint_url=None,
+            config=explicit_config,
+            service_name="bedrock",
+            api_key=None,
+        )
 
 
 def test_get_num_tokens_from_messages_with_base_messages():

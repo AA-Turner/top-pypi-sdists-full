@@ -1,6 +1,10 @@
 from abstra_internals.controllers.execution.consumer import ConsumerController
 from abstra_internals.controllers.main import MainController
-from abstra_internals.environment import DEFAULT_PORT, RABBITMQ_CONNECTION_URI
+from abstra_internals.environment import (
+    DEFAULT_PORT,
+    RABBITMQ_CONNECTION_URI,
+    WORKER_LOG_TO_QUEUE,
+)
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.consumer import (
     WebEditorConsumer,
@@ -18,6 +22,10 @@ def run():
     AbstraLogger.warning(
         f"[web-editor-worker] Running abstra version {get_local_package_version()}"
     )
+    if WORKER_LOG_TO_QUEUE:
+        AbstraLogger.warning(
+            "[web-editor-worker] ABSTRA_WORKER_LOG_TO_QUEUE=true, execution logs will be sent via RabbitMQ"
+        )
     SettingsController.set_root_path(".")
     SettingsController.set_server_port(DEFAULT_PORT)
 

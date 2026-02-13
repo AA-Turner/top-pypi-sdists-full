@@ -2,7 +2,7 @@
 
 import base64
 import os
-from typing import Any, Dict, List, Literal, Tuple, Type, Union, cast
+from typing import Any, Dict, Iterator, List, Literal, Tuple, Type, Union, cast
 from unittest import mock
 
 import pytest
@@ -683,6 +683,10 @@ def test_standard_tracing_params() -> None:
         "ls_model_name": "foo",
         "ls_temperature": 0.1,
         "ls_max_tokens": 10,
+        "ls_invocation_params": {
+            "provider": "foo",
+            "region_name": "us-west-2",
+        },
     }
 
 
@@ -1703,6 +1707,42 @@ def test__lc_content_to_bedrock_mixed_types_with_empty_content() -> None:
     assert bedrock_content == expected
 
 
+def test__lc_content_to_bedrock_non_standard_unwrap() -> None:
+    """Test that `non_standard` blocks are unwrapped to their original value.
+
+    When content passes through `langchain-core`'s `content_blocks`
+    normalization, blocks like `cachePoint` get wrapped as `non_standard`.
+    `_lc_content_to_bedrock` should unwrap them back to the original block.
+    """
+    content: List[Union[str, Dict[str, Any]]] = [
+        {"type": "text", "text": "System prompt"},
+        {"type": "non_standard", "value": {"cachePoint": {"type": "default"}}},
+    ]
+
+    bedrock_content = _lc_content_to_bedrock(content)
+
+    assert bedrock_content == [
+        {"text": "System prompt"},
+        {"cachePoint": {"type": "default"}},
+    ]
+
+
+def test__lc_content_to_bedrock_non_standard_unwrap_guard_content() -> None:
+    """Test that `non_standard` blocks with `guardContent` are unwrapped."""
+    content: List[Union[str, Dict[str, Any]]] = [
+        {
+            "type": "non_standard",
+            "value": {"guardContent": {"text": {"text": "guard"}}},
+        },
+    ]
+
+    bedrock_content = _lc_content_to_bedrock(content)
+
+    assert bedrock_content == [
+        {"guardContent": {"text": {"text": "guard"}}},
+    ]
+
+
 def test__get_provider() -> None:
     llm = ChatBedrockConverse(
         model="anthropic.claude-3-sonnet-20240229-v1:0", region_name="us-west-2"
@@ -2399,20 +2439,23 @@ def test_bedrock_client_inherits_from_runtime_client(
 
     mock_create_client.side_effect = side_effect
 
-    ChatBedrockConverse(
-        model="us.meta.llama3-3-70b-instruct-v1:0", client=mock_runtime_client
-    )
+    with mock.patch.dict(os.environ, {}, clear=False):
+        os.environ.pop("AWS_BEARER_TOKEN_BEDROCK", None)
+        ChatBedrockConverse(
+            model="us.meta.llama3-3-70b-instruct-v1:0", client=mock_runtime_client
+        )
 
-    mock_create_client.assert_called_with(
-        region_name="us-west-2",
-        credentials_profile_name=None,
-        aws_access_key_id=None,
-        aws_secret_access_key=None,
-        aws_session_token=None,
-        endpoint_url=None,
-        config=None,
-        service_name="bedrock",
-    )
+        mock_create_client.assert_called_with(
+            region_name="us-west-2",
+            credentials_profile_name=None,
+            aws_access_key_id=None,
+            aws_secret_access_key=None,
+            aws_session_token=None,
+            endpoint_url=None,
+            config=None,
+            service_name="bedrock",
+            api_key=None,
+        )
 
 
 @mock.patch("langchain_aws.chat_models.bedrock_converse.create_aws_client")
@@ -2436,22 +2479,25 @@ def test_bedrock_client_uses_explicit_values_over_runtime_client(
 
     mock_create_client.side_effect = side_effect
 
-    ChatBedrockConverse(
-        model="us.meta.llama3-3-70b-instruct-v1:0",
-        client=mock_runtime_client,
-        region_name="us-east-1",
-    )
+    with mock.patch.dict(os.environ, {}, clear=False):
+        os.environ.pop("AWS_BEARER_TOKEN_BEDROCK", None)
+        ChatBedrockConverse(
+            model="us.meta.llama3-3-70b-instruct-v1:0",
+            client=mock_runtime_client,
+            region_name="us-east-1",
+        )
 
-    mock_create_client.assert_called_with(
-        region_name="us-east-1",
-        credentials_profile_name=None,
-        aws_access_key_id=None,
-        aws_secret_access_key=None,
-        aws_session_token=None,
-        endpoint_url=None,
-        config=None,
-        service_name="bedrock",
-    )
+        mock_create_client.assert_called_with(
+            region_name="us-east-1",
+            credentials_profile_name=None,
+            aws_access_key_id=None,
+            aws_secret_access_key=None,
+            aws_session_token=None,
+            endpoint_url=None,
+            config=None,
+            service_name="bedrock",
+            api_key=None,
+        )
 
 
 def test__has_tool_use_or_result_blocks() -> None:
@@ -2737,6 +2783,42 @@ def test_bind_tools_toolconfig_structure_with_system_tools() -> None:
     # Verify toolChoice is present in toolConfig
     assert "toolChoice" in tool_config
     assert tool_config["toolChoice"] == {"auto": {}}
+
+
+def test_bind_tools_formats_custom_tools_to_dicts() -> None:
+    """Test that custom tools are dict formatted with no Nova tools present."""
+    from langchain_core.tools import tool
+
+    @tool
+    def my_custom_tool(query: str) -> str:
+        """A simple test tool.
+
+        Args:
+            query: The query string.
+        """
+        return f"Result for: {query}"
+
+    chat_model = ChatBedrockConverse(
+        model="us.anthropic.claude-sonnet-4-5-20250929-v1:0", region_name="us-east-1"
+    )  # type: ignore[call-arg]
+
+    chat_model_with_tools = chat_model.bind_tools([my_custom_tool])
+
+    bound_kwargs = cast(RunnableBinding, chat_model_with_tools).kwargs
+
+    assert "tools" in bound_kwargs
+    assert "toolConfig" not in bound_kwargs
+
+    tools = bound_kwargs["tools"]
+    assert isinstance(tools, list)
+    assert len(tools) == 1
+
+    tool_def = tools[0]
+    assert isinstance(tool_def, dict), f"Expected dict, got {type(tool_def)}"
+
+    assert tool_def.get("type") == "function"
+    assert "function" in tool_def
+    assert tool_def["function"].get("name") == "my_custom_tool"
 
 
 def test_reasoning_config_validation_accepts_strings() -> None:
@@ -3300,3 +3382,149 @@ def test_additional_model_request_fields_invoke_overrides_constructor() -> None:
     # Verify invoke value takes priority over constructor value
     assert additional_fields["reasoning_effort"] == "invoke_value"
     assert additional_fields["reasoning_effort"] != "constructor_value"
+
+
+def test_stream_closes_event_stream() -> None:
+    """Test that stream() explicitly closes the EventStream after iteration."""
+    mocked_client = mock.MagicMock()
+    mock_stream = mock.MagicMock()
+    mock_stream.__iter__ = mock.Mock(
+        return_value=iter(
+            [
+                {"messageStart": {"role": "assistant"}},
+                {
+                    "contentBlockDelta": {
+                        "delta": {"text": "Hi"},
+                        "contentBlockIndex": 0,
+                    }
+                },
+                {"messageStop": {"stopReason": "end_turn"}},
+            ]
+        )
+    )
+    mocked_client.converse_stream.return_value = {"stream": mock_stream}
+
+    llm = ChatBedrockConverse(
+        client=mocked_client,
+        model="anthropic.claude-3-sonnet-20240229-v1:0",
+        region_name="us-west-2",
+    )
+
+    list(llm.stream([HumanMessage(content="Hi")]))
+
+    mock_stream.close.assert_called_once()
+
+
+def test_stream_closes_event_stream_on_exception() -> None:
+    """Test that stream() closes the EventStream even when iteration raises."""
+    mocked_client = mock.MagicMock()
+    mock_stream = mock.MagicMock()
+
+    def raise_error() -> Iterator[Dict[str, Any]]:
+        yield {"messageStart": {"role": "assistant"}}
+        yield {"contentBlockDelta": {"delta": {"text": "Hi"}, "contentBlockIndex": 0}}
+        raise RuntimeError("Test error")
+
+    mock_stream.__iter__ = mock.Mock(return_value=raise_error())
+    mocked_client.converse_stream.return_value = {"stream": mock_stream}
+
+    llm = ChatBedrockConverse(
+        client=mocked_client,
+        model="anthropic.claude-3-sonnet-20240229-v1:0",
+        region_name="us-west-2",
+    )
+
+    with pytest.raises(RuntimeError, match="Test error"):
+        list(llm.stream([HumanMessage(content="Hi")]))
+
+    mock_stream.close.assert_called_once()
+
+
+def test_guardrail_config_snake_to_camel_conversion() -> None:
+    """Test that guardrail_config is properly converted
+    from snake_case to camelCase."""
+    mocked_client = mock.MagicMock()
+    mocked_bedrock_client = mock.MagicMock()
+
+    llm = ChatBedrockConverse(
+        client=mocked_client,
+        bedrock_client=mocked_bedrock_client,
+        model="anthropic.claude-3-sonnet-20240229-v1:0",
+        region_name="us-west-2",
+        guardrails={
+            "guardrail_identifier": "test-id",
+            "guardrail_version": "1",
+            "trace": "enabled",
+        },
+    )
+
+    params = llm._converse_params()
+
+    # Check that guardrailConfig has camelCase keys
+    assert "guardrailConfig" in params
+    guardrail_config = params["guardrailConfig"]
+    assert "guardrailIdentifier" in guardrail_config
+    assert "guardrailVersion" in guardrail_config
+    assert "trace" in guardrail_config
+    assert guardrail_config["guardrailIdentifier"] == "test-id"
+    assert guardrail_config["guardrailVersion"] == "1"
+    assert guardrail_config["trace"] == "enabled"
+
+
+def test_ls_invocation_params_includes_provider_and_region() -> None:
+    """Test that _get_ls_params includes provider and
+    region_name in ls_invocation_params."""
+    llm = ChatBedrockConverse(
+        model="anthropic.claude-3-sonnet-20240229-v1:0",
+        provider="anthropic",
+        region_name="us-west-2",
+    )
+
+    ls_params = llm._get_ls_params()
+
+    assert "ls_invocation_params" in ls_params
+    invocation_params = ls_params["ls_invocation_params"]  # type: ignore[typeddict-item]
+    assert invocation_params["provider"] == "anthropic"
+    assert invocation_params["region_name"] == "us-west-2"
+
+
+def test_ls_invocation_params_infers_region_from_client(
+    mock_boto3_client: mock.MagicMock,
+) -> None:
+    """Test that _get_ls_params infers region from client
+    when not explicitly provided."""
+    # Configure the mock client to return a region
+    mock_boto3_client.meta.region_name = "eu-west-1"
+
+    llm = ChatBedrockConverse(
+        model="anthropic.claude-3-sonnet-20240229-v1:0",
+        provider="anthropic",
+    )
+
+    ls_params = llm._get_ls_params()
+
+    assert "ls_invocation_params" in ls_params
+    invocation_params = ls_params["ls_invocation_params"]  # type: ignore[typeddict-item]
+    assert invocation_params["provider"] == "anthropic"
+    assert invocation_params["region_name"] == "eu-west-1"
+
+
+def test_ls_invocation_params_prefers_explicit_region_over_inferred(
+    mock_boto3_client: mock.MagicMock,
+) -> None:
+    """Test that explicit region_name takes precedence over inferred region."""
+    # Configure the mock client to return a different region
+    mock_boto3_client.meta.region_name = "eu-west-1"
+
+    llm = ChatBedrockConverse(
+        model="anthropic.claude-3-sonnet-20240229-v1:0",
+        provider="anthropic",
+        region_name="us-west-2",  # Explicit region should take precedence
+    )
+
+    ls_params = llm._get_ls_params()
+
+    assert "ls_invocation_params" in ls_params
+    invocation_params = ls_params["ls_invocation_params"]  # type: ignore[typeddict-item]
+    # Explicit region_name should be used, not the one from client
+    assert invocation_params["region_name"] == "us-west-2"

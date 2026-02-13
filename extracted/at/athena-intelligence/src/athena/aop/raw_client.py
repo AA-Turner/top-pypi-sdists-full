@@ -132,6 +132,8 @@ class RawAopClient:
         """
         Start execution of an Agent Operating Procedure (AOP) asset asynchronously. Returns immediately with a thread_id for tracking execution progress without waiting for completion.
 
+        **Important:** This endpoint returns immediately and does NOT wait for the AOP to finish. You must poll the thread status endpoint (GET /api/v0/threads/{thread_id}/status) in a loop until the status is "completed" or "failed". See the Long-Running AOP Execution guide in Python Guides for the complete pattern.
+
         Parameters
         ----------
         request : AopExecuteRequestIn
@@ -336,6 +338,8 @@ class AsyncRawAopClient:
     ) -> AsyncHttpResponse[AopAsyncExecuteResponseOut]:
         """
         Start execution of an Agent Operating Procedure (AOP) asset asynchronously. Returns immediately with a thread_id for tracking execution progress without waiting for completion.
+
+        **Important:** This endpoint returns immediately and does NOT wait for the AOP to finish. You must poll the thread status endpoint (GET /api/v0/threads/{thread_id}/status) in a loop until the status is "completed" or "failed". See the Long-Running AOP Execution guide in Python Guides for the complete pattern.
 
         Parameters
         ----------

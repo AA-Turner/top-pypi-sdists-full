@@ -170,7 +170,7 @@ class ZprClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/zpr/create_configuration.py.html>`__ to see an example of how to use create_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/zpr/create_configuration.py.html>`__ to see an example of how to use create_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -282,7 +282,7 @@ class ZprClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/zpr/create_zpr_policy.py.html>`__ to see an example of how to use create_zpr_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/zpr/create_zpr_policy.py.html>`__ to see an example of how to use create_zpr_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -397,7 +397,7 @@ class ZprClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/zpr/delete_zpr_policy.py.html>`__ to see an example of how to use delete_zpr_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/zpr/delete_zpr_policy.py.html>`__ to see an example of how to use delete_zpr_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['zprPolicyId']
@@ -510,7 +510,7 @@ class ZprClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/zpr/get_configuration.py.html>`__ to see an example of how to use get_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/zpr/get_configuration.py.html>`__ to see an example of how to use get_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -616,7 +616,7 @@ class ZprClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/zpr/get_zpr_configuration_work_request.py.html>`__ to see an example of how to use get_zpr_configuration_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/zpr/get_zpr_configuration_work_request.py.html>`__ to see an example of how to use get_zpr_configuration_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -726,7 +726,7 @@ class ZprClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/zpr/get_zpr_policy.py.html>`__ to see an example of how to use get_zpr_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/zpr/get_zpr_policy.py.html>`__ to see an example of how to use get_zpr_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['zprPolicyId']
@@ -836,7 +836,7 @@ class ZprClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/zpr/get_zpr_policy_work_request.py.html>`__ to see an example of how to use get_zpr_policy_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/zpr/get_zpr_policy_work_request.py.html>`__ to see an example of how to use get_zpr_policy_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -970,7 +970,7 @@ class ZprClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/zpr/list_zpr_configuration_work_request_errors.py.html>`__ to see an example of how to use list_zpr_configuration_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/zpr/list_zpr_configuration_work_request_errors.py.html>`__ to see an example of how to use list_zpr_configuration_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -1132,7 +1132,7 @@ class ZprClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/zpr/list_zpr_configuration_work_request_logs.py.html>`__ to see an example of how to use list_zpr_configuration_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/zpr/list_zpr_configuration_work_request_logs.py.html>`__ to see an example of how to use list_zpr_configuration_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -1309,7 +1309,7 @@ class ZprClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/zpr/list_zpr_configuration_work_requests.py.html>`__ to see an example of how to use list_zpr_configuration_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/zpr/list_zpr_configuration_work_requests.py.html>`__ to see an example of how to use list_zpr_configuration_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1489,7 +1489,7 @@ class ZprClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/zpr/list_zpr_policies.py.html>`__ to see an example of how to use list_zpr_policies API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/zpr/list_zpr_policies.py.html>`__ to see an example of how to use list_zpr_policies API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1654,7 +1654,7 @@ class ZprClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/zpr/list_zpr_policy_work_request_errors.py.html>`__ to see an example of how to use list_zpr_policy_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/zpr/list_zpr_policy_work_request_errors.py.html>`__ to see an example of how to use list_zpr_policy_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -1816,7 +1816,7 @@ class ZprClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/zpr/list_zpr_policy_work_request_logs.py.html>`__ to see an example of how to use list_zpr_policy_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/zpr/list_zpr_policy_work_request_logs.py.html>`__ to see an example of how to use list_zpr_policy_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -1993,7 +1993,7 @@ class ZprClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/zpr/list_zpr_policy_work_requests.py.html>`__ to see an example of how to use list_zpr_policy_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/zpr/list_zpr_policy_work_requests.py.html>`__ to see an example of how to use list_zpr_policy_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2154,7 +2154,7 @@ class ZprClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/zpr/update_zpr_policy.py.html>`__ to see an example of how to use update_zpr_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/zpr/update_zpr_policy.py.html>`__ to see an example of how to use update_zpr_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['zprPolicyId']

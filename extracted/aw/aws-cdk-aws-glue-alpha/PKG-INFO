@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.aws-glue-alpha
-Version: 2.237.1a0
+Version: 2.238.0a0
 Summary: The CDK Construct Library for AWS::Glue
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -22,7 +22,7 @@ Requires-Python: ~=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.237.1
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.238.0
 Requires-Dist: constructs<11.0.0,>=10.0.0
 Requires-Dist: jsii<2.0.0,>=1.126.0
 Requires-Dist: publication>=0.0.3
@@ -760,6 +760,189 @@ glue.S3Table(self, "MyTable",
     )],
     data_format=glue.DataFormat.JSON,
     enable_partition_filtering=True
+)
+```
+
+### Partition Projection
+
+Partition projection allows Athena to automatically add new partitions as new data arrives, without requiring `ALTER TABLE ADD PARTITION` statements. This improves query performance and reduces management overhead by eliminating the need to manually manage partition metadata.
+
+For more information, see the [AWS documentation on partition projection](https://docs.aws.amazon.com/athena/latest/ug/partition-projection.html).
+
+#### INTEGER Projection
+
+For partition keys with sequential numeric values:
+
+```python
+# my_database: glue.Database
+
+glue.S3Table(self, "MyTable",
+    database=my_database,
+    columns=[glue.Column(
+        name="data",
+        type=glue.Schema.STRING
+    )],
+    partition_keys=[glue.Column(
+        name="year",
+        type=glue.Schema.INTEGER
+    )],
+    data_format=glue.DataFormat.JSON,
+    partition_projection={
+        "year": glue.PartitionProjectionConfiguration.integer(
+            min=2020,
+            max=2023,
+            interval=1,  # optional, defaults to 1
+            digits=4
+        )
+    }
+)
+```
+
+#### DATE Projection
+
+For partition keys with date or timestamp values. Supports both fixed dates and relative dates using `NOW`:
+
+```python
+# my_database: glue.Database
+
+glue.S3Table(self, "MyTable",
+    database=my_database,
+    columns=[glue.Column(
+        name="data",
+        type=glue.Schema.STRING
+    )],
+    partition_keys=[glue.Column(
+        name="date",
+        type=glue.Schema.STRING
+    )],
+    data_format=glue.DataFormat.JSON,
+    partition_projection={
+        "date": glue.PartitionProjectionConfiguration.date(
+            min="2020-01-01",
+            max="2023-12-31",
+            format="yyyy-MM-dd",
+            interval=1,  # optional, defaults to 1
+            interval_unit=glue.DateIntervalUnit.DAYS
+        )
+    }
+)
+```
+
+You can also use relative dates with `NOW`:
+
+```python
+# my_database: glue.Database
+
+glue.S3Table(self, "MyTable",
+    database=my_database,
+    columns=[glue.Column(
+        name="data",
+        type=glue.Schema.STRING
+    )],
+    partition_keys=[glue.Column(
+        name="date",
+        type=glue.Schema.STRING
+    )],
+    data_format=glue.DataFormat.JSON,
+    partition_projection={
+        "date": glue.PartitionProjectionConfiguration.date(
+            min="NOW-3YEARS",
+            max="NOW",
+            format="yyyy-MM-dd"
+        )
+    }
+)
+```
+
+#### ENUM Projection
+
+For partition keys with a known set of values:
+
+```python
+# my_database: glue.Database
+
+glue.S3Table(self, "MyTable",
+    database=my_database,
+    columns=[glue.Column(
+        name="data",
+        type=glue.Schema.STRING
+    )],
+    partition_keys=[glue.Column(
+        name="region",
+        type=glue.Schema.STRING
+    )],
+    data_format=glue.DataFormat.JSON,
+    partition_projection={
+        "region": glue.PartitionProjectionConfiguration.enum(
+            values=["us-east-1", "us-west-2", "eu-west-1"]
+        )
+    }
+)
+```
+
+#### INJECTED Projection
+
+For custom partition values injected at query time:
+
+```python
+# my_database: glue.Database
+
+glue.S3Table(self, "MyTable",
+    database=my_database,
+    columns=[glue.Column(
+        name="data",
+        type=glue.Schema.STRING
+    )],
+    partition_keys=[glue.Column(
+        name="custom",
+        type=glue.Schema.STRING
+    )],
+    data_format=glue.DataFormat.JSON,
+    partition_projection={
+        "custom": glue.PartitionProjectionConfiguration.injected()
+    }
+)
+```
+
+#### Multiple Partition Projections
+
+You can configure partition projection for multiple partition keys:
+
+```python
+# my_database: glue.Database
+
+glue.S3Table(self, "MyTable",
+    database=my_database,
+    columns=[glue.Column(
+        name="data",
+        type=glue.Schema.STRING
+    )],
+    partition_keys=[glue.Column(
+        name="year",
+        type=glue.Schema.INTEGER
+    ), glue.Column(
+        name="month",
+        type=glue.Schema.INTEGER
+    ), glue.Column(
+        name="region",
+        type=glue.Schema.STRING
+    )
+    ],
+    data_format=glue.DataFormat.JSON,
+    partition_projection={
+        "year": glue.PartitionProjectionConfiguration.integer(
+            min=2020,
+            max=2023
+        ),
+        "month": glue.PartitionProjectionConfiguration.integer(
+            min=1,
+            max=12,
+            digits=2
+        ),
+        "region": glue.PartitionProjectionConfiguration.enum(
+            values=["us-east-1", "us-west-2"]
+        )
+    }
 )
 ```
 

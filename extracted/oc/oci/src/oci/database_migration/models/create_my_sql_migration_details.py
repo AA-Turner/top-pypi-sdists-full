@@ -59,6 +59,10 @@ class CreateMySqlMigrationDetails(CreateMigrationDetails):
             The value to assign to the defined_tags property of this CreateMySqlMigrationDetails.
         :type defined_tags: dict(str, dict(str, object))
 
+        :param assessment_id:
+            The value to assign to the assessment_id property of this CreateMySqlMigrationDetails.
+        :type assessment_id: str
+
         :param data_transfer_medium_details:
             The value to assign to the data_transfer_medium_details property of this CreateMySqlMigrationDetails.
         :type data_transfer_medium_details: oci.database_migration.models.CreateMySqlDataTransferMediumDetails
@@ -102,6 +106,7 @@ class CreateMySqlMigrationDetails(CreateMigrationDetails):
             'target_database_connection_id': 'str',
             'freeform_tags': 'dict(str, str)',
             'defined_tags': 'dict(str, dict(str, object))',
+            'assessment_id': 'str',
             'data_transfer_medium_details': 'CreateMySqlDataTransferMediumDetails',
             'initial_load_settings': 'CreateMySqlInitialLoadSettings',
             'advisor_settings': 'CreateMySqlAdvisorSettings',
@@ -121,6 +126,7 @@ class CreateMySqlMigrationDetails(CreateMigrationDetails):
             'target_database_connection_id': 'targetDatabaseConnectionId',
             'freeform_tags': 'freeformTags',
             'defined_tags': 'definedTags',
+            'assessment_id': 'assessmentId',
             'data_transfer_medium_details': 'dataTransferMediumDetails',
             'initial_load_settings': 'initialLoadSettings',
             'advisor_settings': 'advisorSettings',
@@ -139,6 +145,7 @@ class CreateMySqlMigrationDetails(CreateMigrationDetails):
         self._target_database_connection_id = None
         self._freeform_tags = None
         self._defined_tags = None
+        self._assessment_id = None
         self._data_transfer_medium_details = None
         self._initial_load_settings = None
         self._advisor_settings = None

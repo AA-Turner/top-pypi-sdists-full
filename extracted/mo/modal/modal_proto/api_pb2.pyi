@@ -3817,6 +3817,39 @@ class DictEntry(google.protobuf.message.Message):
 
 global___DictEntry = DictEntry
 
+class DictGetByIdRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DICT_ID_FIELD_NUMBER: builtins.int
+    dict_id: builtins.str
+    def __init__(
+        self,
+        *,
+        dict_id: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["dict_id", b"dict_id"]) -> None: ...
+
+global___DictGetByIdRequest = DictGetByIdRequest
+
+class DictGetByIdResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DICT_ID_FIELD_NUMBER: builtins.int
+    METADATA_FIELD_NUMBER: builtins.int
+    dict_id: builtins.str
+    @property
+    def metadata(self) -> global___DictMetadata: ...
+    def __init__(
+        self,
+        *,
+        dict_id: builtins.str = ...,
+        metadata: global___DictMetadata | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["metadata", b"metadata"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["dict_id", b"dict_id", "metadata", b"metadata"]) -> None: ...
+
+global___DictGetByIdResponse = DictGetByIdResponse
+
 class DictGetOrCreateRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -8370,6 +8403,39 @@ class QueueDeleteRequest(google.protobuf.message.Message):
     def ClearField(self, field_name: typing_extensions.Literal["queue_id", b"queue_id"]) -> None: ...
 
 global___QueueDeleteRequest = QueueDeleteRequest
+
+class QueueGetByIdRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    QUEUE_ID_FIELD_NUMBER: builtins.int
+    queue_id: builtins.str
+    def __init__(
+        self,
+        *,
+        queue_id: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["queue_id", b"queue_id"]) -> None: ...
+
+global___QueueGetByIdRequest = QueueGetByIdRequest
+
+class QueueGetByIdResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    QUEUE_ID_FIELD_NUMBER: builtins.int
+    METADATA_FIELD_NUMBER: builtins.int
+    queue_id: builtins.str
+    @property
+    def metadata(self) -> global___QueueMetadata: ...
+    def __init__(
+        self,
+        *,
+        queue_id: builtins.str = ...,
+        metadata: global___QueueMetadata | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["metadata", b"metadata"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["metadata", b"metadata", "queue_id", b"queue_id"]) -> None: ...
+
+global___QueueGetByIdResponse = QueueGetByIdResponse
 
 class QueueGetOrCreateRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor

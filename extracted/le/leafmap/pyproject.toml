@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "leafmap"
-version = "0.59.0"
+version = "0.60.0"
 dynamic = [
     "dependencies",
 ]
@@ -14,7 +14,7 @@ requires-python = ">=3.9"
 license = {text = "MIT license"}
 keywords = ["leafmap"]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Natural Language :: English",
@@ -63,7 +63,7 @@ dependencies = {file = ["requirements.txt"]}
 universal = true
 
 [tool.bumpversion]
-current_version = "0.59.0"
+current_version = "0.60.0"
 commit = true
 tag = true
 

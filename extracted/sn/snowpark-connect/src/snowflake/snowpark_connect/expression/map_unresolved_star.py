@@ -9,7 +9,7 @@ import snowflake.snowpark.functions as snowpark_fn
 from snowflake.snowpark._internal.analyzer.analyzer_utils import (
     quote_name_without_upper_casing,
 )
-from snowflake.snowpark.types import StringType, StructType, VariantType
+from snowflake.snowpark.types import StringType, StructField, StructType, VariantType
 from snowflake.snowpark_connect.column_name_handler import ColumnNameMap
 from snowflake.snowpark_connect.column_qualifier import ColumnQualifier
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
@@ -212,7 +212,14 @@ def map_unresolved_star_as_single_column(
         combined_spark_name = "value"
         typed_column = TypedColumn(
             result_exp,
-            lambda: [VariantType()],
+            lambda: [
+                StructType(
+                    [
+                        StructField(name, typed_col.typ, _is_column=False)
+                        for name, typed_col in fields_cols
+                    ]
+                )
+            ],
         )
         typed_column.set_multi_col_qualifiers([set() for _ in spark_names])
         return combined_spark_name, typed_column

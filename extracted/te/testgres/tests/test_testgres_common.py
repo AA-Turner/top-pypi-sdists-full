@@ -416,6 +416,84 @@ class TestTestgresCommon:
             assert (node.pid == 0)
             assert (node.status() == NodeStatus.Uninitialized)
 
+    def test_status__empty_postmaster_pid(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        assert (NodeStatus.Running)
+        assert not (NodeStatus.Stopped)
+        assert not (NodeStatus.Uninitialized)
+
+        # check statuses after each operation
+        with __class__.helper__get_node(node_svc) as node:
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Uninitialized)
+
+            node.init()
+
+            postmaster_pid_file = node.os_ops.build_path(node.data_dir, "postmaster.pid")
+
+            node.os_ops.write(
+                postmaster_pid_file,
+                ""
+            )
+
+            with pytest.raises(expected_exception=ExecUtilException) as x:
+                node.status()
+
+            expected_msg = "pg_ctl: the PID file \"{}\" is empty\n".format(
+                postmaster_pid_file
+            )
+
+            assert expected_msg == x.value.error
+        return
+
+    def test_status__force_clean_postmaster_pid(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        assert (NodeStatus.Running)
+        assert not (NodeStatus.Stopped)
+        assert not (NodeStatus.Uninitialized)
+
+        # check statuses after each operation
+        with __class__.helper__get_node(node_svc) as node:
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Uninitialized)
+
+            node.init()
+            node.start()
+
+            assert node.status() == NodeStatus.Running
+            logging.info("Postmaster PID is {}.".format(node.pid))
+
+            postmaster_pid_file = node.os_ops.build_path(node.data_dir, "postmaster.pid")
+
+            logging.info("Clean postmaster pid file [{}].".format(
+                postmaster_pid_file
+            ))
+
+            node.os_ops.write(
+                postmaster_pid_file,
+                "",
+                truncate=True,
+            )
+
+            x = node.os_ops.read(
+                postmaster_pid_file,
+                encoding="utf-8",
+                binary=False
+            )
+            assert x == ""
+
+            with pytest.raises(expected_exception=ExecUtilException) as x:
+                node.status()
+
+            expected_msg = "pg_ctl: the PID file \"{}\" is empty\n".format(
+                postmaster_pid_file
+            )
+
+            assert expected_msg == x.value.error
+        return
+
     def test_kill__is_not_initialized(
         self,
         node_svc: PostgresNodeService
@@ -981,14 +1059,16 @@ class TestTestgresCommon:
                             assert lines is not None
                             assert type(lines) == list  # noqa: E721
 
-                            def LOCAL__test_lines():
+                            def LOCAL__test_lines(lines: typing.Iterable[str]) -> bool:
+                                assert isinstance(lines, typing.Iterable)
                                 for s in lines:
-                                    if any(C_NODE_NAME in s for s in lines):
+                                    assert type(s) == str  # noqa: E721
+                                    if C_NODE_NAME in s:
                                         logging.info("OK. We found the node_name in a line \"{0}\"".format(s))
                                         return True
-                                    return False
+                                return False
 
-                            if LOCAL__test_lines():
+                            if LOCAL__test_lines(lines):
                                 break
 
                             logging.info("Master node log file does not have an expected information.")

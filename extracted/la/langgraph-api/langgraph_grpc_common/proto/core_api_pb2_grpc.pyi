@@ -452,3 +452,125 @@ class RunsServicer(metaclass=_abc_1.ABCMeta):
         """Sweep abandoned runs (internal method, no auth)"""
 
 def add_RunsServicer_to_server(servicer: RunsServicer, server: _typing.Union[_grpc.Server, _aio.Server]) -> None: ...
+
+class CronsStub:
+    @_typing.overload
+    def __new__(cls, channel: _grpc.Channel) -> _Self: ...
+    @_typing.overload
+    def __new__(cls, channel: _aio.Channel) -> CronsAsyncStub: ...
+    Create: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.CreateCronRequest, _core_api_pb2.Cron]
+    Patch: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.PatchCronRequest, _core_api_pb2.Cron]
+    Delete: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.DeleteCronRequest, _empty_pb2.Empty]
+    Search: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.SearchCronsRequest, _core_api_pb2.SearchCronsResponse]
+    Count: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.CountCronsRequest, _core_api_pb2.CountResponse]
+    Next: _grpc.UnaryUnaryMultiCallable[_empty_pb2.Empty, _core_api_pb2.NextCronsResponse]
+    SetNextRunDate: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.SetNextRunDateRequest, _empty_pb2.Empty]
+
+@_typing.type_check_only
+class CronsAsyncStub(CronsStub):
+    def __init__(self, channel: _aio.Channel) -> None: ...
+    Create: _aio.UnaryUnaryMultiCallable[_core_api_pb2.CreateCronRequest, _core_api_pb2.Cron]  # type: ignore[assignment]
+    Patch: _aio.UnaryUnaryMultiCallable[_core_api_pb2.PatchCronRequest, _core_api_pb2.Cron]  # type: ignore[assignment]
+    Delete: _aio.UnaryUnaryMultiCallable[_core_api_pb2.DeleteCronRequest, _empty_pb2.Empty]  # type: ignore[assignment]
+    Search: _aio.UnaryUnaryMultiCallable[_core_api_pb2.SearchCronsRequest, _core_api_pb2.SearchCronsResponse]  # type: ignore[assignment]
+    Count: _aio.UnaryUnaryMultiCallable[_core_api_pb2.CountCronsRequest, _core_api_pb2.CountResponse]  # type: ignore[assignment]
+    Next: _aio.UnaryUnaryMultiCallable[_empty_pb2.Empty, _core_api_pb2.NextCronsResponse]  # type: ignore[assignment]
+    SetNextRunDate: _aio.UnaryUnaryMultiCallable[_core_api_pb2.SetNextRunDateRequest, _empty_pb2.Empty]  # type: ignore[assignment]
+
+class CronsServicer(metaclass=_abc_1.ABCMeta):
+    @_abc_1.abstractmethod
+    def Create(
+        self,
+        request: _core_api_pb2.CreateCronRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_core_api_pb2.Cron, _abc.Awaitable[_core_api_pb2.Cron]]: ...
+
+    @_abc_1.abstractmethod
+    def Patch(
+        self,
+        request: _core_api_pb2.PatchCronRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_core_api_pb2.Cron, _abc.Awaitable[_core_api_pb2.Cron]]: ...
+
+    @_abc_1.abstractmethod
+    def Delete(
+        self,
+        request: _core_api_pb2.DeleteCronRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_empty_pb2.Empty, _abc.Awaitable[_empty_pb2.Empty]]: ...
+
+    @_abc_1.abstractmethod
+    def Search(
+        self,
+        request: _core_api_pb2.SearchCronsRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_core_api_pb2.SearchCronsResponse, _abc.Awaitable[_core_api_pb2.SearchCronsResponse]]: ...
+
+    @_abc_1.abstractmethod
+    def Count(
+        self,
+        request: _core_api_pb2.CountCronsRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_core_api_pb2.CountResponse, _abc.Awaitable[_core_api_pb2.CountResponse]]: ...
+
+    @_abc_1.abstractmethod
+    def Next(
+        self,
+        request: _empty_pb2.Empty,
+        context: _ServicerContext,
+    ) -> _typing.Union[_core_api_pb2.NextCronsResponse, _abc.Awaitable[_core_api_pb2.NextCronsResponse]]: ...
+
+    @_abc_1.abstractmethod
+    def SetNextRunDate(
+        self,
+        request: _core_api_pb2.SetNextRunDateRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_empty_pb2.Empty, _abc.Awaitable[_empty_pb2.Empty]]: ...
+
+def add_CronsServicer_to_server(servicer: CronsServicer, server: _typing.Union[_grpc.Server, _aio.Server]) -> None: ...
+
+class CacheStub:
+    """A generic ephemeral key/value cache backed by Redis (or in-memory for local dev).
+    Keys are arbitrary non-empty strings (Redis keys are binary-safe).
+    Values must be valid serialized JSON.
+    """
+
+    @_typing.overload
+    def __new__(cls, channel: _grpc.Channel) -> _Self: ...
+    @_typing.overload
+    def __new__(cls, channel: _aio.Channel) -> CacheAsyncStub: ...
+    Set: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.CacheSetRequest, _empty_pb2.Empty]
+    Get: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.CacheGetRequest, _core_api_pb2.CacheGetResponse]
+
+@_typing.type_check_only
+class CacheAsyncStub(CacheStub):
+    """A generic ephemeral key/value cache backed by Redis (or in-memory for local dev).
+    Keys are arbitrary non-empty strings (Redis keys are binary-safe).
+    Values must be valid serialized JSON.
+    """
+
+    def __init__(self, channel: _aio.Channel) -> None: ...
+    Set: _aio.UnaryUnaryMultiCallable[_core_api_pb2.CacheSetRequest, _empty_pb2.Empty]  # type: ignore[assignment]
+    Get: _aio.UnaryUnaryMultiCallable[_core_api_pb2.CacheGetRequest, _core_api_pb2.CacheGetResponse]  # type: ignore[assignment]
+
+class CacheServicer(metaclass=_abc_1.ABCMeta):
+    """A generic ephemeral key/value cache backed by Redis (or in-memory for local dev).
+    Keys are arbitrary non-empty strings (Redis keys are binary-safe).
+    Values must be valid serialized JSON.
+    """
+
+    @_abc_1.abstractmethod
+    def Set(
+        self,
+        request: _core_api_pb2.CacheSetRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_empty_pb2.Empty, _abc.Awaitable[_empty_pb2.Empty]]: ...
+
+    @_abc_1.abstractmethod
+    def Get(
+        self,
+        request: _core_api_pb2.CacheGetRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_core_api_pb2.CacheGetResponse, _abc.Awaitable[_core_api_pb2.CacheGetResponse]]: ...
+
+def add_CacheServicer_to_server(servicer: CacheServicer, server: _typing.Union[_grpc.Server, _aio.Server]) -> None: ...

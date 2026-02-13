@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hfortix
-Version: 0.5.159
+Version: 0.5.162
 Summary: Type-safe Python SDK for FortiGate firewall automation and FortiOS REST API - 1,348+ endpoints with async support and complete type safety
 Author-email: "Herman W. Jacobsen" <herman@wjacobsen.fo>
 Maintainer-email: "Herman W. Jacobsen" <herman@wjacobsen.fo>
@@ -12,7 +12,7 @@ Project-URL: Bug Tracker, https://github.com/hermanwjacobsen/hfortix/issues
 Project-URL: Changelog, https://github.com/hermanwjacobsen/hfortix/blob/main/CHANGELOG.md
 Project-URL: Source Code, https://github.com/hermanwjacobsen/hfortix
 Project-URL: Download, https://pypi.org/project/hfortix/#files
-Keywords: fortinet,fortigate,fortios,fortimanager,fortianalyzer,api,sdk,rest-api,automation,network-automation,firewall,security,network-security,typed,type-hints,pydantic,async,asyncio,configuration-management,infrastructure-as-code,iac,network-as-code,network-administration,devops,netops
+Keywords: fortinet,fortigate,fortios,fortimanager,fortianalyzer,forticare,fortiztp,api,sdk,rest-api,automation,network-automation,firewall,security,network-security,asset-management,zero-touch-provisioning,typed,type-hints,pydantic,async,asyncio,configuration-management,infrastructure-as-code,iac,network-as-code,network-administration,devops,netops
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
@@ -36,12 +36,18 @@ Classifier: Framework :: Pydantic
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: hfortix-core>=0.5.159
-Requires-Dist: hfortix-fortios>=0.5.159
+Requires-Dist: hfortix-core>=0.5.161
+Requires-Dist: hfortix-fortios>=0.5.161
 Provides-Extra: fortios
-Requires-Dist: hfortix-fortios>=0.5.154; extra == "fortios"
+Requires-Dist: hfortix-fortios>=0.5.161; extra == "fortios"
+Provides-Extra: forticare
+Requires-Dist: hfortix-forticare>=0.5.161; extra == "forticare"
+Provides-Extra: fortiztp
+Requires-Dist: hfortix-fortiztp>=0.5.161; extra == "fortiztp"
 Provides-Extra: all
-Requires-Dist: hfortix-fortios>=0.5.154; extra == "all"
+Requires-Dist: hfortix-fortios>=0.5.161; extra == "all"
+Requires-Dist: hfortix-forticare>=0.5.161; extra == "all"
+Requires-Dist: hfortix-fortiztp>=0.5.161; extra == "all"
 
 # HFortix - Fortinet Python SDK
 

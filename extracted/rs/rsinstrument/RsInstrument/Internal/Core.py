@@ -81,7 +81,7 @@ class Core(object):
 			- Logger: added new variable to the format string: %SCPI_COMMAND%, where you can only log SCPI commands to your log data.
 			- Added to Utilities interface: query_str_list(), query_str_list_with_opc(), query_bool_list(), query_bool_list_with_opc()
 			- Added Utility functions: value_to_si_string(), size_to_kb_mb_gb_string().
-			- Changed behaviour of the Conversion functions to list:
+			- Changed behavior of the Conversion functions to list:
 				- str_to_float_list()
 				- str_to_float_or_bool_list()
 				- str_to_int_list()

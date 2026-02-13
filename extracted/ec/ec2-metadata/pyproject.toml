@@ -6,7 +6,7 @@ requires = [
 
 [project]
 name = "ec2-metadata"
-version = "2.17.0"
+version = "3.0.0"
 description = "An easy interface to query the EC2 metadata API, with caching."
 readme = "README.rst"
 keywords = [
@@ -19,14 +19,13 @@ license-files = [ "LICENSE" ]
 authors = [
   { name = "Adam Johnson", email = "me@adamj.eu" },
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "Natural Language :: English",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -35,9 +34,10 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
-  "requests",
+  "urllib3>=2",
 ]
 urls = { Changelog = "https://github.com/adamchainz/ec2-metadata/blob/main/CHANGELOG.rst", Funding = "https://adamj.eu/books/", Repository = "https://github.com/adamchainz/ec2-metadata" }
+scripts.imds = "ec2_metadata.cli:main"
 
 [dependency-groups]
 test = [
@@ -46,8 +46,6 @@ test = [
   "pygments",
   "pytest",
   "pytest-randomly",
-  "requests",
-  "requests-mock",
 ]
 
 [tool.ruff]
@@ -97,14 +95,6 @@ addopts = """\
     """
 xfail_strict = true
 
-[tool.coverage.run]
-branch = true
-parallel = true
-source = [
-  "ec2_metadata",
-  "tests",
-]
-
 [tool.coverage.paths]
 source = [
   "src",
@@ -113,6 +103,14 @@ source = [
 
 [tool.coverage.report]
 show_missing = true
+
+[tool.coverage.run]
+branch = true
+parallel = true
+source = [
+  "ec2_metadata",
+  "tests",
+]
 
 [tool.mypy]
 enable_error_code = [

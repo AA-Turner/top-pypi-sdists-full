@@ -25,19 +25,20 @@ class Pwd(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (_, state):
-            host = "unknown"
-            with log_exc():
-                app_session: AppSession = AppSession.create('c3', 'c3')
-                host = app_session.host
+            with self.context(args) as (args, ctx):
+                host = "unknown"
+                with log_exc():
+                    app_session: AppSession = AppSession.create('c3', 'c3')
+                    host = app_session.host
 
-            tabulize([device.pwd(state) for device in all_devices()] + [
-                f'',
-                f'HOST\t{host}',
-                f'NAMESPACE\t{state.namespace if state.namespace else "/"}',
-            ], header='DEVICE\tLOCATION', separator='\t', ctx=self.context())
-            log()
+                tabulize([device.pwd(state) for device in all_devices()] + [
+                    f'',
+                    f'HOST\t{host}',
+                    f'NAMESPACE\t{state.namespace if state.namespace else "/"}',
+                ], header='DEVICE\tLOCATION', separator='\t', ctx=ctx)
+                log()
 
-            return state
+                return state
 
     def completion(self, state: ReplState):
         return super().completion(state)

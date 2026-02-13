@@ -52,7 +52,7 @@ class PackageNotInRequirementsFound(LinterIssue):
 
 class MissingPackagesInRequirements(LinterRule):
     label = "All imported packages should be in requirements.txt"
-    type = "bug"
+    type = "info"
 
     def find_issues(self) -> Sequence[LinterIssue]:
         recommendations = RequirementsRepository.get_recommendation()

@@ -37,6 +37,8 @@ from snowflake.core.user_defined_function._generated.models.sql_function import 
 from snowflake.core.user_defined_function._generated.models.scala_function import ScalaFunction
 from snowflake.core.user_defined_function._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.user_defined_function._generated.models.success_response import SuccessResponse
+from snowflake.core.user_defined_function._generated.models.tag_assignment import TagAssignment
+from snowflake.core.user_defined_function._generated.models.tag_reference import TagReference
 from snowflake.core.user_defined_function._generated.models.user_defined_function import UserDefinedFunction
 from snowflake.core.user_defined_function._generated.models.user_defined_function_argument import (
     UserDefinedFunctionArgument,

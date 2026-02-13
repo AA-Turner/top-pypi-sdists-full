@@ -237,8 +237,6 @@ def _login(
             # when other functions are called.
             allow_version_mismatch=True)
 
-        validate_data_lab_license(session)
-
         users_api = UsersApi(session.client)
         session.user = users_api.get_me()
 
@@ -605,24 +603,6 @@ def find_group(session: Session, query: str, *, exact_match: bool = False,
 @deprecated(reason='use Session.get_user_timezone')
 def get_user_timezone(session: Session, default_tz='UTC'):
     return session.get_user_timezone(default_tz=default_tz)
-
-
-def validate_data_lab_license(session: Session):
-    _common.validate_argument_types([
-        (session, 'session', Session)
-    ])
-    system_api = SystemApi(session.client)
-    license_status_output = system_api.get_license()  # type: LicenseStatusOutputV1
-    for additional_feature in license_status_output.additional_features:  # type: LicensedFeatureStatusOutputV1
-        if additional_feature.name == 'Data_Lab':
-            if additional_feature.validity == 'Valid':
-                return
-
-            raise SPyRuntimeError(f'Seeq Data Lab license is "{additional_feature.validity}", could not log in. '
-                                  f'Contact your administrator or log a support ticket via https://support.seeq.com.')
-
-    raise SPyRuntimeError('Seeq Data Lab is not licensed for this server, could not log in. Contact your administrator '
-                          'or log a support ticket via https://support.seeq.com.')
 
 
 def validate_login(session: Session, status: Status):

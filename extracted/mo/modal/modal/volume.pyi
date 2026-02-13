@@ -15,6 +15,10 @@ import synchronicity.combined_types
 import typing
 import typing_extensions
 
+def _validate_volume_version(requested_version: int, actual_version: int, volume_name: str) -> None:
+    """Validate that the returned volume version matches the requested version."""
+    ...
+
 class FileEntryType(enum.IntEnum):
     """Type of a file entry listed from a Modal volume."""
 
@@ -633,6 +637,7 @@ class _Volume(modal._object._Object):
         fileobj: typing.IO[bytes],
         concurrency: typing.Optional[int] = None,
         download_semaphore: typing.Optional[asyncio.locks.Semaphore] = None,
+        rpc_semaphore: typing.Optional[asyncio.locks.Semaphore] = None,
         progress_cb: typing.Optional[collections.abc.Callable[..., typing.Any]] = None,
     ) -> int: ...
     async def remove_file(self, path: str, recursive: bool = False) -> None:
@@ -1108,6 +1113,7 @@ class Volume(modal.object.Object):
             fileobj: typing.IO[bytes],
             concurrency: typing.Optional[int] = None,
             download_semaphore: typing.Optional[asyncio.locks.Semaphore] = None,
+            rpc_semaphore: typing.Optional[asyncio.locks.Semaphore] = None,
             progress_cb: typing.Optional[collections.abc.Callable[..., typing.Any]] = None,
         ) -> int: ...
         async def aio(
@@ -1117,6 +1123,7 @@ class Volume(modal.object.Object):
             fileobj: typing.IO[bytes],
             concurrency: typing.Optional[int] = None,
             download_semaphore: typing.Optional[asyncio.locks.Semaphore] = None,
+            rpc_semaphore: typing.Optional[asyncio.locks.Semaphore] = None,
             progress_cb: typing.Optional[collections.abc.Callable[..., typing.Any]] = None,
         ) -> int: ...
 

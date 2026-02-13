@@ -5,7 +5,7 @@ This module provides methods to permanently modify model weights based on
 steering vectors computed from contrastive pairs. Unlike temporary activation
 steering (hooks), these modifications are baked into the model weights.
 
-Three approaches:
+Four approaches:
 
 1. **Norm-Preserving Biprojected Directional Modification** (RECOMMENDED):
    - Decomposes weights into magnitude and direction
@@ -24,6 +24,12 @@ Three approaches:
    - Adds bias toward steering direction in weights
    - More conservative, preserves capabilities better
    - Equivalent to "pre-computing" the steering
+
+4. **Null-Space Constrained Editing** (AlphaEdit-style):
+   - P_null = I - V diag(S²/(S²+ε)) Vᵀ via SVD
+   - Projects each weight delta into the null space of preserved keys
+   - Provably preserves activations on protected inputs
+   - Best for multi-concept editing with minimal interference
 
 All approaches allow exporting modified models that no longer need
 runtime hooks or steering vectors.
@@ -116,6 +122,14 @@ from wisent.core.weight_modification.multi.multi_concept import (
     compute_interference_matrix,
     bidirectional_projection,
 )
+from wisent.core.weight_modification.directional.null_space import (
+    PreservedKeyMatrix,
+    compute_null_space_projector,
+    project_delta_into_null_space,
+    project_component_null_space,
+    project_weights_null_space,
+    bidirectional_projection_null_space,
+)
 
 __all__ = [
     # Norm-Preserving Biprojected Directional Modification (RECOMMENDED)
@@ -173,4 +187,11 @@ __all__ = [
     "orthogonalize_concept_directions",
     "compute_interference_matrix",
     "bidirectional_projection",
+    # Null-space constrained modification (AlphaEdit-style)
+    "PreservedKeyMatrix",
+    "compute_null_space_projector",
+    "project_delta_into_null_space",
+    "project_component_null_space",
+    "project_weights_null_space",
+    "bidirectional_projection_null_space",
 ]

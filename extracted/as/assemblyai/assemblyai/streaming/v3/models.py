@@ -65,6 +65,7 @@ class StreamingSessionParameters(BaseModel):
     format_turns: Optional[bool] = None
     keyterms_prompt: Optional[List[str]] = None
     filter_profanity: Optional[bool] = None
+    prompt: Optional[str] = None
 
 
 class Encoding(str, Enum):
@@ -78,6 +79,7 @@ class Encoding(str, Enum):
 class SpeechModel(str, Enum):
     universal_streaming_multilingual = "universal-streaming-multilingual"
     universal_streaming_english = "universal-streaming-english"
+    u3_pro = "u3-pro"
 
     def __str__(self):
         return self.value
@@ -89,6 +91,9 @@ class StreamingParameters(StreamingSessionParameters):
     speech_model: Optional[SpeechModel] = None
     language_detection: Optional[bool] = None
     inactivity_timeout: Optional[int] = None
+    webhook_url: Optional[str] = None
+    webhook_auth_header_name: Optional[str] = None
+    webhook_auth_header_value: Optional[str] = None
 
 
 class UpdateConfiguration(StreamingSessionParameters):

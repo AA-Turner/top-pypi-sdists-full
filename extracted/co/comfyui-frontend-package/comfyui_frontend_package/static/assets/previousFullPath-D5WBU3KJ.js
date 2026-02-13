@@ -1,2 +1,0 @@
-import{r as e}from"./rolldown-runtime-DCMCV6zW.js";var decodeQueryParam=e=>{try{return decodeURIComponent(e)}catch{return null}},isSafeInternalRedirectPath=e=>e.startsWith(`/`)&&!e.startsWith(`//`);const getSafePreviousFullPath=e=>{let t=e.previousFullPath,n=Array.isArray(t)?t[0]:t;if(!n)return null;let r=decodeQueryParam(n);return r&&isSafeInternalRedirectPath(r)?r:null};export{getSafePreviousFullPath as t};
-//# sourceMappingURL=previousFullPath-D5WBU3KJ.js.map

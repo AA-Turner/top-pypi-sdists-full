@@ -10,31 +10,13 @@
 import sys
 import os
 import argparse
-import tempfile
-import subprocess
-import glob
 
 sys.path.append(os.path.realpath("."))
 
 from cabarchive import CabArchive, CabFile, NotSupportedError
 
 
-def repack(arc: CabArchive, arg: str) -> None:
-    with tempfile.TemporaryDirectory("cabarchive") as tmpdir:
-        print("Extracting to {}".format(tmpdir))
-        subprocess.call(["cabextract", "--fix", "--quiet", "--directory", tmpdir, arg])
-        for fn in glob.iglob(os.path.join(tmpdir, "**"), recursive=True):
-            try:
-                with open(fn, "rb") as f:
-                    fn_noprefix = fn[len(tmpdir) + 1 :]
-                    print("Adding: {}".format(fn_noprefix))
-                    arc[fn_noprefix] = CabFile(f.read())
-            except IsADirectoryError as _:
-                pass
-
-
 def main():
-
     parser = argparse.ArgumentParser(description="Process cabinet archives.")
     parser.add_argument(
         "--decompress",
@@ -43,15 +25,21 @@ def main():
         default=False,
     )
     parser.add_argument(
-        "--autorepack",
+        "--create",
         action="store_true",
-        help="Repack using cabextract when required",
+        help="create an archive",
         default=False,
     )
     parser.add_argument(
         "--info",
         action="store_true",
         help="Show the files inside the archive",
+        default=True,
+    )
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="Decompress and compress a file to profiling",
         default=True,
     )
     parser.add_argument(
@@ -66,27 +54,54 @@ def main():
         return 1
 
     args, argv = parser.parse_known_args()
-    for arg in argv:
-        arc = CabArchive()
-        try:
-            with open(arg, "rb") as f:
-                arc.parse(f.read())
-        except NotSupportedError as e:
-            if not args.autorepack:
-                print("Failed to parse: {}; perhaps try --autorepack".format(str(e)))
+    if args.decompress:
+        for fn in argv:
+            arc = CabArchive()
+            try:
+                with open(fn, "rb") as f:
+                    arc.parse(f.read())
+            except NotSupportedError as e:
+                print(f"Failed to parse: {str(e)}")
                 return 1
-            repack(arc, arg)
-        print("Parsing {}:".format(arg))
-        if args.info:
-            for fn in arc:
-                print(fn)
-        if args.decompress:
+            print(f"Parsing {fn}:")
+            if args.info:
+                for fn in arc:
+                    print(fn)
             for fn in arc:
                 path = os.path.join(args.outdir, fn)
                 os.makedirs(os.path.dirname(path), exist_ok=True)
                 with open(path, "wb") as f:
-                    print("Writing {}:".format(fn))
+                    print(f"Writing {fn}:")
                     f.write(arc[fn].buf)
+    elif args.create:
+        arc = CabArchive()
+        try:
+            print(f"Creating {argv[0]}:")
+        except IndexError:
+            print("Expected: ARCHIVE [FILE]...")
+            return 1
+        for fn in argv[1:]:
+            with open(fn, "rb") as f:
+                arc[os.path.basename(fn)] = CabFile(buf=f.read())
+        with open(argv[0], "wb") as f:
+            f.write(arc.save())
+    elif args.profile:
+        import cProfile
+
+        for fn in argv:
+            arc = CabArchive()
+            print(f"Parsing {fn}:")
+            with open(fn, "rb") as f:
+                with cProfile.Profile() as pr:
+                    arc.parse(f.read())
+                pr.print_stats()
+            print(f"Showing {fn}:")
+            for fn in arc:
+                print(fn)
+            print(f"Writing {fn}:")
+            with cProfile.Profile() as pr:
+                _ = arc.save()
+                pr.print_stats()
 
     return 0
 

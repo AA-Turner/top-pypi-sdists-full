@@ -2261,6 +2261,12 @@ class IAlgorithm(QuantConnect.Interfaces.ISecurityInitializerProvider, QuantConn
         """Returns the current Slice object"""
         ...
 
+    @property
+    @abc.abstractmethod
+    def default_order_properties(self) -> QuantConnect.Interfaces.IOrderProperties:
+        """Gets the default order properties"""
+        ...
+
     def add_chart(self, chart: QuantConnect.Chart) -> None:
         """
         Add a Chart object to algorithm collection

@@ -45,6 +45,19 @@ dependencies = [
 ]
 dynamic = ['version']
 
+[project.optional-dependencies]
+test = [
+    "grpcio_tools",
+    "mypy-protobuf",
+    'pytest-xdist',
+    'coverage[toml]',
+    'diff-cover',
+    'pytest',
+    'pytest-cov',
+    'sybil',
+    'protobuf'
+]
+
 # [project.urls]
 # 'Home Page' = 'https://docs.snowflake.com/en/developer-guide/snowpark/index'
 # 'Documentation' = 'https://docs.snowflake.com/en/developer-guide/snowpark/python/index.html'
@@ -86,29 +99,23 @@ template = 'test'
 python = ['3.10', '3.11', '3.12', '3.13']
 
 [tool.hatch.envs.test_no_snowpark]
-dependencies = [
-    'coverage[toml]',
-    'diff-cover',
-    'pytest',
-    'pytest-cov',
-    'sybil',
-    'protobuf'
-]
-
-[project.optional-dependencies]
-dev = [
-    "grpcio_tools",
-    "mypy-protobuf",
-    'pytest',
-    'pytest-cov',
-    'protobuf'
-]
+features = ["test"]
 
 [tool.hatch.envs.test_no_snowpark.scripts]
 check = [
-    'pytest --cov-report=xml:coverage-{matrix:python:{env:PYTHON_VERSION:unset}}.xml -m "not snowpark and not flaky" {args:tests}',
+    'pytest -n 16 --cov-report=xml:coverage-{matrix:python:{env:PYTHON_VERSION:unset}}.xml -m "not snowpark and not flaky" {args:tests}',
     # The following is only useful in a git repository; thus errors are ignored.
     '- diff-cover coverage-{matrix:python:{env:PYTHON_VERSION:unset}}.xml',
+]
+
+[tool.hatch.envs.ud]
+features = ["test"]
+
+[tool.hatch.envs.ud.scripts]
+check = [
+    'pip uninstall --yes snowflake-connector-python',
+    'pip install "git+https://github.com/snowflakedb/universal-driver@{env:UD_BRANCH:main}#subdirectory=python"',
+    'pytest -n 16 -m "not snowpark and not flaky" {args:tests}',
 ]
 
 [tool.hatch.envs.test]
@@ -122,7 +129,7 @@ extra-dependencies = [
 
 [tool.hatch.envs.test.scripts]
 check = [
-    'pytest -m "not flaky" {args:tests}',
+    'pytest -n 16 -m "not flaky" {args:tests}',
     # The following is only useful in a git repository; thus errors are ignored.
     '- diff-cover coverage-{matrix:python:{env:PYTHON_VERSION:unset}}.xml',
 ]
@@ -134,10 +141,10 @@ check_storedproc = [
 ]
 check_flaky = [
     # Supress exit code 5 (no tests collected)
-    'pytest -m "flaky" {args:tests} || ([ $? = 5 ] && exit 0 || exit $?)',
+    'pytest -n 16 -m "flaky" {args:tests} || ([ $? = 5 ] && exit 0 || exit $?)',
 ]
 check_unit = [
-    "pytest tests/unit"
+    "pytest -n 16 tests/unit"
 ]
 report = [
     # 'coverage  xml -o coverage-{matrix:python:{env:PYTHON_VERSION:unset}}.xml',
@@ -182,6 +189,7 @@ fix = [
 ]
 
 [tool.hatch.envs.docs]
+features = ["test"]
 dependencies = [
     'sphinx',
     'furo',
@@ -200,7 +208,7 @@ build_pretty = [
 
 
 [tool.pytest.ini_options]
-addopts = '--cov=snowflake --cov-report='
+addopts = '-v --cov=snowflake --cov-report='
 testpaths = 'tests/integ tests/unit'
 filterwarnings = ["ignore::pydantic.warnings.PydanticDeprecatedSince20"]
 pythonpath = 'src'

@@ -11,6 +11,9 @@ from x_transformers.x_transformers import (
     Encoder,
     Decoder,
     LinearNoBias,
+    AttentionLayers,
+    Attention,
+    Attend
 )
 
 from x_transformers.neo_mlp import (
@@ -1609,3 +1612,25 @@ def test_pos_emb_parity(pos_emb_type):
     parallel_logits_without_prompt = parallel_logits[:, 9 : 14]
 
     assert torch.allclose(seq_logits, parallel_logits_without_prompt, atol = 1e-5)
+
+def test_continuous_transformer_external_projects():
+    from x_transformers.continuous import ContinuousTransformerWrapper
+
+    dim = 32
+    project_in = nn.Linear(16, dim, bias = False)
+    project_out = nn.Linear(dim, 16, bias = False)
+
+    model = ContinuousTransformerWrapper(
+        project_in = project_in,
+        project_out = project_out,
+        attn_layers = AttentionLayers(
+            dim = dim,
+            depth = 1,
+            heads = 4
+        )
+    )
+
+    x = torch.randn(1, 16, 16)
+    logits = model(x)
+
+    assert logits.shape == (1, 16, 16)

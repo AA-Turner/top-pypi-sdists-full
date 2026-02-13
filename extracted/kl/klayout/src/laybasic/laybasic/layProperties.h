@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -40,6 +40,16 @@ namespace lay
 {
 
 class Editable;
+
+/**
+ *  @brief An interface delivering all properties pages
+ */
+class LAYBASIC_PUBLIC PropertiesPageSet
+{
+public:
+  virtual ~PropertiesPageSet () { }
+  virtual const std::vector<lay::PropertiesPage *> &properties_pages () const = 0;
+};
 
 /**
  *  @brief The properties page object
@@ -211,6 +221,22 @@ public:
     return mp_manager;
   }
 
+  /**
+   *  @brief Gets the page set
+   */
+  const PropertiesPageSet *page_set () const
+  {
+    return mp_page_set;
+  }
+
+  /**
+   *  @brief Sets the page set
+   */
+  void set_page_set (PropertiesPageSet *page_set)
+  {
+    mp_page_set = page_set;
+  }
+
 signals:
   /**
    *  @brief This signal is emitted if a value has been changed
@@ -220,6 +246,7 @@ signals:
 private:
   db::Manager *mp_manager;
   tl::weak_ptr<lay::Editable> mp_editable;
+  PropertiesPageSet *mp_page_set;
 };
 
 }

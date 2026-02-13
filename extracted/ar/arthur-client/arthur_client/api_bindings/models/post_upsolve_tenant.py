@@ -27,7 +27,7 @@ class PostUpsolveTenant(BaseModel):
     """
     PostUpsolveTenant
     """ # noqa: E501
-    resource_kind: ResourceKind = Field(description="Kind of the resource the user wants a JWT to access data for in Upsolve. Supports model resource kind.")
+    resource_kind: ResourceKind = Field(description="Kind of the resource the user wants a JWT to access data for in Upsolve. Supports model, project, and workspace resource kinds.")
     resource_id: StrictStr = Field(description="ID of the resource.")
     __properties: ClassVar[List[str]] = ["resource_kind", "resource_id"]
 

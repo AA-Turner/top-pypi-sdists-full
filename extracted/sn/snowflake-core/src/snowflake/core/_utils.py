@@ -5,16 +5,19 @@ import logging
 import re
 
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol, TypeVar
+
+from pydantic import StrictStr
 
 from snowflake.core.exceptions import InvalidResultError
 
 
 if TYPE_CHECKING:
+    from snowflake.core import Root
     from snowflake.core.function import Function
     from snowflake.core.procedure import Procedure
+    from snowflake.core.tag import TagResource, TagValue
     from snowflake.core.user_defined_function import UserDefinedFunction
-
 
 logger = logging.getLogger(__name__)
 
@@ -121,3 +124,55 @@ def map_result(procedure: Procedure, raw_result: Any, extract: bool = False) -> 
         result = payload[next(iter(payload.keys()))]
         return cast_result(result, rt_type.datatype)
     return raw_result
+
+
+class TagAssignmentLike(Protocol):
+    tag_value: StrictStr
+    level: Optional[StrictStr]
+    tag_database: Optional[str]
+    tag_name: str
+    tag_schema: Optional[str]
+
+
+TTagAssignment = TypeVar("TTagAssignment", bound=TagAssignmentLike)
+TTagReference = TypeVar("TTagReference")
+
+
+def tag_tuple_to_tag_assignment(
+    tag_assignment_cls: Callable[..., TTagAssignment],
+    tag_resource: TagResource,
+    tag_value: TagValue,
+) -> TTagAssignment:
+    return tag_assignment_cls(
+        tag_name=tag_resource.name,
+        tag_schema=tag_resource.schema.name,
+        tag_database=tag_resource.database.name,
+        tag_value=tag_value.value,
+    )
+
+
+def tag_resource_to_tag_reference(
+    tag_reference_cls: Callable[..., TTagReference], resource: TagResource
+) -> TTagReference:
+    return tag_reference_cls(
+        tag_name=resource.name,
+        tag_schema=resource.schema.name,
+        tag_database=resource.database.name,
+    )
+
+
+def tag_assignment_to_tag_tuple(ta: TagAssignmentLike, root: Root) -> tuple[TagResource, TagValue]:
+    from snowflake.core.tag import TagValue
+
+    db = ta.tag_database
+    schema = ta.tag_schema
+
+    if db is None:
+        raise ValueError("TagAssignment must have tag_database set.")
+
+    if schema is None:
+        raise ValueError("TagAssignment must have tag_schema set.")
+
+    tag_resource = root.databases[db].schemas[schema].tags[ta.tag_name]
+    tag_value = TagValue(ta.tag_value, ta.level)
+    return tag_resource, tag_value

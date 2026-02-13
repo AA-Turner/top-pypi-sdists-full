@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyisbn
-Version: 1.4.1
+Version: 1.4.3
 Summary: A module for working with 10- and 13-digit ISBNs
 Keywords: ISBN,ISBN-10,ISBN-13,SBN
 Author: James Rowe

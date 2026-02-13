@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: udsoncan
-Version: 1.25.1
+Version: 1.25.2
 Summary: Implementation of the Unified Diagnostic Service (UDS) protocol (ISO-14229) used in the automotive industry.
 Home-page: https://github.com/pylessard/python-udsoncan
-Download-URL: https://github.com/pylessard/python-udsoncan/archive/v1.25.1.tar.gz
+Download-URL: https://github.com/pylessard/python-udsoncan/archive/v1.25.2.tar.gz
 Author: Pier-Yves Lessard
 Author-email: py.lessard@gmail.com
 License: MIT

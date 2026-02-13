@@ -1,12 +1,9 @@
-# Pre-commit hooks for rumdl
+# Pre-commit hooks for rumdl (using prek - https://prek.j178.dev)
 # Install with:
-#   pre-commit install                          # Install commit hooks
-#   pre-commit install --hook-type commit-msg   # Install commit-msg hooks
-#   pre-commit install --hook-type pre-push     # Install push hooks
+#   prek install                          # Installs all hook stages
 # Run manually:
-#   pre-commit run --all-files                         # Run commit hooks
-#   pre-commit run --hook-stage push --all-files       # Run push hooks
-#   pre-commit run --hook-stage commit-msg --commit-msg-filename .git/COMMIT_EDITMSG
+#   prek run --all-files                         # Run commit hooks
+#   prek run --hook-stage pre-push --all-files   # Run push hooks
 
 fail_fast: true
 
@@ -41,26 +38,11 @@ repos:
         types: [rust]
         pass_filenames: false
 
-      - id: cargo-clippy
-        name: cargo clippy
-        entry: mise exec -- make lint
-        language: system
-        types: [rust]
-        pass_filenames: false
-
-      - id: cargo-test-quick
-        name: cargo test (quick)
-        entry: mise exec -- make test-pre-commit
-        language: system
-        types: [rust]
-        pass_filenames: false
-        stages: [pre-commit]
-
       - id: cargo-lock-check
         name: check Cargo.lock is up-to-date
-        entry: mise exec -- cargo check --locked
+        entry: sh -c 'cargo metadata --locked --format-version 1 --no-deps >/dev/null'
         language: system
-        files: ^(Cargo\.(toml|lock)|.*\.rs)$
+        files: ^Cargo\.(toml|lock)$
         pass_filenames: false
         stages: [pre-commit]
 
@@ -72,9 +54,8 @@ repos:
         pass_filenames: false
         stages: [pre-commit]
 
-  # General file quality checks
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+  # General file quality checks (prek built-in Rust implementations)
+  - repo: builtin
     hooks:
       - id: trailing-whitespace
         exclude: \.md$|tests/inline_config_test\.rs$|tests/output_format_integration_tests\.rs$|tests/lsp_editor_integration_tests\.rs$|tests/utils_markdown_edge_cases\.rs$
@@ -129,9 +110,9 @@ repos:
 
       - id: cargo-lock-check-push
         name: verify Cargo.lock is committed and up-to-date
-        entry: mise exec -- cargo check --locked
+        entry: sh -c 'cargo metadata --locked --format-version 1 --no-deps >/dev/null'
         language: system
-        files: ^(Cargo\.(toml|lock)|.*\.rs)$
+        files: ^Cargo\.(toml|lock)$
         pass_filenames: false
         stages: [pre-push]
 

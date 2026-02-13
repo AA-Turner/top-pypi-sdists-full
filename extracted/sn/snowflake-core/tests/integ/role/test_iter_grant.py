@@ -1,10 +1,9 @@
 import pytest
 
-from tests.integ.role.utils import assert_basic_grant
-from tests.utils import random_string
-
 from snowflake.core.role import ContainingScope, Securable
 from snowflake.core.table import Table, TableColumn
+from tests.integ.role.utils import assert_basic_grant
+from tests.utils import random_string
 
 
 pytestmark = pytest.mark.min_sf_ver("8.39.0")

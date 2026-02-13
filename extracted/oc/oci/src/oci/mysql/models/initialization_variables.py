@@ -12,6 +12,7 @@ from oci.decorators import init_model_state_from_kwargs
 @init_model_state_from_kwargs
 class InitializationVariables(object):
     """
+    DEPRECATED -- please use the `options` field instead.
     User-defined service variables set only at DB system initialization. These variables cannot be changed later at runtime.
     """
 

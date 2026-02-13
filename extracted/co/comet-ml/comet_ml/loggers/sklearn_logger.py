@@ -142,6 +142,7 @@ def pipeline_fit_logger_after(experiment, original, ret_val, *args, **kwargs):
 # * 1.1.0
 # * 1.3.0
 # * 1.5.0
+# * 1.8.0
 FIT_MODULES = [
     ("sklearn.linear_model._logistic", "LogisticRegressionCV.fit"),
     ("sklearn.model_selection._search", "GridSearchCV.fit"),
@@ -534,6 +535,8 @@ FIT_MODULES = [
     ("sklearn.ensemble._stacking", "StackingRegressor.fit"),
     ("sklearn.kernel_approximation", "RBFSampler.fit"),
     ("sklearn.frozen._frozen", "FrozenEstimator.fit"),
+    ("sklearn.manifold._classical_mds", "ClassicalMDS.fit"),
+    ("sklearn.calibration", "_TemperatureScaling.fit"),
 ]
 
 

@@ -12,6 +12,11 @@ sysdb:
     port: 50051
     connect_timeout_ms: 60000
     request_timeout_ms: 60000
+mcmr_sysdb:
+  host: "rust-sysdb-service.chroma2"
+  port: 50051
+  connect_timeout_ms: 60000
+  request_timeout_ms: 60000
 collections_with_segments_provider:
   cache:
     lru:
@@ -69,3 +74,4 @@ enable_schema: true
 tenants_to_migrate_immediately:
 - "default_tenant"
 tenants_to_migrate_immediately_threshold: "ffffffff-ffff-ffff-ffff-ffffffffffff"
+tenants_with_quantization_enabled: []

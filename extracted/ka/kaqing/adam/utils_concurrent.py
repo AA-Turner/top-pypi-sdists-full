@@ -7,8 +7,7 @@ import time
 
 from adam.config_holder import ConfigHolder
 from adam.utils import elapsed_time
-from adam.utils_context import Context
-from adam.utils_log import debug, log2, log_exc, log_timing
+from adam.utils_log import debug, log_exc, log_timing
 from adam.utils_error import ErrorAware
 
 T = TypeVar('T')
@@ -16,6 +15,16 @@ T = TypeVar('T')
 class ThreadPool:
     pools: dict[str, 'ThreadPool'] = {}
     thread_lock = threading.Lock()
+
+    def create(name: str, workers: int):
+        with ThreadPool.thread_lock:
+            if name in ThreadPool.pools:
+                return ThreadPool.pools[name]
+
+            pool = ThreadPool(name, workers)
+            ThreadPool.pools[name] = pool
+
+            return pool
 
     def __init__(self, name: str, workers: int):
         self.name = name
@@ -30,9 +39,8 @@ class ThreadPool:
 
     def executor(self):
         with ThreadPool.thread_lock:
-            if self.name not in ThreadPool.pools:
+            if not self._executor:
                 self._executor = ThreadPoolExecutor(max_workers=self.workers, thread_name_prefix=self.name)
-                ThreadPool.pools[self.name] = self
 
             return self._executor
 
@@ -50,7 +58,7 @@ class ThreadPool:
                 self.completed += 1
                 self.concurrency -= 1
 
-ThreadPool.DEFAULT = ThreadPool('default', 200)
+DEFAULT: ThreadPool = ThreadPool.create('default', 200)
 
 class ParallelService:
     def __init__(self, handler: 'ParallelHandler'):
@@ -162,7 +170,7 @@ class ParallelService:
         return results
 
 class ParallelHandler:
-    def __init__(self, collection: list, msg: str = None, pool: ThreadPool = ThreadPool.DEFAULT, ctx: Context = Context.NULL):
+    def __init__(self, collection: list, msg: str = None, pool = DEFAULT):
         self.collection = collection
         self.msg = msg
         if msg and msg.startswith('d`'):
@@ -171,7 +179,6 @@ class ParallelHandler:
             else:
                 self.msg = None
         self.pool = pool
-        self.ctx = ctx
 
         self.samples = sys.maxsize
         self.begin = []
@@ -242,11 +249,11 @@ class ParallelHandler:
         if self.end:
             debug(f'{" ".join(self.end)} in {elapsed_time(self.start_time)}.')
 
-def parallelize(collection: list, msg: str = None, pool: ThreadPool = ThreadPool.DEFAULT, ctx: Context = Context.NULL):
-    return ParallelHandler(collection, msg=msg, pool=pool, ctx=ctx)
+def parallelize(collection: list, msg: str = None, pool = DEFAULT):
+    return ParallelHandler(collection, msg=msg, pool=pool)
 
 class OffloadHandler(ParallelHandler):
-    def __init__(self, do_offload = True, msg: str = None, pool: ThreadPool = ThreadPool.DEFAULT, ctx: Context = Context.NULL):
+    def __init__(self, do_offload = True, msg: str = None, pool = DEFAULT):
         super().__init__(None, msg=msg, pool=pool)
         self.do_offload = do_offload
 
@@ -274,10 +281,11 @@ class OffloadHandler(ParallelHandler):
 
             return pool.executor().submit(functools.partial(pool.metrics, fn, *args, **kwargs))
 
+        # foreground
         future = Future()
         future.set_result(fn(*args, **kwargs))
 
         return future
 
-def offload(do_offload = True, msg: str = None, pool: ThreadPool = ThreadPool.DEFAULT, ctx: Context = Context.NULL):
-    return OffloadHandler(do_offload=do_offload, msg=msg, pool=pool, ctx=ctx)
+def offload(do_offload = True, msg: str = None, pool = DEFAULT):
+    return OffloadHandler(do_offload=do_offload, msg=msg, pool=pool)

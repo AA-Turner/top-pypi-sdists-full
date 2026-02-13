@@ -10,10 +10,10 @@ from adam.utils_k8s.k8s_context import K8sContext
 from adam.utils_k8s.pods import strip_pod_name
 from adam.utils_log import log_timing
 from adam.utils_tabulize import tabulize
-from adam.utils_context import Context
+from adam.utils_context import NULL
 
 class NodeRestartability:
-    def tokens(state: ReplState, ctx: Context = Context.NULL) -> tuple[CassandraStatus, list[dict]]:
+    def tokens(state: ReplState, ctx = NULL) -> tuple[CassandraStatus, list[dict]]:
         with cassandra(state) as pods:
             # both status snapshot and nodetool ring needs k8s pods info
             k8s = K8sContext.preload_pods(state.sts, state.namespace)
@@ -37,7 +37,7 @@ class NodeRestartability:
 
             return status_holder.get(), ring_holder.get()
 
-    def probe(state: ReplState, pod: str, in_restartings: list, ctx: Context = Context.NULL):
+    def probe(state: ReplState, pod: str, in_restartings: list, ctx = NULL):
         if (pod, state.namespace) in in_restartings:
             return NodeRestartability(pod, err=f'{pod} is already in restart.')
 
@@ -126,7 +126,7 @@ class NodeRestartability:
 
         return not self.downs and not self.dup_copies
 
-    def log(self, ctx: Context = Context.NULL):
+    def log(self, ctx = NULL):
         if self.err:
             ctx.log2(f'[ERROR] {self.err}')
 

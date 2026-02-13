@@ -6,7 +6,7 @@ This module defines the Checkbox class, which is a subclass of the
 Widget class. It represents a checkbox form field in a PDF document.
 """
 
-from typing import Any, Union
+from typing import Any, Optional
 
 from .base import Widget
 
@@ -42,7 +42,7 @@ class Checkbox(Widget):
         )
         super().__init__(name, value)
 
-        self.size: float = None
+        self.size: Optional[float] = None
 
     def __setattr__(self, name: str, value: Any) -> None:
         """
@@ -75,7 +75,7 @@ class Checkbox(Widget):
         return {"type": "boolean", **super().schema_definition}
 
     @property
-    def sample_value(self) -> Union[bool, int]:
+    def sample_value(self) -> bool | int:
         """
         Returns a sample value for the checkbox.
 
@@ -83,6 +83,6 @@ class Checkbox(Widget):
         checkbox field.
 
         Returns:
-            Union[bool, int]: A sample value for the checkbox.
+            bool | int: A sample value for the checkbox.
         """
         return True

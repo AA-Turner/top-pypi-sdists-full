@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qwen-omni-utils
-Version: 0.0.8
+Version: 0.0.9
 Summary: Qwen Omni Language Model Utils - PyTorch
 Project-URL: Homepage, https://github.com/QwenLM/Qwen2-VL/tree/main/qwen-vl-utils
 Project-URL: Repository, https://github.com/QwenLM/Qwen2-VL.git

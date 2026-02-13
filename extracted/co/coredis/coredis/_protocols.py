@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-
-from typing_extensions import runtime_checkable
-
 from coredis.response._callbacks import NoopCallback
 from coredis.typing import (
     TYPE_CHECKING,
@@ -13,7 +9,6 @@ from coredis.typing import (
     Protocol,
     R,
     RedisCommandP,
-    ResponseType,
     TypeVar,
     Unpack,
     ValueT,
@@ -41,10 +36,3 @@ class AbstractExecutor(Protocol):
         callback: Callable[..., R],
         execution_parameters: ExecutionParameters | None = None,
     ) -> CommandRequest[R]: ...
-
-
-@runtime_checkable
-class ConnectionP(Protocol):
-    decode_responses: bool
-    encoding: str
-    push_messages: asyncio.Queue[ResponseType]

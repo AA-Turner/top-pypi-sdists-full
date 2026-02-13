@@ -1,16 +1,16 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.18                                                                                #
-# Generated on 2026-02-05T18:18:14.297124                                                            #
+# MF version: 2.19.19                                                                                #
+# Generated on 2026-02-09T14:58:07.165131                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
 import typing
+import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.plugins.datatools.s3.s3
     import metaflow.exception
+    import metaflow.plugins.datatools.s3.s3
 
 from ....flowspec import FlowSpec as FlowSpec
 from ....metaflow_current import current as current

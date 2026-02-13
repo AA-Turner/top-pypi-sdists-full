@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 3.2.0
+Version: 3.3.0
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -56,6 +56,13 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+3.3.0
+*******
+
+- `Added` ``tb datasource stop`` and ``tb datasource start`` commands to pause/resume Kafka ingestion in forward branches
+- `Added` ``POST /v0/datasources/{name}/sample`` API endpoint to import sample data from S3/GCS connections in forward branches
+- `Changed` ``--with-connections`` flag for ``tb build`` and ``tb deploy`` is now stable (previously experimental)
 
 3.0.2
 *******

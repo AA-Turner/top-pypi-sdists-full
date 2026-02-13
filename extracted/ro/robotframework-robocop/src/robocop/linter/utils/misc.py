@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import ast
 import difflib
-import fnmatch
 import re
 import token as python_token
 import tokenize
@@ -21,22 +20,18 @@ except ImportError:
     from robot.parsing.model.statements import Variable
 
 from robot.variables.search import search_variable
-from robot.version import VERSION as RF_VERSION
 
-from robocop.linter.utils.variable_matcher import VariableMatches
-from robocop.linter.utils.version_matching import Version
+from robocop.parsing.variables import VariableMatches  # type: ignore[attr-defined]
+from robocop.version_handling import ROBOT_VERSION
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
     from robot.parsing.model import File, Keyword, Section, VariableSection
-    from robot.parsing.model.statements import KeywordCall, Node, TestTemplate, Var
+    from robot.parsing.model.statements import KeywordCall, Statement, TestTemplate, Var
 
     from robocop.linter.diagnostics import Diagnostic
 
-ROBOT_VERSION = Version(RF_VERSION)
-ROBOT_WITH_LANG = Version("6.0")
-ROBOT_WITH_TYPE = Version("7.3")
 ROBOCOP_RULES_URL = "https://robocop.dev/{version}/rules_list/"
 
 
@@ -71,14 +66,6 @@ def get_return_classes() -> ReturnClasses:
 RETURN_CLASSES = get_return_classes()
 
 
-def rf_supports_lang() -> bool:
-    return ROBOT_VERSION >= ROBOT_WITH_LANG
-
-
-def rf_supports_type() -> bool:
-    return ROBOT_VERSION >= ROBOT_WITH_TYPE
-
-
 def remove_variable_type_conversion(name: str) -> str:
     name, *_ = name.split(": ", maxsplit=1)
     return name
@@ -91,8 +78,13 @@ def normalize_robot_name(name: str, remove_prefix: str | None = None) -> str:
     return name
 
 
-def normalize_robot_var_name(name: str) -> str:
-    return normalize_robot_name(name)[2:-1] if name else ""
+def normalize_robot_var_name(name: str, strip_type: bool = False) -> str:
+    if not name:
+        return ""
+    no_braces = name[2:-1]
+    if strip_type:
+        no_braces, *_ = no_braces.split(": ", 1)
+    return normalize_robot_name(no_braces)
 
 
 def remove_nested_variables(var_name: str) -> str:
@@ -106,7 +98,7 @@ def strip_equals_from_assignment(name: str) -> str:
     return name[:-1].rstrip() if name.endswith("=") else name
 
 
-def split_argument_default_value(arg: str):
+def split_argument_default_value(arg: str) -> tuple[str, str]:
     # From the Robot User Guide:
     # "The syntax for default values is space sensitive. Spaces before
     # the `=` sign are not allowed."
@@ -122,23 +114,16 @@ def keyword_col(node: Keyword) -> int:
     return token_col(node, Token.KEYWORD)
 
 
-def token_col(node: type[Node], *token_type) -> int:
-    if ROBOT_VERSION.major == 3:
-        for tok_type in token_type:
-            token = node.get_token(tok_type)
-            if token is not None:
-                break
-        else:
-            return 1
-    else:
-        token = node.get_token(*token_type)
+def token_col(node: Statement, *token_type: str) -> int:
+    token = node.get_token(*token_type)
 
     if token is None:
         return 1
-    return token.col_offset + 1
+    return token.col_offset + 1  # type: ignore[no-any-return]
 
 
-def issues_to_lsp_diagnostic(issues: list[Diagnostic]) -> list[dict]:
+# TODO: Used only by deprecated linter
+def issues_to_lsp_diagnostic(issues: list[Diagnostic]) -> list[dict[str, object]]:
     return [
         {
             "range": {
@@ -170,11 +155,11 @@ def str2bool(v: bool | str) -> bool:
 class AssignmentTypeDetector(ast.NodeVisitor):
     """Visitor for counting number and type of assignments"""
 
-    def __init__(self):
-        self.keyword_sign_counter = Counter()
-        self.keyword_most_common = None
-        self.variables_sign_counter = Counter()
-        self.variables_most_common = None
+    def __init__(self) -> None:
+        self.keyword_sign_counter: Counter[str] = Counter()
+        self.keyword_most_common: str | None = None
+        self.variables_sign_counter: Counter[str] = Counter()
+        self.variables_most_common: str | None = None
 
     def visit_File(self, node: File) -> None:
         self.generic_visit(node)
@@ -200,7 +185,7 @@ class AssignmentTypeDetector(ast.NodeVisitor):
     @staticmethod
     def get_assignment_sign(token_value: str) -> str:
         variable = search_variable(token_value, ignore_errors=True)
-        return variable.after
+        return str(variable.after) if variable.after else ""
 
 
 def parse_assignment_sign_type(value: str) -> str:
@@ -218,12 +203,12 @@ def parse_assignment_sign_type(value: str) -> str:
 
 
 class RecommendationFinder:
-    def find_similar(self, name: str, candidates: list[str] | dict) -> str:
+    def find_similar(self, name: str, candidates: list[str] | dict[str, object]) -> str:
         norm_name = self.normalize(name)
         norm_cand = self.get_normalized_candidates(candidates)
-        matches = []
+        matches: list[str] = []
         for norm in norm_name:
-            matches += self.find(norm, norm_cand.keys())
+            matches += self.find(norm, list(norm_cand.keys()))
         if not matches:
             return ""
         matches = self.get_original_candidates(matches, norm_cand)
@@ -231,7 +216,7 @@ class RecommendationFinder:
         suggestion += "\n".join(f"    {match}" for match in matches)
         return suggestion
 
-    def find(self, name: str, candidates: list[str] | dict, max_matches: int = 5) -> list[str]:
+    def find(self, name: str, candidates: list[str] | dict[str, object], max_matches: int = 5) -> list[str]:
         """Return a list of close matches to `name` from `candidates`."""
         if not name or not candidates:
             return []
@@ -249,7 +234,7 @@ class RecommendationFinder:
         return min(cutoff, max_cutoff)
 
     @staticmethod
-    def normalize(name: str) -> str:
+    def normalize(name: str) -> tuple[str, str]:
         """
         Normalize name.
 
@@ -260,11 +245,13 @@ class RecommendationFinder:
         return " ".join(sorted(norm)), name.replace("-", "").replace("_", "")
 
     @staticmethod
-    def get_original_candidates(candidates: list[str] | dict, norm_candidates: defaultdict[str, list]) -> list[str]:
+    def get_original_candidates(
+        candidates: list[str] | dict[str, object], norm_candidates: defaultdict[str, list[str]]
+    ) -> list[str]:
         """Map found normalized candidates to unique original candidates."""
         return sorted({c for cand in candidates for c in norm_candidates[cand]})
 
-    def get_normalized_candidates(self, candidates: list[str] | dict) -> defaultdict[str, list]:
+    def get_normalized_candidates(self, candidates: list[str] | dict[str, object]) -> defaultdict[str, list[str]]:
         """
         Find all possible variations of the name after normalization.
 
@@ -274,7 +261,7 @@ class RecommendationFinder:
         Different normalization methods try to imitate possible mistakes done when typing name - different order,
         missing `-` etc.
         """
-        norm = defaultdict(list)
+        norm: defaultdict[str, list[str]] = defaultdict(list)
         for cand in candidates:
             for norm_cand in self.normalize(cand):
                 norm[norm_cand].append(cand)
@@ -282,7 +269,7 @@ class RecommendationFinder:
 
 
 class TestTemplateFinder(ast.NodeVisitor):
-    def __init__(self):
+    def __init__(self) -> None:
         self.templated = False
 
     def visit_TestTemplate(self, node: TestTemplate) -> None:
@@ -299,35 +286,6 @@ def next_char_is(string: str, i: int, char: str) -> bool:
     if not i < len(string) - 1:
         return False
     return string[i + 1] == char
-
-
-def remove_robot_vars(name: str) -> str:
-    var_start = set("$@%&")
-    brackets = 0
-    open_bracket, close_bracket = "", ""
-    replaced = ""
-    index = 0
-    while index < len(name):
-        if brackets:
-            if name[index] == open_bracket:
-                brackets += 1
-            elif name[index] == close_bracket:
-                brackets -= 1
-            # check if next chars are not ['key']
-            if not brackets and next_char_is(name, index, "["):
-                brackets += 1
-                index += 1
-                open_bracket, close_bracket = "[", "]"
-        # it looks for $ (or other var starter) and then check if next char is { and previous is not escape \
-        elif name[index] in var_start and next_char_is(name, index, "{") and not (index and name[index - 1] == "\\"):
-            open_bracket = "{"
-            close_bracket = "}"
-            brackets += 1
-            index += 1
-        else:
-            replaced += name[index]
-        index += 1
-    return replaced
 
 
 def find_robot_vars(name: str) -> list[tuple[int, int]]:
@@ -354,7 +312,7 @@ def find_robot_vars(name: str) -> list[tuple[int, int]]:
     return variables
 
 
-def pattern_type(value: str | None) -> re.Pattern | None:
+def pattern_type(value: str | None) -> re.Pattern[str] | None:
     if value is None:
         return None
     try:
@@ -364,27 +322,14 @@ def pattern_type(value: str | None) -> re.Pattern | None:
     return pattern
 
 
-def compile_rule_pattern(rule_pattern: str) -> re.Pattern:
-    return re.compile(fnmatch.translate(rule_pattern))
-
-
 def get_section_name(node: Section) -> str:
     if not node.header:
         #  Lines before first section are considered to be in `*** Comments ***` section even if header name is missing
         return "*** Comments ***"
-    for token in node.header.data_tokens:
-        if ROBOT_VERSION.major > 3:
-            if token.type in node.header.handles_types:
-                return token.value
-        elif "HEADER" in token.type:
-            return token.value
-    return ""
-
-
-def get_errors(node: type[Node]) -> tuple[str, ...] | list[str]:
-    if ROBOT_VERSION.major == 3:
-        return [node.error] if node.error else []
-    return node.errors
+    try:
+        return str(node.header.data_tokens[0].value)
+    except IndexError:
+        return ""
 
 
 def find_escaped_variables(string: str) -> list[str]:

@@ -28,6 +28,8 @@ from snowflake.core.alert._generated.models.point_of_time_timestamp import Point
 from snowflake.core.alert._generated.models.schedule import Schedule
 from snowflake.core.alert._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.alert._generated.models.success_response import SuccessResponse
+from snowflake.core.alert._generated.models.tag_assignment import TagAssignment
+from snowflake.core.alert._generated.models.tag_reference import TagReference
 
 __all__ = [
     "Alert",
@@ -42,4 +44,6 @@ __all__ = [
     "Schedule",
     "SuccessAcceptedResponse",
     "SuccessResponse",
+    "TagAssignment",
+    "TagReference",
 ]

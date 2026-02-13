@@ -11,29 +11,39 @@ from robot.api import Token
 from robot.parsing.model.blocks import Keyword, TestCase
 from robot.parsing.model.statements import Comment, EmptyLine, KeywordCall
 
-from robocop.linter.utils.misc import ROBOT_VERSION
-
 try:
     from robot.api.parsing import InlineIfHeader
 except ImportError:
     InlineIfHeader = None
 
 from robocop.linter import sonar_qube
-from robocop.linter.rules import RawFileChecker, Rule, RuleParam, RuleSeverity, SeverityThreshold, VisitorChecker
-from robocop.linter.utils.misc import get_errors, get_section_name, str2bool, token_col
+from robocop.linter.fix import Fix, FixApplicability, FixAvailability, TextEdit
+from robocop.linter.rules import (
+    FixableRule,
+    RawFileChecker,
+    Rule,
+    RuleParam,
+    RuleSeverity,
+    SeverityThreshold,
+    VisitorChecker,
+)
+from robocop.linter.utils.misc import get_section_name, str2bool, token_col
 from robocop.parsing.run_keywords import is_run_keyword
+from robocop.version_handling import INLINE_IF_SUPPORTED
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from robot.parsing import File
     from robot.parsing.model import Block, Section
     from robot.parsing.model.statements import Node, Statement
 
-    from robocop.linter.rules import BaseChecker
+    from robocop.linter.diagnostics import Diagnostic
 
 
-class TrailingWhitespaceRule(Rule):
+class TrailingWhitespaceRule(FixableRule):
     r"""
-    Trailing whitespace at the end of line.
+    Trailing whitespace at the end of the line.
 
     Invisible, unnecessary whitespace can be confusing.
 
@@ -63,6 +73,14 @@ class TrailingWhitespaceRule(Rule):
         clean_code=sonar_qube.CleanCodeAttribute.FORMATTED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
     deprecated_names = ("1001",)
+    fix_availability = FixAvailability.ALWAYS
+
+    def fix(self, diag: Diagnostic, source_lines: list[str]) -> Fix | None:  # noqa: ARG002
+        return Fix(
+            edits=[TextEdit.replace_at_range(self.rule_id, self.name, diag.range, "")],
+            message="Strip trailing whitespace",
+            applicability=FixApplicability.SAFE,
+        )
 
 
 class MissingTrailingBlankLineRule(Rule):
@@ -293,7 +311,7 @@ class BadIndentRule(Rule):
 
 class EmptyLineAfterSectionRule(Rule):
     """
-    Too many empty lines after section header.
+    Too many empty lines after the section header.
 
     Empty lines after the section header are not allowed by default.
 
@@ -333,7 +351,7 @@ class EmptyLineAfterSectionRule(Rule):
 
 class TooManyTrailingBlankLinesRule(Rule):
     """
-    Too many blank lines at the end of file.
+    Too many blank lines at the end of the file.
 
     There should be exactly one blank line at the end of the file.
     """
@@ -454,7 +472,7 @@ class ConsecutiveEmptyLinesRule(Rule):
 
 class EmptyLinesInStatementRule(Rule):
     """
-    Multi line statement with empty lines.
+    Multi-line statement with empty lines.
 
     Avoid using empty lines between continuation markers in multi line statement.
 
@@ -525,7 +543,7 @@ class VariableNotLeftAlignedRule(Rule):
 
 class MisalignedContinuationRowRule(Rule):
     """
-    Continuation marker should be aligned with the previous one.
+    The continuation marker should be aligned with the previous one.
 
     Incorrect code example:
 
@@ -574,7 +592,7 @@ class MisalignedContinuationRowRule(Rule):
 
 class SuiteSettingNotLeftAlignedRule(Rule):
     """
-    Settings in ``*** Settings ***`` section should be left aligned.
+    Settings in the ``*** Settings ***`` section should be left aligned.
 
     Incorrect code example:
 
@@ -648,7 +666,7 @@ class BadBlockIndentRule(Rule):
 
 class FirstArgumentInNewLineRule(Rule):
     """
-    First argument is not in the same level as ``[Arguments]`` setting.
+    The first argument is not in the same level as the ``[Arguments]`` setting.
 
     Incorrect code example:
 
@@ -685,37 +703,27 @@ class InvalidSpacingChecker(RawFileChecker):  # TODO merge, we can just use sing
     missing_trailing_blank_line: MissingTrailingBlankLineRule
     too_many_trailing_blank_lines: TooManyTrailingBlankLinesRule
 
-    def __init__(self):
-        self.raw_lines = []
-        super().__init__()
-
     def parse_file(self) -> None:
-        self.raw_lines = []
         super().parse_file()
-        if self.raw_lines:
-            last_line = self.raw_lines[-1]
-            if last_line in ["\n", "\r", "\r\n"]:
-                self.report(
-                    self.too_many_trailing_blank_lines, lineno=len(self.raw_lines) + 1, end_col=len(last_line) + 1
-                )
+        if not self.lines:
+            return
+        last_line = self.lines[-1]
+        if last_line in ["\n", "\r", "\r\n"]:
+            self.report(self.too_many_trailing_blank_lines, lineno=len(self.lines) + 1, end_col=len(last_line) + 1)
+            return
+        empty_lines = 0
+        for line in self.lines[::-1]:
+            if not line.strip():
+                empty_lines += 1
+            else:
+                break
+            if empty_lines > 1:
+                self.report(self.too_many_trailing_blank_lines, lineno=len(self.lines), end_col=len(last_line) + 1)
                 return
-            empty_lines = 0
-            for line in self.raw_lines[::-1]:
-                if not line.strip():
-                    empty_lines += 1
-                else:
-                    break
-                if empty_lines > 1:
-                    self.report(
-                        self.too_many_trailing_blank_lines, lineno=len(self.raw_lines), end_col=len(last_line) + 1
-                    )
-                    return
-            if not empty_lines and not last_line.endswith(("\n", "\r")):
-                self.report(self.missing_trailing_blank_line, lineno=len(self.raw_lines), end_col=len(last_line) + 1)
+        if not empty_lines and not last_line.endswith(("\n", "\r")):
+            self.report(self.missing_trailing_blank_line, lineno=len(self.lines), end_col=len(last_line) + 1)
 
     def check_line(self, line: str, lineno: int) -> None:
-        self.raw_lines.append(line)
-
         stripped_line = line.rstrip("\n\r")
         if stripped_line and stripped_line[-1] in [" ", "\t"]:
             whitespace_length = len(stripped_line) - len(stripped_line.rstrip())
@@ -738,11 +746,11 @@ class EmptyLinesChecker(VisitorChecker):
     empty_lines_in_statement: EmptyLinesInStatementRule
 
     def verify_consecutive_empty_lines(
-        self, lines: list[Statement], check_leading: bool = True, check_trailing: bool = False
-    ):
+        self, lines: list[Node], check_leading: bool = True, check_trailing: bool = False
+    ) -> int:
         allowed_consecutive = self.consecutive_empty_lines.empty_lines
         empty_lines = 0
-        last_empty_line = None
+        last_empty_line: EmptyLine | None = None
         data_found = check_leading
         for line in lines:
             if isinstance(line, EmptyLine):
@@ -753,7 +761,7 @@ class EmptyLinesChecker(VisitorChecker):
             else:
                 data_found = True
                 # allow for violation at the end of section, because we have 1003 rule
-                if empty_lines > allowed_consecutive:  # and i != len(lines)-1:
+                if empty_lines > allowed_consecutive and last_empty_line is not None:  # and i != len(lines)-1:
                     self.report(
                         self.consecutive_empty_lines,
                         empty_lines=empty_lines,
@@ -765,7 +773,7 @@ class EmptyLinesChecker(VisitorChecker):
                         end_lineno=last_empty_line.lineno,
                     )
                 empty_lines = 0
-        if check_trailing and empty_lines > allowed_consecutive:
+        if check_trailing and empty_lines > allowed_consecutive and last_empty_line is not None:
             self.report(
                 self.consecutive_empty_lines,
                 empty_lines=empty_lines,
@@ -778,22 +786,23 @@ class EmptyLinesChecker(VisitorChecker):
             )
         return empty_lines
 
-    def check_empty_lines_in_keyword_test(self, node: type[Node]):
+    def check_empty_lines_in_keyword_test(self, node: Node) -> int:
         """
         Verify number of consecutive empty lines inside keyword or test.
         Return number of trailing empty lines.
         """
         # split node and trailing empty lines/comments
         end_found = False
-        node_lines, trailing_lines = [], []
+        node_lines: list[Node] = []
+        trailing_lines: list[Node] = []
         for child in node.body[::-1]:
             if not end_found and isinstance(child, (EmptyLine, Comment)):
                 trailing_lines.append(child)
             else:
                 end_found = True
                 node_lines.append(child)
-        self.verify_consecutive_empty_lines(reversed(node_lines))
-        return self.verify_consecutive_empty_lines(reversed(trailing_lines))
+        self.verify_consecutive_empty_lines(list(reversed(node_lines)))
+        return self.verify_consecutive_empty_lines(list(reversed(trailing_lines)))
 
     def visit_Statement(self, node: Statement) -> None:  # noqa: N802
         prev_token = None
@@ -805,16 +814,16 @@ class EmptyLinesChecker(VisitorChecker):
             else:
                 prev_token = None
 
-    def visit_VariableSection(self, node: type[Node]) -> None:  # noqa: N802
+    def visit_VariableSection(self, node: Node) -> None:  # noqa: N802
         self.verify_consecutive_empty_lines(node.body, check_leading=False)
         self.generic_visit(node)
 
-    def visit_SettingSection(self, node: type[Node]) -> None:  # noqa: N802
+    def visit_SettingSection(self, node: Node) -> None:  # noqa: N802
         self.verify_consecutive_empty_lines(node.body, check_leading=False)
         self.generic_visit(node)
 
     def verify_empty_lines_between_nodes(
-        self, node: type[Node], node_type: type, rule: Rule, allowed_empty_lines: int
+        self, node: Node, node_type: type[Node], rule: Rule, allowed_empty_lines: int
     ) -> None:
         last_index = len(node.body) - 1
         for index, child in enumerate(node.body):
@@ -832,11 +841,11 @@ class EmptyLinesChecker(VisitorChecker):
                 )
         self.generic_visit(node)
 
-    def visit_TestCaseSection(self, node: type[Node]) -> None:  # noqa: N802
+    def visit_TestCaseSection(self, node: Node) -> None:  # noqa: N802
         allowed_lines = -1 if self.templated_suite else self.empty_lines_between_test_cases.empty_lines
         self.verify_empty_lines_between_nodes(node, TestCase, self.empty_lines_between_test_cases, allowed_lines)
 
-    def visit_KeywordSection(self, node: type[Node]) -> None:  # noqa: N802
+    def visit_KeywordSection(self, node: Node) -> None:  # noqa: N802
         self.verify_empty_lines_between_nodes(
             node,
             Keyword,
@@ -844,7 +853,7 @@ class EmptyLinesChecker(VisitorChecker):
             self.empty_lines_between_keywords.empty_lines,
         )
 
-    def visit_For(self, node: type[Node]) -> None:  # noqa: N802
+    def visit_For(self, node: Node) -> None:  # noqa: N802
         self.verify_consecutive_empty_lines(node.body, check_trailing=True)
         self.generic_visit(node)
 
@@ -907,9 +916,9 @@ class InconsistentUseOfTabsAndSpacesChecker(VisitorChecker):  # TODO: add found 
 
     mixed_tabs_and_spaces: MixedTabsAndSpacesRule
 
-    def __init__(self):
-        self.tabs = []
-        self.spaces = []
+    def __init__(self) -> None:
+        self.tabs: list[Token] = []
+        self.spaces: list[Token] = []
         super().__init__()
 
     def visit_File(self, node: File) -> None:  # noqa: N802
@@ -935,7 +944,7 @@ class InconsistentUseOfTabsAndSpacesChecker(VisitorChecker):  # TODO: add found 
                 self.spaces.append(token)
 
 
-def get_indent(node: type[Node]) -> int:
+def get_indent(node: Node) -> int:
     """
     Calculate the indentation length for a given node.
 
@@ -952,7 +961,7 @@ def get_indent(node: type[Node]) -> int:
     return indent_len
 
 
-def count_indents(node: type[Node]) -> Counter:
+def count_indents(node: Node) -> Counter[int]:
     """
     Count the number of occurrences for unique indent values
 
@@ -960,7 +969,7 @@ def count_indents(node: type[Node]) -> Counter:
         Counter: A counter of unique indent values with an associated number of occurrences in the given node
 
     """
-    indents = Counter()
+    indents: Counter[int] = Counter()
     if node is None:
         return indents
     for line in node.body:
@@ -974,7 +983,7 @@ def count_indents(node: type[Node]) -> Counter:
     return indents
 
 
-def most_common_indent(indents: Counter) -> int:
+def most_common_indent(indents: Counter[int]) -> int:
     """
     Return most commonly occurred indent
 
@@ -993,7 +1002,7 @@ def most_common_indent(indents: Counter) -> int:
 
 
 @contextmanager
-def replace_parent_indent(checker: type[BaseChecker], node: type[Node]):
+def replace_parent_indent(checker: UnevenIndentChecker, node: Node) -> Iterator[None]:
     """Temporarily replace parent indent with current node indent."""
     parent_line = checker.parent_line
     parent_indent = checker.parent_indent
@@ -1005,7 +1014,7 @@ def replace_parent_indent(checker: type[BaseChecker], node: type[Node]):
 
 
 @contextmanager
-def block_indent(checker: type[BaseChecker], node: type[Node]):
+def block_indent(checker: UnevenIndentChecker, node: Node) -> Iterator[None]:
     """
     Temporarily replace parent indent and store
     current node indents in the stack.
@@ -1019,7 +1028,7 @@ def block_indent(checker: type[BaseChecker], node: type[Node]):
         checker.end_of_node = False
 
 
-def index_of_first_standalone_comment(node: type[Node]) -> int:
+def index_of_first_standalone_comment(node: Node) -> int:
     """
     Get index of first standalone comment.
     Comment can be standalone only if there are not the other data statements in the node.
@@ -1039,8 +1048,8 @@ class UnevenIndentChecker(VisitorChecker):
     bad_indent: BadIndentRule
     bad_block_indent: BadBlockIndentRule
 
-    def __init__(self):
-        self.indents = []
+    def __init__(self) -> None:
+        self.indents: list[int] = []
         self.parent_indent = 0
         # used to ignore indents from statements in the same line as parent, i.e. Inline IFs
         self.parent_line = 0
@@ -1065,15 +1074,15 @@ class UnevenIndentChecker(VisitorChecker):
 
     visit_Keyword = visit_TestCase  # noqa: N815
 
-    def visit_TestCaseSection(self, node) -> None:  # noqa: N802
+    def visit_TestCaseSection(self, node: Node) -> None:  # noqa: N802
         if self.templated_suite:
             return
         self.check_standalone_comments_indent(node)
 
-    def visit_KeywordSection(self, node) -> None:  # noqa: N802
+    def visit_KeywordSection(self, node: Node) -> None:  # noqa: N802
         self.check_standalone_comments_indent(node)
 
-    def check_standalone_comments_indent(self, node) -> None:
+    def check_standalone_comments_indent(self, node: Node) -> None:
         # comments before first test case / keyword
         for child in node.body:
             if (
@@ -1090,7 +1099,7 @@ class UnevenIndentChecker(VisitorChecker):
                 )
         self.generic_visit(node)
 
-    def visit_For(self, node) -> None:  # noqa: N802
+    def visit_For(self, node: Node) -> None:  # noqa: N802
         self.visit_Statement(node.header)
         with block_indent(self, node):
             for child in node.body:
@@ -1099,7 +1108,7 @@ class UnevenIndentChecker(VisitorChecker):
 
     visit_While = visit_ForLoop = visit_Group = visit_For  # noqa: N815
 
-    def get_common_if_indent(self, node) -> None:
+    def get_common_if_indent(self, node: Node) -> None:
         indents = count_indents(node)
         head = node
         while head.orelse:
@@ -1108,7 +1117,7 @@ class UnevenIndentChecker(VisitorChecker):
         most_common = most_common_indent(indents)
         self.indents.append(most_common)
 
-    def get_common_try_indent(self, node) -> None:
+    def get_common_try_indent(self, node: Node) -> None:
         indents = count_indents(node)
         head = node
         while head.next:
@@ -1117,12 +1126,12 @@ class UnevenIndentChecker(VisitorChecker):
         most_common = most_common_indent(indents)
         self.indents.append(most_common)
 
-    def visit_statements_in_branch(self, node) -> None:
+    def visit_statements_in_branch(self, node: Node) -> None:
         with replace_parent_indent(self, node):
             for child in node.body:
                 self.visit(child)
 
-    def visit_If(self, node) -> None:  # noqa: N802
+    def visit_If(self, node: Node) -> None:  # noqa: N802
         self.visit_Statement(node.header)
         if node.type == "INLINE IF":
             return
@@ -1133,7 +1142,7 @@ class UnevenIndentChecker(VisitorChecker):
         self.indents.pop()
         self.visit_Statement(node.end)
 
-    def visit_IfBranch(self, node) -> None:  # noqa: N802
+    def visit_IfBranch(self, node: Node) -> None:  # noqa: N802
         indent = self.indents.pop()
         self.visit_Statement(node.header)
         self.indents.append(indent)
@@ -1141,7 +1150,7 @@ class UnevenIndentChecker(VisitorChecker):
         if node.orelse is not None:
             self.visit_IfBranch(node.orelse)
 
-    def visit_Try(self, node) -> None:  # noqa: N802
+    def visit_Try(self, node: Node) -> None:  # noqa: N802
         self.visit_Statement(node.header)
         self.get_common_try_indent(node)
         self.visit_statements_in_branch(node)
@@ -1150,7 +1159,7 @@ class UnevenIndentChecker(VisitorChecker):
         self.indents.pop()
         self.visit_Statement(node.end)
 
-    def visit_TryBranch(self, node) -> None:  # noqa: N802
+    def visit_TryBranch(self, node: Node) -> None:  # noqa: N802
         indent = self.indents.pop()
         self.visit_Statement(node.header)
         self.indents.append(indent)
@@ -1158,14 +1167,14 @@ class UnevenIndentChecker(VisitorChecker):
         if node.next is not None:
             self.visit_TryBranch(node.next)
 
-    def get_required_indent(self, statement):
+    def get_required_indent(self, statement: Statement) -> int:
         if isinstance(statement, Comment) and self.end_of_node:
             return 0
         if self.bad_indent.indent != -1:
-            return self.bad_indent.indent * len(self.indents)
+            return int(self.bad_indent.indent) * len(self.indents)
         return self.indents[-1]
 
-    def visit_Statement(self, statement) -> None:  # noqa: N802
+    def visit_Statement(self, statement: Statement) -> None:  # noqa: N802
         if statement is None or isinstance(statement, EmptyLine) or not self.indents:
             return
         # Ignore indent if the current line is on the same line as a parent, i.e. test case header or inline IFs
@@ -1201,15 +1210,15 @@ class MisalignedContinuation(VisitorChecker):
     # detect if run keyword, but not parse it
 
     @staticmethod
-    def is_inline_if(node):
+    def is_inline_if(node: Node) -> bool:
         return isinstance(node.header, InlineIfHeader)
 
-    def visit_If(self, node) -> None:  # noqa: N802
+    def visit_If(self, node: Node) -> None:  # noqa: N802
         # suppress the rules if the multiline-inline-if is already reported
-        if ROBOT_VERSION.major >= 5 and self.is_inline_if(node):
+        if INLINE_IF_SUPPORTED and self.is_inline_if(node):
             return
 
-    def is_ignorable_run_keyword(self, node) -> bool:
+    def is_ignorable_run_keyword(self, node: Node) -> bool:
         return (
             self.misaligned_continuation_row.ignore_run_keywords
             and isinstance(node, KeywordCall)
@@ -1217,7 +1226,7 @@ class MisalignedContinuation(VisitorChecker):
         )
         # TODO: test on different version, may lack .keyword
 
-    def visit_Statement(self, node) -> None:  # noqa: N802
+    def visit_Statement(self, node: Statement) -> None:  # noqa: N802
         if not node.data_tokens or self.is_ignorable_run_keyword(node):
             return
         starting_row = self.get_indent(node.tokens)
@@ -1261,7 +1270,7 @@ class MisalignedContinuation(VisitorChecker):
                     break  # check only first value
 
     @staticmethod
-    def get_indent(tokens):
+    def get_indent(tokens: list[Token]) -> int:
         indent_len = 0
         for token in tokens:
             if token.type != Token.SEPARATOR:
@@ -1270,7 +1279,7 @@ class MisalignedContinuation(VisitorChecker):
         return indent_len
 
     @staticmethod
-    def first_line_indent(tokens, from_tok, search_for):
+    def first_line_indent(tokens: list[Token], from_tok: str, search_for: str) -> int:
         """
         Find indent required for other lines to match indentation of first line.
 
@@ -1319,7 +1328,7 @@ class LeftAlignedChecker(VisitorChecker):
         "variables": "Variables",
     }
 
-    def visit_VariableSection(self, node) -> None:  # noqa: N802
+    def visit_VariableSection(self, node: Node) -> None:  # noqa: N802
         for child in node.body:
             if not child.data_tokens:
                 continue
@@ -1331,17 +1340,17 @@ class LeftAlignedChecker(VisitorChecker):
                     pos = child.get_token(Token.ARGUMENT).col_offset + 1
                 self.report(self.variable_not_left_aligned, lineno=token.lineno, col=1, end_col=pos)
 
-    def visit_SettingSection(self, node) -> None:  # noqa: N802
+    def visit_SettingSection(self, node: Node) -> None:  # noqa: N802
         for child in node.body:
-            for error in get_errors(child):
+            for error in child.errors:
                 if "Non-existing setting" in error:
                     self.parse_error(child, error)
 
-    def parse_error(self, node, error) -> None:
-        setting_error = re.search("Non-existing setting '(.*)'.", error)
-        if not setting_error:
+    def parse_error(self, node: Node, error: str) -> None:
+        error_match = re.search("Non-existing setting '(.*)'.", error)
+        if not error_match:
             return
-        setting_error = setting_error.group(1)
+        setting_error = error_match.group(1)
         if not setting_error:
             setting_cand = node.get_token(Token.COMMENT)
             if setting_cand and setting_cand.value.replace(" ", "").lower() in self.suite_settings:
@@ -1367,7 +1376,7 @@ class LeftAlignedChecker(VisitorChecker):
 class ArgumentsChecker(VisitorChecker):  # TODO merge!!, candidate to check inside rule
     first_argument_in_new_line: FirstArgumentInNewLineRule
 
-    def visit_Arguments(self, node) -> None:  # noqa: N802
+    def visit_Arguments(self, node: Node) -> None:  # noqa: N802
         eol_already = None
         for t in node.tokens:
             if t.type == Token.EOL:

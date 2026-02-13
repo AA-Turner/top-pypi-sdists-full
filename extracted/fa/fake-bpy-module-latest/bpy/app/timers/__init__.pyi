@@ -1,26 +1,3 @@
-"""
-
---------------------
-
-```../examples/bpy.app.timers.1.py```
-
-
---------------------
-
-```../examples/bpy.app.timers.2.py```
-
-
---------------------
-
-```../examples/bpy.app.timers.3.py```
-
-
---------------------
-
-```../examples/bpy.app.timers.4.py```
-
-"""
-
 import typing
 import collections.abc
 import typing_extensions

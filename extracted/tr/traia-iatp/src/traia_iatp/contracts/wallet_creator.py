@@ -15,6 +15,30 @@ from web3 import Web3
 from web3.contract import Contract
 
 
+def _get_dynamic_fee_params(w3: Web3) -> Dict[str, int]:
+    """Return fee params that work with current network conditions."""
+    latest_block = w3.eth.get_block("latest")
+    base_fee = latest_block.get("baseFeePerGas")
+
+    # If base fee is unavailable, fall back to legacy gasPrice mode.
+    if base_fee is None:
+        return {"gasPrice": int(w3.eth.gas_price)}
+
+    try:
+        priority_fee = int(w3.eth.max_priority_fee)
+    except Exception:
+        priority_fee = int(w3.to_wei('1', 'gwei'))
+
+    # Keep fee high enough for current base fee and short-term spikes.
+    max_priority_fee = max(priority_fee, int(w3.to_wei('1', 'gwei')))
+    max_fee = int(base_fee * 2 + max_priority_fee)
+
+    return {
+        "maxFeePerGas": max_fee,
+        "maxPriorityFeePerGas": max_priority_fee
+    }
+
+
 def get_contract_config(network: str = "sepolia") -> Dict:
     """Load contract addresses and ABIs for a network.
     
@@ -169,6 +193,7 @@ def create_iatp_wallet(
         address=Web3.to_checksum_address(factory_address),
         abi=factory_abi
     )
+    fee_params = _get_dynamic_fee_params(w3)
     
     # Determine which method to call
     if maintainer_private_key:
@@ -199,9 +224,8 @@ def create_iatp_wallet(
             'from': caller_account.address,
             'nonce': w3.eth.get_transaction_count(caller_account.address),
             'gas': 3000000,
-            'maxFeePerGas': w3.to_wei('2', 'gwei'),
-            'maxPriorityFeePerGas': w3.to_wei('0.1', 'gwei'),
-            'chainId': w3.eth.chain_id
+            'chainId': w3.eth.chain_id,
+            **fee_params
         })
         
         # Estimate gas
@@ -238,9 +262,8 @@ def create_iatp_wallet(
             'from': owner_account.address,
             'nonce': w3.eth.get_transaction_count(owner_account.address),
             'gas': 3000000,
-            'maxFeePerGas': w3.to_wei('2', 'gwei'),
-            'maxPriorityFeePerGas': w3.to_wei('0.1', 'gwei'),
-            'chainId': w3.eth.chain_id
+            'chainId': w3.eth.chain_id,
+            **fee_params
         })
         
         # Estimate gas

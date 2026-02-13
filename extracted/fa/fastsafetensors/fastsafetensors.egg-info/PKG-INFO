@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastsafetensors
-Version: 0.2.0
+Version: 0.2.2
 Summary: High-performance safetensors model loader
 Author-email: Takeshi Yoshimura <tyos@jp.ibm.com>
 Maintainer-email: Takeshi Yoshimura <tyos@jp.ibm.com>
@@ -18,6 +18,12 @@ Requires-Dist: pytest-cov>=5.0.0; extra == "test"
 Requires-Dist: transformers>=4.40.2; extra == "test"
 Requires-Dist: safetensors>=0.4.0; extra == "test"
 Requires-Dist: vllm>=0.8.2; extra == "test"
+Provides-Extra: dev
+Requires-Dist: pre-commit>=3.6.0; extra == "dev"
+Requires-Dist: black==25.11.0; extra == "dev"
+Requires-Dist: isort==6.1.0; extra == "dev"
+Requires-Dist: flake8==7.3.0; extra == "dev"
+Requires-Dist: mypy==1.19.1; extra == "dev"
 Dynamic: license-file
 
 fastsafetensors is an efficient safetensors model loader.
@@ -60,6 +66,44 @@ Important: To release the GPU memory allocated for tensors, you must explicitly 
 with fastsafe_open(filenames=[filename], nogds=True, device="cpu", debug_log=True) as f:
     for key in f.get_keys():
         t = f.get_tensor(key).clone().detach() # clone if t is used outside
+```
+
+## Development
+
+### Pre-commit Hooks
+
+This repository uses pre-commit hooks for automatic code formatting and linting. To set up:
+
+1. Install development dependencies:
+```bash
+pip install -e ".[dev]"
+```
+
+2. Install pre-commit hooks:
+```bash
+pre-commit install
+```
+
+Now, every time you commit, the following checks will run automatically:
+- **black**: Code formatting
+- **isort**: Import sorting
+- **flake8**: Basic linting (syntax errors, undefined names)
+- **mypy**: Type checking
+- **trailing-whitespace**: Remove trailing whitespace
+- **end-of-file-fixer**: Ensure files end with a newline
+- **check-yaml**: Validate YAML files
+- **check-toml**: Validate TOML files
+- **check-merge-conflict**: Detect merge conflict markers
+- **debug-statements**: Detect debug statements
+
+To manually run pre-commit on all files:
+```bash
+pre-commit run --all-files
+```
+
+To skip pre-commit hooks (not recommended):
+```bash
+git commit --no-verify
 ```
 
 ## Code of Conduct

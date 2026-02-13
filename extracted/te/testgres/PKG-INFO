@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: testgres
-Version: 1.13.4
+Version: 1.13.5
 Summary: Testing utility for PostgreSQL and its extensions
 Author-email: Postgres Professional <testgres@postgrespro.ru>
 License: PostgreSQL
@@ -27,7 +27,7 @@ Requires-Dist: port-for>=0.4
 Requires-Dist: six>=1.9.0
 Requires-Dist: psutil
 Requires-Dist: packaging
-Requires-Dist: testgres.os_ops<3.0.0,>=2.0.2
+Requires-Dist: testgres.os_ops<3.0.0,>=2.1.0
 Dynamic: license-file
 
 [![CI Status](https://img.shields.io/github/actions/workflow/status/postgrespro/testgres/.github/workflows/package-verification.yml?label=CI)](https://github.com/postgrespro/testgres/actions/workflows/package-verification.yml)

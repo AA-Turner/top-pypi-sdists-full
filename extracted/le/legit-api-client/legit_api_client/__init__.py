@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.1.4645"
+__version__ = "1.1.4654"
 
 # Define package exports
 __all__ = [
@@ -73,6 +73,7 @@ __all__ = [
     "CloudInstancesToContainersOperationDto",
     "CollaboratorDto",
     "CollaboratorRepositoryPermission",
+    "CommercialUseAllowance",
     "ComplianceCriteriaDto",
     "ComplianceDto",
     "ComplianceReportDto",
@@ -123,6 +124,7 @@ __all__ = [
     "CustomerFacingIssueToVulnerabilityDto",
     "CustomerFacingIssueVulnerabilityDto",
     "CustomerFacingIssuesPageDto",
+    "CustomerFacingLicenseMetadata",
     "CveSeverity",
     "DastConfidenceLevel",
     "DastDataDto",
@@ -170,6 +172,8 @@ __all__ = [
     "LegitScoreRequirementDto",
     "LegitScoreRequirementGroupType",
     "LegitScoreRequirementType",
+    "LicenseCopyleftType",
+    "LicenseRestrictionLevel",
     "ListSortDirection",
     "ManualCheckDto",
     "ModelReputation",
@@ -207,6 +211,7 @@ __all__ = [
     "RepositoryDto",
     "RepositoryGroupDto",
     "RepositoryVisibility",
+    "SbomFormat",
     "ScmType",
     "SdlcAssetDto",
     "SdlcAssetGraphAssetDto",
@@ -298,6 +303,7 @@ from legit_api_client.models.cloud_instance_dto import CloudInstanceDto as Cloud
 from legit_api_client.models.cloud_instances_to_containers_operation_dto import CloudInstancesToContainersOperationDto as CloudInstancesToContainersOperationDto
 from legit_api_client.models.collaborator_dto import CollaboratorDto as CollaboratorDto
 from legit_api_client.models.collaborator_repository_permission import CollaboratorRepositoryPermission as CollaboratorRepositoryPermission
+from legit_api_client.models.commercial_use_allowance import CommercialUseAllowance as CommercialUseAllowance
 from legit_api_client.models.compliance_criteria_dto import ComplianceCriteriaDto as ComplianceCriteriaDto
 from legit_api_client.models.compliance_dto import ComplianceDto as ComplianceDto
 from legit_api_client.models.compliance_report_dto import ComplianceReportDto as ComplianceReportDto
@@ -348,6 +354,7 @@ from legit_api_client.models.customer_facing_issue_to_tickets_dto import Custome
 from legit_api_client.models.customer_facing_issue_to_vulnerability_dto import CustomerFacingIssueToVulnerabilityDto as CustomerFacingIssueToVulnerabilityDto
 from legit_api_client.models.customer_facing_issue_vulnerability_dto import CustomerFacingIssueVulnerabilityDto as CustomerFacingIssueVulnerabilityDto
 from legit_api_client.models.customer_facing_issues_page_dto import CustomerFacingIssuesPageDto as CustomerFacingIssuesPageDto
+from legit_api_client.models.customer_facing_license_metadata import CustomerFacingLicenseMetadata as CustomerFacingLicenseMetadata
 from legit_api_client.models.cve_severity import CveSeverity as CveSeverity
 from legit_api_client.models.dast_confidence_level import DastConfidenceLevel as DastConfidenceLevel
 from legit_api_client.models.dast_data_dto import DastDataDto as DastDataDto
@@ -395,6 +402,8 @@ from legit_api_client.models.legit_score_grade import LegitScoreGrade as LegitSc
 from legit_api_client.models.legit_score_requirement_dto import LegitScoreRequirementDto as LegitScoreRequirementDto
 from legit_api_client.models.legit_score_requirement_group_type import LegitScoreRequirementGroupType as LegitScoreRequirementGroupType
 from legit_api_client.models.legit_score_requirement_type import LegitScoreRequirementType as LegitScoreRequirementType
+from legit_api_client.models.license_copyleft_type import LicenseCopyleftType as LicenseCopyleftType
+from legit_api_client.models.license_restriction_level import LicenseRestrictionLevel as LicenseRestrictionLevel
 from legit_api_client.models.list_sort_direction import ListSortDirection as ListSortDirection
 from legit_api_client.models.manual_check_dto import ManualCheckDto as ManualCheckDto
 from legit_api_client.models.model_reputation import ModelReputation as ModelReputation
@@ -432,6 +441,7 @@ from legit_api_client.models.repository_directory import RepositoryDirectory as 
 from legit_api_client.models.repository_dto import RepositoryDto as RepositoryDto
 from legit_api_client.models.repository_group_dto import RepositoryGroupDto as RepositoryGroupDto
 from legit_api_client.models.repository_visibility import RepositoryVisibility as RepositoryVisibility
+from legit_api_client.models.sbom_format import SbomFormat as SbomFormat
 from legit_api_client.models.scm_type import ScmType as ScmType
 from legit_api_client.models.sdlc_asset_dto import SdlcAssetDto as SdlcAssetDto
 from legit_api_client.models.sdlc_asset_graph_asset_dto import SdlcAssetGraphAssetDto as SdlcAssetGraphAssetDto

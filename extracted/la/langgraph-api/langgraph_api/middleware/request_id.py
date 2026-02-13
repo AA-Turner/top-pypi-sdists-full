@@ -21,7 +21,7 @@ class RequestIdMiddleware:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
         if scope["type"] == "http" and self.pattern.match(scope["path"]):
-            from langgraph_api.logging import set_logging_context
+            from langgraph_api.logging import set_logging_context  # noqa: PLC0415
 
             request_id = next(
                 (h[1] for h in scope["headers"] if h[0] == b"x-request-id"),

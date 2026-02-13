@@ -782,7 +782,7 @@ class ScpiLogger:
 
     def _compose_hexdump(self, value: str | bytes, offset_left: int) -> str:
         """Composes hexdump string from string or bytes.
-        The hex dump is organised in the groups of 16 bytes per line."""
+        The hex dump is organized in the groups of 16 bytes per line."""
         if isinstance(value, str):
             value = bytes(value, self.encoding)
         size = len(value)
@@ -836,7 +836,7 @@ class ScpiLogger:
         self.flush()
 
     def sync_from(self, source: 'ScpiLogger') -> None:
-        """Synchronises this Logger with the source logger."""
+        """Synchronizes this Logger with the source logger."""
         self._orig_resource_name = source._orig_resource_name
         self.mode = source.mode
         self.default_mode = source.default_mode

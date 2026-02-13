@@ -30,17 +30,20 @@ class GrantPrivilegesToAccountRoleArgs:
                  on_schema: Optional[pulumi.Input['GrantPrivilegesToAccountRoleOnSchemaArgs']] = None,
                  on_schema_object: Optional[pulumi.Input['GrantPrivilegesToAccountRoleOnSchemaObjectArgs']] = None,
                  privileges: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 strict_privilege_management: Optional[pulumi.Input[_builtins.bool]] = None,
                  with_grant_option: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         The set of arguments for constructing a GrantPrivilegesToAccountRole resource.
         :param pulumi.Input[_builtins.str] account_role_name: The fully qualified name of the account role to which privileges will be granted. For more information about this resource, see docs.
         :param pulumi.Input[_builtins.bool] all_privileges: (Default: `false`) Grant all privileges on the account role. When all privileges cannot be granted, the provider returns a warning, which is aligned with the Snowsight behavior.
+        :param pulumi.Input[_builtins.bool] always_apply: (Default: `false`) If true, the resource will always produce a “plan” and on “apply” it will re-grant defined privileges. It is supposed to be used only in “grant privileges on all X’s in database / schema Y” or “grant all privileges to X” scenarios to make sure that every new object in a given database / schema is granted by the account role and every new privilege is granted to the database role. Important note: this flag is not compliant with the Terraform assumptions of the config being eventually convergent (producing an empty plan).
         :param pulumi.Input[_builtins.str] always_apply_trigger: (Default: ``) This is a helper field and should not be set. Its main purpose is to help to achieve the functionality described by the always_apply field.
         :param pulumi.Input[_builtins.bool] on_account: (Default: `false`) If true, the privileges will be granted on the account.
         :param pulumi.Input['GrantPrivilegesToAccountRoleOnAccountObjectArgs'] on_account_object: Specifies the account object on which privileges will be granted
         :param pulumi.Input['GrantPrivilegesToAccountRoleOnSchemaArgs'] on_schema: Specifies the schema on which privileges will be granted.
         :param pulumi.Input['GrantPrivilegesToAccountRoleOnSchemaObjectArgs'] on_schema_object: Specifies the schema object on which privileges will be granted.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] privileges: The privileges to grant on the account role. This field is case-sensitive; use only upper-case privileges.
+        :param pulumi.Input[_builtins.bool] strict_privilege_management: (Default: `false`) If true, the resource will revoke all privileges that are not explicitly defined in the config making it a central source of truth for the privileges granted on an object to an account role. If false, the resource will be only concerned with the privileges that are explicitly defined in the config. The potential privilege removals will be planned only after second `pulumi up` run, after setting the flag in resource configuration. This means, the flag update doesn't revoke immediately any externally granted privileges. This is a Terraform limitation, and two steps are needed to properly show the potential privilege changes (e.g., revoking privileges not specified in the configuration) in the plan. External privileges will be detected regardless of their grant option. The parameter can be only used when `GRANTS_STRICT_PRIVILEGE_MANAGEMENT` option is specified in provider block in the `experimental_features_enabled` field. Regular and future grants are treated separately, meaning, more resources need to be defined to control regular and future grants for a given object and role (and for a given database or schema they're defined in for future grants). See our Strict privilege management guide for more information.
         :param pulumi.Input[_builtins.bool] with_grant_option: (Default: `false`) Specifies whether the grantee can grant the privileges to other users.
         """
         pulumi.set(__self__, "account_role_name", account_role_name)
@@ -60,6 +63,8 @@ class GrantPrivilegesToAccountRoleArgs:
             pulumi.set(__self__, "on_schema_object", on_schema_object)
         if privileges is not None:
             pulumi.set(__self__, "privileges", privileges)
+        if strict_privilege_management is not None:
+            pulumi.set(__self__, "strict_privilege_management", strict_privilege_management)
         if with_grant_option is not None:
             pulumi.set(__self__, "with_grant_option", with_grant_option)
 
@@ -90,6 +95,9 @@ class GrantPrivilegesToAccountRoleArgs:
     @_builtins.property
     @pulumi.getter(name="alwaysApply")
     def always_apply(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        (Default: `false`) If true, the resource will always produce a “plan” and on “apply” it will re-grant defined privileges. It is supposed to be used only in “grant privileges on all X’s in database / schema Y” or “grant all privileges to X” scenarios to make sure that every new object in a given database / schema is granted by the account role and every new privilege is granted to the database role. Important note: this flag is not compliant with the Terraform assumptions of the config being eventually convergent (producing an empty plan).
+        """
         return pulumi.get(self, "always_apply")
 
     @always_apply.setter
@@ -169,6 +177,18 @@ class GrantPrivilegesToAccountRoleArgs:
         pulumi.set(self, "privileges", value)
 
     @_builtins.property
+    @pulumi.getter(name="strictPrivilegeManagement")
+    def strict_privilege_management(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        (Default: `false`) If true, the resource will revoke all privileges that are not explicitly defined in the config making it a central source of truth for the privileges granted on an object to an account role. If false, the resource will be only concerned with the privileges that are explicitly defined in the config. The potential privilege removals will be planned only after second `pulumi up` run, after setting the flag in resource configuration. This means, the flag update doesn't revoke immediately any externally granted privileges. This is a Terraform limitation, and two steps are needed to properly show the potential privilege changes (e.g., revoking privileges not specified in the configuration) in the plan. External privileges will be detected regardless of their grant option. The parameter can be only used when `GRANTS_STRICT_PRIVILEGE_MANAGEMENT` option is specified in provider block in the `experimental_features_enabled` field. Regular and future grants are treated separately, meaning, more resources need to be defined to control regular and future grants for a given object and role (and for a given database or schema they're defined in for future grants). See our Strict privilege management guide for more information.
+        """
+        return pulumi.get(self, "strict_privilege_management")
+
+    @strict_privilege_management.setter
+    def strict_privilege_management(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "strict_privilege_management", value)
+
+    @_builtins.property
     @pulumi.getter(name="withGrantOption")
     def with_grant_option(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
@@ -193,17 +213,20 @@ class _GrantPrivilegesToAccountRoleState:
                  on_schema: Optional[pulumi.Input['GrantPrivilegesToAccountRoleOnSchemaArgs']] = None,
                  on_schema_object: Optional[pulumi.Input['GrantPrivilegesToAccountRoleOnSchemaObjectArgs']] = None,
                  privileges: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 strict_privilege_management: Optional[pulumi.Input[_builtins.bool]] = None,
                  with_grant_option: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         Input properties used for looking up and filtering GrantPrivilegesToAccountRole resources.
         :param pulumi.Input[_builtins.str] account_role_name: The fully qualified name of the account role to which privileges will be granted. For more information about this resource, see docs.
         :param pulumi.Input[_builtins.bool] all_privileges: (Default: `false`) Grant all privileges on the account role. When all privileges cannot be granted, the provider returns a warning, which is aligned with the Snowsight behavior.
+        :param pulumi.Input[_builtins.bool] always_apply: (Default: `false`) If true, the resource will always produce a “plan” and on “apply” it will re-grant defined privileges. It is supposed to be used only in “grant privileges on all X’s in database / schema Y” or “grant all privileges to X” scenarios to make sure that every new object in a given database / schema is granted by the account role and every new privilege is granted to the database role. Important note: this flag is not compliant with the Terraform assumptions of the config being eventually convergent (producing an empty plan).
         :param pulumi.Input[_builtins.str] always_apply_trigger: (Default: ``) This is a helper field and should not be set. Its main purpose is to help to achieve the functionality described by the always_apply field.
         :param pulumi.Input[_builtins.bool] on_account: (Default: `false`) If true, the privileges will be granted on the account.
         :param pulumi.Input['GrantPrivilegesToAccountRoleOnAccountObjectArgs'] on_account_object: Specifies the account object on which privileges will be granted
         :param pulumi.Input['GrantPrivilegesToAccountRoleOnSchemaArgs'] on_schema: Specifies the schema on which privileges will be granted.
         :param pulumi.Input['GrantPrivilegesToAccountRoleOnSchemaObjectArgs'] on_schema_object: Specifies the schema object on which privileges will be granted.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] privileges: The privileges to grant on the account role. This field is case-sensitive; use only upper-case privileges.
+        :param pulumi.Input[_builtins.bool] strict_privilege_management: (Default: `false`) If true, the resource will revoke all privileges that are not explicitly defined in the config making it a central source of truth for the privileges granted on an object to an account role. If false, the resource will be only concerned with the privileges that are explicitly defined in the config. The potential privilege removals will be planned only after second `pulumi up` run, after setting the flag in resource configuration. This means, the flag update doesn't revoke immediately any externally granted privileges. This is a Terraform limitation, and two steps are needed to properly show the potential privilege changes (e.g., revoking privileges not specified in the configuration) in the plan. External privileges will be detected regardless of their grant option. The parameter can be only used when `GRANTS_STRICT_PRIVILEGE_MANAGEMENT` option is specified in provider block in the `experimental_features_enabled` field. Regular and future grants are treated separately, meaning, more resources need to be defined to control regular and future grants for a given object and role (and for a given database or schema they're defined in for future grants). See our Strict privilege management guide for more information.
         :param pulumi.Input[_builtins.bool] with_grant_option: (Default: `false`) Specifies whether the grantee can grant the privileges to other users.
         """
         if account_role_name is not None:
@@ -224,6 +247,8 @@ class _GrantPrivilegesToAccountRoleState:
             pulumi.set(__self__, "on_schema_object", on_schema_object)
         if privileges is not None:
             pulumi.set(__self__, "privileges", privileges)
+        if strict_privilege_management is not None:
+            pulumi.set(__self__, "strict_privilege_management", strict_privilege_management)
         if with_grant_option is not None:
             pulumi.set(__self__, "with_grant_option", with_grant_option)
 
@@ -254,6 +279,9 @@ class _GrantPrivilegesToAccountRoleState:
     @_builtins.property
     @pulumi.getter(name="alwaysApply")
     def always_apply(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        (Default: `false`) If true, the resource will always produce a “plan” and on “apply” it will re-grant defined privileges. It is supposed to be used only in “grant privileges on all X’s in database / schema Y” or “grant all privileges to X” scenarios to make sure that every new object in a given database / schema is granted by the account role and every new privilege is granted to the database role. Important note: this flag is not compliant with the Terraform assumptions of the config being eventually convergent (producing an empty plan).
+        """
         return pulumi.get(self, "always_apply")
 
     @always_apply.setter
@@ -333,6 +361,18 @@ class _GrantPrivilegesToAccountRoleState:
         pulumi.set(self, "privileges", value)
 
     @_builtins.property
+    @pulumi.getter(name="strictPrivilegeManagement")
+    def strict_privilege_management(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        (Default: `false`) If true, the resource will revoke all privileges that are not explicitly defined in the config making it a central source of truth for the privileges granted on an object to an account role. If false, the resource will be only concerned with the privileges that are explicitly defined in the config. The potential privilege removals will be planned only after second `pulumi up` run, after setting the flag in resource configuration. This means, the flag update doesn't revoke immediately any externally granted privileges. This is a Terraform limitation, and two steps are needed to properly show the potential privilege changes (e.g., revoking privileges not specified in the configuration) in the plan. External privileges will be detected regardless of their grant option. The parameter can be only used when `GRANTS_STRICT_PRIVILEGE_MANAGEMENT` option is specified in provider block in the `experimental_features_enabled` field. Regular and future grants are treated separately, meaning, more resources need to be defined to control regular and future grants for a given object and role (and for a given database or schema they're defined in for future grants). See our Strict privilege management guide for more information.
+        """
+        return pulumi.get(self, "strict_privilege_management")
+
+    @strict_privilege_management.setter
+    def strict_privilege_management(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "strict_privilege_management", value)
+
+    @_builtins.property
     @pulumi.getter(name="withGrantOption")
     def with_grant_option(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
@@ -360,47 +400,34 @@ class GrantPrivilegesToAccountRole(pulumi.CustomResource):
                  on_schema: Optional[pulumi.Input[Union['GrantPrivilegesToAccountRoleOnSchemaArgs', 'GrantPrivilegesToAccountRoleOnSchemaArgsDict']]] = None,
                  on_schema_object: Optional[pulumi.Input[Union['GrantPrivilegesToAccountRoleOnSchemaObjectArgs', 'GrantPrivilegesToAccountRoleOnSchemaObjectArgsDict']]] = None,
                  privileges: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 strict_privilege_management: Optional[pulumi.Input[_builtins.bool]] = None,
                  with_grant_option: Optional[pulumi.Input[_builtins.bool]] = None,
                  __props__=None):
         """
-        ## Import
+        !> **Warning** Be careful when using `always_apply` field. It will always produce a plan (even when no changes were made) and can be harmful in some setups. For more details why we decided to introduce it to go our document explaining those design decisions (coming soon).
 
-        ### Import examples
+        > **Note** Manage grants on `HYBRID TABLE` by specifying `TABLE` or `TABLES` in `object_type` field. This applies to a single object, all objects, or future objects. This reflects the current behavior in Snowflake.
 
-        #### Grant all privileges OnAccountObject (Database)
+        > **Note** When granting privileges on applications (for example, the default "SNOWFLAKE" application) use `on_account_object.object_type = "DATABASE"` instead.
 
-        ```sh
-        $ pulumi import snowflake:index/grantPrivilegesToAccountRole:GrantPrivilegesToAccountRole example '"test_db_role"|false|false|ALL|OnAccountObject|DATABASE|"test_db"'`
-        ```
+        > **Note** When using `IMPORTED PRIVILEGES` privilege, the `with_grant_option` field is not supported. Additionally, when the `IMPORTED PRIVILEGES` privilege is not set in the config, and it is granted externally, this change is not detected because of Snowflake limitations. Also, granting individual privileges on imported database is not allowed, this is a Snowflake limitation. Use `IMPORTED PRIVILEGES` instead.
 
-        #### Grant list of privileges OnAllSchemasInDatabase
+        > **Note** Please, follow the [Snowflake documentation](https://docs.snowflake.com/en/user-guide/security-access-control-considerations) for best practices on access control. The provider does not enforce any specific methodology, so it is essential for users to choose the appropriate strategy for seamless privilege management. Additionally, refer to [this link](https://docs.snowflake.com/en/user-guide/security-access-control-privileges) for a list of all available privileges in Snowflake.
 
-        ```sh
-        $ pulumi import snowflake:index/grantPrivilegesToAccountRole:GrantPrivilegesToAccountRole example '"test_db_role"|false|false|CREATE TAG,CREATE TABLE|OnSchema|OnAllSchemasInDatabase|"test_db"'`
-        ```
-
-        #### Grant list of privileges on table
-
-        ```sh
-        $ pulumi import snowflake:index/grantPrivilegesToAccountRole:GrantPrivilegesToAccountRole example '"test_db_role"|false|false|SELECT,DELETE,INSERT|OnSchemaObject|OnObject|TABLE|"test_db"."test_schema"."test_table"'`
-        ```
-
-        #### Grant list of privileges OnAll tables in schema
-
-        ```sh
-        $ pulumi import snowflake:index/grantPrivilegesToAccountRole:GrantPrivilegesToAccountRole example '"test_db_role"|false|false|SELECT,DELETE,INSERT|OnSchemaObject|OnAll|TABLES|InSchema|"test_db"."test_schema"'`
-        ```
+        !> **Warning** The new `strict_privilege_management` flag was added. It has similar behavior to the `enable_multiple_grants` flag present in the old grant resources, and it makes the resource able to detect external changes for privileges other than those present in the configuration, which can make the resource a central point of knowledge privilege management for a given object and role. See our Strict privilege management guide for more information.
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] account_role_name: The fully qualified name of the account role to which privileges will be granted. For more information about this resource, see docs.
         :param pulumi.Input[_builtins.bool] all_privileges: (Default: `false`) Grant all privileges on the account role. When all privileges cannot be granted, the provider returns a warning, which is aligned with the Snowsight behavior.
+        :param pulumi.Input[_builtins.bool] always_apply: (Default: `false`) If true, the resource will always produce a “plan” and on “apply” it will re-grant defined privileges. It is supposed to be used only in “grant privileges on all X’s in database / schema Y” or “grant all privileges to X” scenarios to make sure that every new object in a given database / schema is granted by the account role and every new privilege is granted to the database role. Important note: this flag is not compliant with the Terraform assumptions of the config being eventually convergent (producing an empty plan).
         :param pulumi.Input[_builtins.str] always_apply_trigger: (Default: ``) This is a helper field and should not be set. Its main purpose is to help to achieve the functionality described by the always_apply field.
         :param pulumi.Input[_builtins.bool] on_account: (Default: `false`) If true, the privileges will be granted on the account.
         :param pulumi.Input[Union['GrantPrivilegesToAccountRoleOnAccountObjectArgs', 'GrantPrivilegesToAccountRoleOnAccountObjectArgsDict']] on_account_object: Specifies the account object on which privileges will be granted
         :param pulumi.Input[Union['GrantPrivilegesToAccountRoleOnSchemaArgs', 'GrantPrivilegesToAccountRoleOnSchemaArgsDict']] on_schema: Specifies the schema on which privileges will be granted.
         :param pulumi.Input[Union['GrantPrivilegesToAccountRoleOnSchemaObjectArgs', 'GrantPrivilegesToAccountRoleOnSchemaObjectArgsDict']] on_schema_object: Specifies the schema object on which privileges will be granted.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] privileges: The privileges to grant on the account role. This field is case-sensitive; use only upper-case privileges.
+        :param pulumi.Input[_builtins.bool] strict_privilege_management: (Default: `false`) If true, the resource will revoke all privileges that are not explicitly defined in the config making it a central source of truth for the privileges granted on an object to an account role. If false, the resource will be only concerned with the privileges that are explicitly defined in the config. The potential privilege removals will be planned only after second `pulumi up` run, after setting the flag in resource configuration. This means, the flag update doesn't revoke immediately any externally granted privileges. This is a Terraform limitation, and two steps are needed to properly show the potential privilege changes (e.g., revoking privileges not specified in the configuration) in the plan. External privileges will be detected regardless of their grant option. The parameter can be only used when `GRANTS_STRICT_PRIVILEGE_MANAGEMENT` option is specified in provider block in the `experimental_features_enabled` field. Regular and future grants are treated separately, meaning, more resources need to be defined to control regular and future grants for a given object and role (and for a given database or schema they're defined in for future grants). See our Strict privilege management guide for more information.
         :param pulumi.Input[_builtins.bool] with_grant_option: (Default: `false`) Specifies whether the grantee can grant the privileges to other users.
         """
         ...
@@ -410,33 +437,17 @@ class GrantPrivilegesToAccountRole(pulumi.CustomResource):
                  args: GrantPrivilegesToAccountRoleArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        ## Import
+        !> **Warning** Be careful when using `always_apply` field. It will always produce a plan (even when no changes were made) and can be harmful in some setups. For more details why we decided to introduce it to go our document explaining those design decisions (coming soon).
 
-        ### Import examples
+        > **Note** Manage grants on `HYBRID TABLE` by specifying `TABLE` or `TABLES` in `object_type` field. This applies to a single object, all objects, or future objects. This reflects the current behavior in Snowflake.
 
-        #### Grant all privileges OnAccountObject (Database)
+        > **Note** When granting privileges on applications (for example, the default "SNOWFLAKE" application) use `on_account_object.object_type = "DATABASE"` instead.
 
-        ```sh
-        $ pulumi import snowflake:index/grantPrivilegesToAccountRole:GrantPrivilegesToAccountRole example '"test_db_role"|false|false|ALL|OnAccountObject|DATABASE|"test_db"'`
-        ```
+        > **Note** When using `IMPORTED PRIVILEGES` privilege, the `with_grant_option` field is not supported. Additionally, when the `IMPORTED PRIVILEGES` privilege is not set in the config, and it is granted externally, this change is not detected because of Snowflake limitations. Also, granting individual privileges on imported database is not allowed, this is a Snowflake limitation. Use `IMPORTED PRIVILEGES` instead.
 
-        #### Grant list of privileges OnAllSchemasInDatabase
+        > **Note** Please, follow the [Snowflake documentation](https://docs.snowflake.com/en/user-guide/security-access-control-considerations) for best practices on access control. The provider does not enforce any specific methodology, so it is essential for users to choose the appropriate strategy for seamless privilege management. Additionally, refer to [this link](https://docs.snowflake.com/en/user-guide/security-access-control-privileges) for a list of all available privileges in Snowflake.
 
-        ```sh
-        $ pulumi import snowflake:index/grantPrivilegesToAccountRole:GrantPrivilegesToAccountRole example '"test_db_role"|false|false|CREATE TAG,CREATE TABLE|OnSchema|OnAllSchemasInDatabase|"test_db"'`
-        ```
-
-        #### Grant list of privileges on table
-
-        ```sh
-        $ pulumi import snowflake:index/grantPrivilegesToAccountRole:GrantPrivilegesToAccountRole example '"test_db_role"|false|false|SELECT,DELETE,INSERT|OnSchemaObject|OnObject|TABLE|"test_db"."test_schema"."test_table"'`
-        ```
-
-        #### Grant list of privileges OnAll tables in schema
-
-        ```sh
-        $ pulumi import snowflake:index/grantPrivilegesToAccountRole:GrantPrivilegesToAccountRole example '"test_db_role"|false|false|SELECT,DELETE,INSERT|OnSchemaObject|OnAll|TABLES|InSchema|"test_db"."test_schema"'`
-        ```
+        !> **Warning** The new `strict_privilege_management` flag was added. It has similar behavior to the `enable_multiple_grants` flag present in the old grant resources, and it makes the resource able to detect external changes for privileges other than those present in the configuration, which can make the resource a central point of knowledge privilege management for a given object and role. See our Strict privilege management guide for more information.
 
         :param str resource_name: The name of the resource.
         :param GrantPrivilegesToAccountRoleArgs args: The arguments to use to populate this resource's properties.
@@ -462,6 +473,7 @@ class GrantPrivilegesToAccountRole(pulumi.CustomResource):
                  on_schema: Optional[pulumi.Input[Union['GrantPrivilegesToAccountRoleOnSchemaArgs', 'GrantPrivilegesToAccountRoleOnSchemaArgsDict']]] = None,
                  on_schema_object: Optional[pulumi.Input[Union['GrantPrivilegesToAccountRoleOnSchemaObjectArgs', 'GrantPrivilegesToAccountRoleOnSchemaObjectArgsDict']]] = None,
                  privileges: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 strict_privilege_management: Optional[pulumi.Input[_builtins.bool]] = None,
                  with_grant_option: Optional[pulumi.Input[_builtins.bool]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
@@ -483,6 +495,7 @@ class GrantPrivilegesToAccountRole(pulumi.CustomResource):
             __props__.__dict__["on_schema"] = on_schema
             __props__.__dict__["on_schema_object"] = on_schema_object
             __props__.__dict__["privileges"] = privileges
+            __props__.__dict__["strict_privilege_management"] = strict_privilege_management
             __props__.__dict__["with_grant_option"] = with_grant_option
         super(GrantPrivilegesToAccountRole, __self__).__init__(
             'snowflake:index/grantPrivilegesToAccountRole:GrantPrivilegesToAccountRole',
@@ -503,6 +516,7 @@ class GrantPrivilegesToAccountRole(pulumi.CustomResource):
             on_schema: Optional[pulumi.Input[Union['GrantPrivilegesToAccountRoleOnSchemaArgs', 'GrantPrivilegesToAccountRoleOnSchemaArgsDict']]] = None,
             on_schema_object: Optional[pulumi.Input[Union['GrantPrivilegesToAccountRoleOnSchemaObjectArgs', 'GrantPrivilegesToAccountRoleOnSchemaObjectArgsDict']]] = None,
             privileges: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            strict_privilege_management: Optional[pulumi.Input[_builtins.bool]] = None,
             with_grant_option: Optional[pulumi.Input[_builtins.bool]] = None) -> 'GrantPrivilegesToAccountRole':
         """
         Get an existing GrantPrivilegesToAccountRole resource's state with the given name, id, and optional extra
@@ -513,12 +527,14 @@ class GrantPrivilegesToAccountRole(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] account_role_name: The fully qualified name of the account role to which privileges will be granted. For more information about this resource, see docs.
         :param pulumi.Input[_builtins.bool] all_privileges: (Default: `false`) Grant all privileges on the account role. When all privileges cannot be granted, the provider returns a warning, which is aligned with the Snowsight behavior.
+        :param pulumi.Input[_builtins.bool] always_apply: (Default: `false`) If true, the resource will always produce a “plan” and on “apply” it will re-grant defined privileges. It is supposed to be used only in “grant privileges on all X’s in database / schema Y” or “grant all privileges to X” scenarios to make sure that every new object in a given database / schema is granted by the account role and every new privilege is granted to the database role. Important note: this flag is not compliant with the Terraform assumptions of the config being eventually convergent (producing an empty plan).
         :param pulumi.Input[_builtins.str] always_apply_trigger: (Default: ``) This is a helper field and should not be set. Its main purpose is to help to achieve the functionality described by the always_apply field.
         :param pulumi.Input[_builtins.bool] on_account: (Default: `false`) If true, the privileges will be granted on the account.
         :param pulumi.Input[Union['GrantPrivilegesToAccountRoleOnAccountObjectArgs', 'GrantPrivilegesToAccountRoleOnAccountObjectArgsDict']] on_account_object: Specifies the account object on which privileges will be granted
         :param pulumi.Input[Union['GrantPrivilegesToAccountRoleOnSchemaArgs', 'GrantPrivilegesToAccountRoleOnSchemaArgsDict']] on_schema: Specifies the schema on which privileges will be granted.
         :param pulumi.Input[Union['GrantPrivilegesToAccountRoleOnSchemaObjectArgs', 'GrantPrivilegesToAccountRoleOnSchemaObjectArgsDict']] on_schema_object: Specifies the schema object on which privileges will be granted.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] privileges: The privileges to grant on the account role. This field is case-sensitive; use only upper-case privileges.
+        :param pulumi.Input[_builtins.bool] strict_privilege_management: (Default: `false`) If true, the resource will revoke all privileges that are not explicitly defined in the config making it a central source of truth for the privileges granted on an object to an account role. If false, the resource will be only concerned with the privileges that are explicitly defined in the config. The potential privilege removals will be planned only after second `pulumi up` run, after setting the flag in resource configuration. This means, the flag update doesn't revoke immediately any externally granted privileges. This is a Terraform limitation, and two steps are needed to properly show the potential privilege changes (e.g., revoking privileges not specified in the configuration) in the plan. External privileges will be detected regardless of their grant option. The parameter can be only used when `GRANTS_STRICT_PRIVILEGE_MANAGEMENT` option is specified in provider block in the `experimental_features_enabled` field. Regular and future grants are treated separately, meaning, more resources need to be defined to control regular and future grants for a given object and role (and for a given database or schema they're defined in for future grants). See our Strict privilege management guide for more information.
         :param pulumi.Input[_builtins.bool] with_grant_option: (Default: `false`) Specifies whether the grantee can grant the privileges to other users.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
@@ -534,6 +550,7 @@ class GrantPrivilegesToAccountRole(pulumi.CustomResource):
         __props__.__dict__["on_schema"] = on_schema
         __props__.__dict__["on_schema_object"] = on_schema_object
         __props__.__dict__["privileges"] = privileges
+        __props__.__dict__["strict_privilege_management"] = strict_privilege_management
         __props__.__dict__["with_grant_option"] = with_grant_option
         return GrantPrivilegesToAccountRole(resource_name, opts=opts, __props__=__props__)
 
@@ -556,6 +573,9 @@ class GrantPrivilegesToAccountRole(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter(name="alwaysApply")
     def always_apply(self) -> pulumi.Output[Optional[_builtins.bool]]:
+        """
+        (Default: `false`) If true, the resource will always produce a “plan” and on “apply” it will re-grant defined privileges. It is supposed to be used only in “grant privileges on all X’s in database / schema Y” or “grant all privileges to X” scenarios to make sure that every new object in a given database / schema is granted by the account role and every new privilege is granted to the database role. Important note: this flag is not compliant with the Terraform assumptions of the config being eventually convergent (producing an empty plan).
+        """
         return pulumi.get(self, "always_apply")
 
     @_builtins.property
@@ -605,6 +625,14 @@ class GrantPrivilegesToAccountRole(pulumi.CustomResource):
         The privileges to grant on the account role. This field is case-sensitive; use only upper-case privileges.
         """
         return pulumi.get(self, "privileges")
+
+    @_builtins.property
+    @pulumi.getter(name="strictPrivilegeManagement")
+    def strict_privilege_management(self) -> pulumi.Output[Optional[_builtins.bool]]:
+        """
+        (Default: `false`) If true, the resource will revoke all privileges that are not explicitly defined in the config making it a central source of truth for the privileges granted on an object to an account role. If false, the resource will be only concerned with the privileges that are explicitly defined in the config. The potential privilege removals will be planned only after second `pulumi up` run, after setting the flag in resource configuration. This means, the flag update doesn't revoke immediately any externally granted privileges. This is a Terraform limitation, and two steps are needed to properly show the potential privilege changes (e.g., revoking privileges not specified in the configuration) in the plan. External privileges will be detected regardless of their grant option. The parameter can be only used when `GRANTS_STRICT_PRIVILEGE_MANAGEMENT` option is specified in provider block in the `experimental_features_enabled` field. Regular and future grants are treated separately, meaning, more resources need to be defined to control regular and future grants for a given object and role (and for a given database or schema they're defined in for future grants). See our Strict privilege management guide for more information.
+        """
+        return pulumi.get(self, "strict_privilege_management")
 
     @_builtins.property
     @pulumi.getter(name="withGrantOption")

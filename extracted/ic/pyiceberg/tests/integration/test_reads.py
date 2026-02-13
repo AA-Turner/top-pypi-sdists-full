@@ -21,6 +21,7 @@ import time
 import uuid
 from datetime import datetime, timedelta
 from pathlib import PosixPath
+from typing import Any
 from urllib.parse import urlparse
 
 import pyarrow as pa
@@ -44,7 +45,6 @@ from pyiceberg.expressions import (
     NotNaN,
     NotNull,
 )
-from pyiceberg.io import PYARROW_USE_LARGE_TYPES_ON_READ
 from pyiceberg.io.pyarrow import (
     pyarrow_to_schema,
 )
@@ -132,6 +132,217 @@ def test_hive_properties(catalog: Catalog) -> None:
     with hive_client as open_client:
         hive_table = open_client.get_table(*TABLE_NAME)
         assert hive_table.parameters.get("abc") is None
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive")])
+def test_hive_preserves_hms_specific_properties(catalog: Catalog) -> None:
+    """Test that HMS-specific table properties are preserved during table commits.
+
+    This verifies that HMS-specific properties that are not managed by Iceberg
+    are preserved during commits, rather than being lost.
+
+    Regression test for: https://github.com/apache/iceberg-python/issues/2926
+    """
+    table = create_table(catalog)
+    hive_client: _HiveClient = _HiveClient(catalog.properties["uri"])
+    with hive_client as open_client:
+        hive_table = open_client.get_table(*TABLE_NAME)
+        # Add HMS-specific properties that aren't managed by Iceberg
+        hive_table.parameters["table_category"] = "production"
+        hive_table.parameters["data_owner"] = "data_team"
+        open_client.alter_table(TABLE_NAME[0], TABLE_NAME[1], hive_table)
+
+    with hive_client as open_client:
+        hive_table = open_client.get_table(*TABLE_NAME)
+        assert hive_table.parameters.get("table_category") == "production"
+        assert hive_table.parameters.get("data_owner") == "data_team"
+
+    table.transaction().set_properties({"iceberg_property": "new_value"}).commit_transaction()
+
+    # Verify that HMS-specific properties are STILL present after commit
+    with hive_client as open_client:
+        hive_table = open_client.get_table(*TABLE_NAME)
+        # HMS-specific properties should be preserved
+        assert hive_table.parameters.get("table_category") == "production", (
+            "HMS property 'table_category' was lost during commit!"
+        )
+        assert hive_table.parameters.get("data_owner") == "data_team", "HMS property 'data_owner' was lost during commit!"
+        # Iceberg properties should also be present
+        assert hive_table.parameters.get("iceberg_property") == "new_value"
+
+
+@pytest.mark.integration
+def test_iceberg_property_deletion_not_restored_from_old_hms_state(session_catalog_hive: Catalog) -> None:
+    """Test that deleted Iceberg properties are truly removed and not restored from old HMS state.
+
+    When a property is removed through Iceberg, it should be deleted from HMS and not
+    come back from the old HMS state during merge operations.
+    """
+    table = create_table(session_catalog_hive)
+    hive_client: _HiveClient = _HiveClient(session_catalog_hive.properties["uri"])
+
+    # Set multiple Iceberg properties
+    table.transaction().set_properties({"prop_to_keep": "keep_value", "prop_to_delete": "delete_me"}).commit_transaction()
+
+    # Verify both properties exist
+    with hive_client as open_client:
+        hive_table = open_client.get_table(*TABLE_NAME)
+        assert hive_table.parameters.get("prop_to_keep") == "keep_value"
+        assert hive_table.parameters.get("prop_to_delete") == "delete_me"
+
+    # Delete one property through Iceberg
+    table.transaction().remove_properties("prop_to_delete").commit_transaction()
+
+    # Verify property is deleted from HMS
+    with hive_client as open_client:
+        hive_table = open_client.get_table(*TABLE_NAME)
+        assert hive_table.parameters.get("prop_to_keep") == "keep_value"
+        assert hive_table.parameters.get("prop_to_delete") is None, "Deleted property should not exist in HMS!"
+
+    # Perform another Iceberg commit
+    table.transaction().set_properties({"new_prop": "new_value"}).commit_transaction()
+
+    # Ensure deleted property doesn't come back from old state
+    with hive_client as open_client:
+        hive_table = open_client.get_table(*TABLE_NAME)
+        assert hive_table.parameters.get("prop_to_keep") == "keep_value"
+        assert hive_table.parameters.get("new_prop") == "new_value"
+        assert hive_table.parameters.get("prop_to_delete") is None, "Deleted property should NOT be restored from old HMS state!"
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive")])
+def test_iceberg_metadata_is_source_of_truth(catalog: Catalog) -> None:
+    """Test that Iceberg metadata is the source of truth for all Iceberg-managed properties.
+
+    If an external tool sets an HMS property with the same name as an Iceberg-managed
+    property, Iceberg's value should win during commits.
+    """
+    table = create_table(catalog)
+    hive_client: _HiveClient = _HiveClient(catalog.properties["uri"])
+
+    # Set an Iceberg property
+    table.transaction().set_properties({"my_prop": "iceberg_value"}).commit_transaction()
+
+    # External tool modifies the same property in HMS
+    with hive_client as open_client:
+        hive_table = open_client.get_table(*TABLE_NAME)
+        hive_table.parameters["my_prop"] = "hms_value"  # Conflicting value
+        open_client.alter_table(TABLE_NAME[0], TABLE_NAME[1], hive_table)
+
+    # Verify HMS has the external value
+    with hive_client as open_client:
+        hive_table = open_client.get_table(*TABLE_NAME)
+        assert hive_table.parameters.get("my_prop") == "hms_value"
+
+    # Perform another Iceberg commit
+    table.transaction().set_properties({"another_prop": "test"}).commit_transaction()
+
+    # Iceberg's value should take precedence
+    with hive_client as open_client:
+        hive_table = open_client.get_table(*TABLE_NAME)
+        assert hive_table.parameters.get("my_prop") == "iceberg_value", (
+            "Iceberg property value should take precedence over conflicting HMS value!"
+        )
+        assert hive_table.parameters.get("another_prop") == "test"
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive")])
+def test_hive_critical_properties_always_from_iceberg(catalog: Catalog) -> None:
+    """Test that critical properties (EXTERNAL, table_type, metadata_location) always come from Iceberg.
+
+    These properties should never be carried over from old HMS state.
+    """
+    table = create_table(catalog)
+    hive_client: _HiveClient = _HiveClient(catalog.properties["uri"])
+
+    # Get original metadata_location
+    with hive_client as open_client:
+        hive_table = open_client.get_table(*TABLE_NAME)
+        original_metadata_location = hive_table.parameters.get("metadata_location")
+        assert original_metadata_location is not None
+        assert hive_table.parameters.get("EXTERNAL") == "TRUE"
+        assert hive_table.parameters.get("table_type") == "ICEBERG"
+
+    # Try to tamper with critical properties via HMS
+    with hive_client as open_client:
+        hive_table = open_client.get_table(*TABLE_NAME)
+        hive_table.parameters["EXTERNAL"] = "FALSE"  # Try to change
+        open_client.alter_table(TABLE_NAME[0], TABLE_NAME[1], hive_table)
+
+    # Perform Iceberg commit
+    table.transaction().set_properties({"test_prop": "value"}).commit_transaction()
+
+    # Critical properties should be restored by Iceberg
+    with hive_client as open_client:
+        hive_table = open_client.get_table(*TABLE_NAME)
+        assert hive_table.parameters.get("EXTERNAL") == "TRUE", "EXTERNAL should always be TRUE from Iceberg!"
+        assert hive_table.parameters.get("table_type") == "ICEBERG", "table_type should always be ICEBERG!"
+        # metadata_location should be updated (new metadata file)
+        new_metadata_location = hive_table.parameters.get("metadata_location")
+        assert new_metadata_location != original_metadata_location, "metadata_location should be updated!"
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive")])
+def test_hive_native_properties_cannot_be_deleted_via_iceberg(catalog: Catalog) -> None:
+    """Test that HMS-native properties (set outside Iceberg) cannot be deleted via Iceberg.
+
+    HMS-native properties are not visible to Iceberg, so remove_properties fails with KeyError.
+    However, if you first SET an HMS property via Iceberg (making it tracked in Iceberg metadata),
+    it can then be deleted via Iceberg.
+    """
+    table = create_table(catalog)
+    hive_client: _HiveClient = _HiveClient(catalog.properties["uri"])
+
+    # Set an HMS-native property directly (not through Iceberg)
+    with hive_client as open_client:
+        hive_table = open_client.get_table(*TABLE_NAME)
+        hive_table.parameters["hms_native_prop"] = "native_value"
+        open_client.alter_table(TABLE_NAME[0], TABLE_NAME[1], hive_table)
+
+    # Verify the HMS-native property exists in HMS
+    with hive_client as open_client:
+        hive_table = open_client.get_table(*TABLE_NAME)
+        assert hive_table.parameters.get("hms_native_prop") == "native_value"
+
+    # Refresh the Iceberg table to get the latest state
+    table.refresh()
+
+    # Verify the HMS-native property is NOT visible in Iceberg
+    assert "hms_native_prop" not in table.properties
+
+    # Attempt to remove the HMS-native property via Iceberg - this should fail
+    # because the property is not tracked in Iceberg metadata (not visible to Iceberg)
+    with pytest.raises(KeyError):
+        table.transaction().remove_properties("hms_native_prop").commit_transaction()
+
+    # HMS-native property should still exist (cannot be deleted via Iceberg)
+    with hive_client as open_client:
+        hive_table = open_client.get_table(*TABLE_NAME)
+        assert hive_table.parameters.get("hms_native_prop") == "native_value", (
+            "HMS-native property should still exist since Iceberg removal failed!"
+        )
+
+    # Now SET the same property via Iceberg (this makes it tracked in Iceberg metadata)
+    table.transaction().set_properties({"hms_native_prop": "iceberg_value"}).commit_transaction()
+
+    # Verify it's updated in both places
+    with hive_client as open_client:
+        hive_table = open_client.get_table(*TABLE_NAME)
+        assert hive_table.parameters.get("hms_native_prop") == "iceberg_value"
+
+    # Now we CAN delete it via Iceberg (because it's now tracked in Iceberg metadata)
+    table.transaction().remove_properties("hms_native_prop").commit_transaction()
+
+    # Property should be deleted from HMS
+    with hive_client as open_client:
+        hive_table = open_client.get_table(*TABLE_NAME)
+        assert hive_table.parameters.get("hms_native_prop") is None, (
+            "Property should be deletable after being SET via Iceberg (making it tracked)!"
+        )
 
 
 @pytest.mark.integration
@@ -332,7 +543,7 @@ def test_daft_nan(catalog: Catalog) -> None:
 def test_daft_nan_rewritten(catalog: Catalog) -> None:
     table_test_null_nan_rewritten = catalog.load_table("default.test_null_nan_rewritten")
     df = table_test_null_nan_rewritten.to_daft()
-    df = df.where(df["col_numeric"].float.is_nan())
+    df = df.where(df["col_numeric"].is_nan())
     df = df.select("idx", "col_numeric")
     assert df.count_rows() == 1
     assert df.to_pydict()["idx"][0] == 1
@@ -357,7 +568,7 @@ def test_bodo_nan(catalog: Catalog, monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.integration
 @pytest.mark.filterwarnings("ignore")
 @pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
-def test_ray_nan(catalog: Catalog) -> None:
+def test_ray_nan(catalog: Catalog, ray_session: Any) -> None:
     table_test_null_nan_rewritten = catalog.load_table("default.test_null_nan_rewritten")
     ray_dataset = table_test_null_nan_rewritten.scan().to_ray()
     assert ray_dataset.count() == 3
@@ -365,8 +576,9 @@ def test_ray_nan(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
+@pytest.mark.filterwarnings("ignore")
 @pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
-def test_ray_nan_rewritten(catalog: Catalog) -> None:
+def test_ray_nan_rewritten(catalog: Catalog, ray_session: Any) -> None:
     table_test_null_nan_rewritten = catalog.load_table("default.test_null_nan_rewritten")
     ray_dataset = table_test_null_nan_rewritten.scan(
         row_filter=IsNaN("col_numeric"), selected_fields=("idx", "col_numeric")
@@ -377,17 +589,19 @@ def test_ray_nan_rewritten(catalog: Catalog) -> None:
 
 
 @pytest.mark.integration
+@pytest.mark.filterwarnings("ignore")
 @pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
 @pytest.mark.skip(reason="Fixing issues with NaN's: https://github.com/apache/arrow/issues/34162")
-def test_ray_not_nan_count(catalog: Catalog) -> None:
+def test_ray_not_nan_count(catalog: Catalog, ray_session: Any) -> None:
     table_test_null_nan_rewritten = catalog.load_table("default.test_null_nan_rewritten")
     ray_dataset = table_test_null_nan_rewritten.scan(row_filter=NotNaN("col_numeric"), selected_fields=("idx",)).to_ray()
     assert ray_dataset.count() == 2
 
 
 @pytest.mark.integration
+@pytest.mark.filterwarnings("ignore")
 @pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
-def test_ray_all_types(catalog: Catalog) -> None:
+def test_ray_all_types(catalog: Catalog, ray_session: Any) -> None:
     table_test_all_types = catalog.load_table("default.test_all_types")
     ray_dataset = table_test_all_types.scan().to_ray()
     pandas_dataframe = table_test_all_types.scan().to_pandas()
@@ -432,6 +646,8 @@ def test_pyarrow_deletes(catalog: Catalog, format_version: int) -> None:
     #  (11, 'k'),
     #  (12, 'l')
     test_positional_mor_deletes = catalog.load_table(f"default.test_positional_mor_deletes_v{format_version}")
+    if format_version == 2:
+        assert len(test_positional_mor_deletes.inspect.delete_files()) > 0, "Table should produce position delete files"
     arrow_table = test_positional_mor_deletes.scan().to_arrow()
     assert arrow_table["number"].to_pylist() == [1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12]
 
@@ -470,6 +686,8 @@ def test_pyarrow_deletes_double(catalog: Catalog, format_version: int) -> None:
     #  (11, 'k'),
     #  (12, 'l')
     test_positional_mor_double_deletes = catalog.load_table(f"default.test_positional_mor_double_deletes_v{format_version}")
+    if format_version == 2:
+        assert len(test_positional_mor_double_deletes.inspect.delete_files()) > 0, "Table should produce position delete files"
     arrow_table = test_positional_mor_double_deletes.scan().to_arrow()
     assert arrow_table["number"].to_pylist() == [1, 2, 3, 4, 5, 7, 8, 10, 11, 12]
 
@@ -508,6 +726,8 @@ def test_pyarrow_batches_deletes(catalog: Catalog, format_version: int) -> None:
     #  (11, 'k'),
     #  (12, 'l')
     test_positional_mor_deletes = catalog.load_table(f"default.test_positional_mor_deletes_v{format_version}")
+    if format_version == 2:
+        assert len(test_positional_mor_deletes.inspect.delete_files()) > 0, "Table should produce position delete files"
     arrow_table = test_positional_mor_deletes.scan().to_arrow_batch_reader().read_all()
     assert arrow_table["number"].to_pylist() == [1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12]
 
@@ -550,6 +770,8 @@ def test_pyarrow_batches_deletes_double(catalog: Catalog, format_version: int) -
     #  (11, 'k'),
     #  (12, 'l')
     test_positional_mor_double_deletes = catalog.load_table(f"default.test_positional_mor_double_deletes_v{format_version}")
+    if format_version == 2:
+        assert len(test_positional_mor_double_deletes.inspect.delete_files()) > 0, "Table should produce position delete files"
     arrow_table = test_positional_mor_double_deletes.scan().to_arrow_batch_reader().read_all()
     assert arrow_table["number"].to_pylist() == [1, 2, 3, 4, 5, 7, 8, 10, 11, 12]
 
@@ -904,49 +1126,6 @@ def test_table_scan_keep_types(catalog: Catalog) -> None:
 
 @pytest.mark.integration
 @pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
-def test_table_scan_override_with_small_types(catalog: Catalog) -> None:
-    identifier = "default.test_table_scan_override_with_small_types"
-    arrow_table = pa.Table.from_arrays(
-        [
-            pa.array(["a", "b", "c"]),
-            pa.array(["a", "b", "c"]),
-            pa.array([b"a", b"b", b"c"]),
-            pa.array([["a", "b"], ["c", "d"], ["e", "f"]]),
-        ],
-        names=["string", "string-to-binary", "binary", "list"],
-    )
-
-    try:
-        catalog.drop_table(identifier)
-    except NoSuchTableError:
-        pass
-
-    tbl = catalog.create_table(
-        identifier,
-        schema=arrow_table.schema,
-    )
-
-    tbl.append(arrow_table)
-
-    with tbl.update_schema() as update_schema:
-        update_schema.update_column("string-to-binary", BinaryType())
-
-    tbl.io.properties[PYARROW_USE_LARGE_TYPES_ON_READ] = "False"
-    result_table = tbl.scan().to_arrow()
-
-    expected_schema = pa.schema(
-        [
-            pa.field("string", pa.string()),
-            pa.field("string-to-binary", pa.large_binary()),
-            pa.field("binary", pa.binary()),
-            pa.field("list", pa.list_(pa.string())),
-        ]
-    )
-    assert result_table.schema.equals(expected_schema)
-
-
-@pytest.mark.integration
-@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog_hive"), pytest.lazy_fixture("session_catalog")])
 def test_empty_scan_ordered_str(catalog: Catalog) -> None:
     table_empty_scan_ordered_str = catalog.load_table("default.test_empty_scan_ordered_str")
     arrow_table = table_empty_scan_ordered_str.scan(EqualTo("id", "b")).to_arrow()
@@ -1075,3 +1254,20 @@ def test_filter_after_arrow_scan(catalog: Catalog) -> None:
 
     scan = scan.filter("ts >= '2023-03-05T00:00:00+00:00'")
     assert len(scan.to_arrow()) > 0
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("catalog", [pytest.lazy_fixture("session_catalog")])
+def test_scan_source_field_missing_in_spec(catalog: Catalog, spark: SparkSession) -> None:
+    identifier = "default.test_dropped_field"
+    spark.sql(f"DROP TABLE IF EXISTS {identifier}")
+    spark.sql(f"CREATE TABLE {identifier} (foo int, bar int, jaz string) USING ICEBERG PARTITIONED BY (foo, bar)")
+    spark.sql(
+        f"INSERT INTO {identifier} (foo, bar, jaz) VALUES "
+        f"(1, 1, 'dummy data'), (1, 2, 'dummy data again'), (2, 1, 'another partition')"
+    )
+    spark.sql(f"ALTER TABLE {identifier} DROP PARTITION FIELD foo")
+    spark.sql(f"ALTER TABLE {identifier} DROP COLUMN  foo")
+
+    table = catalog.load_table(identifier)
+    assert len(list(table.scan().plan_files())) == 3

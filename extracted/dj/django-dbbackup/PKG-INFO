@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-dbbackup
-Version: 5.1.2
+Version: 5.2.0
 Summary: Management commands to help backup and restore a project database and media.
 Project-URL: Changelog, https://archmonger.github.io/django-dbbackup /latest/changelog/
 Project-URL: Documentation, https://archmonger.github.io/django-dbbackup
@@ -58,12 +58,12 @@ This Django application provides management commands to help backup and restore 
 
 The main features include:
 
--   Secure your backup with GPG signature and encryption.
--   Archive with compression.
--   Easily manage remote archiving.
--   Keep your development database up to date.
--   Set up automated backups with Crontab or Celery.
--   Manually backup and restore via Django management commands.
+- Secure your backup with GPG signature and encryption.
+- Archive with compression.
+- Easily manage remote archiving.
+- Keep your development database up to date.
+- Set up automated backups with Crontab or Celery.
+- Manually backup and restore via Django management commands.
 
 <!--docs-top-end-->
 

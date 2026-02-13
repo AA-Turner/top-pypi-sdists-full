@@ -12,12 +12,12 @@ async def main(grpc_port: int = 50051):
         loaded_config = json.load(file)
         logging.config.dictConfig(loaded_config)
     try:
-        import uvloop  # type: ignore[unresolved-import]
+        import uvloop  # type: ignore[unresolved-import]  # noqa: PLC0415
 
         uvloop.install()
     except ImportError:
         pass
-    from langgraph_api import config
+    from langgraph_api import config  # noqa: PLC0415
 
     config.IS_EXECUTOR_ENTRYPOINT = True
     await queue_main(grpc_port=grpc_port, entrypoint_name="python-executor")

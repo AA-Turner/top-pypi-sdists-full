@@ -257,41 +257,6 @@ class CfnCacheCluster(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
-    @jsii.member(jsii_name="arnForCacheCluster")
-    @builtins.classmethod
-    def arn_for_cache_cluster(
-        cls,
-        resource: "_ICacheClusterRef_a6e2b9ff",
-    ) -> builtins.str:
-        '''
-        :param resource: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__661c5d674c4f43d1df87bbb0c4a0b4a47f6b3876116405904b1e4bf12621e56f)
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCacheCluster", [resource]))
-
-    @jsii.member(jsii_name="fromClusterName")
-    @builtins.classmethod
-    def from_cluster_name(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        cluster_name: builtins.str,
-    ) -> "_ICacheClusterRef_a6e2b9ff":
-        '''Creates a new ICacheClusterRef from a clusterName.
-
-        :param scope: -
-        :param id: -
-        :param cluster_name: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d74e4bcc6796796231492f44cfb4599555abca30d4a59e0dcaf41b1cc02d876)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
-        return typing.cast("_ICacheClusterRef_a6e2b9ff", jsii.sinvoke(cls, "fromClusterName", [scope, id, cluster_name]))
-
     @jsii.member(jsii_name="isCfnCacheCluster")
     @builtins.classmethod
     def is_cfn_cache_cluster(cls, x: typing.Any) -> builtins.bool:
@@ -8239,20 +8204,6 @@ def _typecheckingstub__4b878d00130d900710d9efbde27b5162741ad68343a5e4b8b7283244b
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     transit_encryption_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__661c5d674c4f43d1df87bbb0c4a0b4a47f6b3876116405904b1e4bf12621e56f(
-    resource: _ICacheClusterRef_a6e2b9ff,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1d74e4bcc6796796231492f44cfb4599555abca30d4a59e0dcaf41b1cc02d876(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    cluster_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

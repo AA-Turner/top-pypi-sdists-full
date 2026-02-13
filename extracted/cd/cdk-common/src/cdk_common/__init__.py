@@ -5876,6 +5876,10 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    PARTNER_CENTRAL_INCENTIVE_BENEFIT_MANAGEMENT = "PARTNER_CENTRAL_INCENTIVE_BENEFIT_MANAGEMENT"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

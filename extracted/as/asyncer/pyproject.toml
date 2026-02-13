@@ -41,7 +41,7 @@ dependencies = [
     "sniffio >=1.1",
     "typing_extensions >=4.8.0; python_version < '3.10'",
 ]
-version = "0.0.12"
+version = "0.0.13"
 
 [project.urls]
 Homepage = "https://github.com/fastapi/asyncer"
@@ -50,7 +50,40 @@ Repository = "https://github.com/fastapi/asyncer"
 Issues = "https://github.com/fastapi/asyncer/issues"
 Changelog = "https://asyncer.tiangolo.com/release-notes/"
 
-[project.optional-dependencies]
+[dependency-groups]
+dev = [
+    { include-group = "docs" },
+    { include-group = "tests" },
+    "prek>=0.2.24,<1.0.0",
+]
+docs = [
+    "cairosvg==2.8.2",
+    "griffe-typingdoc==0.3.0",
+    "griffe-warnings-deprecated==1.1.0",
+    "markdown-include-variants==0.0.8",
+    "mdx-include>=1.4.1,<2.0.0",
+    "mkdocs-macros-plugin==1.5.0",
+    "mkdocs-material==9.7.1",
+    "mkdocs-redirects>=1.2.1,<1.3.0",
+    "mkdocstrings[python]==0.30.1",
+    "pillow==11.3.0",
+    "pyyaml>=5.3.1,<7.0.0",
+    "typer==0.21.1",
+    "zensical==0.0.15; python_version >= '3.10'",
+]
+github-actions = [
+    "httpx>=0.27.0,<0.29.0",
+    "pydantic>=2.5.3,<3.0.0",
+    "pydantic-settings>=2.1.0,<3.0.0",
+    "pygithub>=2.3.0,<3.0.0",
+    "smokeshow>=0.5.0",
+]
+tests = [
+    "coverage[toml]>=6.2,<8.0",
+    "mypy==1.19.1",
+    "pytest>=7.0.1,<9.0.0",
+    "ruff==0.15.0",
+]
 
 [tool.pdm]
 distribution = true
@@ -63,14 +96,30 @@ path = "asyncer/__init__.py"
 source-includes = [
     "tests/",
     "docs_src/",
-    "requirements*.txt",
     "scripts/",
 ]
 
 [tool.tiangolo._internal-slim-build.packages.asyncer-slim.project]
 name = "asyncer-slim"
+readme = "asyncer-slim/README.md"
+dependencies = [
+    "asyncer",
+]
 
-[tool.tiangolo._internal-slim-build.packages.asyncer.project.optional-dependencies]
+[tool.tiangolo._internal-slim-build.packages.asyncer-slim.project.optional-dependencies]
+
+[tool.tiangolo._internal-slim-build.packages.asyncer-slim.project.scripts]
+
+[tool.tiangolo._internal-slim-build.packages.asyncer-slim.tool.pdm.build]
+excludes = [
+    "asyncer",
+    "docs_src",
+    "tests",
+    "pdm_build.py",
+]
+source-includes = [
+    "",
+]
 
 [tool.coverage.run]
 parallel = true
@@ -80,6 +129,7 @@ source = [
     "tests",
     "asyncer",
 ]
+relative_files = true
 context = "${CONTEXT}"
 dynamic_context = "test_function"
 

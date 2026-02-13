@@ -11,7 +11,7 @@ from websocket._core import WebSocket
 
 from adam.utils_color import Color
 from adam.utils_log import log_timing, PodLogFile, log2, debug, log_exc
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.utils_k8s.kube_context import KubeContext
 from adam.utils_k8s.volumes import ConfigMapMount
 from adam.utils_k8s.pod_exec_result import PodExecResult
@@ -49,7 +49,7 @@ class Pods:
              command: str,
              shell = '/bin/sh',
              env_prefix: str = None,
-             ctx: Context = Context.NULL):
+             ctx = NULL):
         if command.endswith(' &') or ctx and ctx.background:
             cmd, _ = Pods._get_command_with_context(pod_name, container, namespace, command, shell, env_prefix, ctx)
             return cmd
@@ -64,7 +64,7 @@ class Pods:
              shell = '/bin/sh',
              interaction: Callable[[any, list[str]], any] = None,
              env_prefix: str = None,
-             ctx: Context = Context.NULL):
+             ctx = NULL):
         if _TEST_POD_EXEC_OUTS:
             return _TEST_POD_EXEC_OUTS
 
@@ -153,7 +153,7 @@ class Pods:
                                        command: str,
                                        shell = '/bin/sh',
                                        env_prefix: str = None,
-                                       ctx: Context = Context.NULL):
+                                       ctx = NULL):
         cmd, log_file = Pods._get_command_with_context(pod_name, container, namespace, command, shell, env_prefix, ctx)
 
         result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
@@ -165,7 +165,7 @@ class Pods:
                                        command: str,
                                        shell = '/bin/sh',
                                        env_prefix: str = None,
-                                       ctx: Context = Context.NULL):
+                                       ctx = NULL):
         command = command.strip(' &')
 
         if env_prefix:

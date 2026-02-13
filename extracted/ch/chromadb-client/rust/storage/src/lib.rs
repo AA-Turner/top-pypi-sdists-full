@@ -9,15 +9,18 @@ use chroma_error::{ChromaError, ErrorCodes};
 pub mod admissioncontrolleds3;
 pub mod config;
 pub mod local;
+pub mod metrics;
 pub mod object_storage;
 pub mod s3;
-pub mod stream;
 use chroma_types::Cmek;
 use local::LocalStorage;
 use tempfile::TempDir;
 use thiserror::Error;
 
-pub use s3::{s3_client_for_test_with_new_bucket, s3_config_for_localhost_with_bucket_name};
+pub use config::{S3CredentialsConfig, S3StorageConfig};
+pub use s3::{
+    s3_client_for_test_with_new_bucket, s3_config_for_localhost_with_bucket_name, S3Storage,
+};
 
 /// A StorageError captures all kinds of errors that can come from storage.
 //
@@ -452,6 +455,15 @@ impl Storage {
             Storage::AdmissionControlledS3(acs3) => acs3.list_prefix(prefix, options).await,
         }
     }
+
+    pub fn bucket(&self) -> Option<&str> {
+        match self {
+            Storage::Local(_) => None,
+            Storage::S3(s3) => s3.bucket(),
+            Storage::Object(obj) => obj.bucket(),
+            Storage::AdmissionControlledS3(acs3) => acs3.storage.bucket(),
+        }
+    }
 }
 
 #[async_trait]
@@ -569,3 +581,13 @@ impl DeleteOptions {
 
 #[derive(Clone, Eq, PartialEq, Debug, serde::Deserialize, serde::Serialize)]
 pub struct ETag(pub String);
+
+/// Metadata about an S3 object returned by `head_object()`.
+#[derive(Clone, Debug)]
+pub struct S3ObjectMetadata {
+    pub object_key: String,
+    pub etag: Option<ETag>,
+    pub content_length: i64,
+    pub content_type: Option<String>,
+    pub last_modified: Option<std::time::SystemTime>,
+}

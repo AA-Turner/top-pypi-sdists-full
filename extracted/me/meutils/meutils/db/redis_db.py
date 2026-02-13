@@ -12,12 +12,33 @@
 import os
 from redis import Redis, ConnectionPool
 from redis.asyncio import Redis as AsyncRedis, ConnectionPool as AsyncConnectionPool
+from meutils.request_utils.ip import get_myip
 
-kwargs = {
-    "retry_on_timeout": True,
-    # "db": 6
-}
-if REDIS_URL := os.getenv("REDIS_URL"):
+REDIS_NAME = "REDIS_URL" if get_myip() else "OVERSEAS_REDIS_URL"  # 自动判断海外
+
+kwargs = dict(
+    # --- 关键配置：保活与自动恢复 ---
+
+    # [最大连接数] 防止高并发下创建过多连接把 Redis 撑爆
+    # 异步环境下，协程数可能远大于连接数，这个限制很有必要
+    max_connections=1024,
+
+    # [健康检查] 关键参数！
+    # 获取连接时，如果连接空闲超过 30 秒，发送 PING 检查。
+    # 如果 PING 失败，自动回收坏连接并创建新连接。
+    health_check_interval=30,
+
+    # [TCP 保活] 操作系统层面的 Keepalive，防止僵尸连接
+    socket_keepalive=True,
+
+    # [连接超时] 建立 TCP 连接的最大等待时间
+    socket_connect_timeout=5,
+
+    # [读写超时] (可选) 防止网络卡死导致协程一直挂起
+    # socket_timeout=2.0
+)
+
+if REDIS_URL := os.getenv(REDIS_NAME) or os.getenv("REDIS_URL"):  # 默认国内
     # logger.debug(REDIS_URL)
 
     pool = ConnectionPool.from_url(REDIS_URL, **kwargs)
@@ -41,7 +62,7 @@ async def sadd(name, *values, ttl: int = 0):
 
 
 if __name__ == '__main__':
-    from meutils.pipe import *
+    # from meutils.pipe import *
 
     # print(arun(redis_aclient.get("")))
     # print(redis_client.lrange("https://api.moonshot.cn/v1",0, -1))
@@ -106,28 +127,3 @@ if __name__ == '__main__':
     # redis_client.set("pods", "10.219.11.231 114.66.55.228")
 
     # redis_client.get("sora")
-
-    # 失敗重置
-    ids = """
-    2ab9abf4-8056-47ae-9db1-cbc17e61db50
-    8a85b065-a312-4789-945b-6d7d799dc9df
-    f1091b85-8a62-4d05-ab84-884b69f376e2
-    b4282c43-0c51-4c8b-904c-aee3f9872636
-    c5d5d701-9df8-4a36-856e-1ecbad40d1a2
-    66c4c47a-c501-4172-bc78-4f82c20a34fb
-    c8db3442-ffc2-43a8-910d-df99f94a20e0
-    7ac0fd4f-891a-4ec7-accd-37cac92ed010
-    """
-
-    for task_id in ids.split():
-        s = {
-            "id": task_id,
-            "error": {
-                "code": "2400002",
-                "message": "文案违反社区规范，请更换文案后重试"
-            },
-            "object": "video",
-            "status": "failed"
-        }
-        logger.debug(s)
-        redis_client.set(f"request-failed:{task_id}", json.dumps(s), ex=1000)

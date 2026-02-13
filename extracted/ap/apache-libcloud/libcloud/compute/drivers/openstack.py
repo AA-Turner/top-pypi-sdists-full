@@ -1565,6 +1565,8 @@ class OpenStack_1_1_NodeDriver(OpenStackNodeDriver):
                 progress=api_image.get("progress"),
                 metadata=api_image.get("metadata"),
                 os_type=api_image.get("os_type"),
+                os_distro=api_image.get("os_distro"),
+                os_version=api_image.get("os_version"),
                 serverId=server.get("id"),
                 minDisk=min_disk,
                 minRam=min_ram,
@@ -3158,6 +3160,12 @@ class OpenStack_2_NodeDriver(OpenStack_1_1_NodeDriver):
             extra["router:external"] = obj.get("router:external")
         if obj.get("subnets", None):
             extra["subnets"] = obj.get("subnets")
+        if obj.get("tags", None):
+            extra["tags"] = obj.get("tags")
+        if obj.get("is_default", None) is not None:
+            extra["is_default"] = obj.get("is_default")
+        if obj.get("description", None) is not None:
+            extra["description"] = obj.get("description")
         return OpenStackNetwork(id=obj["id"], name=obj["name"], cidr=None, driver=self, extra=extra)
 
     def ex_list_networks(self):
@@ -4290,7 +4298,7 @@ class OpenStack_2_NodeDriver(OpenStack_1_1_NodeDriver):
         resp = self.network_connection.request("/v2.0/floatingips/%s" % ip.id, method="DELETE")
         return resp.status in (httplib.NO_CONTENT, httplib.ACCEPTED)
 
-    def ex_attach_floating_ip_to_node(self, node, ip):
+    def ex_attach_floating_ip_to_node(self, node, ip, port_id=None):
         """
         Attach the floating IP to the node
 
@@ -4299,6 +4307,9 @@ class OpenStack_2_NodeDriver(OpenStack_1_1_NodeDriver):
 
         :param      ip: floating IP to attach
         :type       ip: ``str`` or :class:`OpenStack_1_1_FloatingIpAddress`
+
+        :param      port_id: Optional node port ID to attach the floating IP
+        :type       port_id: ``str``
 
         :rtype: ``bool``
         """
@@ -4312,13 +4323,16 @@ class OpenStack_2_NodeDriver(OpenStack_1_1_NodeDriver):
                     ip_id = fip.id
         if not ip_id:
             return False
-        ports = self.ex_get_node_ports(node)
-        if ports:
+        if not port_id:
+            ports = self.ex_get_node_ports(node)
+            if ports:
+                port_id = ports[0].id
+        if port_id:
             # Set to the first node port
             resp = self.network_connection.request(
                 "/v2.0/floatingips/%s" % ip_id,
                 method="PUT",
-                data={"floatingip": {"port_id": ports[0].id}},
+                data={"floatingip": {"port_id": port_id}},
             )
             return resp.status == httplib.OK
         else:

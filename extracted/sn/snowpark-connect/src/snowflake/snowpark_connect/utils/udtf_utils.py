@@ -17,6 +17,13 @@ import snowflake.snowpark.functions as snowpark_fn
 from snowflake import snowpark
 from snowflake.snowpark.types import StructType, VariantType
 
+# Package names for UDTFs
+TELEMETRY_PACKAGE = "snowflake-telemetry-python"
+
+# Flag to enable/disable automatic telemetry wrapper for UDTFs
+# When True, UDTFs will automatically emit telemetry events at start/completion
+ENABLE_UDTF_TELEMETRY = True
+
 
 # DUPLICATED CODE from pandas_udtf_utils.py to avoid incorrect loading for stored procedure UDTF creation
 def process_dependencies_string_array(input_str: str) -> list[str]:
@@ -94,18 +101,73 @@ def create_udtf(
         # Wrapp callable to allow reading imported files
         callable_func = artifacts_reader_wrapper(callable_func)
 
+    # Get the function name for telemetry
+    function_name = udtf_proto.function_name if udtf_proto.function_name else None
+
     if is_arrow_enabled:
         callable_func = spark_compatible_udtf_wrapper_with_arrow(
-            callable_func, expected_types
+            callable_func,
+            expected_types,
+            function_name,
+            enable_telemetry=ENABLE_UDTF_TELEMETRY,
         )
     elif is_spark_compatible_udtf_mode_enabled:
-        callable_func = spark_compatible_udtf_wrapper(callable_func, expected_types)
+        callable_func = spark_compatible_udtf_wrapper(
+            callable_func,
+            expected_types,
+            function_name,
+            enable_telemetry=ENABLE_UDTF_TELEMETRY,
+        )
     else:
-        callable_func.process = original_func
+        # For simple case (no arrow, no spark-compatible mode), add telemetry wrapper.
+        # We preserve the original method's signature/annotations for validation by copying
+        # them to the wrapper function. This allows Snowpark to validate type hints
+        # (e.g., reject Row type parameters) while still emitting telemetry.
+        if ENABLE_UDTF_TELEMETRY:
+
+            def process_with_telemetry(self, *args, **kwargs):
+                try:
+                    from snowflake import telemetry
+
+                    telemetry.set_span_attribute(
+                        "udtf.name", function_name or "anonymous_udtf"
+                    )
+                    telemetry.add_event("udtf_invocation_start", {})
+                except Exception:
+                    pass
+                try:
+                    # Use self.eval() to properly delegate through any wrappers
+                    result = self.eval(*args, **kwargs)
+                    # Handle UDTFs where eval() returns None (state accumulation pattern)
+                    # and actual output comes from terminate()
+                    if result is not None:
+                        yield from result
+                finally:
+                    try:
+                        from snowflake import telemetry
+
+                        telemetry.add_event("udtf_invocation_complete", {})
+                    except Exception:
+                        pass
+
+            # Preserve original signature and annotations for validation
+            process_with_telemetry.__signature__ = inspect.signature(original_func)
+            process_with_telemetry.__annotations__ = getattr(
+                original_func, "__annotations__", {}
+            )
+            callable_func.process = process_with_telemetry
+        else:
+            callable_func.process = original_func
+
+        # Map terminate to end_partition - Snowflake uses end_partition, not terminate
         if hasattr(callable_func, "terminate"):
             callable_func.end_partition = callable_func.terminate
 
-    packages = process_udtf_packages(packages, is_arrow_enabled)
+    # Add telemetry package if telemetry is enabled
+    custom_packages = [TELEMETRY_PACKAGE] if ENABLE_UDTF_TELEMETRY else None
+    packages = process_udtf_packages(
+        packages, is_arrow_enabled, custom_packages=custom_packages
+    )
     imports = process_dependencies_string_array(imports)
     match called_from:
         case "register_udtf":
@@ -292,7 +354,10 @@ def _create_convert_table_argument_to_row():
 
 
 def spark_compatible_udtf_wrapper(
-    user_udtf_cls: type, expected_types: list[tuple[str, Any]]
+    user_udtf_cls: type,
+    expected_types: list[tuple[str, Any]],
+    udtf_name: str | None = None,
+    enable_telemetry: bool = True,
 ) -> type:
     """
     UDTF Wrapper class to mimic Spark's output type coercion and error handling.
@@ -472,64 +537,91 @@ def spark_compatible_udtf_wrapper(
                 )
 
         def process(self, *args, **kwargs):
-            # Pre-process args and kwargs to convert SqlNullWrapper to None before calling user's eval
-            processed_args = [
-                None if type(arg).__name__ == "sqlNullWrapper" else arg for arg in args
-            ]
-            processed_kwargs = {
-                k: (None if type(v).__name__ == "sqlNullWrapper" else v)
-                for k, v in kwargs.items()
-            }
+            # Emit telemetry start event (inline, mirroring UDF pattern)
+            if enable_telemetry:
+                try:
+                    from snowflake import telemetry
 
-            # Convert table arguments to Row-like objects that support both positional and named access
-            processed_args = [
-                convert_table_argument_to_row(arg) for arg in processed_args
-            ]
-            processed_kwargs = {
-                k: convert_table_argument_to_row(v) for k, v in processed_kwargs.items()
-            }
-
-            result_iter = self._user_method(*processed_args, **processed_kwargs)
-            if result_iter is None:
-                return  # Do not yield anything, so result is []
-
-            for raw_row_tuple in result_iter:
-                if raw_row_tuple is None:
-                    yield tuple([None] * len(expected_types))
-                    continue
-
-                if not isinstance(raw_row_tuple, (tuple, list)):
-                    raise TypeError(
-                        f"[snowpark_connect::type_mismatch] [UDTF_INVALID_OUTPUT_ROW_TYPE] return value should be an iterable object containing tuples, but got {type(raw_row_tuple)}"
+                    telemetry.set_span_attribute(
+                        "udtf.name", udtf_name or "anonymous_udtf"
                     )
+                    telemetry.add_event("udtf_invocation_start", {})
+                except Exception:
+                    # Silently ignore telemetry errors to not affect UDTF execution
+                    pass
 
-                if len(raw_row_tuple) != len(expected_types):
-                    raise RuntimeError(
-                        f"[UDTF_RETURN_SCHEMA_MISMATCH] The number of columns in the result does not match the specified schema. Expected {len(expected_types)} columns, but got {len(raw_row_tuple)}"
-                    )
+            try:
+                # Pre-process args and kwargs to convert SqlNullWrapper to None before calling user's eval
+                processed_args = [
+                    None if type(arg).__name__ == "sqlNullWrapper" else arg
+                    for arg in args
+                ]
+                processed_kwargs = {
+                    k: (None if type(v).__name__ == "sqlNullWrapper" else v)
+                    for k, v in kwargs.items()
+                }
 
-                # Check for struct type mismatch
-                for i, (val, type_info) in enumerate(
-                    zip(raw_row_tuple, expected_types)
-                ):
-                    kind, type_marker = type_info
-                    # If expected type is struct but received a scalar primitive value
-                    if (
-                        kind == "struct"
-                        and not isinstance(val, (dict, list, tuple))
-                        and val is not None
-                    ):
-                        raise RuntimeError(
-                            f"[snowpark_connect::type_mismatch] [UNEXPECTED_TUPLE_WITH_STRUCT] Expected a struct for column at position {i}, but got a primitive value of type {type(val)}"
+                # Convert table arguments to Row-like objects that support both positional and named access
+                processed_args = [
+                    convert_table_argument_to_row(arg) for arg in processed_args
+                ]
+                processed_kwargs = {
+                    k: convert_table_argument_to_row(v)
+                    for k, v in processed_kwargs.items()
+                }
+
+                result_iter = self._user_method(*processed_args, **processed_kwargs)
+                if result_iter is None:
+                    return  # Do not yield anything, so result is []
+
+                for raw_row_tuple in result_iter:
+                    if raw_row_tuple is None:
+                        yield tuple([None] * len(expected_types))
+                        continue
+
+                    if not isinstance(raw_row_tuple, (tuple, list)):
+                        raise TypeError(
+                            f"[snowpark_connect::type_mismatch] [UDTF_INVALID_OUTPUT_ROW_TYPE] return value should be an iterable object containing tuples, but got {type(raw_row_tuple)}"
                         )
 
-                coerced_row_list = [None] * len(expected_types)
-                for i, (val, type_info) in enumerate(
-                    zip(raw_row_tuple, expected_types)
-                ):
-                    coerced_row_list[i] = _spark_coerce_value_recursive(val, type_info)
+                    if len(raw_row_tuple) != len(expected_types):
+                        raise RuntimeError(
+                            f"[UDTF_RETURN_SCHEMA_MISMATCH] The number of columns in the result does not match the specified schema. Expected {len(expected_types)} columns, but got {len(raw_row_tuple)}"
+                        )
 
-                yield tuple(coerced_row_list)
+                    # Check for struct type mismatch
+                    for i, (val, type_info) in enumerate(
+                        zip(raw_row_tuple, expected_types)
+                    ):
+                        kind, type_marker = type_info
+                        # If expected type is struct but received a scalar primitive value
+                        if (
+                            kind == "struct"
+                            and not isinstance(val, (dict, list, tuple))
+                            and val is not None
+                        ):
+                            raise RuntimeError(
+                                f"[snowpark_connect::type_mismatch] [UNEXPECTED_TUPLE_WITH_STRUCT] Expected a struct for column at position {i}, but got a primitive value of type {type(val)}"
+                            )
+
+                    coerced_row_list = [None] * len(expected_types)
+                    for i, (val, type_info) in enumerate(
+                        zip(raw_row_tuple, expected_types)
+                    ):
+                        coerced_row_list[i] = _spark_coerce_value_recursive(
+                            val, type_info
+                        )
+
+                    yield tuple(coerced_row_list)
+            finally:
+                # Emit telemetry complete event
+                if enable_telemetry:
+                    try:
+                        from snowflake import telemetry
+
+                        telemetry.add_event("udtf_invocation_complete", {})
+                    except Exception:
+                        pass
 
         def end_partition(self, *args, **kwargs):
             if hasattr(self._user_instance, "terminate") and callable(
@@ -541,7 +633,10 @@ def spark_compatible_udtf_wrapper(
 
 
 def spark_compatible_udtf_wrapper_with_arrow(
-    user_udtf_cls: type, expected_types: list[tuple[str, Any]]
+    user_udtf_cls: type,
+    expected_types: list[tuple[str, Any]],
+    udtf_name: str | None = None,
+    enable_telemetry: bool = True,
 ) -> type:
     import pyarrow as pa
 
@@ -798,51 +893,76 @@ def spark_compatible_udtf_wrapper_with_arrow(
                 )
 
         def process(self, *args, **kwargs):
-            # Pre-process args and kwargs to convert SqlNullWrapper to None before calling user's eval
-            processed_args = [
-                None if type(arg).__name__ == "sqlNullWrapper" else arg for arg in args
-            ]
-            processed_kwargs = {
-                k: (None if type(v).__name__ == "sqlNullWrapper" else v)
-                for k, v in kwargs.items()
-            }
+            # Emit telemetry start event (inline, mirroring UDF pattern)
+            if enable_telemetry:
+                try:
+                    from snowflake import telemetry
 
-            # Convert table arguments and regular dicts to Row-like objects that support both positional and named access
-            processed_args = [
-                convert_table_argument_to_row(arg) for arg in processed_args
-            ]
-            processed_kwargs = {
-                k: convert_table_argument_to_row(v) for k, v in processed_kwargs.items()
-            }
-
-            result_iter = self._user_method(*processed_args, **processed_kwargs)
-            if result_iter is None:
-                return  # Do not yield anything, so result is []
-
-            for raw_row_output in result_iter:
-                if not isinstance(raw_row_output, (tuple,)):
-                    if len(expected_types) == 1:
-                        raw_row_tuple = (raw_row_output,)
-                    else:  # If multiple output columns expected, but not a tuple, this is a mismatch
-                        raise ValueError(
-                            f"[UDTF_RETURN_SCHEMA_MISMATCH] Expected a tuple of length {len(expected_types)} for multiple output columns, but got {type(raw_row_output).__name__}"
-                        )
-                else:
-                    raw_row_tuple = raw_row_output
-
-                if len(raw_row_tuple) != len(expected_types):
-                    raise ValueError(
-                        f"[UDTF_RETURN_SCHEMA_MISMATCH] The number of columns in the result does not match the specified schema. Expected {len(expected_types)} columns, but got {len(raw_row_tuple)}"
+                    telemetry.set_span_attribute(
+                        "udtf.name", udtf_name or "anonymous_udtf"
                     )
+                    telemetry.add_event("udtf_invocation_start", {})
+                except Exception:
+                    # Silently ignore telemetry errors to not affect UDTF execution
+                    pass
 
-                coerced_row_list = [None] * len(expected_types)
-                for i, (val, type_info) in enumerate(
-                    zip(raw_row_tuple, expected_types)
-                ):
-                    arrow_type = _python_type_to_arrow_type_impl(type_info)
-                    coerced_row_list[i] = _convert_to_arrow_value(val, arrow_type)
+            try:
+                # Pre-process args and kwargs to convert SqlNullWrapper to None before calling user's eval
+                processed_args = [
+                    None if type(arg).__name__ == "sqlNullWrapper" else arg
+                    for arg in args
+                ]
+                processed_kwargs = {
+                    k: (None if type(v).__name__ == "sqlNullWrapper" else v)
+                    for k, v in kwargs.items()
+                }
 
-                yield tuple(coerced_row_list)
+                # Convert table arguments and regular dicts to Row-like objects that support both positional and named access
+                processed_args = [
+                    convert_table_argument_to_row(arg) for arg in processed_args
+                ]
+                processed_kwargs = {
+                    k: convert_table_argument_to_row(v)
+                    for k, v in processed_kwargs.items()
+                }
+
+                result_iter = self._user_method(*processed_args, **processed_kwargs)
+                if result_iter is None:
+                    return  # Do not yield anything, so result is []
+
+                for raw_row_output in result_iter:
+                    if not isinstance(raw_row_output, (tuple,)):
+                        if len(expected_types) == 1:
+                            raw_row_tuple = (raw_row_output,)
+                        else:  # If multiple output columns expected, but not a tuple, this is a mismatch
+                            raise ValueError(
+                                f"[UDTF_RETURN_SCHEMA_MISMATCH] Expected a tuple of length {len(expected_types)} for multiple output columns, but got {type(raw_row_output).__name__}"
+                            )
+                    else:
+                        raw_row_tuple = raw_row_output
+
+                    if len(raw_row_tuple) != len(expected_types):
+                        raise ValueError(
+                            f"[UDTF_RETURN_SCHEMA_MISMATCH] The number of columns in the result does not match the specified schema. Expected {len(expected_types)} columns, but got {len(raw_row_tuple)}"
+                        )
+
+                    coerced_row_list = [None] * len(expected_types)
+                    for i, (val, type_info) in enumerate(
+                        zip(raw_row_tuple, expected_types)
+                    ):
+                        arrow_type = _python_type_to_arrow_type_impl(type_info)
+                        coerced_row_list[i] = _convert_to_arrow_value(val, arrow_type)
+
+                    yield tuple(coerced_row_list)
+            finally:
+                # Emit telemetry complete event
+                if enable_telemetry:
+                    try:
+                        from snowflake import telemetry
+
+                        telemetry.add_event("udtf_invocation_complete", {})
+                    except Exception:
+                        pass
 
         def end_partition(self, *args, **kwargs):
             if hasattr(self._user_instance, "terminate") and callable(

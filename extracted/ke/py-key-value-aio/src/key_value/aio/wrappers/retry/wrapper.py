@@ -1,11 +1,11 @@
 from collections.abc import Mapping, Sequence
 from typing import Any, SupportsFloat, TypeVar
 
-from key_value.shared.code_gen.run import async_retry_operation
 from typing_extensions import override
 
 from key_value.aio.protocols.key_value import AsyncKeyValue
 from key_value.aio.wrappers.base import BaseWrapper
+from key_value.shared.retry import async_retry_operation
 
 T = TypeVar("T")
 

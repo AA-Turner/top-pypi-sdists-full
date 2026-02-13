@@ -77,14 +77,9 @@ class SpeechToTextResponse(BaseResponse):
     the speakers of the transcription, available if by_speaker is set to true
     """
 
-    language_detected: Optional[str]
+    language_detected: Optional[Dict[str, Any]]
     """
     the language detected in the transcription, available if language is set to auto
-    """
-
-    confidence: Optional[float]
-    """
-    the confidence of the transcription language detection, available if language is set to auto
     """
 
 

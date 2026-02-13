@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nbdime
-Version: 4.0.3
+Version: 4.0.4
 Summary: Diff and merge of Jupyter Notebooks
 Project-URL: Homepage, https://nbdime.readthedocs.io
 Project-URL: Bug Tracker, https://github.com/jupyter/nbdime/issues
@@ -79,9 +79,6 @@ Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -90,7 +87,6 @@ Requires-Dist: colorama
 Requires-Dist: gitpython!=2.1.4,!=2.1.5,!=2.1.6
 Requires-Dist: jinja2>=2.9
 Requires-Dist: jupyter-server
-Requires-Dist: jupyter-server-mathjax>=0.2.2
 Requires-Dist: nbformat
 Requires-Dist: pygments
 Requires-Dist: requests
@@ -106,7 +102,6 @@ Requires-Dist: mock; extra == 'test'
 Requires-Dist: notebook; extra == 'test'
 Requires-Dist: pytest-cov; extra == 'test'
 Requires-Dist: pytest-timeout; extra == 'test'
-Requires-Dist: pytest-tornado; extra == 'test'
 Requires-Dist: pytest>=6.0; extra == 'test'
 Requires-Dist: requests; extra == 'test'
 Requires-Dist: tabulate; extra == 'test'

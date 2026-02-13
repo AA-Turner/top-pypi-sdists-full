@@ -41,6 +41,8 @@ from snowflake.core.iceberg_table._generated.models.primary_key import PrimaryKe
 from snowflake.core.iceberg_table._generated.models.refresh_iceberg_table_request import RefreshIcebergTableRequest
 from snowflake.core.iceberg_table._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.iceberg_table._generated.models.success_response import SuccessResponse
+from snowflake.core.iceberg_table._generated.models.tag_assignment import TagAssignment
+from snowflake.core.iceberg_table._generated.models.tag_reference import TagReference
 from snowflake.core.iceberg_table._generated.models.unique_key import UniqueKey
 
 __all__ = [
@@ -65,5 +67,7 @@ __all__ = [
     "RefreshIcebergTableRequest",
     "SuccessAcceptedResponse",
     "SuccessResponse",
+    "TagAssignment",
+    "TagReference",
     "UniqueKey",
 ]

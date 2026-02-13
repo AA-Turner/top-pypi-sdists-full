@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 2.4.8
+Version: 2.5.0
 Summary: Agno: a lightweight library for building Multi-Agent Systems
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 Project-URL: homepage, https://agno.com
@@ -51,10 +51,14 @@ Requires-Dist: mcp; extra == "dev"
 Requires-Dist: openai; extra == "dev"
 Requires-Dist: fakeredis; extra == "dev"
 Requires-Dist: xlwt; extra == "dev"
+Requires-Dist: types-greenlet; extra == "dev"
 Provides-Extra: os
 Requires-Dist: fastapi; extra == "os"
 Requires-Dist: uvicorn; extra == "os"
 Requires-Dist: PyJWT; extra == "os"
+Provides-Extra: scheduler
+Requires-Dist: croniter>=1.3; extra == "scheduler"
+Requires-Dist: pytz>=2023.3; extra == "scheduler"
 Provides-Extra: opentelemetry
 Requires-Dist: opentelemetry-sdk; extra == "opentelemetry"
 Requires-Dist: opentelemetry-exporter-otlp; extra == "opentelemetry"
@@ -413,6 +417,7 @@ Requires-Dist: Pillow; extra == "integration-tests"
 Requires-Dist: fastmcp; extra == "integration-tests"
 Provides-Extra: demo
 Requires-Dist: agno[dev]; extra == "demo"
+Requires-Dist: agno[scheduler]; extra == "demo"
 Requires-Dist: anthropic; extra == "demo"
 Requires-Dist: chromadb; extra == "demo"
 Requires-Dist: ddgs; extra == "demo"

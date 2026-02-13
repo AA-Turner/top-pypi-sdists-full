@@ -21,6 +21,7 @@ from snowflake.core.cortex.search_service._generated.models.cortex_search_servic
 from snowflake.core.cortex.search_service._generated.models.create_cortex_search_service_request import (
     CreateCortexSearchServiceRequest,
 )
+from snowflake.core.cortex.search_service._generated.models.diversity import Diversity
 from snowflake.core.cortex.search_service._generated.models.downstream_lag import DownstreamLag
 from snowflake.core.cortex.search_service._generated.models.error_response import ErrorResponse
 from snowflake.core.cortex.search_service._generated.models.functions import Functions
@@ -50,6 +51,7 @@ __all__ = [
     "ColumnQuery",
     "CortexSearchService",
     "CreateCortexSearchServiceRequest",
+    "Diversity",
     "DownstreamLag",
     "ErrorResponse",
     "Functions",

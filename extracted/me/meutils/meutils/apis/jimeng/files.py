@@ -280,6 +280,9 @@ async def upload_for_vod(image: bytes, upload_token: dict):  # oss 跨账号不�
 
 async def upload_for_image(image, token, biz: Optional[str] = None):  # todo: 跨账号token
     """image url base64 bytes"""
+    if isinstance(image, list):
+        return [await upload_for_image(i, token, biz) for i in image]
+
     if not image: return
 
     upload_token = await get_upload_token(token, biz)

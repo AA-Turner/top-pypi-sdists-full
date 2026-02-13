@@ -29,6 +29,7 @@ pub struct MigrationRunner {
     client: Client,
     admin_client: AdminClient,
     database_path: String,
+    topology_name: Option<String>,
 }
 
 // TODO(tanujnay112): Remove this backwards compatibility migration once all systems are updated
@@ -78,7 +79,13 @@ impl MigrationRunner {
             client,
             admin_client,
             database_path,
+            topology_name: None,
         }
+    }
+
+    pub fn with_topology(mut self, topology_name: String) -> Self {
+        self.topology_name = Some(topology_name);
+        self
     }
 
     // TODO(tanujnay112): Remove this method after all legacy hashes are migrated
@@ -188,33 +195,69 @@ impl MigrationRunner {
     }
 
     async fn apply_migration(&self, migration: &Migration) -> Result<(), MigrationError> {
-        self.execute_ddl(&migration.sql).await?;
+        self.execute_migration_statement(&migration.sql).await?;
         self.record_migration(migration).await?;
         Ok(())
     }
 
-    async fn execute_ddl(&self, sql: &str) -> Result<(), MigrationError> {
+    async fn execute_migration_statement(&self, sql: &str) -> Result<(), MigrationError> {
         let sql = sql.trim().trim_end_matches(';');
-        tracing::info!("Executing DDL: {}", sql);
+        if let Some(dml) = sql.strip_prefix("-- DML:") {
+            self.execute_dml(dml).await?;
+        } else {
+            tracing::info!("Executing DDL: {}", sql);
 
-        let request = UpdateDatabaseDdlRequest {
-            database: self.database_path.clone(),
-            statements: vec![sql.to_string()],
-            operation_id: String::new(),
-            proto_descriptors: Vec::new(),
-            throughput_mode: false,
-        };
+            let request = UpdateDatabaseDdlRequest {
+                database: self.database_path.clone(),
+                statements: vec![sql.to_string()],
+                operation_id: String::new(),
+                proto_descriptors: Vec::new(),
+                throughput_mode: false,
+            };
 
-        let mut operation = self
-            .admin_client
-            .database()
-            .update_database_ddl(request, None)
-            .await?;
+            let mut operation = self
+                .admin_client
+                .database()
+                .update_database_ddl(request, None)
+                .await?;
 
-        // Poll until the DDL operation completes
-        operation.wait(None).await?;
+            // Poll until the DDL operation completes
+            operation.wait(None).await?;
 
-        tracing::info!("DDL executed successfully");
+            tracing::info!("DDL executed successfully");
+        }
+        Ok(())
+    }
+
+    async fn execute_dml(&self, dml: &str) -> Result<(), MigrationError> {
+        let mut dml = dml.to_string();
+        let topo_placeholder_string = "@topo_name";
+        if dml.contains(topo_placeholder_string) {
+            if let Some(topology_name) = &self.topology_name {
+                // Wrap topology name in quotes to make it a valid SQL string literal
+                let quoted_topology = format!("'{}'", topology_name);
+                dml = dml.replace(topo_placeholder_string, &quoted_topology);
+            } else {
+                return Err(MigrationError::ClientError(
+                    "Found @topo_name in DML but no topology name provided".to_string(),
+                ));
+            }
+        }
+        tracing::info!("Executing DML: {}", dml);
+        self.client
+            .read_write_transaction(|tx| {
+                let dml = dml.clone();
+                Box::pin(async move {
+                    let stmt = Statement::new(&dml);
+                    tx.update(stmt).await?;
+                    Ok(())
+                })
+            })
+            .await
+            .map_err(|err: google_cloud_spanner::client::Error| {
+                MigrationError::ClientError(err.to_string())
+            })?;
+        tracing::info!("DML executed successfully");
         Ok(())
     }
 
@@ -269,7 +312,7 @@ impl MigrationRunner {
     pub async fn initialize_migrations_table(&self) -> Result<(), MigrationError> {
         let ddl = "CREATE TABLE IF NOT EXISTS migrations (dir STRING(255) NOT NULL, version INT64 NOT NULL, filename STRING(512) NOT NULL, sql STRING(MAX) NOT NULL, checksum STRING(64) NOT NULL) PRIMARY KEY (dir, version)";
 
-        match self.execute_ddl(ddl).await {
+        match self.execute_migration_statement(ddl).await {
             Ok(_) => {
                 tracing::info!("Migrations table created");
                 Ok(())

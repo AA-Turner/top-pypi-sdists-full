@@ -29,7 +29,8 @@ import xml.etree.ElementTree
 import io
 
 __all__ = [
-    "search", "escape", "TAPService", "TAPQuery", "AsyncTAPJob", "TAPResults"]
+    "search", "escape", "TAPService", "TAPQuery", "AsyncTAPJob", "TAPResults",
+    "DEFAULT_JOB_POLL_TIMEOUT", "DEFAULT_JOB_WAIT_TIMEOUT"]
 
 IVOA_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
@@ -44,6 +45,12 @@ TABLE_DEF_FORMAT = {'VOSITable': 'text/xml',
 # common transient errors that can be retried
 TRANSIENT_ERRORS = (requests.exceptions.ConnectionError,
                     requests.exceptions.Timeout)
+
+# Default timeout (in seconds) for job status polling requests.
+DEFAULT_JOB_POLL_TIMEOUT = 10
+
+# Default timeout (in seconds) for overall job wait.
+DEFAULT_JOB_WAIT_TIMEOUT = 600.
 
 
 def _from_ivoa_format(datetime_str):
@@ -292,7 +299,7 @@ class TAPService(DALService, AvailabilityMixin, CapabilityMixin):
 
     def run_async(
             self, query, *, language="ADQL", maxrec=None, uploads=None,
-            delete=True, **keywords):
+            delete=True, timeout=DEFAULT_JOB_WAIT_TIMEOUT, **keywords):
         """
         runs async query and returns its result
 
@@ -309,6 +316,8 @@ class TAPService(DALService, AvailabilityMixin, CapabilityMixin):
             a mapping from table names to objects containing a votable
         delete : bool
             delete the job after fetching the results
+        timeout : float
+            maximum time to wait for job completion in seconds. Default is 600.
 
         Returns
         -------
@@ -332,7 +341,7 @@ class TAPService(DALService, AvailabilityMixin, CapabilityMixin):
         job = AsyncTAPJob.create(
             self.baseurl, query, language=language, maxrec=maxrec, uploads=uploads,
             session=self._session, **keywords)
-        job = job.run().wait()
+        job = job.run().wait(timeout=timeout)
 
         try:
             job.raise_if_error()
@@ -659,6 +668,10 @@ class AsyncTAPJob:
             baseurl, query, mode="async", language=language, maxrec=maxrec,
             uploads=uploads, session=session, **keywords)
         response = tapquery.submit()
+        try:
+            response.raise_for_status()
+        except requests.RequestException as ex:
+            raise DALServiceError.from_except(ex, tapquery.queryurl)
         job = cls(response.url, session=session)
         job._client_set_maxrec = maxrec
         return job
@@ -700,10 +713,12 @@ class AsyncTAPJob:
             except DALServiceError:
                 pass
 
-    def _update(self, wait_for_statechange=False, timeout=10.):
+    def _update(self, wait_for_statechange=False, timeout=None):
         """
         updates local job infos with remote values
         """
+        if timeout is None:
+            timeout = DEFAULT_JOB_POLL_TIMEOUT
         try:
             if wait_for_statechange:
                 response = self._session.get(
@@ -960,7 +975,7 @@ class AsyncTAPJob:
 
         return self
 
-    def wait(self, *, phases=None, timeout=600.):
+    def wait(self, *, phases=None, timeout=DEFAULT_JOB_WAIT_TIMEOUT):
         """
         waits for the job to reach the given phases.
 

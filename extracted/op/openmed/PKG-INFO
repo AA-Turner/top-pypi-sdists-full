@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openmed
-Version: 0.5.1
+Version: 0.5.5
 Summary: OpenMed delivers state-of-the-art biomedical and clinical LLMs that rival proprietary enterprise stacks, unifying model discovery, advanced extractions, and one-line orchestration.
 Author: Maziyar Panahi
 License: Apache-2.0

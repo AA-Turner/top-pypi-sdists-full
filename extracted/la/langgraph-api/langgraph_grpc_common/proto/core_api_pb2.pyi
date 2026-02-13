@@ -7,6 +7,7 @@ This is essentially an extended version of Agent Protocol (https://github.com/la
 
 from collections import abc as _abc
 from google.protobuf import descriptor as _descriptor
+from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import message as _message
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -16,6 +17,7 @@ from . import encryption_pb2 as _encryption_pb2
 from . import engine_common_pb2 as _engine_common_pb2
 from . import enum_cancel_run_action_pb2 as _enum_cancel_run_action_pb2
 from . import enum_control_signal_pb2 as _enum_control_signal_pb2
+from . import enum_cron_on_run_completed_pb2 as _enum_cron_on_run_completed_pb2
 from . import enum_multitask_strategy_pb2 as _enum_multitask_strategy_pb2
 from . import enum_run_status_pb2 as _enum_run_status_pb2
 from . import enum_stream_mode_pb2 as _enum_stream_mode_pb2
@@ -174,6 +176,33 @@ CANCEL_RUN_STATUS_PENDING: CancelRunStatus.ValueType  # 0
 CANCEL_RUN_STATUS_RUNNING: CancelRunStatus.ValueType  # 1
 CANCEL_RUN_STATUS_ALL: CancelRunStatus.ValueType  # 2
 Global___CancelRunStatus: _TypeAlias = CancelRunStatus  # noqa: Y015
+
+class _CronsSortBy:
+    ValueType = _typing.NewType("ValueType", _builtins.int)
+    V: _TypeAlias = ValueType  # noqa: Y015
+
+class _CronsSortByEnumTypeWrapper(_enum_type_wrapper._EnumTypeWrapper[_CronsSortBy.ValueType], _builtins.type):
+    DESCRIPTOR: _descriptor.EnumDescriptor
+    CRONS_SORT_BY_UNSPECIFIED: _CronsSortBy.ValueType  # 0
+    CRONS_SORT_BY_CRON_ID: _CronsSortBy.ValueType  # 1
+    CRONS_SORT_BY_ASSISTANT_ID: _CronsSortBy.ValueType  # 2
+    CRONS_SORT_BY_THREAD_ID: _CronsSortBy.ValueType  # 3
+    CRONS_SORT_BY_NEXT_RUN_DATE: _CronsSortBy.ValueType  # 4
+    CRONS_SORT_BY_END_TIME: _CronsSortBy.ValueType  # 5
+    CRONS_SORT_BY_CREATED_AT: _CronsSortBy.ValueType  # 6
+    CRONS_SORT_BY_UPDATED_AT: _CronsSortBy.ValueType  # 7
+
+class CronsSortBy(_CronsSortBy, metaclass=_CronsSortByEnumTypeWrapper): ...
+
+CRONS_SORT_BY_UNSPECIFIED: CronsSortBy.ValueType  # 0
+CRONS_SORT_BY_CRON_ID: CronsSortBy.ValueType  # 1
+CRONS_SORT_BY_ASSISTANT_ID: CronsSortBy.ValueType  # 2
+CRONS_SORT_BY_THREAD_ID: CronsSortBy.ValueType  # 3
+CRONS_SORT_BY_NEXT_RUN_DATE: CronsSortBy.ValueType  # 4
+CRONS_SORT_BY_END_TIME: CronsSortBy.ValueType  # 5
+CRONS_SORT_BY_CREATED_AT: CronsSortBy.ValueType  # 6
+CRONS_SORT_BY_UPDATED_AT: CronsSortBy.ValueType  # 7
+Global___CronsSortBy: _TypeAlias = CronsSortBy  # noqa: Y015
 
 @_typing.final
 class Tags(_message.Message):
@@ -1478,6 +1507,7 @@ class SearchThreadsRequest(_message.Message):
     SORT_BY_FIELD_NUMBER: _builtins.int
     SORT_ORDER_FIELD_NUMBER: _builtins.int
     SELECT_FIELD_NUMBER: _builtins.int
+    IDS_FIELD_NUMBER: _builtins.int
     metadata_json: _builtins.bytes
     values_json: _builtins.bytes
     status: _enum_thread_status_pb2.ThreadStatus.ValueType
@@ -1489,6 +1519,10 @@ class SearchThreadsRequest(_message.Message):
     def filters(self) -> _containers.RepeatedCompositeFieldContainer[Global___AuthFilter]: ...
     @_builtins.property
     def select(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]: ...
+    @_builtins.property
+    def ids(self) -> _containers.RepeatedCompositeFieldContainer[Global___UUID]:
+        """Filter by specific thread IDs."""
+
     def __init__(
         self,
         *,
@@ -1501,10 +1535,11 @@ class SearchThreadsRequest(_message.Message):
         sort_by: Global___ThreadsSortBy.ValueType | None = ...,
         sort_order: Global___SortOrder.ValueType | None = ...,
         select: _abc.Iterable[_builtins.str] | None = ...,
+        ids: _abc.Iterable[Global___UUID] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["_limit", b"_limit", "_metadata_json", b"_metadata_json", "_offset", b"_offset", "_sort_by", b"_sort_by", "_sort_order", b"_sort_order", "_status", b"_status", "_values_json", b"_values_json", "limit", b"limit", "metadata_json", b"metadata_json", "offset", b"offset", "sort_by", b"sort_by", "sort_order", b"sort_order", "status", b"status", "values_json", b"values_json"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_limit", b"_limit", "_metadata_json", b"_metadata_json", "_offset", b"_offset", "_sort_by", b"_sort_by", "_sort_order", b"_sort_order", "_status", b"_status", "_values_json", b"_values_json", "filters", b"filters", "limit", b"limit", "metadata_json", b"metadata_json", "offset", b"offset", "select", b"select", "sort_by", b"sort_by", "sort_order", b"sort_order", "status", b"status", "values_json", b"values_json"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_limit", b"_limit", "_metadata_json", b"_metadata_json", "_offset", b"_offset", "_sort_by", b"_sort_by", "_sort_order", b"_sort_order", "_status", b"_status", "_values_json", b"_values_json", "filters", b"filters", "ids", b"ids", "limit", b"limit", "metadata_json", b"metadata_json", "offset", b"offset", "select", b"select", "sort_by", b"sort_by", "sort_order", b"sort_order", "status", b"status", "values_json", b"values_json"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__limit: _TypeAlias = _typing.Literal["limit"]  # noqa: Y015
     _WhichOneofArgType__limit: _TypeAlias = _typing.Literal["_limit", b"_limit"]  # noqa: Y015
@@ -2655,3 +2690,602 @@ class ControlEvent(_message.Message):
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
 
 Global___ControlEvent: _TypeAlias = ControlEvent  # noqa: Y015
+
+@_typing.final
+class CronPayload(_message.Message):
+    """========== Crons ============"""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    @_typing.final
+    class ExtraJsonEntry(_message.Message):
+        DESCRIPTOR: _descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: _builtins.int
+        VALUE_FIELD_NUMBER: _builtins.int
+        key: _builtins.str
+        value: _builtins.bytes
+        def __init__(
+            self,
+            *,
+            key: _builtins.str = ...,
+            value: _builtins.bytes = ...,
+        ) -> None: ...
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "value", b"value"]  # noqa: Y015
+        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+
+    ASSISTANT_ID_FIELD_NUMBER: _builtins.int
+    INPUT_JSON_FIELD_NUMBER: _builtins.int
+    CONFIG_FIELD_NUMBER: _builtins.int
+    CONTEXT_JSON_FIELD_NUMBER: _builtins.int
+    WEBHOOK_FIELD_NUMBER: _builtins.int
+    INTERRUPT_BEFORE_FIELD_NUMBER: _builtins.int
+    INTERRUPT_AFTER_FIELD_NUMBER: _builtins.int
+    MULTITASK_STRATEGY_FIELD_NUMBER: _builtins.int
+    METADATA_JSON_FIELD_NUMBER: _builtins.int
+    EXTRA_JSON_FIELD_NUMBER: _builtins.int
+    assistant_id: _builtins.str
+    input_json: _builtins.bytes
+    context_json: _builtins.bytes
+    webhook: _builtins.str
+    multitask_strategy: _enum_multitask_strategy_pb2.MultitaskStrategy.ValueType
+    metadata_json: _builtins.bytes
+    @_builtins.property
+    def config(self) -> _engine_common_pb2.EngineRunnableConfig: ...
+    @_builtins.property
+    def interrupt_before(self) -> _engine_common_pb2.StaticInterruptConfig: ...
+    @_builtins.property
+    def interrupt_after(self) -> _engine_common_pb2.StaticInterruptConfig: ...
+    @_builtins.property
+    def extra_json(self) -> _containers.ScalarMap[_builtins.str, _builtins.bytes]: ...
+    def __init__(
+        self,
+        *,
+        assistant_id: _builtins.str = ...,
+        input_json: _builtins.bytes | None = ...,
+        config: _engine_common_pb2.EngineRunnableConfig | None = ...,
+        context_json: _builtins.bytes | None = ...,
+        webhook: _builtins.str | None = ...,
+        interrupt_before: _engine_common_pb2.StaticInterruptConfig | None = ...,
+        interrupt_after: _engine_common_pb2.StaticInterruptConfig | None = ...,
+        multitask_strategy: _enum_multitask_strategy_pb2.MultitaskStrategy.ValueType | None = ...,
+        metadata_json: _builtins.bytes | None = ...,
+        extra_json: _abc.Mapping[_builtins.str, _builtins.bytes] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_config", b"_config", "_context_json", b"_context_json", "_input_json", b"_input_json", "_interrupt_after", b"_interrupt_after", "_interrupt_before", b"_interrupt_before", "_metadata_json", b"_metadata_json", "_multitask_strategy", b"_multitask_strategy", "_webhook", b"_webhook", "config", b"config", "context_json", b"context_json", "input_json", b"input_json", "interrupt_after", b"interrupt_after", "interrupt_before", b"interrupt_before", "metadata_json", b"metadata_json", "multitask_strategy", b"multitask_strategy", "webhook", b"webhook"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_config", b"_config", "_context_json", b"_context_json", "_input_json", b"_input_json", "_interrupt_after", b"_interrupt_after", "_interrupt_before", b"_interrupt_before", "_metadata_json", b"_metadata_json", "_multitask_strategy", b"_multitask_strategy", "_webhook", b"_webhook", "assistant_id", b"assistant_id", "config", b"config", "context_json", b"context_json", "extra_json", b"extra_json", "input_json", b"input_json", "interrupt_after", b"interrupt_after", "interrupt_before", b"interrupt_before", "metadata_json", b"metadata_json", "multitask_strategy", b"multitask_strategy", "webhook", b"webhook"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__config: _TypeAlias = _typing.Literal["config"]  # noqa: Y015
+    _WhichOneofArgType__config: _TypeAlias = _typing.Literal["_config", b"_config"]  # noqa: Y015
+    _WhichOneofReturnType__context_json: _TypeAlias = _typing.Literal["context_json"]  # noqa: Y015
+    _WhichOneofArgType__context_json: _TypeAlias = _typing.Literal["_context_json", b"_context_json"]  # noqa: Y015
+    _WhichOneofReturnType__input_json: _TypeAlias = _typing.Literal["input_json"]  # noqa: Y015
+    _WhichOneofArgType__input_json: _TypeAlias = _typing.Literal["_input_json", b"_input_json"]  # noqa: Y015
+    _WhichOneofReturnType__interrupt_after: _TypeAlias = _typing.Literal["interrupt_after"]  # noqa: Y015
+    _WhichOneofArgType__interrupt_after: _TypeAlias = _typing.Literal["_interrupt_after", b"_interrupt_after"]  # noqa: Y015
+    _WhichOneofReturnType__interrupt_before: _TypeAlias = _typing.Literal["interrupt_before"]  # noqa: Y015
+    _WhichOneofArgType__interrupt_before: _TypeAlias = _typing.Literal["_interrupt_before", b"_interrupt_before"]  # noqa: Y015
+    _WhichOneofReturnType__metadata_json: _TypeAlias = _typing.Literal["metadata_json"]  # noqa: Y015
+    _WhichOneofArgType__metadata_json: _TypeAlias = _typing.Literal["_metadata_json", b"_metadata_json"]  # noqa: Y015
+    _WhichOneofReturnType__multitask_strategy: _TypeAlias = _typing.Literal["multitask_strategy"]  # noqa: Y015
+    _WhichOneofArgType__multitask_strategy: _TypeAlias = _typing.Literal["_multitask_strategy", b"_multitask_strategy"]  # noqa: Y015
+    _WhichOneofReturnType__webhook: _TypeAlias = _typing.Literal["webhook"]  # noqa: Y015
+    _WhichOneofArgType__webhook: _TypeAlias = _typing.Literal["_webhook", b"_webhook"]  # noqa: Y015
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__config) -> _WhichOneofReturnType__config | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__context_json) -> _WhichOneofReturnType__context_json | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__input_json) -> _WhichOneofReturnType__input_json | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__interrupt_after) -> _WhichOneofReturnType__interrupt_after | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__interrupt_before) -> _WhichOneofReturnType__interrupt_before | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__metadata_json) -> _WhichOneofReturnType__metadata_json | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__multitask_strategy) -> _WhichOneofReturnType__multitask_strategy | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__webhook) -> _WhichOneofReturnType__webhook | None: ...
+
+Global___CronPayload: _TypeAlias = CronPayload  # noqa: Y015
+
+@_typing.final
+class Cron(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CRON_ID_FIELD_NUMBER: _builtins.int
+    ASSISTANT_ID_FIELD_NUMBER: _builtins.int
+    THREAD_ID_FIELD_NUMBER: _builtins.int
+    ON_RUN_COMPLETED_FIELD_NUMBER: _builtins.int
+    END_TIME_FIELD_NUMBER: _builtins.int
+    SCHEDULE_FIELD_NUMBER: _builtins.int
+    CREATED_AT_FIELD_NUMBER: _builtins.int
+    UPDATED_AT_FIELD_NUMBER: _builtins.int
+    USER_ID_FIELD_NUMBER: _builtins.int
+    PAYLOAD_FIELD_NUMBER: _builtins.int
+    NEXT_RUN_DATE_FIELD_NUMBER: _builtins.int
+    METADATA_JSON_FIELD_NUMBER: _builtins.int
+    ENABLED_FIELD_NUMBER: _builtins.int
+    assistant_id: _builtins.str
+    on_run_completed: _enum_cron_on_run_completed_pb2.CronOnRunCompleted.ValueType
+    schedule: _builtins.str
+    user_id: _builtins.str
+    metadata_json: _builtins.bytes
+    enabled: _builtins.bool
+    @_builtins.property
+    def cron_id(self) -> Global___UUID: ...
+    @_builtins.property
+    def thread_id(self) -> Global___UUID: ...
+    @_builtins.property
+    def end_time(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def created_at(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def updated_at(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def payload(self) -> Global___CronPayload: ...
+    @_builtins.property
+    def next_run_date(self) -> _timestamp_pb2.Timestamp: ...
+    def __init__(
+        self,
+        *,
+        cron_id: Global___UUID | None = ...,
+        assistant_id: _builtins.str = ...,
+        thread_id: Global___UUID | None = ...,
+        on_run_completed: _enum_cron_on_run_completed_pb2.CronOnRunCompleted.ValueType | None = ...,
+        end_time: _timestamp_pb2.Timestamp | None = ...,
+        schedule: _builtins.str = ...,
+        created_at: _timestamp_pb2.Timestamp | None = ...,
+        updated_at: _timestamp_pb2.Timestamp | None = ...,
+        user_id: _builtins.str | None = ...,
+        payload: Global___CronPayload | None = ...,
+        next_run_date: _timestamp_pb2.Timestamp | None = ...,
+        metadata_json: _builtins.bytes = ...,
+        enabled: _builtins.bool = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_end_time", b"_end_time", "_on_run_completed", b"_on_run_completed", "_thread_id", b"_thread_id", "_user_id", b"_user_id", "created_at", b"created_at", "cron_id", b"cron_id", "end_time", b"end_time", "next_run_date", b"next_run_date", "on_run_completed", b"on_run_completed", "payload", b"payload", "thread_id", b"thread_id", "updated_at", b"updated_at", "user_id", b"user_id"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_end_time", b"_end_time", "_on_run_completed", b"_on_run_completed", "_thread_id", b"_thread_id", "_user_id", b"_user_id", "assistant_id", b"assistant_id", "created_at", b"created_at", "cron_id", b"cron_id", "enabled", b"enabled", "end_time", b"end_time", "metadata_json", b"metadata_json", "next_run_date", b"next_run_date", "on_run_completed", b"on_run_completed", "payload", b"payload", "schedule", b"schedule", "thread_id", b"thread_id", "updated_at", b"updated_at", "user_id", b"user_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__end_time: _TypeAlias = _typing.Literal["end_time"]  # noqa: Y015
+    _WhichOneofArgType__end_time: _TypeAlias = _typing.Literal["_end_time", b"_end_time"]  # noqa: Y015
+    _WhichOneofReturnType__on_run_completed: _TypeAlias = _typing.Literal["on_run_completed"]  # noqa: Y015
+    _WhichOneofArgType__on_run_completed: _TypeAlias = _typing.Literal["_on_run_completed", b"_on_run_completed"]  # noqa: Y015
+    _WhichOneofReturnType__thread_id: _TypeAlias = _typing.Literal["thread_id"]  # noqa: Y015
+    _WhichOneofArgType__thread_id: _TypeAlias = _typing.Literal["_thread_id", b"_thread_id"]  # noqa: Y015
+    _WhichOneofReturnType__user_id: _TypeAlias = _typing.Literal["user_id"]  # noqa: Y015
+    _WhichOneofArgType__user_id: _TypeAlias = _typing.Literal["_user_id", b"_user_id"]  # noqa: Y015
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__end_time) -> _WhichOneofReturnType__end_time | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__on_run_completed) -> _WhichOneofReturnType__on_run_completed | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__thread_id) -> _WhichOneofReturnType__thread_id | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__user_id) -> _WhichOneofReturnType__user_id | None: ...
+
+Global___Cron: _TypeAlias = Cron  # noqa: Y015
+
+@_typing.final
+class CreateCronRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    FILTERS_FIELD_NUMBER: _builtins.int
+    SCHEDULE_FIELD_NUMBER: _builtins.int
+    PAYLOAD_FIELD_NUMBER: _builtins.int
+    METADATA_JSON_FIELD_NUMBER: _builtins.int
+    CRON_ID_FIELD_NUMBER: _builtins.int
+    THREAD_ID_FIELD_NUMBER: _builtins.int
+    ON_RUN_COMPLETED_FIELD_NUMBER: _builtins.int
+    END_TIME_FIELD_NUMBER: _builtins.int
+    ENABLED_FIELD_NUMBER: _builtins.int
+    ASSISTANT_FILTERS_FIELD_NUMBER: _builtins.int
+    THREAD_FILTERS_FIELD_NUMBER: _builtins.int
+    schedule: _builtins.str
+    metadata_json: _builtins.bytes
+    on_run_completed: _enum_cron_on_run_completed_pb2.CronOnRunCompleted.ValueType
+    enabled: _builtins.bool
+    @_builtins.property
+    def filters(self) -> _containers.RepeatedCompositeFieldContainer[Global___AuthFilter]: ...
+    @_builtins.property
+    def payload(self) -> Global___CronPayload: ...
+    @_builtins.property
+    def cron_id(self) -> Global___UUID: ...
+    @_builtins.property
+    def thread_id(self) -> Global___UUID: ...
+    @_builtins.property
+    def end_time(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def assistant_filters(self) -> _containers.RepeatedCompositeFieldContainer[Global___AuthFilter]: ...
+    @_builtins.property
+    def thread_filters(self) -> _containers.RepeatedCompositeFieldContainer[Global___AuthFilter]: ...
+    def __init__(
+        self,
+        *,
+        filters: _abc.Iterable[Global___AuthFilter] | None = ...,
+        schedule: _builtins.str = ...,
+        payload: Global___CronPayload | None = ...,
+        metadata_json: _builtins.bytes = ...,
+        cron_id: Global___UUID | None = ...,
+        thread_id: Global___UUID | None = ...,
+        on_run_completed: _enum_cron_on_run_completed_pb2.CronOnRunCompleted.ValueType | None = ...,
+        end_time: _timestamp_pb2.Timestamp | None = ...,
+        enabled: _builtins.bool = ...,
+        assistant_filters: _abc.Iterable[Global___AuthFilter] | None = ...,
+        thread_filters: _abc.Iterable[Global___AuthFilter] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_cron_id", b"_cron_id", "_end_time", b"_end_time", "_on_run_completed", b"_on_run_completed", "_thread_id", b"_thread_id", "cron_id", b"cron_id", "end_time", b"end_time", "on_run_completed", b"on_run_completed", "payload", b"payload", "thread_id", b"thread_id"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_cron_id", b"_cron_id", "_end_time", b"_end_time", "_on_run_completed", b"_on_run_completed", "_thread_id", b"_thread_id", "assistant_filters", b"assistant_filters", "cron_id", b"cron_id", "enabled", b"enabled", "end_time", b"end_time", "filters", b"filters", "metadata_json", b"metadata_json", "on_run_completed", b"on_run_completed", "payload", b"payload", "schedule", b"schedule", "thread_filters", b"thread_filters", "thread_id", b"thread_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__cron_id: _TypeAlias = _typing.Literal["cron_id"]  # noqa: Y015
+    _WhichOneofArgType__cron_id: _TypeAlias = _typing.Literal["_cron_id", b"_cron_id"]  # noqa: Y015
+    _WhichOneofReturnType__end_time: _TypeAlias = _typing.Literal["end_time"]  # noqa: Y015
+    _WhichOneofArgType__end_time: _TypeAlias = _typing.Literal["_end_time", b"_end_time"]  # noqa: Y015
+    _WhichOneofReturnType__on_run_completed: _TypeAlias = _typing.Literal["on_run_completed"]  # noqa: Y015
+    _WhichOneofArgType__on_run_completed: _TypeAlias = _typing.Literal["_on_run_completed", b"_on_run_completed"]  # noqa: Y015
+    _WhichOneofReturnType__thread_id: _TypeAlias = _typing.Literal["thread_id"]  # noqa: Y015
+    _WhichOneofArgType__thread_id: _TypeAlias = _typing.Literal["_thread_id", b"_thread_id"]  # noqa: Y015
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__cron_id) -> _WhichOneofReturnType__cron_id | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__end_time) -> _WhichOneofReturnType__end_time | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__on_run_completed) -> _WhichOneofReturnType__on_run_completed | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__thread_id) -> _WhichOneofReturnType__thread_id | None: ...
+
+Global___CreateCronRequest: _TypeAlias = CreateCronRequest  # noqa: Y015
+
+@_typing.final
+class DeleteCronRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CRON_ID_FIELD_NUMBER: _builtins.int
+    FILTERS_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def cron_id(self) -> Global___UUID: ...
+    @_builtins.property
+    def filters(self) -> _containers.RepeatedCompositeFieldContainer[Global___AuthFilter]: ...
+    def __init__(
+        self,
+        *,
+        cron_id: Global___UUID | None = ...,
+        filters: _abc.Iterable[Global___AuthFilter] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["cron_id", b"cron_id"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["cron_id", b"cron_id", "filters", b"filters"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+
+Global___DeleteCronRequest: _TypeAlias = DeleteCronRequest  # noqa: Y015
+
+@_typing.final
+class SearchCronsRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    FILTERS_FIELD_NUMBER: _builtins.int
+    ASSISTANT_ID_FIELD_NUMBER: _builtins.int
+    THREAD_ID_FIELD_NUMBER: _builtins.int
+    LIMIT_FIELD_NUMBER: _builtins.int
+    OFFSET_FIELD_NUMBER: _builtins.int
+    SORT_BY_FIELD_NUMBER: _builtins.int
+    SORT_ORDER_FIELD_NUMBER: _builtins.int
+    SELECT_FIELD_NUMBER: _builtins.int
+    ENABLED_FIELD_NUMBER: _builtins.int
+    limit: _builtins.int
+    offset: _builtins.int
+    sort_by: Global___CronsSortBy.ValueType
+    sort_order: Global___SortOrder.ValueType
+    enabled: _builtins.bool
+    @_builtins.property
+    def filters(self) -> _containers.RepeatedCompositeFieldContainer[Global___AuthFilter]: ...
+    @_builtins.property
+    def assistant_id(self) -> Global___UUID: ...
+    @_builtins.property
+    def thread_id(self) -> Global___UUID: ...
+    @_builtins.property
+    def select(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]: ...
+    def __init__(
+        self,
+        *,
+        filters: _abc.Iterable[Global___AuthFilter] | None = ...,
+        assistant_id: Global___UUID | None = ...,
+        thread_id: Global___UUID | None = ...,
+        limit: _builtins.int | None = ...,
+        offset: _builtins.int | None = ...,
+        sort_by: Global___CronsSortBy.ValueType | None = ...,
+        sort_order: Global___SortOrder.ValueType | None = ...,
+        select: _abc.Iterable[_builtins.str] | None = ...,
+        enabled: _builtins.bool | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_assistant_id", b"_assistant_id", "_enabled", b"_enabled", "_limit", b"_limit", "_offset", b"_offset", "_sort_by", b"_sort_by", "_sort_order", b"_sort_order", "_thread_id", b"_thread_id", "assistant_id", b"assistant_id", "enabled", b"enabled", "limit", b"limit", "offset", b"offset", "sort_by", b"sort_by", "sort_order", b"sort_order", "thread_id", b"thread_id"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_assistant_id", b"_assistant_id", "_enabled", b"_enabled", "_limit", b"_limit", "_offset", b"_offset", "_sort_by", b"_sort_by", "_sort_order", b"_sort_order", "_thread_id", b"_thread_id", "assistant_id", b"assistant_id", "enabled", b"enabled", "filters", b"filters", "limit", b"limit", "offset", b"offset", "select", b"select", "sort_by", b"sort_by", "sort_order", b"sort_order", "thread_id", b"thread_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__assistant_id: _TypeAlias = _typing.Literal["assistant_id"]  # noqa: Y015
+    _WhichOneofArgType__assistant_id: _TypeAlias = _typing.Literal["_assistant_id", b"_assistant_id"]  # noqa: Y015
+    _WhichOneofReturnType__enabled: _TypeAlias = _typing.Literal["enabled"]  # noqa: Y015
+    _WhichOneofArgType__enabled: _TypeAlias = _typing.Literal["_enabled", b"_enabled"]  # noqa: Y015
+    _WhichOneofReturnType__limit: _TypeAlias = _typing.Literal["limit"]  # noqa: Y015
+    _WhichOneofArgType__limit: _TypeAlias = _typing.Literal["_limit", b"_limit"]  # noqa: Y015
+    _WhichOneofReturnType__offset: _TypeAlias = _typing.Literal["offset"]  # noqa: Y015
+    _WhichOneofArgType__offset: _TypeAlias = _typing.Literal["_offset", b"_offset"]  # noqa: Y015
+    _WhichOneofReturnType__sort_by: _TypeAlias = _typing.Literal["sort_by"]  # noqa: Y015
+    _WhichOneofArgType__sort_by: _TypeAlias = _typing.Literal["_sort_by", b"_sort_by"]  # noqa: Y015
+    _WhichOneofReturnType__sort_order: _TypeAlias = _typing.Literal["sort_order"]  # noqa: Y015
+    _WhichOneofArgType__sort_order: _TypeAlias = _typing.Literal["_sort_order", b"_sort_order"]  # noqa: Y015
+    _WhichOneofReturnType__thread_id: _TypeAlias = _typing.Literal["thread_id"]  # noqa: Y015
+    _WhichOneofArgType__thread_id: _TypeAlias = _typing.Literal["_thread_id", b"_thread_id"]  # noqa: Y015
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__assistant_id) -> _WhichOneofReturnType__assistant_id | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__enabled) -> _WhichOneofReturnType__enabled | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__limit) -> _WhichOneofReturnType__limit | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__offset) -> _WhichOneofReturnType__offset | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__sort_by) -> _WhichOneofReturnType__sort_by | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__sort_order) -> _WhichOneofReturnType__sort_order | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__thread_id) -> _WhichOneofReturnType__thread_id | None: ...
+
+Global___SearchCronsRequest: _TypeAlias = SearchCronsRequest  # noqa: Y015
+
+@_typing.final
+class SearchCronsResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CRONS_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def crons(self) -> _containers.RepeatedCompositeFieldContainer[Global___Cron]: ...
+    def __init__(
+        self,
+        *,
+        crons: _abc.Iterable[Global___Cron] | None = ...,
+    ) -> None: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["crons", b"crons"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+
+Global___SearchCronsResponse: _TypeAlias = SearchCronsResponse  # noqa: Y015
+
+@_typing.final
+class CountCronsRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    FILTERS_FIELD_NUMBER: _builtins.int
+    ASSISTANT_ID_FIELD_NUMBER: _builtins.int
+    THREAD_ID_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def filters(self) -> _containers.RepeatedCompositeFieldContainer[Global___AuthFilter]: ...
+    @_builtins.property
+    def assistant_id(self) -> Global___UUID: ...
+    @_builtins.property
+    def thread_id(self) -> Global___UUID: ...
+    def __init__(
+        self,
+        *,
+        filters: _abc.Iterable[Global___AuthFilter] | None = ...,
+        assistant_id: Global___UUID | None = ...,
+        thread_id: Global___UUID | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_assistant_id", b"_assistant_id", "_thread_id", b"_thread_id", "assistant_id", b"assistant_id", "thread_id", b"thread_id"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_assistant_id", b"_assistant_id", "_thread_id", b"_thread_id", "assistant_id", b"assistant_id", "filters", b"filters", "thread_id", b"thread_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__assistant_id: _TypeAlias = _typing.Literal["assistant_id"]  # noqa: Y015
+    _WhichOneofArgType__assistant_id: _TypeAlias = _typing.Literal["_assistant_id", b"_assistant_id"]  # noqa: Y015
+    _WhichOneofReturnType__thread_id: _TypeAlias = _typing.Literal["thread_id"]  # noqa: Y015
+    _WhichOneofArgType__thread_id: _TypeAlias = _typing.Literal["_thread_id", b"_thread_id"]  # noqa: Y015
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__assistant_id) -> _WhichOneofReturnType__assistant_id | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__thread_id) -> _WhichOneofReturnType__thread_id | None: ...
+
+Global___CountCronsRequest: _TypeAlias = CountCronsRequest  # noqa: Y015
+
+@_typing.final
+class PatchCronRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CRON_ID_FIELD_NUMBER: _builtins.int
+    FILTERS_FIELD_NUMBER: _builtins.int
+    SCHEDULE_FIELD_NUMBER: _builtins.int
+    END_TIME_FIELD_NUMBER: _builtins.int
+    ENABLED_FIELD_NUMBER: _builtins.int
+    ON_RUN_COMPLETED_FIELD_NUMBER: _builtins.int
+    PAYLOAD_FIELD_NUMBER: _builtins.int
+    METADATA_JSON_FIELD_NUMBER: _builtins.int
+    schedule: _builtins.str
+    enabled: _builtins.bool
+    on_run_completed: _enum_cron_on_run_completed_pb2.CronOnRunCompleted.ValueType
+    metadata_json: _builtins.bytes
+    @_builtins.property
+    def cron_id(self) -> Global___UUID: ...
+    @_builtins.property
+    def filters(self) -> _containers.RepeatedCompositeFieldContainer[Global___AuthFilter]: ...
+    @_builtins.property
+    def end_time(self) -> _timestamp_pb2.Timestamp: ...
+    @_builtins.property
+    def payload(self) -> Global___CronPayload: ...
+    def __init__(
+        self,
+        *,
+        cron_id: Global___UUID | None = ...,
+        filters: _abc.Iterable[Global___AuthFilter] | None = ...,
+        schedule: _builtins.str | None = ...,
+        end_time: _timestamp_pb2.Timestamp | None = ...,
+        enabled: _builtins.bool | None = ...,
+        on_run_completed: _enum_cron_on_run_completed_pb2.CronOnRunCompleted.ValueType | None = ...,
+        payload: Global___CronPayload | None = ...,
+        metadata_json: _builtins.bytes | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_enabled", b"_enabled", "_end_time", b"_end_time", "_metadata_json", b"_metadata_json", "_on_run_completed", b"_on_run_completed", "_payload", b"_payload", "_schedule", b"_schedule", "cron_id", b"cron_id", "enabled", b"enabled", "end_time", b"end_time", "metadata_json", b"metadata_json", "on_run_completed", b"on_run_completed", "payload", b"payload", "schedule", b"schedule"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_enabled", b"_enabled", "_end_time", b"_end_time", "_metadata_json", b"_metadata_json", "_on_run_completed", b"_on_run_completed", "_payload", b"_payload", "_schedule", b"_schedule", "cron_id", b"cron_id", "enabled", b"enabled", "end_time", b"end_time", "filters", b"filters", "metadata_json", b"metadata_json", "on_run_completed", b"on_run_completed", "payload", b"payload", "schedule", b"schedule"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__enabled: _TypeAlias = _typing.Literal["enabled"]  # noqa: Y015
+    _WhichOneofArgType__enabled: _TypeAlias = _typing.Literal["_enabled", b"_enabled"]  # noqa: Y015
+    _WhichOneofReturnType__end_time: _TypeAlias = _typing.Literal["end_time"]  # noqa: Y015
+    _WhichOneofArgType__end_time: _TypeAlias = _typing.Literal["_end_time", b"_end_time"]  # noqa: Y015
+    _WhichOneofReturnType__metadata_json: _TypeAlias = _typing.Literal["metadata_json"]  # noqa: Y015
+    _WhichOneofArgType__metadata_json: _TypeAlias = _typing.Literal["_metadata_json", b"_metadata_json"]  # noqa: Y015
+    _WhichOneofReturnType__on_run_completed: _TypeAlias = _typing.Literal["on_run_completed"]  # noqa: Y015
+    _WhichOneofArgType__on_run_completed: _TypeAlias = _typing.Literal["_on_run_completed", b"_on_run_completed"]  # noqa: Y015
+    _WhichOneofReturnType__payload: _TypeAlias = _typing.Literal["payload"]  # noqa: Y015
+    _WhichOneofArgType__payload: _TypeAlias = _typing.Literal["_payload", b"_payload"]  # noqa: Y015
+    _WhichOneofReturnType__schedule: _TypeAlias = _typing.Literal["schedule"]  # noqa: Y015
+    _WhichOneofArgType__schedule: _TypeAlias = _typing.Literal["_schedule", b"_schedule"]  # noqa: Y015
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__enabled) -> _WhichOneofReturnType__enabled | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__end_time) -> _WhichOneofReturnType__end_time | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__metadata_json) -> _WhichOneofReturnType__metadata_json | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__on_run_completed) -> _WhichOneofReturnType__on_run_completed | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__payload) -> _WhichOneofReturnType__payload | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__schedule) -> _WhichOneofReturnType__schedule | None: ...
+
+Global___PatchCronRequest: _TypeAlias = PatchCronRequest  # noqa: Y015
+
+@_typing.final
+class CronWithNow(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CRON_FIELD_NUMBER: _builtins.int
+    NOW_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def cron(self) -> Global___Cron: ...
+    @_builtins.property
+    def now(self) -> _timestamp_pb2.Timestamp: ...
+    def __init__(
+        self,
+        *,
+        cron: Global___Cron | None = ...,
+        now: _timestamp_pb2.Timestamp | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["cron", b"cron", "now", b"now"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["cron", b"cron", "now", b"now"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+
+Global___CronWithNow: _TypeAlias = CronWithNow  # noqa: Y015
+
+@_typing.final
+class NextCronsResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CRONS_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def crons(self) -> _containers.RepeatedCompositeFieldContainer[Global___CronWithNow]: ...
+    def __init__(
+        self,
+        *,
+        crons: _abc.Iterable[Global___CronWithNow] | None = ...,
+    ) -> None: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["crons", b"crons"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+
+Global___NextCronsResponse: _TypeAlias = NextCronsResponse  # noqa: Y015
+
+@_typing.final
+class SetNextRunDateRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CRON_ID_FIELD_NUMBER: _builtins.int
+    NEXT_RUN_DATE_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def cron_id(self) -> Global___UUID: ...
+    @_builtins.property
+    def next_run_date(self) -> _timestamp_pb2.Timestamp: ...
+    def __init__(
+        self,
+        *,
+        cron_id: Global___UUID | None = ...,
+        next_run_date: _timestamp_pb2.Timestamp | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["cron_id", b"cron_id", "next_run_date", b"next_run_date"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["cron_id", b"cron_id", "next_run_date", b"next_run_date"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+
+Global___SetNextRunDateRequest: _TypeAlias = SetNextRunDateRequest  # noqa: Y015
+
+@_typing.final
+class CacheSetRequest(_message.Message):
+    """========== Cache ============"""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    KEY_FIELD_NUMBER: _builtins.int
+    VALUE_FIELD_NUMBER: _builtins.int
+    TTL_FIELD_NUMBER: _builtins.int
+    key: _builtins.str
+    """Non-empty cache key."""
+    value: _builtins.bytes
+    """Value to store (must be valid serialized JSON)."""
+    @_builtins.property
+    def ttl(self) -> _duration_pb2.Duration:
+        """Optional TTL (zero => implementation-defined maximum)"""
+
+    def __init__(
+        self,
+        *,
+        key: _builtins.str = ...,
+        value: _builtins.bytes = ...,
+        ttl: _duration_pb2.Duration | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_ttl", b"_ttl", "ttl", b"ttl"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_ttl", b"_ttl", "key", b"key", "ttl", b"ttl", "value", b"value"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__ttl: _TypeAlias = _typing.Literal["ttl"]  # noqa: Y015
+    _WhichOneofArgType__ttl: _TypeAlias = _typing.Literal["_ttl", b"_ttl"]  # noqa: Y015
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__ttl) -> _WhichOneofReturnType__ttl | None: ...
+
+Global___CacheSetRequest: _TypeAlias = CacheSetRequest  # noqa: Y015
+
+@_typing.final
+class CacheGetRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    KEY_FIELD_NUMBER: _builtins.int
+    key: _builtins.str
+    def __init__(
+        self,
+        *,
+        key: _builtins.str = ...,
+    ) -> None: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["key", b"key"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+
+Global___CacheGetRequest: _TypeAlias = CacheGetRequest  # noqa: Y015
+
+@_typing.final
+class CacheGetResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    VALUE_FIELD_NUMBER: _builtins.int
+    value: _builtins.bytes
+    """The cached value, or empty if not found."""
+    def __init__(
+        self,
+        *,
+        value: _builtins.bytes | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_value", b"_value", "value", b"value"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_value", b"_value", "value", b"value"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__value: _TypeAlias = _typing.Literal["value"]  # noqa: Y015
+    _WhichOneofArgType__value: _TypeAlias = _typing.Literal["_value", b"_value"]  # noqa: Y015
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__value) -> _WhichOneofReturnType__value | None: ...
+
+Global___CacheGetResponse: _TypeAlias = CacheGetResponse  # noqa: Y015

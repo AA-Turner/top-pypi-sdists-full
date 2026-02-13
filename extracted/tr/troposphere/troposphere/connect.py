@@ -60,6 +60,16 @@ class ContactFlow(AWSObject):
     }
 
 
+class ExternalInvocationConfiguration(AWSProperty):
+    """
+    `ExternalInvocationConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-contactflowmodule-externalinvocationconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Enabled": (boolean, True),
+    }
+
+
 class ContactFlowModule(AWSObject):
     """
     `ContactFlowModule <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflowmodule.html>`__
@@ -70,8 +80,10 @@ class ContactFlowModule(AWSObject):
     props: PropsDictType = {
         "Content": (str, True),
         "Description": (str, False),
+        "ExternalInvocationConfiguration": (ExternalInvocationConfiguration, False),
         "InstanceArn": (str, True),
         "Name": (str, True),
+        "Settings": (str, False),
         "State": (str, False),
         "Tags": (Tags, False),
     }
@@ -87,6 +99,108 @@ class ContactFlowVersion(AWSObject):
     props: PropsDictType = {
         "ContactFlowId": (str, True),
         "Description": (str, False),
+    }
+
+
+class DataTable(AWSObject):
+    """
+    `DataTable <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatable.html>`__
+    """
+
+    resource_type = "AWS::Connect::DataTable"
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "InstanceArn": (str, False),
+        "Name": (str, False),
+        "Status": (str, False),
+        "Tags": (Tags, False),
+        "TimeZone": (str, False),
+        "ValueLockLevel": (str, False),
+    }
+
+
+class Enum(AWSProperty):
+    """
+    `Enum <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-datatableattribute-enum.html>`__
+    """
+
+    props: PropsDictType = {
+        "Strict": (boolean, False),
+        "Values": ([str], False),
+    }
+
+
+class Validation(AWSProperty):
+    """
+    `Validation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-datatableattribute-validation.html>`__
+    """
+
+    props: PropsDictType = {
+        "Enum": (Enum, False),
+        "ExclusiveMaximum": (double, False),
+        "ExclusiveMinimum": (double, False),
+        "MaxLength": (integer, False),
+        "MaxValues": (integer, False),
+        "Maximum": (double, False),
+        "MinLength": (integer, False),
+        "MinValues": (integer, False),
+        "Minimum": (double, False),
+        "MultipleOf": (double, False),
+    }
+
+
+class DataTableAttribute(AWSObject):
+    """
+    `DataTableAttribute <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatableattribute.html>`__
+    """
+
+    resource_type = "AWS::Connect::DataTableAttribute"
+
+    props: PropsDictType = {
+        "DataTableArn": (str, False),
+        "Description": (str, False),
+        "InstanceArn": (str, False),
+        "Name": (str, False),
+        "Primary": (boolean, False),
+        "Validation": (Validation, False),
+        "ValueType": (str, False),
+    }
+
+
+class Value(AWSProperty):
+    """
+    `Value <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-datatablerecord-value.html>`__
+    """
+
+    props: PropsDictType = {
+        "AttributeId": (str, False),
+        "AttributeValue": (str, False),
+    }
+
+
+class DataTableRecordProperty(AWSProperty):
+    """
+    `DataTableRecordProperty <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-datatablerecord-datatablerecord.html>`__
+    """
+
+    props: PropsDictType = {
+        "PrimaryValues": ([Value], False),
+        "Values": ([Value], True),
+    }
+
+
+class DataTableRecord(AWSObject):
+    """
+    `DataTableRecord <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatablerecord.html>`__
+    """
+
+    resource_type = "AWS::Connect::DataTableRecord"
+
+    props: PropsDictType = {
+        "DataTableArn": (str, False),
+        "DataTableRecord": (DataTableRecordProperty, False),
+        "InstanceArn": (str, False),
     }
 
 
@@ -194,6 +308,28 @@ class EvaluationFormItemEnablementConfiguration(AWSProperty):
     }
 
 
+class MultiSelectQuestionRuleCategoryAutomation(AWSProperty):
+    """
+    `MultiSelectQuestionRuleCategoryAutomation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-multiselectquestionrulecategoryautomation.html>`__
+    """
+
+    props: PropsDictType = {
+        "Category": (str, True),
+        "Condition": (str, True),
+        "OptionRefIds": ([str], True),
+    }
+
+
+class EvaluationFormMultiSelectQuestionAutomationOption(AWSProperty):
+    """
+    `EvaluationFormMultiSelectQuestionAutomationOption <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformmultiselectquestionautomationoption.html>`__
+    """
+
+    props: PropsDictType = {
+        "RuleCategory": (MultiSelectQuestionRuleCategoryAutomation, True),
+    }
+
+
 class EvaluationFormQuestionAutomationAnswerSource(AWSProperty):
     """
     `EvaluationFormQuestionAutomationAnswerSource <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformquestionautomationanswersource.html>`__
@@ -201,6 +337,41 @@ class EvaluationFormQuestionAutomationAnswerSource(AWSProperty):
 
     props: PropsDictType = {
         "SourceType": (str, True),
+    }
+
+
+class EvaluationFormMultiSelectQuestionAutomation(AWSProperty):
+    """
+    `EvaluationFormMultiSelectQuestionAutomation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformmultiselectquestionautomation.html>`__
+    """
+
+    props: PropsDictType = {
+        "AnswerSource": (EvaluationFormQuestionAutomationAnswerSource, False),
+        "DefaultOptionRefIds": ([str], False),
+        "Options": ([EvaluationFormMultiSelectQuestionAutomationOption], True),
+    }
+
+
+class EvaluationFormMultiSelectQuestionOption(AWSProperty):
+    """
+    `EvaluationFormMultiSelectQuestionOption <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformmultiselectquestionoption.html>`__
+    """
+
+    props: PropsDictType = {
+        "RefId": (str, True),
+        "Text": (str, True),
+    }
+
+
+class EvaluationFormMultiSelectQuestionProperties(AWSProperty):
+    """
+    `EvaluationFormMultiSelectQuestionProperties <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformmultiselectquestionproperties.html>`__
+    """
+
+    props: PropsDictType = {
+        "Automation": (EvaluationFormMultiSelectQuestionAutomation, False),
+        "DisplayAs": (str, False),
+        "Options": ([EvaluationFormMultiSelectQuestionOption], True),
     }
 
 
@@ -348,6 +519,7 @@ class EvaluationFormQuestionTypeProperties(AWSProperty):
     """
 
     props: PropsDictType = {
+        "MultiSelect": (EvaluationFormMultiSelectQuestionProperties, False),
         "Numeric": (EvaluationFormNumericQuestionProperties, False),
         "SingleSelect": (EvaluationFormSingleSelectQuestionProperties, False),
         "Text": (EvaluationFormTextQuestionProperties, False),
@@ -406,6 +578,58 @@ class EvaluationFormBaseItem(AWSProperty):
     }
 
 
+class EvaluationFormLanguageConfiguration(AWSProperty):
+    """
+    `EvaluationFormLanguageConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformlanguageconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "FormLanguage": (str, False),
+    }
+
+
+class EvaluationFormTargetConfiguration(AWSProperty):
+    """
+    `EvaluationFormTargetConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformtargetconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "ContactInteractionType": (str, True),
+    }
+
+
+class EvaluationReviewNotificationRecipientValue(AWSProperty):
+    """
+    `EvaluationReviewNotificationRecipientValue <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationreviewnotificationrecipientvalue.html>`__
+    """
+
+    props: PropsDictType = {
+        "UserId": (str, False),
+    }
+
+
+class EvaluationReviewNotificationRecipient(AWSProperty):
+    """
+    `EvaluationReviewNotificationRecipient <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationreviewnotificationrecipient.html>`__
+    """
+
+    props: PropsDictType = {
+        "Type": (str, True),
+        "Value": (EvaluationReviewNotificationRecipientValue, True),
+    }
+
+
+class EvaluationReviewConfiguration(AWSProperty):
+    """
+    `EvaluationReviewConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationreviewconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "EligibilityDays": (integer, False),
+        "ReviewNotificationRecipients": ([EvaluationReviewNotificationRecipient], True),
+    }
+
+
 class ScoringStrategy(AWSProperty):
     """
     `ScoringStrategy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-scoringstrategy.html>`__
@@ -429,9 +653,12 @@ class EvaluationForm(AWSObject):
         "Description": (str, False),
         "InstanceArn": (str, True),
         "Items": ([EvaluationFormBaseItem], True),
+        "LanguageConfiguration": (EvaluationFormLanguageConfiguration, False),
+        "ReviewConfiguration": (EvaluationReviewConfiguration, False),
         "ScoringStrategy": (ScoringStrategy, False),
         "Status": (str, True),
         "Tags": (Tags, False),
+        "TargetConfiguration": (EvaluationFormTargetConfiguration, False),
         "Title": (str, True),
     }
 
@@ -482,6 +709,30 @@ class HoursOfOperationOverrideConfig(AWSProperty):
     }
 
 
+class RecurrencePattern(AWSProperty):
+    """
+    `RecurrencePattern <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-hoursofoperation-recurrencepattern.html>`__
+    """
+
+    props: PropsDictType = {
+        "ByMonth": ([integer], False),
+        "ByMonthDay": ([integer], False),
+        "ByWeekdayOccurrence": ([integer], False),
+        "Frequency": (str, False),
+        "Interval": (integer, False),
+    }
+
+
+class RecurrenceConfig(AWSProperty):
+    """
+    `RecurrenceConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-hoursofoperation-recurrenceconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "RecurrencePattern": (RecurrencePattern, True),
+    }
+
+
 class HoursOfOperationOverride(AWSProperty):
     """
     `HoursOfOperationOverride <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-hoursofoperation-hoursofoperationoverride.html>`__
@@ -494,6 +745,19 @@ class HoursOfOperationOverride(AWSProperty):
         "OverrideConfig": ([HoursOfOperationOverrideConfig], True),
         "OverrideDescription": (str, False),
         "OverrideName": (str, True),
+        "OverrideType": (str, False),
+        "RecurrenceConfig": (RecurrenceConfig, False),
+    }
+
+
+class HoursOfOperationsIdentifier(AWSProperty):
+    """
+    `HoursOfOperationsIdentifier <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-hoursofoperation-hoursofoperationsidentifier.html>`__
+    """
+
+    props: PropsDictType = {
+        "Id": (str, True),
+        "Name": (str, False),
     }
 
 
@@ -505,11 +769,13 @@ class HoursOfOperation(AWSObject):
     resource_type = "AWS::Connect::HoursOfOperation"
 
     props: PropsDictType = {
+        "ChildHoursOfOperations": ([HoursOfOperationsIdentifier], False),
         "Config": ([HoursOfOperationConfig], True),
         "Description": (str, False),
         "HoursOfOperationOverrides": ([HoursOfOperationOverride], False),
         "InstanceArn": (str, True),
         "Name": (str, True),
+        "ParentHoursOfOperations": ([HoursOfOperationsIdentifier], False),
         "Tags": (Tags, False),
         "TimeZone": (str, True),
     }
@@ -529,6 +795,7 @@ class Attributes(AWSProperty):
         "EnhancedContactMonitoring": (boolean, False),
         "HighVolumeOutBound": (boolean, False),
         "InboundCalls": (boolean, True),
+        "MessageStreaming": (boolean, False),
         "MultiPartyChatConference": (boolean, False),
         "MultiPartyConference": (boolean, False),
         "OutboundCalls": (boolean, True),
@@ -1238,6 +1505,63 @@ class TrafficDistributionGroup(AWSObject):
     }
 
 
+class AfterContactWorkConfig(AWSProperty):
+    """
+    `AfterContactWorkConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-aftercontactworkconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "AfterContactWorkTimeLimit": (integer, False),
+    }
+
+
+class AfterContactWorkConfigPerChannel(AWSProperty):
+    """
+    `AfterContactWorkConfigPerChannel <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-aftercontactworkconfigperchannel.html>`__
+    """
+
+    props: PropsDictType = {
+        "AfterContactWorkConfig": (AfterContactWorkConfig, True),
+        "AgentFirstCallbackAfterContactWorkConfig": (AfterContactWorkConfig, False),
+        "Channel": (str, True),
+    }
+
+
+class AutoAcceptConfig(AWSProperty):
+    """
+    `AutoAcceptConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-autoacceptconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "AgentFirstCallbackAutoAccept": (boolean, False),
+        "AutoAccept": (boolean, True),
+        "Channel": (str, True),
+    }
+
+
+class PersistentConnectionConfig(AWSProperty):
+    """
+    `PersistentConnectionConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-persistentconnectionconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "Channel": (str, True),
+        "PersistentConnection": (boolean, True),
+    }
+
+
+class PhoneNumberConfig(AWSProperty):
+    """
+    `PhoneNumberConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-phonenumberconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "Channel": (str, True),
+        "PhoneNumber": (str, False),
+        "PhoneType": (str, True),
+    }
+
+
 class UserIdentityInfo(AWSProperty):
     """
     `UserIdentityInfo <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-useridentityinfo.html>`__
@@ -1262,7 +1586,7 @@ class UserPhoneConfig(AWSProperty):
         "AutoAccept": (boolean, False),
         "DeskPhoneNumber": (str, False),
         "PersistentConnection": (boolean, False),
-        "PhoneType": (str, True),
+        "PhoneType": (str, False),
     }
 
 
@@ -1278,6 +1602,17 @@ class UserProficiency(AWSProperty):
     }
 
 
+class VoiceEnhancementConfig(AWSProperty):
+    """
+    `VoiceEnhancementConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-voiceenhancementconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "Channel": (str, True),
+        "VoiceEnhancementMode": (str, True),
+    }
+
+
 class User(AWSObject):
     """
     `User <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html>`__
@@ -1286,17 +1621,22 @@ class User(AWSObject):
     resource_type = "AWS::Connect::User"
 
     props: PropsDictType = {
+        "AfterContactWorkConfigs": ([AfterContactWorkConfigPerChannel], False),
+        "AutoAcceptConfigs": ([AutoAcceptConfig], False),
         "DirectoryUserId": (str, False),
         "HierarchyGroupArn": (str, False),
         "IdentityInfo": (UserIdentityInfo, False),
         "InstanceArn": (str, True),
         "Password": (str, False),
-        "PhoneConfig": (UserPhoneConfig, True),
+        "PersistentConnectionConfigs": ([PersistentConnectionConfig], False),
+        "PhoneConfig": (UserPhoneConfig, False),
+        "PhoneNumberConfigs": ([PhoneNumberConfig], False),
         "RoutingProfileArn": (str, True),
         "SecurityProfileArns": ([str], True),
         "Tags": (Tags, False),
         "UserProficiencies": ([UserProficiency], False),
         "Username": (str, True),
+        "VoiceEnhancementConfigs": ([VoiceEnhancementConfig], False),
     }
 
 
@@ -1433,6 +1773,159 @@ class ViewVersion(AWSObject):
     }
 
 
+class MediaItem(AWSProperty):
+    """
+    `MediaItem <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-workspace-mediaitem.html>`__
+    """
+
+    props: PropsDictType = {
+        "Source": (str, False),
+        "Type": (str, True),
+    }
+
+
+class WorkspacePage(AWSProperty):
+    """
+    `WorkspacePage <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-workspace-workspacepage.html>`__
+    """
+
+    props: PropsDictType = {
+        "InputData": (str, False),
+        "Page": (str, True),
+        "ResourceArn": (str, True),
+        "Slug": (str, False),
+    }
+
+
+class PaletteCanvas(AWSProperty):
+    """
+    `PaletteCanvas <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-workspace-palettecanvas.html>`__
+    """
+
+    props: PropsDictType = {
+        "ActiveBackground": (str, False),
+        "ContainerBackground": (str, False),
+        "PageBackground": (str, False),
+    }
+
+
+class PaletteHeader(AWSProperty):
+    """
+    `PaletteHeader <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-workspace-paletteheader.html>`__
+    """
+
+    props: PropsDictType = {
+        "Background": (str, False),
+        "InvertActionsColors": (boolean, False),
+        "Text": (str, False),
+        "TextHover": (str, False),
+    }
+
+
+class PaletteNavigation(AWSProperty):
+    """
+    `PaletteNavigation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-workspace-palettenavigation.html>`__
+    """
+
+    props: PropsDictType = {
+        "Background": (str, False),
+        "InvertActionsColors": (boolean, False),
+        "Text": (str, False),
+        "TextActive": (str, False),
+        "TextBackgroundActive": (str, False),
+        "TextBackgroundHover": (str, False),
+        "TextHover": (str, False),
+    }
+
+
+class PalettePrimary(AWSProperty):
+    """
+    `PalettePrimary <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-workspace-paletteprimary.html>`__
+    """
+
+    props: PropsDictType = {
+        "Active": (str, False),
+        "ContrastText": (str, False),
+        "Default": (str, False),
+    }
+
+
+class WorkspaceThemePalette(AWSProperty):
+    """
+    `WorkspaceThemePalette <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-workspace-workspacethemepalette.html>`__
+    """
+
+    props: PropsDictType = {
+        "Canvas": (PaletteCanvas, False),
+        "Header": (PaletteHeader, False),
+        "Navigation": (PaletteNavigation, False),
+        "Primary": (PalettePrimary, False),
+    }
+
+
+class FontFamily(AWSProperty):
+    """
+    `FontFamily <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-workspace-fontfamily.html>`__
+    """
+
+    props: PropsDictType = {
+        "Default": (str, False),
+    }
+
+
+class WorkspaceThemeTypography(AWSProperty):
+    """
+    `WorkspaceThemeTypography <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-workspace-workspacethemetypography.html>`__
+    """
+
+    props: PropsDictType = {
+        "FontFamily": (FontFamily, False),
+    }
+
+
+class WorkspaceThemeConfig(AWSProperty):
+    """
+    `WorkspaceThemeConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-workspace-workspacethemeconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "Palette": (WorkspaceThemePalette, False),
+        "Typography": (WorkspaceThemeTypography, False),
+    }
+
+
+class WorkspaceTheme(AWSProperty):
+    """
+    `WorkspaceTheme <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-workspace-workspacetheme.html>`__
+    """
+
+    props: PropsDictType = {
+        "Dark": (WorkspaceThemeConfig, False),
+        "Light": (WorkspaceThemeConfig, False),
+    }
+
+
+class Workspace(AWSObject):
+    """
+    `Workspace <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-workspace.html>`__
+    """
+
+    resource_type = "AWS::Connect::Workspace"
+
+    props: PropsDictType = {
+        "Associations": ([str], False),
+        "Description": (str, False),
+        "InstanceArn": (str, True),
+        "Media": ([MediaItem], False),
+        "Name": (str, True),
+        "Pages": ([WorkspacePage], False),
+        "Tags": (Tags, False),
+        "Theme": (WorkspaceTheme, False),
+        "Title": (str, False),
+        "Visibility": (str, False),
+    }
+
+
 class FieldValue(AWSProperty):
     """
     `FieldValue <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-rule-fieldvalue.html>`__
@@ -1443,4 +1936,15 @@ class FieldValue(AWSProperty):
         "DoubleValue": (double, False),
         "EmptyValue": (dict, False),
         "StringValue": (str, False),
+    }
+
+
+class LockVersion(AWSProperty):
+    """
+    `LockVersion <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-datatableattribute-lockversion.html>`__
+    """
+
+    props: PropsDictType = {
+        "Attribute": (str, False),
+        "DataTable": (str, False),
     }

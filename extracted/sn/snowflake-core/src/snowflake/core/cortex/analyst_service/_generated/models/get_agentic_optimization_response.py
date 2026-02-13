@@ -40,6 +40,8 @@ class GetAgenticOptimizationResponse(BaseModel):
         An opaque string containing the state of the optimization.
     outcome : str, optional
         An opaque string containing the outcome of the optimization, separate from the state. This should be the JSON-encoded form of an AgenticOptimizationOutcome protobuf message.
+    base_semantic_view_name : str, optional
+        The fully-qualified name of the base semantic model. This can be either a semantic view FQN (e.g., 'DB.SCHEMA.VIEW') or a stage file path (e.g., '@STAGE/path/file.yaml').
     """
 
     request_id: Optional[StrictStr] = None
@@ -50,7 +52,9 @@ class GetAgenticOptimizationResponse(BaseModel):
 
     outcome: Optional[StrictStr] = None
 
-    __properties = ["request_id", "status", "state", "outcome"]
+    base_semantic_view_name: Optional[StrictStr] = None
+
+    __properties = ["request_id", "status", "state", "outcome", "base_semantic_view_name"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -103,6 +107,7 @@ class GetAgenticOptimizationResponse(BaseModel):
                 "status": obj.get("status"),
                 "state": obj.get("state"),
                 "outcome": obj.get("outcome"),
+                "base_semantic_view_name": obj.get("base_semantic_view_name"),
             }
         )
 
@@ -116,6 +121,7 @@ class GetAgenticOptimizationResponseModel:
         status: Optional[AgenticOptimizationStatus] = None,
         state: Optional[str] = None,
         outcome: Optional[str] = None,
+        base_semantic_view_name: Optional[str] = None,
     ):
         """A model object representing the GetAgenticOptimizationResponse resource.
 
@@ -131,13 +137,16 @@ class GetAgenticOptimizationResponseModel:
             An opaque string containing the state of the optimization.
         outcome : str, optional
             An opaque string containing the outcome of the optimization, separate from the state. This should be the JSON-encoded form of an AgenticOptimizationOutcome protobuf message.
+        base_semantic_view_name : str, optional
+            The fully-qualified name of the base semantic model. This can be either a semantic view FQN (e.g., 'DB.SCHEMA.VIEW') or a stage file path (e.g., '@STAGE/path/file.yaml').
         """
         self.request_id = request_id
         self.status = status
         self.state = state
         self.outcome = outcome
+        self.base_semantic_view_name = base_semantic_view_name
 
-    __properties = ["request_id", "status", "state", "outcome"]
+    __properties = ["request_id", "status", "state", "outcome", "base_semantic_view_name"]
 
     def __repr__(self) -> str:
         return repr(self._to_model())
@@ -148,6 +157,7 @@ class GetAgenticOptimizationResponseModel:
             status=self.status,
             state=self.state,
             outcome=self.outcome,
+            base_semantic_view_name=self.base_semantic_view_name,
         )
 
     @classmethod
@@ -157,6 +167,7 @@ class GetAgenticOptimizationResponseModel:
             status=model.status,
             state=model.state,
             outcome=model.outcome,
+            base_semantic_view_name=model.base_semantic_view_name,
         )
 
     def to_dict(self):

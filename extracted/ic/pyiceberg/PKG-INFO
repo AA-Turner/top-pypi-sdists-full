@@ -1,82 +1,89 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: pyiceberg
-Version: 0.10.0
+Version: 0.11.0
 Summary: Apache Iceberg is an open table format for huge analytic datasets
-License: Apache-2.0
-Author: Apache Software Foundation
-Author-email: dev@iceberg.apache.org
-Requires-Python: >=3.9, !=2.7.*, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*, !=3.6.*, !=3.7.*, !=3.8.*
-Classifier: License :: OSI Approved :: Apache Software License
+Author-email: Apache Software Foundation <dev@iceberg.apache.org>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://py.iceberg.apache.org/
+Project-URL: Repository, https://github.com/apache/iceberg-python
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.9
-Provides-Extra: adlfs
-Provides-Extra: bigquery
-Provides-Extra: bodo
-Provides-Extra: daft
-Provides-Extra: datafusion
-Provides-Extra: duckdb
-Provides-Extra: dynamodb
-Provides-Extra: gcp-auth
-Provides-Extra: gcsfs
-Provides-Extra: glue
-Provides-Extra: hf
-Provides-Extra: hive
-Provides-Extra: hive-kerberos
-Provides-Extra: pandas
-Provides-Extra: polars
-Provides-Extra: pyarrow
-Provides-Extra: pyiceberg-core
-Provides-Extra: ray
-Provides-Extra: rest-sigv4
-Provides-Extra: s3fs
-Provides-Extra: snappy
-Provides-Extra: sql-postgres
-Provides-Extra: sql-sqlite
-Provides-Extra: zstandard
-Requires-Dist: adlfs (>=2024.7.0) ; extra == "adlfs"
-Requires-Dist: bodo (>=2025.7.4) ; extra == "bodo"
-Requires-Dist: boto3 (>=1.24.59) ; extra == "glue" or extra == "dynamodb" or extra == "rest-sigv4"
-Requires-Dist: cachetools (>=5.5,<7.0)
-Requires-Dist: click (>=7.1.1,<9.0.0)
-Requires-Dist: daft (>=0.5.0) ; extra == "daft"
-Requires-Dist: datafusion (>=45) ; extra == "datafusion"
-Requires-Dist: duckdb (>=0.5.0,<2.0.0) ; extra == "duckdb"
-Requires-Dist: fsspec (>=2023.1.0)
-Requires-Dist: gcsfs (>=2023.1.0) ; extra == "gcsfs"
-Requires-Dist: google-auth (>=2.4.0) ; extra == "gcp-auth"
-Requires-Dist: google-cloud-bigquery (>=3.33.0,<4.0.0) ; extra == "bigquery"
-Requires-Dist: huggingface-hub (>=0.24.0) ; extra == "hf"
-Requires-Dist: kerberos (>=1.3.1,<2.0.0) ; extra == "hive-kerberos"
-Requires-Dist: mmh3 (>=4.0.0,<6.0.0)
-Requires-Dist: pandas (>=1.0.0,<3.0.0) ; extra == "pandas" or extra == "ray"
-Requires-Dist: polars (>=1.21.0,<2.0.0) ; extra == "polars"
-Requires-Dist: psycopg2-binary (>=2.9.6) ; extra == "sql-postgres"
-Requires-Dist: pyarrow (>=17.0.0) ; extra == "pyarrow" or extra == "pandas" or extra == "duckdb" or extra == "ray"
-Requires-Dist: pydantic (>=2.0,<3.0,!=2.4.0,!=2.4.1)
-Requires-Dist: pyiceberg-core (>=0.5.1,<0.7.0) ; extra == "pyarrow" or extra == "pyiceberg-core"
-Requires-Dist: pyparsing (>=3.1.0,<4.0.0)
-Requires-Dist: pyroaring (>=1.0.0,<2.0.0)
-Requires-Dist: python-snappy (>=0.6.0,<1.0.0) ; extra == "snappy"
-Requires-Dist: ray (==2.10.0) ; (python_version < "3.9") and (extra == "ray")
-Requires-Dist: ray (>=2.10.0,<=2.44.0) ; (python_version >= "3.9") and (extra == "ray")
-Requires-Dist: requests (>=2.20.0,<3.0.0)
-Requires-Dist: rich (>=10.11.0,<15.0.0)
-Requires-Dist: s3fs (>=2023.1.0) ; extra == "s3fs"
-Requires-Dist: sortedcontainers (==2.4.0)
-Requires-Dist: sqlalchemy (>=2.0.18,<3.0.0) ; extra == "sql-postgres" or extra == "sql-sqlite"
-Requires-Dist: strictyaml (>=1.7.0,<2.0.0)
-Requires-Dist: tenacity (>=8.2.3,<10.0.0)
-Requires-Dist: thrift (>=0.13.0,<1.0.0) ; extra == "hive" or extra == "hive-kerberos"
-Requires-Dist: thrift-sasl (>=0.4.3) ; extra == "hive-kerberos"
-Requires-Dist: zstandard (>=0.13.0,<1.0.0) ; extra == "zstandard"
-Project-URL: Homepage, https://py.iceberg.apache.org/
-Project-URL: Repository, https://github.com/apache/iceberg-python
+Requires-Python: <4.0.0,>=3.10.0
 Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: NOTICE
+Requires-Dist: mmh3<6.0.0,>=4.0.0
+Requires-Dist: requests<3.0.0,>=2.20.0
+Requires-Dist: click<9.0.0,>=7.1.1
+Requires-Dist: rich<15.0.0,>=10.11.0
+Requires-Dist: strictyaml<2.0.0,>=1.7.0
+Requires-Dist: pydantic!=2.12.0,!=2.12.1,!=2.4.0,!=2.4.1,<3.0,>=2.0
+Requires-Dist: fsspec>=2023.1.0
+Requires-Dist: pyparsing<4.0.0,>=3.1.0
+Requires-Dist: tenacity<10.0.0,>=8.2.3
+Requires-Dist: pyroaring<2.0.0,>=1.0.0
+Requires-Dist: cachetools<7.0,>=5.5
+Requires-Dist: zstandard<1.0.0,>=0.13.0
+Provides-Extra: pyarrow
+Requires-Dist: pyarrow>=17.0.0; extra == "pyarrow"
+Requires-Dist: pyiceberg-core<0.9.0,>=0.5.1; extra == "pyarrow"
+Provides-Extra: pandas
+Requires-Dist: pandas>=1.0.0; extra == "pandas"
+Requires-Dist: pyarrow>=17.0.0; extra == "pandas"
+Provides-Extra: duckdb
+Requires-Dist: duckdb<2.0.0,>=0.5.0; extra == "duckdb"
+Requires-Dist: pyarrow>=17.0.0; extra == "duckdb"
+Provides-Extra: ray
+Requires-Dist: ray<3.0.0,>=2.10.0; extra == "ray"
+Requires-Dist: pyarrow>=17.0.0; extra == "ray"
+Requires-Dist: pandas>=1.0.0; extra == "ray"
+Provides-Extra: bodo
+Requires-Dist: bodo>=2025.7.4; extra == "bodo"
+Provides-Extra: daft
+Requires-Dist: daft>=0.5.0; extra == "daft"
+Provides-Extra: polars
+Requires-Dist: polars<2,>=1.21.0; extra == "polars"
+Provides-Extra: snappy
+Requires-Dist: python-snappy<1.0.0,>=0.6.0; extra == "snappy"
+Provides-Extra: hive
+Requires-Dist: thrift<1.0.0,>=0.13.0; extra == "hive"
+Provides-Extra: hive-kerberos
+Requires-Dist: thrift<1.0.0,>=0.13.0; extra == "hive-kerberos"
+Requires-Dist: thrift-sasl>=0.4.3; extra == "hive-kerberos"
+Requires-Dist: kerberos<2,>=1.3.1; extra == "hive-kerberos"
+Provides-Extra: s3fs
+Requires-Dist: s3fs>=2023.1.0; extra == "s3fs"
+Provides-Extra: glue
+Requires-Dist: boto3>=1.24.59; extra == "glue"
+Provides-Extra: adlfs
+Requires-Dist: adlfs>=2024.7.0; extra == "adlfs"
+Provides-Extra: dynamodb
+Requires-Dist: boto3>=1.24.59; extra == "dynamodb"
+Provides-Extra: bigquery
+Requires-Dist: google-cloud-bigquery<4,>=3.33.0; extra == "bigquery"
+Provides-Extra: sql-postgres
+Requires-Dist: sqlalchemy<3,>=2.0.18; extra == "sql-postgres"
+Requires-Dist: psycopg2-binary>=2.9.6; extra == "sql-postgres"
+Provides-Extra: sql-sqlite
+Requires-Dist: sqlalchemy<3,>=2.0.18; extra == "sql-sqlite"
+Provides-Extra: gcsfs
+Requires-Dist: gcsfs>=2023.1.0; extra == "gcsfs"
+Provides-Extra: rest-sigv4
+Requires-Dist: boto3>=1.24.59; extra == "rest-sigv4"
+Provides-Extra: hf
+Requires-Dist: huggingface-hub>=0.24.0; extra == "hf"
+Provides-Extra: pyiceberg-core
+Requires-Dist: pyiceberg-core<0.9.0,>=0.5.1; extra == "pyiceberg-core"
+Provides-Extra: datafusion
+Requires-Dist: datafusion<52,>=51; extra == "datafusion"
+Provides-Extra: gcp-auth
+Requires-Dist: google-auth>=2.4.0; extra == "gcp-auth"
+Provides-Extra: entra-auth
+Requires-Dist: azure-identity>=1.25.1; extra == "entra-auth"
+Dynamic: license-file
 
 <!--
  - Licensed to the Apache Software Foundation (ASF) under one or more
@@ -104,4 +111,3 @@ The documentation is available at [https://py.iceberg.apache.org/](https://py.ic
 ## Get in Touch
 
 - [Iceberg community](https://iceberg.apache.org/community/)
-

@@ -16,6 +16,7 @@ from ..types.search_results import SearchResults
 from ..types.threshold_search import ThresholdSearch
 from .types.search_create_request_group_by import SearchCreateRequestGroupBy
 from .types.search_create_request_operator import SearchCreateRequestOperator
+from .types.search_create_request_query_media_type import SearchCreateRequestQueryMediaType
 from .types.search_create_request_search_options_item import SearchCreateRequestSearchOptionsItem
 from .types.search_create_request_sort_option import SearchCreateRequestSortOption
 from .types.search_create_request_transcription_options_item import SearchCreateRequestTranscriptionOptionsItem
@@ -34,7 +35,7 @@ class RawSearchClient:
         *,
         index_id: str,
         search_options: typing.List[SearchCreateRequestSearchOptionsItem],
-        query_media_type: typing.Optional[typing.Literal["image"]] = OMIT,
+        query_media_type: typing.Optional[SearchCreateRequestQueryMediaType] = OMIT,
         query_media_url: typing.Optional[str] = OMIT,
         query_media_file: typing.Optional[core.File] = OMIT,
         query_text: typing.Optional[str] = OMIT,
@@ -73,12 +74,9 @@ class RawSearchClient:
         
         - To find a specific person in your videos, enclose the unique identifier of the entity you want to find in the `query_text` parameter.
         
-        <Note title="Note">
-          When using images in your search queries (either as media queries or in composed searches), ensure your image files meet the [format requirements](/v1.3/docs/concepts/models/marengo#image-file-requirements).
-        </Note>
-        
-        <Note title="Note">
-        This endpoint is rate-limited. For details, see the [Rate limits](/v1.3/docs/get-started/rate-limits) page.
+        <Note title="Notes">
+        - When using images in your search queries (either as media queries or in composed searches), ensure your image files meet the [requirements](/v1.3/docs/concepts/models/marengo#image-file-requirements).
+        - This endpoint is rate-limited. For details, see the [Rate limits](/v1.3/docs/get-started/rate-limits) page.
         </Note>
         
         Parameters
@@ -105,7 +103,7 @@ class RawSearchClient:
             
             For detailed guidance and version-specific behavior, see the [Search options](/v1.3/docs/concepts/modalities#search-options) section.
         
-        query_media_type : typing.Optional[typing.Literal["image"]]
+        query_media_type : typing.Optional[SearchCreateRequestQueryMediaType]
             The type of media you wish to use. This parameter is required for media queries. For example, to perform an image-based search, set this parameter to `image`. Use `query_text` together with this parameter when you want to perform a composed image+text search.
         
         query_media_url : typing.Optional[str]
@@ -363,7 +361,7 @@ class AsyncRawSearchClient:
         *,
         index_id: str,
         search_options: typing.List[SearchCreateRequestSearchOptionsItem],
-        query_media_type: typing.Optional[typing.Literal["image"]] = OMIT,
+        query_media_type: typing.Optional[SearchCreateRequestQueryMediaType] = OMIT,
         query_media_url: typing.Optional[str] = OMIT,
         query_media_file: typing.Optional[core.File] = OMIT,
         query_text: typing.Optional[str] = OMIT,
@@ -402,12 +400,9 @@ class AsyncRawSearchClient:
         
         - To find a specific person in your videos, enclose the unique identifier of the entity you want to find in the `query_text` parameter.
         
-        <Note title="Note">
-          When using images in your search queries (either as media queries or in composed searches), ensure your image files meet the [format requirements](/v1.3/docs/concepts/models/marengo#image-file-requirements).
-        </Note>
-        
-        <Note title="Note">
-        This endpoint is rate-limited. For details, see the [Rate limits](/v1.3/docs/get-started/rate-limits) page.
+        <Note title="Notes">
+        - When using images in your search queries (either as media queries or in composed searches), ensure your image files meet the [requirements](/v1.3/docs/concepts/models/marengo#image-file-requirements).
+        - This endpoint is rate-limited. For details, see the [Rate limits](/v1.3/docs/get-started/rate-limits) page.
         </Note>
         
         Parameters
@@ -434,7 +429,7 @@ class AsyncRawSearchClient:
             
             For detailed guidance and version-specific behavior, see the [Search options](/v1.3/docs/concepts/modalities#search-options) section.
         
-        query_media_type : typing.Optional[typing.Literal["image"]]
+        query_media_type : typing.Optional[SearchCreateRequestQueryMediaType]
             The type of media you wish to use. This parameter is required for media queries. For example, to perform an image-based search, set this parameter to `image`. Use `query_text` together with this parameter when you want to perform a composed image+text search.
         
         query_media_url : typing.Optional[str]

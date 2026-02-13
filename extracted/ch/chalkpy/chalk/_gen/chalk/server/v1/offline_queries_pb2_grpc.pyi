@@ -8,10 +8,14 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.offline_queries_pb2 import (
+    CancelAsyncOfflineQueryRequest,
+    CancelAsyncOfflineQueryResponse,
     CreateModelTrainingJobRequest,
     CreateModelTrainingJobResponse,
     CreateOfflineQueryJobRequest,
     CreateOfflineQueryJobResponse,
+    GetBatchReportRequest,
+    GetBatchReportResponse,
     GetOfflineQueryRequest,
     GetOfflineQueryResponse,
     IngestDatasetRequest,
@@ -67,6 +71,14 @@ class OfflineQueryMetadataServiceStub:
         RetryOfflineQueryShardRequest,
         RetryOfflineQueryShardResponse,
     ]
+    CancelAsyncOfflineQuery: UnaryUnaryMultiCallable[
+        CancelAsyncOfflineQueryRequest,
+        CancelAsyncOfflineQueryResponse,
+    ]
+    GetBatchReport: UnaryUnaryMultiCallable[
+        GetBatchReportRequest,
+        GetBatchReportResponse,
+    ]
 
 class OfflineQueryMetadataServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -116,6 +128,18 @@ class OfflineQueryMetadataServiceServicer(metaclass=ABCMeta):
         request: RetryOfflineQueryShardRequest,
         context: ServicerContext,
     ) -> RetryOfflineQueryShardResponse: ...
+    @abstractmethod
+    def CancelAsyncOfflineQuery(
+        self,
+        request: CancelAsyncOfflineQueryRequest,
+        context: ServicerContext,
+    ) -> CancelAsyncOfflineQueryResponse: ...
+    @abstractmethod
+    def GetBatchReport(
+        self,
+        request: GetBatchReportRequest,
+        context: ServicerContext,
+    ) -> GetBatchReportResponse: ...
 
 def add_OfflineQueryMetadataServiceServicer_to_server(
     servicer: OfflineQueryMetadataServiceServicer, server: Server

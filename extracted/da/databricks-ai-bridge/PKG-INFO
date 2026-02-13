@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: databricks-ai-bridge
-Version: 0.13.0
+Version: 0.14.1
 Summary: Official Python library for Databricks AI support
 Author-email: Databricks <agent-feedback@databricks.com>
 License: Databricks License
@@ -85,6 +85,7 @@ Requires-Dist: tiktoken>=0.8.0
 Requires-Dist: typing-extensions>=4.15.0
 Provides-Extra: memory
 Requires-Dist: psycopg[binary,pool]>=3.2.10; extra == 'memory'
+Requires-Dist: sqlalchemy[asyncio]>=2.0.0; extra == 'memory'
 Description-Content-Type: text/markdown
 
 # Databricks AI Bridge library

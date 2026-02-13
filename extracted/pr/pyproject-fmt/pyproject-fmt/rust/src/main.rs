@@ -13,6 +13,7 @@ mod build_system;
 mod dependency_groups;
 mod project;
 
+mod coverage;
 mod global;
 mod ruff;
 #[cfg(test)]
@@ -30,13 +31,14 @@ pub struct Settings {
     table_format: String,
     expand_tables: Vec<String>,
     collapse_tables: Vec<String>,
+    skip_wrap_for_keys: Vec<String>,
 }
 
 #[pymethods]
 impl Settings {
     #[new]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (*, column_width, indent, keep_full_version, max_supported_python, min_supported_python, generate_python_version_classifiers, table_format, expand_tables, collapse_tables))]
+    #[pyo3(signature = (*, column_width, indent, keep_full_version, max_supported_python, min_supported_python, generate_python_version_classifiers, table_format, expand_tables, collapse_tables, skip_wrap_for_keys))]
     fn new(
         column_width: usize,
         indent: usize,
@@ -47,6 +49,7 @@ impl Settings {
         table_format: String,
         expand_tables: Vec<String>,
         collapse_tables: Vec<String>,
+        skip_wrap_for_keys: Vec<String>,
     ) -> Self {
         Self {
             column_width,
@@ -58,6 +61,7 @@ impl Settings {
             table_format,
             expand_tables,
             collapse_tables,
+            skip_wrap_for_keys,
         }
     }
 }
@@ -114,6 +118,7 @@ async fn format_with_tombi(content: &str, column_width: usize, indent: usize) ->
 #[pyfunction]
 pub fn format_toml(content: &str, opt: &Settings) -> String {
     let root_ast = parse(content);
+    common::string::normalize_key_quotes(&root_ast);
     let mut tables = Tables::from_ast(&root_ast);
     let table_config = TableFormatConfig::from_settings(opt);
 
@@ -147,9 +152,10 @@ pub fn format_toml(content: &str, opt: &Settings) -> String {
     dependency_groups::fix(&mut tables, opt.keep_full_version);
     ruff::fix(&mut tables);
     uv::fix(&mut tables);
+    coverage::fix(&mut tables);
     reorder_tables(&root_ast, &tables);
     ensure_all_arrays_multiline(&root_ast, opt.column_width);
-    common::string::wrap_all_long_strings(&root_ast, opt.column_width, &indent_string);
+    common::string::wrap_all_long_strings(&root_ast, opt.column_width, &indent_string, &opt.skip_wrap_for_keys);
 
     let modified_content = root_ast.to_string();
 

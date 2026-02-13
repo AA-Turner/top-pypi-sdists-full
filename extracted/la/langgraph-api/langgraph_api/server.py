@@ -109,7 +109,7 @@ def update_openapi_spec(app):
     spec = None
     if "fastapi" in sys.modules:
         # It's maybe a fastapi app
-        from fastapi import FastAPI
+        from fastapi import FastAPI  # noqa: PLC0415
 
         if isinstance(user_router, FastAPI):
             spec = app.openapi()

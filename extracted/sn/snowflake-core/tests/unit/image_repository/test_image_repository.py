@@ -4,6 +4,8 @@ import pytest
 
 from snowflake.core import PollingOperation
 from snowflake.core.image_repository import ImageRepository, ImageRepositoryResource
+from snowflake.core.image_repository._generated import TagAssignment, TagReference
+from snowflake.core.tag import TagValue
 
 from ...utils import BASE_URL, extra_params, mock_http_response
 
@@ -113,4 +115,67 @@ def test_list_images_in_repository(fake_root, image_repository):
         assert isinstance(op, PollingOperation)
         images = op.result()
         assert list(images) == []
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+
+def test_set_tags(fake_root, image_repository, tag):
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/image-repositories/my_rep:set-tags")
+    tags = {tag: TagValue(value="value")}
+    kwargs = extra_params(
+        body=[
+            TagAssignment(
+                tag_value=v.value, tag_name=k.name, tag_schema=k.schema.name, tag_database=k.database.name
+            ).to_dict()
+            for k, v in tags.items()
+        ]
+    )
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        image_repository.set_tags(tags)
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        op = image_repository.set_tags_async(tags)
+        assert isinstance(op, PollingOperation)
+        op.result()
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+
+def test_unset_tags(fake_root, image_repository, tag):
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/image-repositories/my_rep:unset-tags")
+    tag_resources = {tag}
+    kwargs = extra_params(
+        body=[
+            TagReference(
+                tag_name=tag_res.name, tag_schema=tag_res.schema.name, tag_database=tag_res.database.name
+            ).to_dict()
+            for tag_res in tag_resources
+        ]
+    )
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        image_repository.unset_tags(tag_resources)
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        op = image_repository.unset_tags_async(tag_resources)
+        assert isinstance(op, PollingOperation)
+        op.result()
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+
+def test_get_tags(fake_root, image_repository):
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/image-repositories/my_rep:get-tags")
+    kwargs = extra_params()
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        mocked_request.return_value = mock_http_response()
+        assert image_repository.get_tags() == {}
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        mocked_request.return_value = mock_http_response()
+        op = image_repository.get_tags_async()
+        assert isinstance(op, PollingOperation)
+        assert op.result() == {}
     mocked_request.assert_called_once_with(*args, **kwargs)

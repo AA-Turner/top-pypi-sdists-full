@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -625,6 +625,13 @@ public:
    *  extraction.
    */
   void configure_l2n (db::LayoutToNetlist &l2n);
+
+  /**
+   *  @brief Gets the original layers
+   *
+   *  These are the layer indexes used for computing the net tracer functions
+   */
+  std::set<unsigned int> original_layers () const;
 
 private:
   unsigned int m_next_log_layer;

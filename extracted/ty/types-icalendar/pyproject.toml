@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-icalendar"
-version = "6.3.2.20251222"
+version = "6.3.2.20260213"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for icalendar"
@@ -17,6 +17,11 @@ to check code that uses `icalendar`. This version of
 `types-icalendar` aims to provide accurate annotations for
 `icalendar==6.3.2`.
 
+*Note:* The `icalendar` package includes type annotations or type stubs
+since version 7.0.0. Please uninstall the `types-icalendar`
+package if you use this or a newer version.
+
+
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
 See [the README](https://github.com/python/typeshed/blob/main/README.md)
@@ -25,17 +30,17 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.2
-* [pyright](https://github.com/microsoft/pyright) 1.1.407
+* [mypy](https://github.com/python/mypy/) 1.19.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`90d855985be5aae9bc76e77b0f3d4b6738c38347`](https://github.com/python/typeshed/commit/90d855985be5aae9bc76e77b0f3d4b6738c38347).
+[`da3de3ac0950f967d63a97a2d27de2ab8c1f4fa3`](https://github.com/python/typeshed/commit/da3de3ac0950f967d63a97a2d27de2ab8c1f4fa3).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = ['types-python-dateutil', 'types-pytz']
 
 [project.urls]

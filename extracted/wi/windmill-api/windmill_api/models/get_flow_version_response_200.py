@@ -32,6 +32,7 @@ class GetFlowVersionResponse200:
         schema (Union[Unset, GetFlowVersionResponse200Schema]): JSON Schema for flow inputs. Use this to define input
             parameters, their types, defaults, and validation. For resource inputs, set type to 'object' and format to
             'resource-<type>' (e.g., 'resource-stripe')
+        on_behalf_of_email (Union[Unset, str]):
         workspace_id (Union[Unset, str]):
         starred (Union[Unset, bool]):
         draft_only (Union[Unset, bool]):
@@ -41,7 +42,6 @@ class GetFlowVersionResponse200:
         dedicated_worker (Union[Unset, bool]):
         timeout (Union[Unset, float]):
         visible_to_runner_only (Union[Unset, bool]):
-        on_behalf_of_email (Union[Unset, str]):
         lock_error_logs (Union[Unset, str]):
         version_id (Union[Unset, float]):
     """
@@ -55,6 +55,7 @@ class GetFlowVersionResponse200:
     extra_perms: "GetFlowVersionResponse200ExtraPerms"
     description: Union[Unset, str] = UNSET
     schema: Union[Unset, "GetFlowVersionResponse200Schema"] = UNSET
+    on_behalf_of_email: Union[Unset, str] = UNSET
     workspace_id: Union[Unset, str] = UNSET
     starred: Union[Unset, bool] = UNSET
     draft_only: Union[Unset, bool] = UNSET
@@ -64,7 +65,6 @@ class GetFlowVersionResponse200:
     dedicated_worker: Union[Unset, bool] = UNSET
     timeout: Union[Unset, float] = UNSET
     visible_to_runner_only: Union[Unset, bool] = UNSET
-    on_behalf_of_email: Union[Unset, str] = UNSET
     lock_error_logs: Union[Unset, str] = UNSET
     version_id: Union[Unset, float] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -85,6 +85,7 @@ class GetFlowVersionResponse200:
         if not isinstance(self.schema, Unset):
             schema = self.schema.to_dict()
 
+        on_behalf_of_email = self.on_behalf_of_email
         workspace_id = self.workspace_id
         starred = self.starred
         draft_only = self.draft_only
@@ -94,7 +95,6 @@ class GetFlowVersionResponse200:
         dedicated_worker = self.dedicated_worker
         timeout = self.timeout
         visible_to_runner_only = self.visible_to_runner_only
-        on_behalf_of_email = self.on_behalf_of_email
         lock_error_logs = self.lock_error_logs
         version_id = self.version_id
 
@@ -115,6 +115,8 @@ class GetFlowVersionResponse200:
             field_dict["description"] = description
         if schema is not UNSET:
             field_dict["schema"] = schema
+        if on_behalf_of_email is not UNSET:
+            field_dict["on_behalf_of_email"] = on_behalf_of_email
         if workspace_id is not UNSET:
             field_dict["workspace_id"] = workspace_id
         if starred is not UNSET:
@@ -133,8 +135,6 @@ class GetFlowVersionResponse200:
             field_dict["timeout"] = timeout
         if visible_to_runner_only is not UNSET:
             field_dict["visible_to_runner_only"] = visible_to_runner_only
-        if on_behalf_of_email is not UNSET:
-            field_dict["on_behalf_of_email"] = on_behalf_of_email
         if lock_error_logs is not UNSET:
             field_dict["lock_error_logs"] = lock_error_logs
         if version_id is not UNSET:
@@ -172,6 +172,8 @@ class GetFlowVersionResponse200:
         else:
             schema = GetFlowVersionResponse200Schema.from_dict(_schema)
 
+        on_behalf_of_email = d.pop("on_behalf_of_email", UNSET)
+
         workspace_id = d.pop("workspace_id", UNSET)
 
         starred = d.pop("starred", UNSET)
@@ -190,8 +192,6 @@ class GetFlowVersionResponse200:
 
         visible_to_runner_only = d.pop("visible_to_runner_only", UNSET)
 
-        on_behalf_of_email = d.pop("on_behalf_of_email", UNSET)
-
         lock_error_logs = d.pop("lock_error_logs", UNSET)
 
         version_id = d.pop("version_id", UNSET)
@@ -206,6 +206,7 @@ class GetFlowVersionResponse200:
             extra_perms=extra_perms,
             description=description,
             schema=schema,
+            on_behalf_of_email=on_behalf_of_email,
             workspace_id=workspace_id,
             starred=starred,
             draft_only=draft_only,
@@ -215,7 +216,6 @@ class GetFlowVersionResponse200:
             dedicated_worker=dedicated_worker,
             timeout=timeout,
             visible_to_runner_only=visible_to_runner_only,
-            on_behalf_of_email=on_behalf_of_email,
             lock_error_logs=lock_error_logs,
             version_id=version_id,
         )

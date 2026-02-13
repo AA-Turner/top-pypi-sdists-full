@@ -104,11 +104,15 @@ ID = b"id: "
 BYTES_LIKE = (bytes, bytearray, memoryview)
 
 
+def _sanitize_sse_field(value: bytes) -> bytes:
+    return value.replace(b"\r", b"").replace(b"\n", b"")
+
+
 def json_to_sse(event: bytes, data: Any | bytes, id: bytes | None = None) -> bytes:
     result = b"".join(
         (
             EVENT,
-            event,
+            _sanitize_sse_field(event),
             SEP,
             DATA,
             data if isinstance(data, BYTES_LIKE) else json_dumpb(data),
@@ -117,7 +121,7 @@ def json_to_sse(event: bytes, data: Any | bytes, id: bytes | None = None) -> byt
     )
 
     if id is not None:
-        result += b"".join((ID, id, SEP))
+        result += b"".join((ID, _sanitize_sse_field(id), SEP))
 
     result += SEP
     return result

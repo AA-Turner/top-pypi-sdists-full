@@ -244,6 +244,20 @@ class Database(AWSObject):
     }
 
 
+class DatabaseSnapshot(AWSObject):
+    """
+    `DatabaseSnapshot <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-databasesnapshot.html>`__
+    """
+
+    resource_type = "AWS::Lightsail::DatabaseSnapshot"
+
+    props: PropsDictType = {
+        "RelationalDatabaseName": (str, True),
+        "RelationalDatabaseSnapshotName": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
 class AutoSnapshotAddOn(AWSProperty):
     """
     `AutoSnapshotAddOn <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lightsail-instance-autosnapshotaddon.html>`__

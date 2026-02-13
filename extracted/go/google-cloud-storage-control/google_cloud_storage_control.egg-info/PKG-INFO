@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-storage-control
-Version: 1.9.0
+Version: 1.10.0
 Summary: Google Cloud Storage Control API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-storage-control
 Author: Google LLC

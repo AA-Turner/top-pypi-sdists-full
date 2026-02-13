@@ -8,7 +8,18 @@ from .vision_process import (
 )
 
 
-def process_mm_info(conversations, use_audio_in_video, return_video_kwargs=False):
+def process_mm_info(
+    conversations,
+    use_audio_in_video,
+    return_video_kwargs=False,
+    return_video_metadata: bool = False,
+    image_patch_size: int = 14,
+):
     audios = process_audio_info(conversations, use_audio_in_video)
-    vision = process_vision_info(conversations, return_video_kwargs=return_video_kwargs)
+    vision = process_vision_info(
+        conversations,
+        return_video_kwargs=return_video_kwargs,
+        return_video_metadata=return_video_metadata,
+        image_patch_size=image_patch_size,
+    )
     return (audios,) + vision

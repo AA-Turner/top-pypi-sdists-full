@@ -33,7 +33,7 @@ from aws_advanced_python_wrapper.utils.log import Logger
 from aws_advanced_python_wrapper.utils.messages import Messages
 from aws_advanced_python_wrapper.utils.notifications import HostEvent
 from aws_advanced_python_wrapper.utils.rdsutils import RdsUtils
-from aws_advanced_python_wrapper.utils.utils import LogUtils
+from aws_advanced_python_wrapper.utils.utils import LogUtils, Utils
 
 logger = Logger(__name__)
 
@@ -76,7 +76,8 @@ class StaleDnsHelper:
         if cluster_inet_address is None:
             return conn
 
-        if self._plugin_service.get_host_role(conn) == HostRole.READER:
+        connected_to_reader = self._plugin_service.get_host_role(conn) == HostRole.READER
+        if connected_to_reader:
             # This if-statement is only reached if the connection url is a writer cluster endpoint.
             # If the new connection resolves to a reader instance, this means the topology is outdated.
             # Force refresh to update the topology.
@@ -109,16 +110,16 @@ class StaleDnsHelper:
         if self._writer_host_address is None:
             return conn
 
-        if self._writer_host_address != cluster_inet_address:
+        if self._writer_host_address != cluster_inet_address or connected_to_reader:
             logger.debug("StaleDnsHelper.StaleDnsDetected", self._writer_host_info)
 
             allowed_hosts = self._plugin_service.hosts
-            allowed_hostnames = [host.host for host in allowed_hosts]
-            if self._writer_host_info.host not in allowed_hostnames:
+
+            if not Utils.contains_host_and_port(tuple(allowed_hosts), self._writer_host_info.get_host_and_port()):
                 raise AwsWrapperError(
                     Messages.get_formatted(
                         "StaleDnsHelper.CurrentWriterNotAllowed",
-                        "<null>" if self._writer_host_info is None else self._writer_host_info.host,
+                        "<null>" if self._writer_host_info is None else self._writer_host_info.get_host_and_port(),
                         LogUtils.log_topology(allowed_hosts)))
 
             writer_conn: Connection = self._plugin_service.connect(self._writer_host_info, props)

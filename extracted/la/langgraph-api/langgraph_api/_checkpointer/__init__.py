@@ -25,6 +25,8 @@ async def get_checkpointer(
 
 async def start_checkpointer() -> None:
     """Start the checkpointer resources."""
+    # Load the custom checkpointer from LANGGRAPH_CHECKPOINTER env var, if configured.
+    await _adapter.collect_checkpointer_from_env()
     # If the custom checkpointer is provided, it will be started here / enter the stack.
     checkpointer = await get_checkpointer()
     if not isinstance(checkpointer, (BaseCheckpointSaver, CheckpointerProtocol)):
@@ -44,8 +46,14 @@ async def exit_checkpointer() -> None:
     await _adapter.exit_checkpointer()
 
 
+def get_checkpointer_capabilities() -> _adapter.CheckpointerCapabilities | None:
+    """Return the capabilities of the custom checkpointer, or None if not configured."""
+    return _adapter.get_checkpointer_capabilities()
+
+
 __all__ = [
     "exit_checkpointer",
     "get_checkpointer",
+    "get_checkpointer_capabilities",
     "start_checkpointer",
 ]

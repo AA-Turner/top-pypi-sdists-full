@@ -11,14 +11,12 @@ from langgraph_grpc_common.conversion.value import (
 from langgraph_grpc_common.proto import engine_common_pb2, errors_pb2
 
 
-class InternalExecutorError(Exception):
-    """Exception wrapper for internal executor errors (e.g., gRPC/infrastructure failures).
+class ExecutorDependencyError(Exception):
+    """Exception wrapper for executor dependency failures (e.g., RemoteCheckpointer gRPC calls).
 
-    This exception is used to distinguish internal infrastructure errors
-    (like RemoteCheckpointer gRPC failures) from user code execution errors.
-
-    When this exception is raised, it should be treated as an internal error,
-    not a user code execution error.
+    Distinguishes dependency/infrastructure failures from user code execution errors
+    and from other executor-internal errors. Tagged as "executor_dependency_internal" in gRPC
+    trailing metadata.
     """
 
     def __init__(self, original_exception: Exception, context: str | None = None):
@@ -69,7 +67,7 @@ def exception_to_proto(
     elif isinstance(exc, ParentCommand):
         cmd = exc.args[0]
         return engine_common_pb2.ParentCommand(command=command_to_proto(cmd))
-    elif isinstance(exc, InternalExecutorError):
+    elif isinstance(exc, ExecutorDependencyError):
         # Internal executor errors (e.g., gRPC failures from RemoteCheckpointer)
         # should be re-raised to be handled as internal errors, not user code errors
         raise
@@ -88,7 +86,7 @@ def interrupts_to_proto(
     return [
         engine_common_pb2.Interrupt(
             value=any_to_serialized_value(interrupt.value),
-            id=interrupt.id,  # type: ignore[unresolved-attribute]
+            id=interrupt.id,
         )
         for interrupt in interrupts
     ]

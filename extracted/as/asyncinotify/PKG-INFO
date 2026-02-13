@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asyncinotify
-Version: 4.3.2
+Version: 4.4.0
 Summary: 'A simple optionally-async python inotify library, focused on simplicity of use and operation, and leveraging modern Python features
 Keywords: async,inotify
 Author-email: "Taylor C. Richberger" <taylor.richberger@procern.com>
@@ -8,13 +8,22 @@ Requires-Python: >= 3.6, < 4
 Description-Content-Type: text/x-rst
 License-Expression: MPL-2.0
 Classifier: Development Status :: 6 - Mature
+Classifier: Framework :: AsyncIO
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: POSIX :: BSD :: FreeBSD
+Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.6
-Classifier: Operating System :: POSIX :: Linux
-Classifier: Topic :: Software Development :: Libraries
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: Intended Audience :: Developers
-Classifier: Framework :: AsyncIO
+Classifier: Topic :: Software Development :: Libraries
 License-File: LICENSE
 Project-URL: documentation, https://asyncinotify.readthedocs.io/
 Project-URL: repository, https://github.com/ProCern/asyncinotify/
@@ -86,7 +95,7 @@ This is supported and tested on the following:
 * Ubuntu 20.04, 22.04, and 24.04
 * Fedora 42 and 43
 * Alma Linux 8, 9 and 10 (Should be equivalent to RHEL)
-* Alpine Linux 3.19 through 3.22
+* Alpine Linux 3.20 through 3.23
 
 We regularly remove out-of-support OSes from the tests and add new releases.
 

@@ -68,8 +68,10 @@ class GetAgentResponse(_message.Message):
     def __init__(self, agent: _Optional[_Union[_agent_pb2.Agent, _Mapping]] = ...) -> None: ...
 
 class GetDisplayAgentRequest(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("agent_id",)
+    AGENT_ID_FIELD_NUMBER: _ClassVar[int]
+    agent_id: str
+    def __init__(self, agent_id: _Optional[str] = ...) -> None: ...
 
 class GetDisplayAgentResponse(_message.Message):
     __slots__ = ("agent",)
@@ -78,8 +80,38 @@ class GetDisplayAgentResponse(_message.Message):
     def __init__(self, agent: _Optional[_Union[_displayagent_pb2.DisplayAgent, _Mapping]] = ...) -> None: ...
 
 class Team(_message.Message):
-    __slots__ = ("id", "name", "slug", "logo", "projects", "scim_provider", "spec_config_json")
+    __slots__ = (
+        "id",
+        "name",
+        "slug",
+        "logo",
+        "projects",
+        "scim_provider",
+        "spec_config_json",
+        "internal_metadata",
+        "customer_metadata",
+    )
     class SpecConfigJsonEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _struct_pb2.Value
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+        ) -> None: ...
+
+    class InternalMetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _struct_pb2.Value
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+        ) -> None: ...
+
+    class CustomerMetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
         VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -96,6 +128,8 @@ class Team(_message.Message):
     PROJECTS_FIELD_NUMBER: _ClassVar[int]
     SCIM_PROVIDER_FIELD_NUMBER: _ClassVar[int]
     SPEC_CONFIG_JSON_FIELD_NUMBER: _ClassVar[int]
+    INTERNAL_METADATA_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_METADATA_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     slug: str
@@ -103,6 +137,8 @@ class Team(_message.Message):
     projects: _containers.RepeatedCompositeFieldContainer[Project]
     scim_provider: str
     spec_config_json: _containers.MessageMap[str, _struct_pb2.Value]
+    internal_metadata: _containers.MessageMap[str, _struct_pb2.Value]
+    customer_metadata: _containers.MessageMap[str, _struct_pb2.Value]
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -112,20 +148,46 @@ class Team(_message.Message):
         projects: _Optional[_Iterable[_Union[Project, _Mapping]]] = ...,
         scim_provider: _Optional[str] = ...,
         spec_config_json: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
+        internal_metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
+        customer_metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
     ) -> None: ...
 
 class Project(_message.Message):
-    __slots__ = ("id", "team_id", "name", "environments", "git_repo")
+    __slots__ = ("id", "team_id", "name", "environments", "git_repo", "internal_metadata", "customer_metadata")
+    class InternalMetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _struct_pb2.Value
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+        ) -> None: ...
+
+    class CustomerMetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _struct_pb2.Value
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+        ) -> None: ...
+
     ID_FIELD_NUMBER: _ClassVar[int]
     TEAM_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENTS_FIELD_NUMBER: _ClassVar[int]
     GIT_REPO_FIELD_NUMBER: _ClassVar[int]
+    INTERNAL_METADATA_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_METADATA_FIELD_NUMBER: _ClassVar[int]
     id: str
     team_id: str
     name: str
     environments: _containers.RepeatedCompositeFieldContainer[_environment_pb2.Environment]
     git_repo: str
+    internal_metadata: _containers.MessageMap[str, _struct_pb2.Value]
+    customer_metadata: _containers.MessageMap[str, _struct_pb2.Value]
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -133,6 +195,8 @@ class Project(_message.Message):
         name: _Optional[str] = ...,
         environments: _Optional[_Iterable[_Union[_environment_pb2.Environment, _Mapping]]] = ...,
         git_repo: _Optional[str] = ...,
+        internal_metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
+        customer_metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
     ) -> None: ...
 
 class CreateTeamRequest(_message.Message):
@@ -822,3 +886,144 @@ class CreateVectorDBConfigurationResponse(_message.Message):
     ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
     environment: _environment_pb2.Environment
     def __init__(self, environment: _Optional[_Union[_environment_pb2.Environment, _Mapping]] = ...) -> None: ...
+
+class CreateCustomRoleRequest(_message.Message):
+    __slots__ = ("name", "description", "permissions")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    description: str
+    permissions: _containers.RepeatedScalarFieldContainer[_permissions_pb2.Permission]
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        description: _Optional[str] = ...,
+        permissions: _Optional[_Iterable[_Union[_permissions_pb2.Permission, str]]] = ...,
+    ) -> None: ...
+
+class CreateCustomRoleResponse(_message.Message):
+    __slots__ = ("id", "name", "description", "permissions", "created_at")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    name: str
+    description: str
+    permissions: _containers.RepeatedScalarFieldContainer[str]
+    created_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+        description: _Optional[str] = ...,
+        permissions: _Optional[_Iterable[str]] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class DeleteCustomRoleRequest(_message.Message):
+    __slots__ = ("role_id",)
+    ROLE_ID_FIELD_NUMBER: _ClassVar[int]
+    role_id: str
+    def __init__(self, role_id: _Optional[str] = ...) -> None: ...
+
+class DeleteCustomRoleResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class UpdateCustomRoleRequest(_message.Message):
+    __slots__ = ("role_id", "name", "description", "permissions")
+    ROLE_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
+    role_id: str
+    name: str
+    description: str
+    permissions: _containers.RepeatedScalarFieldContainer[_permissions_pb2.Permission]
+    def __init__(
+        self,
+        role_id: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+        description: _Optional[str] = ...,
+        permissions: _Optional[_Iterable[_Union[_permissions_pb2.Permission, str]]] = ...,
+    ) -> None: ...
+
+class UpdateCustomRoleResponse(_message.Message):
+    __slots__ = ("id", "name", "description", "permissions", "updated_at")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    name: str
+    description: str
+    permissions: _containers.RepeatedScalarFieldContainer[str]
+    updated_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+        description: _Optional[str] = ...,
+        permissions: _Optional[_Iterable[str]] = ...,
+        updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetProjectRequest(_message.Message):
+    __slots__ = ("project_id",)
+    PROJECT_ID_FIELD_NUMBER: _ClassVar[int]
+    project_id: str
+    def __init__(self, project_id: _Optional[str] = ...) -> None: ...
+
+class ProjectDescription(_message.Message):
+    __slots__ = ("id", "name", "team_id", "git_repo", "internal_metadata", "customer_metadata")
+    class InternalMetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _struct_pb2.Value
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+        ) -> None: ...
+
+    class CustomerMetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _struct_pb2.Value
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+        ) -> None: ...
+
+    ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
+    GIT_REPO_FIELD_NUMBER: _ClassVar[int]
+    INTERNAL_METADATA_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_METADATA_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    name: str
+    team_id: str
+    git_repo: str
+    internal_metadata: _containers.MessageMap[str, _struct_pb2.Value]
+    customer_metadata: _containers.MessageMap[str, _struct_pb2.Value]
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+        team_id: _Optional[str] = ...,
+        git_repo: _Optional[str] = ...,
+        internal_metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
+        customer_metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
+    ) -> None: ...
+
+class GetProjectResponse(_message.Message):
+    __slots__ = ("project",)
+    PROJECT_FIELD_NUMBER: _ClassVar[int]
+    project: ProjectDescription
+    def __init__(self, project: _Optional[_Union[ProjectDescription, _Mapping]] = ...) -> None: ...

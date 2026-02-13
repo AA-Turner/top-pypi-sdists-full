@@ -300,10 +300,27 @@ class CapsuleInput:
             _final_info["description"] = _description
         if _app_type:
             _final_info["endpointType"] = _app_type
+
+        # Conditionally include codePackagePath if not skipping code packaging
+        _code_package_config = {}
+        if not app_config.get_state("skip_code_package", False):
+            _code_package_config["codePackagePath"] = app_config.get_state(
+                "code_package_url"
+            )
+
+        # Conditionally include containerStartupConfig if not using base image command
+        _startup_config = {}
+        if not app_config.get_state("use_base_image_command", False):
+            _startup_config["containerStartupConfig"] = {
+                "entrypoint": cls.construct_exec_command(
+                    app_config.get_state("commands")
+                )
+            }
+
         return {
             "perimeter": app_config.get_state("perimeter"),
             **_final_info,
-            "codePackagePath": app_config.get_state("code_package_url"),
+            **_code_package_config,
             "image": app_config.get_state("image"),
             "resourceIntegrations": [
                 {"name": x} for x in app_config.get_state("secrets", [])
@@ -320,11 +337,7 @@ class CapsuleInput:
                 **autoscaling_config,
             },
             **_scheduling_config,
-            "containerStartupConfig": {
-                "entrypoint": cls.construct_exec_command(
-                    app_config.get_state("commands")
-                )
-            },
+            **_startup_config,
             "environmentVariables": cls._marshal_environment_variables(app_config),
             # "assets": [{"name": "startup-script.sh"}],
             "authConfig": {

@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-networkx"
-version = "3.6.1.20251220"
+version = "3.6.1.20260210"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for networkx"
@@ -25,11 +25,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.2
-* [pyright](https://github.com/microsoft/pyright) 1.1.407
+* [mypy](https://github.com/python/mypy/) 1.19.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`bf5b55d7463c620c7b7181d87ae68aba214d56a0`](https://github.com/python/typeshed/commit/bf5b55d7463c620c7b7181d87ae68aba214d56a0).
+[`665cb9b0110b3311b09df9fd774da1cd3768364a`](https://github.com/python/typeshed/commit/665cb9b0110b3311b09df9fd774da1cd3768364a).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

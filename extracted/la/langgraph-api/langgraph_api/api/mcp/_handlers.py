@@ -15,7 +15,9 @@ from langgraph_api.api.mcp._constants import (
     DEFAULT_PAGE_SIZE,
     ERROR_CODE_INVALID_PARAMS,
     ERROR_CODE_METHOD_NOT_FOUND,
+    LATEST_PROTOCOL_VERSION,
     MAX_ASSISTANTS,
+    SUPPORTED_PROTOCOL_VERSIONS,
 )
 
 if TYPE_CHECKING:
@@ -158,6 +160,8 @@ async def handle_jsonrpc_request(
 
     if method == "initialize":
         result_or_error = handle_initialize_request(message)
+    elif method == "ping":
+        result_or_error = {"result": {}}
     elif method == "tools/list":
         result_or_error = await handle_tools_list(request, params)
     elif method == "tools/call":
@@ -186,22 +190,37 @@ async def handle_jsonrpc_request(
     )
 
 
+def _negotiate_protocol_version(requested: str) -> str:
+    """Negotiate MCP protocol version with the client.
+
+    Returns the requested version if supported, otherwise the latest.
+    """
+    if requested in SUPPORTED_PROTOCOL_VERSIONS:
+        return requested
+    return LATEST_PROTOCOL_VERSION
+
+
 def handle_initialize_request(message: JsonRpcRequest) -> dict[str, Any]:
-    """Handle initialize requests to create a new session.
+    """Handle initialize requests to establish protocol version.
+
+    Negotiates the protocol version with the client. If the client requests
+    a supported version, the server echoes it back. Otherwise the server
+    responds with the latest version it supports and the client may disconnect
+    if it cannot work with that version.
 
     Args:
         message: The JSON-RPC request message
 
     Returns:
-        Response with new session details
+        Response with negotiated protocol details
     """
+    params = message.get("params", {})
+    requested = params.get("protocolVersion", LATEST_PROTOCOL_VERSION)
+    negotiated = _negotiate_protocol_version(requested)
+
     return {
         "result": {
-            # Official type-script SDK client only works with
-            # protocol version 2024-11-05 currently.
-            # The protocol is versioning the messages schema and not the transport.
-            # https://modelcontextprotocol.io/specification/2025-03-26/basic/lifecycle#lifecycle-phases
-            "protocolVersion": "2024-11-05",
+            "protocolVersion": negotiated,
             "capabilities": {
                 "tools": {
                     "listChanged": False,
@@ -244,13 +263,11 @@ async def handle_tools_list(
     else:
         next_cursor = None
 
-    # Format assistants as tools for MCP
-    tools = []
+    # Deduplicate by normalized name, preserving original for the title field
     seen_names: set[str] = set()
-    dedupped_assistants = []
+    unique: list[tuple[Any, str]] = []  # (assistant, normalized_name)
     for assistant in assistants:
         normalized = _sanitizers.normalize_name(assistant["name"])
-        assistant["name"] = normalized
         if normalized in seen_names:
             await logger.awarning(
                 f"Duplicate assistant name found {assistant['name']}",
@@ -258,28 +275,48 @@ async def handle_tools_list(
                 normalized=normalized,
             )
             continue
-        else:
-            dedupped_assistants.append(assistant)
-            seen_names.add(normalized)
-    assistants = dedupped_assistants
-    del dedupped_assistants
+        seen_names.add(normalized)
+        unique.append((assistant, normalized))
 
-    async def _get_tool(assistant):
-        id_ = assistant.get("assistant_id")
-        name = assistant["name"]
+    async def _get_tool(assistant: Any, normalized_name: str) -> dict[str, Any] | None:
+        """Get tool definition for an assistant.
 
-        schemas = await client.assistants.get_schemas(id_, headers=request.headers)
-        input_schema = schemas.get("input_schema", {})
-        if input_schema:
-            _sanitizers.simplify_mcp_schema_inplace(input_schema)
-        description = assistant.get("description") or ""
-        return {
-            "name": name,
-            "inputSchema": input_schema,
-            "description": description,
-        }
+        Returns None if schema generation fails (e.g., non-serializable state).
+        """
+        try:
+            schemas = await client.assistants.get_schemas(
+                assistant["assistant_id"], headers=request.headers
+            )
+            input_schema = schemas.get("input_schema") or {}
+            if input_schema:
+                _sanitizers.simplify_mcp_schema_inplace(input_schema)
+            # MCP spec requires inputSchema to be a JSON Schema with type "object"
+            input_schema.setdefault("type", "object")
+            return {
+                "name": normalized_name,
+                "title": assistant["name"],
+                "description": assistant.get("description")
+                or f"Tool based on the {assistant['name']} assistant",
+                "inputSchema": input_schema,
+                "annotations": {
+                    "readOnlyHint": False,
+                    "destructiveHint": False,
+                    "idempotentHint": False,
+                    "openWorldHint": True,
+                },
+            }
+        except Exception as e:
+            await logger.awarning(
+                "Failed to get schema for assistant, skipping from MCP tools list",
+                assistant_id=assistant["assistant_id"],
+                assistant_name=assistant["name"],
+                error=str(e),
+            )
+            return None
 
-    tools = await asyncio.gather(*(_get_tool(assistant) for assistant in assistants))
+    tools_or_none = await asyncio.gather(*(_get_tool(a, n) for a, n in unique))
+    # Filter out assistants that failed schema generation
+    tools = [t for t in tools_or_none if t is not None]
 
     result = {"tools": tools}
 
@@ -309,8 +346,6 @@ async def handle_tools_call(
 
     if not tool_name:
         return {
-            "jsonrpc": "2.0",
-            "id": 3,
             "error": {
                 "code": ERROR_CODE_INVALID_PARAMS,
                 "message": f"Unknown tool: {tool_name}",
@@ -332,8 +367,6 @@ async def handle_tools_call(
 
     if num_assistants == 0:
         return {
-            "jsonrpc": "2.0",
-            "id": 3,
             "error": {
                 "code": ERROR_CODE_INVALID_PARAMS,
                 "message": f"Unknown tool: {tool_name}",
@@ -341,8 +374,6 @@ async def handle_tools_call(
         }
     elif num_assistants > 1:
         return {
-            "jsonrpc": "2.0",
-            "id": 3,
             "error": {
                 "code": ERROR_CODE_INVALID_PARAMS,
                 "message": "Multiple tools found with the same name.",

@@ -91,7 +91,11 @@ class Parser:
         value_node = assign_value[1]
 
         annotation = _astroid_utils.get_assign_annotation(node)
-        if annotation in ("TypeAlias", "typing.TypeAlias"):
+        if annotation in (
+            "TypeAlias",
+            "typing.TypeAlias",
+            "typing_extensions.TypeAlias",
+        ):
             value = node.value.as_string()
         elif isinstance(
             value_node, astroid.nodes.ClassDef
@@ -172,6 +176,7 @@ class Parser:
             "name": node.name,
             "qual_name": qual_name,
             "full_name": full_name,
+            "type_params": _astroid_utils.get_type_params_info(node.type_params),
             "bases": list(_astroid_utils.get_full_basenames(node)),
             "doc": _prepare_docstring(_astroid_utils.get_class_docstring(node)),
             "from_line_no": node.fromlineno,
@@ -275,7 +280,7 @@ class Parser:
         if node.type == "function":
             type_ = "function"
 
-            if isinstance(node, astroid.AsyncFunctionDef):
+            if isinstance(node, astroid.nodes.AsyncFunctionDef):
                 properties.append("async")
         elif _astroid_utils.is_decorated_with_property(node):
             type_ = "property"
@@ -289,7 +294,7 @@ class Parser:
                 properties.append(node.type)
             if node.is_abstract(pass_is_abstract=False):
                 properties.append("abstractmethod")
-            if isinstance(node, astroid.AsyncFunctionDef):
+            if isinstance(node, astroid.nodes.AsyncFunctionDef):
                 properties.append("async")
 
         data = {
@@ -298,6 +303,7 @@ class Parser:
             "qual_name": self._get_qual_name(node.name),
             "full_name": self._get_full_name(node.name),
             "args": _astroid_utils.get_args_info(node.args),
+            "type_params": _astroid_utils.get_type_params_info(node.type_params),
             "doc": _prepare_docstring(node.doc_node.value if node.doc_node else ""),
             "from_line_no": node.fromlineno,
             "to_line_no": node.tolineno,

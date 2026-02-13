@@ -91,6 +91,42 @@ def is_subselect(parsed: TokenList) -> bool:
     return False
 
 
+def get_last_select(parsed: TokenList) -> TokenList:
+    """
+    Takes a parsed sql statement and returns the last select query where applicable.
+
+    The intended use case is for when giving table suggestions based on columns, where
+    we only want to look at the columns from the most recent select. This works for a single
+    select query, or one or more sub queries (the useful part).
+
+    The custom logic is necessary because the typical sqlparse logic for things like finding
+    sub selects (i.e. is_subselect) only works on complete statements, such as:
+
+    * select c1 from t1;
+
+    However when suggesting tables based on columns, we only have partial select statements, i.e.:
+
+    * select c1
+    * select c1 from (select c2)
+
+    So given the above, we must parse them ourselves as they are not viewed as complete statements.
+
+    Returns a TokenList of the last select statement's tokens.
+    """
+    select_indexes: list[int] = []
+
+    for token in parsed:
+        if token.match(DML, "select"):  # match is case insensitive
+            select_indexes.append(parsed.token_index(token))
+
+    last_select = TokenList()
+
+    if select_indexes:
+        last_select = TokenList(parsed[select_indexes[-1] :])
+
+    return last_select
+
+
 def extract_from_part(parsed: TokenList, stop_at_punctuation: bool = True) -> Generator[Any, None, None]:
     tbl_prefix_seen = False
     for item in parsed.tokens:
@@ -185,6 +221,51 @@ def extract_tables(sql: str) -> list[tuple[str | None, str, str]]:
     return list(extract_table_identifiers(stream))
 
 
+def extract_columns_from_select(sql: str) -> list[str]:
+    """
+    Extract the column names from a select SQL statement.
+
+    Returns a list of columns.
+    """
+    parsed = sqlparse.parse(sql)
+    if not parsed:
+        return []
+
+    statement = get_last_select(parsed[0])
+
+    # if there is no select, skip checking for columns
+    if not statement:
+        return []
+
+    columns = []
+
+    # Loops through the tokens (pieces) of the SQL statement.
+    # Once it finds the SELECT token (generally first), it
+    # will then start looking for columns from that point on.
+    # The get_real_name() function returns the real column name
+    # even if an alias is used.
+    found_select = False
+    for token in statement.tokens:
+        if token.ttype is DML and token.value.upper() == 'SELECT':
+            found_select = True
+        elif found_select:
+            if isinstance(token, IdentifierList):
+                # multiple columns
+                for identifier in token.get_identifiers():
+                    column = identifier.get_real_name()
+                    columns.append(column)
+            elif isinstance(token, Identifier):
+                # single column
+                column = token.get_real_name()
+                columns.append(column)
+            elif token.ttype is Keyword:
+                break
+
+            if columns:
+                break
+    return columns
+
+
 def extract_tables_from_complete_statements(sql: str) -> list[tuple[str | None, str, str | None]]:
     """Extract the table names from a complete and valid series of SQL
     statements.
@@ -275,6 +356,26 @@ def query_has_where_clause(query: str) -> bool:
     return any(isinstance(token, sqlparse.sql.Where) for token_list in sqlparse.parse(query) for token in token_list)
 
 
+# todo: handle "UPDATE LOW_PRIORITY" and "UPDATE IGNORE"
+def query_is_single_table_update(query: str) -> bool:
+    """Check if a query is a simple single-table UPDATE."""
+    cleaned_query_for_parsing_only = sqlparse.format(query, strip_comments=True)
+    cleaned_query_for_parsing_only = re.sub(r'\s+', ' ', cleaned_query_for_parsing_only)
+    if not cleaned_query_for_parsing_only:
+        return False
+    parsed = sqlparse.parse(cleaned_query_for_parsing_only)
+    if not parsed:
+        return False
+    statement = parsed[0]
+    return (
+        statement[0].value.lower() == 'update'
+        and statement[1].is_whitespace
+        and ',' not in statement[2].value  # multiple tables
+        and statement[3].is_whitespace
+        and statement[4].value.lower() == 'set'
+    )
+
+
 def is_destructive(keywords: list[str], queries: str) -> bool:
     """Returns True if any of the queries in *queries* is destructive."""
     for query in sqlparse.split(queries):
@@ -282,7 +383,7 @@ def is_destructive(keywords: list[str], queries: str) -> bool:
             continue
         # subtle: if "UPDATE" is one of our keywords AND "query" starts with "UPDATE"
         if query_starts_with(query, keywords) and query_starts_with(query, ["update"]):
-            if query_has_where_clause(query):
+            if query_has_where_clause(query) and query_is_single_table_update(query):
                 return False
             else:
                 return True

@@ -24,12 +24,12 @@ class EnsureStoreAccessible:
 async def _get_partial_conf() -> RunnableConfig:
     store_instance = await api_get_store()
     if feature_flags.USE_RUNTIME_CONTEXT_API:
-        from langgraph._internal._constants import CONFIG_KEY_RUNTIME
-        from langgraph.runtime import Runtime
+        from langgraph._internal._constants import CONFIG_KEY_RUNTIME  # noqa: PLC0415
+        from langgraph.runtime import Runtime  # noqa: PLC0415
 
         return {CONF: {CONFIG_KEY_RUNTIME: Runtime(store=store_instance)}}
     else:
-        from langgraph.constants import CONFIG_KEY_STORE
+        from langgraph.constants import CONFIG_KEY_STORE  # noqa: PLC0415
 
         return {CONF: {CONFIG_KEY_STORE: store_instance}}
 

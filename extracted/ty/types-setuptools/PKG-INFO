@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-setuptools
-Version: 81.0.0.20260209
+Version: 82.0.0.20260210
 Summary: Typing stubs for setuptools
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -10,7 +10,7 @@ Project-URL: Issue tracker, https://github.com/python/typeshed/issues
 Project-URL: Chat, https://gitter.im/python/typing
 Classifier: Programming Language :: Python :: 3
 Classifier: Typing :: Stubs Only
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Dynamic: license-file
@@ -21,7 +21,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`setuptools`](https://github.com/pypa/setuptools) package. It can be used by type checkers
 to check code that uses `setuptools`. This version of
 `types-setuptools` aims to provide accurate annotations for
-`setuptools==81.0.*`.
+`setuptools==82.0.*`.
 
 Given that `pkg_resources` is typed since `setuptools >= 71.1`, it is no longer included with `types-setuptools`.
 
@@ -37,4 +37,4 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`29a8b8c51a9f7b32c81a2b30cd60ddc0d032f03e`](https://github.com/python/typeshed/commit/29a8b8c51a9f7b32c81a2b30cd60ddc0d032f03e).
+[`665cb9b0110b3311b09df9fd774da1cd3768364a`](https://github.com/python/typeshed/commit/665cb9b0110b3311b09df9fd774da1cd3768364a).

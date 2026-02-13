@@ -24,6 +24,47 @@ from snowflake.snowpark.types import (
 
 MAP_IN_ARROW_EVAL_TYPE = 207
 
+# Package names for UDFs
+TELEMETRY_PACKAGE = "snowflake-telemetry-python"
+
+# Flag to enable/disable automatic telemetry wrapper for UDFs
+# When True, UDFs will automatically emit telemetry events at start/completion
+ENABLE_UDF_TELEMETRY = True
+
+
+def create_telemetry_wrapper(func, udf_name):
+    """
+    Create a wrapper function that adds telemetry tracing to UDF execution.
+    Uses Snowflake's built-in telemetry API to record trace events to the Event Table.
+
+    NOTE: Uses module-level functions (telemetry.add_event, telemetry.set_span_attribute)
+    as per Snowflake documentation, NOT get_active_span() which is an OpenTelemetry pattern.
+    """
+
+    @functools.wraps(func)
+    def telemetry_wrapper(*args, **kwargs):
+        try:
+            from snowflake import telemetry
+
+            telemetry.set_span_attribute("udf.name", udf_name or "anonymous_udf")
+            telemetry.add_event("udf_invocation_start", {})
+        except Exception:
+            # Silently ignore telemetry errors to not affect UDF execution
+            pass
+
+        result = func(*args, **kwargs)
+
+        try:
+            from snowflake import telemetry
+
+            telemetry.add_event("udf_invocation_complete", {})
+        except Exception:
+            pass
+
+        return result
+
+    return telemetry_wrapper
+
 
 def _get_resource_constraint() -> dict[str, str] | None:
     """Get resource constraint from config if enabled.
@@ -202,6 +243,10 @@ class ProcessCommonInlineUserDefinedFunction:
             packages = [p.strip() for p in self._udf_packages.strip("[]").split(",")]
         else:
             packages = []
+
+        # Add telemetry package for UDF tracing (only if telemetry is enabled)
+        if ENABLE_UDF_TELEMETRY and TELEMETRY_PACKAGE not in packages:
+            packages.append(TELEMETRY_PACKAGE)
         if self._udf_imports:
             imports = [i.strip() for i in self._udf_imports.split(",") if i.strip()]
         else:
@@ -308,8 +353,14 @@ class ProcessCommonInlineUserDefinedFunction:
         )
 
         if not needs_struct_conversion:
+            # Apply null-safe wrapper first, then telemetry wrapper (if enabled)
+            wrapped_func = create_null_safe_wrapper(updated_callable_func)
+            if ENABLE_UDF_TELEMETRY:
+                wrapped_func = create_telemetry_wrapper(
+                    wrapped_func, self._function_name
+                )
             return snowpark_fn.udf(
-                create_null_safe_wrapper(updated_callable_func),
+                wrapped_func,
                 return_type=self._return_type,
                 input_types=self._input_types,
                 name=self._udf_name,
@@ -391,6 +442,10 @@ class ProcessCommonInlineUserDefinedFunction:
                 udf_function.__annotations__ = original_callable.__annotations__
         else:
             udf_function = create_null_safe_wrapper(struct_wrapper)
+
+        # Apply telemetry wrapper (if enabled)
+        if ENABLE_UDF_TELEMETRY:
+            udf_function = create_telemetry_wrapper(udf_function, self._function_name)
 
         return snowpark_fn.udf(
             udf_function,

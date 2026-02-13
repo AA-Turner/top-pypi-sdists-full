@@ -1,5 +1,5 @@
 # typedload
-# Copyright (C) 2018-2024 Salvo "LtWorf" Tomaselli
+# Copyright (C) 2018-2025 Salvo "LtWorf" Tomaselli
 #
 # typedload is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -156,14 +156,28 @@ class TestChecks(unittest.TestCase):
         assert typechecks.is_union(Union[str, int, float])
         assert not typechecks.is_union(FrozenSet[int])
         assert not typechecks.is_union(int)
+        # New syntax
+        assert typechecks.is_union(int | None)
+        assert typechecks.is_union(str | None)
+        assert typechecks.is_union(bytes | str)
+        assert typechecks.is_union(str | int | float)
+        assert typechecks.is_union(int | str)
+        assert not typechecks.is_union(2 | 1)
 
     def test_is_optional(self):
+        T = int | str
+        assert typechecks.is_optional(Optional[T])
         assert typechecks.is_optional(Optional[int])
         assert typechecks.is_optional(Optional[str])
         assert not typechecks.is_optional(Union[bytes, str])
         assert not typechecks.is_optional(Union[str, int, float])
         assert not typechecks.is_union(FrozenSet[int])
         assert not typechecks.is_union(int)
+        # New syntax
+        assert typechecks.is_optional(None | int)
+        assert typechecks.is_optional(None | str)
+        assert not typechecks.is_optional(bytes | str)
+        assert not typechecks.is_optional(str | int | float)
 
     def test_is_nonetype(self):
         assert typechecks.is_nonetype(type(None))
@@ -200,6 +214,14 @@ class TestChecks(unittest.TestCase):
 
         with self.assertRaises(AttributeError):
             typechecks.uniontypes(Union[int])
+
+        u = int | str | float
+        assert int in typechecks.uniontypes(u)
+        assert str in typechecks.uniontypes(u)
+        assert float in typechecks.uniontypes(u)
+        assert bytes not in typechecks.uniontypes(u)
+        assert bool not in typechecks.uniontypes(u)
+
 
     def test_any(self):
         assert typechecks.is_any(Any)

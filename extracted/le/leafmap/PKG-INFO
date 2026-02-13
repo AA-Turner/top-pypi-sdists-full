@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: leafmap
-Version: 0.59.0
+Version: 0.60.0
 Summary: A Python package for geospatial analysis and interactive mapping in a Jupyter environment.
 Author-email: Qiusheng Wu <giswqs@gmail.com>
 License: MIT license
 Project-URL: Homepage, https://github.com/opengeos/leafmap
 Keywords: leafmap
-Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English

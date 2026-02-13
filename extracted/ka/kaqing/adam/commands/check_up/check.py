@@ -2,7 +2,7 @@ import click
 
 from adam.checks.check_result import CheckResult
 from adam.checks.check_utils import all_checks, checks_from_csv, run_checks
-from adam.commands import extract_options, validate_args
+from adam.commands import validate_args
 from adam.commands.command import Command
 from adam.commands.command_helpers import ClusterOrPodCommandHelper
 from adam.commands.check_up.issues import Issues
@@ -35,26 +35,26 @@ class Check(Issues):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with validate_args(args,
-                                state,
-                                name='check name',
-                                msg=lambda: tabulize([check.help() for check in all_checks()], separator=':')) as arg:
-                checks = checks_from_csv(args[0])
-                if not checks:
-                    return 'invalid check name'
+            with self.context(args) as (args, ctx):
+                with validate_args(args,
+                                    state,
+                                    name='check name',
+                                    msg=lambda: tabulize([check.help() for check in all_checks()], separator=':')) as arg:
+                    checks = checks_from_csv(args[0])
+                    if not checks:
+                        return 'invalid check name'
 
-                ctx=self.context()
-                results = run_checks(state.sts,
-                                        state.namespace,
-                                        state.pod,
-                                        checks=checks,
-                                        status=CassandraStatus.snapshot(state, ctx=ctx),
-                                        ctx=ctx)
+                    results = run_checks(state.sts,
+                                         state.namespace,
+                                         state.pod,
+                                         checks=checks,
+                                         status=CassandraStatus.snapshot(state, ctx=ctx),
+                                         ctx=ctx)
 
-                issues = CheckResult.collect_issues(results)
-                IssuesUtils.show_issues(issues, in_repl=state.in_repl, ctx=self.context())
+                    issues = CheckResult.collect_issues(results)
+                    IssuesUtils.show_issues(issues, in_repl=state.in_repl, ctx=ctx)
 
-                return issues if issues else 'no issues found'
+                    return issues if issues else 'no issues found'
 
     def completion(self, _: ReplState):
         return {Check.COMMAND: {check.name(): None for check in all_checks()}}

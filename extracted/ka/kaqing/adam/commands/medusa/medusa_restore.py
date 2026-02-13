@@ -33,40 +33,40 @@ class MedusaRestore(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            ns = state.namespace
-            dc: str = StatefulSets.get_datacenter(state.sts, ns)
-            if not dc:
-                return state
-
-            ctx = self.context()
-            def msg(missing: bool):
-                if missing:
-                    ctx.log2('\n* Missing Backup Name')
-                    ctx.log2('Usage: qing restore <backup> <sts@name_space>\n')
-                else:
-                    ctx.log2('\n* Backup job name is not valid.')
-
-                tabulize(CustomResources.medusa_show_backupjobs(dc, ns),
-                         lambda x: f"{x['metadata']['name']}\t{x['metadata']['creationTimestamp']}\t{x['status'].get('finishTime', '')}",
-                         header='NAME\tCREATED\tFINISHED',
-                         separator='\t',
-                         err=True,
-                         ctx=ctx)
-
-            with validate_args(args, state, msg=partial(msg, True)) as bkname:
-                if not (job := CustomResources.medusa_get_backupjob(dc, ns, bkname)):
-                    msg(False)
-                    raise InvalidArgumentsException()
-
-                if not input(f"Restoring from {bkname} created at {job['metadata']['creationTimestamp']}. Please enter Yes to continue: ").lower() in ['y', 'yes']:
+            with self.context(args) as (args, ctx):
+                ns = state.namespace
+                dc: str = StatefulSets.get_datacenter(state.sts, ns)
+                if not dc:
                     return state
 
-                with log_exc(lambda e: "Exception: MedusaRestore failed: %s\n" % e):
-                    now_dtformat = datetime.now().strftime("%Y-%m-%d.%H.%M.%S")
-                    rtname = 'medusa-' + now_dtformat + '-restore-from-' + bkname
-                    CustomResources.create_medusa_restorejob(rtname, bkname, dc, ns)
+                def msg(missing: bool):
+                    if missing:
+                        ctx.log2('\n* Missing Backup Name')
+                        ctx.log2('Usage: qing restore <backup> <sts@name_space>\n')
+                    else:
+                        ctx.log2('\n* Backup job name is not valid.')
 
-                return state
+                    tabulize(CustomResources.medusa_show_backupjobs(dc, ns),
+                            lambda x: f"{x['metadata']['name']}\t{x['metadata']['creationTimestamp']}\t{x['status'].get('finishTime', '')}",
+                            header='NAME\tCREATED\tFINISHED',
+                            separator='\t',
+                            err=True,
+                            ctx=ctx)
+
+                with validate_args(args, state, msg=partial(msg, True)) as bkname:
+                    if not (job := CustomResources.medusa_get_backupjob(dc, ns, bkname)):
+                        msg(False)
+                        raise InvalidArgumentsException()
+
+                    if not input(f"Restoring from {bkname} created at {job['metadata']['creationTimestamp']}. Please enter Yes to continue: ").lower() in ['y', 'yes']:
+                        return state
+
+                    with log_exc(lambda e: "Exception: MedusaRestore failed: %s\n" % e):
+                        now_dtformat = datetime.now().strftime("%Y-%m-%d.%H.%M.%S")
+                        rtname = 'medusa-' + now_dtformat + '-restore-from-' + bkname
+                        CustomResources.create_medusa_restorejob(rtname, bkname, dc, ns)
+
+                    return state
 
     def completion(self, state: ReplState):
         return super().completion(state, lambda: {id: None for id in medusa_backup_names(state)}, auto_key='medusa.backups')

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hfortix-fortios"
-version = "0.5.159"
+version = "0.5.162"
 description = "Type-safe Python client for FortiGate automation and FortiOS REST API - 1,348+ endpoints with async support and atomic transactions"
 authors = [{name = "Herman W. Jacobsen", email = "herman@wjacobsen.fo"}]
 maintainers = [{name = "Herman W. Jacobsen", email = "herman@wjacobsen.fo"}]
@@ -42,8 +42,8 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "hfortix-core>=0.5.154",
-    "hfortix>=0.5.154",
+    "hfortix-core>=0.5.161",
+    "hfortix>=0.5.161",
     "pydantic>=2.0",
     "httpx>=0.24.0",
 ]

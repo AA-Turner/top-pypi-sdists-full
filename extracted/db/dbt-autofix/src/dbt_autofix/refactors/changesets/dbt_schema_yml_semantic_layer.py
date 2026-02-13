@@ -870,7 +870,7 @@ def merge_dimensions_with_model_columns(model_node: Dict[str, Any], dimensions: 
                 }
             )
             logs.append(f"Added new column '{dimension_col_name}' with '{dimension['type']}' dimension.")
-        # Create entity as derived semantic entity
+        # Otherwise, create entity as derived semantic entity
         else:
             if "derived_semantics" not in model_node:
                 model_node["derived_semantics"] = {"entities": []}
@@ -882,7 +882,7 @@ def merge_dimensions_with_model_columns(model_node: Dict[str, Any], dimensions: 
                 "type": dimension["type"],
             }
             if dimension_time_granularity:
-                new_dim["time_granularity"] = dimension_time_granularity
+                new_dim["granularity"] = dimension_time_granularity
             if dim_expr:
                 new_dim["expr"] = dim_expr
             model_node["derived_semantics"]["dimensions"].append(new_dim)
@@ -920,6 +920,49 @@ def changeset_delete_top_level_semantic_models(
 
     return YMLRuleRefactorResult(
         rule_name="delete_top_level_semantic_models",
+        refactored=refactored,
+        refactored_yaml=dict_to_yaml_str(yml_dict, write_empty=True) if refactored else yml_str,
+        original_yaml=yml_str,
+        deprecation_refactors=deprecation_refactors,
+    )
+
+
+def changeset_migrate_metric_tags_field_to_config(
+    yml_str: str,
+    semantic_definitions: SemanticDefinitions,
+) -> YMLRuleRefactorResult:
+    refactored = False
+    deprecation_refactors: List[DbtDeprecationRefactor] = []
+    yml_dict = DbtYAML().load(yml_str) or {}
+    metrics = yml_dict.get("metrics", [])
+    transformed_metrics = []
+
+    for metric in metrics:
+        if deprecated_tags := metric.pop("tags", None):
+            if not isinstance(deprecated_tags, list):
+                break
+            metric_config = metric.get("config", {})
+            metric_tags = metric_config.get("tags", [])
+            if isinstance(metric_tags, str):
+                metric_tags = [metric_tags]
+            deprecated_tags.extend(metric_tags)
+            metric_config["tags"] = deprecated_tags
+            metric["config"] = metric_config
+            refactored = True
+            deprecation_refactors.append(
+                DbtDeprecationRefactor(
+                    log=f"Migrated metric '{metric['name']}' tags field to config.", deprecation=None
+                )
+            )
+            # we use the initial_metrics as a way to work on many metrics later without having to
+            # find them again in the restructured yaml, so we need to update the represenation right
+            # now just to be safe.
+            semantic_definitions.initial_metrics[metric["name"]] = metric
+        transformed_metrics.append(metric)
+    if refactored:
+        yml_dict["metrics"] = transformed_metrics
+    return YMLRuleRefactorResult(
+        rule_name="migrate_metric_tags_field_to_config",
         refactored=refactored,
         refactored_yaml=dict_to_yaml_str(yml_dict, write_empty=True) if refactored else yml_str,
         original_yaml=yml_str,

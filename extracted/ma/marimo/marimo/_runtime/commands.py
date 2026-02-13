@@ -488,6 +488,7 @@ class CreateNotebookCommand(Command):
 
     Attributes:
         execution_requests: ExecuteCellCommand for each notebook cell.
+        cell_ids: Initial cell IDs in the notebook (unused for now).
         set_ui_element_value_request: Initial UI element values.
         auto_run: Whether to automatically execute cells on instantiation.
         request: HTTP request context if available.
@@ -496,6 +497,7 @@ class CreateNotebookCommand(Command):
     execution_requests: tuple[ExecuteCellCommand, ...]
     set_ui_element_value_request: UpdateUIElementCommand
     auto_run: bool
+    cell_ids: Optional[tuple[CellId_t, ...]] = None
     request: Optional[HTTPRequest] = None
 
 
@@ -735,17 +737,24 @@ class ModelCommand(Command):
         model_id: Widget model identifier.
         message: Model message (update or custom).
         buffers: Base64-encoded binary buffers.
+        token: Unique identifier for deduplication across dual queues.
     """
 
     model_id: WidgetModelId
     message: ModelMessage
     buffers: list[bytes]
+    token: str = msgspec.field(default_factory=lambda: str(uuid4()))
 
     def into_comm_payload(self) -> dict[str, Any]:
         return {
             "content": self.message.into_comm_payload_content(),
             "buffers": self.buffers,
         }
+
+
+# Commands that can be batched and merged (last-write-wins) by the
+# SetUIElementRequestManager to avoid redundant cell re-executions.
+BatchableCommand = Union[UpdateUIElementCommand, ModelCommand]
 
 
 class RefreshSecretsCommand(Command):

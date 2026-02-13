@@ -661,7 +661,7 @@ def _map_runs_create_error_to_rpc(
     return {
         "error": {
             "code": ERROR_CODE_INTERNAL_ERROR,
-            "message": f"Internal server error: {exception!s}",
+            "message": "Internal server error",
         }
     }
 
@@ -717,7 +717,7 @@ def _map_runs_get_error_to_rpc(
     return {
         "error": {
             "code": ERROR_CODE_INTERNAL_ERROR,
-            "message": f"Internal server error: {exception!s}",
+            "message": "Internal server error",
         }
     }
 
@@ -1287,12 +1287,12 @@ async def handle_message_send(
             assistant_id=assistant_id,
         )
 
-    except Exception as e:
+    except Exception:
         logger.exception(f"Error in message/send for assistant {assistant_id}")
         return {
             "error": {
                 "code": ERROR_CODE_INTERNAL_ERROR,
-                "message": f"Internal server error: {e!s}",
+                "message": "Internal server error",
             }
         }
 
@@ -1488,7 +1488,7 @@ async def handle_tasks_get(
         return {
             "error": {
                 "code": ERROR_CODE_INTERNAL_ERROR,
-                "message": f"Internal server error: {e!s}",
+                "message": "Internal server error",
             }
         }
 
@@ -1654,12 +1654,12 @@ async def handle_get_extended_card(
                 "message": str(e),
             }
         }
-    except Exception as e:
+    except Exception:
         logger.exception(f"Error generating extended agent card for {assistant_id}")
         return {
             "error": {
                 "code": ERROR_CODE_INTERNAL_ERROR,
-                "message": f"Internal server error: {e!s}",
+                "message": "Internal server error",
             }
         }
 
@@ -1806,12 +1806,12 @@ async def handle_agent_card_endpoint(request: ApiRequest) -> Response:
             status_code=400,
             media_type="application/json",
         )
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to generate agent card")
         error_response = {
             "error": {
                 "code": ERROR_CODE_INTERNAL_ERROR,
-                "message": f"Internal server error: {e!s}",
+                "message": "Internal server error",
             }
         }
         return Response(
@@ -2209,7 +2209,7 @@ async def handle_message_stream(
                     "id": rpc_id,
                     "error": {
                         "code": ERROR_CODE_INTERNAL_ERROR,
-                        "message": f"Internal server error: {e!s}",
+                        "message": "Internal server error",
                     },
                 },
             )
@@ -2300,12 +2300,12 @@ async def handle_assistant_agent_card_endpoint(request: ApiRequest) -> Response:
             status_code=400,
             media_type="application/json",
         )
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to generate agent card")
         error_response = {
             "error": {
                 "code": ERROR_CODE_INTERNAL_ERROR,
-                "message": f"Internal server error: {e!s}",
+                "message": "Internal server error",
             }
         }
         return Response(

@@ -36,14 +36,14 @@ def _ensure_port_available(host: str, port: int) -> None:
 
 
 async def health_and_metrics_server():
-    import uvicorn
-    from starlette.applications import Starlette
-    from starlette.requests import Request
-    from starlette.responses import JSONResponse, PlainTextResponse
-    from starlette.routing import Mount, Route
+    import uvicorn  # noqa: PLC0415
+    from starlette.applications import Starlette  # noqa: PLC0415
+    from starlette.requests import Request  # noqa: PLC0415
+    from starlette.responses import JSONResponse, PlainTextResponse  # noqa: PLC0415
+    from starlette.routing import Mount, Route  # noqa: PLC0415
 
-    from langgraph_api import config as lc_config
-    from langgraph_api.api.meta import METRICS_FORMATS
+    from langgraph_api import config as lc_config  # noqa: PLC0415
+    from langgraph_api.api.meta import METRICS_FORMATS  # noqa: PLC0415
 
     port = int(os.getenv("PORT", "8080"))
     host = os.getenv("LANGGRAPH_SERVER_HOST", "0.0.0.0")
@@ -169,10 +169,10 @@ async def entrypoint(
     entrypoint_name: str = "python-queue",
     cancel_event: asyncio.Event | None = None,
 ):
-    from langgraph_api import logging as lg_logging
-    from langgraph_api import timing
-    from langgraph_api.api import user_router
-    from langgraph_api.server import app
+    from langgraph_api import logging as lg_logging  # noqa: PLC0415
+    from langgraph_api import timing  # noqa: PLC0415
+    from langgraph_api.api import user_router  # noqa: PLC0415
+    from langgraph_api.server import app  # noqa: PLC0415
 
     lg_logging.set_logging_context({"entrypoint": entrypoint_name})
     tasks: set[asyncio.Task] = set()

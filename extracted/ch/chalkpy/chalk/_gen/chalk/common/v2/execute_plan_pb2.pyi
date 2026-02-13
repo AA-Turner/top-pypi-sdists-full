@@ -2,6 +2,7 @@ from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
 from chalk._gen.chalk.common.v2 import metadata_pb2 as _metadata_pb2
 from chalk._gen.chalk.common.v2 import options_pb2 as _options_pb2
 from chalk._gen.chalk.common.v2 import table_pb2 as _table_pb2
+from chalk._gen.chalk.dataframe.v1 import dataframe_pb2 as _dataframe_pb2
 from chalk._gen.chalk.expression.v1 import expression_pb2 as _expression_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
@@ -17,7 +18,7 @@ from typing import (
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class ExecutePlanRequest(_message.Message):
-    __slots__ = ("lazy_frame_calls", "tables", "execution_options", "planning_options")
+    __slots__ = ("lazy_frame_calls", "data_frame_plan", "tables", "execution_options", "planning_options")
     class TablesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -29,16 +30,19 @@ class ExecutePlanRequest(_message.Message):
         ) -> None: ...
 
     LAZY_FRAME_CALLS_FIELD_NUMBER: _ClassVar[int]
+    DATA_FRAME_PLAN_FIELD_NUMBER: _ClassVar[int]
     TABLES_FIELD_NUMBER: _ClassVar[int]
     EXECUTION_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     PLANNING_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     lazy_frame_calls: _expression_pb2.LogicalExprNode
+    data_frame_plan: _dataframe_pb2.DataFramePlan
     tables: _containers.MessageMap[str, _table_pb2.Table]
     execution_options: _options_pb2.ExecutionOptions
     planning_options: _options_pb2.PlanningOptions
     def __init__(
         self,
         lazy_frame_calls: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...,
+        data_frame_plan: _Optional[_Union[_dataframe_pb2.DataFramePlan, _Mapping]] = ...,
         tables: _Optional[_Mapping[str, _table_pb2.Table]] = ...,
         execution_options: _Optional[_Union[_options_pb2.ExecutionOptions, _Mapping]] = ...,
         planning_options: _Optional[_Union[_options_pb2.PlanningOptions, _Mapping]] = ...,

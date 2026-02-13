@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import TypeVar
 
-from adam.utils_context import Context
+from adam.utils_context import NULL
 
 T = TypeVar('T')
 
@@ -16,7 +16,7 @@ def tabulize(lines: list[T],
              separator = ' ',
              sorted: int = NO_SORT,
              err = False,
-             ctx: Context = Context.NULL):
+             ctx = NULL):
     if fn:
         lines = list(map(fn, lines))
 

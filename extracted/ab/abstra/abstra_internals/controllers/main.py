@@ -31,6 +31,7 @@ from abstra_internals.entities.execution_context import (
     Response,
     ScriptContext,
 )
+from abstra_internals.environment import WORKER_LOG_TO_QUEUE
 from abstra_internals.interface.cli.deploy import deploy_without_git
 from abstra_internals.interface.cli.deploy_messages import DeployMessages
 from abstra_internals.interface.contract import ExecutionStartedMessage
@@ -1939,6 +1940,24 @@ class MainController:
         self.execution_repository.set_failure_by_id(execution_id=execution_id)
         self.tasks_repository.set_locked_tasks_to_pending(execution_id)
 
+    def _broadcast_execution_update(self, execution_id: str) -> None:
+        try:
+            from abstra_internals.controllers.execution.execution_stdio import (
+                BroadcastController,
+            )
+            from abstra_internals.utils import serialize
+
+            BroadcastController.broadcast(
+                msg=serialize(
+                    {
+                        "type": "execution:update",
+                        "payload": {"execution_id": execution_id},
+                    }
+                )
+            )
+        except Exception:
+            pass
+
     def run_job(self, id: str):
         """
         Run a job stage immediately by its ID.
@@ -1964,6 +1983,8 @@ class MainController:
             return {"status": "disabled"}
 
         conn = self.repositories.producer.enqueue(id, context=JobContext())
+
+        hand_off = False
         try:
             start_msg = conn.recv()
 
@@ -1972,12 +1993,18 @@ class MainController:
 
             start_msg = ExecutionStartedMessage(execution_id=start_msg["executionId"])
 
+            if WORKER_LOG_TO_QUEUE:
+                self._broadcast_execution_update(start_msg.execution_id)
+                self.repositories.producer.consume_and_forward(conn, id)
+                hand_off = True
+
             return {
                 "ok": True,
                 "execution_id": start_msg.execution_id,
             }
         finally:
-            conn.close()
+            if not hand_off:
+                conn.close()
 
     def run_hook(self, id: str, request: Request):
         """
@@ -2066,6 +2093,7 @@ class MainController:
             id, context=ScriptContext(task_id=task_id)
         )
 
+        hand_off = False
         try:
             start_msg = conn.recv()
 
@@ -2074,9 +2102,15 @@ class MainController:
 
             start_msg = ExecutionStartedMessage(execution_id=start_msg["executionId"])
 
+            if WORKER_LOG_TO_QUEUE:
+                self._broadcast_execution_update(start_msg.execution_id)
+                self.repositories.producer.consume_and_forward(conn, id)
+                hand_off = True
+
             return {"ok": True, "execution_id": start_msg.execution_id}
         finally:
-            conn.close()
+            if not hand_off:
+                conn.close()
 
     def execute_code_snippet(self, code: str, title: str = "Debug Snippet"):
         """

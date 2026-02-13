@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -53,6 +53,8 @@ public:
   virtual void initialized (lay::Dispatcher *);
   virtual void uninitialize (lay::Dispatcher *);
   virtual bool menu_activated (const std::string &symbol) const;
+
+  virtual std::vector<std::string> additional_editor_options_pages () const;
 
   void register_annotation_template (const ant::Template &t, lay::Plugin *plugin = 0);
   void unregister_annotation_template (const std::string &category, lay::Plugin *plugin = 0);

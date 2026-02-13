@@ -16,6 +16,7 @@ import sys
 import unittest
 from datetime import datetime
 
+from libcloud.http import LibcloudConnection
 from libcloud.test import MockHttp, LibcloudTestCase
 from libcloud.utils.py3 import httplib, assertRaisesRegex
 from libcloud.common.types import InvalidCredsError
@@ -23,8 +24,15 @@ from libcloud.compute.base import NodeImage
 from libcloud.test.secrets import DIGITALOCEAN_v1_PARAMS, DIGITALOCEAN_v2_PARAMS
 from libcloud.utils.iso8601 import UTC
 from libcloud.test.file_fixtures import ComputeFileFixtures
-from libcloud.common.digitalocean import DigitalOcean_v1_Error
-from libcloud.compute.drivers.digitalocean import DigitalOceanNodeDriver
+from libcloud.common.digitalocean import (
+    DigitalOcean_v1_Error,
+    DigitalOceanBaseDriver,
+    DigitalOcean_v2_BaseDriver,
+)
+from libcloud.compute.drivers.digitalocean import (
+    DigitalOceanNodeDriver,
+    DigitalOcean_v2_NodeDriver,
+)
 
 try:
     import simplejson as json
@@ -35,9 +43,16 @@ except ImportError:
 # class DigitalOceanTests(unittest.TestCase, TestCaseMixin):
 class DigitalOcean_v2_Tests(LibcloudTestCase):
     def setUp(self):
-        DigitalOceanNodeDriver.connectionCls.conn_class = DigitalOceanMockHttp
-        DigitalOceanMockHttp.type = None
+        DigitalOceanBaseDriver.connectionCls.conn_class = DigitalOceanComputeMockHttp
+        DigitalOcean_v2_BaseDriver.connectionCls.conn_class = DigitalOceanComputeMockHttp
+        DigitalOceanNodeDriver.connectionCls.conn_class = DigitalOceanComputeMockHttp
+        DigitalOcean_v2_NodeDriver.connectionCls.conn_class = DigitalOceanComputeMockHttp
+        DigitalOceanComputeMockHttp.type = None
         self.driver = DigitalOceanNodeDriver(*DIGITALOCEAN_v2_PARAMS)
+
+    def tearDown(self):
+        LibcloudConnection.type = None
+        DigitalOceanComputeMockHttp.type = None
 
     def test_v1_Error(self):
         self.assertRaises(
@@ -56,7 +71,7 @@ class DigitalOcean_v2_Tests(LibcloudTestCase):
         )
 
     def test_authentication(self):
-        DigitalOceanMockHttp.type = "UNAUTHORIZED"
+        DigitalOceanComputeMockHttp.type = "UNAUTHORIZED"
         self.assertRaises(InvalidCredsError, self.driver.list_nodes)
 
     def test_list_images_success(self):
@@ -128,7 +143,7 @@ class DigitalOcean_v2_Tests(LibcloudTestCase):
         size = self.driver.list_sizes()[0]
         location = self.driver.list_locations()[0]
 
-        DigitalOceanMockHttp.type = "INVALID_IMAGE"
+        DigitalOceanComputeMockHttp.type = "INVALID_IMAGE"
         expected_msg = (
             r"You specified an invalid image for Droplet creation."
             + r" \(code: (404|HTTPStatus.NOT_FOUND)\)"
@@ -146,13 +161,13 @@ class DigitalOcean_v2_Tests(LibcloudTestCase):
 
     def test_reboot_node_success(self):
         node = self.driver.list_nodes()[0]
-        DigitalOceanMockHttp.type = "REBOOT"
+        DigitalOceanComputeMockHttp.type = "REBOOT"
         result = self.driver.reboot_node(node)
         self.assertTrue(result)
 
     def test_create_image_success(self):
         node = self.driver.list_nodes()[0]
-        DigitalOceanMockHttp.type = "SNAPSHOT"
+        DigitalOceanComputeMockHttp.type = "SNAPSHOT"
         result = self.driver.create_image(node, "My snapshot")
         self.assertTrue(result)
 
@@ -164,62 +179,62 @@ class DigitalOcean_v2_Tests(LibcloudTestCase):
 
     def test_delete_image_success(self):
         image = self.driver.get_image(12345)
-        DigitalOceanMockHttp.type = "DESTROY"
+        DigitalOceanComputeMockHttp.type = "DESTROY"
         result = self.driver.delete_image(image)
         self.assertTrue(result)
 
     def test_ex_power_on_node_success(self):
         node = self.driver.list_nodes()[0]
-        DigitalOceanMockHttp.type = "POWERON"
+        DigitalOceanComputeMockHttp.type = "POWERON"
         result = self.driver.ex_power_on_node(node)
         self.assertTrue(result)
 
     def test_ex_shutdown_node_success(self):
         node = self.driver.list_nodes()[0]
-        DigitalOceanMockHttp.type = "SHUTDOWN"
+        DigitalOceanComputeMockHttp.type = "SHUTDOWN"
         result = self.driver.ex_shutdown_node(node)
         self.assertTrue(result)
 
     def test_ex_hard_reboot_success(self):
         node = self.driver.list_nodes()[0]
-        DigitalOceanMockHttp.type = "POWERCYCLE"
+        DigitalOceanComputeMockHttp.type = "POWERCYCLE"
         result = self.driver.ex_hard_reboot(node)
         self.assertTrue(result)
 
     def test_ex_rebuild_node_success(self):
         node = self.driver.list_nodes()[0]
-        DigitalOceanMockHttp.type = "REBUILD"
+        DigitalOceanComputeMockHttp.type = "REBUILD"
         result = self.driver.ex_rebuild_node(node)
         self.assertTrue(result)
 
     def test_ex_resize_node_success(self):
         node = self.driver.list_nodes()[0]
         size = self.driver.list_sizes()[0]
-        DigitalOceanMockHttp.type = "RESIZE"
+        DigitalOceanComputeMockHttp.type = "RESIZE"
         result = self.driver.ex_resize_node(node, size)
         self.assertTrue(result)
 
     def test_destroy_node_success(self):
         node = self.driver.list_nodes()[0]
-        DigitalOceanMockHttp.type = "DESTROY"
+        DigitalOceanComputeMockHttp.type = "DESTROY"
         result = self.driver.destroy_node(node)
         self.assertTrue(result)
 
     def test_ex_change_kernel_success(self):
         node = self.driver.list_nodes()[0]
-        DigitalOceanMockHttp.type = "KERNELCHANGE"
+        DigitalOceanComputeMockHttp.type = "KERNELCHANGE"
         result = self.driver.ex_change_kernel(node, 7515)
         self.assertTrue(result)
 
     def test_ex_enable_ipv6_success(self):
         node = self.driver.list_nodes()[0]
-        DigitalOceanMockHttp.type = "ENABLEIPV6"
+        DigitalOceanComputeMockHttp.type = "ENABLEIPV6"
         result = self.driver.ex_enable_ipv6(node)
         self.assertTrue(result)
 
     def test_ex_rename_node_success(self):
         node = self.driver.list_nodes()[0]
-        DigitalOceanMockHttp.type = "RENAME"
+        DigitalOceanComputeMockHttp.type = "RENAME"
         result = self.driver.ex_rename_node(node, "fedora helios")
         self.assertTrue(result)
 
@@ -231,7 +246,7 @@ class DigitalOcean_v2_Tests(LibcloudTestCase):
         self.assertEqual(keys[0].public_key, "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAQQDGk5 example")
 
     def test_create_key_pair(self):
-        DigitalOceanMockHttp.type = "CREATE"
+        DigitalOceanComputeMockHttp.type = "CREATE"
         key = self.driver.create_key_pair(
             name="test1", public_key="ssh-rsa AAAAB3NzaC1yc2EAAAADAQsxRiUKn example"
         )
@@ -250,7 +265,7 @@ class DigitalOcean_v2_Tests(LibcloudTestCase):
         self.assertEqual(nodes[0]["size_slug"], "s-1vcpu-1gb")
 
     def test__paginated_request_two_pages(self):
-        DigitalOceanMockHttp.type = "PAGE_ONE"
+        DigitalOceanComputeMockHttp.type = "PAGE_ONE"
         nodes = self.driver._paginated_request("/v2/droplets", "droplets")
         self.assertEqual(len(nodes), 2)
 
@@ -264,13 +279,13 @@ class DigitalOcean_v2_Tests(LibcloudTestCase):
         self.assertEqual(volume.driver, self.driver)
 
     def test_list_volumes_empty(self):
-        DigitalOceanMockHttp.type = "EMPTY"
+        DigitalOceanComputeMockHttp.type = "EMPTY"
         volumes = self.driver.list_volumes()
         self.assertEqual(len(volumes), 0)
 
     def test_create_volume(self):
         nyc1 = [r for r in self.driver.list_locations() if r.id == "nyc1"][0]
-        DigitalOceanMockHttp.type = "CREATE"
+        DigitalOceanComputeMockHttp.type = "CREATE"
         volume = self.driver.create_volume(4, "example", nyc1)
         self.assertEqual(volume.id, "62766883-2c28-11e6-b8e6-000f53306ae1")
         self.assertEqual(volume.name, "example")
@@ -280,19 +295,19 @@ class DigitalOcean_v2_Tests(LibcloudTestCase):
     def test_attach_volume(self):
         node = self.driver.list_nodes()[0]
         volume = self.driver.list_volumes()[0]
-        DigitalOceanMockHttp.type = "ATTACH"
+        DigitalOceanComputeMockHttp.type = "ATTACH"
         resp = self.driver.attach_volume(node, volume)
         self.assertTrue(resp)
 
     def test_detach_volume(self):
         volume = self.driver.list_volumes()[0]
-        DigitalOceanMockHttp.type = "DETACH"
+        DigitalOceanComputeMockHttp.type = "DETACH"
         resp = self.driver.detach_volume(volume)
         self.assertTrue(resp)
 
     def test_destroy_volume(self):
         volume = self.driver.list_volumes()[0]
-        DigitalOceanMockHttp.type = "DESTROY"
+        DigitalOceanComputeMockHttp.type = "DESTROY"
         resp = self.driver.destroy_volume(volume)
         self.assertTrue(resp)
 
@@ -307,7 +322,7 @@ class DigitalOcean_v2_Tests(LibcloudTestCase):
 
     def test_create_volume_snapshot(self):
         volume = self.driver.list_volumes()[0]
-        DigitalOceanMockHttp.type = "CREATE"
+        DigitalOceanComputeMockHttp.type = "CREATE"
         snapshot = self.driver.create_volume_snapshot(volume, "test-snapshot")
         self.assertEqual(snapshot.id, "c0def940-9324-11e6-9a56-000f533176b1")
         self.assertEqual(snapshot.name, "test-snapshot")
@@ -316,7 +331,7 @@ class DigitalOcean_v2_Tests(LibcloudTestCase):
     def test_delete_volume_snapshot(self):
         volume = self.driver.list_volumes()[0]
         snapshot = self.driver.list_volume_snapshots(volume)[0]
-        DigitalOceanMockHttp.type = "DELETE"
+        DigitalOceanComputeMockHttp.type = "DELETE"
         result = self.driver.delete_volume_snapshot(snapshot)
         self.assertTrue(result)
 
@@ -396,7 +411,7 @@ class DigitalOcean_v2_Tests(LibcloudTestCase):
         self.assertTrue(ret)
 
 
-class DigitalOceanMockHttp(MockHttp):
+class DigitalOceanComputeMockHttp(MockHttp):
     fixtures = ComputeFileFixtures("digitalocean_v2")
 
     def _v2_regions(self, method, url, body, headers):

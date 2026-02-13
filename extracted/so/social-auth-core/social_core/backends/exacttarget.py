@@ -48,7 +48,7 @@ class ExactTargetOAuth2(BaseOAuth2):
                 'email': 'example@example.com'
             }
         """
-        return "{}".format(details.get("id"))
+        return str(details.get("id"))
 
     def uses_redirect(self) -> bool:
         return False
@@ -65,8 +65,9 @@ class ExactTargetOAuth2(BaseOAuth2):
         _key, secret = self.get_key_and_secret()
         try:  # Decode the token, using the Application Signature from settings
             decoded = jwt.decode(token, secret, algorithms=["HS256"])
-        except jwt.DecodeError:  # Wrong signature, fail authentication
-            raise AuthCanceled(self)
+        except jwt.DecodeError as error:
+            # Wrong signature, fail authentication
+            raise AuthCanceled(self) from error
         kwargs.update({"response": {"token": decoded}, "backend": self})
         return self.strategy.authenticate(*args, **kwargs)
 

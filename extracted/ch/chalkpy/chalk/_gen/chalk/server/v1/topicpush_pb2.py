@@ -18,7 +18,7 @@ from chalk._gen.chalk.server.v1 import topic_pb2 as chalk_dot_server_dot_v1_dot_
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1f\x63halk/server/v1/topicpush.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1b\x63halk/server/v1/topic.proto"\xef\x02\n\x0cScheduledJob\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n\x07payload\x18\x03 \x01(\tR\x07payload\x12\x1a\n\x08schedule\x18\x04 \x01(\tR\x08schedule\x12,\n\x05topic\x18\x05 \x01(\x0b\x32\x16.chalk.server.v1.TopicR\x05topic\x12M\n\nattributes\x18\x06 \x03(\x0b\x32-.chalk.server.v1.ScheduledJob.AttributesEntryR\nattributes\x12%\n\x0b\x65nvironment\x18\x07 \x01(\tH\x00R\x0b\x65nvironment\x88\x01\x01\x12\x12\n\x04tags\x18\x08 \x03(\tR\x04tags\x1a=\n\x0f\x41ttributesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x0e\n\x0c_environment"\xf7\x02\n\x10UpdateJobRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n\x07payload\x18\x03 \x01(\tR\x07payload\x12\x1a\n\x08schedule\x18\x04 \x01(\tR\x08schedule\x12,\n\x05topic\x18\x05 \x01(\x0b\x32\x16.chalk.server.v1.TopicR\x05topic\x12Q\n\nattributes\x18\x06 \x03(\x0b\x32\x31.chalk.server.v1.UpdateJobRequest.AttributesEntryR\nattributes\x12%\n\x0b\x65nvironment\x18\x07 \x01(\tH\x00R\x0b\x65nvironment\x88\x01\x01\x12\x12\n\x04tags\x18\x08 \x03(\tR\x04tags\x1a=\n\x0f\x41ttributesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x0e\n\x0c_environment"D\n\x11UpdateJobResponse\x12/\n\x03job\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.ScheduledJobR\x03job"\x11\n\x0fListJobsRequest"E\n\x10ListJobsResponse\x12\x31\n\x04jobs\x18\x01 \x03(\x0b\x32\x1d.chalk.server.v1.ScheduledJobR\x04jobs"\xe7\x02\n\x10\x43reateJobRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n\x07payload\x18\x02 \x01(\tR\x07payload\x12\x1a\n\x08schedule\x18\x03 \x01(\tR\x08schedule\x12,\n\x05topic\x18\x04 \x01(\x0b\x32\x16.chalk.server.v1.TopicR\x05topic\x12Q\n\nattributes\x18\x05 \x03(\x0b\x32\x31.chalk.server.v1.CreateJobRequest.AttributesEntryR\nattributes\x12%\n\x0b\x65nvironment\x18\x07 \x01(\tH\x00R\x0b\x65nvironment\x88\x01\x01\x12\x12\n\x04tags\x18\x08 \x03(\tR\x04tags\x1a=\n\x0f\x41ttributesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x0e\n\x0c_environment"D\n\x11\x43reateJobResponse\x12/\n\x03job\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.ScheduledJobR\x03job""\n\x10\x44\x65leteJobRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"\x13\n\x11\x44\x65leteJobResponse")\n\x13GetJobByNameRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name"G\n\x14GetJobByNameResponse\x12/\n\x03job\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.ScheduledJobR\x03job2\xde\x03\n\x10TopicPushService\x12W\n\x08ListJobs\x12 .chalk.server.v1.ListJobsRequest\x1a!.chalk.server.v1.ListJobsResponse"\x06\x90\x02\x01\x80}\x1b\x12W\n\tCreateJob\x12!.chalk.server.v1.CreateJobRequest\x1a".chalk.server.v1.CreateJobResponse"\x03\x80}\x1b\x12Z\n\tUpdateJob\x12!.chalk.server.v1.UpdateJobRequest\x1a".chalk.server.v1.UpdateJobResponse"\x06\x90\x02\x02\x80}\x1b\x12W\n\tDeleteJob\x12!.chalk.server.v1.DeleteJobRequest\x1a".chalk.server.v1.DeleteJobResponse"\x03\x80}\x1b\x12\x63\n\x0cGetJobByName\x12$.chalk.server.v1.GetJobByNameRequest\x1a%.chalk.server.v1.GetJobByNameResponse"\x06\x90\x02\x02\x80}\x1b\x42\x97\x01\n\x13\x63om.chalk.server.v1B\x0eTopicpushProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n\x1f\x63halk/server/v1/topicpush.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1b\x63halk/server/v1/topic.proto"\xef\x02\n\x0cScheduledJob\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n\x07payload\x18\x03 \x01(\tR\x07payload\x12\x1a\n\x08schedule\x18\x04 \x01(\tR\x08schedule\x12,\n\x05topic\x18\x05 \x01(\x0b\x32\x16.chalk.server.v1.TopicR\x05topic\x12M\n\nattributes\x18\x06 \x03(\x0b\x32-.chalk.server.v1.ScheduledJob.AttributesEntryR\nattributes\x12%\n\x0b\x65nvironment\x18\x07 \x01(\tH\x00R\x0b\x65nvironment\x88\x01\x01\x12\x12\n\x04tags\x18\x08 \x03(\tR\x04tags\x1a=\n\x0f\x41ttributesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x0e\n\x0c_environment"\xae\x03\n\x10UpdateJobRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n\x07payload\x18\x03 \x01(\tR\x07payload\x12\x1a\n\x08schedule\x18\x04 \x01(\tR\x08schedule\x12,\n\x05topic\x18\x05 \x01(\x0b\x32\x16.chalk.server.v1.TopicR\x05topic\x12Q\n\nattributes\x18\x06 \x03(\x0b\x32\x31.chalk.server.v1.UpdateJobRequest.AttributesEntryR\nattributes\x12%\n\x0b\x65nvironment\x18\x07 \x01(\tH\x00R\x0b\x65nvironment\x88\x01\x01\x12\x12\n\x04tags\x18\x08 \x03(\tR\x04tags\x12\x35\n\x05queue\x18\t \x01(\x0e\x32\x1f.chalk.server.v1.TopicPushQueueR\x05queue\x1a=\n\x0f\x41ttributesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x0e\n\x0c_environment"D\n\x11UpdateJobResponse\x12/\n\x03job\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.ScheduledJobR\x03job"H\n\x0fListJobsRequest\x12\x35\n\x05queue\x18\x01 \x01(\x0e\x32\x1f.chalk.server.v1.TopicPushQueueR\x05queue"E\n\x10ListJobsResponse\x12\x31\n\x04jobs\x18\x01 \x03(\x0b\x32\x1d.chalk.server.v1.ScheduledJobR\x04jobs"\x9e\x03\n\x10\x43reateJobRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n\x07payload\x18\x02 \x01(\tR\x07payload\x12\x1a\n\x08schedule\x18\x03 \x01(\tR\x08schedule\x12,\n\x05topic\x18\x04 \x01(\x0b\x32\x16.chalk.server.v1.TopicR\x05topic\x12Q\n\nattributes\x18\x05 \x03(\x0b\x32\x31.chalk.server.v1.CreateJobRequest.AttributesEntryR\nattributes\x12%\n\x0b\x65nvironment\x18\x07 \x01(\tH\x00R\x0b\x65nvironment\x88\x01\x01\x12\x12\n\x04tags\x18\x08 \x03(\tR\x04tags\x12\x35\n\x05queue\x18\t \x01(\x0e\x32\x1f.chalk.server.v1.TopicPushQueueR\x05queue\x1a=\n\x0f\x41ttributesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x0e\n\x0c_environment"D\n\x11\x43reateJobResponse\x12/\n\x03job\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.ScheduledJobR\x03job"Y\n\x10\x44\x65leteJobRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x35\n\x05queue\x18\x02 \x01(\x0e\x32\x1f.chalk.server.v1.TopicPushQueueR\x05queue"\x13\n\x11\x44\x65leteJobResponse"`\n\x13GetJobByNameRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x35\n\x05queue\x18\x02 \x01(\x0e\x32\x1f.chalk.server.v1.TopicPushQueueR\x05queue"G\n\x14GetJobByNameResponse\x12/\n\x03job\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.ScheduledJobR\x03job*n\n\x0eTopicPushQueue\x12 \n\x1cTOPIC_PUSH_QUEUE_UNSPECIFIED\x10\x00\x12\x1c\n\x18TOPIC_PUSH_QUEUE_DEFAULT\x10\x01\x12\x1c\n\x18TOPIC_PUSH_QUEUE_METRICS\x10\x02\x32\xde\x03\n\x10TopicPushService\x12W\n\x08ListJobs\x12 .chalk.server.v1.ListJobsRequest\x1a!.chalk.server.v1.ListJobsResponse"\x06\x90\x02\x01\x80}\x1b\x12W\n\tCreateJob\x12!.chalk.server.v1.CreateJobRequest\x1a".chalk.server.v1.CreateJobResponse"\x03\x80}\x1b\x12Z\n\tUpdateJob\x12!.chalk.server.v1.UpdateJobRequest\x1a".chalk.server.v1.UpdateJobResponse"\x06\x90\x02\x02\x80}\x1b\x12W\n\tDeleteJob\x12!.chalk.server.v1.DeleteJobRequest\x1a".chalk.server.v1.DeleteJobResponse"\x03\x80}\x1b\x12\x63\n\x0cGetJobByName\x12$.chalk.server.v1.GetJobByNameRequest\x1a%.chalk.server.v1.GetJobByNameResponse"\x06\x90\x02\x02\x80}\x1b\x42\x97\x01\n\x13\x63om.chalk.server.v1B\x0eTopicpushProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -45,34 +45,36 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_TOPICPUSHSERVICE"].methods_by_name["DeleteJob"]._serialized_options = b"\200}\033"
     _globals["_TOPICPUSHSERVICE"].methods_by_name["GetJobByName"]._options = None
     _globals["_TOPICPUSHSERVICE"].methods_by_name["GetJobByName"]._serialized_options = b"\220\002\002\200}\033"
+    _globals["_TOPICPUSHQUEUE"]._serialized_start = 1902
+    _globals["_TOPICPUSHQUEUE"]._serialized_end = 2012
     _globals["_SCHEDULEDJOB"]._serialized_start = 115
     _globals["_SCHEDULEDJOB"]._serialized_end = 482
     _globals["_SCHEDULEDJOB_ATTRIBUTESENTRY"]._serialized_start = 405
     _globals["_SCHEDULEDJOB_ATTRIBUTESENTRY"]._serialized_end = 466
     _globals["_UPDATEJOBREQUEST"]._serialized_start = 485
-    _globals["_UPDATEJOBREQUEST"]._serialized_end = 860
+    _globals["_UPDATEJOBREQUEST"]._serialized_end = 915
     _globals["_UPDATEJOBREQUEST_ATTRIBUTESENTRY"]._serialized_start = 405
     _globals["_UPDATEJOBREQUEST_ATTRIBUTESENTRY"]._serialized_end = 466
-    _globals["_UPDATEJOBRESPONSE"]._serialized_start = 862
-    _globals["_UPDATEJOBRESPONSE"]._serialized_end = 930
-    _globals["_LISTJOBSREQUEST"]._serialized_start = 932
-    _globals["_LISTJOBSREQUEST"]._serialized_end = 949
-    _globals["_LISTJOBSRESPONSE"]._serialized_start = 951
-    _globals["_LISTJOBSRESPONSE"]._serialized_end = 1020
-    _globals["_CREATEJOBREQUEST"]._serialized_start = 1023
-    _globals["_CREATEJOBREQUEST"]._serialized_end = 1382
+    _globals["_UPDATEJOBRESPONSE"]._serialized_start = 917
+    _globals["_UPDATEJOBRESPONSE"]._serialized_end = 985
+    _globals["_LISTJOBSREQUEST"]._serialized_start = 987
+    _globals["_LISTJOBSREQUEST"]._serialized_end = 1059
+    _globals["_LISTJOBSRESPONSE"]._serialized_start = 1061
+    _globals["_LISTJOBSRESPONSE"]._serialized_end = 1130
+    _globals["_CREATEJOBREQUEST"]._serialized_start = 1133
+    _globals["_CREATEJOBREQUEST"]._serialized_end = 1547
     _globals["_CREATEJOBREQUEST_ATTRIBUTESENTRY"]._serialized_start = 405
     _globals["_CREATEJOBREQUEST_ATTRIBUTESENTRY"]._serialized_end = 466
-    _globals["_CREATEJOBRESPONSE"]._serialized_start = 1384
-    _globals["_CREATEJOBRESPONSE"]._serialized_end = 1452
-    _globals["_DELETEJOBREQUEST"]._serialized_start = 1454
-    _globals["_DELETEJOBREQUEST"]._serialized_end = 1488
-    _globals["_DELETEJOBRESPONSE"]._serialized_start = 1490
-    _globals["_DELETEJOBRESPONSE"]._serialized_end = 1509
-    _globals["_GETJOBBYNAMEREQUEST"]._serialized_start = 1511
-    _globals["_GETJOBBYNAMEREQUEST"]._serialized_end = 1552
-    _globals["_GETJOBBYNAMERESPONSE"]._serialized_start = 1554
-    _globals["_GETJOBBYNAMERESPONSE"]._serialized_end = 1625
-    _globals["_TOPICPUSHSERVICE"]._serialized_start = 1628
-    _globals["_TOPICPUSHSERVICE"]._serialized_end = 2106
+    _globals["_CREATEJOBRESPONSE"]._serialized_start = 1549
+    _globals["_CREATEJOBRESPONSE"]._serialized_end = 1617
+    _globals["_DELETEJOBREQUEST"]._serialized_start = 1619
+    _globals["_DELETEJOBREQUEST"]._serialized_end = 1708
+    _globals["_DELETEJOBRESPONSE"]._serialized_start = 1710
+    _globals["_DELETEJOBRESPONSE"]._serialized_end = 1729
+    _globals["_GETJOBBYNAMEREQUEST"]._serialized_start = 1731
+    _globals["_GETJOBBYNAMEREQUEST"]._serialized_end = 1827
+    _globals["_GETJOBBYNAMERESPONSE"]._serialized_start = 1829
+    _globals["_GETJOBBYNAMERESPONSE"]._serialized_end = 1900
+    _globals["_TOPICPUSHSERVICE"]._serialized_start = 2015
+    _globals["_TOPICPUSHSERVICE"]._serialized_end = 2493
 # @@protoc_insertion_point(module_scope)

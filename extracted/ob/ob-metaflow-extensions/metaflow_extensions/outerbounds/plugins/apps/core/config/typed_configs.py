@@ -145,6 +145,12 @@ class TypedCoreConfig:
     force_upgrade : bool, optional
         Force upgrade the app even if it is currently being upgraded.
 
+    use_base_image_command : bool, optional
+        When True, skip providing startup commands and rely on the container's entrypoint/CMD. Only available in the programmatic API. In CLI mode, use `--no-deps` along side passing no command to enable this behavior.
+
+    skip_code_package : bool, optional
+        When True, skip code packaging and rely on the container's embedded source code. When running the deployer programmatically, If this field is set, then the user cannot pass `package-code`
+
     persistence : str, optional
         The persistence mode to deploy the app with.
         [Experimental] May change in the future.
@@ -184,6 +190,8 @@ class TypedCoreConfig:
         replicas: Optional[ReplicaConfigDict] = None,
         code_package: Optional[tuple] = None,
         force_upgrade: Optional[bool] = None,
+        use_base_image_command: Optional[bool] = None,
+        skip_code_package: Optional[bool] = None,
         persistence: Optional[str] = None,
         project: Optional[str] = None,
         branch: Optional[str] = None,
@@ -208,6 +216,8 @@ class TypedCoreConfig:
             "replicas": replicas,
             "code_package": code_package,
             "force_upgrade": force_upgrade,
+            "use_base_image_command": use_base_image_command,
+            "skip_code_package": skip_code_package,
             "persistence": persistence,
             "project": project,
             "branch": branch,

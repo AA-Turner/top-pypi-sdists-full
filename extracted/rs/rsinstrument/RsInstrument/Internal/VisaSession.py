@@ -12,7 +12,11 @@ import pyvisa
 from pyvisa.errors import StatusCode, VisaIOError
 
 from .VisaPluginSocketIo import ResourceManager, SocketIo
-from . import InstrumentErrors, Conversions as Conv
+from . import Conversions as Conv
+from .InstrumentErrors import ResourceError, RsInstrException, TimeoutException, StatusException
+from .InstrumentErrors import throw_opc_tout_exception, throw_bin_block_unexp_resp_exception, assert_no_instrument_status_errors
+from .InstrumentErrors import assert_query_has_qmark, assert_cmd_has_no_qmark
+
 from .InstrumentSettings import InstrumentSettings, WaitForOpcMode, OpcSyncQueryMechanism, InstrViClearMode as ViClearMode
 from .StreamReader import StreamReader
 from .StreamWriter import StreamWriter
@@ -120,7 +124,7 @@ class VisaSession(object):
 					raise e
 				message = e.description
 				message += f"\nLibrary: {self._rm.visalib}\nManufacturer: {self.manufacturer}\nResource Name: '{resource_name}'"
-				raise InstrumentErrors.ResourceError(resource_name, message)
+				raise ResourceError(resource_name, message)
 			self.resource_name = resource_name
 
 		# Decide, whether to create a new thread lock or the existing one from the session
@@ -213,14 +217,14 @@ class VisaSession(object):
 					self.write(cmd)
 
 		# Clear instrument status
-		if self.skip_clear_status is False:
+		if not self.skip_clear_status:
 			self.write('*CLS')
 			if self.vxi_capable:
 				try:
 					stb = self._read_stb()
 				except VisaIOError as err:
 					msg = 'Operation Read STB: ' + err.description
-					raise InstrumentErrors.RsInstrException(msg)
+					raise RsInstrException(msg)
 				if stb & StatusByte.message_available:
 					self._flush_junk_data()
 
@@ -236,7 +240,7 @@ class VisaSession(object):
 			return None
 		# Reuse the session
 		if not isinstance(direct_session, pyvisa.Resource) and not isinstance(direct_session, SocketIo):
-			raise InstrumentErrors.RsInstrException(f"Direct_session must be a VISA resource object. Actual type: '{type(direct_session)}', value: '{direct_session}'")
+			raise RsInstrException(f"Direct_session must be a VISA resource object. Actual type: '{type(direct_session)}', value: '{direct_session}'")
 		return direct_session
 
 	@staticmethod
@@ -312,7 +316,7 @@ class VisaSession(object):
 		return self._interface_type == SessionKind.rs_nrp
 
 	def assign_lock(self, lock: threading.RLock) -> None:
-		"""Assigns the provided thread lock by setting the pyvisa runtime session attribute 'session_thread_rlock'
+		"""Assigns the provided thread lock by setting the pyvisa runtime session attribute 'session_thread_rlock'.
 		This is done, because if the session is to be entered as an existing session to another RsInstrument object,
 		the lock must be shared as well. The lock is only used by the parent class Instrument."""
 		setattr(self._session, 'session_thread_rlock', lock)
@@ -452,7 +456,7 @@ class VisaSession(object):
 			stb = self._query_stb()
 			elapsed = self._polling_delay(start)
 			if elapsed > timeout_secs:
-				InstrumentErrors.throw_opc_tout_exception(self.opc_timeout, timeout)
+				throw_opc_tout_exception(self.opc_timeout, timeout)
 			if stb & end_mask:
 				break
 		return stb
@@ -466,21 +470,21 @@ class VisaSession(object):
 			if stb & StatusByte.error_queue_not_empty:
 				self.clear()
 				context = f"Query '{command.strip()}' with OPC Wait resulted in timeout. OPC Timeout is set to {timeout} ms. Additionally, "
-				InstrumentErrors.assert_no_instrument_status_errors(self.resource_name, self.query_all_syst_errors(), context, first_exc=InstrumentErrors.TimeoutException)
-			InstrumentErrors.throw_opc_tout_exception(self.opc_timeout, timeout, f"Query '{command.strip()}'.")
+				assert_no_instrument_status_errors(self.resource_name, self.query_all_syst_errors(), context, first_exc=TimeoutException)
+			throw_opc_tout_exception(self.opc_timeout, timeout, f"Query '{command.strip()}'.")
 		else:
 			if stb & StatusByte.error_queue_not_empty:
 				self.clear()
 				context = f"Command '{command.strip()}' with OPC Wait resulted in timeout. OPC Timeout is set to {timeout} ms. Additionally, "
-				InstrumentErrors.assert_no_instrument_status_errors(self.resource_name, self.query_all_syst_errors(), context, first_exc=InstrumentErrors.TimeoutException)
-			InstrumentErrors.throw_opc_tout_exception(self.opc_timeout, timeout, f"Command '{command.strip()}'.")
+				assert_no_instrument_status_errors(self.resource_name, self.query_all_syst_errors(), context, first_exc=TimeoutException)
+			throw_opc_tout_exception(self.opc_timeout, timeout, f"Command '{command.strip()}'.")
 
 	def _narrow_down_io_tout_error(self, context: str, visa_timeout: int = 0) -> None:
 		"""Called internally after IOTimeoutException can narrow down the error to more specific exception.
 		You can define the visa_timeout value for the error message. Otherwise, the current visa_timeout is reported."""
 		context_stripped = context.strip().rstrip("- ")
-		if self.stb_in_error_check is False:
-			raise InstrumentErrors.TimeoutException(context_stripped)
+		if not self.stb_in_error_check:
+			raise TimeoutException(context_stripped)
 
 		try:
 			if self.vxi_capable:
@@ -500,9 +504,9 @@ class VisaSession(object):
 
 			context = context + f'VISA Timeout error occurred ({visa_timeout} milliseconds)'
 			if stb & StatusByte.error_queue_not_empty:
-				InstrumentErrors.assert_no_instrument_status_errors(self.resource_name, self.query_all_syst_errors(), context + ' and ...', first_exc=InstrumentErrors.TimeoutException)
+				assert_no_instrument_status_errors(self.resource_name, self.query_all_syst_errors(), context + ' and ...', first_exc=TimeoutException)
 			# In case none of the previous exceptions is thrown
-			raise InstrumentErrors.TimeoutException(context)
+			raise TimeoutException(context)
 
 		except pyvisa.VisaIOError as e:
 			e.source = '_narrow_down_io_tout_error'
@@ -738,16 +742,16 @@ class VisaSession(object):
 			return False
 
 	def _write_and_wait_for_opc(self, command: str, is_query: bool, timeout: int) -> StatusByte:
-		"""Internal method to synchronise a command with OPC timeout.
+		"""Internal method to synchronize a command with OPC timeout.
 		Timeout value 0 means the OPC timeout is used."""
 		timeout = self._resolve_opc_timeout(timeout)
 
 		if command.endswith(self._term_char):
 			command = command.rstrip(self._term_char)
 		if is_query:
-			InstrumentErrors.assert_query_has_qmark(command, 'Query with OPC')
+			assert_query_has_qmark(command, 'Query with OPC')
 		else:
-			InstrumentErrors.assert_cmd_has_no_qmark(command, 'Write with OPC')
+			assert_cmd_has_no_qmark(command, 'Write with OPC')
 
 		if self._opc_wait_mode == WaitForOpcMode.opc_query:
 			if is_query:
@@ -791,6 +795,10 @@ class VisaSession(object):
 			return True
 		return False
 
+	def write_raw_bytes(self, data: bytes) -> None:
+		"""Writes raw bytes to the instrument."""
+		self._session.write_raw(data)
+
 	def write(self, cmd: str) -> None:
 		"""Writes command to the instrument."""
 		if self.write_delay > 0:
@@ -810,7 +818,7 @@ class VisaSession(object):
 
 		if add_tc:
 			cmd_bytes += self._term_char.encode(self.encoding)
-		self._session.write_raw(cmd_bytes)
+		self.write_raw_bytes(cmd_bytes)
 
 	def _read_unknown_len(self, stream: StreamWriter, allow_chunk_events: bool, prepend_data: AnyStr = None) -> None:
 		"""Reads data of unknown length to the provided WriteStream.
@@ -861,7 +869,7 @@ class VisaSession(object):
 				chunk_ix += 1
 
 	def _last_status_more_data_available(self):
-		"""Returns True, if the last status signalled that more data is available"""
+		"""Returns True, if the last status signaled that more data is available"""
 		return self.last_status == pyvisa.constants.StatusCode.success_max_count_read
 
 	def _read_str_no_events(self) -> str | None:
@@ -887,9 +895,9 @@ class VisaSession(object):
 				if allow_tout_error_narrow_down:
 					self._narrow_down_io_tout_error(context + ' - ')
 				else:
-					raise InstrumentErrors.TimeoutException(context)
+					raise TimeoutException(context)
 			else:
-				raise InstrumentErrors.RsInstrException(context)
+				raise RsInstrException(context)
 		return response
 
 	def _query_str_no_events_timed(self, query: str, timeout: int) -> str:
@@ -932,7 +940,7 @@ class VisaSession(object):
 			finally:
 				self.visa_timeout = old_visa_tout
 
-	def _read_str(self) -> str | None:
+	def read_str(self) -> str | None:
 		"""Reads response from the instrument. The response is then trimmed for trailing LF."""
 		if self.read_delay > 0:
 			time.sleep(self.read_delay / 1000)
@@ -946,7 +954,7 @@ class VisaSession(object):
 		response = ''
 		self.write(query)
 		try:
-			response = self._read_str()
+			response = self.read_str()
 		except pyvisa.VisaIOError:
 			self._narrow_down_io_tout_error(f"Query '{query.rstrip(self._term_char)}' - ")
 		return response
@@ -960,7 +968,7 @@ class VisaSession(object):
 		try:
 			self.visa_timeout = tout
 			response = self.query_str(query)
-		except (pyvisa.VisaIOError, InstrumentErrors.StatusException):
+		except (pyvisa.VisaIOError, StatusException):
 			pass
 		finally:
 			self.visa_timeout = old_tout
@@ -981,12 +989,12 @@ class VisaSession(object):
 			# For Vxi session, use the STB poll or SRQ wait and then read the response
 			stb = self._write_and_wait_for_opc(query, True, timeout)
 			self._check_msg_available_after_opc_wait(stb, query, timeout, context)
-			response = self._read_str()
+			response = self.read_str()
 			return response
 		else:
 			# For non-Vxi sessions, use the longer VISA Timeout without the *OPC?
 			# Same is valid for WaitForOpcMode.OpcQuery
-			InstrumentErrors.assert_query_has_qmark(query, 'Query with VISA timeout')
+			assert_query_has_qmark(query, 'Query with VISA timeout')
 			self.write(query)
 			old_tout = self.visa_timeout
 			# Change VISA Timeout if necessary
@@ -994,7 +1002,7 @@ class VisaSession(object):
 				self.visa_timeout = timeout
 			try:
 				# try-catch to set the VISA timeout back
-				response = self._read_str()
+				response = self.read_str()
 				if self._opc_wait_mode is WaitForOpcMode.opc_query:
 					self.query_opc()
 				return response
@@ -1029,14 +1037,14 @@ class VisaSession(object):
 		context = context + f" Query '{query.rstrip(self._term_char)}'"
 		if stb & StatusByte.error_queue_not_empty:
 			# Instrument reports an error
-			InstrumentErrors.assert_no_instrument_status_errors(self.resource_name, self.query_all_syst_errors(), context)
+			assert_no_instrument_status_errors(self.resource_name, self.query_all_syst_errors(), context)
 		else:
 			# Sometimes even if the StatusByte.MessageAvailable is false, the message is available.
 			# Try to read the STB again
 			stb = self._read_stb()
 			if not stb & StatusByte.event_status_byte:
 				# Instrument did not respond within the defined time
-				InstrumentErrors.throw_opc_tout_exception(self.opc_timeout, timeout, f'{context} No response from the instrument.')
+				throw_opc_tout_exception(self.opc_timeout, timeout, f'{context} No response from the instrument.')
 
 	def error_in_error_queue(self) -> bool:
 		"""Returns true, if error queue contains at least one error."""
@@ -1074,7 +1082,7 @@ class VisaSession(object):
 			write_buf = cmd_plus_header + full_chunk
 			if self._add_term_char_to_write_bin_block:
 				write_buf += self._term_char_bin
-			self._session.write_raw(write_buf)
+			self.write_raw_bytes(write_buf)
 			# Event sending
 			if self.on_write_chunk_handler:
 				event_args = EventArgsChunk(True, 0, data_size, data_size, data_size, True, 1, full_chunk if self.io_events_include_data else None)
@@ -1089,13 +1097,13 @@ class VisaSession(object):
 				if self.write_delay > 0:
 					time.sleep(self.write_delay / 1000)
 				# Write bin header
-				self._session.write_raw(cmd_plus_header)
+				self.write_raw_bytes(cmd_plus_header)
 				# Write chunks
 				while True:
 					if len(data_stream) > self._data_chunk_size:
 						#  Not the last segment
 						chunk = data_stream.read_as_binary(self.encoding, self._data_chunk_size)
-						self._session.write_raw(chunk)
+						self.write_raw_bytes(chunk)
 						# Event sending
 						if self.on_write_chunk_handler:
 							event_args = EventArgsChunk(
@@ -1106,12 +1114,12 @@ class VisaSession(object):
 						chunk = data_stream.read_as_binary(self.encoding)
 						if self._add_term_char_to_write_bin_block:
 							# Append LF
-							self._session.write_raw(chunk)
+							self.write_raw_bytes(chunk)
 							self._session.send_end = True
-							self._session.write_raw(self._term_char_bin)
+							self.write_raw_bytes(self._term_char_bin)
 						else:
 							self._session.send_end = True
-							self._session.write_raw(chunk)
+							self.write_raw_bytes(chunk)
 
 						# Event sending
 						if self.on_write_chunk_handler:
@@ -1164,12 +1172,12 @@ class VisaSession(object):
 		whole_hdr = char.decode(self.encoding)
 		if exc_if_not_bin:
 			if data_type == ReadDataType.null:
-				InstrumentErrors.throw_bin_block_unexp_resp_exception(self.resource_name, self._term_char)
+				throw_bin_block_unexp_resp_exception(self.resource_name, self._term_char)
 			# Read 20 more characters to compose a better exception message
 			whole_hdr += self.read_up_to_char(self._term_char_bin, 20).decode(self.encoding)
 			if self.last_status == pyvisa.constants.StatusCode.success_max_count_read:
 				self._flush_junk_data()
-			InstrumentErrors.throw_bin_block_unexp_resp_exception(self.resource_name, whole_hdr)
+			throw_bin_block_unexp_resp_exception(self.resource_name, whole_hdr)
 		return data_type, whole_hdr, length
 
 	def get_bin_data_length(self, query: str) -> int | None:
@@ -1181,7 +1189,7 @@ class VisaSession(object):
 			stb = self._write_and_wait_for_opc(query, True, 0)
 			try:
 				self._check_msg_available_after_opc_wait(stb, query, 0, 'get_bin_data_length')
-			except InstrumentErrors.StatusException:
+			except StatusException:
 				return None
 			data_type, header, length = self._parse_bin_data_header(True)
 			self.clear()
@@ -1193,7 +1201,7 @@ class VisaSession(object):
 				try:
 					self.visa_timeout = 2000
 					self.query_bin_block(query, stream, True)
-				except InstrumentErrors.StatusException:
+				except StatusException:
 					return None
 				finally:
 					self.visa_timeout = old_timeout
@@ -1213,12 +1221,18 @@ class VisaSession(object):
 			stream.switch_to_string_data(self.encoding)
 		elif data_type == ReadDataType.bin_unknown_len:
 			if not self.vxi_capable:
-				raise RsInstrException(f'Non-Vxi11 sessions can not read binary data block of unknown length.')
+				raise RsInstrException(f'Non-Vxi11 sessions can not read binary data blocks of unknown length.')
 			self._read_unknown_len(stream, True)
 		elif length == 0:
 			self._flush_junk_data()
 		else:
 			self._read_bin_block_known_len(stream, length)
+
+	def read_all_bytes(self, stream: StreamWriter) -> None:
+		"""Reads all the data from the instrument as bytes to the provided stream."""
+		if not self.vxi_capable:
+			raise RsInstrException(f'Non-Vxi11 sessions can not read binary data blocks of unknown length.')
+		self._read_unknown_len(stream, True)
 
 	def _read_bin_block_known_len(self, stream: StreamWriter, length: int) -> None:
 		"""Reads binary data of defined length. All remaining data above the length are disposed of. \n
@@ -1279,7 +1293,7 @@ class VisaSession(object):
 			self.read_bin_block(stream, exc_if_not_bin)
 		else:
 			# For non-Vxi session, use the longer VISA Timeout without the *OPC
-			InstrumentErrors.assert_query_has_qmark(query, 'query_bin_block_with_opc')
+			assert_query_has_qmark(query, 'query_bin_block_with_opc')
 			self.write(query)
 			old_visa_timeout = self.visa_timeout
 			# Change VISA Timeout if necessary

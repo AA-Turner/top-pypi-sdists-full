@@ -19,7 +19,13 @@ from click import Context
 
 from tinybird.datafile.common import get_name_version
 from tinybird.prompts import quarantine_prompt
-from tinybird.tb.client import AuthNoTokenException, DoesNotExistException, TinyB
+from tinybird.tb.client import (
+    AuthException,
+    AuthNoTokenException,
+    DoesNotExistException,
+    OperationCanNotBePerformed,
+    TinyB,
+)
 from tinybird.tb.modules.agent.utils import (
     create_terminal_box,
 )
@@ -459,6 +465,64 @@ def datasource_truncate(ctx, datasource_name, yes, cascade):
         click.echo(FeedbackManager.info(message="Operation cancelled by user"))
 
 
+@datasource.command(name="stop")
+@click.argument("datasource_name", required=True)
+@click.pass_context
+def datasource_stop(ctx: Context, datasource_name: str) -> None:
+    """Stop Kafka ingestion for a datasource.
+
+    This command is only available for Kafka-connected datasources in forward branches
+    or tinybird local environments. Once stopped, no new data will be ingested from
+    the Kafka topic until the datasource is started again.
+
+    Example: tb datasource stop my_kafka_datasource
+    """
+    client: TinyB = ctx.obj["client"]
+    try:
+        client.datasource_stop(datasource_name)
+    except AuthNoTokenException:
+        raise
+    except DoesNotExistException:
+        raise CLIDatasourceException(FeedbackManager.error_datasource_does_not_exist(datasource=datasource_name))
+    except AuthException as e:
+        raise CLIDatasourceException(FeedbackManager.error_exception(error=e))
+    except OperationCanNotBePerformed as e:
+        raise CLIDatasourceException(FeedbackManager.error_exception(error=e))
+    except Exception as e:
+        raise CLIDatasourceException(FeedbackManager.error_exception(error=e))
+
+    click.echo(FeedbackManager.success_stop_datasource(datasource=datasource_name))
+
+
+@datasource.command(name="start")
+@click.argument("datasource_name", required=True)
+@click.pass_context
+def datasource_start(ctx: Context, datasource_name: str) -> None:
+    """Start Kafka ingestion for a datasource.
+
+    This command is only available for Kafka-connected datasources in forward branches
+    or tinybird local environments. Once started, data will be ingested from the Kafka
+    topic, resuming from the last committed offset.
+
+    Example: tb datasource start my_kafka_datasource
+    """
+    client: TinyB = ctx.obj["client"]
+    try:
+        client.datasource_start(datasource_name)
+    except AuthNoTokenException:
+        raise
+    except DoesNotExistException:
+        raise CLIDatasourceException(FeedbackManager.error_datasource_does_not_exist(datasource=datasource_name))
+    except AuthException as e:
+        raise CLIDatasourceException(FeedbackManager.error_exception(error=e))
+    except OperationCanNotBePerformed as e:
+        raise CLIDatasourceException(FeedbackManager.error_exception(error=e))
+    except Exception as e:
+        raise CLIDatasourceException(FeedbackManager.error_exception(error=e))
+
+    click.echo(FeedbackManager.success_start_datasource(datasource=datasource_name))
+
+
 @datasource.command(name="delete")
 @click.argument("datasource_name")
 @click.option("--sql-condition", default=None, help="SQL WHERE condition to remove rows", hidden=True, required=True)
@@ -644,6 +708,90 @@ def datasource_sync(ctx: Context, datasource_name: str, yes: bool):
         raise
     except Exception as e:
         raise CLIDatasourceException(FeedbackManager.error_syncing_datasource(datasource=datasource_name, error=str(e)))
+
+
+@datasource.command(name="sample")
+@click.argument("datasource_name")
+@click.option(
+    "--max-files",
+    default=1,
+    type=int,
+    help="Maximum number of files to import (default 1, max 10)",
+)
+@click.option(
+    "--wait",
+    is_flag=True,
+    default=False,
+    help="Wait for the import job to finish",
+)
+@click.pass_context
+def datasource_sample(ctx: Context, datasource_name: str, max_files: int, wait: bool) -> None:
+    """Import sample data from a datasource connected to an S3 or GCS bucket.
+
+    This command only works with datasources that have IMPORT_CONNECTION_NAME and
+    IMPORT_BUCKET_URI configured (i.e., datasources ingesting from S3 or GCS).
+    It imports a limited number of files from the bucket URI pattern, useful for
+    testing data pipelines in branches without importing the entire dataset.
+
+    By default, returns immediately with job info. Use --wait to block until complete.
+
+    Examples:
+        tb --branch=my_branch datasource sample my_s3_ds
+        tb --branch=my_branch datasource sample my_s3_ds --max-files 3 --wait
+    """
+    from tinybird.tb.modules.common import wait_job
+    from tinybird.tb.modules.job_common import echo_job_url
+
+    try:
+        client: TinyB = ctx.obj["client"]
+        config = ctx.obj.get("config", {})
+
+        click.echo(FeedbackManager.info(message=f"Starting sample import for {datasource_name}..."))
+
+        # Start the job
+        result = client.datasource_sample(datasource_name, max_files=max_files)
+
+        job_id = result.get("job_id") or result.get("id")
+        if not job_id:
+            raise CLIDatasourceException(
+                FeedbackManager.error_sample_import_datasource(
+                    datasource=datasource_name, error="No job ID returned from server"
+                )
+            )
+        job_url = result.get("job_url", f"/v0/jobs/{job_id}")
+
+        # Show job URL
+        echo_job_url(client.token, client.host, config.get("name", ""), job_url)
+
+        if not wait:
+            # Return immediately with job info
+            click.echo(FeedbackManager.success(message=f"Job started: {job_id}"))
+            click.echo(FeedbackManager.gray(message=f"Check status: tb job get {job_id}"))
+            return
+
+        # Wait for job completion using existing wait_job utility
+        # wait_job raises CLIException on failure, so we only reach here on success
+        job_result = wait_job(client, job_id, job_url, "Importing sample")
+
+        stats = job_result.get("stats", {})
+        found_files = stats.get("found_files", max_files)
+        click.echo(
+            FeedbackManager.success_sample_import_datasource(
+                datasource=datasource_name,
+                file=f"{found_files} file(s)",
+                rows="see job details",
+                size="see job details",
+            )
+        )
+
+    except AuthNoTokenException:
+        raise
+    except CLIDatasourceException:
+        raise
+    except Exception as e:
+        raise CLIDatasourceException(
+            FeedbackManager.error_sample_import_datasource(datasource=datasource_name, error=str(e))
+        )
 
 
 @datasource.command(name="create")

@@ -139,14 +139,12 @@ class MissingDocumentationChecker(VisitorChecker):
     missing_doc_test_suite: MissingDocTestSuiteRule
     missing_doc_resource_file: MissingDocResourceFileRule
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.is_resource = False
         self.settings_section_exists = False
         super().__init__()
 
     def visit_Keyword(self, node: Keyword) -> None:  # noqa: N802
-        if node.name.lstrip().startswith("#"):  # TODO: edge case for parsing with RF3?
-            return
         self.check_if_docs_are_present(
             node, self.missing_doc_keyword, extend_disablers=True
         )  # TODO: could be self.missing_doc_keyword.check_docs(node)
@@ -164,8 +162,8 @@ class MissingDocumentationChecker(VisitorChecker):
             self.check_if_suite_docs_are_present(node, self.missing_doc_test_suite)
 
     def visit_File(self, node: File) -> None:  # noqa: N802
-        source = node.source if node.source else self.source
-        self.is_resource = source and ".resource" in Path(source).suffix
+        source = self.source_file.path.name
+        self.is_resource = bool(source) and ".resource" in Path(source).suffix
         self.settings_section_exists = False
         self.generic_visit(node)
         if not self.settings_section_exists:
@@ -177,6 +175,7 @@ class MissingDocumentationChecker(VisitorChecker):
     def check_if_docs_are_present(  # TODO: could be implemented inside 'MissingDocumentationRule' class
         self, node: Keyword | TestCase | SettingSection, rule: Rule, extend_disablers: bool
     ) -> None:
+        # with single visitor: visit_Documentation + check context, at the end of block check if found
         # TODO indent
         for statement in node.body:
             if isinstance(statement, Documentation):
@@ -194,7 +193,7 @@ class MissingDocumentationChecker(VisitorChecker):
             else:
                 self.report(rule, node=node, end_col=node.end_col_offset, extended_disablers=extended_disablers)
 
-    def check_if_suite_docs_are_present(self, node: SettingSection, rule: Rule):
+    def check_if_suite_docs_are_present(self, node: SettingSection, rule: Rule) -> None:
         for statement in node.body:
             if isinstance(statement, Documentation):
                 return

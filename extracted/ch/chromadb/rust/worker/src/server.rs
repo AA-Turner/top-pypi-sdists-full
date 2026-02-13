@@ -1,4 +1,4 @@
-use std::{collections::HashSet, time::Duration};
+use std::time::Duration;
 
 use async_trait::async_trait;
 use chroma_blockstore::provider::BlockfileProvider;
@@ -58,7 +58,6 @@ pub struct WorkerServer {
     // config
     fetch_log_batch_size: u32,
     shutdown_grace_period: Duration,
-    bm25_tenant: HashSet<String>,
 }
 
 #[async_trait]
@@ -104,7 +103,6 @@ impl Configurable<(QueryServiceConfig, System)> for WorkerServer {
             jemalloc_pprof_server_port: config.jemalloc_pprof_server_port,
             fetch_log_batch_size: config.fetch_log_batch_size,
             shutdown_grace_period: config.grpc_shutdown_grace_period,
-            bm25_tenant: config.bm25_tenant.clone(),
         })
     }
 }
@@ -114,6 +112,7 @@ impl WorkerServer {
         let addr = format!("[::]:{}", worker.port).parse().unwrap();
         println!("Worker listening on {}", addr);
 
+        let blockfile_provider = worker.blockfile_provider.clone();
         let (health_reporter, health_service) = tonic_health::server::health_reporter();
 
         let server = Server::builder()
@@ -169,6 +168,11 @@ impl WorkerServer {
 
         server.await?;
 
+        tracing::info!("Closing blockfile provider caches");
+        if let Err(e) = blockfile_provider.close().await {
+            tracing::error!("Failed to close blockfile provider: {:?}", e);
+        }
+
         // Shutdown pprof server after server is finished shutting down
         if let Some(shutdown_tx) = pprof_shutdown_tx {
             let _ = shutdown_tx.send(());
@@ -189,8 +193,11 @@ impl WorkerServer {
         &self,
         collection_and_segments: &CollectionAndSegments,
         batch_size: u32,
-    ) -> FetchLogOperator {
-        FetchLogOperator {
+    ) -> Result<FetchLogOperator, Status> {
+        let database_name =
+            chroma_types::DatabaseName::new(collection_and_segments.collection.database.clone())
+                .ok_or_else(|| Status::invalid_argument("Invalid database name"))?;
+        Ok(FetchLogOperator {
             log_client: self.log.clone(),
             batch_size,
             // The collection log position is inclusive, and we want to start from the next log
@@ -200,7 +207,8 @@ impl WorkerServer {
             maximum_fetch_count: None,
             collection_uuid: collection_and_segments.collection.collection_id,
             tenant: collection_and_segments.collection.tenant.clone(),
-        }
+            database_name,
+        })
     }
 
     async fn orchestrate_count(
@@ -213,7 +221,7 @@ impl WorkerServer {
             .ok_or(Status::invalid_argument("Invalid Scan Operator"))?;
 
         let collection_and_segments = Scan::try_from(scan)?.collection_and_segments;
-        let fetch_log = self.fetch_log(&collection_and_segments, self.fetch_log_batch_size);
+        let fetch_log = self.fetch_log(&collection_and_segments, self.fetch_log_batch_size)?;
 
         let count_orchestrator = CountOrchestrator::new(
             self.blockfile_provider.clone(),
@@ -243,7 +251,7 @@ impl WorkerServer {
             .ok_or(Status::invalid_argument("Invalid Scan Operator"))?;
 
         let collection_and_segments = Scan::try_from(scan)?.collection_and_segments;
-        let fetch_log = self.fetch_log(&collection_and_segments, self.fetch_log_batch_size);
+        let fetch_log = self.fetch_log(&collection_and_segments, self.fetch_log_batch_size)?;
 
         let filter = get_inner
             .filter
@@ -300,7 +308,7 @@ impl WorkerServer {
 
         let collection_and_segments = Scan::try_from(scan)?.collection_and_segments;
 
-        let fetch_log = self.fetch_log(&collection_and_segments, self.fetch_log_batch_size);
+        let fetch_log = self.fetch_log(&collection_and_segments, self.fetch_log_batch_size)?;
 
         let filter = knn_inner
             .filter
@@ -483,7 +491,7 @@ impl WorkerServer {
     ) -> Result<RankOrchestratorOutput, Status> {
         let collection_and_segments = Scan::try_from(scan)?.collection_and_segments;
         let search_payload = SearchPayload::try_from(payload)?;
-        let fetch_log = self.fetch_log(&collection_and_segments, self.fetch_log_batch_size);
+        let fetch_log = self.fetch_log(&collection_and_segments, self.fetch_log_batch_size)?;
 
         // We return early on uninitialized collection, otherwise
         // the downstream will error due to missing dimension
@@ -567,13 +575,11 @@ impl WorkerServer {
                     }
                     QueryVector::Sparse(query) => {
                         // Use Sparse KNN orchestrator
-                        let tenant = collection_and_segments_clone.collection.tenant.clone();
                         let sparse_orchestrator = SparseKnnOrchestrator::new(
                             blockfile_provider,
                             dispatcher,
                             1000,
                             collection_and_segments_clone,
-                            self.bm25_tenant.contains(&tenant),
                             knn_filter_output_clone,
                             query,
                             knn_query.key.to_string(),
@@ -743,7 +749,6 @@ mod tests {
             jemalloc_pprof_server_port: None,
             fetch_log_batch_size: 100,
             shutdown_grace_period: Duration::from_secs(1),
-            bm25_tenant: HashSet::new(),
         };
 
         let dispatcher = Dispatcher::new(DispatcherConfig {

@@ -169,7 +169,7 @@ class EsxiHostClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/ocvp/create_esxi_host.py.html>`__ to see an example of how to use create_esxi_host API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/ocvp/create_esxi_host.py.html>`__ to see an example of how to use create_esxi_host API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -288,7 +288,7 @@ class EsxiHostClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/ocvp/delete_esxi_host.py.html>`__ to see an example of how to use delete_esxi_host API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/ocvp/delete_esxi_host.py.html>`__ to see an example of how to use delete_esxi_host API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['esxiHostId']
@@ -396,7 +396,7 @@ class EsxiHostClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/ocvp/get_esxi_host.py.html>`__ to see an example of how to use get_esxi_host API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/ocvp/get_esxi_host.py.html>`__ to see an example of how to use get_esxi_host API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['esxiHostId']
@@ -518,7 +518,7 @@ class EsxiHostClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/ocvp/inplace_upgrade.py.html>`__ to see an example of how to use inplace_upgrade API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/ocvp/inplace_upgrade.py.html>`__ to see an example of how to use inplace_upgrade API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['esxiHostId']
@@ -698,7 +698,7 @@ class EsxiHostClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/ocvp/list_esxi_hosts.py.html>`__ to see an example of how to use list_esxi_hosts API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/ocvp/list_esxi_hosts.py.html>`__ to see an example of how to use list_esxi_hosts API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -862,7 +862,7 @@ class EsxiHostClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/ocvp/replace_host.py.html>`__ to see an example of how to use replace_host API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/ocvp/replace_host.py.html>`__ to see an example of how to use replace_host API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['esxiHostId']
@@ -994,7 +994,7 @@ class EsxiHostClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/ocvp/swap_billing.py.html>`__ to see an example of how to use swap_billing API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/ocvp/swap_billing.py.html>`__ to see an example of how to use swap_billing API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['esxiHostId', 'swapBillingHostId']
@@ -1122,7 +1122,7 @@ class EsxiHostClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/ocvp/update_esxi_host.py.html>`__ to see an example of how to use update_esxi_host API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/ocvp/update_esxi_host.py.html>`__ to see an example of how to use update_esxi_host API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['esxiHostId']

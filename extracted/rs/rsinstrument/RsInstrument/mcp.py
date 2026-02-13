@@ -8,12 +8,16 @@ import sys
 import typing
 
 try:
-    from mcp.server.fastmcp import FastMCP
+    # noinspection PyUnusedImports
+    from fastmcp import FastMCP
+    # noinspection PyUnusedImports
+    from starlette.responses import JSONResponse
 
     MCP_INSTALLED = True
 except ImportError:
     MCP_INSTALLED = False
 
+# noinspection PyProtectedMember
 from RsInstrument import RsInstrument, __version__
 
 logger = logging.getLogger(__name__)
@@ -27,6 +31,7 @@ def safe_tool(fn):
 
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
+        """Wrapper function catching exceptions."""
         try:
             return fn(*args, **kwargs)
         except Exception as e:  # pylint: disable=broad-except
@@ -116,6 +121,7 @@ def instrument_reset(resource: str, opc_timeout: int = 5000) -> str:
 def create_fastmcp_server(
     *args,
     tools: typing.Sequence[typing.Tuple[str, str, typing.Callable]] | None = None,
+    health_endpoint: str = "/healthz",
     **kwargs,
 ):
     """Create a FastMCP tool for SCPI commands.
@@ -123,6 +129,7 @@ def create_fastmcp_server(
     Args:
         *args: Positional arguments to pass to FastMCP.
         tools: Register a sequence of tuples containing tool names, descriptions and their corresponding callables.
+        health_endpoint: The FastMCP health endpoint.
         **kwargs: Keyword arguments to pass to FastMCP.
     """
     if not MCP_INSTALLED:
@@ -131,8 +138,16 @@ def create_fastmcp_server(
         )
     if tools is None:
         tools = []
-    kwargs.setdefault("name", f"{__package__}-mcp")
-    fastmcp = FastMCP(*args, **kwargs)
+    name = f"{__package__}-mcp"
+    kwargs.setdefault("name", name)
+    fastmcp = FastMCP(*args, **kwargs)  # type: ignore
+
+    @fastmcp.custom_route(health_endpoint, methods=["GET"])
+    async def health_check(_):
+        """Health check endpoint."""
+        return JSONResponse(  # type: ignore
+            {"status": "healthy", "service": name, "version": __version__}
+        )
 
     fastmcp.tool(
         name="Instrument-Query-SCPI",
@@ -156,21 +171,39 @@ def create_fastmcp_server(
 
 def run(
     *args,
+    host: str = "localhost",
+    port: int = 8000,
     transport: typing.Literal["stdio", "sse", "streamable-http"] = "stdio",
-    mount_path: str | None = None,
+    tools: typing.Sequence[typing.Tuple[str, str, typing.Callable]] | None = None,
+    health_endpoint: str = "/healthz",
+    show_fastmcp_banner: bool = False,
     **kwargs,
 ):
-    """Run the MCP server."""
-    mcp = create_fastmcp_server(*args, **kwargs)
-    logger.info("Starting RsInstrument MCP server...")
-    mcp.run(transport=transport, mount_path=mount_path)
+    """Run the MCP server.
+
+    Args:
+        *args: Positional arguments to pass to FastMCP.
+        host: The FastMCP Hostname/IP to bind.
+        port: The FastMCP port to bind.
+        transport: The FastMCP transport protocol to use. Options are 'stdio', 'sse', and 'streamable-http'.
+        tools: Register a sequence of tuples containing tool names, descriptions and their corresponding callables.
+        health_endpoint: The FastMCP health endpoint.
+        show_fastmcp_banner: Whether to show the FastMCP banner on startup. Defaults to False.
+        **kwargs: Keyword arguments to pass to FastMCP.
+    """
+    mcp = create_fastmcp_server(*args, tools=tools, health_endpoint=health_endpoint, **kwargs)
+    if transport != "stdio":
+        run_kwargs = {"host": host, "port": port}
+    else:
+        run_kwargs = {}
+    if not show_fastmcp_banner:
+        logger.info("Starting RsInstrument-mcp server...")
+    mcp.run(transport=transport, show_banner=show_fastmcp_banner, **run_kwargs)
 
 
 def create_parser() -> argparse.ArgumentParser:
     """Create command line argument parser."""
-    parser = argparse.ArgumentParser(
-        description="Run the RsInstrument MCP server."
-    )
+    parser = argparse.ArgumentParser(description="Run the RsInstrument MCP server.")
     parser.add_argument(
         "-V",
         "--version",
@@ -212,14 +245,21 @@ def create_parser() -> argparse.ArgumentParser:
         dest="transport",
         type=str,
         choices=["stdio", "sse", "streamable-http"],
-        default="stdio",
+        default="streamable-http",
         help="FastMCP transport protocol (default: %(default)s)",
     )
     parser.add_argument(
-        "--mount-path",
-        dest="mount_path",
+        "--health-endpoint",
+        dest="health_endpoint",
         type=str,
-        help="FastMCP mount path (default: %(default)s)",
+        default="/healthz",
+        help="FastMCP health endpoint (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--show-fastmcp-banner",
+        dest="show_fastmcp_banner",
+        action="store_true",
+        help="Show FastMCP banner on startup",
     )
     return parser
 
@@ -239,7 +279,13 @@ def main(argv: typing.Sequence[str] | None = None):
     log_level = min(logging.CRITICAL, max(logging.DEBUG, verbosity))
     logger.setLevel(log_level)
     try:
-        run(transport=args.transport, host=args.host, port=args.port, mount_path=args.mount_path)
+        run(
+            transport=args.transport,
+            host=args.host,
+            port=args.port,
+            health_endpoint=args.health_endpoint,
+            show_fastmcp_banner=args.show_fastmcp_banner,
+        )
     except (
         Exception
     ) as error:  # pragma: no cover - exercised in tests with forced exception

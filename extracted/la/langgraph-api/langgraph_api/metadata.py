@@ -120,7 +120,7 @@ def incr_nodes(_, *, incr: int = 1) -> None:
 
 async def metadata_loop() -> None:
     try:
-        from langgraph_api import __version__
+        from langgraph_api import __version__  # noqa: PLC0415
     except ImportError:
         __version__ = None
     if not LANGGRAPH_CLOUD_LICENSE_KEY and not LANGSMITH_CONTROL_PLANE_API_KEY:

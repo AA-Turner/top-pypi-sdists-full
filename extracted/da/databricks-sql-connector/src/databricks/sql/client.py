@@ -35,6 +35,7 @@ from databricks.sql.utils import (
     ColumnTable,
     ColumnQueue,
     build_client_context,
+    get_session_config_value,
 )
 from databricks.sql.parameters.native import (
     DbsqlParameterBase,
@@ -305,6 +306,8 @@ class Connection:
             )
             self.session.open()
         except Exception as e:
+            # Respect user's telemetry preference even during connection failure
+            enable_telemetry = kwargs.get("enable_telemetry", True)
             TelemetryClientFactory.connection_failure_log(
                 error_name="Exception",
                 error_message=str(e),
@@ -315,6 +318,7 @@ class Connection:
                 user_agent=self.session.useragent_header
                 if hasattr(self, "session")
                 else None,
+                enable_telemetry=enable_telemetry,
             )
             raise e
 
@@ -386,6 +390,7 @@ class Connection:
             support_many_parameters=True,  # Native parameters supported
             enable_complex_datatype_support=_use_arrow_native_complex_types,
             allowed_volume_ingestion_paths=self.staging_allowed_local_path,
+            query_tags=get_session_config_value(session_configuration, "query_tags"),
         )
 
         self._telemetry_client.export_initial_telemetry_log(

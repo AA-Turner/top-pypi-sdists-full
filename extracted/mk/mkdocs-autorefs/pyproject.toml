@@ -47,7 +47,7 @@ dependencies = [
     "markupsafe>=2.0.1",
     "mkdocs>=1.1",
 ]
-version = "1.4.3"
+version = "1.4.4"
 
 [project.urls]
 Homepage = "https://mkdocstrings.github.io/autorefs"

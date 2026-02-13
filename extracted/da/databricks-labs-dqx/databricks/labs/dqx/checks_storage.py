@@ -18,11 +18,11 @@ from sqlalchemy import (
     select,
     delete,
     null,
+    event,
 )
 from sqlalchemy.schema import CreateSchema
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import DatabaseError, ProgrammingError, OperationalError, IntegrityError
-
 
 import yaml
 from pyspark.sql import SparkSession
@@ -43,12 +43,13 @@ from databricks.labs.dqx.errors import InvalidCheckError, InvalidConfigError, Ch
 from databricks.sdk import WorkspaceClient
 
 from databricks.labs.dqx.checks_serializer import (
-    serialize_checks_from_dataframe,
-    deserialize_checks_to_dataframe,
-    serialize_checks_to_bytes,
-    get_file_deserializer,
-    FILE_SERIALIZERS,
+    ChecksSerializer,
+    ChecksDeserializer,
+    SerializerFactory,
+    DataFrameConverter,
+    ChecksNormalizer,
 )
+from databricks.labs.dqx.utils import get_file_extension
 from databricks.labs.dqx.config_serializer import ConfigSerializer
 from databricks.labs.dqx.installer.mixins import InstallationMixin
 from databricks.labs.dqx.io import TABLE_PATTERN
@@ -106,10 +107,10 @@ class TableChecksStorageHandler(ChecksStorageHandler[TableChecksStorageConfig]):
             NotFound: if the table does not exist in the workspace
         """
         logger.info(f"Loading quality rules (checks) from table '{config.location}'")
-        if not self.ws.tables.exists(config.location).table_exists:
+        if not self.spark.catalog.tableExists(config.location):
             raise NotFound(f"Checks table {config.location} does not exist in the workspace")
         rules_df = self.spark.read.table(config.location)
-        return serialize_checks_from_dataframe(rules_df, run_config_name=config.run_config_name) or []
+        return DataFrameConverter.from_dataframe(rules_df, run_config_name=config.run_config_name) or []
 
     @telemetry_logger("save_checks", "table")
     def save(self, checks: list[dict], config: TableChecksStorageConfig) -> None:
@@ -124,7 +125,7 @@ class TableChecksStorageHandler(ChecksStorageHandler[TableChecksStorageConfig]):
             InvalidCheckError: If any check is invalid or unsupported.
         """
         logger.info(f"Saving quality rules (checks) to table '{config.location}'")
-        rules_df = deserialize_checks_to_dataframe(self.spark, checks, run_config_name=config.run_config_name)
+        rules_df = DataFrameConverter.to_dataframe(self.spark, checks, run_config_name=config.run_config_name)
         rules_df.write.option("replaceWhere", f"run_config_name = '{config.run_config_name}'").saveAsTable(
             config.location, mode=config.mode
         )
@@ -135,7 +136,12 @@ class LakebaseChecksStorageHandler(ChecksStorageHandler[LakebaseChecksStorageCon
     Handler for storing dq rules (checks) in a Lakebase table.
     """
 
-    def __init__(self, ws: WorkspaceClient, spark: SparkSession, engine: Engine | None = None):
+    def __init__(
+        self,
+        ws: WorkspaceClient,
+        spark: SparkSession,
+        engine: Engine | None = None,
+    ):
         self.ws = ws
         self.spark = spark
         self.engine = engine
@@ -152,19 +158,43 @@ class LakebaseChecksStorageHandler(ChecksStorageHandler[LakebaseChecksStorageCon
         """
         if not config.instance_name:
             raise InvalidConfigError("instance_name must be provided for Lakebase storage")
-        if not config.user:
-            raise InvalidConfigError("user must be provided for Lakebase storage")
         if not config.location:
             raise InvalidConfigError("location must be provided for Lakebase storage")
 
         instance = self.ws.database.get_database_instance(config.instance_name)
-        cred = self.ws.database.generate_database_credential(
-            request_id=str(uuid.uuid4()), instance_names=[config.instance_name]
-        )
         host = instance.read_write_dns
-        password = cred.token
+        prefix = "postgresql+psycopg2"
+        port = config.port
+        database = config.database_name
+        user = config.client_id if config.client_id else self.ws.current_user.me().user_name
 
-        return f"postgresql://{config.user}:{password}@{host}:{config.port}/{config.database_name}?sslmode=require"
+        return f"{prefix}://{user}@{host}:{port}/{database}?sslmode=require"
+
+    def _prepare_before_connect(self, config: LakebaseChecksStorageConfig):
+        """
+        Prepare the before_connect event listener with the instance_name captured in closure.
+
+        Args:
+            config: Configuration for saving and loading checks to Lakebase.
+
+        Returns:
+            The _before_connect event listener function.
+
+        Raises:
+            InvalidConfigError: If instance_name is not provided.
+        """
+        if not config.instance_name:
+            raise InvalidConfigError("instance_name must be provided for Lakebase storage")
+
+        instance_name = config.instance_name
+
+        def _before_connect(_dialect, _conn_rec, _cargs, cparams) -> None:
+            cred = self.ws.database.generate_database_credential(
+                request_id=str(uuid.uuid4()), instance_names=[instance_name]
+            )
+            cparams["password"] = cred.token
+
+        return _before_connect
 
     def _get_engine(self, config: LakebaseChecksStorageConfig) -> Engine:
         """
@@ -176,8 +206,15 @@ class LakebaseChecksStorageHandler(ChecksStorageHandler[LakebaseChecksStorageCon
         Returns:
             SQLAlchemy engine for the Lakebase instance.
         """
-        connection_url = self._get_connection_url(config)
-        return create_engine(connection_url)
+        engine_url = self._get_connection_url(config)
+        engine = create_engine(
+            engine_url,
+            pool_recycle=45 * 60,  # recycle connections every 45 minutes
+            connect_args={'sslmode': 'require'},
+            pool_size=4,
+        )
+        event.listen(engine, "do_connect", self._prepare_before_connect(config))
+        return engine
 
     @staticmethod
     def get_table_definition(schema_name: str, table_name: str) -> Table:
@@ -206,6 +243,8 @@ class LakebaseChecksStorageHandler(ChecksStorageHandler[LakebaseChecksStorageCon
     def _normalize_checks(checks: list[dict], config: LakebaseChecksStorageConfig) -> list[dict]:
         """
         Normalize the checks to be compatible with the Lakebase table.
+        This includes normalizing special values for JSON serialization and structuring
+        the checks for the Lakebase table schema.
 
         Args:
             checks: List of dq rules (checks) to normalize.
@@ -214,8 +253,12 @@ class LakebaseChecksStorageHandler(ChecksStorageHandler[LakebaseChecksStorageCon
         Returns:
             List of normalized dq rules (checks).
         """
+        # First normalize special values for JSON serialization
+        normalized_for_serialization = ChecksNormalizer.normalize(checks)
+
+        # Then normalize the structure for Lakebase table
         normalized_checks = []
-        for check in checks:
+        for check in normalized_for_serialization:
             user_metadata = check.get("user_metadata")
             normalized_check = {
                 "name": check.get("name"),
@@ -311,7 +354,9 @@ class LakebaseChecksStorageHandler(ChecksStorageHandler[LakebaseChecksStorageCon
                     f"for run_config_name='{config.run_config_name}'. "
                     f"Make sure the profiler has run successfully and saved checks to this location."
                 )
-            return [dict(check) for check in checks]
+            checks_dict = [dict(check) for check in checks]
+            # Denormalize special markers back to objects
+            return ChecksNormalizer.denormalize(checks_dict)
 
     def _check_for_undefined_table_error(self, e: ProgrammingError, config: LakebaseChecksStorageConfig) -> NoReturn:
         """
@@ -444,8 +489,6 @@ class WorkspaceFileChecksStorageHandler(ChecksStorageHandler[WorkspaceFileChecks
         file_path = config.location
         logger.info(f"Loading quality rules (checks) from '{file_path}' in the workspace.")
 
-        deserializer = get_file_deserializer(file_path)
-
         try:
             file_bytes = self.ws.workspace.download(file_path).read()
             file_content = file_bytes.decode("utf-8")
@@ -453,7 +496,8 @@ class WorkspaceFileChecksStorageHandler(ChecksStorageHandler[WorkspaceFileChecks
             raise NotFound(f"Checks file {file_path} missing: {e}") from e
 
         try:
-            return deserializer(StringIO(file_content)) or []
+            extension = get_file_extension(file_path)
+            return ChecksDeserializer.deserialize_from_file(extension, StringIO(file_content)) or []
         except (yaml.YAMLError, json.JSONDecodeError) as e:
             raise InvalidCheckError(f"Invalid checks in file: {file_path}: {e}") from e
 
@@ -471,7 +515,8 @@ class WorkspaceFileChecksStorageHandler(ChecksStorageHandler[WorkspaceFileChecks
         workspace_dir = str(file_path.parent)
         self.ws.workspace.mkdirs(workspace_dir)
 
-        content = serialize_checks_to_bytes(checks, file_path)
+        extension = get_file_extension(file_path)
+        content = ChecksSerializer.serialize_to_bytes(checks, extension)
         self.ws.workspace.upload(config.location, content, format=ImportFormat.AUTO, overwrite=True)
 
 
@@ -497,11 +542,10 @@ class FileChecksStorageHandler(ChecksStorageHandler[FileChecksStorageConfig]):
         file_path = config.location
         logger.info(f"Loading quality rules (checks) from '{file_path}'.")
 
-        deserializer = get_file_deserializer(file_path)
-
         try:
+            extension = get_file_extension(file_path)
             with open(file_path, "r", encoding="utf-8") as f:
-                return deserializer(f) or []
+                return ChecksDeserializer.deserialize_from_file(extension, f) or []
         except FileNotFoundError as e:
             raise FileNotFoundError(f"Checks file {file_path} missing: {e}") from e
         except (yaml.YAMLError, json.JSONDecodeError) as e:
@@ -523,7 +567,8 @@ class FileChecksStorageHandler(ChecksStorageHandler[FileChecksStorageConfig]):
         os.makedirs(file_path.parent, exist_ok=True)
 
         try:
-            content = serialize_checks_to_bytes(checks, file_path)
+            extension = get_file_extension(file_path)
+            content = ChecksSerializer.serialize_to_bytes(checks, extension)
             with open(file_path, "wb") as file:
                 file.write(content)
         except FileNotFoundError:
@@ -600,8 +645,8 @@ class InstallationChecksStorageHandler(ChecksStorageHandler[InstallationChecksSt
             # transfer lakebase fields from run config to storage config if not already set
             if run_config.lakebase_instance_name and not config.instance_name:
                 config.instance_name = run_config.lakebase_instance_name
-            if run_config.lakebase_user and not config.user:
-                config.user = run_config.lakebase_user
+            if run_config.lakebase_client_id and not config.client_id:
+                config.client_id = run_config.lakebase_client_id
             # replace port if non-default is specified in the run config
             if run_config.lakebase_port and config.port != run_config.lakebase_port:
                 config.port = run_config.lakebase_port
@@ -661,8 +706,6 @@ class VolumeFileChecksStorageHandler(ChecksStorageHandler[VolumeFileChecksStorag
         file_path = config.location
         logger.info(f"Loading quality rules (checks) from '{file_path}' in a volume.")
 
-        deserializer = get_file_deserializer(file_path)
-
         try:
             file_download = self.ws.files.download(file_path)
             if not file_download.contents:
@@ -676,7 +719,8 @@ class VolumeFileChecksStorageHandler(ChecksStorageHandler[VolumeFileChecksStorag
             raise NotFound(f"Checks file {file_path} missing: {e}") from e
 
         try:
-            return deserializer(StringIO(file_content)) or []
+            extension = get_file_extension(file_path)
+            return ChecksDeserializer.deserialize_from_file(extension, StringIO(file_content)) or []
         except (yaml.YAMLError, json.JSONDecodeError) as e:
             raise InvalidCheckError(f"Invalid checks in file: {file_path}: {e}") from e
 
@@ -694,7 +738,8 @@ class VolumeFileChecksStorageHandler(ChecksStorageHandler[VolumeFileChecksStorag
         volume_dir = str(file_path.parent)
         self.ws.files.create_directory(volume_dir)
 
-        content = serialize_checks_to_bytes(checks, file_path)
+        extension = get_file_extension(file_path)
+        content = ChecksSerializer.serialize_to_bytes(checks, extension)
         binary_data = BytesIO(content)
         self.ws.files.upload(config.location, binary_data, overwrite=True)
 
@@ -822,12 +867,6 @@ class ChecksStorageHandlerFactory(BaseChecksStorageHandlerFactory):
             InvalidConfigError: If the configuration is invalid or unsupported.
         """
         if run_config.lakebase_instance_name:
-            if not run_config.lakebase_user:
-                raise InvalidConfigError(
-                    f"Lakebase user must be specified in run config '{run_config.name}' when "
-                    f"lakebase_instance_name is set. Please add 'lakebase_user' to your run configuration."
-                )
-
             if not run_config.checks_location:
                 raise InvalidConfigError(
                     f"checks_location must be specified in run config '{run_config.name}' when using Lakebase. "
@@ -846,7 +885,6 @@ class ChecksStorageHandlerFactory(BaseChecksStorageHandlerFactory):
                 LakebaseChecksStorageConfig(
                     location=run_config.checks_location,
                     instance_name=run_config.lakebase_instance_name,
-                    user=run_config.lakebase_user,
                     port=run_config.lakebase_port or "5432",
                     run_config_name=run_config.name,
                 ),
@@ -866,4 +904,6 @@ def is_table_location(location: str) -> bool:
     Returns:
         bool: True if the location is a valid table name and not a file path, False otherwise.
     """
-    return bool(TABLE_PATTERN.match(location)) and not location.lower().endswith(tuple(FILE_SERIALIZERS.keys()))
+    return bool(TABLE_PATTERN.match(location)) and not location.lower().endswith(
+        SerializerFactory.get_supported_extensions()
+    )

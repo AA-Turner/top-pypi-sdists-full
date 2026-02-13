@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nox
-Version: 2025.11.12
+Version: 2026.2.9
 Summary: Flexible test automation.
 Project-URL: bug-tracker, https://github.com/wntrblm/nox/issues
 Project-URL: documentation, https://nox.thea.codes
@@ -33,17 +33,16 @@ Requires-Dist: attrs>=24.1
 Requires-Dist: colorlog<7,>=2.6.1
 Requires-Dist: dependency-groups>=1.1
 Requires-Dist: humanize>=4
-Requires-Dist: packaging>=20.9; python_version < '3.10'
-Requires-Dist: packaging>=21; python_version >= '3.10'
+Requires-Dist: packaging>=22
 Requires-Dist: tomli>=1.1; python_version < '3.11'
 Requires-Dist: virtualenv>=20.14.1; python_version < '3.10'
 Requires-Dist: virtualenv>=20.15; python_version >= '3.10'
 Provides-Extra: pbs
 Requires-Dist: pbs-installer[all]>=2025.1.6; extra == 'pbs'
-Provides-Extra: tox_to_nox
-Requires-Dist: importlib-resources; (python_version < '3.9') and extra == 'tox_to_nox'
-Requires-Dist: jinja2; extra == 'tox_to_nox'
-Requires-Dist: tox>=4; extra == 'tox_to_nox'
+Provides-Extra: tox-to-nox
+Requires-Dist: importlib-resources; (python_version < '3.9') and extra == 'tox-to-nox'
+Requires-Dist: jinja2; extra == 'tox-to-nox'
+Requires-Dist: tox>=4; extra == 'tox-to-nox'
 Provides-Extra: uv
 Requires-Dist: uv>=0.1.6; extra == 'uv'
 Description-Content-Type: text/markdown

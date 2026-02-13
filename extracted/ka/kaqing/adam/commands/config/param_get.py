@@ -4,7 +4,6 @@ from adam.config import Config
 from adam.repl_state import ReplState
 from adam.utils_log import log, log2
 from adam.utils_tabulize import tabulize
-from adam.utils_context import Context
 
 class GetParam(Command):
     COMMAND = 'get'
@@ -26,19 +25,20 @@ class GetParam(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            def msg():
-                tabulize(Config().keys(),
-                         lambda key: f'{key}\t{Config().get(key, None)}',
-                         separator='\t',
-                         ctx=self.context())
+            with self.context(args) as (_, ctx):
+                def msg():
+                    tabulize(Config().keys(),
+                             lambda key: f'{key}\t{Config().get(key, None)}',
+                             separator='\t',
+                             ctx=ctx)
 
-            with validate_args(args, state, msg=msg) as key:
-                if v := Config().get(key, None):
-                    log(v)
-                else:
-                    log2(f'{key} is not set.')
+                with validate_args(args, state, msg=msg) as key:
+                    if v := Config().get(key, None):
+                        log(v)
+                    else:
+                        log2(f'{key} is not set.')
 
-                return v if v else state
+                    return v if v else state
 
     def completion(self, _: ReplState):
         return {GetParam.COMMAND: {key: None for key in Config().keys()}}

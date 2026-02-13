@@ -11,8 +11,8 @@ from nilearn._utils.estimator_checks import (
     nilearn_check_estimator,
     return_expected_failed_checks,
 )
-from nilearn._utils.tags import SKLEARN_LT_1_6
 from nilearn._utils.testing import write_imgs_to_path
+from nilearn._utils.versions import SKLEARN_LT_1_6
 from nilearn.decomposition import CanICA, DictLearning
 from nilearn.decomposition._multi_pca import _MultiPCA
 from nilearn.decomposition.tests.conftest import (
@@ -21,6 +21,7 @@ from nilearn.decomposition.tests.conftest import (
     RANDOM_STATE,
     check_decomposition_estimator,
 )
+from nilearn.maskers import NiftiMasker, SurfaceMasker
 
 ESTIMATORS_TO_CHECK = [
     DictLearning(standardize="zscore_sample"),
@@ -413,6 +414,7 @@ def test_single_subject_score(canica_data_single_img, data_type, estimator):
 
 
 @pytest.mark.slow
+@pytest.mark.thread_unsafe
 @pytest.mark.parametrize("estimator", [CanICA, DictLearning])
 @pytest.mark.parametrize("data_type", ["nifti"])
 def test_single_subject_file(
@@ -455,6 +457,7 @@ def test_single_subject_file(
 
 
 @pytest.mark.slow
+@pytest.mark.thread_unsafe
 @pytest.mark.parametrize("estimator", [CanICA, DictLearning])
 @pytest.mark.parametrize("data_type", ["nifti"])
 @pytest.mark.parametrize("n_subjects", [1, 3])
@@ -465,7 +468,7 @@ def test_with_globbing_patterns(
     estimator,
     n_subjects,  # noqa: ARG001
 ):
-    """Check DictLearning can work with files on disk.
+    """Check decomposition estimators can work with files on disk.
 
     Only for nifti as we cannot read surface from file.
     """
@@ -483,3 +486,22 @@ def test_with_globbing_patterns(
 
     # smoke test transform and inverse transform
     est.transform(img)
+
+
+@pytest.mark.parametrize("estimator", [CanICA, DictLearning])
+@pytest.mark.parametrize("data_type", ["nifti", "surface"])
+@pytest.mark.parametrize("n_subjects", [1, 3])
+def test_error_non_multi_masker(
+    canica_data,
+    data_type,
+    estimator,
+    n_subjects,  # noqa: ARG001
+):
+    """Check decomposition estimators raise errors with non multi maskers."""
+    mask = SurfaceMasker()
+    if data_type == "nifti":
+        mask = NiftiMasker()
+    est = estimator(n_components=3, standardize="zscore_sample", mask=mask)
+
+    with pytest.raises(TypeError, match="'mask' must be of type"):
+        est.fit(canica_data)

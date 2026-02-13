@@ -1,5 +1,4 @@
 from datetime import datetime
-import html
 import json
 import os
 import threading
@@ -8,11 +7,10 @@ from typing import Callable, TypeVar, Union
 import sys
 import time
 import click
-from prompt_toolkit import print_formatted_text, HTML
 
 from adam.config_holder import ConfigHolder
-from adam.utils_color import Color
-from adam.utils_fs import creating_dir
+from adam.utils_color import Color, colored_print
+from adam.directories import local_log_dir
 
 T = TypeVar('T')
 
@@ -38,11 +36,7 @@ def _log(s = None, nl = True, file: str = None, text_color: str = None, err = Fa
                 if nl:
                     f.write('\n')
         elif text_color:
-            l = f'<ansi{text_color}>{html.escape(s)}</ansi{text_color}>'
-            try:
-                print_formatted_text(HTML(l), file=sys.stderr if err else None, end='\n' if nl else '')
-            except:
-                click.echo(s, err=err, nl=nl)
+            colored_print(s, nl=nl, text_color=text_color, err=err)
         else:
             click.echo(s, err=err, nl=nl)
     else:
@@ -251,13 +245,7 @@ def log_exc(err_msg: Union[str, callable, bool] = None):
 def kaqing_log_file_name(suffix = 'log', job_id: str = None):
     if not job_id:
         job_id = datetime.now().strftime('%d%H%M%S')
-    return f"{log_dir()}/{job_id}.{suffix}"
-
-def log_dir():
-    return creating_dir(ConfigHolder().config.get('log-dir', '/tmp/qing-db/q/logs'))
-
-def pod_log_dir():
-    return ConfigHolder().config.get('pod-log-dir', '/tmp/q/logs')
+    return f"{local_log_dir()}/{job_id}.{suffix}"
 
 class LogFileHandler:
     def __init__(self, suffix = 'log', condition=True):
@@ -325,15 +313,16 @@ class LogFile(str):
         return f'{cmd} {self}'
 
 class PodLogFile(LogFile):
-    def __new__(cls, value, pod: str, pid: str = None, size: str = None, exit_code: str = None):
+    def __new__(cls, value, pod: str, pid: str = None, size: str = None, exit_code: str = None, ts: int = None):
         return super().__new__(cls, value)
 
-    def __init__(self, value, pod: str, pid: str = None, size: str = None, exit_code: str = None):
+    def __init__(self, value, pod: str, pid: str = None, size: str = None, exit_code: str = None, ts: int = None):
          super().__init__(value)
          self.pod = pod
          self.pid = pid
          self.size = size
          self.exit_code = exit_code
+         self.ts = ts
 
     def __repr__(self):
         return super().__repr__()

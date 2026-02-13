@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvespa
-Version: 1.0.2
+Version: 1.1.0
 Summary: Python API for vespa.ai
 Author: Thiago G. Martins, Thomas Thoresen
 Maintainer-email: Thomas Thoresen <thomas@vespa.ai>
@@ -210,13 +210,13 @@ Project-URL: homepage, https://pypi.org/project/pyvespa
 Project-URL: repository, https://github.com/vespa-engine/pyvespa
 Keywords: vespa,search engine,data science
 Classifier: License :: OSI Approved :: Apache Software License
-Requires-Python: <3.14,>=3.9
+Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: httpr>=0.3.2
+Requires-Dist: httpr>=0.4.0
 Requires-Dist: docker
 Requires-Dist: jinja2
-Requires-Dist: cryptography
+Requires-Dist: cryptography>=46.0.5
 Requires-Dist: aiohttp
 Requires-Dist: tenacity>=8.4.1
 Requires-Dist: typing_extensions
@@ -243,7 +243,7 @@ Requires-Dist: pytest-asyncio; extra == "unittest"
 Requires-Dist: mypy>=1.14.1; extra == "unittest"
 Provides-Extra: docs
 Requires-Dist: ipykernel==6.30.1; extra == "docs"
-Requires-Dist: nbconvert; extra == "docs"
+Requires-Dist: nbconvert>=7.17.0; extra == "docs"
 Requires-Dist: jupyter; extra == "docs"
 Requires-Dist: mkdocs-material; extra == "docs"
 Requires-Dist: mkdocs-jupyter; extra == "docs"
@@ -264,7 +264,7 @@ Requires-Dist: tiktoken; extra == "feed"
 Requires-Dist: vespacli; extra == "feed"
 Provides-Extra: notebooks
 Requires-Dist: notebook; extra == "notebooks"
-Requires-Dist: nbconvert; extra == "notebooks"
+Requires-Dist: nbconvert>=7.17.0; extra == "notebooks"
 Requires-Dist: ipykernel==6.30.1; extra == "notebooks"
 Requires-Dist: jupytext; extra == "notebooks"
 Requires-Dist: numpy; extra == "notebooks"

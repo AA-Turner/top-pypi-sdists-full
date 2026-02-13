@@ -370,7 +370,7 @@ class Configuration(object):
                "OS: {env}\n"\
                "Python Version: {pyversion}\n"\
                "Version of the API: 2.0.0\n"\
-               "SDK Package Version: 3.15.1".\
+               "SDK Package Version: 3.16.0".\
                format(env=sys.platform, pyversion=sys.version)
 
     def get_host_settings(self):
@@ -381,7 +381,11 @@ class Configuration(object):
         return [
             {
                 'url': "https://api.phrase.com/v2",
-                'description': "No description provided",
+                'description': "EU production server",
+            },
+            {
+                'url': "https://api.us.app.phrase.com/v2",
+                'description': "US production server",
             }
         ]
 

@@ -153,13 +153,17 @@ class RawTasksClient:
         
         This method creates a new video embedding task that uploads a video to the platform and creates one or multiple video embeddings.
         
+        <Note title="Note">
+        This endpoint is rate-limited. For details, see the [Rate limits](/v1.3/docs/get-started/rate-limits) page.
+        </Note>
+        
         Upload options:
         - **Local file**: Use the `video_file` parameter
         - **Publicly accessible URL**: Use the `video_url` parameter.
         
         Specify at least one option. If both are provided, `video_url` takes precedence.
         
-        Your video files must meet the [format requirements](/v1.3/docs/concepts/models/marengo#video-file-requirements).
+        Your video files must meet the [requirements](/v1.3/docs/concepts/models/marengo#video-file-requirements).
         This endpoint allows you to upload files up to 2 GB in size.  To upload larger files, use the [Multipart Upload API](/v1.3/api-reference/upload-content/multipart-uploads)
         
         <Note title="Notes">
@@ -208,7 +212,7 @@ class RawTasksClient:
         video_embedding_scope : typing.Optional[typing.List[TasksCreateRequestVideoEmbeddingScopeItem]]
             Defines the scope of video embedding generation. Valid values are the following:
             - `clip`: Creates embeddings for each video segment of `video_clip_length` seconds, from `video_start_offset_sec` to `video_end_offset_sec`.
-            - `clip` and `video`: Creates embeddings for video segments and the entire video.
+            - `clip` and `video`: Creates embeddings for video segments and the entire video. Use the `video` scope for videos up to 10-30 seconds to maintain optimal performance.
             
             To create embeddings for segments and the entire video in the same request, include this parameter twice as shown below:
             
@@ -534,13 +538,17 @@ class AsyncRawTasksClient:
         
         This method creates a new video embedding task that uploads a video to the platform and creates one or multiple video embeddings.
         
+        <Note title="Note">
+        This endpoint is rate-limited. For details, see the [Rate limits](/v1.3/docs/get-started/rate-limits) page.
+        </Note>
+        
         Upload options:
         - **Local file**: Use the `video_file` parameter
         - **Publicly accessible URL**: Use the `video_url` parameter.
         
         Specify at least one option. If both are provided, `video_url` takes precedence.
         
-        Your video files must meet the [format requirements](/v1.3/docs/concepts/models/marengo#video-file-requirements).
+        Your video files must meet the [requirements](/v1.3/docs/concepts/models/marengo#video-file-requirements).
         This endpoint allows you to upload files up to 2 GB in size.  To upload larger files, use the [Multipart Upload API](/v1.3/api-reference/upload-content/multipart-uploads)
         
         <Note title="Notes">
@@ -589,7 +597,7 @@ class AsyncRawTasksClient:
         video_embedding_scope : typing.Optional[typing.List[TasksCreateRequestVideoEmbeddingScopeItem]]
             Defines the scope of video embedding generation. Valid values are the following:
             - `clip`: Creates embeddings for each video segment of `video_clip_length` seconds, from `video_start_offset_sec` to `video_end_offset_sec`.
-            - `clip` and `video`: Creates embeddings for video segments and the entire video.
+            - `clip` and `video`: Creates embeddings for video segments and the entire video. Use the `video` scope for videos up to 10-30 seconds to maintain optimal performance.
             
             To create embeddings for segments and the entire video in the same request, include this parameter twice as shown below:
             

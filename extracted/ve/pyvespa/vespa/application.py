@@ -153,6 +153,9 @@ def _prepare_request_body(
     if method not in ["POST", "PUT"]:
         return json_data, {}
 
+    if compress is False:
+        return json_data or data, {}
+
     # Determine body content
     if json_data is not None:
         body_bytes = json.dumps(json_data).encode("utf-8")
@@ -1509,7 +1512,7 @@ class VespaSync(object):
             )
             if extra_headers:
                 kwargs["content"] = prepared_body
-                kwargs["headers"] = extra_headers
+                kwargs["headers"] = {**kwargs.get("headers", {}), **extra_headers}
             else:
                 kwargs["json"] = prepared_body
 
@@ -1710,7 +1713,11 @@ class VespaSync(object):
             return self._query_streaming(body, **kwargs)
         else:
             response = self._request_with_retry(
-                "POST", self.app.search_end_point, json_data=body, params=kwargs
+                "POST",
+                self.app.search_end_point,
+                json_data=body,
+                params=kwargs,
+                headers={"Accept": "application/cbor"},
             )
             raise_for_status(response)
 
@@ -1732,7 +1739,10 @@ class VespaSync(object):
 
         if extra_headers:
             request_kwargs["content"] = prepared_body
-            request_kwargs["headers"] = extra_headers
+            request_kwargs["headers"] = {
+                **request_kwargs.get("headers", {}),
+                **extra_headers,
+            }
         else:
             request_kwargs["json"] = prepared_body
 
@@ -2242,7 +2252,7 @@ class VespaAsync(object):
             )
             if extra_headers:
                 kwargs["content"] = prepared_body
-                kwargs["headers"] = extra_headers
+                kwargs["headers"] = {**kwargs.get("headers", {}), **extra_headers}
             else:
                 kwargs["json"] = prepared_body
 
@@ -2291,7 +2301,11 @@ class VespaAsync(object):
             kwargs.update(get_profiling_params())
 
         r = await self._make_request(
-            "POST", self.app.search_end_point, json_data=body, params=kwargs
+            "POST",
+            self.app.search_end_point,
+            json_data=body,
+            params=kwargs,
+            headers={"Accept": "application/cbor"},
         )
 
         return VespaQueryResponse(

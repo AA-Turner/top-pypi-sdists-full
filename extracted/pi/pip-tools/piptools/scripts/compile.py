@@ -4,9 +4,8 @@ import itertools
 import os
 import shlex
 import sys
-import tempfile
+import typing as _t
 from pathlib import Path
-from typing import IO, Any, BinaryIO, cast
 
 import click
 from build import BuildBackendException
@@ -14,7 +13,8 @@ from click.utils import LazyFile, safecall
 from pip._internal.req import InstallRequirement
 from pip._internal.utils.misc import redact_auth_from_url
 
-from .._compat import parse_requirements
+from .._compat import canonicalize_name, parse_requirements, tempfile_compat
+from .._internal import _pip_api
 from ..build import ProjectMetadata, build_project_metadata
 from ..cache import DependencyCache
 from ..exceptions import NoCandidateFound, PipToolsError
@@ -25,7 +25,6 @@ from ..resolver import BacktrackingResolver, LegacyResolver
 from ..utils import (
     dedup,
     drop_extras,
-    install_req_from_line,
     is_pinned_requirement,
     key_from_ireq,
 )
@@ -147,7 +146,7 @@ def cli(
     annotation_style: str,
     upgrade: bool,
     upgrade_packages: tuple[str, ...],
-    output_file: LazyFile | IO[Any] | None,
+    output_file: LazyFile | _t.IO[_t.Any] | None,
     newline: str,
     allow_unsafe: bool,
     strip_extras: bool | None,
@@ -241,7 +240,7 @@ def cli(
 
         # Close the file at the end of the context execution
         assert output_file is not None
-        # only LazyFile has close_intelligently, newer IO[Any] does not
+        # only LazyFile has close_intelligently, newer _t.IO[_t.Any] does not
         if isinstance(output_file, LazyFile):  # pragma: no cover
             ctx.call_on_close(safecall(output_file.close_intelligently))
 
@@ -294,7 +293,9 @@ def cli(
     repository = PyPIRepository(pip_args, cache_dir=cache_dir)
 
     # Parse all constraints coming from --upgrade-package/-P
-    upgrade_reqs_gen = (install_req_from_line(pkg) for pkg in upgrade_packages)
+    upgrade_reqs_gen = (
+        _pip_api.create_install_requirement_from_line(pkg) for pkg in upgrade_packages
+    )
     upgrade_install_reqs = {
         key_from_ireq(install_req): install_req for install_req in upgrade_reqs_gen
     }
@@ -352,20 +353,19 @@ def cli(
         if src_file == "-":
             # pip requires filenames and not files. Since we want to support
             # piping from stdin, we need to briefly save the input from stdin
-            # to a temporary file and have pip read that.  also used for
-            # reading requirements from install_requires in setup.py.
-            tmpfile = tempfile.NamedTemporaryFile(mode="wt", delete=False)
-            tmpfile.write(sys.stdin.read())
-            tmpfile.flush()
-            reqs = list(
-                parse_requirements(
-                    tmpfile.name,
-                    finder=repository.finder,
-                    session=repository.session,
-                    options=repository.options,
-                    comes_from_stdin=True,
+            # to a temporary file and have pip read that.
+            with tempfile_compat.named_temp_file() as tmpfile:
+                tmpfile.write(sys.stdin.read())
+                tmpfile.flush()
+                reqs = list(
+                    parse_requirements(
+                        tmpfile.name,
+                        finder=repository.finder,
+                        session=repository.session,
+                        options=repository.options,
+                        comes_from_stdin=True,
+                    )
                 )
-            )
             constraints.extend(reqs)
         elif is_setup_file:
             setup_file_found = True
@@ -413,10 +413,9 @@ def cli(
         )
 
     if upgrade_packages:
-        constraints_file = tempfile.NamedTemporaryFile(mode="wt", delete=False)
-        constraints_file.write("\n".join(upgrade_packages))
-        constraints_file.flush()
-        try:
+        with tempfile_compat.named_temp_file() as constraints_file:
+            constraints_file.write("\n".join(upgrade_packages))
+            constraints_file.flush()
             reqs = list(
                 parse_requirements(
                     constraints_file.name,
@@ -426,11 +425,8 @@ def cli(
                     constraint=True,
                 )
             )
-        finally:
-            constraints_file.close()
-            os.unlink(constraints_file.name)
-        for req in reqs:
-            req.comes_from = None
+            for req in reqs:
+                req.comes_from = None
         constraints.extend(reqs)
 
     extras = tuple(itertools.chain.from_iterable(ex.split(",") for ex in extras))
@@ -466,13 +462,17 @@ def cli(
             for find_link in dedup(repository.finder.find_links):
                 log.debug(redact_auth_from_url(find_link))
 
+    unsafe_package = tuple(canonicalize_name(pkg_name) for pkg_name in unsafe_package)
+
     resolver_cls = LegacyResolver if resolver_name == "legacy" else BacktrackingResolver
     try:
         resolver = resolver_cls(
             constraints=constraints,
             existing_constraints=existing_pins,
             repository=repository,
-            prereleases=repository.finder.allow_all_prereleases or pre,
+            prereleases=(
+                pre or _pip_api.finder_allows_all_prereleases(repository.finder)
+            ),
             cache=DependencyCache(cache_dir),
             clear_caches=rebuild,
             allow_unsafe=allow_unsafe,
@@ -514,7 +514,7 @@ def cli(
     ##
 
     writer = OutputWriter(
-        cast(BinaryIO, output_file),
+        _t.cast(_t.BinaryIO, output_file),
         click_ctx=ctx,
         dry_run=dry_run,
         emit_header=header,

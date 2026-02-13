@@ -601,6 +601,20 @@ def kimi(
             _emit_fatal_error(f"{exc}\nSee logs: {log_path}")
         raise typer.Exit(code=1) from exc
     if switch_to_web:
+        from kimi_cli.utils.logging import restore_stderr
+
+        restore_stderr()
+
+        # Restore default SIGINT handler and terminal state after the shell's
+        # asyncio.run() to ensure Ctrl+C works in the uvicorn web server.
+        import signal
+
+        signal.signal(signal.SIGINT, signal.default_int_handler)
+
+        from kimi_cli.utils.term import ensure_tty_sane
+
+        ensure_tty_sane()
+
         from kimi_cli.web.app import run_web_server
 
         run_web_server(open_browser=True)

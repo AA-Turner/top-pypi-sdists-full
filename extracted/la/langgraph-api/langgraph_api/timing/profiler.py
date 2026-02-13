@@ -34,7 +34,7 @@ def profiled_import(path: str, top_n: int = 10):
         path: The module path (for logging)
         top_n: Maximum number of slow calls to report
     """
-    from langgraph_api import config
+    from langgraph_api import config  # noqa: PLC0415
 
     if not config.FF_PROFILE_IMPORTS:
         yield None

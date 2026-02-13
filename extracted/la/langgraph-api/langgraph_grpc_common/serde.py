@@ -103,6 +103,10 @@ def default(obj):
         return obj.pattern
     elif isinstance(obj, bytes | bytearray):
         return b64encode(obj).decode()
+    # Fallback for typed objects (e.g. Usage, custom classes) that orjson
+    # doesn't natively serialize — use instance dict so they round-trip as dicts.
+    elif hasattr(obj, "__dict__") and not isinstance(obj, type):
+        return {k: v for k, v in vars(obj).items() if not k.startswith("_")}
     return None
 
 

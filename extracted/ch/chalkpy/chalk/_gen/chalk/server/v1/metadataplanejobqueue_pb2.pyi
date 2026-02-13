@@ -32,7 +32,17 @@ METADATA_JOB_STATUS_SUCCESS: MetadataJobStatus
 METADATA_JOB_STATUS_FAILED: MetadataJobStatus
 
 class MetadataScheduledJob(_message.Message):
-    __slots__ = ("id", "metadata", "max_attempts", "created_at", "tag", "name", "custom_tags", "environment_id")
+    __slots__ = (
+        "id",
+        "metadata",
+        "max_attempts",
+        "created_at",
+        "tag",
+        "name",
+        "custom_tags",
+        "environment_id",
+        "schedule",
+    )
     ID_FIELD_NUMBER: _ClassVar[int]
     METADATA_FIELD_NUMBER: _ClassVar[int]
     MAX_ATTEMPTS_FIELD_NUMBER: _ClassVar[int]
@@ -41,6 +51,7 @@ class MetadataScheduledJob(_message.Message):
     NAME_FIELD_NUMBER: _ClassVar[int]
     CUSTOM_TAGS_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    SCHEDULE_FIELD_NUMBER: _ClassVar[int]
     id: str
     metadata: _struct_pb2.Struct
     max_attempts: int
@@ -49,6 +60,7 @@ class MetadataScheduledJob(_message.Message):
     name: str
     custom_tags: _containers.RepeatedScalarFieldContainer[str]
     environment_id: str
+    schedule: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -59,6 +71,7 @@ class MetadataScheduledJob(_message.Message):
         name: _Optional[str] = ...,
         custom_tags: _Optional[_Iterable[str]] = ...,
         environment_id: _Optional[str] = ...,
+        schedule: _Optional[str] = ...,
     ) -> None: ...
 
 class MetadataJob(_message.Message):
@@ -121,36 +134,27 @@ class MetadataJob(_message.Message):
     ) -> None: ...
 
 class ListMetadataScheduledJobsRequest(_message.Message):
-    __slots__ = ("environment_id", "tag", "name", "limit", "offset")
-    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
-    TAG_FIELD_NUMBER: _ClassVar[int]
-    NAME_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("limit", "cursor", "tag")
     LIMIT_FIELD_NUMBER: _ClassVar[int]
-    OFFSET_FIELD_NUMBER: _ClassVar[int]
-    environment_id: str
-    tag: str
-    name: str
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    TAG_FIELD_NUMBER: _ClassVar[int]
     limit: int
-    offset: int
+    cursor: str
+    tag: str
     def __init__(
-        self,
-        environment_id: _Optional[str] = ...,
-        tag: _Optional[str] = ...,
-        name: _Optional[str] = ...,
-        limit: _Optional[int] = ...,
-        offset: _Optional[int] = ...,
+        self, limit: _Optional[int] = ..., cursor: _Optional[str] = ..., tag: _Optional[str] = ...
     ) -> None: ...
 
 class ListMetadataScheduledJobsResponse(_message.Message):
-    __slots__ = ("scheduled_jobs", "total")
+    __slots__ = ("scheduled_jobs", "next_cursor")
     SCHEDULED_JOBS_FIELD_NUMBER: _ClassVar[int]
-    TOTAL_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
     scheduled_jobs: _containers.RepeatedCompositeFieldContainer[MetadataScheduledJob]
-    total: int
+    next_cursor: str
     def __init__(
         self,
         scheduled_jobs: _Optional[_Iterable[_Union[MetadataScheduledJob, _Mapping]]] = ...,
-        total: _Optional[int] = ...,
+        next_cursor: _Optional[str] = ...,
     ) -> None: ...
 
 class GetMetadataScheduledJobRequest(_message.Message):
@@ -166,37 +170,31 @@ class GetMetadataScheduledJobResponse(_message.Message):
     def __init__(self, scheduled_job: _Optional[_Union[MetadataScheduledJob, _Mapping]] = ...) -> None: ...
 
 class ListMetadataJobsRequest(_message.Message):
-    __slots__ = ("environment_id", "status", "tag", "schedule_name", "limit", "offset")
-    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
-    STATUS_FIELD_NUMBER: _ClassVar[int]
-    TAG_FIELD_NUMBER: _ClassVar[int]
-    SCHEDULE_NAME_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("limit", "cursor", "schedule_name", "status")
     LIMIT_FIELD_NUMBER: _ClassVar[int]
-    OFFSET_FIELD_NUMBER: _ClassVar[int]
-    environment_id: str
-    status: MetadataJobStatus
-    tag: str
-    schedule_name: str
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    SCHEDULE_NAME_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
     limit: int
-    offset: int
+    cursor: str
+    schedule_name: str
+    status: MetadataJobStatus
     def __init__(
         self,
-        environment_id: _Optional[str] = ...,
-        status: _Optional[_Union[MetadataJobStatus, str]] = ...,
-        tag: _Optional[str] = ...,
-        schedule_name: _Optional[str] = ...,
         limit: _Optional[int] = ...,
-        offset: _Optional[int] = ...,
+        cursor: _Optional[str] = ...,
+        schedule_name: _Optional[str] = ...,
+        status: _Optional[_Union[MetadataJobStatus, str]] = ...,
     ) -> None: ...
 
 class ListMetadataJobsResponse(_message.Message):
-    __slots__ = ("jobs", "total")
+    __slots__ = ("jobs", "next_cursor")
     JOBS_FIELD_NUMBER: _ClassVar[int]
-    TOTAL_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
     jobs: _containers.RepeatedCompositeFieldContainer[MetadataJob]
-    total: int
+    next_cursor: str
     def __init__(
-        self, jobs: _Optional[_Iterable[_Union[MetadataJob, _Mapping]]] = ..., total: _Optional[int] = ...
+        self, jobs: _Optional[_Iterable[_Union[MetadataJob, _Mapping]]] = ..., next_cursor: _Optional[str] = ...
     ) -> None: ...
 
 class GetMetadataJobRequest(_message.Message):

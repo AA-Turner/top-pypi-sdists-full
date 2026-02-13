@@ -182,7 +182,10 @@ class PluginManager:
             ``prefix`` will be imported and searched for hook implementations
             by default ``self.discover_prefix`` is used
 
+        Notes
+        -----
         See docstring of :func:`iter_available_plugins` for details.
+
         """
         _path = self.discover_path
         if path:
@@ -247,16 +250,15 @@ class PluginManager:
                 )
                 # we may have registered this entry point under a different name,
                 # so check module names to avoid duplicate registration
-                if mod_name not in mod_names:
-                    new_name = f"{name}-{self._id_counts[name]}"
-                    previously_registered_mod = self.plugins[name].__name__
-                    warnings.warn(
-                        f"Plugin {name} already registered by module "
-                        + f"{previously_registered_mod}! Registering as {new_name}."
-                    )
-                    name = new_name
-                else:
+                if mod_name in mod_names:
                     continue
+                new_name = f"{name}-{self._id_counts[name]}"
+                previously_registered_mod = self.plugins[name].__name__
+                warnings.warn(
+                    f"Plugin {name} already registered by module "
+                    + f"{previously_registered_mod}! Registering as {new_name}."
+                )
+                name = new_name
             elif self.is_blocked(name):
                 continue
 
@@ -348,8 +350,8 @@ class PluginManager:
 
         Parameters
         ----------
-        plugin : Any
-            The namespace (class, module, dict, etc...) to register
+        namespace : Any
+            The namespace (class, module, dict, etc...) of the plugin to register
         name : str, optional
             Optional name for plugin, by default ``get_canonical_name(plugin)``
 
@@ -401,6 +403,13 @@ class PluginManager:
             hookcallers.append(hook_caller)
 
         self._plugin2hookcallers[namespace] = hookcallers
+        if not hookcallers:
+            ns_name = get_canonical_name(namespace)
+            warnings.warn(
+                f"Module {ns_name!r} from plugin {plugin_name!r} has no hooks! "
+                "Consider disabling or uninstalling this plugin. "
+                "If you are a developer, please check your entry point."
+            )
         self.plugins[plugin_name] = namespace
         return plugin_name
 
@@ -1059,7 +1068,7 @@ def iter_available_plugins(
         enables easy discovery using the PyPI `simple API
         <https://www.python.org/dev/peps/pep-0503/>`_
 
-    2) `Using package metadata
+    2. `Using package metadata
         <https://packaging.python.org/guides/creating-and-discovering-plugins/#using-package-metadata>`_:
         packages that declare an `entry_point
         <https://setuptools.readthedocs.io/en/latest/setuptools.html#dynamic-discovery-of-services-and-plugins>`_

@@ -101,6 +101,9 @@ Usage::
         DescribeRouteTablesPaginator,
         DescribeScheduledInstanceAvailabilityPaginator,
         DescribeScheduledInstancesPaginator,
+        DescribeSecondaryInterfacesPaginator,
+        DescribeSecondaryNetworksPaginator,
+        DescribeSecondarySubnetsPaginator,
         DescribeSecurityGroupRulesPaginator,
         DescribeSecurityGroupVpcAssociationsPaginator,
         DescribeSecurityGroupsPaginator,
@@ -272,6 +275,9 @@ Usage::
     describe_route_tables_paginator: DescribeRouteTablesPaginator = client.get_paginator("describe_route_tables")
     describe_scheduled_instance_availability_paginator: DescribeScheduledInstanceAvailabilityPaginator = client.get_paginator("describe_scheduled_instance_availability")
     describe_scheduled_instances_paginator: DescribeScheduledInstancesPaginator = client.get_paginator("describe_scheduled_instances")
+    describe_secondary_interfaces_paginator: DescribeSecondaryInterfacesPaginator = client.get_paginator("describe_secondary_interfaces")
+    describe_secondary_networks_paginator: DescribeSecondaryNetworksPaginator = client.get_paginator("describe_secondary_networks")
+    describe_secondary_subnets_paginator: DescribeSecondarySubnetsPaginator = client.get_paginator("describe_secondary_subnets")
     describe_security_group_rules_paginator: DescribeSecurityGroupRulesPaginator = client.get_paginator("describe_security_group_rules")
     describe_security_group_vpc_associations_paginator: DescribeSecurityGroupVpcAssociationsPaginator = client.get_paginator("describe_security_group_vpc_associations")
     describe_security_groups_paginator: DescribeSecurityGroupsPaginator = client.get_paginator("describe_security_groups")
@@ -538,6 +544,12 @@ from .type_defs import (
     DescribeScheduledInstanceAvailabilityResultTypeDef,
     DescribeScheduledInstancesRequestPaginateTypeDef,
     DescribeScheduledInstancesResultTypeDef,
+    DescribeSecondaryInterfacesRequestPaginateTypeDef,
+    DescribeSecondaryInterfacesResultTypeDef,
+    DescribeSecondaryNetworksRequestPaginateTypeDef,
+    DescribeSecondaryNetworksResultTypeDef,
+    DescribeSecondarySubnetsRequestPaginateTypeDef,
+    DescribeSecondarySubnetsResultTypeDef,
     DescribeSecurityGroupRulesRequestPaginateTypeDef,
     DescribeSecurityGroupRulesResultTypeDef,
     DescribeSecurityGroupsRequestPaginateTypeDef,
@@ -790,6 +802,9 @@ __all__ = (
     "DescribeRouteTablesPaginator",
     "DescribeScheduledInstanceAvailabilityPaginator",
     "DescribeScheduledInstancesPaginator",
+    "DescribeSecondaryInterfacesPaginator",
+    "DescribeSecondaryNetworksPaginator",
+    "DescribeSecondarySubnetsPaginator",
     "DescribeSecurityGroupRulesPaginator",
     "DescribeSecurityGroupVpcAssociationsPaginator",
     "DescribeSecurityGroupsPaginator",
@@ -2862,6 +2877,69 @@ class DescribeScheduledInstancesPaginator(_DescribeScheduledInstancesPaginatorBa
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeScheduledInstances.html#EC2.Paginator.DescribeScheduledInstances.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/paginators/#describescheduledinstancespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _DescribeSecondaryInterfacesPaginatorBase = Paginator[DescribeSecondaryInterfacesResultTypeDef]
+else:
+    _DescribeSecondaryInterfacesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class DescribeSecondaryInterfacesPaginator(_DescribeSecondaryInterfacesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeSecondaryInterfaces.html#EC2.Paginator.DescribeSecondaryInterfaces)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/paginators/#describesecondaryinterfacespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeSecondaryInterfacesRequestPaginateTypeDef]
+    ) -> PageIterator[DescribeSecondaryInterfacesResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeSecondaryInterfaces.html#EC2.Paginator.DescribeSecondaryInterfaces.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/paginators/#describesecondaryinterfacespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _DescribeSecondaryNetworksPaginatorBase = Paginator[DescribeSecondaryNetworksResultTypeDef]
+else:
+    _DescribeSecondaryNetworksPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class DescribeSecondaryNetworksPaginator(_DescribeSecondaryNetworksPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeSecondaryNetworks.html#EC2.Paginator.DescribeSecondaryNetworks)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/paginators/#describesecondarynetworkspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeSecondaryNetworksRequestPaginateTypeDef]
+    ) -> PageIterator[DescribeSecondaryNetworksResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeSecondaryNetworks.html#EC2.Paginator.DescribeSecondaryNetworks.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/paginators/#describesecondarynetworkspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _DescribeSecondarySubnetsPaginatorBase = Paginator[DescribeSecondarySubnetsResultTypeDef]
+else:
+    _DescribeSecondarySubnetsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class DescribeSecondarySubnetsPaginator(_DescribeSecondarySubnetsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeSecondarySubnets.html#EC2.Paginator.DescribeSecondarySubnets)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/paginators/#describesecondarysubnetspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeSecondarySubnetsRequestPaginateTypeDef]
+    ) -> PageIterator[DescribeSecondarySubnetsResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeSecondarySubnets.html#EC2.Paginator.DescribeSecondarySubnets.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/paginators/#describesecondarysubnetspaginator)
         """
 
 

@@ -136,7 +136,12 @@ class ApiRequestFailure(WMLClientError):
 
         self.response = response
         if str(response.status_code) == "404" and "DOCTYPE" in str(response.content):
-            raise MissingWMLComponent()
+            if bool(
+                re.match(r"^Failure during Get available .* model.*", error_msg.strip())
+            ):
+                raise MissingFoundationModel()
+            else:
+                raise MissingWMLComponent()
 
         elif (
             str(response.status_code) == "400"
@@ -256,6 +261,15 @@ class MissingWMLComponent(WMLClientError):
             "Missing WML Component",
             reason="It appears that WML component is not installed on your environment. "
             "Contact your cluster administrator.",
+        )
+
+
+class MissingFoundationModel(WMLClientError):
+    def __init__(self) -> None:
+        WMLClientError.__init__(
+            self,
+            "The watsonx.ai service or a suitable foundation model is not installed",
+            reason="The watsonx.ai service and at least one foundation model that supports your task must be installed before you can complete a generative AI task. Contact your cluster administrator.",
         )
 
 

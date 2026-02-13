@@ -21,6 +21,8 @@ from snowflake.core.image_repository._generated.models.image import Image
 from snowflake.core.image_repository._generated.models.image_repository import ImageRepository
 from snowflake.core.image_repository._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.image_repository._generated.models.success_response import SuccessResponse
+from snowflake.core.image_repository._generated.models.tag_assignment import TagAssignment
+from snowflake.core.image_repository._generated.models.tag_reference import TagReference
 
 __all__ = [
     "ErrorResponse",
@@ -28,4 +30,6 @@ __all__ = [
     "ImageRepository",
     "SuccessAcceptedResponse",
     "SuccessResponse",
+    "TagAssignment",
+    "TagReference",
 ]

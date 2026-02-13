@@ -150,7 +150,53 @@ class GREASE_PENCIL_MT_layer_active(_bpy_types.Menu):
         :param context:
         """
 
+class GREASE_PENCIL_MT_layer_group(_bpy_types.Menu):
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
 class GREASE_PENCIL_MT_move_to_layer(_bpy_types.Menu):
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+class GREASE_PENCIL_MT_move_to_layer_SEARCH(_bpy_types.Menu):
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -301,3 +347,6 @@ class GreasePencilSimplifyPanel:
 
         :param context:
         """
+
+def draw_node(node, layout, grease_pencil) -> None: ...
+def draw_node_for_search(node, layout, grease_pencil) -> None: ...

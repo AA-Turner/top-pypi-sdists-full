@@ -172,5 +172,5 @@ class ViewResource(ExportResourceMixin, resources.Resource):
         # Get default fields from the list display
         if list_display := view.display_config_class(view, view.request, instance=None).get_list_display():
             for key, label in list_display.flatten_fields:
-                columns_map[key] = label
+                columns_map[key] = str(label)  # force str in case we get a lazy promise
         return columns_map

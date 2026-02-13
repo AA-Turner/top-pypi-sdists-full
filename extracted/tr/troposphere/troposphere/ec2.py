@@ -261,12 +261,14 @@ class ClientVpnEndpoint(AWSObject):
         "Description": (str, False),
         "DisconnectOnSessionTimeout": (boolean, False),
         "DnsServers": ([str], False),
+        "EndpointIpAddressType": (str, False),
         "SecurityGroupIds": ([str], False),
         "SelfServicePortal": (validate_clientvpnendpoint_selfserviceportal, False),
         "ServerCertificateArn": (str, True),
         "SessionTimeoutHours": (integer, False),
         "SplitTunnel": (boolean, False),
         "TagSpecifications": ([TagSpecifications], False),
+        "TrafficIpAddressType": (str, False),
         "TransportProtocol": (str, False),
         "VpcId": (str, False),
         "VpnPort": (validate_clientvpnendpoint_vpnport, False),
@@ -344,6 +346,7 @@ class EBSBlockDevice(AWSProperty):
 
     props: PropsDictType = {
         "DeleteOnTermination": (boolean, False),
+        "EbsCardIndex": (integer, False),
         "Encrypted": (boolean, False),
         "Iops": (integer, False),
         "KmsKeyId": (str, False),
@@ -524,6 +527,7 @@ class InstanceRequirementsRequest(AWSProperty):
         "NetworkBandwidthGbps": (NetworkBandwidthGbpsRequest, False),
         "NetworkInterfaceCount": (NetworkInterfaceCountRequest, False),
         "OnDemandMaxPricePercentageOverLowestPrice": (integer, False),
+        "RequireEncryptionInTransit": (boolean, False),
         "RequireHibernateSupport": (boolean, False),
         "SpotMaxPricePercentageOverLowestPrice": (integer, False),
         "TotalLocalStorageGB": (TotalLocalStorageGBRequest, False),
@@ -556,6 +560,7 @@ class FleetLaunchTemplateOverridesRequest(AWSProperty):
 
     props: PropsDictType = {
         "AvailabilityZone": (str, False),
+        "AvailabilityZoneId": (str, False),
         "BlockDeviceMappings": ([BlockDeviceMapping], False),
         "InstanceRequirements": (InstanceRequirementsRequest, False),
         "InstanceType": (str, False),
@@ -2069,6 +2074,7 @@ class NetworkInterface(AWSObject):
         "Ipv6Prefixes": ([Ipv6PrefixSpecification], False),
         "PrivateIpAddress": (str, False),
         "PrivateIpAddresses": ([PrivateIpAddressSpecification], False),
+        "PublicIpDnsHostnameTypeSpecification": (str, False),
         "SecondaryPrivateIpAddressCount": (integer, False),
         "SourceDestCheck": (boolean, False),
         "SubnetId": (str, True),
@@ -2437,6 +2443,7 @@ class SpotPlacement(AWSProperty):
 
     props: PropsDictType = {
         "AvailabilityZone": (str, False),
+        "AvailabilityZoneId": (str, False),
         "GroupName": (str, False),
         "Tenancy": (str, False),
     }
@@ -2488,6 +2495,7 @@ class LaunchTemplateOverrides(AWSProperty):
 
     props: PropsDictType = {
         "AvailabilityZone": (str, False),
+        "AvailabilityZoneId": (str, False),
         "InstanceRequirements": (InstanceRequirementsRequest, False),
         "InstanceType": (str, False),
         "Priority": (double, False),
@@ -2624,6 +2632,7 @@ class SpotFleet(AWSObject):
 
     props: PropsDictType = {
         "SpotFleetRequestConfigData": (SpotFleetRequestConfigData, True),
+        "Tags": (Tags, False),
     }
 
 
@@ -2914,6 +2923,43 @@ class TransitGatewayConnectPeer(AWSObject):
     }
 
 
+class TransitGatewayMeteringPolicy(AWSObject):
+    """
+    `TransitGatewayMeteringPolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-transitgatewaymeteringpolicy.html>`__
+    """
+
+    resource_type = "AWS::EC2::TransitGatewayMeteringPolicy"
+
+    props: PropsDictType = {
+        "MiddleboxAttachmentIds": ([str], False),
+        "Tags": (Tags, False),
+        "TransitGatewayId": (str, True),
+    }
+
+
+class TransitGatewayMeteringPolicyEntry(AWSObject):
+    """
+    `TransitGatewayMeteringPolicyEntry <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-transitgatewaymeteringpolicyentry.html>`__
+    """
+
+    resource_type = "AWS::EC2::TransitGatewayMeteringPolicyEntry"
+
+    props: PropsDictType = {
+        "DestinationCidrBlock": (str, False),
+        "DestinationPortRange": (str, False),
+        "DestinationTransitGatewayAttachmentId": (str, False),
+        "DestinationTransitGatewayAttachmentType": (str, False),
+        "MeteredAccount": (str, True),
+        "PolicyRuleNumber": (integer, True),
+        "Protocol": (str, False),
+        "SourceCidrBlock": (str, False),
+        "SourcePortRange": (str, False),
+        "SourceTransitGatewayAttachmentId": (str, False),
+        "SourceTransitGatewayAttachmentType": (str, False),
+        "TransitGatewayMeteringPolicyId": (str, True),
+    }
+
+
 class MulticastDomainOptions(AWSProperty):
     """
     `MulticastDomainOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-transitgatewaymulticastdomain-options.html>`__
@@ -3146,6 +3192,28 @@ class VPCDHCPOptionsAssociation(AWSObject):
     props: PropsDictType = {
         "DhcpOptionsId": (str, True),
         "VpcId": (str, True),
+    }
+
+
+class VPCEncryptionControl(AWSObject):
+    """
+    `VPCEncryptionControl <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpcencryptioncontrol.html>`__
+    """
+
+    resource_type = "AWS::EC2::VPCEncryptionControl"
+
+    props: PropsDictType = {
+        "EgressOnlyInternetGatewayExclusionInput": (str, False),
+        "ElasticFileSystemExclusionInput": (str, False),
+        "InternetGatewayExclusionInput": (str, False),
+        "LambdaExclusionInput": (str, False),
+        "Mode": (str, False),
+        "NatGatewayExclusionInput": (str, False),
+        "Tags": (Tags, False),
+        "VirtualPrivateGatewayExclusionInput": (str, False),
+        "VpcId": (str, False),
+        "VpcLatticeExclusionInput": (str, False),
+        "VpcPeeringExclusionInput": (str, False),
     }
 
 
@@ -3790,6 +3858,7 @@ class VolumeAttachment(AWSObject):
 
     props: PropsDictType = {
         "Device": (str, False),
+        "EbsCardIndex": (integer, False),
         "InstanceId": (str, True),
         "VolumeId": (str, True),
     }
@@ -3900,6 +3969,19 @@ class PeeringAttachmentStatus(AWSProperty):
     }
 
 
+class PublicIpDnsNameOptions(AWSProperty):
+    """
+    `PublicIpDnsNameOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-networkinterface-publicipdnsnameoptions.html>`__
+    """
+
+    props: PropsDictType = {
+        "DnsHostnameType": (str, False),
+        "PublicDualStackDnsName": (str, False),
+        "PublicIpv4DnsName": (str, False),
+        "PublicIpv6DnsName": (str, False),
+    }
+
+
 class SecurityGroupRule(AWSProperty):
     """
     `SecurityGroupRule <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-securitygroup-ingress.html>`__
@@ -3956,4 +4038,15 @@ class VolumeProperty(AWSProperty):
     props: PropsDictType = {
         "Device": (str, True),
         "VolumeId": (str, True),
+    }
+
+
+class VpcEncryptionControlExclusion(AWSProperty):
+    """
+    `VpcEncryptionControlExclusion <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-vpcencryptioncontrol-vpcencryptioncontrolexclusion.html>`__
+    """
+
+    props: PropsDictType = {
+        "State": (str, False),
+        "StateMessage": (str, False),
     }

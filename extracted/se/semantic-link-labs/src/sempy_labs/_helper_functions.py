@@ -243,7 +243,7 @@ def create_folder_if_not_exists(
 ) -> UUID:
     try:
         x = fabric.resolve_folder_id(folder=folder, workspace=workspace)
-    except:
+    except Exception:
         x = fabric.create_folder(folder=folder, workspace=workspace)
 
     return x
@@ -1126,7 +1126,7 @@ def resolve_workspace_name_and_id(
 
     Returns
     -------
-    str, uuid.UUID
+    typing.Tuple[str, str]
         The name and ID of the Fabric workspace.
     """
 
@@ -1349,7 +1349,7 @@ def resolve_dataset_from_report(
 
     Returns
     -------
-    Tuple[uuid.UUID, str, uuid.UUID, str]
+    typing.Tuple[uuid.UUID, str, uuid.UUID, str]
         The semantic model UUID, semantic model name, semantic model workspace UUID, semantic model workspace name
     """
 
@@ -1389,7 +1389,7 @@ def resolve_workspace_capacity(
 
     Returns
     -------
-    Tuple[uuid.UUID, str]
+    typing.Tuple[uuid.UUID, str]
         capacity Id; capacity came.
     """
     from sempy_labs._capacities import list_capacities
@@ -2231,6 +2231,7 @@ def _base_api(
     lro_return_json: bool = False,
     lro_return_status_code: bool = False,
     lro_return_df: bool = False,
+    headers: Optional[dict] = None,
 ):
     import notebookutils
     from sempy_labs._authentication import _get_headers
@@ -2253,12 +2254,22 @@ def _base_api(
     elif client == "fabric_sp":
         token = auth.token_provider.get() or FabricDefaultCredential()
         c = fabric.FabricRestClient(credential=token)
-    elif client in ["azure", "graph", "onelake"]:
-        pass
-    else:
-        raise ValueError(f"{icons.red_dot} The '{client}' client is not supported.")
 
-    if client not in ["azure", "graph", "onelake"]:
+    if client not in [
+        "fabric",
+        "fabric_sp",
+        "onelake",
+        "azure",
+        "graph",
+        "internal",
+        "kusto",
+        "blob",
+    ]:
+        raise NotImplementedError(
+            f"{icons.red_dot} The '{client}' client is not supported."
+        )
+
+    if client in ["fabric", "fabric_sp"]:
         if method == "get":
             response = c.get(request)
         elif method == "delete":
@@ -2271,19 +2282,42 @@ def _base_api(
             response = c.put(request, json=payload)
         else:
             raise NotImplementedError
+    elif client == "onelake":
+        token = notebookutils.credentials.getToken("storage")
+        headers = {"Authorization": f"Bearer {token}"}
+        url = f"https://onelake.table.fabric.microsoft.com/delta/{request}"
+    elif client in ["azure", "graph"]:
+        headers = _get_headers(auth.token_provider.get(), audience=client)
+        if client == "graph":
+            url = f"https://graph.microsoft.com/v1.0/{request}"
+        elif client == "azure":
+            url = request
+    elif client == "kusto":
+        url = request
+    elif client == "blob":
+        url = f"https://onelake.blob.fabric.microsoft.com/{request}"
+    elif client == "internal":
+        headers = get_pbi_token_headers()
+        prefix = _get_url_prefix()
+        url = f"{prefix}/{request}"
     else:
-        if client == "onelake":
-            import notebookutils
+        raise NotImplementedError
 
-            token = notebookutils.credentials.getToken("storage")
-            headers = {"Authorization": f"Bearer {token}"}
-            url = f"https://onelake.table.fabric.microsoft.com/delta/{request}"
-        else:
-            headers = _get_headers(auth.token_provider.get(), audience=client)
-            if client == "graph":
-                url = f"https://graph.microsoft.com/v1.0/{request}"
-            elif client == "azure":
-                url = request
+    if client == "blob":
+        token = notebookutils.credentials.getToken("storage")
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/xml",
+            "x-ms-version": "2025-05-05",
+        }
+
+        response = requests.request(
+            method.upper(),
+            url,
+            headers=headers,
+            data=payload if method.lower() != "get" else None,
+        )
+    elif client not in ["fabric", "fabric_sp"]:
         response = requests.request(
             method.upper(),
             url,
@@ -2667,9 +2701,13 @@ def generate_number_guid():
 
 def get_url_content(url: str):
 
-    if "github.com" in url and "/blob/" in url:
-        url = url.replace("github.com", "raw.githubusercontent.com")
-        url = url.replace("/blob/", "/")
+    parsed = urllib.parse.urlparse(url)
+
+    if parsed.netloc in {"github.com", "www.github.com"} and "/blob/" in parsed.path:
+        new_path = parsed.path.replace("/blob/", "/")
+        url = urllib.parse.urlunparse(
+            (parsed.scheme, "raw.githubusercontent.com", new_path, "", "", "")
+        )
 
     response = requests.get(url)
     if response.ok:
@@ -2689,32 +2727,6 @@ def generate_hex(length: int = 10) -> str:
     import secrets
 
     return secrets.token_hex(length)
-
-
-def decode_payload(payload):
-
-    if is_base64(payload):
-        try:
-            decoded_payload = json.loads(base64.b64decode(payload).decode("utf-8"))
-        except Exception:
-            decoded_payload = base64.b64decode(payload)
-    elif isinstance(payload, dict):
-        decoded_payload = payload
-    else:
-        raise ValueError("Payload must be a dictionary or a base64 encoded value.")
-
-    return decoded_payload
-
-
-def is_base64(s):
-    try:
-        # Add padding if needed
-        s_padded = s + "=" * (-len(s) % 4)
-        decoded = base64.b64decode(s_padded, validate=True)
-        # Optional: check if re-encoding gives the original (excluding padding)
-        return base64.b64encode(decoded).decode().rstrip("=") == s.rstrip("=")
-    except Exception:
-        return False
 
 
 def get_jsonpath_value(
@@ -2843,11 +2855,6 @@ def get_pbi_token_headers():
 
 def get_model_id(item_id: UUID, prefix: str = None, headers: dict = None):
 
-    if prefix is None:
-        prefix = _get_url_prefix()
-    if headers is None:
-        headers = get_pbi_token_headers()
-
-    response = requests.get(url=f"{prefix}/metadata/models/{item_id}", headers=headers)
+    response = _base_api(request=f"metadata/models/{item_id}", client="internal")
 
     return response.json().get("model", {}).get("id")

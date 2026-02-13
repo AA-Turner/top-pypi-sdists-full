@@ -43,6 +43,7 @@ from ._utils import (
     _DEFAULT_VALUE_SERVER_DOP_CAP_FOR_FILE_TRANSFER,
     _VARIABLE_NAME_SERVER_DOP_CAP_FOR_FILE_TRANSFER,
     build_minicore_usage_for_telemetry,
+    build_nanoarrow_usage_for_telemetry,
 )
 from .auth import (
     FIRST_PARTY_AUTHENTICATORS,
@@ -232,6 +233,7 @@ DEFAULT_CONFIGURATION: dict[str, tuple[Any, type | tuple[type, ...]]] = {
     "passcode_in_password": (False, bool),  # Snowflake MFA
     "passcode": (None, (type(None), str)),  # Snowflake MFA
     "private_key": (None, (type(None), bytes, str, RSAPrivateKey)),
+    "private_key_passphrase": (None, (type(None), bytes)),
     "private_key_file": (None, (type(None), str)),
     "private_key_file_pwd": (None, (type(None), str, bytes)),
     "token": (None, (type(None), str)),  # OAuth/JWT/PAT/OIDC Token
@@ -682,6 +684,7 @@ class SnowflakeConnection:
 
         # get the imported modules from sys.modules
         self._log_telemetry_imported_packages()
+        self._log_nanoarrow_import()
         self._log_minicore_import()
         # check SNOW-1218851 for long term improvement plan to refactor ocsp code
         atexit.register(self._close_at_exit)
@@ -1197,17 +1200,26 @@ class SnowflakeConnection:
             logger.debug("closed")
             if self.telemetry_enabled:
                 self._telemetry.close(retry=retry)
-            if (
-                self._all_async_queries_finished()
-                and not self._server_session_keep_alive
-            ):
-                logger.debug("No async queries seem to be running, deleting session")
-                self.rest.delete_session(retry=retry)
-            else:
-                logger.debug(
-                    "There are {} async queries still running, not deleting session".format(
-                        len(self._async_sfqids)
+
+            if not self._server_session_keep_alive:
+                if self._all_async_queries_finished():
+                    logger.debug(
+                        "No async queries seem to be running, deleting session"
                     )
+                    self.rest.delete_session(retry=retry)
+                else:
+                    logger.debug(
+                        "There are {} async queries still running, not deleting session".format(
+                            len(self._async_sfqids)
+                        )
+                    )
+            else:
+                logger.info(
+                    "Parameter server_session_keep_alive was set to True - skipping session logout. "
+                    "If there are any not-finished queries in the current session (session_id: %s) - "
+                    "they will continue to live in Snowflake and consume credits until they finish. "
+                    "To cancel them use Monitoring tab in Snowsight or plain SQL.",
+                    self.session_id,
                 )
             self.rest.close()
             self._rest = None
@@ -1463,6 +1475,7 @@ class SnowflakeConnection:
 
             elif self._authenticator == KEY_PAIR_AUTHENTICATOR:
                 private_key = self._private_key
+                private_key_passphrase = self._private_key_passphrase
 
                 if self._private_key_file:
                     private_key = _get_private_bytes_from_file(
@@ -1472,6 +1485,7 @@ class SnowflakeConnection:
 
                 self.auth_class = AuthByKeyPair(
                     private_key=private_key,
+                    private_key_passphrase=private_key_passphrase,
                     timeout=self.login_timeout,
                     backoff_generator=self._backoff_generator,
                 )
@@ -2524,6 +2538,19 @@ class SnowflakeConnection:
                 from_dict={
                     TelemetryField.KEY_TYPE.value: TelemetryField.CORE_IMPORT.value,
                     TelemetryField.KEY_VALUE.value: build_minicore_usage_for_telemetry(),
+                },
+                timestamp=ts,
+                connection=self,
+            )
+        )
+
+    def _log_nanoarrow_import(self):
+        ts = get_time_millis()
+        self._log_telemetry(
+            TelemetryData.from_telemetry_data_dict(
+                from_dict={
+                    TelemetryField.KEY_TYPE.value: TelemetryField.NANOARROW_IMPORT.value,
+                    TelemetryField.KEY_VALUE.value: build_nanoarrow_usage_for_telemetry(),
                 },
                 timestamp=ts,
                 connection=self,

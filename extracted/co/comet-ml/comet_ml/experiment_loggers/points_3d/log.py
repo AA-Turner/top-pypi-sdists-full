@@ -13,6 +13,7 @@
 
 import json
 import logging
+import os
 import platform
 import tempfile
 
@@ -98,6 +99,9 @@ def log(
                         "points",
                     )
                 )
+
+                # release the original file on unix systems
+                os.remove(points_file.name)
 
     if boxes:
         count = 0

@@ -370,6 +370,16 @@ class Cookies(AWSProperty):
     }
 
 
+class HeaderOrder(AWSProperty):
+    """
+    `HeaderOrder <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-headerorder.html>`__
+    """
+
+    props: PropsDictType = {
+        "OversizeHandling": (str, True),
+    }
+
+
 class HeaderMatchPattern(AWSProperty):
     """
     `HeaderMatchPattern <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-headermatchpattern.html>`__
@@ -467,6 +477,7 @@ class FieldToMatch(AWSProperty):
         "AllQueryArguments": (dict, False),
         "Body": (Body, False),
         "Cookies": (Cookies, False),
+        "HeaderOrder": (HeaderOrder, False),
         "Headers": (Headers, False),
         "JA3Fingerprint": (JA3Fingerprint, False),
         "JA4Fingerprint": (JA4Fingerprint, False),

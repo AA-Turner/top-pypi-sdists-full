@@ -1,17 +1,16 @@
 Metadata-Version: 2.4
 Name: launchdarkly-server-sdk
-Version: 9.14.1
+Version: 9.15.0
 Summary: LaunchDarkly SDK for Python
 License: Apache-2.0
 License-File: LICENSE.txt
 Author: LaunchDarkly
 Author-email: dev@launchdarkly.com
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -55,7 +54,7 @@ Description-Content-Type: text/markdown
 
 ## Supported Python versions
 
-This version of the LaunchDarkly SDK is compatible with Python 3.9+.
+This version of the LaunchDarkly SDK is compatible with Python 3.10+.
 
 ## Getting started
 

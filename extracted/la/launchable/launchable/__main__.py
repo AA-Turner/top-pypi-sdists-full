@@ -11,6 +11,7 @@ from launchable.app import Application
 
 from .commands.compare import compare
 from .commands.detect_flakes import detect_flakes
+from .commands.gate import gate
 from .commands.inspect import inspect
 from .commands.record import record
 from .commands.split_subset import split_subset
@@ -93,6 +94,7 @@ main.add_command(inspect)
 main.add_command(stats)
 main.add_command(compare)
 main.add_command(detect_flakes, "detect-flakes")
+main.add_command(gate)
 
 if __name__ == '__main__':
     main()

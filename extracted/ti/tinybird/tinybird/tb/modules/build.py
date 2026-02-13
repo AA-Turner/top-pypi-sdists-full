@@ -30,7 +30,6 @@ from tinybird.tb.modules.watch import watch_files, watch_project
     "--with-connections",
     is_flag=True,
     default=False,
-    hidden=True,
     help="Create data linkers for connection datasources (S3, Kafka, GCS) during build",
 )
 @click.pass_context
@@ -89,7 +88,6 @@ def build(ctx: click.Context, watch: bool, with_connections: bool) -> None:
 @click.option(
     "--with-connections/--no-connections",
     default=None,
-    hidden=True,
     help="Create data linkers for connection datasources (S3, Kafka, GCS). Defaults to true for branches.",
 )
 @click.pass_context

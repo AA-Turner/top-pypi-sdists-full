@@ -153,6 +153,10 @@ class WrapperProperties:
         pattern will be automatically created for AWS RDS clusters.""",
     )
 
+    AWS_PROFILE = WrapperProperty(
+        "aws_profile", "Name of the AWS Profile to use for AWS authentication."
+    )
+
     IAM_HOST = WrapperProperty(
         "iam_host", "Overrides the host that is used to generate the IAM token."
     )
@@ -261,6 +265,22 @@ class WrapperProperties:
         "Reader connection attempt timeout in seconds during a reader failover process.",
         30,
     )
+
+    # Failover2Plugin properties
+    FAILOVER_READER_HOST_SELECTOR_STRATEGY = WrapperProperty(
+        "failover_reader_host_selector_strategy",
+        "The strategy that should be used to select a new reader host while opening a new connection.",
+        "random")
+    ENABLE_CONNECT_FAILOVER = WrapperProperty(
+        "enable_connect_failover",
+        "Enable/disable cluster-aware failover if the initial connection to the database fails due to a network exception.",
+        False)
+
+    # ClusterTopologyMonitor properties
+    CLUSTER_TOPOLOGY_HIGH_REFRESH_RATE_MS = WrapperProperty(
+        "cluster_topology_high_refresh_rate_ms",
+        "Cluster topology high refresh rate in milliseconds.",
+        100)
 
     # CustomEndpointPlugin
     CUSTOM_ENDPOINT_INFO_REFRESH_RATE_MS = WrapperProperty(
@@ -584,6 +604,7 @@ class WrapperProperties:
 
 class PropertiesUtils:
     _MONITORING_PROPERTY_PREFIX = "monitoring-"
+    _TOPOLOGY_MONITORING_PROPERTY_PREFIX = "topology-monitoring-"
 
     @staticmethod
     def parse_properties(conn_info: str, **kwargs: Any) -> Properties:
@@ -727,7 +748,8 @@ class PropertiesUtils:
         monitor_prop_keys = [
             key
             for key in props
-            if key.startswith(PropertiesUtils._MONITORING_PROPERTY_PREFIX)
+            if key.startswith(PropertiesUtils._MONITORING_PROPERTY_PREFIX) or
+            key.startswith(PropertiesUtils._TOPOLOGY_MONITORING_PROPERTY_PREFIX)
         ]
         for key in monitor_prop_keys:
             props.pop(key, None)
@@ -758,11 +780,21 @@ class PropertiesUtils:
         return masked_properties
 
     @staticmethod
-    def create_monitoring_properties(props: Properties) -> Properties:
+    def create_filtered_properties(props: Properties, prefix: str) -> Properties:
         monitoring_properties = copy.deepcopy(props)
         for property_key in list(monitoring_properties.keys()):
-            if property_key.startswith(PropertiesUtils._MONITORING_PROPERTY_PREFIX):
+            if property_key.startswith(prefix):
                 monitoring_properties[
-                    property_key[len(PropertiesUtils._MONITORING_PROPERTY_PREFIX):]
+                    property_key[len(prefix):]
                 ] = monitoring_properties.pop(property_key)
         return monitoring_properties
+
+    @staticmethod
+    def create_monitoring_properties(props: Properties) -> Properties:
+        return PropertiesUtils.create_filtered_properties(props,
+                                                          PropertiesUtils._MONITORING_PROPERTY_PREFIX)
+
+    @staticmethod
+    def create_topology_monitoring_properties(props: Properties) -> Properties:
+        return PropertiesUtils.create_filtered_properties(props,
+                                                          PropertiesUtils._TOPOLOGY_MONITORING_PROPERTY_PREFIX)

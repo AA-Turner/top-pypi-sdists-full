@@ -1,23 +1,25 @@
+import asyncio
 import re
-import warnings
-from functools import cached_property
+import typing
 
 from django.db import transaction
 from django.http import HttpResponse, JsonResponse
+from django.utils import timezone
+from django.utils.cache import patch_vary_headers
 from django.utils.decorators import method_decorator
+from django.utils.feedgenerator import Atom1Feed, Rss201rev2Feed
 from django.utils.module_loading import import_string
 from django.views.decorators.cache import never_cache
 from django.views.generic import TemplateView
 
-from health_check.deprecation import deprecated
-from health_check.mixins import CheckMixin
+from health_check.base import HealthCheck
 
 
 class MediaType:
     """
     Sortable object representing HTTP's accept header.
 
-    .. seealso:: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept
+    See also: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept
     """
 
     pattern = re.compile(
@@ -54,20 +56,21 @@ class MediaType:
 
     @classmethod
     def from_string(cls, value):
-        """Return single instance parsed from given accept header string."""
+        """Return single instance parsed from the given Accept-header string."""
         match = cls.pattern.search(value)
         if match is None:
             raise ValueError(f'"{value}" is not a valid media type')
-        try:
-            return cls(match.group("mime_type"), float(match.group("weight") or 1))
-        except ValueError:
-            return cls(value)
+        return cls(match.group("mime_type"), float(match.group("weight") or 1))
 
     @classmethod
     def parse_header(cls, value="*/*"):
         """Parse HTTP accept header and return instances sorted by weight."""
         yield from sorted(
-            (cls.from_string(token.strip()) for token in value.split(",") if token.strip()),
+            (
+                cls.from_string(token.strip())
+                for token in value.split(",")
+                if token.strip()
+            ),
             reverse=True,
         )
 
@@ -84,103 +87,199 @@ class MediaType:
         return self.weight.__lt__(other.weight)
 
 
-@method_decorator(transaction.non_atomic_requests, name="dispatch")
-class _MainView(CheckMixin, TemplateView):
-    """Deprecated: Use HealthCheckView instead."""
+class HealthCheckView(TemplateView):
+    """Perform health checks and return results in various formats."""
 
     template_name = "health_check/index.html"
+    feed_author = "Django Health Check"
+
+    checks: typing.Iterable[
+        type[HealthCheck] | str | tuple[type[HealthCheck] | str, dict[str, typing.Any]]
+    ] = (
+        "health_check.checks.Cache",
+        "health_check.checks.Database",
+        "health_check.checks.DNS",
+        "health_check.checks.Mail",
+        "health_check.checks.Storage",
+    )
+
+    @method_decorator(transaction.non_atomic_requests)
+    async def dispatch(self, request, *args, **kwargs):
+        response = await super().dispatch(request, *args, **kwargs)
+        patch_vary_headers(response, ["Accept"])
+        return response
 
     @method_decorator(never_cache)
-    def get(self, request, *args, **kwargs):
-        subset = kwargs.get("subset")
-        health_check_has_error = self.check(subset)
-        status_code = 500 if health_check_has_error else 200
+    async def get(self, request, *args, **kwargs):
+        self.results = await asyncio.gather(
+            *(check.get_result() for check in self.get_checks())
+        )
+        has_errors = any(result.error for result in self.results)
+        status_code = 500 if has_errors else 200
         format_override = request.GET.get("format")
 
-        if format_override == "json":
-            return self.render_to_response_json(self.filter_plugins(subset=subset), status_code)
+        match format_override:
+            case "json":
+                return self.render_to_response_json(status_code)
+            case "text":
+                return self.render_to_response_text(status_code)
+            case "atom":
+                return self.render_to_response_atom()
+            case "rss":
+                return self.render_to_response_rss()
+            case "openmetrics":
+                return self.render_to_response_openmetrics()
 
         accept_header = request.headers.get("accept", "*/*")
         for media in MediaType.parse_header(accept_header):
-            if media.mime_type in (
-                "text/html",
-                "application/xhtml+xml",
-                "text/*",
-                "*/*",
-            ):
-                context = self.get_context_data(**kwargs)
-                return self.render_to_response(context, status=status_code)
-            elif media.mime_type in ("application/json", "application/*"):
-                return self.render_to_response_json(self.filter_plugins(subset=subset), status_code)
+            match media.mime_type:
+                case "text/plain":
+                    return self.render_to_response_text(status_code)
+                case "text/html" | "application/xhtml+xml" | "text/*" | "*/*":
+                    context = self.get_context_data(**kwargs)
+                    return self.render_to_response(context, status=status_code)
+                case "application/json" | "application/*":
+                    return self.render_to_response_json(status_code)
+                case "application/atom+xml":
+                    return self.render_to_response_atom()
+                case "application/rss+xml":
+                    return self.render_to_response_rss()
+                case "application/openmetrics-text":
+                    return self.render_to_response_openmetrics()
         return HttpResponse(
-            "Not Acceptable: Supported content types: text/html, application/json",
+            "Not Acceptable: Supported content types: text/plain, text/html, application/json, application/atom+xml, application/rss+xml, application/openmetrics-text",
             status=406,
             content_type="text/plain",
         )
 
     def get_context_data(self, **kwargs):
-        subset = kwargs.get("subset")
         return {
             **super().get_context_data(**kwargs),
-            "plugins": self.filter_plugins(subset=subset).values(),
-            "errors": any(p.errors for p in self.filter_plugins(subset=subset).values()),
+            "results": self.results,
+            "errors": any(result.error for result in self.results),
         }
 
-    def render_to_response_json(self, plugins, status):
+    def render_to_response_json(self, status):
+        """Return JSON response with health check results."""
         return JsonResponse(
-            {label: str(p.pretty_status()) for label, p in plugins.items()},
+            {
+                repr(result.check): "OK" if not result.error else str(result.error)
+                for result in self.results
+            },
             status=status,
         )
 
+    def render_to_response_text(self, status):
+        """Return plain text response with health check results."""
+        lines = (
+            f"{repr(result.check)}: {'OK' if not result.error else str(result.error)}"
+            for result in self.results
+        )
+        return HttpResponse(
+            "\n".join(lines) + "\n",
+            content_type="text/plain; charset=utf-8",
+            status=status,
+        )
 
-@deprecated(
-    "MainView is deprecated: use `HealthCheckView` instead (view-based API). Action: replace `MainView` usage with `HealthCheckView.as_view(checks=...)`. See migration guide: https://codingjoe.dev/django-health-check/migrate-to-v4/ (docs/migrate-to-v4.md)."
-)
-class MainView(_MainView):
-    """Deprecated: Use HealthCheckView instead."""
+    def render_to_response_atom(self):
+        """Return Atom feed response with health check results."""
+        return self._render_feed(Atom1Feed)
 
-    pass
+    def render_to_response_rss(self):
+        """Return RSS 2.0 feed response with health check results."""
+        return self._render_feed(Rss201rev2Feed)
 
+    def _escape_openmetrics_label_value(self, value):
+        r"""
+        Escape label value according to OpenMetrics specification.
 
-class HealthCheckView(_MainView):
-    """Perform health checks and return results in various formats."""
+        Escapes backslashes, double quotes, and newlines as required by the spec:
+        - Backslash (\) -> \\
+        - Double quote (") -> \"
+        - Line feed (\n) -> \n
+        """
+        return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
-    checks: list[str | tuple[str, dict]] | None = None
+    def render_to_response_openmetrics(self):
+        """Return OpenMetrics response with health check results."""
+        lines = [
+            "# HELP django_health_check_status Health check status (1 = healthy, 0 = unhealthy)",
+            "# TYPE django_health_check_status gauge",
+        ]
+        has_errors: bool = False
 
-    @classmethod
-    def as_view(cls, **initkwargs):
-        if "warnings_as_errors" in initkwargs:
-            warnings.warn(
-                "`warnings_as_errors` argument is deprecated and will be removed the next major version.",
-                DeprecationWarning,
-                stacklevel=2,
+        # Add status metrics for each check
+        for result in self.results:
+            safe_label = self._escape_openmetrics_label_value(repr(result.check))
+            has_errors |= bool(result.error)
+            lines.append(
+                f'django_health_check_status{{check="{safe_label}"}} {not result.error:d}'
             )
-        if "use_threading" in initkwargs:
-            warnings.warn(
-                "`use_threading` argument is deprecated and will be removed the next major version.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        return super().as_view(**initkwargs)
 
-    def get_plugins(self):
-        for check in self.checks or [
-            "health_check.Cache",
-            "health_check.Database",
-            "health_check.Disk",
-            "health_check.Mail",
-            "health_check.Memory",
-            "health_check.Storage",
-        ]:
+        # Add response time metrics
+        lines += [
+            "",
+            "# HELP django_health_check_response_time_seconds Health check response time in seconds",
+            "# TYPE django_health_check_response_time_seconds gauge",
+        ]
+
+        for result in self.results:
+            safe_label = self._escape_openmetrics_label_value(repr(result.check))
+            lines.append(
+                f'django_health_check_response_time_seconds{{check="{safe_label}"}} {result.time_taken:.6f}'
+            )
+
+        # Add overall health status
+        lines += [
+            "",
+            "# HELP django_health_check_overall_status Overall health check status (1 = all healthy, 0 = at least one unhealthy)",
+            "# TYPE django_health_check_overall_status gauge",
+            f"django_health_check_overall_status {not has_errors:d}",
+            "# EOF",
+        ]
+
+        return HttpResponse(
+            "\n".join(lines) + "\n",
+            content_type="application/openmetrics-text; version=1.0.0; charset=utf-8",
+            status=200,  # Prometheus expects 200 even if checks fail
+        )
+
+    def _render_feed(self, feed_class):
+        """Generate RSS or Atom feed with health check results."""
+        feed = feed_class(
+            title="Health Check Status",
+            link=self.request.build_absolute_uri(),
+            description="Current status of system health checks",
+            feed_url=self.request.build_absolute_uri(),
+        )
+
+        for result in self.results:
+            feed.add_item(
+                title=repr(result.check),
+                link=self.request.build_absolute_uri(),
+                description=f"{result.check!r}\nResponse time: {result.time_taken:.3f}s",
+                pubdate=timezone.now(),
+                updateddate=timezone.now(),
+                author_name=self.feed_author,
+                categories=["error", "unhealthy"] if result.error else ["healthy"],
+            )
+
+        response = HttpResponse(
+            feed.writeString("utf-8"),
+            content_type=feed.content_type,
+            status=200,  # Feed readers expect 200 even if checks fail
+        )
+        return response
+
+    def get_checks(
+        self,
+    ) -> typing.Generator[HealthCheck, None, None]:
+        """Yield instantiated health check callables."""
+        for check in self.checks:
             try:
                 check, options = check
-            except ValueError:
+            except (ValueError, TypeError):
                 options = {}
             if isinstance(check, str):
                 check = import_string(check)
-            plugin_instance = check(**options)
-            yield repr(plugin_instance), plugin_instance
-
-    @cached_property
-    def plugins(self):
-        return dict(self.get_plugins())
+            yield check(**options)

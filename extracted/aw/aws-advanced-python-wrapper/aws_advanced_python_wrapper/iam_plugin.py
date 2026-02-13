@@ -14,22 +14,24 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import TYPE_CHECKING
 
+from aws_advanced_python_wrapper.aws_credentials_manager import \
+    AwsCredentialsManager
 from aws_advanced_python_wrapper.utils.iam_utils import IamAuthUtils, TokenInfo
 from aws_advanced_python_wrapper.utils.region_utils import RegionUtils
 
 if TYPE_CHECKING:
-    from boto3 import Session
     from aws_advanced_python_wrapper.driver_dialect import DriverDialect
     from aws_advanced_python_wrapper.hostinfo import HostInfo
     from aws_advanced_python_wrapper.pep249 import Connection
     from aws_advanced_python_wrapper.plugin_service import PluginService
 
 from datetime import datetime, timedelta
-from typing import Callable, Dict, Optional, Set
+from typing import Callable, Dict, Set
 
-from aws_advanced_python_wrapper.errors import AwsWrapperError
+from aws_advanced_python_wrapper.errors import AwsConnectError, AwsWrapperError
 from aws_advanced_python_wrapper.pep249_methods import DbApiMethod
 from aws_advanced_python_wrapper.plugin import Plugin, PluginFactory
 from aws_advanced_python_wrapper.utils.log import Logger
@@ -49,9 +51,8 @@ class IamAuthPlugin(Plugin):
     _rds_utils: RdsUtils = RdsUtils()
     _token_cache: Dict[str, TokenInfo] = {}
 
-    def __init__(self, plugin_service: PluginService, session: Optional[Session] = None):
+    def __init__(self, plugin_service: PluginService):
         self._plugin_service = plugin_service
-        self._session = session
 
         self._region_utils = RegionUtils()
         telemetry_factory = self._plugin_service.get_telemetry_factory()
@@ -104,7 +105,17 @@ class IamAuthPlugin(Plugin):
             token_expiry = datetime.now() + timedelta(seconds=token_expiration_sec)
             if self._fetch_token_counter is not None:
                 self._fetch_token_counter.inc()
-            token: str = IamAuthUtils.generate_authentication_token(self._plugin_service, user, host, port, region, client_session=self._session)
+
+            session_host_info = deepcopy(host_info)
+            session_host_info.host = host
+            session = AwsCredentialsManager.get_session(host_info, props, region)
+            token: str = IamAuthUtils.generate_authentication_token(
+                self._plugin_service,
+                user,
+                host,
+                port,
+                region,
+                session)
             self._plugin_service.driver_dialect.set_password(props, token)
             IamAuthPlugin._token_cache[cache_key] = TokenInfo(token, token_expiry)
 
@@ -114,23 +125,29 @@ class IamAuthPlugin(Plugin):
         except Exception as e:
             logger.debug("IamAuthPlugin.ConnectException", e)
 
+            if self._plugin_service.is_network_exception(error=e):
+                raise AwsConnectError(Messages.get_formatted("IamAuthPlugin.ConnectException", e)) from e
+
             is_cached_token = (token_info is not None and not token_info.is_expired())
             if not self._plugin_service.is_login_exception(error=e) or not is_cached_token:
-                raise AwsWrapperError(Messages.get_formatted("IamAuthPlugin.ConnectException", e)) from e
-
+                raise AwsWrapperError(Messages.get_formatted("IamAuthPlugin.ConnectException", e), e) from e
             # Login unsuccessful with cached token
             # Try to generate a new token and try to connect again
             token_expiry = datetime.now() + timedelta(seconds=token_expiration_sec)
             if self._fetch_token_counter is not None:
                 self._fetch_token_counter.inc()
-            token = IamAuthUtils.generate_authentication_token(self._plugin_service, user, host, port, region, client_session=self._session)
+
+            session_host_info = deepcopy(host_info)
+            session_host_info.host = host
+            session = AwsCredentialsManager.get_session(session_host_info, props, region)
+            token = IamAuthUtils.generate_authentication_token(self._plugin_service, user, host, port, region, session)
             self._plugin_service.driver_dialect.set_password(props, token)
             IamAuthPlugin._token_cache[cache_key] = TokenInfo(token, token_expiry)
 
             try:
                 return connect_func()
             except Exception as e:
-                raise AwsWrapperError(Messages.get_formatted("IamAuthPlugin.UnhandledException", e)) from e
+                raise AwsWrapperError(Messages.get_formatted("IamAuthPlugin.UnhandledException", e), e) from e
 
     def force_connect(
             self,

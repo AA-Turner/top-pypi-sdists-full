@@ -10,6 +10,16 @@ from . import AWSObject, AWSProperty, PropsDictType, Tags
 from .validators import boolean, double
 
 
+class ArchivingOptions(AWSProperty):
+    """
+    `ArchivingOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationset-archivingoptions.html>`__
+    """
+
+    props: PropsDictType = {
+        "ArchiveArn": (str, False),
+    }
+
+
 class DeliveryOptions(AWSProperty):
     """
     `DeliveryOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationset-deliveryoptions.html>`__
@@ -42,6 +52,37 @@ class SendingOptions(AWSProperty):
     }
 
 
+class OverallConfidenceThreshold(AWSProperty):
+    """
+    `OverallConfidenceThreshold <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationset-overallconfidencethreshold.html>`__
+    """
+
+    props: PropsDictType = {
+        "ConfidenceVerdictThreshold": (str, True),
+    }
+
+
+class ConditionThreshold(AWSProperty):
+    """
+    `ConditionThreshold <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationset-conditionthreshold.html>`__
+    """
+
+    props: PropsDictType = {
+        "ConditionThresholdEnabled": (str, True),
+        "OverallConfidenceThreshold": (OverallConfidenceThreshold, False),
+    }
+
+
+class ValidationOptions(AWSProperty):
+    """
+    `ValidationOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationset-validationoptions.html>`__
+    """
+
+    props: PropsDictType = {
+        "ConditionThreshold": (ConditionThreshold, True),
+    }
+
+
 class SuppressionOptions(AWSProperty):
     """
     `SuppressionOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationset-suppressionoptions.html>`__
@@ -49,6 +90,7 @@ class SuppressionOptions(AWSProperty):
 
     props: PropsDictType = {
         "SuppressedReasons": ([str], False),
+        "ValidationOptions": (ValidationOptions, False),
     }
 
 
@@ -102,6 +144,7 @@ class ConfigurationSet(AWSObject):
     resource_type = "AWS::SES::ConfigurationSet"
 
     props: PropsDictType = {
+        "ArchivingOptions": (ArchivingOptions, False),
         "DeliveryOptions": (DeliveryOptions, False),
         "Name": (str, False),
         "ReputationOptions": (ReputationOptions, False),
@@ -1181,7 +1224,32 @@ class Template(AWSObject):
     resource_type = "AWS::SES::Template"
 
     props: PropsDictType = {
+        "Tags": (Tags, False),
         "Template": (EmailTemplate, False),
+    }
+
+
+class ResourceAssociation(AWSProperty):
+    """
+    `ResourceAssociation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-tenant-resourceassociation.html>`__
+    """
+
+    props: PropsDictType = {
+        "ResourceArn": (str, True),
+    }
+
+
+class Tenant(AWSObject):
+    """
+    `Tenant <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-tenant.html>`__
+    """
+
+    resource_type = "AWS::SES::Tenant"
+
+    props: PropsDictType = {
+        "ResourceAssociations": ([ResourceAssociation], False),
+        "Tags": (Tags, False),
+        "TenantName": (str, True),
     }
 
 

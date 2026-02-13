@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: ag-ui-protocol
-Version: 0.1.10
+Version: 0.1.11
 Summary: 
 License: MIT
 Author: Markus Ecker
@@ -12,6 +12,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: pydantic (>=2.11.2,<3.0.0)
 Description-Content-Type: text/markdown
 

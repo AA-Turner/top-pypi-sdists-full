@@ -1,11 +1,14 @@
 # pylint: disable=too-many-lines
 import os
+from importlib import metadata
 from datetime import timezone
 from datetime import datetime
 from dataclasses import dataclass
 from uuid import uuid1
+import ast
 from typing import Dict, Optional, List, Tuple, Any
 from pyspark.sql import DataFrame, SparkSession
+from spark_expectations import _log
 from spark_expectations.config.user_config import Constants as user_config
 from spark_expectations.core.exceptions import SparkExpectationsMiscException
 
@@ -38,6 +41,7 @@ class SparkExpectationsContext:
         self._dq_detailed_stats_table_name: Optional[str] = None
         self._final_table_name: Optional[str] = None
         self._error_table_name: Optional[str] = None
+        self._error_table_name_user_specified: bool = False
         self._row_dq_rule_type_name: str = "row_dq"
         self._agg_dq_rule_type_name: str = "agg_dq"
         self._query_dq_rule_type_name: str = "query_dq"
@@ -72,6 +76,7 @@ class SparkExpectationsContext:
         self._mail_smtp_server: str
         self._mail_smtp_port: int
         self._mail_smtp_password: Optional[str] = None
+        self._mail_smtp_user_name: Optional[str] = None
         self._smtp_creds_dict: Dict[str, str] = {}
         self._email_custom_body: Optional[str] = None
 
@@ -102,6 +107,7 @@ class SparkExpectationsContext:
         self._source_query_dq_result: Optional[List[Dict[str, str]]] = None
         self._final_query_dq_result: Optional[List[Dict[str, str]]] = None
         self._job_metadata: Optional[str] = None
+        self._se_job_metadata: Optional[Dict[str, Any]] = None
 
         self._source_agg_dq_detailed_stats: Optional[List[Tuple]] = None
         self._source_query_dq_detailed_stats: Optional[List[Tuple]] = None
@@ -186,14 +192,203 @@ class SparkExpectationsContext:
         self._kafka_write_status: str = "Disabled"
         self._kafka_write_error_message: str = ""
 
+    @property
+    def get_dbr_version(self) -> Optional[str]:
+        """
+        Returns the raw DATABRICKS_RUNTIME_VERSION environment variable value,
+        or None when not running on Databricks.
+
+        On standard (non-serverless) compute this is a numeric version string
+        such as '13.3' or '14.2'.
+        On Serverless compute is string value, e.g. client.1.13, client.4.9
+        """
+        return os.environ.get("DATABRICKS_RUNTIME_VERSION")
 
     @property
-    def get_dbr_version(self) -> Optional[float]:
+    def get_dbr_workspace_id(self) -> str:
         """
-        This function is used to get the dbr version.
+        This function returns the Databricks workspace ID.
+
+        Returns:
+            str: Returns the workspace ID if running in Databricks, "local" otherwise
         """
-        runtime_version = os.environ.get("DATABRICKS_RUNTIME_VERSION")
-        return float(runtime_version) if runtime_version is not None else None
+        try:
+            workspace_id = os.environ.get("DATABRICKS_WORKSPACE_ID")
+            if workspace_id:
+                return workspace_id
+
+            try:
+                from dbruntime.databricks_repl_context import get_context  # type: ignore
+
+                context = get_context()
+                if context and hasattr(context, "workspaceId"):
+                    return context.workspaceId
+            except (ImportError, Exception) as e:
+                # Expected when not running in Databricks; fall through to return "local"
+                _log.info(f"Unable to retrieve Databricks workspace ID via dbruntime: {e}")
+
+            return "local"
+        except Exception as e:
+            # Catch-all for any unexpected errors; return safe default
+            _log.info(f"Failed to retrieve Databricks workspace ID: {e}")
+            return "local"
+
+    @property
+    def get_dbr_workspace_url(self) -> str:
+        """
+        This function returns Databricks workspace hostname.
+
+        Returns:
+            str: Returns the workspace hostname if running in Databricks, "local" otherwise
+        """
+        try:
+            workspace_url = os.environ.get("DATABRICKS_HOST")
+
+            if not workspace_url:
+                try:
+                    from dbruntime.databricks_repl_context import get_context
+
+                    context = get_context()
+                    if context and hasattr(context, "browserHostName"):
+                        workspace_url = context.browserHostName
+                except (ImportError, Exception):
+                    # Expected when not running in Databricks; fall through to spark.conf
+                    pass
+
+            if not workspace_url:
+                try:
+                    workspace_url = self.spark.conf.get("spark.databricks.workspaceUrl", None)
+                except Exception:
+                    # spark.conf may not be available; fall through to return "local"
+                    pass
+
+            if workspace_url:
+                workspace_url = workspace_url.replace("https://", "").replace("http://", "")
+                return workspace_url
+
+            return "local"
+        except Exception:
+            # Catch-all for any unexpected errors; return safe default
+            return "local"
+
+    @property
+    def get_spark_version(self) -> str:
+        """
+        This function returns the Spark version.
+
+        Returns:
+            str: Returns the Spark version if available, "unknown" otherwise
+        """
+        try:
+            spark_version = getattr(self.spark, "version", None)
+            return spark_version if spark_version else "unknown"
+        except Exception as e:
+            # Catch-all for any unexpected errors; return safe default
+            _log.warning(f"Failed to retrieve Spark version: {e}")
+            return "unknown"
+
+    @property
+    def get_spark_expectations_version(self) -> str:
+        """
+        This function returns the Spark Expectations package version.
+
+        Returns:
+            str: Returns the package version if available, "unknown" otherwise
+        """
+        try:
+            return metadata.version("spark-expectations")
+        except metadata.PackageNotFoundError:
+            return "unknown"
+        except Exception:
+            # Catch-all for any unexpected errors; return safe default
+            return "unknown"
+
+    @property
+    def get_se_job_metadata(self) -> dict:
+        """
+        This function returns Spark Expectations job metadata for local/Databricks runtimes.
+
+        Returns:
+            dict: Job metadata including versions and runtime environment details.
+        """
+        dbr_version = self.get_dbr_version
+        workspace_url = self.get_dbr_workspace_url
+        workspace_id = self.get_dbr_workspace_id
+
+        is_databricks = (
+            dbr_version is not None or workspace_url != "local" or workspace_id != "local"
+        )
+
+        runtime_env = {
+            "host": "databricks" if is_databricks else "local",
+            "info": {
+                "workspace_url": "" if not is_databricks else workspace_url,
+                "workspace_id": "" if not is_databricks else workspace_id,
+                "dbr_version": "" if not is_databricks else str(dbr_version),
+                "job_id": "" if not is_databricks else self.get_dbr_job_id,
+            },
+        }
+
+        default_metadata = {
+            "se_version": self.get_spark_expectations_version,
+            "spark_version": self.get_spark_version,
+            "runtime_env": runtime_env,
+        }
+        if self._se_job_metadata is not None:
+            merged_metadata = dict(default_metadata)
+            merged_metadata["user_metadata"] = self._se_job_metadata
+            return merged_metadata
+
+        return default_metadata
+
+    def set_se_job_metadata(self, se_job_metadata: Optional[Any] = None) -> None:
+        """
+        This function sets Spark Expectations job metadata override.
+
+        Returns:
+            None
+        """
+        if se_job_metadata is None:
+            self._se_job_metadata = None
+            return
+
+        if isinstance(se_job_metadata, dict):
+            self._se_job_metadata = se_job_metadata
+            return
+
+        if isinstance(se_job_metadata, str):
+            try:
+                parsed_value = ast.literal_eval(se_job_metadata)
+                if isinstance(parsed_value, dict):
+                    self._se_job_metadata = parsed_value
+                    return
+            except (ValueError, SyntaxError) as e:
+                _log.warning(f"Failed to parse se_job_metadata string as dict: {e}")
+
+            self._se_job_metadata = {"job_metadata": se_job_metadata}
+            return
+
+        self._se_job_metadata = {"job_metadata": str(se_job_metadata)}
+
+    @property
+    def get_dbr_job_id(self) -> str:
+        """
+        This function returns the Databricks job ID if running in a job.
+
+        Returns:
+            str: Returns the job ID if available, "local" otherwise
+        """
+        try:
+            from dbruntime.databricks_repl_context import get_context  # type: ignore
+
+            context = get_context()
+            if context and hasattr(context, "jobId"):
+                job_id_value = context.jobId
+                return "local" if job_id_value is None else str(job_id_value)
+            return "local"
+        except (ImportError, Exception):
+            # Expected when not running in Databricks; return safe default
+            return "local"
 
     @property
     def get_run_id(self) -> str:
@@ -270,16 +465,17 @@ class SparkExpectationsContext:
             accessing it"""
         )
 
-    def set_error_table_name(self, error_table_name: str) -> None:
+    def set_error_table_name(self, error_table_name: str, user_specified: bool = True) -> None:
         self._error_table_name = error_table_name
+        self._error_table_name_user_specified = user_specified
 
     @property
     def get_error_table_name(self) -> str:
         """
-        Get dq_stats_table_name to which the final stats of the dq job will be written into
+        Get error_table_name to which the final stats of the dq job will be written into
 
         Returns:
-            str: returns the dq_stats_table_name
+            str: returns error_table_name attribute value
         """
         if self._error_table_name:
             return self._error_table_name
@@ -287,10 +483,17 @@ class SparkExpectationsContext:
             """The spark expectations context is not set completely, please assign '_error_table_name' before 
             accessing it"""
         )
-    
+
+    @property
+    def get_error_table_name_user_specified(self) -> bool:
+        """
+        Returns True if user override default error table name, otherwise False
+        """
+        return self._error_table_name_user_specified
+
     def set_min_priority_email(self, min_priority_email: str) -> None:
         self._min_priority_email = min_priority_email
-    
+
     @property
     def get_min_priority_email(self) -> str:
         """
@@ -299,10 +502,10 @@ class SparkExpectationsContext:
             str: The minimum priority for email notifications
         """
         return self._min_priority_email
-    
+
     def set_min_priority_pagerduty(self, min_priority_pagerduty: str) -> None:
         self._min_priority_pagerduty = min_priority_pagerduty
-    
+
     @property
     def get_min_priority_pagerduty(self) -> str:
         """
@@ -311,10 +514,10 @@ class SparkExpectationsContext:
             str: The minimum priority for pagerduty notifications
         """
         return self._min_priority_pagerduty
-    
+
     def set_min_priority_slack(self, min_priority_slack: str) -> None:
         self._min_priority_slack = min_priority_slack
-    
+
     @property
     def get_min_priority_slack(self) -> str:
         """
@@ -323,7 +526,7 @@ class SparkExpectationsContext:
             str: The minimum priority for slack notifications
         """
         return self._min_priority_slack
-    
+
     def set_min_priority_teams(self, min_priority_teams: str) -> None:
         self._min_priority_teams = min_priority_teams
 
@@ -335,10 +538,10 @@ class SparkExpectationsContext:
             str: The minimum priority for teams notifications
         """
         return self._min_priority_teams
-    
+
     def set_min_priority_zoom(self, min_priority_zoom: str) -> None:
         self._min_priority_zoom = min_priority_zoom
-    
+
     @property
     def get_min_priority_zoom(self) -> str:
         """
@@ -628,6 +831,23 @@ class SparkExpectationsContext:
 
         else:
             return None
+
+    def set_mail_smtp_user_name(self, mail_smtp_user_name: str) -> None:
+        """
+        Sets the SMTP username for authentication.
+        Args:
+            mail_smtp_user_name: The SMTP username to use for authentication
+        """
+        self._mail_smtp_user_name = mail_smtp_user_name
+
+    @property
+    def get_mail_smtp_user_name(self) -> Optional[str]:
+        """
+        Returns the SMTP username for authentication, if configured.
+        Returns:
+            str: _mail_smtp_user_name or None if not set
+        """
+        return self._mail_smtp_user_name
 
     def set_smtp_creds_dict(self, smtp_creds_dict: Dict[str, str]) -> None:
         """
@@ -1403,7 +1623,7 @@ class SparkExpectationsContext:
         Returns:
             topic name key / path in Optional[str]
         """
-        
+
         _topic_name: Optional[str] = (
             self._se_streaming_stats_dict.get(user_config.se_streaming_stats_topic_name)
             if self.get_se_streaming_stats_kafka_custom_config_enable or self.get_env == "local"
@@ -1413,7 +1633,7 @@ class SparkExpectationsContext:
                 else self._se_streaming_stats_dict.get(user_config.dbx_topic_name)
             )
         )
-        
+
         if _topic_name:
             return _topic_name
         raise SparkExpectationsMiscException(
@@ -1421,7 +1641,7 @@ class SparkExpectationsContext:
             'UserConfig.cbs_topic_name' before 
             accessing it"""
         )
-    
+
     def set_se_streaming_stats_kafka_custom_config_enable(self, se_streaming_stats_kafka_config_enable: bool) -> None:
         self._se_streaming_stats_kafka_custom_config_enable = se_streaming_stats_kafka_config_enable
 
@@ -1437,7 +1657,6 @@ class SparkExpectationsContext:
             return self._se_streaming_stats_kafka_custom_config_enable
         return False
 
-    
     def set_se_streaming_stats_kafka_bootstrap_server(self, se_streaming_stats_kafka_server: str) -> None:
         self._se_streaming_stats_kafka_bootstrap_server = se_streaming_stats_kafka_server
 
@@ -1986,8 +2205,7 @@ class SparkExpectationsContext:
         Returns:
             str: Returns stats_table_writer_type which in str
         """
-        return self._stats_table_writer_type    
-
+        return self._stats_table_writer_type
 
     def set_target_and_error_table_writer_config(self, config: dict) -> None:
         """

@@ -1,10 +1,12 @@
 import functools
+from typing import Union
 
 from adam.commands.postgres.postgres_databases import PostgresDatabases, pg_path
 from adam.repl_state import ReplState
 from adam.utils import ExecResult
 from adam.utils_color import Color
-from adam.utils_context import Context
+from adam.utils_context import NULL
+from adam.utils_k8s.pod_exec_result import PodExecResult
 from adam.utils_k8s.pods import Pods
 from adam.utils_log import log2, wait_log
 
@@ -48,12 +50,12 @@ class PostgresPodService:
     def __init__(self, handler: 'PostgresExecHandler'):
         self.handler = handler
 
-    def exec(self, command: str, ctx: Context = Context.NULL):
+    def exec(self, command: str, ctx = NULL) -> Union[PodExecResult, ReplState]:
         state = self.handler.state
 
         pod, container = PostgresDatabases.pod_and_container(state.namespace)
         if not pod:
-            log2('Cannot locate postgres agent or ops pod.')
+            ctx.log2('Cannot locate postgres agent or ops pod.')
             return state
 
         r = Pods.exec(pod, container, state.namespace, command, ctx=ctx)
@@ -68,7 +70,7 @@ class PostgresPodService:
 
         return r
 
-    def sql(self, args: list[str], ctx: Context = Context.NULL) -> ExecResult:
+    def sql(self, args: list[str], ctx = NULL) -> ExecResult:
         state = self.handler.state
 
         query = args
@@ -89,4 +91,8 @@ class PostgresExecHandler:
         return False
 
 def postgres(state: ReplState, background=False):
+    return PostgresExecHandler(state, background=background)
+
+# alias to postgres
+def ops(state: ReplState, background=False):
     return PostgresExecHandler(state, background=background)

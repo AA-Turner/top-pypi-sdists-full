@@ -12,8 +12,9 @@ from langgraph.types import Send
 from langgraph_grpc_common.conversion.config import (
     config_from_proto,
     config_from_proto_optional,
+    config_to_proto,
 )
-from langgraph_grpc_common.conversion.struct import dict_from_raw_map
+from langgraph_grpc_common.conversion.struct import dict_from_raw_map, raw_map_from_dict
 from langgraph_grpc_common.conversion.value import (
     any_to_serialized_value,
     send_to_proto,
@@ -107,6 +108,30 @@ def checkpoint_tuple_from_proto(
     )
 
 
+def checkpoint_tuple_to_proto(
+    checkpoint_tuple: CheckpointTuple,
+) -> engine_common_pb2.CheckpointTuple:
+    proto = engine_common_pb2.CheckpointTuple()
+    if config_pb := config_to_proto(checkpoint_tuple.config):
+        proto.config.CopyFrom(config_pb)
+    proto.checkpoint.CopyFrom(checkpoint_to_proto(checkpoint_tuple.checkpoint))
+    if checkpoint_tuple.metadata:
+        proto.metadata.CopyFrom(checkpoint_metadata_to_proto(checkpoint_tuple.metadata))
+    if checkpoint_tuple.parent_config:
+        if parent_pb := config_to_proto(checkpoint_tuple.parent_config):
+            proto.parent_config.CopyFrom(parent_pb)
+    if checkpoint_tuple.pending_writes:
+        for task_id, channel, value in checkpoint_tuple.pending_writes:
+            proto.pending_writes.append(
+                engine_common_pb2.PendingWrite(
+                    task_id=str(task_id),
+                    channel=str(channel),
+                    value=value_to_proto(channel, value),
+                )
+            )
+    return proto
+
+
 def checkpoint_metadata_from_proto(
     metadata_pb: engine_common_pb2.CheckpointMetadata,
 ) -> CheckpointMetadata | None:
@@ -124,11 +149,20 @@ def checkpoint_metadata_from_proto(
 def checkpoint_metadata_to_proto(
     metadata: CheckpointMetadata,
 ) -> engine_common_pb2.CheckpointMetadata:
-    return engine_common_pb2.CheckpointMetadata(
+    # Known fields handled explicitly
+    known_keys = {"source", "step", "parents", "run_id"}
+    # Extras are any additional metadata keys not in the known set
+    extras = {k: v for k, v in metadata.items() if k not in known_keys}
+    proto = engine_common_pb2.CheckpointMetadata(
         source=SOURCE_MAP[metadata.get("source")],
         step=metadata.get("step", -1),
         parents=metadata.get("parents", {}),
     )
+    if run_id := metadata.get("run_id"):
+        proto.run_id = run_id
+    if extras:
+        proto.extras.update(raw_map_from_dict(extras))
+    return proto
 
 
 def metadata_source_from_proto(
@@ -174,6 +208,12 @@ def writes_to_proto(
         )
         for channel, value in writes
     ]
+
+
+def writes_from_proto(
+    writes: SequenceType[engine_common_pb2.Write],
+) -> list[tuple[str, Any]]:
+    return [(w.channel, value_from_proto(w.value)) for w in writes]
 
 
 def prune_strategy_from_proto(

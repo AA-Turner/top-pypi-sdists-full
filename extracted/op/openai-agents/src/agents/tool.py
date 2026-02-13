@@ -4,7 +4,7 @@ import asyncio
 import inspect
 import json
 import weakref
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Mapping
 from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
@@ -12,6 +12,7 @@ from typing import (
     Callable,
     Generic,
     Literal,
+    Optional,
     Protocol,
     TypeVar,
     Union,
@@ -607,6 +608,106 @@ class LocalShellTool:
         return "local_shell"
 
 
+class ShellToolLocalSkill(TypedDict):
+    """Skill metadata for local shell environments."""
+
+    description: str
+    name: str
+    path: str
+
+
+class ShellToolSkillReference(TypedDict):
+    """Reference to a hosted shell skill."""
+
+    type: Literal["skill_reference"]
+    skill_id: str
+    version: NotRequired[str]
+
+
+class ShellToolInlineSkillSource(TypedDict):
+    """Inline skill source payload."""
+
+    data: str
+    media_type: Literal["application/zip"]
+    type: Literal["base64"]
+
+
+class ShellToolInlineSkill(TypedDict):
+    """Inline hosted shell skill bundle."""
+
+    description: str
+    name: str
+    source: ShellToolInlineSkillSource
+    type: Literal["inline"]
+
+
+ShellToolContainerSkill = Union[ShellToolSkillReference, ShellToolInlineSkill]
+"""Container skill configuration."""
+
+
+class ShellToolContainerNetworkPolicyDomainSecret(TypedDict):
+    """A secret bound to a single domain in allowlist mode."""
+
+    domain: str
+    name: str
+    value: str
+
+
+class ShellToolContainerNetworkPolicyAllowlist(TypedDict):
+    """Allowlist network policy for hosted containers."""
+
+    allowed_domains: list[str]
+    type: Literal["allowlist"]
+    domain_secrets: NotRequired[list[ShellToolContainerNetworkPolicyDomainSecret]]
+
+
+class ShellToolContainerNetworkPolicyDisabled(TypedDict):
+    """Disabled network policy for hosted containers."""
+
+    type: Literal["disabled"]
+
+
+ShellToolContainerNetworkPolicy = Union[
+    ShellToolContainerNetworkPolicyAllowlist,
+    ShellToolContainerNetworkPolicyDisabled,
+]
+"""Network policy configuration for hosted shell containers."""
+
+
+class ShellToolLocalEnvironment(TypedDict):
+    """Local shell execution environment."""
+
+    type: Literal["local"]
+    skills: NotRequired[list[ShellToolLocalSkill]]
+
+
+class ShellToolContainerAutoEnvironment(TypedDict):
+    """Auto-provisioned hosted container environment."""
+
+    type: Literal["container_auto"]
+    file_ids: NotRequired[list[str]]
+    memory_limit: NotRequired[Literal["1g", "4g", "16g", "64g"] | None]
+    network_policy: NotRequired[ShellToolContainerNetworkPolicy]
+    skills: NotRequired[list[ShellToolContainerSkill]]
+
+
+class ShellToolContainerReferenceEnvironment(TypedDict):
+    """Reference to an existing hosted container."""
+
+    type: Literal["container_reference"]
+    container_id: str
+
+
+ShellToolHostedEnvironment = Union[
+    ShellToolContainerAutoEnvironment,
+    ShellToolContainerReferenceEnvironment,
+]
+"""Hosted shell environment variants."""
+
+ShellToolEnvironment = Union[ShellToolLocalEnvironment, ShellToolHostedEnvironment]
+"""All supported shell environments."""
+
+
 @dataclass
 class ShellCallOutcome:
     """Describes the terminal condition of a shell command."""
@@ -674,11 +775,26 @@ ShellExecutor = Callable[[ShellCommandRequest], MaybeAwaitable[Union[str, ShellR
 """Executes a shell command sequence and returns either text or structured output."""
 
 
+def _normalize_shell_tool_environment(
+    environment: ShellToolEnvironment | None,
+) -> ShellToolEnvironment:
+    """Normalize shell environment into a predictable mapping shape."""
+    if environment is None:
+        return {"type": "local"}
+    if not isinstance(environment, Mapping):
+        raise UserError("ShellTool environment must be a mapping.")
+
+    normalized = dict(environment)
+    if "type" not in normalized:
+        normalized["type"] = "local"
+    return cast(ShellToolEnvironment, normalized)
+
+
 @dataclass
 class ShellTool:
     """Next-generation shell tool. LocalShellTool will be deprecated in favor of this."""
 
-    executor: ShellExecutor
+    executor: ShellExecutor | None = None
     name: str = "shell"
     needs_approval: bool | ShellApprovalFunction = False
     """Whether the shell tool needs approval before execution. If True, the run will be interrupted
@@ -691,6 +807,31 @@ class ShellTool:
     """Optional handler to auto-approve or reject when approval is required.
     If provided, it will be invoked immediately when an approval is needed.
     """
+    environment: ShellToolEnvironment | None = None
+    """Execution environment for shell commands.
+
+    If omitted, local mode is used.
+    """
+
+    def __post_init__(self) -> None:
+        """Validate shell tool configuration and normalize environment fields."""
+        normalized_environment = _normalize_shell_tool_environment(self.environment)
+        self.environment = normalized_environment
+
+        environment_type = normalized_environment["type"]
+        if environment_type == "local":
+            if self.executor is None:
+                raise UserError("ShellTool with local environment requires an executor.")
+            return
+
+        if self.executor is not None:
+            raise UserError("ShellTool with hosted environment does not accept an executor.")
+        if self.needs_approval is not False or self.on_approval is not None:
+            raise UserError(
+                "ShellTool with hosted environment does not support needs_approval or on_approval."
+            )
+        self.needs_approval = False
+        self.on_approval = None
 
     @property
     def type(self) -> str:
@@ -765,6 +906,7 @@ def default_tool_error_function(ctx: RunContextWrapper[Any], error: Exception) -
 
 
 ToolErrorFunction = Callable[[RunContextWrapper[Any], Exception], MaybeAwaitable[str]]
+_UNSET_FAILURE_ERROR_FUNCTION = object()
 
 
 @overload
@@ -813,7 +955,7 @@ def function_tool(
     description_override: str | None = None,
     docstring_style: DocstringStyle | None = None,
     use_docstring_info: bool = True,
-    failure_error_function: ToolErrorFunction | None = default_tool_error_function,
+    failure_error_function: ToolErrorFunction | None | object = _UNSET_FAILURE_ERROR_FUNCTION,
     strict_mode: bool = True,
     is_enabled: bool | Callable[[RunContextWrapper[Any], AgentBase], MaybeAwaitable[bool]] = True,
     needs_approval: bool
@@ -923,10 +1065,18 @@ def function_tool(
             try:
                 return await _on_invoke_tool_impl(ctx, input)
             except Exception as e:
-                if failure_error_function is None:
+                resolved_failure_error_function: ToolErrorFunction | None
+                if failure_error_function is _UNSET_FAILURE_ERROR_FUNCTION:
+                    resolved_failure_error_function = default_tool_error_function
+                else:
+                    resolved_failure_error_function = cast(
+                        Optional[ToolErrorFunction], failure_error_function
+                    )
+
+                if resolved_failure_error_function is None:
                     raise
 
-                result = failure_error_function(ctx, e)
+                result = resolved_failure_error_function(ctx, e)
                 if inspect.isawaitable(result):
                     return await result
 

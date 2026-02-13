@@ -15,17 +15,21 @@ logger = structlog.stdlib.get_logger(__name__)
 
 def get_auth_backend():
     if LANGGRAPH_AUTH:
-        from langgraph_api.auth.custom import get_custom_auth_middleware
+        from langgraph_api.auth.custom import (  # noqa: PLC0415
+            get_custom_auth_middleware,
+        )
 
         logger.info("Using auth of type=custom")
         return get_custom_auth_middleware()
     logger.info(f"Using auth of type={LANGGRAPH_AUTH_TYPE}")
     if LANGGRAPH_AUTH_TYPE == "langsmith":
-        from langgraph_api.auth.langsmith.backend import LangsmithAuthBackend
+        from langgraph_api.auth.langsmith.backend import (  # noqa: PLC0415
+            LangsmithAuthBackend,
+        )
 
         return LangsmithAuthBackend()
 
-    from langgraph_api.auth.noop import NoopAuthBackend
+    from langgraph_api.auth.noop import NoopAuthBackend  # noqa: PLC0415
 
     return NoopAuthBackend()
 

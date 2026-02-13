@@ -11,7 +11,14 @@ from tests.integ.utils import (
 )
 
 from ...utils import is_prod_or_preprod
-from .constants import TEST_COMPUTE_POOL, TEST_WAREHOUSE, SpcsSetupTuple, objects_to_setup
+from .constants import (
+    TEST_COMPUTE_POOL,
+    TEST_SHARED_TAG_DATABASE,
+    TEST_SHARED_TAG_SCHEMA,
+    TEST_WAREHOUSE,
+    SpcsSetupTuple,
+    objects_to_setup,
+)
 
 
 # Setup Warehouse
@@ -19,6 +26,13 @@ from .constants import TEST_COMPUTE_POOL, TEST_WAREHOUSE, SpcsSetupTuple, object
 def warehouse_setup(cursor):
     cursor.execute(f"CREATE WAREHOUSE IF NOT EXISTS {TEST_WAREHOUSE};").fetchone()
     cursor.execute(f"USE WAREHOUSE {TEST_WAREHOUSE};").fetchone()
+
+
+@pytest.fixture(scope="session")
+def shared_tag_setup(cursor):
+    with backup_database_and_schema(cursor):
+        cursor.execute(f"CREATE DATABASE IF NOT EXISTS {TEST_SHARED_TAG_DATABASE}")
+        cursor.execute(f"CREATE SCHEMA IF NOT EXISTS {TEST_SHARED_TAG_SCHEMA}")
 
 
 # Setup basic objects: database, schema

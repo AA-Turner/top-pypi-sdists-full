@@ -2,7 +2,6 @@ import asyncio
 import logging
 import os
 import shutil
-import tempfile
 import urllib.request
 import uuid
 from collections.abc import Callable
@@ -15,6 +14,7 @@ import aiohttp
 from anyio import Path as AsyncPath
 
 from exponent.core.config import get_chat_artifacts_dir
+from exponent.core.file_layout import bash_result_path, generate_bash_id
 from exponent.core.remote_execution import files
 from exponent.core.remote_execution.cli_rpc_types import (
     BashToolInput,
@@ -462,35 +462,26 @@ async def execute_bash_tool(
 
     assert isinstance(result, StreamingCodeExecutionResponse)
 
+    bash_id = tool_input.bash_id or generate_bash_id()
     return BashToolResult(
         shell_output=result.content,
         exit_code=result.exit_code,
         duration_ms=int((time() - start_time) * 1000),
         timed_out=result.cancelled_for_timeout,
         stopped_by_user=result.halted,
+        bash_id=bash_id,
     )
 
 
 async def execute_bash_tool_background(
     tool_input: BashToolInput, working_directory: str, chat_uuid: str
 ) -> BackgroundBashResult:
-    """Execute a bash command in the background, returning immediately with PID and output file.
-
-    The command is spawned as a detached process with stdout/stderr redirected to a temp file.
-    Output is streamed to the file in real-time, so it can be read while the process runs.
-
-    Log files are written to the per-chat artifacts directory (~/.indent/chats/{uuid}/).
-
-    Returns a BackgroundBashResult containing both the tool result and the process object
-    for tracking completion.
-    """
     start_time = time()
 
-    artifacts_dir = get_chat_artifacts_dir(chat_uuid)
-    os.makedirs(artifacts_dir, exist_ok=True)
-
-    fd, output_file = tempfile.mkstemp(prefix="bg_", suffix=".log", dir=artifacts_dir)
-    os.close(fd)
+    bash_id = tool_input.bash_id or generate_bash_id()
+    epoch_ms = int(start_time * 1000)
+    output_file, _ = bash_result_path(chat_uuid, bash_id, epoch_ms)
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
     shell_path = os.environ.get("SHELL") or shutil.which("bash") or shutil.which("sh")
     if not shell_path:
@@ -525,6 +516,7 @@ async def execute_bash_tool_background(
         stopped_by_user=False,
         pid=process.pid,
         output_file=output_file,
+        bash_id=bash_id,
     )
 
     return BackgroundBashResult(result=result, process=process)
@@ -658,9 +650,9 @@ async def execute_store_artifact(
     Downloads from a presigned URL and stores in ~/.indent/chats/{chat_uuid}/{filename}.
     The CLI resolves the path using its own INDENT_HOME configuration.
     """
-    if "/" in tool_input.filename or "\\" in tool_input.filename or ".." in tool_input.filename:
+    if "\\" in tool_input.filename or ".." in tool_input.filename:
         return ErrorToolResult(
-            error_message=f"Invalid filename (must not contain path separators): {tool_input.filename}"
+            error_message=f"Invalid filename (must not contain '..' or '\\\\'): {tool_input.filename}"
         )
 
     chat_uuid = client.chat_uuid

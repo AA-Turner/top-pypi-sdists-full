@@ -1,11 +1,13 @@
 """dbt-exasol Adapter implementation extending SQLAdapter"""
 
 from collections.abc import Iterable
+from typing import Any
 
 import agate  # type: ignore[import-untyped]
 from dbt.adapters.base.impl import (
     AdapterConfig,
     ConstraintSupport,
+    PythonJobHelper,
     _expect_row_value,
 )
 from dbt.adapters.base.meta import available
@@ -16,9 +18,11 @@ from dbt.adapters.capability import (
     CapabilitySupport,
     Support,
 )
+from dbt.adapters.contracts.connection import AdapterResponse
 from dbt.adapters.contracts.relation import RelationConfig
 from dbt.adapters.sql import SQLAdapter
 from dbt_common.contracts.constraints import ConstraintType
+from dbt_common.contracts.metadata import CatalogTable
 from dbt_common.exceptions import CompilationError
 from dbt_common.utils import filter_null_values
 
@@ -27,20 +31,32 @@ from dbt.adapters.exasol.connections import ExasolConnectionManager
 from dbt.adapters.exasol.relation import ExasolRelation
 
 LIST_RELATIONS_MACRO_NAME = "list_relations_without_caching"
+PYTHON_MODEL_NOT_SUPPORTED = "Python models are not supported on Exasol"
 
 
-class ExasolConfig(AdapterConfig):
+class ExasolConfig(
+    AdapterConfig
+):  # pylint: disable=too-many-ancestors  # Inherits from dbt-core's AdapterConfig chain (unavoidable)
+    """Exasol-specific adapter configuration."""
+
     partition_by_config: str | list[str] | None = None
     distribute_by_config: str | list[str] | None = None
     primary_key_config: str | list[str] | None = None
 
 
 class ExasolAdapter(SQLAdapter):
-    """Exasol SQLAdapter extension"""
+    """
+    Exasol database adapter implementation.
+
+    Provides Exasol-specific implementations for dbt operations including
+    relation management, type conversion, and incremental strategies.
+    """
 
     Relation = ExasolRelation
     Column = ExasolColumn
     ConnectionManager = ExasolConnectionManager
+
+    _exasol_keywords: list[str] | None = None
 
     CONSTRAINT_SUPPORT = {
         ConstraintType.check: ConstraintSupport.NOT_SUPPORTED,
@@ -103,11 +119,11 @@ class ExasolAdapter(SQLAdapter):
         quote_columns: bool = False
         if isinstance(quote_config, bool):
             quote_columns = quote_config
-        elif quote_config is None:
-            pass
-        else:
+        elif self.should_identifier_be_quoted(column):
+            quote_columns = True
+        elif quote_config is not None:
             raise CompilationError(
-                f'The seed configuration value of "quote_columns" has an ' f"invalid type {type(quote_config)}"
+                f'The seed configuration value of "quote_columns" has an invalid type {type(quote_config)}'
             )
 
         if quote_columns:
@@ -122,6 +138,12 @@ class ExasolAdapter(SQLAdapter):
 
     @staticmethod
     def is_valid_identifier(identifier) -> bool:
+        """
+        Check if an identifier is valid according to Exasol naming rules.
+
+        Valid identifiers must start with a letter and contain only
+        alphanumeric characters or '#', '$', '_'.
+        """
         # Empty string is not a valid identifier
         if not identifier:
             return False
@@ -139,6 +161,18 @@ class ExasolAdapter(SQLAdapter):
 
     @available
     def should_identifier_be_quoted(self, identifier, models_column_dict=None) -> bool:
+        """
+        Determine if an identifier should be quoted.
+
+        Returns True if the identifier is a reserved keyword, contains invalid
+        characters, or is configured to be quoted in the model.
+        """
+        # Populate _exasol_keywords List if empty
+        if ExasolAdapter._exasol_keywords is None:
+            ExasolAdapter._exasol_keywords = self.connections.get_thread_connection().handle.meta.list_sql_keywords()
+        # Check if identifier is an Exasol keyword
+        if identifier.upper() in ExasolAdapter._exasol_keywords:
+            return True
         # Check if the naming is valid
         if not self.is_valid_identifier(identifier):
             return True
@@ -151,6 +185,11 @@ class ExasolAdapter(SQLAdapter):
 
     @available
     def check_and_quote_identifier(self, identifier, models_column_dict=None) -> str:
+        """
+        Quote an identifier if necessary based on Exasol naming rules.
+
+        Checks if quoting is needed and returns the quoted or unquoted identifier.
+        """
         if self.should_identifier_be_quoted(identifier, models_column_dict):
             return self.quote(identifier)
         return identifier
@@ -214,3 +253,21 @@ class ExasolAdapter(SQLAdapter):
                 )
             )
         return relations
+
+    @property
+    def default_python_submission_method(self) -> str:
+        """Python models are not supported on Exasol."""
+        raise NotImplementedError(PYTHON_MODEL_NOT_SUPPORTED)
+
+    @property
+    def python_submission_helpers(self) -> dict[str, type[PythonJobHelper]]:
+        """Python models are not supported on Exasol."""
+        raise NotImplementedError(PYTHON_MODEL_NOT_SUPPORTED)
+
+    def generate_python_submission_response(self, submission_result: Any) -> AdapterResponse:
+        """Python models are not supported on Exasol."""
+        raise NotImplementedError(PYTHON_MODEL_NOT_SUPPORTED)
+
+    def get_catalog_for_single_relation(self, relation: BaseRelation) -> CatalogTable | None:
+        """Get catalog information for a single relation."""
+        raise NotImplementedError("`get_catalog_for_single_relation` is not implemented for this adapter")

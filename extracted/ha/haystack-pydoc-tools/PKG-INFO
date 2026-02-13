@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: haystack-pydoc-tools
-Version: 0.6.3
+Version: 0.6.4
 Summary: Pydoc custom tools for Haystack docs
 Project-URL: Documentation, https://github.com/unknown/haystack-pydoc-tools#readme
 Project-URL: Issues, https://github.com/unknown/haystack-pydoc-tools/issues
@@ -21,7 +21,7 @@ Requires-Python: >=3.8
 Requires-Dist: databind<4.5.0
 Requires-Dist: pydoc-markdown==4.8.2
 Requires-Dist: requests
-Requires-Dist: setuptools
+Requires-Dist: setuptools==81.0.0
 Description-Content-Type: text/markdown
 
 # haystack-pydoc-tools

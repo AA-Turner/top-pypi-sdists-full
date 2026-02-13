@@ -2457,6 +2457,9 @@ class CfnRuleGroup(
                                     match_scope="matchScope",
                                     oversize_handling="oversizeHandling"
                                 ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
+                                    oversize_handling="oversizeHandling"
+                                ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
                                     match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
                                         all=all,
@@ -2604,6 +2607,9 @@ class CfnRuleGroup(
                                     match_scope="matchScope",
                                     oversize_handling="oversizeHandling"
                                 ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
+                                    oversize_handling="oversizeHandling"
+                                ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
                                     match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
                                         all=all,
@@ -2659,6 +2665,9 @@ class CfnRuleGroup(
                                         included_cookies=["includedCookies"]
                                     ),
                                     match_scope="matchScope",
+                                    oversize_handling="oversizeHandling"
+                                ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
                                     oversize_handling="oversizeHandling"
                                 ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
@@ -2717,6 +2726,9 @@ class CfnRuleGroup(
                                     match_scope="matchScope",
                                     oversize_handling="oversizeHandling"
                                 ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
+                                    oversize_handling="oversizeHandling"
+                                ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
                                     match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
                                         all=all,
@@ -2771,6 +2783,9 @@ class CfnRuleGroup(
                                         included_cookies=["includedCookies"]
                                     ),
                                     match_scope="matchScope",
+                                    oversize_handling="oversizeHandling"
+                                ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
                                     oversize_handling="oversizeHandling"
                                 ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
@@ -2829,6 +2844,9 @@ class CfnRuleGroup(
                                         included_cookies=["includedCookies"]
                                     ),
                                     match_scope="matchScope",
+                                    oversize_handling="oversizeHandling"
+                                ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
                                     oversize_handling="oversizeHandling"
                                 ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
@@ -3192,6 +3210,9 @@ class CfnRuleGroup(
                                 included_cookies=["includedCookies"]
                             ),
                             match_scope="matchScope",
+                            oversize_handling="oversizeHandling"
+                        ),
+                        header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
                             oversize_handling="oversizeHandling"
                         ),
                         headers=wafv2.CfnRuleGroup.HeadersProperty(
@@ -4212,6 +4233,7 @@ class CfnRuleGroup(
             "all_query_arguments": "allQueryArguments",
             "body": "body",
             "cookies": "cookies",
+            "header_order": "headerOrder",
             "headers": "headers",
             "ja3_fingerprint": "ja3Fingerprint",
             "ja4_fingerprint": "ja4Fingerprint",
@@ -4231,6 +4253,7 @@ class CfnRuleGroup(
             all_query_arguments: typing.Any = None,
             body: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.BodyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             cookies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.CookiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            header_order: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.HeaderOrderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             headers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.HeadersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             ja3_fingerprint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.JA3FingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             ja4_fingerprint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.JA4FingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4262,6 +4285,7 @@ class CfnRuleGroup(
             :param all_query_arguments: Inspect all query arguments.
             :param body: Inspect the request body as plain text. The request body immediately follows the request headers. This is the part of a request that contains any additional data that you want to send to your web server as the HTTP request body, such as data from a form. AWS WAF does not support inspecting the entire contents of the web request body if the body exceeds the limit for the resource type. When a web request body is larger than the limit, the underlying host service only forwards the contents that are within the limit to AWS WAF for inspection. - For Application Load Balancer and AWS AppSync , the limit is fixed at 8 KB (8,192 bytes). - For CloudFront, API Gateway, Amazon Cognito, App Runner, and Verified Access, the default limit is 16 KB (16,384 bytes), and you can increase the limit for each resource type in the web ACL ``AssociationConfig`` , for additional processing fees. - For AWS Amplify , use the CloudFront limit. For information about how to handle oversized request bodies, see the ``Body`` object configuration.
             :param cookies: Inspect the request cookies. You must configure scope and pattern matching filters in the ``Cookies`` object, to define the set of cookies and the parts of the cookies that AWS WAF inspects. Only the first 8 KB (8192 bytes) of a request's cookies and only the first 200 cookies are forwarded to AWS WAF for inspection by the underlying host service. You must configure how to handle any oversize cookie content in the ``Cookies`` object. AWS WAF applies the pattern matching filters to the cookies that it receives from the underlying host service.
+            :param header_order: The string containing the list of a web request's header names, ordered as they appear in the web request, separated by colons.
             :param headers: Inspect the request headers. You must configure scope and pattern matching filters in the ``Headers`` object, to define the set of headers to and the parts of the headers that AWS WAF inspects. Only the first 8 KB (8192 bytes) of a request's headers and only the first 200 headers are forwarded to AWS WAF for inspection by the underlying host service. You must configure how to handle any oversize header content in the ``Headers`` object. AWS WAF applies the pattern matching filters to the headers that it receives from the underlying host service.
             :param ja3_fingerprint: Available for use with Amazon CloudFront distributions and Application Load Balancers. Match against the request's JA3 fingerprint. The JA3 fingerprint is a 32-character hash derived from the TLS Client Hello of an incoming request. This fingerprint serves as a unique identifier for the client's TLS configuration. AWS WAF calculates and logs this fingerprint for each request that has enough TLS Client Hello information for the calculation. Almost all web requests include this information. .. epigraph:: You can use this choice only with a string match ``ByteMatchStatement`` with the ``PositionalConstraint`` set to ``EXACTLY`` . You can obtain the JA3 fingerprint for client requests from the web ACL logs. If AWS WAF is able to calculate the fingerprint, it includes it in the logs. For information about the logging fields, see `Log fields <https://docs.aws.amazon.com/waf/latest/developerguide/logging-fields.html>`_ in the *AWS WAF Developer Guide* . Provide the JA3 fingerprint string from the logs in your string match statement specification, to match with any future requests that have the same TLS configuration.
             :param ja4_fingerprint: Available for use with Amazon CloudFront distributions and Application Load Balancers. Match against the request's JA4 fingerprint. The JA4 fingerprint is a 36-character hash derived from the TLS Client Hello of an incoming request. This fingerprint serves as a unique identifier for the client's TLS configuration. AWS WAF calculates and logs this fingerprint for each request that has enough TLS Client Hello information for the calculation. Almost all web requests include this information. .. epigraph:: You can use this choice only with a string match ``ByteMatchStatement`` with the ``PositionalConstraint`` set to ``EXACTLY`` . You can obtain the JA4 fingerprint for client requests from the web ACL logs. If AWS WAF is able to calculate the fingerprint, it includes it in the logs. For information about the logging fields, see `Log fields <https://docs.aws.amazon.com/waf/latest/developerguide/logging-fields.html>`_ in the *AWS WAF Developer Guide* . Provide the JA4 fingerprint string from the logs in your string match statement specification, to match with any future requests that have the same TLS configuration.
@@ -4302,6 +4326,9 @@ class CfnRuleGroup(
                             included_cookies=["includedCookies"]
                         ),
                         match_scope="matchScope",
+                        oversize_handling="oversizeHandling"
+                    ),
+                    header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
                         oversize_handling="oversizeHandling"
                     ),
                     headers=wafv2.CfnRuleGroup.HeadersProperty(
@@ -4345,6 +4372,7 @@ class CfnRuleGroup(
                 check_type(argname="argument all_query_arguments", value=all_query_arguments, expected_type=type_hints["all_query_arguments"])
                 check_type(argname="argument body", value=body, expected_type=type_hints["body"])
                 check_type(argname="argument cookies", value=cookies, expected_type=type_hints["cookies"])
+                check_type(argname="argument header_order", value=header_order, expected_type=type_hints["header_order"])
                 check_type(argname="argument headers", value=headers, expected_type=type_hints["headers"])
                 check_type(argname="argument ja3_fingerprint", value=ja3_fingerprint, expected_type=type_hints["ja3_fingerprint"])
                 check_type(argname="argument ja4_fingerprint", value=ja4_fingerprint, expected_type=type_hints["ja4_fingerprint"])
@@ -4362,6 +4390,8 @@ class CfnRuleGroup(
                 self._values["body"] = body
             if cookies is not None:
                 self._values["cookies"] = cookies
+            if header_order is not None:
+                self._values["header_order"] = header_order
             if headers is not None:
                 self._values["headers"] = headers
             if ja3_fingerprint is not None:
@@ -4427,6 +4457,17 @@ class CfnRuleGroup(
             '''
             result = self._values.get("cookies")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CookiesProperty"]], result)
+
+        @builtins.property
+        def header_order(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.HeaderOrderProperty"]]:
+            '''The string containing the list of a web request's header names, ordered as they appear in the web request, separated by colons.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-fieldtomatch.html#cfn-wafv2-rulegroup-fieldtomatch-headerorder
+            '''
+            result = self._values.get("header_order")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.HeaderOrderProperty"]], result)
 
         @builtins.property
         def headers(
@@ -4878,6 +4919,58 @@ class CfnRuleGroup(
 
         def __repr__(self) -> str:
             return "HeaderMatchPatternProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnRuleGroup.HeaderOrderProperty",
+        jsii_struct_bases=[],
+        name_mapping={"oversize_handling": "oversizeHandling"},
+    )
+    class HeaderOrderProperty:
+        def __init__(self, *, oversize_handling: builtins.str) -> None:
+            '''The string containing the list of a web request's header names, ordered as they appear in the web request, separated by colons.
+
+            :param oversize_handling: Handling of requests containing oversize fields.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-headerorder.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                header_order_property = wafv2.CfnRuleGroup.HeaderOrderProperty(
+                    oversize_handling="oversizeHandling"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f1fc2d12c76559d83ccace8774c2af833c9060b828b49c759a9f2316c0cccaa8)
+                check_type(argname="argument oversize_handling", value=oversize_handling, expected_type=type_hints["oversize_handling"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "oversize_handling": oversize_handling,
+            }
+
+        @builtins.property
+        def oversize_handling(self) -> builtins.str:
+            '''Handling of requests containing oversize fields.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-headerorder.html#cfn-wafv2-rulegroup-headerorder-oversizehandling
+            '''
+            result = self._values.get("oversize_handling")
+            assert result is not None, "Required property 'oversize_handling' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HeaderOrderProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -5890,6 +5983,9 @@ class CfnRuleGroup(
                                     match_scope="matchScope",
                                     oversize_handling="oversizeHandling"
                                 ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
+                                    oversize_handling="oversizeHandling"
+                                ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
                                     match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
                                         all=all,
@@ -6035,6 +6131,9 @@ class CfnRuleGroup(
                                     match_scope="matchScope",
                                     oversize_handling="oversizeHandling"
                                 ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
+                                    oversize_handling="oversizeHandling"
+                                ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
                                     match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
                                         all=all,
@@ -6090,6 +6189,9 @@ class CfnRuleGroup(
                                         included_cookies=["includedCookies"]
                                     ),
                                     match_scope="matchScope",
+                                    oversize_handling="oversizeHandling"
+                                ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
                                     oversize_handling="oversizeHandling"
                                 ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
@@ -6148,6 +6250,9 @@ class CfnRuleGroup(
                                     match_scope="matchScope",
                                     oversize_handling="oversizeHandling"
                                 ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
+                                    oversize_handling="oversizeHandling"
+                                ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
                                     match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
                                         all=all,
@@ -6202,6 +6307,9 @@ class CfnRuleGroup(
                                         included_cookies=["includedCookies"]
                                     ),
                                     match_scope="matchScope",
+                                    oversize_handling="oversizeHandling"
+                                ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
                                     oversize_handling="oversizeHandling"
                                 ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
@@ -6260,6 +6368,9 @@ class CfnRuleGroup(
                                         included_cookies=["includedCookies"]
                                     ),
                                     match_scope="matchScope",
+                                    oversize_handling="oversizeHandling"
+                                ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
                                     oversize_handling="oversizeHandling"
                                 ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
@@ -6402,6 +6513,9 @@ class CfnRuleGroup(
                                         included_cookies=["includedCookies"]
                                     ),
                                     match_scope="matchScope",
+                                    oversize_handling="oversizeHandling"
+                                ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
                                     oversize_handling="oversizeHandling"
                                 ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
@@ -6549,6 +6663,9 @@ class CfnRuleGroup(
                                     match_scope="matchScope",
                                     oversize_handling="oversizeHandling"
                                 ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
+                                    oversize_handling="oversizeHandling"
+                                ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
                                     match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
                                         all=all,
@@ -6604,6 +6721,9 @@ class CfnRuleGroup(
                                         included_cookies=["includedCookies"]
                                     ),
                                     match_scope="matchScope",
+                                    oversize_handling="oversizeHandling"
+                                ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
                                     oversize_handling="oversizeHandling"
                                 ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
@@ -6662,6 +6782,9 @@ class CfnRuleGroup(
                                     match_scope="matchScope",
                                     oversize_handling="oversizeHandling"
                                 ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
+                                    oversize_handling="oversizeHandling"
+                                ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
                                     match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
                                         all=all,
@@ -6716,6 +6839,9 @@ class CfnRuleGroup(
                                         included_cookies=["includedCookies"]
                                     ),
                                     match_scope="matchScope",
+                                    oversize_handling="oversizeHandling"
+                                ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
                                     oversize_handling="oversizeHandling"
                                 ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
@@ -6774,6 +6900,9 @@ class CfnRuleGroup(
                                         included_cookies=["includedCookies"]
                                     ),
                                     match_scope="matchScope",
+                                    oversize_handling="oversizeHandling"
+                                ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
                                     oversize_handling="oversizeHandling"
                                 ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
@@ -7355,6 +7484,9 @@ class CfnRuleGroup(
                                     match_scope="matchScope",
                                     oversize_handling="oversizeHandling"
                                 ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
+                                    oversize_handling="oversizeHandling"
+                                ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
                                     match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
                                         all=all,
@@ -7443,6 +7575,9 @@ class CfnRuleGroup(
                                     match_scope="matchScope",
                                     oversize_handling="oversizeHandling"
                                 ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
+                                    oversize_handling="oversizeHandling"
+                                ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
                                     match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
                                         all=all,
@@ -7498,6 +7633,9 @@ class CfnRuleGroup(
                                         included_cookies=["includedCookies"]
                                     ),
                                     match_scope="matchScope",
+                                    oversize_handling="oversizeHandling"
+                                ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
                                     oversize_handling="oversizeHandling"
                                 ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
@@ -7556,6 +7694,9 @@ class CfnRuleGroup(
                                     match_scope="matchScope",
                                     oversize_handling="oversizeHandling"
                                 ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
+                                    oversize_handling="oversizeHandling"
+                                ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
                                     match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
                                         all=all,
@@ -7610,6 +7751,9 @@ class CfnRuleGroup(
                                         included_cookies=["includedCookies"]
                                     ),
                                     match_scope="matchScope",
+                                    oversize_handling="oversizeHandling"
+                                ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
                                     oversize_handling="oversizeHandling"
                                 ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
@@ -7668,6 +7812,9 @@ class CfnRuleGroup(
                                         included_cookies=["includedCookies"]
                                     ),
                                     match_scope="matchScope",
+                                    oversize_handling="oversizeHandling"
+                                ),
+                                header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
                                     oversize_handling="oversizeHandling"
                                 ),
                                 headers=wafv2.CfnRuleGroup.HeadersProperty(
@@ -8454,6 +8601,9 @@ class CfnRuleGroup(
                             match_scope="matchScope",
                             oversize_handling="oversizeHandling"
                         ),
+                        header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
+                            oversize_handling="oversizeHandling"
+                        ),
                         headers=wafv2.CfnRuleGroup.HeadersProperty(
                             match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
                                 all=all,
@@ -8612,6 +8762,9 @@ class CfnRuleGroup(
                                 included_cookies=["includedCookies"]
                             ),
                             match_scope="matchScope",
+                            oversize_handling="oversizeHandling"
+                        ),
+                        header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
                             oversize_handling="oversizeHandling"
                         ),
                         headers=wafv2.CfnRuleGroup.HeadersProperty(
@@ -8900,500 +9053,7 @@ class CfnRuleGroup(
 
             Example::
 
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_wafv2 as wafv2
                 
-                # all: Any
-                # allow: Any
-                # all_query_arguments: Any
-                # asn: Any
-                # block: Any
-                # captcha: Any
-                # challenge: Any
-                # count: Any
-                # forwarded_ip: Any
-                # http_method: Any
-                # ip: Any
-                # method: Any
-                # query_string: Any
-                # single_header: Any
-                # single_query_argument: Any
-                # statement_property_: wafv2.CfnRuleGroup.StatementProperty
-                # uri_path: Any
-                
-                rule_property = wafv2.CfnRuleGroup.RuleProperty(
-                    name="name",
-                    priority=123,
-                    statement=wafv2.CfnRuleGroup.StatementProperty(
-                        and_statement=wafv2.CfnRuleGroup.AndStatementProperty(
-                            statements=[statement_property_]
-                        ),
-                        asn_match_statement=wafv2.CfnRuleGroup.AsnMatchStatementProperty(
-                            asn_list=[123],
-                            forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
-                                fallback_behavior="fallbackBehavior",
-                                header_name="headerName"
-                            )
-                        ),
-                        byte_match_statement=wafv2.CfnRuleGroup.ByteMatchStatementProperty(
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            positional_constraint="positionalConstraint",
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )],
-                
-                            # the properties below are optional
-                            search_string="searchString",
-                            search_string_base64="searchStringBase64"
-                        ),
-                        geo_match_statement=wafv2.CfnRuleGroup.GeoMatchStatementProperty(
-                            country_codes=["countryCodes"],
-                            forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
-                                fallback_behavior="fallbackBehavior",
-                                header_name="headerName"
-                            )
-                        ),
-                        ip_set_reference_statement={
-                            "arn": "arn",
-                
-                            # the properties below are optional
-                            "ip_set_forwarded_ip_config": {
-                                "fallback_behavior": "fallbackBehavior",
-                                "header_name": "headerName",
-                                "position": "position"
-                            }
-                        },
-                        label_match_statement=wafv2.CfnRuleGroup.LabelMatchStatementProperty(
-                            key="key",
-                            scope="scope"
-                        ),
-                        not_statement=wafv2.CfnRuleGroup.NotStatementProperty(
-                            statement=statement_property_
-                        ),
-                        or_statement=wafv2.CfnRuleGroup.OrStatementProperty(
-                            statements=[statement_property_]
-                        ),
-                        rate_based_statement=wafv2.CfnRuleGroup.RateBasedStatementProperty(
-                            aggregate_key_type="aggregateKeyType",
-                            limit=123,
-                
-                            # the properties below are optional
-                            custom_keys=[wafv2.CfnRuleGroup.RateBasedStatementCustomKeyProperty(
-                                asn=asn,
-                                cookie=wafv2.CfnRuleGroup.RateLimitCookieProperty(
-                                    name="name",
-                                    text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                        priority=123,
-                                        type="type"
-                                    )]
-                                ),
-                                forwarded_ip=forwarded_ip,
-                                header=wafv2.CfnRuleGroup.RateLimitHeaderProperty(
-                                    name="name",
-                                    text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                        priority=123,
-                                        type="type"
-                                    )]
-                                ),
-                                http_method=http_method,
-                                ip=ip,
-                                ja3_fingerprint=wafv2.CfnRuleGroup.RateLimitJA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.RateLimitJA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                label_namespace=wafv2.CfnRuleGroup.RateLimitLabelNamespaceProperty(
-                                    namespace="namespace"
-                                ),
-                                query_argument=wafv2.CfnRuleGroup.RateLimitQueryArgumentProperty(
-                                    name="name",
-                                    text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                        priority=123,
-                                        type="type"
-                                    )]
-                                ),
-                                query_string=wafv2.CfnRuleGroup.RateLimitQueryStringProperty(
-                                    text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                        priority=123,
-                                        type="type"
-                                    )]
-                                ),
-                                uri_path=wafv2.CfnRuleGroup.RateLimitUriPathProperty(
-                                    text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                        priority=123,
-                                        type="type"
-                                    )]
-                                )
-                            )],
-                            evaluation_window_sec=123,
-                            forwarded_ip_config=wafv2.CfnRuleGroup.ForwardedIPConfigurationProperty(
-                                fallback_behavior="fallbackBehavior",
-                                header_name="headerName"
-                            ),
-                            scope_down_statement=statement_property_
-                        ),
-                        regex_match_statement=wafv2.CfnRuleGroup.RegexMatchStatementProperty(
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            regex_string="regexString",
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        ),
-                        regex_pattern_set_reference_statement=wafv2.CfnRuleGroup.RegexPatternSetReferenceStatementProperty(
-                            arn="arn",
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        ),
-                        size_constraint_statement=wafv2.CfnRuleGroup.SizeConstraintStatementProperty(
-                            comparison_operator="comparisonOperator",
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            size=123,
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        ),
-                        sqli_match_statement=wafv2.CfnRuleGroup.SqliMatchStatementProperty(
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )],
-                
-                            # the properties below are optional
-                            sensitivity_level="sensitivityLevel"
-                        ),
-                        xss_match_statement=wafv2.CfnRuleGroup.XssMatchStatementProperty(
-                            field_to_match=wafv2.CfnRuleGroup.FieldToMatchProperty(
-                                all_query_arguments=all_query_arguments,
-                                body=wafv2.CfnRuleGroup.BodyProperty(
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                cookies=wafv2.CfnRuleGroup.CookiesProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.CookieMatchPatternProperty(
-                                        all=all,
-                                        excluded_cookies=["excludedCookies"],
-                                        included_cookies=["includedCookies"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                headers=wafv2.CfnRuleGroup.HeadersProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
-                                        all=all,
-                                        excluded_headers=["excludedHeaders"],
-                                        included_headers=["includedHeaders"]
-                                    ),
-                                    match_scope="matchScope",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                ja3_fingerprint=wafv2.CfnRuleGroup.JA3FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                ja4_fingerprint=wafv2.CfnRuleGroup.JA4FingerprintProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                json_body=wafv2.CfnRuleGroup.JsonBodyProperty(
-                                    match_pattern=wafv2.CfnRuleGroup.JsonMatchPatternProperty(
-                                        all=all,
-                                        included_paths=["includedPaths"]
-                                    ),
-                                    match_scope="matchScope",
-                
-                                    # the properties below are optional
-                                    invalid_fallback_behavior="invalidFallbackBehavior",
-                                    oversize_handling="oversizeHandling"
-                                ),
-                                method=method,
-                                query_string=query_string,
-                                single_header=single_header,
-                                single_query_argument=single_query_argument,
-                                uri_fragment=wafv2.CfnRuleGroup.UriFragmentProperty(
-                                    fallback_behavior="fallbackBehavior"
-                                ),
-                                uri_path=uri_path
-                            ),
-                            text_transformations=[wafv2.CfnRuleGroup.TextTransformationProperty(
-                                priority=123,
-                                type="type"
-                            )]
-                        )
-                    ),
-                    visibility_config=wafv2.CfnRuleGroup.VisibilityConfigProperty(
-                        cloud_watch_metrics_enabled=False,
-                        metric_name="metricName",
-                        sampled_requests_enabled=False
-                    ),
-                
-                    # the properties below are optional
-                    action=wafv2.CfnRuleGroup.RuleActionProperty(
-                        allow=allow,
-                        block=block,
-                        captcha=captcha,
-                        challenge=challenge,
-                        count=count
-                    ),
-                    captcha_config=wafv2.CfnRuleGroup.CaptchaConfigProperty(
-                        immunity_time_property=wafv2.CfnRuleGroup.ImmunityTimePropertyProperty(
-                            immunity_time=123
-                        )
-                    ),
-                    challenge_config=wafv2.CfnRuleGroup.ChallengeConfigProperty(
-                        immunity_time_property=wafv2.CfnRuleGroup.ImmunityTimePropertyProperty(
-                            immunity_time=123
-                        )
-                    ),
-                    rule_labels=[wafv2.CfnRuleGroup.LabelProperty(
-                        name="name"
-                    )]
-                )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__015056668c1a8717f25fff39a27fc12627cce51740c1528d560a3e6eb644647e)
@@ -9730,6 +9390,9 @@ class CfnRuleGroup(
                             match_scope="matchScope",
                             oversize_handling="oversizeHandling"
                         ),
+                        header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
+                            oversize_handling="oversizeHandling"
+                        ),
                         headers=wafv2.CfnRuleGroup.HeadersProperty(
                             match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
                                 all=all,
@@ -9897,6 +9560,9 @@ class CfnRuleGroup(
                                 included_cookies=["includedCookies"]
                             ),
                             match_scope="matchScope",
+                            oversize_handling="oversizeHandling"
+                        ),
+                        header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
                             oversize_handling="oversizeHandling"
                         ),
                         headers=wafv2.CfnRuleGroup.HeadersProperty(
@@ -10111,6 +9777,9 @@ class CfnRuleGroup(
                                 match_scope="matchScope",
                                 oversize_handling="oversizeHandling"
                             ),
+                            header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
+                                oversize_handling="oversizeHandling"
+                            ),
                             headers=wafv2.CfnRuleGroup.HeadersProperty(
                                 match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
                                     all=all,
@@ -10258,6 +9927,9 @@ class CfnRuleGroup(
                                 match_scope="matchScope",
                                 oversize_handling="oversizeHandling"
                             ),
+                            header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
+                                oversize_handling="oversizeHandling"
+                            ),
                             headers=wafv2.CfnRuleGroup.HeadersProperty(
                                 match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
                                     all=all,
@@ -10313,6 +9985,9 @@ class CfnRuleGroup(
                                     included_cookies=["includedCookies"]
                                 ),
                                 match_scope="matchScope",
+                                oversize_handling="oversizeHandling"
+                            ),
+                            header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
                                 oversize_handling="oversizeHandling"
                             ),
                             headers=wafv2.CfnRuleGroup.HeadersProperty(
@@ -10371,6 +10046,9 @@ class CfnRuleGroup(
                                 match_scope="matchScope",
                                 oversize_handling="oversizeHandling"
                             ),
+                            header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
+                                oversize_handling="oversizeHandling"
+                            ),
                             headers=wafv2.CfnRuleGroup.HeadersProperty(
                                 match_pattern=wafv2.CfnRuleGroup.HeaderMatchPatternProperty(
                                     all=all,
@@ -10425,6 +10103,9 @@ class CfnRuleGroup(
                                     included_cookies=["includedCookies"]
                                 ),
                                 match_scope="matchScope",
+                                oversize_handling="oversizeHandling"
+                            ),
+                            header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
                                 oversize_handling="oversizeHandling"
                             ),
                             headers=wafv2.CfnRuleGroup.HeadersProperty(
@@ -10483,6 +10164,9 @@ class CfnRuleGroup(
                                     included_cookies=["includedCookies"]
                                 ),
                                 match_scope="matchScope",
+                                oversize_handling="oversizeHandling"
+                            ),
+                            header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
                                 oversize_handling="oversizeHandling"
                             ),
                             headers=wafv2.CfnRuleGroup.HeadersProperty(
@@ -11122,6 +10806,9 @@ class CfnRuleGroup(
                                 included_cookies=["includedCookies"]
                             ),
                             match_scope="matchScope",
+                            oversize_handling="oversizeHandling"
+                        ),
+                        header_order=wafv2.CfnRuleGroup.HeaderOrderProperty(
                             oversize_handling="oversizeHandling"
                         ),
                         headers=wafv2.CfnRuleGroup.HeadersProperty(
@@ -13063,6 +12750,9 @@ class CfnWebACL(
                             match_scope="matchScope",
                             oversize_handling="oversizeHandling"
                         ),
+                        header_order=wafv2.CfnWebACL.HeaderOrderProperty(
+                            oversize_handling="oversizeHandling"
+                        ),
                         headers=wafv2.CfnWebACL.HeadersProperty(
                             match_pattern=wafv2.CfnWebACL.HeaderMatchPatternProperty(
                                 all=all,
@@ -14727,6 +14417,7 @@ class CfnWebACL(
             "all_query_arguments": "allQueryArguments",
             "body": "body",
             "cookies": "cookies",
+            "header_order": "headerOrder",
             "headers": "headers",
             "ja3_fingerprint": "ja3Fingerprint",
             "ja4_fingerprint": "ja4Fingerprint",
@@ -14746,6 +14437,7 @@ class CfnWebACL(
             all_query_arguments: typing.Any = None,
             body: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.BodyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             cookies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.CookiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            header_order: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.HeaderOrderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             headers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.HeadersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             ja3_fingerprint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.JA3FingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             ja4_fingerprint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.JA4FingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -14777,6 +14469,7 @@ class CfnWebACL(
             :param all_query_arguments: Inspect all query arguments.
             :param body: Inspect the request body as plain text. The request body immediately follows the request headers. This is the part of a request that contains any additional data that you want to send to your web server as the HTTP request body, such as data from a form. AWS WAF does not support inspecting the entire contents of the web request body if the body exceeds the limit for the resource type. When a web request body is larger than the limit, the underlying host service only forwards the contents that are within the limit to AWS WAF for inspection. - For Application Load Balancer and AWS AppSync , the limit is fixed at 8 KB (8,192 bytes). - For CloudFront, API Gateway, Amazon Cognito, App Runner, and Verified Access, the default limit is 16 KB (16,384 bytes), and you can increase the limit for each resource type in the web ACL ``AssociationConfig`` , for additional processing fees. - For AWS Amplify , use the CloudFront limit. For information about how to handle oversized request bodies, see the ``Body`` object configuration.
             :param cookies: Inspect the request cookies. You must configure scope and pattern matching filters in the ``Cookies`` object, to define the set of cookies and the parts of the cookies that AWS WAF inspects. Only the first 8 KB (8192 bytes) of a request's cookies and only the first 200 cookies are forwarded to AWS WAF for inspection by the underlying host service. You must configure how to handle any oversize cookie content in the ``Cookies`` object. AWS WAF applies the pattern matching filters to the cookies that it receives from the underlying host service.
+            :param header_order: The string containing the list of a web request's header names, ordered as they appear in the web request, separated by colons.
             :param headers: Inspect the request headers. You must configure scope and pattern matching filters in the ``Headers`` object, to define the set of headers to and the parts of the headers that AWS WAF inspects. Only the first 8 KB (8192 bytes) of a request's headers and only the first 200 headers are forwarded to AWS WAF for inspection by the underlying host service. You must configure how to handle any oversize header content in the ``Headers`` object. AWS WAF applies the pattern matching filters to the headers that it receives from the underlying host service.
             :param ja3_fingerprint: Available for use with Amazon CloudFront distributions and Application Load Balancers. Match against the request's JA3 fingerprint. The JA3 fingerprint is a 32-character hash derived from the TLS Client Hello of an incoming request. This fingerprint serves as a unique identifier for the client's TLS configuration. AWS WAF calculates and logs this fingerprint for each request that has enough TLS Client Hello information for the calculation. Almost all web requests include this information. .. epigraph:: You can use this choice only with a string match ``ByteMatchStatement`` with the ``PositionalConstraint`` set to ``EXACTLY`` . You can obtain the JA3 fingerprint for client requests from the web ACL logs. If AWS WAF is able to calculate the fingerprint, it includes it in the logs. For information about the logging fields, see `Log fields <https://docs.aws.amazon.com/waf/latest/developerguide/logging-fields.html>`_ in the *AWS WAF Developer Guide* . Provide the JA3 fingerprint string from the logs in your string match statement specification, to match with any future requests that have the same TLS configuration.
             :param ja4_fingerprint: Available for use with Amazon CloudFront distributions and Application Load Balancers. Match against the request's JA4 fingerprint. The JA4 fingerprint is a 36-character hash derived from the TLS Client Hello of an incoming request. This fingerprint serves as a unique identifier for the client's TLS configuration. AWS WAF calculates and logs this fingerprint for each request that has enough TLS Client Hello information for the calculation. Almost all web requests include this information. .. epigraph:: You can use this choice only with a string match ``ByteMatchStatement`` with the ``PositionalConstraint`` set to ``EXACTLY`` . You can obtain the JA4 fingerprint for client requests from the web ACL logs. If AWS WAF is able to calculate the fingerprint, it includes it in the logs. For information about the logging fields, see `Log fields <https://docs.aws.amazon.com/waf/latest/developerguide/logging-fields.html>`_ in the *AWS WAF Developer Guide* . Provide the JA4 fingerprint string from the logs in your string match statement specification, to match with any future requests that have the same TLS configuration.
@@ -14817,6 +14510,9 @@ class CfnWebACL(
                             included_cookies=["includedCookies"]
                         ),
                         match_scope="matchScope",
+                        oversize_handling="oversizeHandling"
+                    ),
+                    header_order=wafv2.CfnWebACL.HeaderOrderProperty(
                         oversize_handling="oversizeHandling"
                     ),
                     headers=wafv2.CfnWebACL.HeadersProperty(
@@ -14860,6 +14556,7 @@ class CfnWebACL(
                 check_type(argname="argument all_query_arguments", value=all_query_arguments, expected_type=type_hints["all_query_arguments"])
                 check_type(argname="argument body", value=body, expected_type=type_hints["body"])
                 check_type(argname="argument cookies", value=cookies, expected_type=type_hints["cookies"])
+                check_type(argname="argument header_order", value=header_order, expected_type=type_hints["header_order"])
                 check_type(argname="argument headers", value=headers, expected_type=type_hints["headers"])
                 check_type(argname="argument ja3_fingerprint", value=ja3_fingerprint, expected_type=type_hints["ja3_fingerprint"])
                 check_type(argname="argument ja4_fingerprint", value=ja4_fingerprint, expected_type=type_hints["ja4_fingerprint"])
@@ -14877,6 +14574,8 @@ class CfnWebACL(
                 self._values["body"] = body
             if cookies is not None:
                 self._values["cookies"] = cookies
+            if header_order is not None:
+                self._values["header_order"] = header_order
             if headers is not None:
                 self._values["headers"] = headers
             if ja3_fingerprint is not None:
@@ -14942,6 +14641,17 @@ class CfnWebACL(
             '''
             result = self._values.get("cookies")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CookiesProperty"]], result)
+
+        @builtins.property
+        def header_order(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.HeaderOrderProperty"]]:
+            '''The string containing the list of a web request's header names, ordered as they appear in the web request, separated by colons.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-fieldtomatch.html#cfn-wafv2-webacl-fieldtomatch-headerorder
+            '''
+            result = self._values.get("header_order")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.HeaderOrderProperty"]], result)
 
         @builtins.property
         def headers(
@@ -15470,6 +15180,58 @@ class CfnWebACL(
 
         def __repr__(self) -> str:
             return "HeaderMatchPatternProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.HeaderOrderProperty",
+        jsii_struct_bases=[],
+        name_mapping={"oversize_handling": "oversizeHandling"},
+    )
+    class HeaderOrderProperty:
+        def __init__(self, *, oversize_handling: builtins.str) -> None:
+            '''The string containing the list of a web request's header names, ordered as they appear in the web request, separated by colons.
+
+            :param oversize_handling: Handling of requests containing oversize fields.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-headerorder.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                header_order_property = wafv2.CfnWebACL.HeaderOrderProperty(
+                    oversize_handling="oversizeHandling"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c5561f428a3e2414fb8e0eb951b38111e345e3f87c00bcc5b49d80baaab58766)
+                check_type(argname="argument oversize_handling", value=oversize_handling, expected_type=type_hints["oversize_handling"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "oversize_handling": oversize_handling,
+            }
+
+        @builtins.property
+        def oversize_handling(self) -> builtins.str:
+            '''Handling of requests containing oversize fields.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-headerorder.html#cfn-wafv2-webacl-headerorder-oversizehandling
+            '''
+            result = self._values.get("oversize_handling")
+            assert result is not None, "Required property 'oversize_handling' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HeaderOrderProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -18254,6 +18016,9 @@ class CfnWebACL(
                             match_scope="matchScope",
                             oversize_handling="oversizeHandling"
                         ),
+                        header_order=wafv2.CfnWebACL.HeaderOrderProperty(
+                            oversize_handling="oversizeHandling"
+                        ),
                         headers=wafv2.CfnWebACL.HeadersProperty(
                             match_pattern=wafv2.CfnWebACL.HeaderMatchPatternProperty(
                                 all=all,
@@ -18412,6 +18177,9 @@ class CfnWebACL(
                                 included_cookies=["includedCookies"]
                             ),
                             match_scope="matchScope",
+                            oversize_handling="oversizeHandling"
+                        ),
+                        header_order=wafv2.CfnWebACL.HeaderOrderProperty(
                             oversize_handling="oversizeHandling"
                         ),
                         headers=wafv2.CfnWebACL.HeadersProperty(
@@ -20389,6 +20157,9 @@ class CfnWebACL(
                             match_scope="matchScope",
                             oversize_handling="oversizeHandling"
                         ),
+                        header_order=wafv2.CfnWebACL.HeaderOrderProperty(
+                            oversize_handling="oversizeHandling"
+                        ),
                         headers=wafv2.CfnWebACL.HeadersProperty(
                             match_pattern=wafv2.CfnWebACL.HeaderMatchPatternProperty(
                                 all=all,
@@ -20556,6 +20327,9 @@ class CfnWebACL(
                                 included_cookies=["includedCookies"]
                             ),
                             match_scope="matchScope",
+                            oversize_handling="oversizeHandling"
+                        ),
+                        header_order=wafv2.CfnWebACL.HeaderOrderProperty(
                             oversize_handling="oversizeHandling"
                         ),
                         headers=wafv2.CfnWebACL.HeadersProperty(
@@ -21369,6 +21143,9 @@ class CfnWebACL(
                                 included_cookies=["includedCookies"]
                             ),
                             match_scope="matchScope",
+                            oversize_handling="oversizeHandling"
+                        ),
+                        header_order=wafv2.CfnWebACL.HeaderOrderProperty(
                             oversize_handling="oversizeHandling"
                         ),
                         headers=wafv2.CfnWebACL.HeadersProperty(
@@ -22577,6 +22354,7 @@ def _typecheckingstub__dcb790c3130e52c64e6b7cf00db86b37d1b54427689c46b6c9e6a7122
     all_query_arguments: typing.Any = None,
     body: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.BodyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     cookies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.CookiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    header_order: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.HeaderOrderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     headers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.HeadersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ja3_fingerprint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.JA3FingerprintProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ja4_fingerprint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.JA4FingerprintProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -22612,6 +22390,13 @@ def _typecheckingstub__bf53983f4986a7d25fa1269a0ff0b5cd93f641c4e17e3e63be425cfea
     all: typing.Any = None,
     excluded_headers: typing.Optional[typing.Sequence[builtins.str]] = None,
     included_headers: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f1fc2d12c76559d83ccace8774c2af833c9060b828b49c759a9f2316c0cccaa8(
+    *,
+    oversize_handling: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23338,6 +23123,7 @@ def _typecheckingstub__25d147c856e9a8fd64f4cc05856e4813e584f37ef787792ad3c4e0790
     all_query_arguments: typing.Any = None,
     body: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.BodyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     cookies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.CookiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    header_order: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.HeaderOrderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     headers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.HeadersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ja3_fingerprint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.JA3FingerprintProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ja4_fingerprint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.JA4FingerprintProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -23381,6 +23167,13 @@ def _typecheckingstub__74f4bafb0ceef9ccf5758d2d07f34c359f06d8608d8db4d517f5a02bf
     all: typing.Any = None,
     excluded_headers: typing.Optional[typing.Sequence[builtins.str]] = None,
     included_headers: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c5561f428a3e2414fb8e0eb951b38111e345e3f87c00bcc5b49d80baaab58766(
+    *,
+    oversize_handling: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

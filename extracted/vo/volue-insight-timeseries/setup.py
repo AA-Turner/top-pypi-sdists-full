@@ -1,7 +1,6 @@
 # encoding: utf-8
 #
 import os
-import re
 from setuptools import setup, find_packages
 
 here = os.path.abspath(os.path.dirname(__file__))
@@ -27,7 +26,7 @@ with open(os.path.join(here, 'volue_insight_timeseries/VERSION')) as fv:
 
 setup(
     name='volue_insight_timeseries',
-    python_requires='>=3.10, <3.14',
+    python_requires='>=3.10, <3.15',
     packages=find_packages(),
     install_requires=extract_requirements('requirements.txt'),
     tests_require=[

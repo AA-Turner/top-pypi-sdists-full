@@ -6,11 +6,11 @@ from functools import lru_cache
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from robocop.config import FormatterConfig, LinterConfig
+    from robocop.runtime.resolved_config import ResolvedConfig
 
 
 @lru_cache(maxsize=1)
-def get_linter_config() -> LinterConfig:
+def get_linter_config() -> ResolvedConfig:
     """
     Get cached LinterConfig with all rules loaded.
 
@@ -21,15 +21,17 @@ def get_linter_config() -> LinterConfig:
         LinterConfig: The cached linter configuration with rules loaded.
 
     """
-    from robocop.config import LinterConfig
+    from robocop.config.manager import ConfigManager
+    from robocop.runtime.resolver import ConfigResolver
 
-    config = LinterConfig(silent=True)
-    config.load_configuration()
-    return config
+    manager = ConfigManager()
+    resolver = ConfigResolver(load_rules=True)
+
+    return resolver.resolve_config(manager.default_config)
 
 
 @lru_cache(maxsize=1)
-def get_formatter_config() -> FormatterConfig:
+def get_formatter_config() -> ResolvedConfig:
     """
     Get cached FormatterConfig with all formatters loaded.
 
@@ -40,12 +42,13 @@ def get_formatter_config() -> FormatterConfig:
         FormatterConfig: The cached formatter configuration with formatters loaded.
 
     """
-    from robocop.config import FormatterConfig
+    from robocop.config.manager import ConfigManager
+    from robocop.runtime.resolver import ConfigResolver
 
-    config = FormatterConfig(silent=True)
-    # Access formatters property to trigger lazy loading
-    _ = config.formatters
-    return config
+    manager = ConfigManager()
+    resolver = ConfigResolver(load_formatters=True)
+
+    return resolver.resolve_config(manager.default_config)
 
 
 def clear_cache() -> None:

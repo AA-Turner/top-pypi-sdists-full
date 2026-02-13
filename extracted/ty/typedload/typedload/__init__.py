@@ -156,7 +156,7 @@ To use a metadata key different than 'name', set the mangle_key parameter
 to the loader/dumper.
 """
 
-# Copyright (C) 2018-2021 Salvo "LtWorf" Tomaselli
+# Copyright (C) 2018-2026 Salvo "LtWorf" Tomaselli
 #
 # typedload is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -183,6 +183,7 @@ __all__ = [
     'datadumper',
     'dump',
     'typechecks',
+    'moretypes',
 ]
 
 

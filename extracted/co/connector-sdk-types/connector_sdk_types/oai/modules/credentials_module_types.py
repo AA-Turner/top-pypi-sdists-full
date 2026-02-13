@@ -162,3 +162,32 @@ class AuthModel(str, Enum):
     JWT = "jwt"
     SERVICE_ACCOUNT = "service_account"
     KEY_PAIR = "key_pair"
+
+
+"""
+Map of authentication models (AuthModel) to their corresponding Pydantic models.
+"""
+AUTH_TYPE_MAP: dict[AuthModel, type[BaseModel]] = {
+    AuthModel.OAUTH: OAuthCredential,
+    AuthModel.OAUTH_CLIENT_CREDENTIALS: OAuthClientCredential,
+    AuthModel.BASIC: BasicCredential,
+    AuthModel.TOKEN: TokenCredential,
+    AuthModel.JWT: JWTCredential,
+    AuthModel.SERVICE_ACCOUNT: ServiceAccountCredential,
+    AuthModel.KEY_PAIR: KeyPairCredential,
+    AuthModel.OAUTH1: OAuth1Credential,
+}
+
+"""
+Map of authentication models (AuthModel) to their human readable names.
+"""
+AUTH_MODEL_TO_NAME: dict[AuthModel, str] = {
+    AuthModel.OAUTH: "OAuth 2.0",
+    AuthModel.OAUTH_CLIENT_CREDENTIALS: "OAuth 2.0 Client Credentials",
+    AuthModel.BASIC: "Basic Auth",
+    AuthModel.TOKEN: "Token",
+    AuthModel.JWT: "JWT",
+    AuthModel.SERVICE_ACCOUNT: "Service Account",
+    AuthModel.KEY_PAIR: "Key Pair",
+    AuthModel.OAUTH1: "OAuth 1.0",
+}

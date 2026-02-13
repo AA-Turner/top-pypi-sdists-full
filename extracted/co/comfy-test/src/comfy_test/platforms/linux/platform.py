@@ -105,6 +105,17 @@ class LinuxPlatform(TestPlatform):
         if requirements_file.exists():
             self._pip_install_requirements(requirements_file, work_dir)
 
+        # Install local dev packages if available (so install.py uses local version)
+        utils_dir = Path.home() / "utils"
+        for pkg in ["comfy-env", "comfy-test", "comfy-3d-viewers"]:
+            pkg_path = utils_dir / pkg
+            if pkg_path.exists():
+                self._log(f"Installing local {pkg} (editable)...")
+                self._run_command(
+                    ["uv", "pip", "install", "-e", str(pkg_path), "--python", str(python)],
+                    cwd=work_dir,
+                )
+
         return TestPaths(
             work_dir=work_dir,
             comfyui_dir=comfyui_dir,

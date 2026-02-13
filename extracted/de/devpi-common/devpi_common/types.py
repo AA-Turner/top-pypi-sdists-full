@@ -36,6 +36,9 @@ def canraise(Error):
 class CompareMixin:
     cmpval: Any
 
+    def __hash__(self):
+        return hash(self.cmpval)
+
     def _cmp(self, other, op):
         return op(self.cmpval, other.cmpval)
 
@@ -146,7 +149,7 @@ class lazydecorator:
             assert newfunc == func
 
 
-def ensure_unicode(x):
+def ensure_unicode(x: bytes | str) -> str:
     if isinstance(x, bytes):
         return x.decode("utf8")
     return str(x)

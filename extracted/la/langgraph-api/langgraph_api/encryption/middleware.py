@@ -528,6 +528,17 @@ async def decrypt_response(
     """
     encryption_instance = get_encryption()
     if encryption_instance is None:
+        # Even without encryption, the error field is stored as bytes (bytea column)
+        # and must be parsed to return as a dict in the API response.
+        error = obj.get("error")
+        if isinstance(error, bytes | memoryview | Fragment):
+            result = dict(obj)
+            error_bytes = cast(
+                "bytes | Fragment",
+                bytes(error) if isinstance(error, memoryview) else error,
+            )
+            result["error"] = json_loads(error_bytes)
+            return result
         return obj  # type: ignore[return-value]
 
     result = dict(obj)
@@ -565,6 +576,27 @@ async def decrypt_responses(
     """
     encryption_instance = get_encryption()
     if encryption_instance is None:
+        # Even without encryption, the error field is stored as bytes (bytea column)
+        # and must be parsed to return as a dict in the API response.
+        needs_error_parsing = any(
+            isinstance(obj.get("error"), bytes | memoryview | Fragment)
+            for obj in objects
+        )
+        if needs_error_parsing:
+            results = []
+            for obj in objects:
+                error = obj.get("error")
+                if isinstance(error, bytes | memoryview | Fragment):
+                    result = dict(obj)
+                    error_bytes = cast(
+                        "bytes | Fragment",
+                        bytes(error) if isinstance(error, memoryview) else error,
+                    )
+                    result["error"] = json_loads(error_bytes)
+                    results.append(result)
+                else:
+                    results.append(obj)  # type: ignore[arg-type]
+            return results
         return objects  # type: ignore[return-value]
 
     results = [dict(obj) for obj in objects]

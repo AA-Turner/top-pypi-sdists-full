@@ -2,15 +2,22 @@ from datetime import datetime
 from unittest.mock import MagicMock
 from uuid import uuid4
 
-from vellum import DeploymentRead, MlModelRead, PromptDeploymentRelease
+from vellum import DeploymentRead, MlModelRead, PromptDeploymentRelease, WorkflowDeploymentRelease
 from vellum.client.types.chat_message_prompt_block import ChatMessagePromptBlock
 from vellum.client.types.prompt_deployment_release_prompt_deployment import PromptDeploymentReleasePromptDeployment
 from vellum.client.types.prompt_deployment_release_prompt_version import PromptDeploymentReleasePromptVersion
 from vellum.client.types.release_environment import ReleaseEnvironment as ReleaseEnvironmentType
 from vellum.client.types.rich_text_prompt_block import RichTextPromptBlock
 from vellum.client.types.variable_prompt_block import VariablePromptBlock
+from vellum.client.types.vellum_variable import VellumVariable
+from vellum.client.types.workflow_deployment_release_workflow_deployment import (
+    WorkflowDeploymentReleaseWorkflowDeployment,
+)
+from vellum.client.types.workflow_deployment_release_workflow_version import WorkflowDeploymentReleaseWorkflowVersion
+from vellum.client.types.workflow_integration_dependency import WorkflowIntegrationDependency
+from vellum.client.types.workflow_model_provider_dependency import WorkflowModelProviderDependency
 from vellum.workflows.constants import VellumIntegrationProviderType
-from vellum.workflows.nodes import InlineSubworkflowNode, MapNode, PromptDeploymentNode
+from vellum.workflows.nodes import InlineSubworkflowNode, MapNode, PromptDeploymentNode, SubworkflowDeploymentNode
 from vellum.workflows.nodes.displayable.inline_prompt_node import InlinePromptNode
 from vellum.workflows.nodes.displayable.tool_calling_node import ToolCallingNode
 from vellum.workflows.state.base import BaseState
@@ -45,6 +52,7 @@ def test_workflow_serialization__dependencies_from_ml_models():
         "type": "MODEL_PROVIDER",
         "name": "OPENAI",
         "model_name": "gpt-4o-mini",
+        "label": None,
     }
 
 
@@ -100,6 +108,7 @@ def test_workflow_serialization__integration_dependencies_from_tool_calling_node
         "type": "INTEGRATION",
         "provider": "COMPOSIO",
         "name": "GITHUB",
+        "label": None,
     }
 
 
@@ -161,6 +170,7 @@ def test_workflow_serialization__multiple_integration_dependencies_deduplicated(
         "type": "INTEGRATION",
         "provider": "COMPOSIO",
         "name": "GITHUB",
+        "label": None,
     }
 
 
@@ -226,9 +236,9 @@ def test_workflow_serialization__multiple_different_integration_dependencies():
 
     # AND all expected dependencies should be present (order not guaranteed)
     expected_deps = [
-        {"type": "INTEGRATION", "provider": "COMPOSIO", "name": "ASANA"},
-        {"type": "INTEGRATION", "provider": "COMPOSIO", "name": "GITHUB"},
-        {"type": "INTEGRATION", "provider": "COMPOSIO", "name": "SLACK"},
+        {"type": "INTEGRATION", "provider": "COMPOSIO", "name": "ASANA", "label": None},
+        {"type": "INTEGRATION", "provider": "COMPOSIO", "name": "GITHUB", "label": None},
+        {"type": "INTEGRATION", "provider": "COMPOSIO", "name": "SLACK", "label": None},
     ]
     for expected in expected_deps:
         assert expected in dependencies
@@ -294,6 +304,7 @@ def test_workflow_serialization__dependencies_from_inline_subworkflow():
         "type": "MODEL_PROVIDER",
         "name": "OPENAI",
         "model_name": "gpt-4o-mini",
+        "label": None,
     }
 
 
@@ -363,6 +374,7 @@ def test_workflow_serialization__dependencies_from_inline_subworkflow_with_integ
         "type": "INTEGRATION",
         "provider": "COMPOSIO",
         "name": "GITHUB",
+        "label": None,
     }
 
 
@@ -431,6 +443,7 @@ def test_workflow_serialization__dependencies_from_inline_subworkflow_deduplicat
         "type": "MODEL_PROVIDER",
         "name": "OPENAI",
         "model_name": "gpt-4o-mini",
+        "label": None,
     }
 
 
@@ -491,6 +504,7 @@ def test_workflow_serialization__dependencies_from_map_node():
         "type": "MODEL_PROVIDER",
         "name": "OPENAI",
         "model_name": "gpt-4o-mini",
+        "label": None,
     }
 
 
@@ -557,6 +571,7 @@ def test_workflow_serialization__dependencies_from_map_node_with_integration():
         "type": "INTEGRATION",
         "provider": "COMPOSIO",
         "name": "GITHUB",
+        "label": None,
     }
 
 
@@ -623,6 +638,7 @@ def test_workflow_serialization__dependencies_from_map_node_deduplicated():
         "type": "MODEL_PROVIDER",
         "name": "OPENAI",
         "model_name": "gpt-4o-mini",
+        "label": None,
     }
 
 
@@ -715,7 +731,169 @@ def test_workflow_serialization__dependencies_from_prompt_deployment_node():
         "type": "MODEL_PROVIDER",
         "name": "OPENAI",
         "model_name": "gpt-4o-mini",
+        "label": None,
     }
 
     # AND the ml_models.retrieve should have been called with ml_model_to_workspace_id
     mock_client.ml_models.retrieve.assert_called_once_with(id=ml_model_to_workspace_id)
+
+
+def test_workflow_serialization__dependencies_from_subworkflow_deployment_node():
+    """
+    Tests that dependencies are extracted from subworkflow deployment nodes
+    when the workflow version has dependencies.
+    """
+
+    # GIVEN a subworkflow deployment node
+    class TestInputs(BaseInputs):
+        query: str
+
+    class TestSubworkflowDeploymentNode(SubworkflowDeploymentNode):
+        deployment = "test_subworkflow_deployment"
+        subworkflow_inputs = {"query": TestInputs.query}
+
+    class TestWorkflow(BaseWorkflow[TestInputs, BaseState]):
+        graph = TestSubworkflowDeploymentNode
+
+    # AND mock the workflow deployment
+    workflow_deployment = WorkflowDeploymentReleaseWorkflowDeployment(
+        id=str(uuid4()),
+        name="test_subworkflow_deployment",
+    )
+
+    # AND mock the workflow version with model provider dependency
+    workflow_version = WorkflowDeploymentReleaseWorkflowVersion(
+        id=str(uuid4()),
+        input_variables=[
+            VellumVariable(
+                id=str(uuid4()),
+                key="query",
+                type="STRING",
+                required=True,
+            )
+        ],
+        output_variables=[
+            VellumVariable(
+                id=str(uuid4()),
+                key="result",
+                type="STRING",
+                required=False,
+            )
+        ],
+        dependencies=[
+            WorkflowModelProviderDependency(
+                name="OPENAI",
+                model_name="gpt-4o-mini",
+            )
+        ],
+    )
+
+    # AND mock the workflow deployment release
+    deployment_release = WorkflowDeploymentRelease(
+        id=str(uuid4()),
+        created=datetime.now(),
+        environment=ReleaseEnvironmentType(id=str(uuid4()), name="DEVELOPMENT", label="Development"),
+        workflow_version=workflow_version,
+        deployment=workflow_deployment,
+        release_tags=[],
+        reviews=[],
+    )
+
+    mock_client = MagicMock()
+    mock_client.workflow_deployments.retrieve_workflow_deployment_release.return_value = deployment_release
+
+    # WHEN we serialize the workflow
+    workflow_display = get_workflow_display(workflow_class=TestWorkflow, client=mock_client)
+    serialized_workflow: dict = workflow_display.serialize()
+
+    # THEN we should get the model provider dependency from the subworkflow deployment
+    dependencies = serialized_workflow.get("dependencies", [])
+    assert len(dependencies) == 1
+    assert dependencies[0] == {
+        "type": "MODEL_PROVIDER",
+        "name": "OPENAI",
+        "model_name": "gpt-4o-mini",
+        "label": None,
+    }
+
+    # AND the workflow_deployments.retrieve_workflow_deployment_release should have been called
+    mock_client.workflow_deployments.retrieve_workflow_deployment_release.assert_called_once()
+
+
+def test_workflow_serialization__dependencies_from_subworkflow_deployment_node_with_integration():
+    """
+    Tests that integration dependencies are extracted from subworkflow deployment nodes
+    when the workflow version has integration dependencies.
+    """
+
+    # GIVEN a subworkflow deployment node
+    class TestInputs(BaseInputs):
+        query: str
+
+    class TestSubworkflowDeploymentNode(SubworkflowDeploymentNode):
+        deployment = "test_subworkflow_deployment"
+        subworkflow_inputs = {"query": TestInputs.query}
+
+    class TestWorkflow(BaseWorkflow[TestInputs, BaseState]):
+        graph = TestSubworkflowDeploymentNode
+
+    # AND mock the workflow deployment
+    workflow_deployment = WorkflowDeploymentReleaseWorkflowDeployment(
+        id=str(uuid4()),
+        name="test_subworkflow_deployment",
+    )
+
+    # AND mock the workflow version with integration dependency
+    workflow_version = WorkflowDeploymentReleaseWorkflowVersion(
+        id=str(uuid4()),
+        input_variables=[
+            VellumVariable(
+                id=str(uuid4()),
+                key="query",
+                type="STRING",
+                required=True,
+            )
+        ],
+        output_variables=[
+            VellumVariable(
+                id=str(uuid4()),
+                key="result",
+                type="STRING",
+                required=False,
+            )
+        ],
+        dependencies=[
+            WorkflowIntegrationDependency(
+                name="GITHUB",
+                provider="COMPOSIO",
+            )
+        ],
+    )
+
+    # AND mock the workflow deployment release
+    deployment_release = WorkflowDeploymentRelease(
+        id=str(uuid4()),
+        created=datetime.now(),
+        environment=ReleaseEnvironmentType(id=str(uuid4()), name="DEVELOPMENT", label="Development"),
+        workflow_version=workflow_version,
+        deployment=workflow_deployment,
+        release_tags=[],
+        reviews=[],
+    )
+
+    mock_client = MagicMock()
+    mock_client.workflow_deployments.retrieve_workflow_deployment_release.return_value = deployment_release
+
+    # WHEN we serialize the workflow
+    workflow_display = get_workflow_display(workflow_class=TestWorkflow, client=mock_client)
+    serialized_workflow: dict = workflow_display.serialize()
+
+    # THEN we should get the integration dependency from the subworkflow deployment
+    dependencies = serialized_workflow.get("dependencies", [])
+    assert len(dependencies) == 1
+    assert dependencies[0] == {
+        "type": "INTEGRATION",
+        "name": "GITHUB",
+        "provider": "COMPOSIO",
+        "label": None,
+    }

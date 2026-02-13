@@ -35,7 +35,7 @@ from kimi_cli.web.models import (
     SessionStatus,
     UpdateSessionRequest,
 )
-from kimi_cli.web.runner.messages import send_history_complete
+from kimi_cli.web.runner.messages import new_session_status_message, send_history_complete
 from kimi_cli.web.runner.process import KimiCLIRunner
 from kimi_cli.web.store.sessions import (
     JointSession,
@@ -195,40 +195,48 @@ def _ensure_public_file_access_allowed(
         )
 
 
+def _read_wire_lines(wire_file: Path) -> list[str]:
+    """Read and parse wire.jsonl into JSONRPC event strings (runs in thread)."""
+    result: list[str] = []
+    with open(wire_file, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+                if not isinstance(record, dict):
+                    continue
+                record = cast(dict[str, Any], record)
+                record_type = record.get("type")
+                if isinstance(record_type, str) and record_type == "metadata":
+                    continue
+                message_raw = record.get("message")
+                if not isinstance(message_raw, dict):
+                    continue
+                message_raw = cast(dict[str, Any], message_raw)
+                message = deserialize_wire_message(message_raw)
+                event_msg: dict[str, Any] = {
+                    "jsonrpc": "2.0",
+                    "method": "request" if is_request(message) else "event",
+                    "params": message_raw,
+                }
+                result.append(json.dumps(event_msg, ensure_ascii=False))
+            except (json.JSONDecodeError, KeyError, ValueError, TypeError):
+                continue
+    return result
+
+
 async def replay_history(ws: WebSocket, session_dir: Path) -> None:
     """Replay historical wire messages from wire.jsonl to a WebSocket."""
     wire_file = session_dir / "wire.jsonl"
-    if not wire_file.exists():
+    if not await asyncio.to_thread(wire_file.exists):
         return
 
     try:
-        with open(wire_file, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    record = json.loads(line)
-                    if not isinstance(record, dict):
-                        continue
-                    record = cast(dict[str, Any], record)
-                    record_type = record.get("type")
-                    if isinstance(record_type, str) and record_type == "metadata":
-                        continue
-                    message_raw = record.get("message")
-                    if not isinstance(message_raw, dict):
-                        continue
-                    message_raw = cast(dict[str, Any], message_raw)
-                    message = deserialize_wire_message(message_raw)
-                    # Convert to JSONRPC event format
-                    event_msg: dict[str, Any] = {
-                        "jsonrpc": "2.0",
-                        "method": "request" if is_request(message) else "event",
-                        "params": message_raw,
-                    }
-                    await ws.send_text(json.dumps(event_msg, ensure_ascii=False))
-                except (json.JSONDecodeError, KeyError, ValueError, TypeError):
-                    continue
+        lines = await asyncio.to_thread(_read_wire_lines, wire_file)
+        for event_text in lines:
+            await ws.send_text(event_text)
     except Exception:
         pass
 
@@ -288,7 +296,7 @@ async def create_session(request: CreateSessionRequest | None = None) -> Session
     """Create a new session."""
     # Use provided work_dir or default to user's home directory
     if request and request.work_dir:
-        work_dir_path = Path(request.work_dir)
+        work_dir_path = Path(request.work_dir).expanduser().resolve()
         # Validate the directory exists
         if not work_dir_path.exists():
             if request.create_dir:
@@ -1077,7 +1085,7 @@ async def session_stream(
     await websocket.accept()
 
     # Check if session exists
-    session = load_session_by_id(session_id)
+    session = await asyncio.to_thread(load_session_by_id, session_id)
     if session is None:
         await websocket.close(code=4004, reason="Session not found")
         return
@@ -1085,14 +1093,13 @@ async def session_stream(
     # Check if session has history
     session_dir = session.kimi_cli_session.dir
     wire_file = session_dir / "wire.jsonl"
-    has_history = wire_file.exists()
+    has_history = await asyncio.to_thread(wire_file.exists)
 
-    session_process = None
+    session_process = await runner.get_or_create_session(session_id)
     attached = False
     try:
         if has_history:
             # Attach WebSocket in replay mode before history replay
-            session_process = await runner.get_or_create_session(session_id)
             await session_process.add_websocket_and_begin_replay(websocket)
             attached = True
 
@@ -1107,24 +1114,47 @@ async def session_stream(
             logger.debug("WebSocket disconnected during history replay")
             return
 
-        # Ensure work_dir exists
-        work_dir = Path(str(session.kimi_cli_session.work_dir))
-        work_dir.mkdir(parents=True, exist_ok=True)
+        # Start session environment – if anything fails here, send an error
+        # status so the client doesn't hang on "Connecting to environment...".
+        try:
+            # Ensure work_dir exists
+            work_dir = Path(str(session.kimi_cli_session.work_dir))
+            await asyncio.to_thread(lambda: work_dir.mkdir(parents=True, exist_ok=True))
 
-        if not attached:
-            # No history: attach and start worker
-            session_process = await runner.get_or_create_session(session_id)
-            await session_process.add_websocket_and_begin_replay(websocket)
-            attached = True
+            if not attached:
+                # No history: attach and start worker
+                session_process = await runner.get_or_create_session(session_id)
+                await session_process.add_websocket_and_begin_replay(websocket)
+                attached = True
 
-        assert session_process is not None
-        # End replay and start worker
-        await session_process.end_replay(websocket)
-        await session_process.start()
-        await session_process.send_status_snapshot(websocket)
+            assert session_process is not None
+            # End replay and start worker
+            await session_process.end_replay(websocket)
+            await session_process.start()
+            await session_process.send_status_snapshot(websocket)
+        except Exception as e:
+            logger.warning(f"Failed to start session environment: {e}")
+            try:
+                error_status = SessionStatus(
+                    session_id=session_id,
+                    state="error",
+                    seq=0,
+                    worker_id=None,
+                    reason="initialization_failed",
+                    detail=str(e),
+                    updated_at=datetime.now(UTC),
+                )
+                await websocket.send_text(
+                    new_session_status_message(error_status).model_dump_json()
+                )
+            except Exception:
+                pass
+            return
 
-        # Update last_session_id for this work directory
-        _update_last_session_id(session)
+        # Track whether we've updated last_session_id for this connection.
+        # We defer the update until the first prompt message is actually forwarded,
+        # so that merely opening/viewing a session does not change last_session_id.
+        last_session_id_updated = False
 
         # Forward incoming messages to the subprocess
         while True:
@@ -1150,6 +1180,16 @@ async def session_stream(
                             ).model_dump_json()
                         )
                         continue
+
+                # Update last_session_id on first successful prompt
+                if not last_session_id_updated:
+                    try:
+                        in_message = JSONRPCInMessageAdapter.validate_json(message)
+                    except ValueError:
+                        in_message = None
+                    if isinstance(in_message, JSONRPCPromptMessage):
+                        await asyncio.to_thread(_update_last_session_id, session)
+                        last_session_id_updated = True
 
                 logger.debug(f"sending message to session {session_id}")
                 await session_process.send_message(message)

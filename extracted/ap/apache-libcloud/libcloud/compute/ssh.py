@@ -318,7 +318,9 @@ class ParamikoSSHClient(BaseSSHClient):
         self.use_compression = use_compression
 
         self.client = paramiko.SSHClient()
-        self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        # Long term we should switch to a more secure default, but this would break
+        # a lot  of non-interactive deployment scripts
+        self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())  # nosec
         self.logger = self._get_and_setup_logger()
 
         # This object is lazily created on first SFTP operation (e.g. put()
@@ -762,7 +764,7 @@ class ParamikoSSHClient(BaseSSHClient):
         """
         Create SFTP client from the underlying SSH client.
 
-        This method tries to re-use the existing self.sftp_client (if it
+        This method tries to reuse the existing self.sftp_client (if it
         exists) and it also tries to verify the connection is opened and if
         it's not, it will try to re-establish it.
         """

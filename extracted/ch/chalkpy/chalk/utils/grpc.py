@@ -8,6 +8,7 @@ import grpc
 
 from chalk._gen.chalk.server.v1.auth_pb2 import GetTokenRequest, GetTokenResponse
 from chalk._gen.chalk.server.v1.auth_pb2_grpc import AuthServiceStub
+from chalk.client.client_headers import CHALK_ENV_ID_HEADER_LOWERCASE, CHALK_SERVER_HEADER_LOWERCASE
 
 if TYPE_CHECKING:
     from chalk import EnvironmentId
@@ -67,11 +68,11 @@ class AuthenticatedChalkClientInterceptor(grpc.UnaryUnaryClientInterceptor):
     ):
         self._refresher: TokenRefresher = refresher
         self._constant_headers = [
-            ("x-chalk-server", server),
+            (CHALK_SERVER_HEADER_LOWERCASE, server),
             *additional_headers,
         ]
         if environment_id is not None:
-            self._constant_headers.append(("x-chalk-env-id", environment_id))
+            self._constant_headers.append((CHALK_ENV_ID_HEADER_LOWERCASE, environment_id))
 
     def intercept_unary_unary(
         self,
@@ -107,7 +108,7 @@ class UnauthenticatedChalkClientInterceptor(grpc.UnaryUnaryClientInterceptor):
         server: Literal["go-api", "engine"],
     ):
         self._headers = (
-            ("x-chalk-server", server),
+            (CHALK_SERVER_HEADER_LOWERCASE, server),
             *additional_headers,
         )
 

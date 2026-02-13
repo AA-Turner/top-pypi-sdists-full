@@ -6,7 +6,7 @@ from adam.commands.nodetool.utils_nodetools import NodeTools
 from adam.config import Config
 from adam.utils_cassandra.node_schedules import NodeSchedules
 from adam.utils_cassandra.pod_service import cassandra
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.repl_state import ReplState
 from adam.utils_k8s.pods import Pods, strip_pod_name
 from adam.utils_k8s.k8s_context import K8sContext
@@ -24,10 +24,10 @@ class CassandraStatus:
     host_ids_by_pod: dict[str, str] = {}
     pod_names_by_host_id: dict[str, str] = {}
 
-    def snapshot_from_pod(state: ReplState, k8s: K8sContext = K8sContext.NULL, ctx: Context = Context.NULL):
+    def snapshot_from_pod(state: ReplState, k8s: K8sContext = K8sContext.NULL, ctx = NULL):
         return CassandraStatus.snapshot(state, samples=1, k8s=k8s, target_pod=state.pod, ctx=ctx)
 
-    def snapshot(state: ReplState, samples: int = 0, k8s: K8sContext = K8sContext.NULL, target_pod: str = None, ctx: Context = Context.NULL):
+    def snapshot(state: ReplState, samples: int = 0, k8s: K8sContext = K8sContext.NULL, target_pod: str = None, ctx = NULL):
         if not samples:
             samples = Config().get('nodetool.samples', sys.maxsize)
 

@@ -103,7 +103,7 @@ async def create_task(request: SoraVideoRequest, token: Optional[str] = None):
             request.seconds = request.model.rsplit('-', 1)[-1].strip("s")
             request.model = "sora2-i2v"
 
-        request.size = request.size or "1280x720" # todo 缩放16x9报错
+        request.size = request.size or "1280x720"  # todo 缩放16x9报错
         w, h = map(int, request.size.split('x'))
         request.aspect_ratio = "16:9" if w > h else "9:16"
 
@@ -114,7 +114,9 @@ async def create_task(request: SoraVideoRequest, token: Optional[str] = None):
             _ = await image_resize(_, request.size, "fal-url")
             request.input_reference = [_]
 
-    if image_urls := request.input_reference or request.first_frame_image or request.last_frame_image:
+    if image_urls := request.input_reference or list(
+            filter(None, [request.first_frame_image, request.last_frame_image])
+    ):
         request.model = request.model.replace('t2v', 'i2v')
 
         if request.model.startswith('232'):  # 2.x 首帧 首尾帧   文生统一 23204
@@ -166,16 +168,16 @@ async def create_task(request: SoraVideoRequest, token: Optional[str] = None):
             }
             for i, url in enumerate(images)
         ]
+    if not payload['parameter']['fileList']:  # 互斥
+        if url := request.first_frame_image:
+            url = await to_image(url)
 
-    if url := request.first_frame_image:
-        url = await to_image(url)
+            payload['parameter']['fileList'] += [{"url": url, "frameType": 0}]
 
-        payload['parameter']['fileList'] += [{"url": url, "frameType": 0}]
+        if url := request.last_frame_image:
+            url = await to_image(url)
 
-    if url := request.last_frame_image:
-        url = await to_image(url)
-
-        payload['parameter']['fileList'] += [{"url": url, "frameType": 1}]
+            payload['parameter']['fileList'] += [{"url": url, "frameType": 1}]
 
     logger.debug(bjson(payload))
 
@@ -281,7 +283,7 @@ async def get_task(task_id: str, token: str):
 
 if __name__ == '__main__':
     token = None
-    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzIzNTA5NjUsInVzZXIiOnsiaWQiOiI0Njk4ODIxOTY3NDM1Mjg0NDkiLCJuYW1lIjoiYWZzbCBkcnF2IiwiYXZhdGFyIjoiIiwiZGV2aWNlSUQiOiIzMTE2NzAxODUwMDg0ODg0NTIiLCJpc0Fub255bW91cyI6ZmFsc2V9fQ.3pO0O36-um2fQs0ML0eHwpi0D7rV5yjmnjcpuiZcNKw"
+    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzMyMTk4NjgsInVzZXIiOnsiaWQiOiI0Njk5MzQ0NTU0NDM1Mjk3MzAiLCJuYW1lIjoiYWNpbyBrcmhmIiwiYXZhdGFyIjoiIiwiZGV2aWNlSUQiOiI0NzM1NjkxMDc2MDEzNzExMzciLCJpc0Fub255bW91cyI6ZmFsc2V9fQ.qdNC8N4bvuoTB9gYT6_QEiNG5KvvssPY1t3Q3ZKKQZg"
 
     model = "veo3.1-t2v-fast"
     model = "23000"
@@ -371,6 +373,13 @@ if __name__ == '__main__':
 
     # "图片上传失败，长宽比需在 5:2 和 2:5 之间"
 
+    data = {'model': '23204_768p',
+            'prompt': '5-second time-lapse transformation. The futuristic city rapidly decays and ages into ruins. Neon lights flicker and die, buildings crumble and collapse, green vines and moss grow aggressively covering the structures. The atmosphere shifts from a cold neon night to a dusty yellow twilight. High motion, cinematic time-lapse style.',
+            'seconds': '6',
+            'first_frame_image': 'https://cos.imyai.top/video/hailuo/344db92e-6772-4a53-a2b4-97918045b4f7.png',
+            'last_frame_image': 'https://cos.imyai.top/video/hailuo/4006137c-2ba8-4a64-99e7-c30644dc8179.png'}
+    request = SoraVideoRequest(**data)
+
     r = arun(create_task(request, token=token))
 
     # task_id = "hailuoai-469852272096808964"
@@ -390,7 +399,7 @@ if __name__ == '__main__':
     #     "prompt_optimizer": True,
     #     # "first_frame_image": "https://hg-face-domestic-hz.oss-cn-hangzhou.aliyuncs.com/avatarapp/ai-cache/54883340-954c-11ef-8920-db8e7bfa3fdf.jpeg"
     # }
-    # request = VideoRequest(**data)
+
     # task_id = "472543767246442500"
     # task_id = "472553541371510788"
     # task_id = "472555135056019456"

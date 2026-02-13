@@ -26,18 +26,17 @@ class ShowAppId(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            c3_app_id = 'Unknown'
+            with self.context(args) as (_, ctx):
+                c3_app_id = 'Unknown'
 
-            ctx = self.context()
+                apps = CustomResources.get_app_ids()
+                cr_name = CustomResources.get_cr_name(state.sts if state.sts else state.pod, namespace=state.namespace)
+                if cr_name in apps:
+                    c3_app_id = (apps[cr_name])
 
-            apps = CustomResources.get_app_ids()
-            cr_name = CustomResources.get_cr_name(state.sts if state.sts else state.pod, namespace=state.namespace)
-            if cr_name in apps:
-                c3_app_id = (apps[cr_name])
+                ctx.log(c3_app_id)
 
-            ctx.log(c3_app_id)
-
-            return c3_app_id
+                return c3_app_id
 
     def completion(self, state: ReplState):
         return super().completion(state)

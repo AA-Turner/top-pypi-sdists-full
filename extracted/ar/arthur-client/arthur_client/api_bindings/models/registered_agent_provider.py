@@ -27,6 +27,7 @@ class RegisteredAgentProvider(str, Enum):
     allowed enum values
     """
     GCP = 'gcp'
+    EXTERNAL = 'external'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

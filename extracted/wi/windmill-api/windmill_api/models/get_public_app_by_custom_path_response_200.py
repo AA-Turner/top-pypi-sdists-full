@@ -15,7 +15,6 @@ if TYPE_CHECKING:
         GetPublicAppByCustomPathResponse200ExtraPerms,
     )
     from ..models.get_public_app_by_custom_path_response_200_policy import GetPublicAppByCustomPathResponse200Policy
-    from ..models.get_public_app_by_custom_path_response_200_value import GetPublicAppByCustomPathResponse200Value
 
 
 T = TypeVar("T", bound="GetPublicAppByCustomPathResponse200")
@@ -32,7 +31,7 @@ class GetPublicAppByCustomPathResponse200:
         versions (List[int]):
         created_by (str):
         created_at (datetime.datetime):
-        value (GetPublicAppByCustomPathResponse200Value):
+        value (Any):
         policy (GetPublicAppByCustomPathResponse200Policy):
         execution_mode (GetPublicAppByCustomPathResponse200ExecutionMode):
         extra_perms (GetPublicAppByCustomPathResponse200ExtraPerms):
@@ -48,7 +47,7 @@ class GetPublicAppByCustomPathResponse200:
     versions: List[int]
     created_by: str
     created_at: datetime.datetime
-    value: "GetPublicAppByCustomPathResponse200Value"
+    value: Any
     policy: "GetPublicAppByCustomPathResponse200Policy"
     execution_mode: GetPublicAppByCustomPathResponse200ExecutionMode
     extra_perms: "GetPublicAppByCustomPathResponse200ExtraPerms"
@@ -67,8 +66,7 @@ class GetPublicAppByCustomPathResponse200:
         created_by = self.created_by
         created_at = self.created_at.isoformat()
 
-        value = self.value.to_dict()
-
+        value = self.value
         policy = self.policy.to_dict()
 
         execution_mode = self.execution_mode.value
@@ -110,7 +108,6 @@ class GetPublicAppByCustomPathResponse200:
             GetPublicAppByCustomPathResponse200ExtraPerms,
         )
         from ..models.get_public_app_by_custom_path_response_200_policy import GetPublicAppByCustomPathResponse200Policy
-        from ..models.get_public_app_by_custom_path_response_200_value import GetPublicAppByCustomPathResponse200Value
 
         d = src_dict.copy()
         id = d.pop("id")
@@ -127,7 +124,7 @@ class GetPublicAppByCustomPathResponse200:
 
         created_at = isoparse(d.pop("created_at"))
 
-        value = GetPublicAppByCustomPathResponse200Value.from_dict(d.pop("value"))
+        value = d.pop("value")
 
         policy = GetPublicAppByCustomPathResponse200Policy.from_dict(d.pop("policy"))
 

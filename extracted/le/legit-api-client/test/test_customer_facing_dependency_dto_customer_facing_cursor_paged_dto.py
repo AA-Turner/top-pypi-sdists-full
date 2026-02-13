@@ -44,7 +44,8 @@ class TestCustomerFacingDependencyDtoCustomerFacingCursorPagedDto(unittest.TestC
                         licenses = [
                             legit_api_client.models.customer_facing_dependency_license.CustomerFacingDependencyLicense(
                                 name = '', 
-                                source = null, )
+                                source = null, 
+                                metadata = null, )
                             ], 
                         source_scanners = [
                             'Dependabot'

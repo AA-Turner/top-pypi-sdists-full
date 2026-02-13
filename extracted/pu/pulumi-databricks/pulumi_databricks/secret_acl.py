@@ -13,6 +13,8 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import NotRequired, TypedDict, TypeAlias
 from . import _utilities
+from . import outputs
+from ._inputs import *
 
 __all__ = ['SecretAclArgs', 'SecretAcl']
 
@@ -21,16 +23,20 @@ class SecretAclArgs:
     def __init__(__self__, *,
                  permission: pulumi.Input[_builtins.str],
                  principal: pulumi.Input[_builtins.str],
-                 scope: pulumi.Input[_builtins.str]):
+                 scope: pulumi.Input[_builtins.str],
+                 provider_config: Optional[pulumi.Input['SecretAclProviderConfigArgs']] = None):
         """
         The set of arguments for constructing a SecretAcl resource.
         :param pulumi.Input[_builtins.str] permission: `READ`, `WRITE` or `MANAGE`.
         :param pulumi.Input[_builtins.str] principal: principal's identifier. It can be:
         :param pulumi.Input[_builtins.str] scope: name of the scope
+        :param pulumi.Input['SecretAclProviderConfigArgs'] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         """
         pulumi.set(__self__, "permission", permission)
         pulumi.set(__self__, "principal", principal)
         pulumi.set(__self__, "scope", scope)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
 
     @_builtins.property
     @pulumi.getter
@@ -68,23 +74,39 @@ class SecretAclArgs:
     def scope(self, value: pulumi.Input[_builtins.str]):
         pulumi.set(self, "scope", value)
 
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional[pulumi.Input['SecretAclProviderConfigArgs']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
+
+    @provider_config.setter
+    def provider_config(self, value: Optional[pulumi.Input['SecretAclProviderConfigArgs']]):
+        pulumi.set(self, "provider_config", value)
+
 
 @pulumi.input_type
 class _SecretAclState:
     def __init__(__self__, *,
                  permission: Optional[pulumi.Input[_builtins.str]] = None,
                  principal: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input['SecretAclProviderConfigArgs']] = None,
                  scope: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering SecretAcl resources.
         :param pulumi.Input[_builtins.str] permission: `READ`, `WRITE` or `MANAGE`.
         :param pulumi.Input[_builtins.str] principal: principal's identifier. It can be:
+        :param pulumi.Input['SecretAclProviderConfigArgs'] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] scope: name of the scope
         """
         if permission is not None:
             pulumi.set(__self__, "permission", permission)
         if principal is not None:
             pulumi.set(__self__, "principal", principal)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
         if scope is not None:
             pulumi.set(__self__, "scope", scope)
 
@@ -113,6 +135,18 @@ class _SecretAclState:
         pulumi.set(self, "principal", value)
 
     @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional[pulumi.Input['SecretAclProviderConfigArgs']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
+
+    @provider_config.setter
+    def provider_config(self, value: Optional[pulumi.Input['SecretAclProviderConfigArgs']]):
+        pulumi.set(self, "provider_config", value)
+
+    @_builtins.property
     @pulumi.getter
     def scope(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -133,6 +167,7 @@ class SecretAcl(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None,
                  permission: Optional[pulumi.Input[_builtins.str]] = None,
                  principal: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input[Union['SecretAclProviderConfigArgs', 'SecretAclProviderConfigArgsDict']]] = None,
                  scope: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
@@ -171,32 +206,11 @@ class SecretAcl(pulumi.CustomResource):
         * Secret to manage [secrets](https://docs.databricks.com/security/secrets/index.html#secrets-user-guide) in Databricks workspace.
         * SecretScope to create [secret scopes](https://docs.databricks.com/security/secrets/index.html#secrets-user-guide) in Databricks workspace.
 
-        ## Import
-
-        The resource secret acl can be imported using `scopeName|||principalName` combination.
-
-        hcl
-
-        import {
-
-          to = databricks_secret_acl.object
-
-          id = "scopeName|||principalName"
-
-        }
-
-        Alternatively, when using `terraform` version 1.4 or earlier, import using the `pulumi import` command:
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/secretAcl:SecretAcl object `scopeName|||principalName`
-        ```
-
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] permission: `READ`, `WRITE` or `MANAGE`.
         :param pulumi.Input[_builtins.str] principal: principal's identifier. It can be:
+        :param pulumi.Input[Union['SecretAclProviderConfigArgs', 'SecretAclProviderConfigArgsDict']] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] scope: name of the scope
         """
         ...
@@ -241,28 +255,6 @@ class SecretAcl(pulumi.CustomResource):
         * Secret to manage [secrets](https://docs.databricks.com/security/secrets/index.html#secrets-user-guide) in Databricks workspace.
         * SecretScope to create [secret scopes](https://docs.databricks.com/security/secrets/index.html#secrets-user-guide) in Databricks workspace.
 
-        ## Import
-
-        The resource secret acl can be imported using `scopeName|||principalName` combination.
-
-        hcl
-
-        import {
-
-          to = databricks_secret_acl.object
-
-          id = "scopeName|||principalName"
-
-        }
-
-        Alternatively, when using `terraform` version 1.4 or earlier, import using the `pulumi import` command:
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/secretAcl:SecretAcl object `scopeName|||principalName`
-        ```
-
         :param str resource_name: The name of the resource.
         :param SecretAclArgs args: The arguments to use to populate this resource's properties.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -280,6 +272,7 @@ class SecretAcl(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None,
                  permission: Optional[pulumi.Input[_builtins.str]] = None,
                  principal: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input[Union['SecretAclProviderConfigArgs', 'SecretAclProviderConfigArgsDict']]] = None,
                  scope: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
@@ -296,6 +289,7 @@ class SecretAcl(pulumi.CustomResource):
             if principal is None and not opts.urn:
                 raise TypeError("Missing required property 'principal'")
             __props__.__dict__["principal"] = principal
+            __props__.__dict__["provider_config"] = provider_config
             if scope is None and not opts.urn:
                 raise TypeError("Missing required property 'scope'")
             __props__.__dict__["scope"] = scope
@@ -311,6 +305,7 @@ class SecretAcl(pulumi.CustomResource):
             opts: Optional[pulumi.ResourceOptions] = None,
             permission: Optional[pulumi.Input[_builtins.str]] = None,
             principal: Optional[pulumi.Input[_builtins.str]] = None,
+            provider_config: Optional[pulumi.Input[Union['SecretAclProviderConfigArgs', 'SecretAclProviderConfigArgsDict']]] = None,
             scope: Optional[pulumi.Input[_builtins.str]] = None) -> 'SecretAcl':
         """
         Get an existing SecretAcl resource's state with the given name, id, and optional extra
@@ -321,6 +316,7 @@ class SecretAcl(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] permission: `READ`, `WRITE` or `MANAGE`.
         :param pulumi.Input[_builtins.str] principal: principal's identifier. It can be:
+        :param pulumi.Input[Union['SecretAclProviderConfigArgs', 'SecretAclProviderConfigArgsDict']] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] scope: name of the scope
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
@@ -329,6 +325,7 @@ class SecretAcl(pulumi.CustomResource):
 
         __props__.__dict__["permission"] = permission
         __props__.__dict__["principal"] = principal
+        __props__.__dict__["provider_config"] = provider_config
         __props__.__dict__["scope"] = scope
         return SecretAcl(resource_name, opts=opts, __props__=__props__)
 
@@ -347,6 +344,14 @@ class SecretAcl(pulumi.CustomResource):
         principal's identifier. It can be:
         """
         return pulumi.get(self, "principal")
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> pulumi.Output[Optional['outputs.SecretAclProviderConfig']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
 
     @_builtins.property
     @pulumi.getter

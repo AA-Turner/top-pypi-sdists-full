@@ -1769,7 +1769,6 @@ class TestResolveRefs(object):
             yaml_content = file.read()
 
         def get_side_effect(path):
-            nonlocal json_content
             if path.endswith('.json'):
                 return mock.Mock(json=mock.Mock(return_value=json_content))
             return mock.Mock(content=yaml_content, read=mock.Mock(side_effect=Exception))
@@ -1857,7 +1856,6 @@ class TestResolveRefs(object):
 def test_openapi2_examples(tmpdir, run_sphinx):
     spec = os.path.join(
         os.path.abspath(os.path.dirname(__file__)),
-        'OpenAPI-Specification',
         'examples',
         'v2.0',
         'json',
@@ -1875,7 +1873,6 @@ def test_openapi2_examples(tmpdir, run_sphinx):
 def test_openapi3_examples(tmpdir, run_sphinx, render_examples):
     spec = os.path.join(
         os.path.abspath(os.path.dirname(__file__)),
-        'OpenAPI-Specification',
         'examples',
         'v3.0',
         'petstore.yaml')

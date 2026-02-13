@@ -142,10 +142,11 @@ class ExternalVolumeResourceBase(ObjectReferenceMixin["ExternalVolumeCollection"
         Parameters
         __________
         """
-        return self.collection._api.fetch_external_volume(
+        result = self.collection._api.fetch_external_volume(
             self._identifier,
             async_req=False,
         )
+        return result
 
     @api_telemetry
     def fetch_async(

@@ -11,7 +11,7 @@ from griffe import Extensions, temporary_inspected_package, temporary_visited_pa
 from griffe_pydantic._internal.extension import PydanticExtension
 
 if TYPE_CHECKING:
-    from mkdocstrings_handlers.python.handler import PythonHandler
+    from mkdocstrings_handlers.python import PythonHandler
 
 
 code = """
@@ -259,3 +259,131 @@ def test_annotated_fields() -> None:
         # Check that annotation is the actual type, not Annotated[...]
         assert str(package["Model.a"].annotation) == "int"
         assert str(package["Model.b"].annotation) == "int"
+
+
+def test_ignore_private_attrs() -> None:
+    """Test the extension ignores private attributes."""
+    code = """
+    from pydantic import BaseModel, PrivateAttr
+
+    class Model(BaseModel):
+        field: str
+        _private: str = PrivateAttr(default="secret")
+    """
+    with temporary_visited_package(
+        "package",
+        modules={"__init__.py": code},
+        extensions=Extensions(PydanticExtension(schema=False)),
+    ) as package:
+        assert "pydantic-field" in package["Model.field"].labels
+        assert "pydantic-field" not in package["Model._private"].labels
+
+
+def test_ignore_private_attrs_annotated() -> None:
+    """Test the extension ignores private attributes with Annotated syntax."""
+    code = """
+    from pydantic import BaseModel, PrivateAttr
+    from typing import Annotated
+
+    class Model(BaseModel):
+        field: str
+        _private: Annotated[str, PrivateAttr(default="secret")]
+    """
+    with temporary_visited_package(
+        "package",
+        modules={"__init__.py": code},
+        extensions=Extensions(PydanticExtension(schema=False)),
+    ) as package:
+        assert "pydantic-field" in package["Model.field"].labels
+        assert "pydantic-field" not in package["Model._private"].labels
+
+
+def test_field_description_with_dedent() -> None:
+    """Test that field descriptions wrapped in textwrap.dedent() are extracted."""
+    code = """
+    from textwrap import dedent
+    from pydantic import BaseModel, Field
+
+    class Model(BaseModel):
+        field1: int = Field(
+            description=dedent('''
+                This is a multiline description.
+                With multiple lines.
+            ''')
+        )
+        field2: str = Field(default="test", description=dedent("Single line dedented."))
+    """
+    with temporary_visited_package(
+        "package",
+        modules={"__init__.py": code},
+        extensions=Extensions(PydanticExtension(schema=False)),
+    ) as package:
+        assert package["Model.field1"].is_attribute
+        assert "pydantic-field" in package["Model.field1"].labels
+        assert package["Model.field1"].docstring is not None
+        assert "This is a multiline description." in package["Model.field1"].docstring.value
+        assert "With multiple lines." in package["Model.field1"].docstring.value
+
+        assert package["Model.field2"].is_attribute
+        assert "pydantic-field" in package["Model.field2"].labels
+        assert package["Model.field2"].docstring is not None
+        assert package["Model.field2"].docstring.value == "Single line dedented."
+
+
+def test_field_description_with_cleandoc() -> None:
+    """Test that field descriptions wrapped in inspect.cleandoc() are extracted."""
+    code = """
+    from inspect import cleandoc
+    from pydantic import BaseModel, Field
+
+    class Model(BaseModel):
+        field1: int = Field(
+            description=cleandoc('''
+                This is a multiline description.
+                With multiple lines.
+            ''')
+        )
+        field2: str = Field(default="test", description=cleandoc("Single line cleandoc."))
+    """
+    with temporary_visited_package(
+        "package",
+        modules={"__init__.py": code},
+        extensions=Extensions(PydanticExtension(schema=False)),
+    ) as package:
+        assert package["Model.field1"].is_attribute
+        assert "pydantic-field" in package["Model.field1"].labels
+        assert package["Model.field1"].docstring is not None
+        assert "This is a multiline description." in package["Model.field1"].docstring.value
+        assert "With multiple lines." in package["Model.field1"].docstring.value
+
+        assert package["Model.field2"].is_attribute
+        assert "pydantic-field" in package["Model.field2"].labels
+        assert package["Model.field2"].docstring is not None
+        assert package["Model.field2"].docstring.value == "Single line cleandoc."
+
+
+def test_field_description_with_annotated_and_dedent() -> None:
+    """Test that field descriptions with Annotated and dedent() are extracted."""
+    code = """
+    from textwrap import dedent
+    from pydantic import BaseModel, Field
+    from typing import Annotated
+
+    class Model(BaseModel):
+        field1: Annotated[int, Field(
+            description=dedent('''
+                This is a multiline description.
+                With multiple lines.
+            ''')
+        )]
+    """
+    with temporary_visited_package(
+        "package",
+        modules={"__init__.py": code},
+        extensions=Extensions(PydanticExtension(schema=False)),
+    ) as package:
+        assert package["Model.field1"].is_attribute
+        assert "pydantic-field" in package["Model.field1"].labels
+        assert package["Model.field1"].docstring is not None
+        assert "This is a multiline description." in package["Model.field1"].docstring.value
+        assert "With multiple lines." in package["Model.field1"].docstring.value

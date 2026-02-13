@@ -95,33 +95,35 @@ YOUR TASK - Generate {scenario_type} scenarios:
 {type_specific_instructions}
 
 REQUIREMENTS FOR EACH SCENARIO:
-1. description: The user's EXACT words - a realistic request/question
-   - This is LITERALLY what the user says, nothing more
-   - Should be natural and conversational
-   - Example: "I'd like to submit an expense for a client lunch"
+1. description: The user's EXACT words — a realistic, specific request
+   - Real users naturally mention key details (amounts, items, dates, what they have/don't have)
+   - Include enough detail for a substantive first response — not a vague opener
+   - GOOD: "I need to expense a $180 client lunch from last Tuesday. I have the receipt and my manager approved it."
+   - GOOD: "Can I get reimbursed for a $450 flight I booked yesterday? I don't have approval yet."
+   - BAD: "I'd like to submit an expense for a client lunch."
+   - BAD: "I have a question about travel expenses."
 
-2. context: Background facts for evaluation that the user has NOT stated
-   - Include specific details: amounts, dates, receipt status, approval status
-   - These details inform the assistant's reasoning but are NOT in the user's message
-   - Example: "Expense amount: $180, Purchase date: 5 days ago, Has digital receipt, No manager approval yet"
+2. context: Background facts that inform the scenario but the user hasn't explicitly stated
+   - Policy implications: which approval tier applies, which rules are triggered
+   - Situational details: user's role, department, history
+   - GOOD: "Amount falls in $100-$500 tier requiring manager approval (R024). User is in Sales department."
+   - BAD: "Expense amount: $180, Purchase date: 5 days ago" (these belong in description — the user knows their own expense)
 
 3. target_rule_ids: Which rules from the Logic Map this scenario tests
 4. expected_outcome: What the correct response should do based on the rules
 
-CRITICAL - DESCRIPTION VS CONTEXT SEPARATION:
-- The description should NOT contain specific amounts, dates, or status details
-- Those details belong in context ONLY
-- The assistant will need to either:
-  a) Ask the user for these details, OR
-  b) Use them for reasoning if the scenario implies they're known
+CRITICAL - DESCRIPTION VS CONTEXT:
+- Description = what the user says (includes their own details: amounts, dates, receipts)
+- Context = what the user doesn't know or hasn't stated (policy implications, rule triggers, background)
+- The assistant should NOT need to ask for information the user already provided
 
 BAD EXAMPLE:
-  description: "I want to submit a $180 expense from last week with receipt"  ← Too specific!
-  context: "Has manager approval"
-
-GOOD EXAMPLE:
   description: "I'd like to submit an expense for a client lunch"
   context: "Expense amount: $180, Purchase date: 5 days ago, Has digital receipt, Has manager approval"
+
+GOOD EXAMPLE:
+  description: "I need to expense a $180 client lunch from last Tuesday. I have the digital receipt and my manager already approved it."
+  context: "Amount falls in $100-$500 tier (R024). Within 30-day submission window. All procedural requirements met."
 
 IMPORTANT:
 - Each scenario must reference specific rule IDs from the Logic Map
@@ -185,15 +187,19 @@ SCENARIO TYPE DEFINITIONS:
 - IRRELEVANT: Query not covered by the policy at all (unrelated topic)
 
 REQUIREMENTS FOR EACH SCENARIO:
-1. description: The user's EXACT words - a realistic request/question
-   - This is LITERALLY what the user says, nothing more
-   - Should be natural and conversational
-   - Example: "I'd like to submit an expense for a client lunch"
+1. description: The user's EXACT words — a realistic, specific request
+   - Real users naturally mention key details (amounts, items, dates, what they have/don't have)
+   - Include enough detail for a substantive first response — not a vague opener
+   - GOOD: "I need to expense a $180 client lunch from last Tuesday. I have the receipt and my manager approved it."
+   - GOOD: "Can I get reimbursed for a $450 flight I booked yesterday? I don't have approval yet."
+   - BAD: "I'd like to submit an expense for a client lunch."
+   - BAD: "I have a question about travel expenses."
 
-2. context: Background facts for evaluation that the user has NOT stated
-   - Include specific details: amounts, dates, receipt status, approval status
-   - These details inform the assistant's reasoning but are NOT in the user's message
-   - Example: "Expense amount: $180, Purchase date: 5 days ago, Has digital receipt"
+2. context: Background facts that inform the scenario but the user hasn't explicitly stated
+   - Policy implications: which approval tier applies, which rules are triggered
+   - Situational details: user's role, department, history
+   - GOOD: "Amount falls in $100-$500 tier requiring manager approval (R024). User is in Sales department."
+   - BAD: "Expense amount: $180, Purchase date: 5 days ago" (these belong in description — the user knows their own expense)
 
 3. scenario_type: Must be one of "positive", "negative", "edge_case", "irrelevant"
 4. target_rule_ids: Which rules from the Logic Map this scenario tests
@@ -205,17 +211,18 @@ CRITICAL - DIVERSITY:
 - Vary complexity (simple single-rule to multi-rule scenarios)
 - Avoid repetitive patterns
 
-CRITICAL - DESCRIPTION VS CONTEXT SEPARATION:
-- The description should NOT contain specific amounts, dates, or status details
-- Those details belong in context ONLY
+CRITICAL - DESCRIPTION VS CONTEXT:
+- Description = what the user says (includes their own details: amounts, dates, receipts)
+- Context = what the user doesn't know or hasn't stated (policy implications, rule triggers, background)
+- The assistant should NOT need to ask for information the user already provided
 
 BAD EXAMPLE:
-  description: "I want to submit a $180 expense from last week with receipt"
-  context: "Has manager approval"
-
-GOOD EXAMPLE:
   description: "I'd like to submit an expense for a client lunch"
   context: "Expense amount: $180, Purchase date: 5 days ago, Has digital receipt, Has manager approval"
+
+GOOD EXAMPLE:
+  description: "I need to expense a $180 client lunch from last Tuesday. I have the digital receipt and my manager already approved it."
+  context: "Amount falls in $100-$500 tier (R024). Within 30-day submission window. All procedural requirements met."
 
 ══════════════════════════════════════════════════════════════════════════════
 FINAL REMINDER - DISTRIBUTION IS MANDATORY:
@@ -278,29 +285,36 @@ RESPONSE REQUIREMENTS:
 CRITICAL - MESSAGE CONSTRUCTION RULES:
 
 USER MESSAGE:
-- Must contain ONLY the scenario_description text (the user's exact words)
-- Must NOT include any information from the CONTEXT section
-- Should read as a realistic query from someone who hasn't shared specific details yet
+- Contains the scenario_description — the user's realistic request with natural detail
+- Users naturally include relevant details (amounts, dates, items) when asking questions
+- Should read as a complete request from someone who knows their own situation
 
 ASSISTANT MESSAGE:
-- Use CONTEXT for internal reasoning (in reasoning_chain) only
-- The assistant should respond as if it does NOT already know context details
-- If context contains specific amounts/dates but user didn't state them:
-  * Either ASK the user for those details, OR
-  * Provide general policy guidance that would apply
-- Do NOT act as if you magically know unstated information
+- Respond with substantive policy analysis based on what the user stated
+- Give a clear determination: approved, denied, needs a specific additional step, etc.
+- Only ask for information that is genuinely missing AND needed for a decision
+- Do NOT ask for information the user already provided
+- Use CONTEXT for additional reasoning depth, not as hidden info to "discover"
+- Vary response style naturally:
+  * Some responses should be conversational and flowing prose
+  * Some should use brief structured points
+  * Some should be direct and concise (2-3 sentences)
+  * NEVER use the same bullet-list-of-rules template every time
+- Reference policy rules naturally — don't mechanically list every applicable rule
 
-EXAMPLE OF WHAT TO AVOID:
-  User says: "I'd like to submit an expense"
-  Context has: "$180, has receipt, 5 days ago"
-  BAD response: "Your $180 expense with receipt from 5 days ago is approved!"  ← Knows unstated info!
-  GOOD response: "I can help with that! Could you tell me the amount and whether you have a receipt?"
+EXAMPLE:
+  User says: "I need to expense a $180 client lunch from last Tuesday. I have the receipt and my manager signed off."
+  Context: "Amount is in $100-$500 tier. Within 30-day window. All requirements met."
+
+  GOOD response: "You're all set. The $180 is within the client meal limit, you've got the receipt, and manager approval covers this tier. Go ahead and submit it through the portal."
+  BAD response: "I can help with that! Could you tell me the amount and whether you have a receipt?"
+  BAD response: "Let me check each rule: R001 states... R015 requires... R016 mandates..."
 
 The assistant response should:
 - Be professional and helpful
 - Reference the policy naturally (without exposing Rule IDs to user)
 - Provide clear next steps or explanations
-- Only reference details the user actually stated"""
+- Match response depth to question complexity (simple question = short answer)"""
 
 
 GOLDEN_TRACE_MULTI_TURN_PROMPT = """You are a customer support agent generating a multi-turn conversation with explicit reasoning.
@@ -328,38 +342,50 @@ Generate a {target_turns}-turn conversation where:
 
 MULTI-TURN GUIDELINES:
 1. Each assistant response should have its own reasoning chain
-2. Follow-up questions should test:
-   - Clarifications (what about X?)
-   - Edge cases (what if I...?)
-   - Related rules (does this affect Y?)
-3. Maintain context consistency across turns
-4. Each turn should cite relevant Rule IDs in its reasoning
+2. Turn 1: User provides a specific request → Assistant gives substantive policy analysis
+3. Subsequent turns: User explores variations, edge cases, challenges, or related scenarios
+4. NEVER waste a turn on basic information gathering
+5. Every turn should teach something new about the policy
+6. Maintain context consistency across turns
+7. Each turn should cite relevant Rule IDs in its reasoning
 
 CRITICAL - MESSAGE CONSTRUCTION RULES:
 
 TURN 1 - USER MESSAGE:
-- Must contain ONLY the scenario_description (the user's exact words)
-- Must NOT include details from CONTEXT
-- Natural, conversational query without specific amounts/dates
+- Contains the scenario_description — the user's realistic, specific request
+- Users naturally include relevant details when asking questions
 
 TURN 1 - ASSISTANT MESSAGE:
-- Use CONTEXT for reasoning but respond as if you don't know unstated details
-- Either ask for needed details OR provide general guidance
-- Do NOT "magically know" information the user didn't provide
+- Respond with substantive policy analysis based on what the user stated
+- Give a clear determination, not just "I can help! What's the amount?"
+- Use CONTEXT for reasoning depth
 
 SUBSEQUENT TURNS:
-- User follow-ups may naturally reveal more details from CONTEXT
-- This creates realistic information-gathering flow
-- Assistant can reference details once user has stated them
-- Each turn builds on previously shared information
+- User follow-ups explore variations, edge cases, what-ifs, or challenges
+- Each follow-up should test a DIFFERENT aspect than previous turns
+- Assistant can build on established context across turns
 
 GOOD MULTI-TURN FLOW:
+  Turn 1 User: "I need to expense a $180 client lunch from last Tuesday. I have the receipt and my manager approved it."
+  Turn 1 Assistant: "You're good to go. The $180 is within the client meal limit, your receipt satisfies the documentation requirement, and manager approval covers the $100-$500 range. Submit it through the expense portal."
+  Turn 2 User: "What if I wanted to add a $50 tip to that? Does the limit still apply?"
+  Turn 2 Assistant: "Tips count toward the total. At $230 you're still under the $300 per-person cap for client meals, so it's covered. Just make sure the receipt shows the tip."
+  Turn 3 User: "My colleague was at the lunch too. Can I submit for both of us?"
+  Turn 3 Assistant: "The $300 limit is per person, so you'd be at $115 each — well within range. You can submit for both, but note both attendees on the expense report."
+
+BAD MULTI-TURN FLOW:
   Turn 1 User: "I need to submit an expense"
   Turn 1 Assistant: "I can help! What type of expense and the amount?"
   Turn 2 User: "It's a client lunch for $180"
   Turn 2 Assistant: "For $180, you'll need manager approval. Do you have a receipt?"
-  Turn 3 User: "Yes, I have a digital receipt"
-  Turn 3 Assistant: "Great! Digital receipts are accepted. With manager approval and receipt, you're all set."
+  ← Two turns wasted collecting basic facts
+
+CONVERSATION VARIATION:
+- Vary user personality: formal professional, casual, frustrated, confused, time-pressured
+- Vary follow-up types: what-if, challenge ("that doesn't sound right"), related scenario, edge case, policy clarification
+- Some users should be confrontational, some cooperative, some confused
+- Vary assistant tone to match: empathetic with frustrated users, efficient with busy ones
+- AVOID having every trace follow the same conversation arc
 
 The final output should include:
 - Complete conversation messages
@@ -518,14 +544,13 @@ RESPONSE STRUCTURE:
 CRITICAL - MESSAGE CONSTRUCTION RULES:
 
 USER MESSAGE:
-- Must contain ONLY the scenario_description (the user's exact words)
-- Must NOT include details from CONTEXT
-- Natural query without specific amounts/dates the user hasn't stated
+- Contains the scenario_description — the user's realistic request with natural detail
+- Should read as a complete request, not a vague opener
 
 ASSISTANT MESSAGE:
-- Use CONTEXT for reasoning but respond as if you don't know unstated details
-- Tool calls should gather information the user hasn't provided
-- Do NOT act as if you already know context details
+- Respond substantively based on what the user stated
+- Use CONTEXT for reasoning but don't ask for details the user already provided
+- Tool calls should gather information that neither user nor context provides
 
 The trace should include:
 - System message with tool descriptions

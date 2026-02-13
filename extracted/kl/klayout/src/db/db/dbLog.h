@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -67,6 +67,11 @@ public:
    *  @brief Creates an error with the severity, a cell name and a message
    */
   LogEntryData (Severity s, const std::string &cell_name, const std::string &msg);
+
+  /**
+   *  @brief Creates an error with the severity, a cell (circuit) name, a net name and a message
+   */
+  LogEntryData (Severity s, const std::string &cell_name, const std::string &net_name, const std::string &msg);
 
   /**
    *  @brief Equality
@@ -159,6 +164,16 @@ public:
   void set_cell_name (const std::string &n);
 
   /**
+   *  @brief Gets the net name the error occurred in
+   */
+  const std::string &net_name () const;
+
+  /**
+   *  @brief Sets the net name
+   */
+  void set_net_name (const std::string &n);
+
+  /**
    *  @brief Formats this message for printing
    */
   std::string to_string (bool with_geometry = true) const;
@@ -166,6 +181,7 @@ public:
 private:
   Severity m_severity;
   string_id_type m_cell_name;
+  string_id_type m_net_name;
   string_id_type m_message;
   db::DPolygon m_geometry;
   string_id_type m_category_name, m_category_description;

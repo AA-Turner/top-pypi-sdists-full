@@ -4,7 +4,10 @@ import type { SearchResponse, SparseVector } from "../src/api";
 import { CollectionImpl } from "../src/collection";
 import type { CollectionConfiguration } from "../src/collection-configuration";
 import type { ChromaClient } from "../src/chroma-client";
-import type { EmbeddingFunction, SparseEmbeddingFunction } from "../src/embedding-function";
+import type {
+  EmbeddingFunction,
+  SparseEmbeddingFunction,
+} from "../src/embedding-function";
 
 class QueryMockEmbedding implements EmbeddingFunction {
   public readonly name = "query_mock";
@@ -12,7 +15,7 @@ class QueryMockEmbedding implements EmbeddingFunction {
   constructor(
     private readonly queryVector: number[] = [0.42, 0.24, 0.11],
     private readonly denseVector: number[] = [0.9, 0.8, 0.7],
-  ) { }
+  ) {}
 
   async generate(texts: string[]): Promise<number[][]> {
     return texts.map(() => this.denseVector.slice());
@@ -298,6 +301,61 @@ describe("search expression DSL", () => {
     ]);
   });
 
+  test("K.DOCUMENT.contains rejects non-string values", () => {
+    expect(() => K.DOCUMENT.contains(1 as any)).toThrow(TypeError);
+    expect(() => K.DOCUMENT.contains(1 as any)).toThrow(
+      "K.DOCUMENT.contains requires a string value",
+    );
+    expect(() => K.DOCUMENT.contains(true as any)).toThrow(TypeError);
+    expect(() => K.DOCUMENT.contains(true as any)).toThrow(
+      "K.DOCUMENT.contains requires a string value",
+    );
+  });
+
+  test("K.DOCUMENT.notContains rejects non-string values", () => {
+    expect(() => K.DOCUMENT.notContains(42 as any)).toThrow(TypeError);
+    expect(() => K.DOCUMENT.notContains(42 as any)).toThrow(
+      "K.DOCUMENT.notContains requires a string value",
+    );
+    expect(() => K.DOCUMENT.notContains(false as any)).toThrow(TypeError);
+    expect(() => K.DOCUMENT.notContains(false as any)).toThrow(
+      "K.DOCUMENT.notContains requires a string value",
+    );
+  });
+
+  test("K.DOCUMENT.contains accepts string values", () => {
+    const expr = K.DOCUMENT.contains("machine learning");
+    const payload = new Search({ where: expr }).toPayload();
+    expect(payload.filter).toEqual({
+      "#document": { $contains: "machine learning" },
+    });
+  });
+
+  test("K.DOCUMENT.notContains accepts string values", () => {
+    const expr = K.DOCUMENT.notContains("deprecated");
+    const payload = new Search({ where: expr }).toPayload();
+    expect(payload.filter).toEqual({
+      "#document": { $not_contains: "deprecated" },
+    });
+  });
+
+  test("metadata key contains/notContains still accepts numbers and booleans", () => {
+    const containsNum = K("scores").contains(42);
+    expect(new Search({ where: containsNum }).toPayload().filter).toEqual({
+      scores: { $contains: 42 },
+    });
+
+    const containsBool = K("flags").contains(true);
+    expect(new Search({ where: containsBool }).toPayload().filter).toEqual({
+      flags: { $contains: true },
+    });
+
+    const notContainsNum = K("scores").notContains(42);
+    expect(new Search({ where: notContainsNum }).toPayload().filter).toEqual({
+      scores: { $not_contains: 42 },
+    });
+  });
+
   test("K helper maps metadata selections and operators", () => {
     const where = K("author")
       .isIn(["alice", "bob"])
@@ -355,8 +413,16 @@ describe("search expression DSL", () => {
     let capturedBody: any;
     const mockChromaClient = {
       getMaxBatchSize: jest.fn<() => Promise<number>>().mockResolvedValue(1000),
-      supportsBase64Encoding: jest.fn<() => Promise<boolean>>().mockResolvedValue(false),
-      _path: jest.fn<() => Promise<{ path: string; tenant: string; database: string }>>().mockResolvedValue({ path: "/api/v1", tenant: "default_tenant", database: "default_database" }),
+      supportsBase64Encoding: jest
+        .fn<() => Promise<boolean>>()
+        .mockResolvedValue(false),
+      _path: jest
+        .fn<() => Promise<{ path: string; tenant: string; database: string }>>()
+        .mockResolvedValue({
+          path: "/api/v1",
+          tenant: "default_tenant",
+          database: "default_database",
+        }),
     };
 
     const mockApiClient = {
@@ -388,7 +454,9 @@ describe("search expression DSL", () => {
       schema: undefined,
     });
 
-    await collection.search(new Search().rank(Knn({ query: queryText, limit: 7 })));
+    await collection.search(
+      new Search().rank(Knn({ query: queryText, limit: 7 })),
+    );
 
     expect(mockApiClient.post).toHaveBeenCalledTimes(1);
     expect(generateForQueriesSpy).toHaveBeenCalledTimes(1);
@@ -411,7 +479,7 @@ describe("search expression DSL", () => {
     class DeterministicSparseEmbedding implements SparseEmbeddingFunction {
       public readonly name = "deterministic_sparse";
 
-      constructor(private readonly label = "sparse") { }
+      constructor(private readonly label = "sparse") {}
 
       async generate(texts: string[]): Promise<SparseVector[]> {
         return texts.map((text) => {
@@ -426,7 +494,9 @@ describe("search expression DSL", () => {
         return { label: this.label };
       }
 
-      static buildFromConfig(config: Record<string, any>): DeterministicSparseEmbedding {
+      static buildFromConfig(
+        config: Record<string, any>,
+      ): DeterministicSparseEmbedding {
         return new DeterministicSparseEmbedding(config.label);
       }
     }
@@ -446,8 +516,16 @@ describe("search expression DSL", () => {
     let capturedBody: any;
     const mockChromaClient = {
       getMaxBatchSize: jest.fn<() => Promise<number>>().mockResolvedValue(1000),
-      supportsBase64Encoding: jest.fn<() => Promise<boolean>>().mockResolvedValue(false),
-      _path: jest.fn<() => Promise<{ path: string; tenant: string; database: string }>>().mockResolvedValue({ path: "/api/v1", tenant: "default_tenant", database: "default_database" }),
+      supportsBase64Encoding: jest
+        .fn<() => Promise<boolean>>()
+        .mockResolvedValue(false),
+      _path: jest
+        .fn<() => Promise<{ path: string; tenant: string; database: string }>>()
+        .mockResolvedValue({
+          path: "/api/v1",
+          tenant: "default_tenant",
+          database: "default_database",
+        }),
     };
 
     const mockApiClient = {
@@ -480,7 +558,9 @@ describe("search expression DSL", () => {
     });
 
     await collection.search(
-      new Search().rank(Knn({ key: "sparse_metadata", query: queryText, limit: 10 })),
+      new Search().rank(
+        Knn({ key: "sparse_metadata", query: queryText, limit: 10 }),
+      ),
     );
 
     expect(mockApiClient.post).toHaveBeenCalledTimes(1);
@@ -503,8 +583,16 @@ describe("search expression DSL", () => {
     let capturedBody: any;
     const mockChromaClient = {
       getMaxBatchSize: jest.fn<() => Promise<number>>().mockResolvedValue(1000),
-      supportsBase64Encoding: jest.fn<() => Promise<boolean>>().mockResolvedValue(false),
-      _path: jest.fn<() => Promise<{ path: string; tenant: string; database: string }>>().mockResolvedValue({ path: "/api/v1", tenant: "default_tenant", database: "default_database" }),
+      supportsBase64Encoding: jest
+        .fn<() => Promise<boolean>>()
+        .mockResolvedValue(false),
+      _path: jest
+        .fn<() => Promise<{ path: string; tenant: string; database: string }>>()
+        .mockResolvedValue({
+          path: "/api/v1",
+          tenant: "default_tenant",
+          database: "default_database",
+        }),
     };
 
     const mockApiClient = {

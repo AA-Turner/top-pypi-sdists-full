@@ -474,6 +474,7 @@ def upload_s3_multipart_file(
     retry_strategy, upload_helper = _create_strategy_and_helper_for_s3_direct_upload(
         options=options, upload_expires_in=multipart_options.upload_expires_in
     )
+    will_be_retried = False
     try:
         # we need session without retries because it would be done by uploader
         session = get_cached_comet_http_session(
@@ -488,21 +489,6 @@ def upload_s3_multipart_file(
             session=session,
             _monitor=_monitor,
         )
-
-        if options.clean is True:
-            # Cleanup file in case of success
-            try:
-                os.remove(options.file_path)
-                LOGGER.debug(
-                    "Removed file after direct upload to S3: %r", options.file_path
-                )
-            except OSError:
-                LOGGER.debug(
-                    "Failed to remove file after direct upload to S3: %r",
-                    options.file_path,
-                    exc_info=True,
-                )
-                pass
 
         LOGGER.debug(
             "File successfully uploaded to S3: %r, bytes sent: %d, upload type: %r",
@@ -526,6 +512,7 @@ def upload_s3_multipart_file(
             and e.due_connection_error
             and options.log_connection_error_as_debug
         ):
+            will_be_retried = True
             # to avoid spamming user with errors
             LOGGER.debug(
                 CONNECTION_S3_DIRECT_FILE_UPLOAD_FAILED_ERROR,
@@ -560,6 +547,20 @@ def upload_s3_multipart_file(
                     exc_info=True,
                 )
         raise
+    finally:
+        if not will_be_retried and options.clean is True:
+            # Cleanup file in case of success or non-retryable error
+            try:
+                os.remove(options.file_path)
+                LOGGER.debug(
+                    "Removed file after direct upload to S3: %r", options.file_path
+                )
+            except OSError:
+                LOGGER.debug(
+                    "Failed to remove file after direct upload to S3: %r",
+                    options.file_path,
+                    exc_info=True,
+                )
 
 
 def upload_s3_multipart_file_like(
@@ -735,6 +736,7 @@ def upload_file(
     check_upload_limit_not_reached(options, upload_limits_guard)
 
     params, headers = _prepare_upload_params_and_headers(options)
+    will_be_retried = False
     try:
         response = _process_upload_with_retries(
             upload_func=send_file,
@@ -766,6 +768,7 @@ def upload_file(
 
             # Handle soft upload limits - HTTP 429 (Too Many Requests) specifically for retry integration
             if response.status_code == HTTPStatus.TOO_MANY_REQUESTS:
+                will_be_retried = True
                 raise FileUploadThrottledException(response, options)
 
             if check_asset_was_already_uploaded(response):
@@ -782,18 +785,6 @@ def upload_file(
                         options.upload_endpoint,
                         response.content,
                     )
-                )
-
-        if options.clean is True:
-            # Cleanup file in case of success
-            try:
-                os.remove(options.file_path)
-                LOGGER.debug("Removed file after sending: %r", options.file_path)
-            except OSError:
-                LOGGER.debug(
-                    "Failed to remove file after sending: %r",
-                    options.file_path,
-                    exc_info=True,
                 )
 
         LOGGER.debug(
@@ -819,6 +810,7 @@ def upload_file(
             isinstance(e, (ConnectionError, requests.ConnectionError))
             and options.log_connection_error_as_debug
         ):
+            will_be_retried = True
             # to avoid spamming user with errors
             LOGGER.debug(
                 CONNECTION_FILE_UPLOAD_FAILED_ERROR,
@@ -856,6 +848,18 @@ def upload_file(
                 err_msg=str(e),
             )
             raise
+    finally:
+        if not will_be_retried and options.clean is True:
+            # Cleanup file in case of success or non recoverable error
+            try:
+                os.remove(options.file_path)
+                LOGGER.debug("Removed file after sending: %r", options.file_path)
+            except OSError:
+                LOGGER.debug(
+                    "Failed to remove file after sending: %r",
+                    options.file_path,
+                    exc_info=True,
+                )
 
 
 def upload_file_like(
@@ -1059,6 +1063,7 @@ def upload_asset_item(
         "assetItemType": options.asset_item.type,
     }
 
+    will_be_retried = False
     try:
         response = _process_upload_with_retries(
             upload_func=send_asset_item,
@@ -1078,6 +1083,7 @@ def upload_asset_item(
         if response.status_code != HTTPStatus.OK:
             # Handle soft upload limits - HTTP 429 (Too Many Requests) specifically for retry integration
             if response.status_code == HTTPStatus.TOO_MANY_REQUESTS:
+                will_be_retried = True
                 raise FileUploadThrottledException(response, options)
 
             raise ValueError(
@@ -1098,10 +1104,12 @@ def upload_asset_item(
             isinstance(e, (ConnectionError, requests.ConnectionError))
             and options.log_connection_error_as_debug
         ):
+            will_be_retried = True
             # to avoid spamming user with errors
             LOGGER.debug(
                 CONNECTION_UPLOAD_ASSET_ITEM_FAILED_ERROR,
                 options.asset_item.file_name,
+                options.asset_item.file_path,
                 options.upload_endpoint,
                 e,
                 exc_info=True,
@@ -1110,6 +1118,7 @@ def upload_asset_item(
             LOGGER.error(
                 CONNECTION_UPLOAD_ASSET_ITEM_FAILED_ERROR,
                 options.asset_item.file_name,
+                options.asset_item.file_path,
                 options.upload_endpoint,
                 e,
                 exc_info=True,
@@ -1134,6 +1143,20 @@ def upload_asset_item(
             )
 
             raise
+    finally:
+        if not will_be_retried and options.clean is True:
+            # Cleanup item file in case of success or non recoverable error
+            file_path = options.asset_item.file_path
+            try:
+                os.remove(file_path)
+                LOGGER.debug("Removed asset item's file after sending: %r", file_path)
+            except OSError as e:
+                LOGGER.debug(
+                    "Failed to remove asset item's file after sending: %r, reason: %s",
+                    file_path,
+                    e,
+                    exc_info=True,
+                )
 
 
 def upload_thumbnail(
@@ -1206,3 +1229,17 @@ def upload_thumbnail(
         )
 
         raise
+    finally:
+        if options.clean is True:
+            # Cleanup item file in case of success or non recoverable error
+            file_path = options.thumbnail_path
+            try:
+                os.remove(file_path)
+                LOGGER.debug("Removed thumbnail file after sending: %r", file_path)
+            except OSError as e:
+                LOGGER.debug(
+                    "Failed to remove thumbnail file after sending: %r, reason: %s",
+                    file_path,
+                    e,
+                    exc_info=True,
+                )

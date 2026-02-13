@@ -21,7 +21,7 @@ class Instrument(metaclass=ABCMeta):
     instrument: ClassVar[str]
 
     @abstractmethod
-    def __init__(self, config: CodSpeedConfig): ...
+    def __init__(self, config: CodSpeedConfig, mode: MeasurementMode): ...
 
     @abstractmethod
     def get_instrument_config_str_and_warns(self) -> tuple[str, list[str]]: ...
@@ -56,17 +56,25 @@ class Instrument(metaclass=ABCMeta):
 
 
 class MeasurementMode(str, Enum):
-    Instrumentation = "instrumentation"
+    Simulation = "simulation"
+    Memory = "memory"
     WallTime = "walltime"
+
+    @classmethod
+    def _missing_(cls, value: object):
+        # Accept "instrumentation" as deprecated alias for "simulation"
+        if value == "instrumentation":
+            return cls.Simulation
+        return None
 
 
 def get_instrument_from_mode(mode: MeasurementMode) -> type[Instrument]:
-    from pytest_codspeed.instruments.valgrind import (
-        ValgrindInstrument,
+    from pytest_codspeed.instruments.analysis import (
+        AnalysisInstrument,
     )
     from pytest_codspeed.instruments.walltime import WallTimeInstrument
 
-    if mode == MeasurementMode.Instrumentation:
-        return ValgrindInstrument
+    if mode in (MeasurementMode.Simulation, MeasurementMode.Memory):
+        return AnalysisInstrument
     else:
         return WallTimeInstrument

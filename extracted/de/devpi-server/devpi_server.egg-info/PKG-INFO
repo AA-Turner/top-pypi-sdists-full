@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: devpi-server
-Version: 6.19.0
+Version: 6.19.1
 Summary: devpi-server: reliable, private, and pypi.org caching server
 Maintainer-email: Florian Schulze <mail@pyfidelity.com>
 License-Expression: MIT
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet :: WWW/HTTP :: WSGI :: Application
 Classifier: Topic :: Internet :: WWW/HTTP
@@ -42,6 +43,7 @@ Requires-Dist: pluggy<2.0,>=0.6.0
 Requires-Dist: py>=1.4.23
 Requires-Dist: pyramid>=2
 Requires-Dist: repoze.lru>=0.6
+Requires-Dist: setuptools<=81
 Requires-Dist: strenum; python_version < "3.11"
 Requires-Dist: strictyaml
 Requires-Dist: waitress>=1.0.1
@@ -121,6 +123,16 @@ Changelog
 
 
 .. towncrier release notes start
+
+6.19.1 (2026-02-09)
+===================
+
+Bug Fixes
+---------
+
+- Pin setuptools as pyramid still requires pkg_resources.
+
+- Always allow replicas to access deleted releases to get the proper ``410 Gone`` instead of ``403 Forbidden`` when ``devpi-lockdown`` is in use.
 
 6.19.0 (2026-02-06)
 ===================
@@ -249,13 +261,4 @@ Bug Fixes
 - Preserve hash when importing mirror data to prevent unnecessary updates later on.
 
 - Keep original metadata_version in database.
-
-
-6.15.0 (2025-05-18)
-===================
-
-Features
---------
-
-- Add ``--connection-limit`` option to devpi-server passed on to waitress.
 

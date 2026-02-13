@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -553,8 +553,12 @@ VariantUserClassImpl::execute (const tl::ExpressionParserContext &context, tl::V
     bool ret = false;
     if (args [0].is_user ()) {
       const tl::VariantUserClassBase *ub = args [0].user_cls ();
-      if (ub && ub->gsi_cls () == mp_cls) {
-        ret = true;
+      if (ub) {
+        const gsi::ClassBase *ub_gsi = ub->gsi_cls ();
+        const gsi::ClassBase *cls = mp_cls;
+        while (cls && ! (ret = (ub_gsi == cls))) {
+          cls = cls->base ();
+        }
       }
     }
 

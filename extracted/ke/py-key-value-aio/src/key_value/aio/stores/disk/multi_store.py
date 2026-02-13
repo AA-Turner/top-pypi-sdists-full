@@ -3,11 +3,18 @@ from datetime import timezone
 from pathlib import Path
 from typing import overload
 
-from key_value.shared.utils.managed_entry import ManagedEntry, datetime
-from key_value.shared.utils.serialization import BasicSerializationAdapter
 from typing_extensions import override
 
 from key_value.aio.stores.base import BaseContextManagerStore, BaseStore
+from key_value.aio.stores.disk.store import (
+    _create_disk_cache,
+    _disk_cache_close,
+    _disk_cache_delete,
+    _disk_cache_get_with_expire,
+    _disk_cache_set,
+)
+from key_value.shared.managed_entry import ManagedEntry, datetime
+from key_value.shared.serialization import BasicSerializationAdapter
 
 try:
     from diskcache import Cache
@@ -35,9 +42,10 @@ class MultiDiskStore(BaseContextManagerStore, BaseStore):
     _disk_cache_factory: CacheFactory
 
     _base_directory: Path
+    _auto_create: bool
 
     @overload
-    def __init__(self, *, disk_cache_factory: CacheFactory, default_collection: str | None = None) -> None:
+    def __init__(self, *, disk_cache_factory: CacheFactory, default_collection: str | None = None, auto_create: bool = True) -> None:
         """Initialize a multi-disk store with a custom factory function. The function will be called for each
         collection created by the caller with the collection name as the argument. Use this to tightly
         control the creation of the diskcache Cache instances.
@@ -45,16 +53,20 @@ class MultiDiskStore(BaseContextManagerStore, BaseStore):
         Args:
             disk_cache_factory: A factory function that creates a diskcache Cache instance for a given collection.
             default_collection: The default collection to use if no collection is provided.
+            auto_create: Whether to automatically create directories if they don't exist. Defaults to True.
         """
 
     @overload
-    def __init__(self, *, base_directory: Path, max_size: int | None = None, default_collection: str | None = None) -> None:
+    def __init__(
+        self, *, base_directory: Path, max_size: int | None = None, default_collection: str | None = None, auto_create: bool = True
+    ) -> None:
         """Initialize a multi-disk store that creates one diskcache Cache instance per collection created by the caller.
 
         Args:
             base_directory: The directory to use for the disk caches.
             max_size: The maximum size of the disk caches.
             default_collection: The default collection to use if no collection is provided.
+            auto_create: Whether to automatically create directories if they don't exist. Defaults to True.
         """
 
     def __init__(
@@ -64,6 +76,7 @@ class MultiDiskStore(BaseContextManagerStore, BaseStore):
         base_directory: Path | None = None,
         max_size: int | None = None,
         default_collection: str | None = None,
+        auto_create: bool = True,
     ) -> None:
         """Initialize the disk caches.
 
@@ -72,6 +85,8 @@ class MultiDiskStore(BaseContextManagerStore, BaseStore):
             base_directory: The directory to use for the disk caches.
             max_size: The maximum size of the disk caches.
             default_collection: The default collection to use if no collection is provided.
+            auto_create: Whether to automatically create directories if they don't exist. Defaults to True.
+                When False, raises ValueError if a directory doesn't exist.
         """
         if disk_cache_factory is None and base_directory is None:
             msg = "Either disk_cache_factory or base_directory must be provided"
@@ -81,6 +96,7 @@ class MultiDiskStore(BaseContextManagerStore, BaseStore):
             base_directory = Path.cwd()
 
         self._base_directory = base_directory.resolve()
+        self._auto_create = auto_create
 
         def default_disk_cache_factory(collection: str) -> Cache:
             """Create a default disk cache factory that creates a diskcache Cache instance for a given collection."""
@@ -88,12 +104,13 @@ class MultiDiskStore(BaseContextManagerStore, BaseStore):
 
             cache_directory: Path = self._base_directory / sanitized_collection
 
-            cache_directory.mkdir(parents=True, exist_ok=True)
+            if not cache_directory.exists():
+                if not self._auto_create:
+                    msg = f"Directory '{cache_directory}' does not exist. Either create the directory manually or set auto_create=True."
+                    raise ValueError(msg)
+                cache_directory.mkdir(parents=True, exist_ok=True)
 
-            if max_size is not None and max_size > 0:
-                return Cache(directory=cache_directory, size_limit=max_size)
-
-            return Cache(directory=cache_directory, eviction_policy="none")
+            return _create_disk_cache(directory=cache_directory, max_size=max_size)
 
         self._disk_cache_factory = disk_cache_factory or default_disk_cache_factory
 
@@ -117,9 +134,9 @@ class MultiDiskStore(BaseContextManagerStore, BaseStore):
 
     @override
     async def _get_managed_entry(self, *, key: str, collection: str) -> ManagedEntry | None:
-        expire_epoch: float
+        expire_epoch: float | None
 
-        managed_entry_str, expire_epoch = self._cache[collection].get(key=key, expire_time=True)  # pyright: ignore[reportAny]
+        managed_entry_str, expire_epoch = _disk_cache_get_with_expire(cache=self._cache[collection], key=key)
 
         if not isinstance(managed_entry_str, str):
             return None
@@ -139,7 +156,8 @@ class MultiDiskStore(BaseContextManagerStore, BaseStore):
         collection: str,
         managed_entry: ManagedEntry,
     ) -> None:
-        _ = self._cache[collection].set(
+        _ = _disk_cache_set(
+            cache=self._cache[collection],
             key=key,
             value=self._serialization_adapter.dump_json(entry=managed_entry, key=key, collection=collection),
             expire=managed_entry.ttl,
@@ -147,11 +165,11 @@ class MultiDiskStore(BaseContextManagerStore, BaseStore):
 
     @override
     async def _delete_managed_entry(self, *, key: str, collection: str) -> bool:
-        return self._cache[collection].delete(key=key, retry=True)
+        return _disk_cache_delete(cache=self._cache[collection], key=key)
 
     def _sync_close(self) -> None:
         for cache in self._cache.values():
-            cache.close()
+            _disk_cache_close(cache=cache)
 
     def __del__(self) -> None:
         self._sync_close()

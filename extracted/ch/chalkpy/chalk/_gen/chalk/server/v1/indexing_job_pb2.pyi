@@ -14,12 +14,14 @@ class DirectoryOptions(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DIRECTORY_OPTIONS_SHADOW: _ClassVar[DirectoryOptions]
     DIRECTORY_OPTIONS_DRY_RUN: _ClassVar[DirectoryOptions]
     DIRECTORY_OPTIONS_INDEXING_JOB: _ClassVar[DirectoryOptions]
+    DIRECTORY_OPTIONS_VENV_INDEXING: _ClassVar[DirectoryOptions]
 
 DIRECTORY_OPTIONS_UNSPECIFIED: DirectoryOptions
 DIRECTORY_OPTIONS_MAIN: DirectoryOptions
 DIRECTORY_OPTIONS_SHADOW: DirectoryOptions
 DIRECTORY_OPTIONS_DRY_RUN: DirectoryOptions
 DIRECTORY_OPTIONS_INDEXING_JOB: DirectoryOptions
+DIRECTORY_OPTIONS_VENV_INDEXING: DirectoryOptions
 
 class GetIndexingJobStatusRequest(_message.Message):
     __slots__ = ("deployment_id", "directory_prefix_enum")

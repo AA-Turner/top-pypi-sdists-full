@@ -734,6 +734,189 @@ glue.S3Table(self, "MyTable",
 )
 ```
 
+### Partition Projection
+
+Partition projection allows Athena to automatically add new partitions as new data arrives, without requiring `ALTER TABLE ADD PARTITION` statements. This improves query performance and reduces management overhead by eliminating the need to manually manage partition metadata.
+
+For more information, see the [AWS documentation on partition projection](https://docs.aws.amazon.com/athena/latest/ug/partition-projection.html).
+
+#### INTEGER Projection
+
+For partition keys with sequential numeric values:
+
+```python
+# my_database: glue.Database
+
+glue.S3Table(self, "MyTable",
+    database=my_database,
+    columns=[glue.Column(
+        name="data",
+        type=glue.Schema.STRING
+    )],
+    partition_keys=[glue.Column(
+        name="year",
+        type=glue.Schema.INTEGER
+    )],
+    data_format=glue.DataFormat.JSON,
+    partition_projection={
+        "year": glue.PartitionProjectionConfiguration.integer(
+            min=2020,
+            max=2023,
+            interval=1,  # optional, defaults to 1
+            digits=4
+        )
+    }
+)
+```
+
+#### DATE Projection
+
+For partition keys with date or timestamp values. Supports both fixed dates and relative dates using `NOW`:
+
+```python
+# my_database: glue.Database
+
+glue.S3Table(self, "MyTable",
+    database=my_database,
+    columns=[glue.Column(
+        name="data",
+        type=glue.Schema.STRING
+    )],
+    partition_keys=[glue.Column(
+        name="date",
+        type=glue.Schema.STRING
+    )],
+    data_format=glue.DataFormat.JSON,
+    partition_projection={
+        "date": glue.PartitionProjectionConfiguration.date(
+            min="2020-01-01",
+            max="2023-12-31",
+            format="yyyy-MM-dd",
+            interval=1,  # optional, defaults to 1
+            interval_unit=glue.DateIntervalUnit.DAYS
+        )
+    }
+)
+```
+
+You can also use relative dates with `NOW`:
+
+```python
+# my_database: glue.Database
+
+glue.S3Table(self, "MyTable",
+    database=my_database,
+    columns=[glue.Column(
+        name="data",
+        type=glue.Schema.STRING
+    )],
+    partition_keys=[glue.Column(
+        name="date",
+        type=glue.Schema.STRING
+    )],
+    data_format=glue.DataFormat.JSON,
+    partition_projection={
+        "date": glue.PartitionProjectionConfiguration.date(
+            min="NOW-3YEARS",
+            max="NOW",
+            format="yyyy-MM-dd"
+        )
+    }
+)
+```
+
+#### ENUM Projection
+
+For partition keys with a known set of values:
+
+```python
+# my_database: glue.Database
+
+glue.S3Table(self, "MyTable",
+    database=my_database,
+    columns=[glue.Column(
+        name="data",
+        type=glue.Schema.STRING
+    )],
+    partition_keys=[glue.Column(
+        name="region",
+        type=glue.Schema.STRING
+    )],
+    data_format=glue.DataFormat.JSON,
+    partition_projection={
+        "region": glue.PartitionProjectionConfiguration.enum(
+            values=["us-east-1", "us-west-2", "eu-west-1"]
+        )
+    }
+)
+```
+
+#### INJECTED Projection
+
+For custom partition values injected at query time:
+
+```python
+# my_database: glue.Database
+
+glue.S3Table(self, "MyTable",
+    database=my_database,
+    columns=[glue.Column(
+        name="data",
+        type=glue.Schema.STRING
+    )],
+    partition_keys=[glue.Column(
+        name="custom",
+        type=glue.Schema.STRING
+    )],
+    data_format=glue.DataFormat.JSON,
+    partition_projection={
+        "custom": glue.PartitionProjectionConfiguration.injected()
+    }
+)
+```
+
+#### Multiple Partition Projections
+
+You can configure partition projection for multiple partition keys:
+
+```python
+# my_database: glue.Database
+
+glue.S3Table(self, "MyTable",
+    database=my_database,
+    columns=[glue.Column(
+        name="data",
+        type=glue.Schema.STRING
+    )],
+    partition_keys=[glue.Column(
+        name="year",
+        type=glue.Schema.INTEGER
+    ), glue.Column(
+        name="month",
+        type=glue.Schema.INTEGER
+    ), glue.Column(
+        name="region",
+        type=glue.Schema.STRING
+    )
+    ],
+    data_format=glue.DataFormat.JSON,
+    partition_projection={
+        "year": glue.PartitionProjectionConfiguration.integer(
+            min=2020,
+            max=2023
+        ),
+        "month": glue.PartitionProjectionConfiguration.integer(
+            min=1,
+            max=12,
+            digits=2
+        ),
+        "region": glue.PartitionProjectionConfiguration.enum(
+            values=["us-east-1", "us-west-2"]
+        )
+    }
+)
+```
+
 ### Glue Connections
 
 Glue connections allow external data connections to third party databases and data warehouses. However, these connections can also be assigned to Glue Tables, allowing you to query external data sources using the Glue Data Catalog.
@@ -2709,17 +2892,23 @@ class DataFormat(
         glue.S3Table(self, "MyTable",
             database=my_database,
             columns=[glue.Column(
-                name="col1",
+                name="data",
                 type=glue.Schema.STRING
             )],
             partition_keys=[glue.Column(
-                name="year",
-                type=glue.Schema.SMALL_INT
-            ), glue.Column(
-                name="month",
-                type=glue.Schema.SMALL_INT
+                name="date",
+                type=glue.Schema.STRING
             )],
-            data_format=glue.DataFormat.JSON
+            data_format=glue.DataFormat.JSON,
+            partition_projection={
+                "date": glue.PartitionProjectionConfiguration.date(
+                    min="2020-01-01",
+                    max="2023-12-31",
+                    format="yyyy-MM-dd",
+                    interval=1,  # optional, defaults to 1
+                    interval_unit=glue.DateIntervalUnit.DAYS
+                )
+            }
         )
     '''
 
@@ -3285,6 +3474,312 @@ class DatabaseProps:
 
     def __repr__(self) -> str:
         return "DatabaseProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.DateIntervalUnit")
+class DateIntervalUnit(enum.Enum):
+    '''(experimental) Date interval unit for partition projection.
+
+    :see: https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html#partition-projection-date-type
+    :stability: experimental
+    :exampleMetadata: infused
+
+    Example::
+
+        # my_database: glue.Database
+        
+        glue.S3Table(self, "MyTable",
+            database=my_database,
+            columns=[glue.Column(
+                name="data",
+                type=glue.Schema.STRING
+            )],
+            partition_keys=[glue.Column(
+                name="date",
+                type=glue.Schema.STRING
+            )],
+            data_format=glue.DataFormat.JSON,
+            partition_projection={
+                "date": glue.PartitionProjectionConfiguration.date(
+                    min="2020-01-01",
+                    max="2023-12-31",
+                    format="yyyy-MM-dd",
+                    interval=1,  # optional, defaults to 1
+                    interval_unit=glue.DateIntervalUnit.DAYS
+                )
+            }
+        )
+    '''
+
+    YEARS = "YEARS"
+    '''(experimental) Year interval.
+
+    :stability: experimental
+    '''
+    MONTHS = "MONTHS"
+    '''(experimental) Month interval.
+
+    :stability: experimental
+    '''
+    WEEKS = "WEEKS"
+    '''(experimental) Week interval.
+
+    :stability: experimental
+    '''
+    DAYS = "DAYS"
+    '''(experimental) Day interval (default).
+
+    :stability: experimental
+    '''
+    HOURS = "HOURS"
+    '''(experimental) Hour interval.
+
+    :stability: experimental
+    '''
+    MINUTES = "MINUTES"
+    '''(experimental) Minute interval.
+
+    :stability: experimental
+    '''
+    SECONDS = "SECONDS"
+    '''(experimental) Second interval.
+
+    :stability: experimental
+    '''
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-glue-alpha.DatePartitionProjectionConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "format": "format",
+        "max": "max",
+        "min": "min",
+        "interval": "interval",
+        "interval_unit": "intervalUnit",
+    },
+)
+class DatePartitionProjectionConfigurationProps:
+    def __init__(
+        self,
+        *,
+        format: builtins.str,
+        max: builtins.str,
+        min: builtins.str,
+        interval: typing.Optional[jsii.Number] = None,
+        interval_unit: typing.Optional["DateIntervalUnit"] = None,
+    ) -> None:
+        '''(experimental) Properties for DATE partition projection configuration.
+
+        :param format: (experimental) Date format for partition values. Uses Java SimpleDateFormat patterns.
+        :param max: (experimental) End date for the partition range (inclusive). Can be either: - Fixed date in the format specified by ``format`` property - Relative date using NOW syntax Same format constraints as ``min``.
+        :param min: (experimental) Start date for the partition range (inclusive). Can be either: - Fixed date in the format specified by ``format`` property (e.g., '2020-01-01' for format 'yyyy-MM-dd') - Relative date using NOW syntax (e.g., 'NOW', 'NOW-3YEARS', 'NOW+1MONTH')
+        :param interval: (experimental) Interval between partition values. When the provided dates are at single-day or single-month precision, the interval is optional and defaults to 1 day or 1 month, respectively. Otherwise, interval is required. Default: - 1 for single-day or single-month precision, otherwise required
+        :param interval_unit: (experimental) Unit for the interval. When the provided dates are at single-day or single-month precision, the intervalUnit is optional and defaults to 1 day or 1 month, respectively. Otherwise, the intervalUnit is required. Default: - DAYS for single-day precision, MONTHS for single-month precision, otherwise required
+
+        :stability: experimental
+        :exampleMetadata: infused
+
+        Example::
+
+            # my_database: glue.Database
+            
+            glue.S3Table(self, "MyTable",
+                database=my_database,
+                columns=[glue.Column(
+                    name="data",
+                    type=glue.Schema.STRING
+                )],
+                partition_keys=[glue.Column(
+                    name="date",
+                    type=glue.Schema.STRING
+                )],
+                data_format=glue.DataFormat.JSON,
+                partition_projection={
+                    "date": glue.PartitionProjectionConfiguration.date(
+                        min="2020-01-01",
+                        max="2023-12-31",
+                        format="yyyy-MM-dd",
+                        interval=1,  # optional, defaults to 1
+                        interval_unit=glue.DateIntervalUnit.DAYS
+                    )
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__48fd6dee3d59bed3adba9ad20063bd1666e567655b8b7bdca390054a4d0542c1)
+            check_type(argname="argument format", value=format, expected_type=type_hints["format"])
+            check_type(argname="argument max", value=max, expected_type=type_hints["max"])
+            check_type(argname="argument min", value=min, expected_type=type_hints["min"])
+            check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
+            check_type(argname="argument interval_unit", value=interval_unit, expected_type=type_hints["interval_unit"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "format": format,
+            "max": max,
+            "min": min,
+        }
+        if interval is not None:
+            self._values["interval"] = interval
+        if interval_unit is not None:
+            self._values["interval_unit"] = interval_unit
+
+    @builtins.property
+    def format(self) -> builtins.str:
+        '''(experimental) Date format for partition values.
+
+        Uses Java SimpleDateFormat patterns.
+
+        :see: https://docs.oracle.com/javase/8/docs/api/java/text/SimpleDateFormat.html
+        :stability: experimental
+        '''
+        result = self._values.get("format")
+        assert result is not None, "Required property 'format' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def max(self) -> builtins.str:
+        '''(experimental) End date for the partition range (inclusive).
+
+        Can be either:
+
+        - Fixed date in the format specified by ``format`` property
+        - Relative date using NOW syntax
+
+        Same format constraints as ``min``.
+
+        :stability: experimental
+        '''
+        result = self._values.get("max")
+        assert result is not None, "Required property 'max' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def min(self) -> builtins.str:
+        '''(experimental) Start date for the partition range (inclusive).
+
+        Can be either:
+
+        - Fixed date in the format specified by ``format`` property
+          (e.g., '2020-01-01' for format 'yyyy-MM-dd')
+        - Relative date using NOW syntax
+          (e.g., 'NOW', 'NOW-3YEARS', 'NOW+1MONTH')
+
+        :see: https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html#partition-projection-date-type
+        :stability: experimental
+        '''
+        result = self._values.get("min")
+        assert result is not None, "Required property 'min' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def interval(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Interval between partition values.
+
+        When the provided dates are at single-day or single-month precision,
+        the interval is optional and defaults to 1 day or 1 month, respectively.
+        Otherwise, interval is required.
+
+        :default: - 1 for single-day or single-month precision, otherwise required
+
+        :stability: experimental
+        '''
+        result = self._values.get("interval")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def interval_unit(self) -> typing.Optional["DateIntervalUnit"]:
+        '''(experimental) Unit for the interval.
+
+        When the provided dates are at single-day or single-month precision,
+        the intervalUnit is optional and defaults to 1 day or 1 month, respectively.
+        Otherwise, the intervalUnit is required.
+
+        :default: - DAYS for single-day precision, MONTHS for single-month precision, otherwise required
+
+        :stability: experimental
+        '''
+        result = self._values.get("interval_unit")
+        return typing.cast(typing.Optional["DateIntervalUnit"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DatePartitionProjectionConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-glue-alpha.EnumPartitionProjectionConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={"values": "values"},
+)
+class EnumPartitionProjectionConfigurationProps:
+    def __init__(self, *, values: typing.Sequence[builtins.str]) -> None:
+        '''(experimental) Properties for ENUM partition projection configuration.
+
+        :param values: (experimental) Explicit list of partition values.
+
+        :stability: experimental
+        :exampleMetadata: infused
+
+        Example::
+
+            # my_database: glue.Database
+            
+            glue.S3Table(self, "MyTable",
+                database=my_database,
+                columns=[glue.Column(
+                    name="data",
+                    type=glue.Schema.STRING
+                )],
+                partition_keys=[glue.Column(
+                    name="region",
+                    type=glue.Schema.STRING
+                )],
+                data_format=glue.DataFormat.JSON,
+                partition_projection={
+                    "region": glue.PartitionProjectionConfiguration.enum(
+                        values=["us-east-1", "us-west-2", "eu-west-1"]
+                    )
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f0708bfef4a9eae714823be37d2724452d991d2905bac88df563477a2d31a6a0)
+            check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "values": values,
+        }
+
+    @builtins.property
+    def values(self) -> typing.List[builtins.str]:
+        '''(experimental) Explicit list of partition values.
+
+        :stability: experimental
+
+        Example::
+
+            ["us-east-1", "us-west-2", "eu-west-1"]
+        '''
+        result = self._values.get("values")
+        assert result is not None, "Required property 'values' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EnumPartitionProjectionConfigurationProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -4821,6 +5316,131 @@ class InputFormat(
         return typing.cast(builtins.str, jsii.get(self, "className"))
 
 
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-glue-alpha.IntegerPartitionProjectionConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "max": "max",
+        "min": "min",
+        "digits": "digits",
+        "interval": "interval",
+    },
+)
+class IntegerPartitionProjectionConfigurationProps:
+    def __init__(
+        self,
+        *,
+        max: jsii.Number,
+        min: jsii.Number,
+        digits: typing.Optional[jsii.Number] = None,
+        interval: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''(experimental) Properties for INTEGER partition projection configuration.
+
+        :param max: (experimental) Maximum value for the integer partition range (inclusive).
+        :param min: (experimental) Minimum value for the integer partition range (inclusive).
+        :param digits: (experimental) Number of digits to pad the partition value with leading zeros. With digits: 4, partition values: 0001, 0002, ..., 0100 Default: - no static number of digits and no leading zeroes
+        :param interval: (experimental) Interval between partition values. Default: 1
+
+        :stability: experimental
+        :exampleMetadata: infused
+
+        Example::
+
+            # my_database: glue.Database
+            
+            glue.S3Table(self, "MyTable",
+                database=my_database,
+                columns=[glue.Column(
+                    name="data",
+                    type=glue.Schema.STRING
+                )],
+                partition_keys=[glue.Column(
+                    name="year",
+                    type=glue.Schema.INTEGER
+                )],
+                data_format=glue.DataFormat.JSON,
+                partition_projection={
+                    "year": glue.PartitionProjectionConfiguration.integer(
+                        min=2020,
+                        max=2023,
+                        interval=1,  # optional, defaults to 1
+                        digits=4
+                    )
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__484bb6f13c480ca05473538c8ef5310f40aa9e016608105d0c2d41420ae5ad10)
+            check_type(argname="argument max", value=max, expected_type=type_hints["max"])
+            check_type(argname="argument min", value=min, expected_type=type_hints["min"])
+            check_type(argname="argument digits", value=digits, expected_type=type_hints["digits"])
+            check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "max": max,
+            "min": min,
+        }
+        if digits is not None:
+            self._values["digits"] = digits
+        if interval is not None:
+            self._values["interval"] = interval
+
+    @builtins.property
+    def max(self) -> jsii.Number:
+        '''(experimental) Maximum value for the integer partition range (inclusive).
+
+        :stability: experimental
+        '''
+        result = self._values.get("max")
+        assert result is not None, "Required property 'max' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def min(self) -> jsii.Number:
+        '''(experimental) Minimum value for the integer partition range (inclusive).
+
+        :stability: experimental
+        '''
+        result = self._values.get("min")
+        assert result is not None, "Required property 'min' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def digits(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Number of digits to pad the partition value with leading zeros.
+
+        With digits: 4, partition values: 0001, 0002, ..., 0100
+
+        :default: - no static number of digits and no leading zeroes
+
+        :stability: experimental
+        '''
+        result = self._values.get("digits")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def interval(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Interval between partition values.
+
+        :default: 1
+
+        :stability: experimental
+        '''
+        result = self._values.get("interval")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "IntegerPartitionProjectionConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.InvalidCharHandlingAction")
 class InvalidCharHandlingAction(enum.Enum):
     '''(experimental) Specifies the action to perform when query results contain invalid UTF-8 character values.
@@ -6319,6 +6939,236 @@ class PartitionIndex:
         )
 
 
+class PartitionProjectionConfiguration(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-glue-alpha.PartitionProjectionConfiguration",
+):
+    '''(experimental) Factory class for creating partition projection configurations.
+
+    :stability: experimental
+    :exampleMetadata: infused
+
+    Example::
+
+        # my_database: glue.Database
+        
+        glue.S3Table(self, "MyTable",
+            database=my_database,
+            columns=[glue.Column(
+                name="data",
+                type=glue.Schema.STRING
+            )],
+            partition_keys=[glue.Column(
+                name="date",
+                type=glue.Schema.STRING
+            )],
+            data_format=glue.DataFormat.JSON,
+            partition_projection={
+                "date": glue.PartitionProjectionConfiguration.date(
+                    min="2020-01-01",
+                    max="2023-12-31",
+                    format="yyyy-MM-dd",
+                    interval=1,  # optional, defaults to 1
+                    interval_unit=glue.DateIntervalUnit.DAYS
+                )
+            }
+        )
+    '''
+
+    @jsii.member(jsii_name="date")
+    @builtins.classmethod
+    def date(
+        cls,
+        *,
+        format: builtins.str,
+        max: builtins.str,
+        min: builtins.str,
+        interval: typing.Optional[jsii.Number] = None,
+        interval_unit: typing.Optional["DateIntervalUnit"] = None,
+    ) -> "PartitionProjectionConfiguration":
+        '''(experimental) Create a DATE partition projection configuration.
+
+        :param format: (experimental) Date format for partition values. Uses Java SimpleDateFormat patterns.
+        :param max: (experimental) End date for the partition range (inclusive). Can be either: - Fixed date in the format specified by ``format`` property - Relative date using NOW syntax Same format constraints as ``min``.
+        :param min: (experimental) Start date for the partition range (inclusive). Can be either: - Fixed date in the format specified by ``format`` property (e.g., '2020-01-01' for format 'yyyy-MM-dd') - Relative date using NOW syntax (e.g., 'NOW', 'NOW-3YEARS', 'NOW+1MONTH')
+        :param interval: (experimental) Interval between partition values. When the provided dates are at single-day or single-month precision, the interval is optional and defaults to 1 day or 1 month, respectively. Otherwise, interval is required. Default: - 1 for single-day or single-month precision, otherwise required
+        :param interval_unit: (experimental) Unit for the interval. When the provided dates are at single-day or single-month precision, the intervalUnit is optional and defaults to 1 day or 1 month, respectively. Otherwise, the intervalUnit is required. Default: - DAYS for single-day precision, MONTHS for single-month precision, otherwise required
+
+        :stability: experimental
+        '''
+        props = DatePartitionProjectionConfigurationProps(
+            format=format,
+            max=max,
+            min=min,
+            interval=interval,
+            interval_unit=interval_unit,
+        )
+
+        return typing.cast("PartitionProjectionConfiguration", jsii.sinvoke(cls, "date", [props]))
+
+    @jsii.member(jsii_name="enum")
+    @builtins.classmethod
+    def enum(
+        cls,
+        *,
+        values: typing.Sequence[builtins.str],
+    ) -> "PartitionProjectionConfiguration":
+        '''(experimental) Create an ENUM partition projection configuration.
+
+        :param values: (experimental) Explicit list of partition values.
+
+        :stability: experimental
+        '''
+        props = EnumPartitionProjectionConfigurationProps(values=values)
+
+        return typing.cast("PartitionProjectionConfiguration", jsii.sinvoke(cls, "enum", [props]))
+
+    @jsii.member(jsii_name="injected")
+    @builtins.classmethod
+    def injected(cls) -> "PartitionProjectionConfiguration":
+        '''(experimental) Create an INJECTED partition projection configuration.
+
+        Partition values are injected at query time through the query statement.
+
+        :see: https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html#partition-projection-injected-type
+        :stability: experimental
+        '''
+        return typing.cast("PartitionProjectionConfiguration", jsii.sinvoke(cls, "injected", []))
+
+    @jsii.member(jsii_name="integer")
+    @builtins.classmethod
+    def integer(
+        cls,
+        *,
+        max: jsii.Number,
+        min: jsii.Number,
+        digits: typing.Optional[jsii.Number] = None,
+        interval: typing.Optional[jsii.Number] = None,
+    ) -> "PartitionProjectionConfiguration":
+        '''(experimental) Create an INTEGER partition projection configuration.
+
+        :param max: (experimental) Maximum value for the integer partition range (inclusive).
+        :param min: (experimental) Minimum value for the integer partition range (inclusive).
+        :param digits: (experimental) Number of digits to pad the partition value with leading zeros. With digits: 4, partition values: 0001, 0002, ..., 0100 Default: - no static number of digits and no leading zeroes
+        :param interval: (experimental) Interval between partition values. Default: 1
+
+        :stability: experimental
+        '''
+        props = IntegerPartitionProjectionConfigurationProps(
+            max=max, min=min, digits=digits, interval=interval
+        )
+
+        return typing.cast("PartitionProjectionConfiguration", jsii.sinvoke(cls, "integer", [props]))
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> "PartitionProjectionType":
+        '''(experimental) The type of partition projection.
+
+        :stability: experimental
+        '''
+        return typing.cast("PartitionProjectionType", jsii.get(self, "type"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dateRange")
+    def date_range(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Range of partition values for DATE type.
+
+        Array of [start, end] as date strings.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "dateRange"))
+
+    @builtins.property
+    @jsii.member(jsii_name="digits")
+    def digits(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Number of digits to pad INTEGER partition values.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "digits"))
+
+    @builtins.property
+    @jsii.member(jsii_name="format")
+    def format(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Date format for DATE partition values (Java SimpleDateFormat).
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "format"))
+
+    @builtins.property
+    @jsii.member(jsii_name="integerRange")
+    def integer_range(self) -> typing.Optional[typing.List[jsii.Number]]:
+        '''(experimental) Range of partition values for INTEGER type.
+
+        Array of [min, max] as numbers.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[typing.List[jsii.Number]], jsii.get(self, "integerRange"))
+
+    @builtins.property
+    @jsii.member(jsii_name="interval")
+    def interval(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Interval between partition values.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "interval"))
+
+    @builtins.property
+    @jsii.member(jsii_name="intervalUnit")
+    def interval_unit(self) -> typing.Optional["DateIntervalUnit"]:
+        '''(experimental) Unit for DATE partition interval.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["DateIntervalUnit"], jsii.get(self, "intervalUnit"))
+
+    @builtins.property
+    @jsii.member(jsii_name="values")
+    def values(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Explicit list of values for ENUM partitions.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "values"))
+
+
+@jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.PartitionProjectionType")
+class PartitionProjectionType(enum.Enum):
+    '''(experimental) Partition projection type.
+
+    Determines how Athena projects partition values.
+
+    :see: https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html
+    :stability: experimental
+    '''
+
+    INTEGER = "INTEGER"
+    '''(experimental) Project partition values as integers within a range.
+
+    :stability: experimental
+    '''
+    DATE = "DATE"
+    '''(experimental) Project partition values as dates within a range.
+
+    :stability: experimental
+    '''
+    ENUM = "ENUM"
+    '''(experimental) Project partition values from an explicit list of values.
+
+    :stability: experimental
+    '''
+    INJECTED = "INJECTED"
+    '''(experimental) Project partition values that are injected at query time.
+
+    :stability: experimental
+    '''
+
+
 @jsii.data_type(
     jsii_type="@aws-cdk/aws-glue-alpha.Predicate",
     jsii_struct_bases=[],
@@ -7506,17 +8356,21 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
         glue.S3Table(self, "MyTable",
             database=my_database,
             columns=[glue.Column(
-                name="col1",
+                name="data",
                 type=glue.Schema.STRING
             )],
             partition_keys=[glue.Column(
-                name="year",
-                type=glue.Schema.SMALL_INT
-            ), glue.Column(
-                name="month",
-                type=glue.Schema.SMALL_INT
+                name="date",
+                type=glue.Schema.STRING
             )],
-            data_format=glue.DataFormat.JSON
+            data_format=glue.DataFormat.JSON,
+            partition_projection={
+                "date": glue.PartitionProjectionConfiguration.date(
+                    min="NOW-3YEARS",
+                    max="NOW",
+                    format="yyyy-MM-dd"
+                )
+            }
         )
     '''
 
@@ -9473,6 +10327,7 @@ class TableBase(
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
         partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
+        partition_projection: typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]] = None,
         storage_parameters: typing.Optional[typing.Sequence["StorageParameter"]] = None,
         stored_as_sub_directories: typing.Optional[builtins.bool] = None,
         table_name: typing.Optional[builtins.str] = None,
@@ -9489,6 +10344,7 @@ class TableBase(
         :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
         :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
         :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
+        :param partition_projection: (experimental) Partition projection configuration for this table. Partition projection allows Athena to automatically add new partitions without requiring ``ALTER TABLE ADD PARTITION`` statements. Default: - No partition projection
         :param storage_parameters: (experimental) The user-supplied properties for the description of the physical storage of this table. These properties help describe the format of the data that is stored within the crawled data sources. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property. Default: - The parameter is not defined
         :param stored_as_sub_directories: (experimental) Indicates whether the table data is stored in subdirectories. Default: false
         :param table_name: (experimental) Name of the table. Default: - generated by CDK.
@@ -9509,6 +10365,7 @@ class TableBase(
             parameters=parameters,
             partition_indexes=partition_indexes,
             partition_keys=partition_keys,
+            partition_projection=partition_projection,
             storage_parameters=storage_parameters,
             stored_as_sub_directories=stored_as_sub_directories,
             table_name=table_name,
@@ -9762,6 +10619,17 @@ class TableBase(
         return typing.cast(typing.Optional[typing.List["Column"]], jsii.get(self, "partitionKeys"))
 
     @builtins.property
+    @jsii.member(jsii_name="partitionProjection")
+    def partition_projection(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]]:
+        '''(experimental) This table's partition projection configuration if enabled.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]], jsii.get(self, "partitionProjection"))
+
+    @builtins.property
     @jsii.member(jsii_name="storageParameters")
     def storage_parameters(self) -> typing.Optional[typing.List["StorageParameter"]]:
         '''(experimental) The tables' storage descriptor properties.
@@ -9869,6 +10737,7 @@ typing.cast(typing.Any, TableBase).__jsii_proxy_class__ = lambda : _TableBasePro
         "parameters": "parameters",
         "partition_indexes": "partitionIndexes",
         "partition_keys": "partitionKeys",
+        "partition_projection": "partitionProjection",
         "storage_parameters": "storageParameters",
         "stored_as_sub_directories": "storedAsSubDirectories",
         "table_name": "tableName",
@@ -9887,6 +10756,7 @@ class TableBaseProps:
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
         partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
+        partition_projection: typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]] = None,
         storage_parameters: typing.Optional[typing.Sequence["StorageParameter"]] = None,
         stored_as_sub_directories: typing.Optional[builtins.bool] = None,
         table_name: typing.Optional[builtins.str] = None,
@@ -9901,6 +10771,7 @@ class TableBaseProps:
         :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
         :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
         :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
+        :param partition_projection: (experimental) Partition projection configuration for this table. Partition projection allows Athena to automatically add new partitions without requiring ``ALTER TABLE ADD PARTITION`` statements. Default: - No partition projection
         :param storage_parameters: (experimental) The user-supplied properties for the description of the physical storage of this table. These properties help describe the format of the data that is stored within the crawled data sources. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property. Default: - The parameter is not defined
         :param stored_as_sub_directories: (experimental) Indicates whether the table data is stored in subdirectories. Default: false
         :param table_name: (experimental) Name of the table. Default: - generated by CDK.
@@ -9916,6 +10787,7 @@ class TableBaseProps:
             
             # database: glue_alpha.Database
             # data_format: glue_alpha.DataFormat
+            # partition_projection_configuration: glue_alpha.PartitionProjectionConfiguration
             # storage_parameter: glue_alpha.StorageParameter
             
             table_base_props = glue_alpha.TableBaseProps(
@@ -9955,6 +10827,9 @@ class TableBaseProps:
                     # the properties below are optional
                     comment="comment"
                 )],
+                partition_projection={
+                    "partition_projection_key": partition_projection_configuration
+                },
                 storage_parameters=[storage_parameter],
                 stored_as_sub_directories=False,
                 table_name="tableName"
@@ -9971,6 +10846,7 @@ class TableBaseProps:
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
             check_type(argname="argument partition_indexes", value=partition_indexes, expected_type=type_hints["partition_indexes"])
             check_type(argname="argument partition_keys", value=partition_keys, expected_type=type_hints["partition_keys"])
+            check_type(argname="argument partition_projection", value=partition_projection, expected_type=type_hints["partition_projection"])
             check_type(argname="argument storage_parameters", value=storage_parameters, expected_type=type_hints["storage_parameters"])
             check_type(argname="argument stored_as_sub_directories", value=stored_as_sub_directories, expected_type=type_hints["stored_as_sub_directories"])
             check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
@@ -9991,6 +10867,8 @@ class TableBaseProps:
             self._values["partition_indexes"] = partition_indexes
         if partition_keys is not None:
             self._values["partition_keys"] = partition_keys
+        if partition_projection is not None:
+            self._values["partition_projection"] = partition_projection
         if storage_parameters is not None:
             self._values["storage_parameters"] = storage_parameters
         if stored_as_sub_directories is not None:
@@ -10101,6 +10979,23 @@ class TableBaseProps:
         '''
         result = self._values.get("partition_keys")
         return typing.cast(typing.Optional[typing.List["Column"]], result)
+
+    @builtins.property
+    def partition_projection(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]]:
+        '''(experimental) Partition projection configuration for this table.
+
+        Partition projection allows Athena to automatically add new partitions
+        without requiring ``ALTER TABLE ADD PARTITION`` statements.
+
+        :default: - No partition projection
+
+        :see: https://docs.aws.amazon.com/athena/latest/ug/partition-projection.html
+        :stability: experimental
+        '''
+        result = self._values.get("partition_projection")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]], result)
 
     @builtins.property
     def storage_parameters(self) -> typing.Optional[typing.List["StorageParameter"]]:
@@ -10445,17 +11340,23 @@ class Type:
             glue.S3Table(self, "MyTable",
                 database=my_database,
                 columns=[glue.Column(
-                    name="col1",
+                    name="data",
                     type=glue.Schema.STRING
                 )],
                 partition_keys=[glue.Column(
-                    name="year",
-                    type=glue.Schema.SMALL_INT
-                ), glue.Column(
-                    name="month",
-                    type=glue.Schema.SMALL_INT
+                    name="date",
+                    type=glue.Schema.STRING
                 )],
-                data_format=glue.DataFormat.JSON
+                data_format=glue.DataFormat.JSON,
+                partition_projection={
+                    "date": glue.PartitionProjectionConfiguration.date(
+                        min="2020-01-01",
+                        max="2023-12-31",
+                        format="yyyy-MM-dd",
+                        interval=1,  # optional, defaults to 1
+                        interval_unit=glue.DateIntervalUnit.DAYS
+                    )
+                }
             )
         '''
         if __debug__:
@@ -11977,6 +12878,7 @@ class ExternalTable(
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
         partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
+        partition_projection: typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]] = None,
         storage_parameters: typing.Optional[typing.Sequence["StorageParameter"]] = None,
         stored_as_sub_directories: typing.Optional[builtins.bool] = None,
         table_name: typing.Optional[builtins.str] = None,
@@ -11995,6 +12897,7 @@ class ExternalTable(
         :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
         :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
         :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
+        :param partition_projection: (experimental) Partition projection configuration for this table. Partition projection allows Athena to automatically add new partitions without requiring ``ALTER TABLE ADD PARTITION`` statements. Default: - No partition projection
         :param storage_parameters: (experimental) The user-supplied properties for the description of the physical storage of this table. These properties help describe the format of the data that is stored within the crawled data sources. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property. Default: - The parameter is not defined
         :param stored_as_sub_directories: (experimental) Indicates whether the table data is stored in subdirectories. Default: false
         :param table_name: (experimental) Name of the table. Default: - generated by CDK.
@@ -12017,6 +12920,7 @@ class ExternalTable(
             parameters=parameters,
             partition_indexes=partition_indexes,
             partition_keys=partition_keys,
+            partition_projection=partition_projection,
             storage_parameters=storage_parameters,
             stored_as_sub_directories=stored_as_sub_directories,
             table_name=table_name,
@@ -12139,6 +13043,7 @@ class ExternalTable(
         "parameters": "parameters",
         "partition_indexes": "partitionIndexes",
         "partition_keys": "partitionKeys",
+        "partition_projection": "partitionProjection",
         "storage_parameters": "storageParameters",
         "stored_as_sub_directories": "storedAsSubDirectories",
         "table_name": "tableName",
@@ -12159,6 +13064,7 @@ class ExternalTableProps(TableBaseProps):
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
         partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
+        partition_projection: typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]] = None,
         storage_parameters: typing.Optional[typing.Sequence["StorageParameter"]] = None,
         stored_as_sub_directories: typing.Optional[builtins.bool] = None,
         table_name: typing.Optional[builtins.str] = None,
@@ -12175,6 +13081,7 @@ class ExternalTableProps(TableBaseProps):
         :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
         :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
         :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
+        :param partition_projection: (experimental) Partition projection configuration for this table. Partition projection allows Athena to automatically add new partitions without requiring ``ALTER TABLE ADD PARTITION`` statements. Default: - No partition projection
         :param storage_parameters: (experimental) The user-supplied properties for the description of the physical storage of this table. These properties help describe the format of the data that is stored within the crawled data sources. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property. Default: - The parameter is not defined
         :param stored_as_sub_directories: (experimental) Indicates whether the table data is stored in subdirectories. Default: false
         :param table_name: (experimental) Name of the table. Default: - generated by CDK.
@@ -12212,6 +13119,7 @@ class ExternalTableProps(TableBaseProps):
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
             check_type(argname="argument partition_indexes", value=partition_indexes, expected_type=type_hints["partition_indexes"])
             check_type(argname="argument partition_keys", value=partition_keys, expected_type=type_hints["partition_keys"])
+            check_type(argname="argument partition_projection", value=partition_projection, expected_type=type_hints["partition_projection"])
             check_type(argname="argument storage_parameters", value=storage_parameters, expected_type=type_hints["storage_parameters"])
             check_type(argname="argument stored_as_sub_directories", value=stored_as_sub_directories, expected_type=type_hints["stored_as_sub_directories"])
             check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
@@ -12236,6 +13144,8 @@ class ExternalTableProps(TableBaseProps):
             self._values["partition_indexes"] = partition_indexes
         if partition_keys is not None:
             self._values["partition_keys"] = partition_keys
+        if partition_projection is not None:
+            self._values["partition_projection"] = partition_projection
         if storage_parameters is not None:
             self._values["storage_parameters"] = storage_parameters
         if stored_as_sub_directories is not None:
@@ -12346,6 +13256,23 @@ class ExternalTableProps(TableBaseProps):
         '''
         result = self._values.get("partition_keys")
         return typing.cast(typing.Optional[typing.List["Column"]], result)
+
+    @builtins.property
+    def partition_projection(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]]:
+        '''(experimental) Partition projection configuration for this table.
+
+        Partition projection allows Athena to automatically add new partitions
+        without requiring ``ALTER TABLE ADD PARTITION`` statements.
+
+        :default: - No partition projection
+
+        :see: https://docs.aws.amazon.com/athena/latest/ug/partition-projection.html
+        :stability: experimental
+        '''
+        result = self._values.get("partition_projection")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]], result)
 
     @builtins.property
     def storage_parameters(self) -> typing.Optional[typing.List["StorageParameter"]]:
@@ -14652,18 +15579,23 @@ class S3Table(
         glue.S3Table(self, "MyTable",
             database=my_database,
             columns=[glue.Column(
-                name="col1",
+                name="data",
                 type=glue.Schema.STRING
             )],
             partition_keys=[glue.Column(
-                name="year",
-                type=glue.Schema.SMALL_INT
-            ), glue.Column(
-                name="month",
-                type=glue.Schema.SMALL_INT
+                name="date",
+                type=glue.Schema.STRING
             )],
             data_format=glue.DataFormat.JSON,
-            enable_partition_filtering=True
+            partition_projection={
+                "date": glue.PartitionProjectionConfiguration.date(
+                    min="2020-01-01",
+                    max="2023-12-31",
+                    format="yyyy-MM-dd",
+                    interval=1,  # optional, defaults to 1
+                    interval_unit=glue.DateIntervalUnit.DAYS
+                )
+            }
         )
     '''
 
@@ -14685,6 +15617,7 @@ class S3Table(
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
         partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
+        partition_projection: typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]] = None,
         storage_parameters: typing.Optional[typing.Sequence["StorageParameter"]] = None,
         stored_as_sub_directories: typing.Optional[builtins.bool] = None,
         table_name: typing.Optional[builtins.str] = None,
@@ -14705,6 +15638,7 @@ class S3Table(
         :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
         :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
         :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
+        :param partition_projection: (experimental) Partition projection configuration for this table. Partition projection allows Athena to automatically add new partitions without requiring ``ALTER TABLE ADD PARTITION`` statements. Default: - No partition projection
         :param storage_parameters: (experimental) The user-supplied properties for the description of the physical storage of this table. These properties help describe the format of the data that is stored within the crawled data sources. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property. Default: - The parameter is not defined
         :param stored_as_sub_directories: (experimental) Indicates whether the table data is stored in subdirectories. Default: false
         :param table_name: (experimental) Name of the table. Default: - generated by CDK.
@@ -14729,6 +15663,7 @@ class S3Table(
             parameters=parameters,
             partition_indexes=partition_indexes,
             partition_keys=partition_keys,
+            partition_projection=partition_projection,
             storage_parameters=storage_parameters,
             stored_as_sub_directories=stored_as_sub_directories,
             table_name=table_name,
@@ -14893,6 +15828,7 @@ class S3Table(
         "parameters": "parameters",
         "partition_indexes": "partitionIndexes",
         "partition_keys": "partitionKeys",
+        "partition_projection": "partitionProjection",
         "storage_parameters": "storageParameters",
         "stored_as_sub_directories": "storedAsSubDirectories",
         "table_name": "tableName",
@@ -14915,6 +15851,7 @@ class S3TableProps(TableBaseProps):
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
         partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
+        partition_projection: typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]] = None,
         storage_parameters: typing.Optional[typing.Sequence["StorageParameter"]] = None,
         stored_as_sub_directories: typing.Optional[builtins.bool] = None,
         table_name: typing.Optional[builtins.str] = None,
@@ -14933,6 +15870,7 @@ class S3TableProps(TableBaseProps):
         :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
         :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
         :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
+        :param partition_projection: (experimental) Partition projection configuration for this table. Partition projection allows Athena to automatically add new partitions without requiring ``ALTER TABLE ADD PARTITION`` statements. Default: - No partition projection
         :param storage_parameters: (experimental) The user-supplied properties for the description of the physical storage of this table. These properties help describe the format of the data that is stored within the crawled data sources. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property. Default: - The parameter is not defined
         :param stored_as_sub_directories: (experimental) Indicates whether the table data is stored in subdirectories. Default: false
         :param table_name: (experimental) Name of the table. Default: - generated by CDK.
@@ -14951,18 +15889,23 @@ class S3TableProps(TableBaseProps):
             glue.S3Table(self, "MyTable",
                 database=my_database,
                 columns=[glue.Column(
-                    name="col1",
+                    name="data",
                     type=glue.Schema.STRING
                 )],
                 partition_keys=[glue.Column(
-                    name="year",
-                    type=glue.Schema.SMALL_INT
-                ), glue.Column(
-                    name="month",
-                    type=glue.Schema.SMALL_INT
+                    name="date",
+                    type=glue.Schema.STRING
                 )],
                 data_format=glue.DataFormat.JSON,
-                enable_partition_filtering=True
+                partition_projection={
+                    "date": glue.PartitionProjectionConfiguration.date(
+                        min="2020-01-01",
+                        max="2023-12-31",
+                        format="yyyy-MM-dd",
+                        interval=1,  # optional, defaults to 1
+                        interval_unit=glue.DateIntervalUnit.DAYS
+                    )
+                }
             )
         '''
         if __debug__:
@@ -14976,6 +15919,7 @@ class S3TableProps(TableBaseProps):
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
             check_type(argname="argument partition_indexes", value=partition_indexes, expected_type=type_hints["partition_indexes"])
             check_type(argname="argument partition_keys", value=partition_keys, expected_type=type_hints["partition_keys"])
+            check_type(argname="argument partition_projection", value=partition_projection, expected_type=type_hints["partition_projection"])
             check_type(argname="argument storage_parameters", value=storage_parameters, expected_type=type_hints["storage_parameters"])
             check_type(argname="argument stored_as_sub_directories", value=stored_as_sub_directories, expected_type=type_hints["stored_as_sub_directories"])
             check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
@@ -15000,6 +15944,8 @@ class S3TableProps(TableBaseProps):
             self._values["partition_indexes"] = partition_indexes
         if partition_keys is not None:
             self._values["partition_keys"] = partition_keys
+        if partition_projection is not None:
+            self._values["partition_projection"] = partition_projection
         if storage_parameters is not None:
             self._values["storage_parameters"] = storage_parameters
         if stored_as_sub_directories is not None:
@@ -15118,6 +16064,23 @@ class S3TableProps(TableBaseProps):
         '''
         result = self._values.get("partition_keys")
         return typing.cast(typing.Optional[typing.List["Column"]], result)
+
+    @builtins.property
+    def partition_projection(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]]:
+        '''(experimental) Partition projection configuration for this table.
+
+        Partition projection allows Athena to automatically add new partitions
+        without requiring ``ALTER TABLE ADD PARTITION`` statements.
+
+        :default: - No partition projection
+
+        :see: https://docs.aws.amazon.com/athena/latest/ug/partition-projection.html
+        :stability: experimental
+        '''
+        result = self._values.get("partition_projection")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]], result)
 
     @builtins.property
     def storage_parameters(self) -> typing.Optional[typing.List["StorageParameter"]]:
@@ -17150,6 +18113,7 @@ class Table(
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
         partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
+        partition_projection: typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]] = None,
         storage_parameters: typing.Optional[typing.Sequence["StorageParameter"]] = None,
         stored_as_sub_directories: typing.Optional[builtins.bool] = None,
         table_name: typing.Optional[builtins.str] = None,
@@ -17170,6 +18134,7 @@ class Table(
         :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
         :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
         :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
+        :param partition_projection: (experimental) Partition projection configuration for this table. Partition projection allows Athena to automatically add new partitions without requiring ``ALTER TABLE ADD PARTITION`` statements. Default: - No partition projection
         :param storage_parameters: (experimental) The user-supplied properties for the description of the physical storage of this table. These properties help describe the format of the data that is stored within the crawled data sources. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property. Default: - The parameter is not defined
         :param stored_as_sub_directories: (experimental) Indicates whether the table data is stored in subdirectories. Default: false
         :param table_name: (experimental) Name of the table. Default: - generated by CDK.
@@ -17194,6 +18159,7 @@ class Table(
             parameters=parameters,
             partition_indexes=partition_indexes,
             partition_keys=partition_keys,
+            partition_projection=partition_projection,
             storage_parameters=storage_parameters,
             stored_as_sub_directories=stored_as_sub_directories,
             table_name=table_name,
@@ -17224,6 +18190,7 @@ class Table(
         "parameters": "parameters",
         "partition_indexes": "partitionIndexes",
         "partition_keys": "partitionKeys",
+        "partition_projection": "partitionProjection",
         "storage_parameters": "storageParameters",
         "stored_as_sub_directories": "storedAsSubDirectories",
         "table_name": "tableName",
@@ -17246,6 +18213,7 @@ class TableProps(S3TableProps):
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
         partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
+        partition_projection: typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]] = None,
         storage_parameters: typing.Optional[typing.Sequence["StorageParameter"]] = None,
         stored_as_sub_directories: typing.Optional[builtins.bool] = None,
         table_name: typing.Optional[builtins.str] = None,
@@ -17264,6 +18232,7 @@ class TableProps(S3TableProps):
         :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
         :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
         :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
+        :param partition_projection: (experimental) Partition projection configuration for this table. Partition projection allows Athena to automatically add new partitions without requiring ``ALTER TABLE ADD PARTITION`` statements. Default: - No partition projection
         :param storage_parameters: (experimental) The user-supplied properties for the description of the physical storage of this table. These properties help describe the format of the data that is stored within the crawled data sources. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property. Default: - The parameter is not defined
         :param stored_as_sub_directories: (experimental) Indicates whether the table data is stored in subdirectories. Default: false
         :param table_name: (experimental) Name of the table. Default: - generated by CDK.
@@ -17287,6 +18256,7 @@ class TableProps(S3TableProps):
             # database: glue_alpha.Database
             # data_format: glue_alpha.DataFormat
             # key: kms.Key
+            # partition_projection_configuration: glue_alpha.PartitionProjectionConfiguration
             # storage_parameter: glue_alpha.StorageParameter
             
             table_props = glue_alpha.TableProps(
@@ -17329,6 +18299,9 @@ class TableProps(S3TableProps):
                     # the properties below are optional
                     comment="comment"
                 )],
+                partition_projection={
+                    "partition_projection_key": partition_projection_configuration
+                },
                 s3_prefix="s3Prefix",
                 storage_parameters=[storage_parameter],
                 stored_as_sub_directories=False,
@@ -17346,6 +18319,7 @@ class TableProps(S3TableProps):
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
             check_type(argname="argument partition_indexes", value=partition_indexes, expected_type=type_hints["partition_indexes"])
             check_type(argname="argument partition_keys", value=partition_keys, expected_type=type_hints["partition_keys"])
+            check_type(argname="argument partition_projection", value=partition_projection, expected_type=type_hints["partition_projection"])
             check_type(argname="argument storage_parameters", value=storage_parameters, expected_type=type_hints["storage_parameters"])
             check_type(argname="argument stored_as_sub_directories", value=stored_as_sub_directories, expected_type=type_hints["stored_as_sub_directories"])
             check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
@@ -17370,6 +18344,8 @@ class TableProps(S3TableProps):
             self._values["partition_indexes"] = partition_indexes
         if partition_keys is not None:
             self._values["partition_keys"] = partition_keys
+        if partition_projection is not None:
+            self._values["partition_projection"] = partition_projection
         if storage_parameters is not None:
             self._values["storage_parameters"] = storage_parameters
         if stored_as_sub_directories is not None:
@@ -17488,6 +18464,23 @@ class TableProps(S3TableProps):
         '''
         result = self._values.get("partition_keys")
         return typing.cast(typing.Optional[typing.List["Column"]], result)
+
+    @builtins.property
+    def partition_projection(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]]:
+        '''(experimental) Partition projection configuration for this table.
+
+        Partition projection allows Athena to automatically add new partitions
+        without requiring ``ALTER TABLE ADD PARTITION`` statements.
+
+        :default: - No partition projection
+
+        :see: https://docs.aws.amazon.com/athena/latest/ug/partition-projection.html
+        :stability: experimental
+        '''
+        result = self._values.get("partition_projection")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]], result)
 
     @builtins.property
     def storage_parameters(self) -> typing.Optional[typing.List["StorageParameter"]]:
@@ -19342,6 +20335,9 @@ __all__ = [
     "DataQualityTargetTable",
     "Database",
     "DatabaseProps",
+    "DateIntervalUnit",
+    "DatePartitionProjectionConfigurationProps",
+    "EnumPartitionProjectionConfigurationProps",
     "EventBatchingCondition",
     "ExecutionClass",
     "ExternalTable",
@@ -19355,6 +20351,7 @@ __all__ = [
     "ITable",
     "IWorkflow",
     "InputFormat",
+    "IntegerPartitionProjectionConfigurationProps",
     "InvalidCharHandlingAction",
     "Job",
     "JobAttributes",
@@ -19373,6 +20370,8 @@ __all__ = [
     "OrcColumnMappingType",
     "OutputFormat",
     "PartitionIndex",
+    "PartitionProjectionConfiguration",
+    "PartitionProjectionType",
     "Predicate",
     "PredicateLogical",
     "PySparkEtlJob",
@@ -19594,6 +20593,24 @@ def _typecheckingstub__d07df31a9d41958f45422a1d7914c5016d66ed0e46a7e97ab37e2dd3d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__48fd6dee3d59bed3adba9ad20063bd1666e567655b8b7bdca390054a4d0542c1(
+    *,
+    format: builtins.str,
+    max: builtins.str,
+    min: builtins.str,
+    interval: typing.Optional[jsii.Number] = None,
+    interval_unit: typing.Optional[DateIntervalUnit] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f0708bfef4a9eae714823be37d2724452d991d2905bac88df563477a2d31a6a0(
+    *,
+    values: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8a6476a566f1ad7de933c9775f8bec53c8e7f033a45532939c1c1a54885ac1f9(
     *,
     batch_size: jsii.Number,
@@ -19716,6 +20733,16 @@ def _typecheckingstub__0fd7c9b45aca9c890deb63491d41407ba6f9a686488058283d2b5539a
 
 def _typecheckingstub__697ee4e4007ce058f39e7fc610b2c0c4457bbd6008e9287406b18505ed299434(
     class_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__484bb6f13c480ca05473538c8ef5310f40aa9e016608105d0c2d41420ae5ad10(
+    *,
+    max: jsii.Number,
+    min: jsii.Number,
+    digits: typing.Optional[jsii.Number] = None,
+    interval: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20199,6 +21226,7 @@ def _typecheckingstub__3498ddd8b03f8ca1e3bea08a9f07832747b340c2a3681dc513148655f
     parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
     partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
+    partition_projection: typing.Optional[typing.Mapping[builtins.str, PartitionProjectionConfiguration]] = None,
     storage_parameters: typing.Optional[typing.Sequence[StorageParameter]] = None,
     stored_as_sub_directories: typing.Optional[builtins.bool] = None,
     table_name: typing.Optional[builtins.str] = None,
@@ -20267,6 +21295,7 @@ def _typecheckingstub__c621f615cea5a292fe84c07e10ca61e7529536864f1701be1f19b1684
     parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
     partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
+    partition_projection: typing.Optional[typing.Mapping[builtins.str, PartitionProjectionConfiguration]] = None,
     storage_parameters: typing.Optional[typing.Sequence[StorageParameter]] = None,
     stored_as_sub_directories: typing.Optional[builtins.bool] = None,
     table_name: typing.Optional[builtins.str] = None,
@@ -20550,6 +21579,7 @@ def _typecheckingstub__f5b251bd575556272c98729ccada78c9d0fedbddd35e4e50ccd72649f
     parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
     partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
+    partition_projection: typing.Optional[typing.Mapping[builtins.str, PartitionProjectionConfiguration]] = None,
     storage_parameters: typing.Optional[typing.Sequence[StorageParameter]] = None,
     stored_as_sub_directories: typing.Optional[builtins.bool] = None,
     table_name: typing.Optional[builtins.str] = None,
@@ -20586,6 +21616,7 @@ def _typecheckingstub__a91c342ce35e1b47ced3892e3796a41cbe78a15258e691c0f83319c7b
     parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
     partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
+    partition_projection: typing.Optional[typing.Mapping[builtins.str, PartitionProjectionConfiguration]] = None,
     storage_parameters: typing.Optional[typing.Sequence[StorageParameter]] = None,
     stored_as_sub_directories: typing.Optional[builtins.bool] = None,
     table_name: typing.Optional[builtins.str] = None,
@@ -20822,6 +21853,7 @@ def _typecheckingstub__2b5cd7a8c51600d473f125b7e52d34d32dba95265780e87640a28f30e
     parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
     partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
+    partition_projection: typing.Optional[typing.Mapping[builtins.str, PartitionProjectionConfiguration]] = None,
     storage_parameters: typing.Optional[typing.Sequence[StorageParameter]] = None,
     stored_as_sub_directories: typing.Optional[builtins.bool] = None,
     table_name: typing.Optional[builtins.str] = None,
@@ -20858,6 +21890,7 @@ def _typecheckingstub__4a30697598fc2a32c5e111aebc024dd5935b49f4f1807d70f75c9a4e8
     parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
     partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
+    partition_projection: typing.Optional[typing.Mapping[builtins.str, PartitionProjectionConfiguration]] = None,
     storage_parameters: typing.Optional[typing.Sequence[StorageParameter]] = None,
     stored_as_sub_directories: typing.Optional[builtins.bool] = None,
     table_name: typing.Optional[builtins.str] = None,
@@ -21014,6 +22047,7 @@ def _typecheckingstub__1146b20665153f742431bb500cb6e71362a22d8446ea9e132183e7be2
     parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
     partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
+    partition_projection: typing.Optional[typing.Mapping[builtins.str, PartitionProjectionConfiguration]] = None,
     storage_parameters: typing.Optional[typing.Sequence[StorageParameter]] = None,
     stored_as_sub_directories: typing.Optional[builtins.bool] = None,
     table_name: typing.Optional[builtins.str] = None,
@@ -21032,6 +22066,7 @@ def _typecheckingstub__0336d5abace2b9645857eae2fba5aa1c4bbb0db1762c5d5031d2f8c64
     parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
     partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
+    partition_projection: typing.Optional[typing.Mapping[builtins.str, PartitionProjectionConfiguration]] = None,
     storage_parameters: typing.Optional[typing.Sequence[StorageParameter]] = None,
     stored_as_sub_directories: typing.Optional[builtins.bool] = None,
     table_name: typing.Optional[builtins.str] = None,

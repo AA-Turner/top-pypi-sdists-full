@@ -84,3 +84,13 @@ def event():
     event = Event()
     yield event
     event.set()
+
+
+@pytest.fixture
+def tags(schema):
+    return schema.tags
+
+
+@pytest.fixture
+def tag(tags):
+    return tags["my_tag"]

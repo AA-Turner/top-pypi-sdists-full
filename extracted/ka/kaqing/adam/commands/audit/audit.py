@@ -1,18 +1,15 @@
 import click
 
-from adam.commands import extract_trailing_options, validate_args
+from adam.commands import validate_args
 from adam.commands.audit.completions_l import completions_l
 from adam.commands.audit.audit_repair_tables import AuditRepairTables
 from adam.commands.audit.audit_run import AuditRun
-from adam.commands.audit.show_last10 import ShowLast10
 from adam.commands.audit.show_slow10 import ShowSlow10
 from adam.commands.audit.show_top10 import ShowTop10
 from adam.commands.command import Command
 from adam.commands.intermediate_command import IntermediateCommand
 from adam.repl_state import ReplState
-from adam.utils_log import log2
 from adam.utils_athena import Athena
-from adam.utils_context import Context
 
 class Audit(IntermediateCommand):
     COMMAND = 'audit'
@@ -33,6 +30,9 @@ class Audit(IntermediateCommand):
     def required(self):
         return ReplState.L
 
+    def backgrounable(self):
+        return True
+
     def run(self, cmd: str, state: ReplState):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
@@ -43,9 +43,8 @@ class Audit(IntermediateCommand):
                 r = self.intermediate_run(cmd, state, args, self.cmd_list(), display_help=False)
 
             if not r or isinstance(r, str) and r == 'command-missing':
-                with extract_trailing_options(args, '&') as (args, background):
+                with self.context(args) as (args, ctx):
                     with validate_args(args, state, default='select * from audit order by ts desc limit 10') as sql:
-                        ctx = Context.new(cmd, show_out=True, background=background)
                         ctx.log2(sql)
                         Athena.run_query(sql, ctx=ctx)
 
@@ -58,10 +57,10 @@ class Audit(IntermediateCommand):
         return completions_l()
 
     def cmd_list(self):
-        return [AuditRepairTables(), AuditRun(), ShowLast10(), ShowSlow10(), ShowTop10()]
+        return [AuditRepairTables(), AuditRun(), ShowSlow10(), ShowTop10()]
 
     def help(self, state: ReplState):
-        return super().help(state, 'run SQL queries on Athena audit database', command='[audit] [<sql-statements>]')
+        return super().help(state, 'run SQL queries on Athena audit database', command='[<athena-sql-statements>]')
 
 class AuditCommandHelper(click.Command):
     def get_help(self, ctx: click.Context):

@@ -1,10 +1,8 @@
-from adam.commands import extract_trailing_options, validate_args
+from adam.commands import validate_args
 from adam.commands.command import Command
 from adam.commands.export.completions_x import completions_x
 from adam.commands.export.export_databases import export_db
 from adam.repl_state import ReplState, RequiredState
-from adam.utils_job.job import Job
-from adam.utils_context import Context
 
 class ExportXSelect(Command):
     COMMAND = 'xelect'
@@ -24,15 +22,18 @@ class ExportXSelect(Command):
     def required(self):
         return RequiredState.EXPORT_DB
 
+    def backgrounable(self):
+        return True
+
     def run(self, cmd: str, state: ReplState):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with extract_trailing_options(args, '&') as (args, background):
+            with self.context(args) as (args, ctx):
                 with validate_args(args, state, name='SQL statement') as query:
                     with export_db(state) as dbs:
-                        dbs.sql(f'select {query}', ctx=Context.new(cmd, background))
+                        dbs.sql(f'select {query}', ctx=ctx)
 
                     return state
 

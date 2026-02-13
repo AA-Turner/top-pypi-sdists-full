@@ -14,23 +14,18 @@ async def teardown(client):
 
 @targets(
     "redis_basic",
-    "redis_basic_resp2",
-    "redis_basic_blocking",
     "redis_basic_raw",
     "redis_auth",
     "redis_auth_cred_provider",
     "redis_cluster",
-    "redis_cluster_blocking",
     "redis_cluster_raw",
     "valkey",
-    "redict",
 )
 class TestACL:
     async def test_acl_cat(self, client, _s):
         assert {_s("keyspace")} & set(await client.acl_cat())
         assert {_s("keys")} & set(await client.acl_cat("keyspace"))
 
-    @pytest.mark.min_server_version("7.0.0")
     async def test_acl_dryrun(self, client, _s):
         await client.acl_setuser("test_user", "+set", "~*")
         assert await client.acl_dryrun("test_user", "set", "foo", "bar")
@@ -54,7 +49,6 @@ class TestACL:
             await client.acl_load()
 
     @pytest.mark.novalkey
-    @pytest.mark.noredict
     @pytest.mark.nocluster
     async def test_acl_log(self, client, _s):
         with pytest.warns(UserWarning):

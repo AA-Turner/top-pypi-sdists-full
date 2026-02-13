@@ -173,7 +173,7 @@ def parse_graph_interrupt(
                         interrupt.value.value,
                     )
                 ),
-                id=interrupt.id,  # type: ignore[unknown-argument]
+                id=interrupt.id,
             )
         )
     raise GraphInterrupt(interrupts)

@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -342,6 +342,7 @@ LayoutViewBase::init (db::Manager *mgr)
   m_box_text_transform = true;
   m_box_font = 0;
   m_min_size_for_label = 16;
+  m_empty_cell_dimension = 4.0;
   m_cell_box_visible = true;
   m_ghost_cells_visible = true;
   m_text_visible = true;
@@ -399,7 +400,7 @@ LayoutViewBase::init (db::Manager *mgr)
 
   mp_canvas = new lay::LayoutCanvas (this);
 
-  create_plugins ();
+  LayoutViewBase::create_plugins ();
 }
 
 void
@@ -693,7 +694,7 @@ LayoutViewBase::set_synchronous (bool s)
 }
 
 void
-LayoutViewBase::message (const std::string & /*s*/, int /*timeout*/)
+LayoutViewBase::message (const std::string & /*s*/, int /*timeout*/, int /*priority*/)
 {
   //  .. nothing yet ..
 }
@@ -942,6 +943,13 @@ LayoutViewBase::configure (const std::string &name, const std::string &value)
     int n;
     tl::from_string (value, n);
     min_inst_label_size (n);
+    return true;
+
+  } else if (name == cfg_empty_cell_dimension) {
+
+    double n;
+    tl::from_string (value, n);
+    empty_cell_dimension (n);
     return true;
 
   } else if (name == cfg_cell_box_text_font) {
@@ -4156,12 +4164,12 @@ void
 LayoutViewBase::cancel_edits ()
 {
   //  clear any messages
-  message ();
+  message (std::string (), 0, -1);
 
   //  the move service takes a special role here as it manages the
   //  transaction for the collective move operation.
   if (mp_move_service) {
-    mp_move_service->cancel ();
+    mp_move_service->cancel_transaction ();
   }
 
   //  cancel all drag and pending edit operations such as move operations.
@@ -4178,7 +4186,7 @@ LayoutViewBase::finish_edits ()
   //  the move service takes a special role here as it manages the
   //  transaction for the collective move operation.
   if (mp_move_service) {
-    mp_move_service->finish ();
+    mp_move_service->finish_transaction ();
   }
 
   //  cancel all drag operations
@@ -5403,7 +5411,16 @@ LayoutViewBase::min_inst_label_size (int px)
   }
 }
 
-void 
+void
+LayoutViewBase::empty_cell_dimension (double um)
+{
+  if (m_empty_cell_dimension != um) {
+    m_empty_cell_dimension = um;
+    redraw ();
+  }
+}
+
+void
 LayoutViewBase::text_visible (bool vis)
 {
   if (m_text_visible != vis) {
@@ -5591,7 +5608,7 @@ LayoutViewBase::paste ()
 
   db::DBox sel_bbox = selection_bbox ();
   if (! sel_bbox.empty ()) {
-    if (m_paste_display_mode == 1) {
+    if (m_paste_display_mode == 1 || (m_paste_display_mode == 2 && sel_bbox.is_point ())) {
       // just make selection visible, i.e. shift window somewhat
       pan_center (sel_bbox.center ());
     } else if (m_paste_display_mode == 2) {

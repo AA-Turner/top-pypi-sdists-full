@@ -41,8 +41,8 @@ fn normalize_path(path: &Path) -> PathBuf {
 ///
 /// See [docs/md051.md](../../docs/md051.md) for full documentation, configuration, and examples.
 ///
-/// This rule validates that link anchors (the part after #) exist in the current document.
-/// Only applies to internal document links (like #heading), not to external URLs or cross-file links.
+/// This rule validates that link anchors (the part after #) point to existing headings.
+/// Supports both same-document anchors and cross-file fragment links when linting a workspace.
 #[derive(Clone)]
 pub struct MD051LinkFragments {
     /// Anchor style to use for validation
@@ -640,14 +640,12 @@ impl Rule for MD051LinkFragments {
                 _ => AnchorStyle::GitHub,
             });
 
-        // When MkDocs flavor is active and no explicit anchor style is configured,
-        // default to PythonMarkdown (since MkDocs uses Python-Markdown's toc extension)
-        let anchor_style = explicit_style.unwrap_or_else(|| {
-            if config.global.flavor == crate::config::MarkdownFlavor::MkDocs {
-                AnchorStyle::PythonMarkdown
-            } else {
-                AnchorStyle::GitHub
-            }
+        // When a flavor is active and no explicit anchor style is configured,
+        // default to the flavor's native anchor generation
+        let anchor_style = explicit_style.unwrap_or(match config.global.flavor {
+            crate::config::MarkdownFlavor::MkDocs => AnchorStyle::PythonMarkdown,
+            crate::config::MarkdownFlavor::Kramdown => AnchorStyle::KramdownGfm,
+            _ => AnchorStyle::GitHub,
         });
 
         Box::new(MD051LinkFragments::with_anchor_style(anchor_style))

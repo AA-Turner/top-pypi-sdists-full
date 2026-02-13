@@ -10,7 +10,7 @@ from ..core.serialization import FieldMetadata
 
 class MediaSource(UniversalBaseModel):
     """
-    An object specifying the source of the media file.
+    An object specifying the source of the media file. You must provide exactly one of `url`, `base64_string`, or `asset_id`.
     """
 
     base_64_string: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="base64_string")] = (
@@ -29,7 +29,7 @@ class MediaSource(UniversalBaseModel):
 
     asset_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The unique identifier of an asset uploaded via the Assets API.
+    The unique identifier of an asset from a [direct](/v1.3/api-reference/upload-content) or [multipart](/v1.3/api-reference/upload-content/multipart-uploads) upload.
     """
 
     if IS_PYDANTIC_V2:

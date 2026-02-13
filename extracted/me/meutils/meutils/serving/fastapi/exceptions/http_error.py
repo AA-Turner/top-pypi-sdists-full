@@ -15,7 +15,7 @@ from meutils.notice.feishu import send_message_for_http as send_message
 exc_set = {
 
     # gemini
-    "IMAGE_PROHIBITED_CONTENT",
+    "PROHIBITED_CONTENT",
     "IMAGE_SAFETY",
     "Provided image is not valid",
 

@@ -2,7 +2,11 @@
 Utility functions for dbbackup.
 """
 
+from __future__ import annotations
+
+import copy
 import gzip
+import json
 import logging
 import os
 import re
@@ -12,6 +16,7 @@ import traceback
 from datetime import datetime
 from functools import wraps
 from getpass import getpass
+from importlib import import_module
 from shutil import copyfileobj
 
 from django.core.mail import EmailMultiAlternatives
@@ -118,7 +123,7 @@ def email_uncaught_exception(func):
             logger = logging.getLogger("dbbackup")
             exc_type, exc_value, tb = sys.exc_info()
             tb_str = "".join(traceback.format_tb(tb))
-            msg = f"{exc_type.__name__}: {exc_value}\n{tb_str}"
+            msg = f"{getattr(exc_type, '__name__', str(exc_type) or 'Exception')}: {exc_value}\n{tb_str}"
             logger.exception(msg)
             raise
         finally:
@@ -150,7 +155,19 @@ def create_spooled_temporary_file(filepath=None, fileobj=None):
     return spooled_file
 
 
-def encrypt_file(inputfile, filename):
+def _gpg_encrypt_file(inputfile, filepath, recipients, always_trust):
+    import gnupg
+
+    g = gnupg.GPG()
+    return g.encrypt_file(
+        inputfile,
+        output=filepath,
+        recipients=recipients,
+        always_trust=always_trust,
+    )
+
+
+def encrypt_file(inputfile, filename):  # sourcery skip: extract-method
     """
     Encrypt input file using GPG and remove .gpg extension to its name.
 
@@ -163,8 +180,6 @@ def encrypt_file(inputfile, filename):
     :returns: Tuple with file and new file's name
     :rtype: :class:`tempfile.SpooledTemporaryFile`, ``str``
     """
-    import gnupg
-
     tempdir = tempfile.mkdtemp(dir=settings.TMP_DIR)
     try:
         filename = f"{filename}.gpg"
@@ -174,14 +189,8 @@ def encrypt_file(inputfile, filename):
             raise ValueError(msg)
         try:
             inputfile.seek(0)
-            always_trust = settings.GPG_ALWAYS_TRUST
-            g = gnupg.GPG()
-            result = g.encrypt_file(
-                inputfile,
-                output=filepath,
-                recipients=settings.GPG_RECIPIENT,
-                always_trust=always_trust,
-            )
+            always_trust = bool(settings.GPG_ALWAYS_TRUST)
+            result = _gpg_encrypt_file(inputfile, filepath, settings.GPG_RECIPIENT, always_trust)
             inputfile.close()
             if not result:
                 msg = f"Encryption failed; status: {result.status}"
@@ -431,3 +440,93 @@ def filename_generate(extension, database_name="", servername=None, content_type
         filename = REG_FILENAME_CLEAN.sub("-", filename)
         filename = filename.removeprefix("-")
     return filename
+
+
+def _get_function_from_path(func_or_path):
+    """
+    Load a callable from a dotted path or return the callable itself.
+
+    :param func_or_path: Dotted path to callable or callable itself
+    :type func_or_path: str | callable
+
+    :returns: Callable object
+    :rtype: callable
+    """
+    if callable(func_or_path):
+        return func_or_path
+
+    path = func_or_path
+    module_path, func_name = path.rsplit(".", 1)
+    try:
+        module = import_module(module_path)
+    except ImportError as e:
+        msg = f"Could not import module '{module_path}': {e}"
+        raise ImportError(msg) from e
+    func = getattr(module, func_name)
+    if not callable(func):
+        msg = f"The object at '{path}' is not callable."
+        raise TypeError(msg)
+    return func
+
+
+def get_user_metadata(metadata: dict | None = None) -> dict:
+    """
+    Get user generated metadata from the user's custom metadata setter.
+
+    :returns: Custom metadata dictionary
+    :rtype: dict
+    """
+    user_metadata = {}
+    setter_setting = settings.BACKUP_METADATA_SETTER
+    if setter_setting:
+        setter_function = _get_function_from_path(setter_setting)
+        try:
+            # We pass a copy to avoid side effects
+            user_metadata = setter_function(copy.deepcopy(metadata))
+        except Exception:
+            logger = logging.getLogger("dbbackup")
+            logger.exception("Error loading custom metadata: %s")
+
+        if user_metadata is None:
+            user_metadata = {}
+
+        if not isinstance(user_metadata, dict):
+            msg = "DBBACKUP_BACKUP_METADATA_SETTER must return a dictionary."
+            raise ValueError(msg)
+
+        # Validate that we can serialize the provided data
+        try:
+            json.dumps(user_metadata)
+        except Exception as e:
+            msg = f"Custom metadata is not JSON serializable: {e}"
+            raise ValueError(msg) from e
+    return user_metadata
+
+
+def validate_user_metadata(metadata) -> bool | None:
+    """
+    Validate custom metadata using a callable defined in `settings.py`.
+    Raise a CommandError to provide custom feedback if validation fails.
+
+    :param metadata: Metadata dictionary to validate
+    :type metadata: dict
+
+    :returns: True if validation passes (or None), False otherwise
+    :rtype: Optional[bool]
+    """
+    validator_setting = settings.RESTORE_METADATA_VALIDATOR
+    if validator_setting:
+        validator_function = _get_function_from_path(validator_setting)
+        try:
+            # We pass a copy to avoid side effects
+            user_metadata = validator_function(copy.deepcopy(metadata))
+        except Exception as e:
+            msg = f"Error during custom metadata validation: {e}"
+            raise ValueError(msg) from e
+        if user_metadata is None:
+            return None
+        if not isinstance(user_metadata, bool):
+            msg = "DBBACKUP_RESTORE_METADATA_VALIDATOR must return a boolean or None."
+            raise TypeError(msg)
+        return user_metadata
+    return True

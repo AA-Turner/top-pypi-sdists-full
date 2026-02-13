@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sae-lens
-Version: 6.36.0
+Version: 6.36.2
 Summary: Training and Analyzing Sparse Autoencoders (SAEs)
 License: MIT
 License-File: LICENSE

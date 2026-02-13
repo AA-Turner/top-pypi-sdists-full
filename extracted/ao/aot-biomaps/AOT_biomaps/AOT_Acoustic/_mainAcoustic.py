@@ -423,9 +423,9 @@ class AcousticField(ABC):
         if self.medium.factorT != 1 or self.medium.factorX != 1 or self.medium.factorZ != 1:
             data = reshape_field(data, [self.medium.factorT, self.medium.factorX, self.medium.factorZ])
             xStart = (self.medium.Nx_reshaped//2)//self.medium.factorX - (self.params.general['Nx']//2)
-            return data[:, :self.params.general['Nx'], xStart:xStart+self.params.general['Nx']]
+            return data[:, :self.params.general['Nz'], xStart:xStart+self.params.general['Nx']]
         else:
-            return data[:, :self.params.general['Nx'], xStart:xStart+self.params.general['Nx']]
+            return data[:, :self.params.general['Nz'], xStart:xStart+self.params.general['Nx']]
 
 
     # def _generate_acoustic_field_KWAVE_3D(self, isGPU=True, show_log=True):

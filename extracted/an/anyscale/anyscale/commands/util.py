@@ -7,6 +7,7 @@ import click
 import colorama
 from rich.table import Table
 
+from anyscale._private.models.integrations import ConnectionConfig, ConnectionType
 from anyscale._private.workload import WorkloadConfig
 from anyscale.cli_logger import BlockLogger
 
@@ -243,6 +244,69 @@ def parse_tags_kv_to_str_map(pairs: Iterable[str]) -> Dict[str, str]:
             continue
         result[key] = value
     return result
+
+
+def parse_connection_string(connection_str: str) -> ConnectionConfig:
+    """Parse a connection string in key=value,key=value format.
+
+    Expected format: connection_type=databricks,connection_name=my-conn
+
+    Args:
+        connection_str: Connection specification string.
+
+    Returns:
+        ConnectionConfig object.
+
+    Raises:
+        click.ClickException: If the format is invalid or required fields are missing.
+    """
+    parts = connection_str.split(",")
+    conn_dict: Dict[str, str] = {}
+
+    for part in parts:
+        stripped_part = part.strip()
+        if not stripped_part:
+            continue
+        if "=" not in stripped_part:
+            raise click.ClickException(
+                f"Invalid connection format: '{stripped_part}'. Expected key=value format."
+            )
+        key, value = stripped_part.split("=", 1)
+        conn_dict[key.strip()] = value.strip()
+
+    # Validate required fields
+    if "connection_type" not in conn_dict:
+        raise click.ClickException(
+            "Connection must specify 'connection_type' (e.g., connection_type=databricks)."
+        )
+    if "connection_name" not in conn_dict:
+        raise click.ClickException(
+            "Connection must specify 'connection_name' (e.g., connection_name=my-conn)."
+        )
+
+    # Validate and convert connection_type
+    try:
+        connection_type = ConnectionType.validate(conn_dict["connection_type"])
+    except ValueError as e:
+        raise click.ClickException(str(e)) from None
+
+    return ConnectionConfig(
+        connection_type=connection_type, connection_name=conn_dict["connection_name"],
+    )
+
+
+def parse_connections(connections: Tuple[str, ...]) -> List[ConnectionConfig]:
+    """Parse multiple connection strings into ConnectionConfig objects.
+
+    Args:
+        connections: Tuple of connection specification strings.
+
+    Returns:
+        List of ConnectionConfig objects.
+    """
+    if not connections:
+        return []
+    return [parse_connection_string(conn) for conn in connections]
 
 
 def build_kv_table(

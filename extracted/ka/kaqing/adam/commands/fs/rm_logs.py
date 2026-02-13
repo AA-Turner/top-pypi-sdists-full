@@ -1,9 +1,8 @@
 from adam.commands.command import Command
 from adam.commands.devices.devices import device
 from adam.repl_state import ReplState
-from adam.utils_log import pod_log_dir
 from adam.utils_concurrent import parallelize
-from adam.utils_context import Context
+from adam.directories import Directories
 from adam.utils_k8s.pods import Pods
 
 class RmLogs(Command):
@@ -26,22 +25,22 @@ class RmLogs(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            cmd = f'rm -rf {pod_log_dir()}/*'
-            action = 'rm-logs'
-            pods = device(state).pod_names(state)
-            container = device(state).default_container(state)
-            ctx: Context = Context.new(show_out=True)
+            with self.context() as (_, ctx):
+                cmd = f'rm -rf {Directories.remote_log_dir()}/*'
+                action = 'rm-logs'
+                pods = device(state).pod_names(state)
+                container = device(state).default_container(state)
 
-            with parallelize(pods,
-                             msg='d`Running|Ran ' + action + ' onto {size} pods') as exec:
-                for r in exec.map(lambda pod: Pods.exec(pod, container, state.namespace, cmd, ctx)):
-                    ctx.log(r.command)
-                    r.log(ctx)
+                with parallelize(pods,
+                                msg='d`Running|Ran ' + action + ' onto {size} pods') as exec:
+                    for r in exec.map(lambda pod: Pods.exec(pod, container, state.namespace, cmd, ctx)):
+                        ctx.log(r.command)
+                        r.log(ctx)
 
-            return state
+                return state
 
     def completion(self, state: ReplState):
         return super().completion(state)
 
     def help(self, state: ReplState):
-        return super().help(state, f'remove all qing log files under {pod_log_dir()}')
+        return super().help(state, f'remove all qing log files under {Directories.remote_log_dir()}')

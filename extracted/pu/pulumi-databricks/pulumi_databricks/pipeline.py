@@ -79,6 +79,7 @@ class PipelineArgs:
         :param pulumi.Input[_builtins.str] name: A user-friendly name for this pipeline. The name can be used to identify pipeline jobs in the UI.
         :param pulumi.Input[_builtins.bool] photon: A flag indicating whether to use Photon engine. The default value is `false`.
         :param pulumi.Input[_builtins.str] root_path: An optional string specifying the root path for this pipeline. This is used as the root directory when editing the pipeline in the Databricks user interface and it is added to `sys.path` when executing Python sources during pipeline execution.
+        :param pulumi.Input['PipelineRunAsArgs'] run_as: The user or the service principal the pipeline runs as. See run_as Configuration Block below.
         :param pulumi.Input[_builtins.str] schema: The default schema (database) where tables are read from or published to. The presence of this attribute implies that the pipeline is in direct publishing mode.
         :param pulumi.Input[_builtins.bool] serverless: An optional flag indicating if serverless compute should be used for this Lakeflow Declarative Pipeline.  Requires `catalog` to be set, as it could be used only with Unity Catalog.
         :param pulumi.Input[_builtins.str] storage: A location on cloud storage where output data and metadata required for pipeline execution are stored. By default, tables are stored in a subdirectory of this location. *Change of this parameter forces recreation of the pipeline.* (Conflicts with `catalog`).
@@ -471,6 +472,9 @@ class PipelineArgs:
     @_builtins.property
     @pulumi.getter(name="runAs")
     def run_as(self) -> Optional[pulumi.Input['PipelineRunAsArgs']]:
+        """
+        The user or the service principal the pipeline runs as. See run_as Configuration Block below.
+        """
         return pulumi.get(self, "run_as")
 
     @run_as.setter
@@ -647,6 +651,7 @@ class _PipelineState:
         :param pulumi.Input[_builtins.str] name: A user-friendly name for this pipeline. The name can be used to identify pipeline jobs in the UI.
         :param pulumi.Input[_builtins.bool] photon: A flag indicating whether to use Photon engine. The default value is `false`.
         :param pulumi.Input[_builtins.str] root_path: An optional string specifying the root path for this pipeline. This is used as the root directory when editing the pipeline in the Databricks user interface and it is added to `sys.path` when executing Python sources during pipeline execution.
+        :param pulumi.Input['PipelineRunAsArgs'] run_as: The user or the service principal the pipeline runs as. See run_as Configuration Block below.
         :param pulumi.Input[_builtins.str] schema: The default schema (database) where tables are read from or published to. The presence of this attribute implies that the pipeline is in direct publishing mode.
         :param pulumi.Input[_builtins.bool] serverless: An optional flag indicating if serverless compute should be used for this Lakeflow Declarative Pipeline.  Requires `catalog` to be set, as it could be used only with Unity Catalog.
         :param pulumi.Input[_builtins.str] storage: A location on cloud storage where output data and metadata required for pipeline execution are stored. By default, tables are stored in a subdirectory of this location. *Change of this parameter forces recreation of the pipeline.* (Conflicts with `catalog`).
@@ -1039,6 +1044,9 @@ class _PipelineState:
     @_builtins.property
     @pulumi.getter(name="runAs")
     def run_as(self) -> Optional[pulumi.Input['PipelineRunAsArgs']]:
+        """
+        The user or the service principal the pipeline runs as. See run_as Configuration Block below.
+        """
         return pulumi.get(self, "run_as")
 
     @run_as.setter
@@ -1279,28 +1287,6 @@ class Pipeline(pulumi.CustomResource):
         * Job to manage [Databricks Jobs](https://docs.databricks.com/jobs.html) to run non-interactive code in a databricks_cluster.
         * Notebook to manage [Databricks Notebooks](https://docs.databricks.com/notebooks/index.html).
 
-        ## Import
-
-        The resource job can be imported using the id of the pipeline
-
-        hcl
-
-        import {
-
-          to = databricks_pipeline.this
-
-          id = "<pipeline-id>"
-
-        }
-
-        Alternatively, when using `terraform` version 1.4 or earlier, import using the `pulumi import` command:
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/pipeline:Pipeline this <pipeline-id>
-        ```
-
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.bool] allow_duplicate_names: Optional boolean flag. If false, deployment will fail if name conflicts with that of another pipeline. default is `false`.
@@ -1320,6 +1306,7 @@ class Pipeline(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] name: A user-friendly name for this pipeline. The name can be used to identify pipeline jobs in the UI.
         :param pulumi.Input[_builtins.bool] photon: A flag indicating whether to use Photon engine. The default value is `false`.
         :param pulumi.Input[_builtins.str] root_path: An optional string specifying the root path for this pipeline. This is used as the root directory when editing the pipeline in the Databricks user interface and it is added to `sys.path` when executing Python sources during pipeline execution.
+        :param pulumi.Input[Union['PipelineRunAsArgs', 'PipelineRunAsArgsDict']] run_as: The user or the service principal the pipeline runs as. See run_as Configuration Block below.
         :param pulumi.Input[_builtins.str] schema: The default schema (database) where tables are read from or published to. The presence of this attribute implies that the pipeline is in direct publishing mode.
         :param pulumi.Input[_builtins.bool] serverless: An optional flag indicating if serverless compute should be used for this Lakeflow Declarative Pipeline.  Requires `catalog` to be set, as it could be used only with Unity Catalog.
         :param pulumi.Input[_builtins.str] storage: A location on cloud storage where output data and metadata required for pipeline execution are stored. By default, tables are stored in a subdirectory of this location. *Change of this parameter forces recreation of the pipeline.* (Conflicts with `catalog`).
@@ -1411,28 +1398,6 @@ class Pipeline(pulumi.CustomResource):
         * Cluster to create [Databricks Clusters](https://docs.databricks.com/clusters/index.html).
         * Job to manage [Databricks Jobs](https://docs.databricks.com/jobs.html) to run non-interactive code in a databricks_cluster.
         * Notebook to manage [Databricks Notebooks](https://docs.databricks.com/notebooks/index.html).
-
-        ## Import
-
-        The resource job can be imported using the id of the pipeline
-
-        hcl
-
-        import {
-
-          to = databricks_pipeline.this
-
-          id = "<pipeline-id>"
-
-        }
-
-        Alternatively, when using `terraform` version 1.4 or earlier, import using the `pulumi import` command:
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/pipeline:Pipeline this <pipeline-id>
-        ```
 
         :param str resource_name: The name of the resource.
         :param PipelineArgs args: The arguments to use to populate this resource's properties.
@@ -1609,6 +1574,7 @@ class Pipeline(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] name: A user-friendly name for this pipeline. The name can be used to identify pipeline jobs in the UI.
         :param pulumi.Input[_builtins.bool] photon: A flag indicating whether to use Photon engine. The default value is `false`.
         :param pulumi.Input[_builtins.str] root_path: An optional string specifying the root path for this pipeline. This is used as the root directory when editing the pipeline in the Databricks user interface and it is added to `sys.path` when executing Python sources during pipeline execution.
+        :param pulumi.Input[Union['PipelineRunAsArgs', 'PipelineRunAsArgsDict']] run_as: The user or the service principal the pipeline runs as. See run_as Configuration Block below.
         :param pulumi.Input[_builtins.str] schema: The default schema (database) where tables are read from or published to. The presence of this attribute implies that the pipeline is in direct publishing mode.
         :param pulumi.Input[_builtins.bool] serverless: An optional flag indicating if serverless compute should be used for this Lakeflow Declarative Pipeline.  Requires `catalog` to be set, as it could be used only with Unity Catalog.
         :param pulumi.Input[_builtins.str] storage: A location on cloud storage where output data and metadata required for pipeline execution are stored. By default, tables are stored in a subdirectory of this location. *Change of this parameter forces recreation of the pipeline.* (Conflicts with `catalog`).
@@ -1855,6 +1821,9 @@ class Pipeline(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter(name="runAs")
     def run_as(self) -> pulumi.Output[Optional['outputs.PipelineRunAs']]:
+        """
+        The user or the service principal the pipeline runs as. See run_as Configuration Block below.
+        """
         return pulumi.get(self, "run_as")
 
     @_builtins.property

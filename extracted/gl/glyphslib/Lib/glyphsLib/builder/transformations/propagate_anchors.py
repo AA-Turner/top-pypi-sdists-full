@@ -99,13 +99,20 @@ def maybe_log_new_anchors(
         )
 
 
+def _is_master_layer(layer: GSLayer) -> bool:
+    # Treat smart component layers as master layers
+    return layer._is_master_layer or (
+        layer.parent.smartComponentAxes and layer.smartComponentPoleMapping
+    )
+
+
 def _interesting_layers(glyph):
     # only master layers are currently supported for anchor propagation:
     # https://github.com/googlefonts/glyphsLib/issues/1017
     return (
         l
         for l in glyph.layers
-        if l._is_master_layer or l._is_bracket_layer()
+        if _is_master_layer(l) or l._is_bracket_layer()
         # or l._is_brace_layer
         # etc.
     )
@@ -137,6 +144,42 @@ def _get_subCategory(
             glyph.name, data=glyph_data, unicodes=glyph.unicodes
         ).subCategory
     )
+
+
+def _interpolate_smart_component_anchors(
+    layer: GSLayer,
+    component: GSComponent,
+    glyphs: dict[str, GSGlyph],
+    done_anchors: dict[str, dict[str, list[GSAnchor]]],
+    anchors: list[GSAnchor],
+) -> None:
+    from ..smart_components import get_smart_component_variation_model
+    from fontTools.ttLib.tables._g_l_y_f import GlyphCoordinates
+
+    model, location, masters = get_smart_component_variation_model(layer, component)
+    if model is not None:
+        coords = [
+            GlyphCoordinates(
+                [
+                    anchor.position
+                    for anchor in get_component_layer_anchors(
+                        component, master, glyphs, done_anchors
+                    )
+                ]
+            )
+            for master in masters
+        ]
+
+        try:
+            new_coords = model.interpolateFromMasters(location, coords)
+        except Exception as e:
+            raise ValueError(
+                "Could not interpolate smart component %s used in %s"
+                % (component.name, layer)
+            ) from e
+
+        for anchor, new_coord in zip(anchors, new_coords):
+            anchor.position = Point(new_coord[0], new_coord[1])
 
 
 def anchors_traversing_components(
@@ -187,6 +230,12 @@ def anchors_traversing_components(
             )
             continue
 
+        if component.smartComponentValues and component.component.smartComponentAxes:
+            # If this is a smart component, we need to interpolate the anchors
+            _interpolate_smart_component_anchors(
+                layer, component, glyphs, done_anchors, anchors
+            )
+
         # if this component has an explicitly set attachment anchor, use it
         if component_idx > 0 and component.anchor:
             maybe_rename_component_anchor(component.anchor, anchors)
@@ -198,13 +247,13 @@ def anchors_traversing_components(
         comb_has_underscore = any(
             len(a.name) >= 2 and a.name.startswith("_") for a in anchors
         )
-        comb_has_exit = any(a.name.endswith("exit") for a in anchors)
+        comb_has_exit = any(a.name.startswith("exit") for a in anchors)
         if not (comb_has_underscore or comb_has_exit):
             # delete exit anchors we may have taken from earlier components
             # (since a glyph should only have one exit anchor, and logically its
             # at the end)
             all_anchors = {
-                n: a for n, a in all_anchors.items() if not n.endswith("exit")
+                n: a for n, a in all_anchors.items() if not n.startswith("exit")
             }
 
         component_transform = Transform(*component.transform)
@@ -214,7 +263,7 @@ def anchors_traversing_components(
             if (component_idx > 0 or has_underscore) and new_has_underscore:
                 continue
             # skip entry anchors on non-first glyphs
-            if component_idx > 0 and anchor.name.endswith("entry"):
+            if component_idx > 0 and anchor.name.startswith("entry"):
                 continue
 
             new_anchor_name = rename_anchor_for_scale(anchor.name, xscale, yscale)
@@ -223,8 +272,8 @@ def anchors_traversing_components(
                 and component_number_of_base_glyphs > 0
                 and not new_has_underscore
                 and not (
-                    new_anchor_name.endswith("exit")
-                    or new_anchor_name.endswith("entry")
+                    new_anchor_name.startswith("exit")
+                    or new_anchor_name.startswith("entry")
                 )
             ):
                 # dealing with marks like top_1 on a ligature
@@ -256,7 +305,7 @@ def anchors_traversing_components(
             not is_ligature
             and number_of_base_glyphs == 0
             and not name.startswith("_")
-            and not (name.endswith("exit") or name.endswith("entry"))
+            and not (name.startswith("exit") or name.startswith("entry"))
             and "_" in name
         ):
             suffix = name[name.index("_") + 1 :]
@@ -401,7 +450,7 @@ def get_component_layer_anchors(
     # whether the parent layer where the component is defined is a 'master' layer
     # and/or a 'bracket' or alternate layer (masters can have bracket layers too but
     # glyphsLib doesn't support that yet).
-    parent_is_master = layer._is_master_layer
+    parent_is_master = _is_master_layer(layer)
     parent_is_bracket = layer._is_bracket_layer()
     parent_axis_rules = (
         [] if not parent_is_bracket else list(layer._bracket_axis_rules())

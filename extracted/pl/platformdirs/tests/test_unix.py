@@ -4,6 +4,7 @@ import importlib
 import os
 import sys
 import typing
+from tempfile import gettempdir
 
 import pytest
 
@@ -14,6 +15,12 @@ if typing.TYPE_CHECKING:
     from pathlib import Path
 
     from pytest_mock import MockerFixture
+
+
+@pytest.fixture(autouse=True)
+def _reload_after_test() -> typing.Iterator[None]:
+    yield
+    importlib.reload(unix)
 
 
 @pytest.mark.parametrize(
@@ -97,7 +104,7 @@ def _func_to_path(func: str) -> XDGVariable | None:
         "user_cache_dir": XDGVariable("XDG_CACHE_HOME", "~/.cache"),
         "user_state_dir": XDGVariable("XDG_STATE_HOME", "~/.local/state"),
         "user_log_dir": XDGVariable("XDG_STATE_HOME", "~/.local/state"),
-        "user_runtime_dir": XDGVariable("XDG_RUNTIME_DIR", "/run/user/1234"),
+        "user_runtime_dir": XDGVariable("XDG_RUNTIME_DIR", f"{gettempdir()}/runtime-1234"),
         "site_runtime_dir": XDGVariable("XDG_RUNTIME_DIR", "/run"),
     }
     return mapping.get(func)
@@ -151,13 +158,14 @@ def test_xdg_variable_custom_value(monkeypatch: pytest.MonkeyPatch, dirs_instanc
 def test_platform_on_bsd(monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture, platform: str) -> None:
     monkeypatch.delenv("XDG_RUNTIME_DIR", raising=False)
     mocker.patch("sys.platform", platform)
+    mocker.patch("tempfile.tempdir", "/tmp")  # noqa: S108
 
     assert Unix().site_runtime_dir == "/var/run"
 
-    mocker.patch("pathlib.Path.exists", return_value=True)
+    mocker.patch("os.access", return_value=True)
     assert Unix().user_runtime_dir == "/var/run/user/1234"
 
-    mocker.patch("pathlib.Path.exists", return_value=False)
+    mocker.patch("os.access", return_value=False)
     assert Unix().user_runtime_dir == "/tmp/runtime-1234"  # noqa: S108
 
 
@@ -173,6 +181,45 @@ def test_platform_on_win32(monkeypatch: pytest.MonkeyPatch, mocker: MockerFixtur
         sys.modules["platformdirs.unix"] = prev_unix
 
 
+@pytest.mark.usefixtures("_getuid")
+@pytest.mark.parametrize(
+    ("platform", "default_dir"),
+    [
+        ("freebsd", "/var/run/user/1234"),
+        ("linux", "/run/user/1234"),
+    ],
+)
+def test_xdg_runtime_dir_unset_writable(
+    monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture, platform: str, default_dir: str
+) -> None:
+    monkeypatch.delenv("XDG_RUNTIME_DIR", raising=False)
+    mocker.patch("sys.platform", platform)
+    mocker.patch("os.access", return_value=True)
+
+    assert Unix().user_runtime_dir == default_dir
+
+
+@pytest.mark.usefixtures("_getuid")
+@pytest.mark.parametrize(
+    ("platform", "default_dir"),
+    [
+        ("freebsd", "/var/run/user/1234"),
+        ("linux", "/run/user/1234"),
+    ],
+)
+def test_xdg_runtime_dir_unset_not_writable(
+    monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture, platform: str, default_dir: str
+) -> None:
+    monkeypatch.delenv("XDG_RUNTIME_DIR", raising=False)
+    mocker.patch("sys.platform", platform)
+    mocker.patch("os.access", return_value=False)
+    mocker.patch("tempfile.tempdir", "/tmp")  # noqa: S108
+
+    result = Unix().user_runtime_dir
+    assert not result.startswith(default_dir)
+    assert result == "/tmp/runtime-1234"  # noqa: S108
+
+
 def test_ensure_exists_creates_folder(mocker: MockerFixture, tmp_path: Path) -> None:
     mocker.patch.dict(os.environ, {"XDG_DATA_HOME": str(tmp_path)})
     data_path = Unix(appname="acme", ensure_exists=True).user_data_path
@@ -183,3 +230,55 @@ def test_folder_not_created_without_ensure_exists(mocker: MockerFixture, tmp_pat
     mocker.patch.dict(os.environ, {"XDG_DATA_HOME": str(tmp_path)})
     data_path = Unix(appname="acme", ensure_exists=False).user_data_path
     assert not data_path.exists()
+
+
+def test_iter_data_dirs_xdg(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("XDG_DATA_HOME", "/xdg/data")
+    monkeypatch.setenv("XDG_DATA_DIRS", f"/xdg/share1{os.pathsep}/xdg/share2")
+    dirs = list(Unix().iter_data_dirs())
+    assert dirs == ["/xdg/data", "/xdg/share1", "/xdg/share2"]
+
+
+def test_iter_config_dirs_xdg(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", "/xdg/config")
+    monkeypatch.setenv("XDG_CONFIG_DIRS", f"/xdg/etc1{os.pathsep}/xdg/etc2")
+    dirs = list(Unix().iter_config_dirs())
+    assert dirs == ["/xdg/config", "/xdg/etc1", "/xdg/etc2"]
+
+
+def test_user_media_dir_from_user_dirs_file(
+    mocker: MockerFixture, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("XDG_DOCUMENTS_DIR", raising=False)
+    config_dir = tmp_path / ".config"
+    config_dir.mkdir()
+    user_dirs_file = config_dir / "user-dirs.dirs"
+    user_dirs_file.write_text('XDG_DOCUMENTS_DIR="$HOME/MyDocs"\n')
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    mocker.patch.dict(os.environ, {"XDG_CONFIG_HOME": ""})
+    assert Unix().user_documents_dir == f"{tmp_path}/MyDocs"
+
+
+def test_user_media_dir_missing_key_in_user_dirs_file(
+    mocker: MockerFixture, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("XDG_DOCUMENTS_DIR", raising=False)
+    config_dir = tmp_path / ".config"
+    config_dir.mkdir()
+    user_dirs_file = config_dir / "user-dirs.dirs"
+    user_dirs_file.write_text('XDG_DESKTOP_DIR="$HOME/Desktop"\n')
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    mocker.patch.dict(os.environ, {"XDG_CONFIG_HOME": ""})
+    assert Unix().user_documents_dir == f"{tmp_path}/Documents"
+
+
+def test_user_media_dir_no_user_dirs_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("XDG_DOCUMENTS_DIR", raising=False)
+    monkeypatch.setenv("HOME", "/nonexistent/path")
+    monkeypatch.setenv("USERPROFILE", "/nonexistent/path")
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    assert Unix().user_documents_dir == "/nonexistent/path/Documents"

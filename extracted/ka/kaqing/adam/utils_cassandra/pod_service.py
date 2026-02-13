@@ -6,7 +6,7 @@ from adam.commands.cql.utils_cql import run_cql
 from adam.utils_cassandra import cassandra_exec
 from adam.utils_cassandra.cassandra_clusters import CassandraClusters
 from adam.utils_cassandra.cassandra_nodes import CassandraNodes
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.utils_k8s.pod_exec_result import PodExecResult
 from adam.repl_state import ReplState
 from adam.utils_log import log2
@@ -23,10 +23,10 @@ class CassandraPodService:
              on_any = False,
              throw_err = False,
              shell = '/bin/sh',
-             ctx: Context = Context.NULL) -> Union[PodExecResult, list[PodExecResult]]:
+             ctx = NULL) -> Union[PodExecResult, list[PodExecResult]]:
         return cassandra_exec.cassandra_exec(self.handler.state, self.handler.pod, command, action, on_any, throw_err, shell, ctx)
 
-    def cql(self, args: list[str], opts: list = [], use_single_quotes = False, on_any = False, no_color = False, ctx: Context = Context.NULL):
+    def cql(self, args: list[str], opts: list = [], use_single_quotes = False, on_any = False, no_color = False, ctx = NULL):
         state = self.handler.state
         query: str = args
 
@@ -52,15 +52,25 @@ class CassandraPodService:
 
         return run_cql(state, query, opts=opts, use_single_quotes=use_single_quotes, on_any=on_any, no_color=no_color, ctx=ctx)
 
-    def nodetool(self, args: str, status = False, samples = sys.maxsize, k8s: K8sContext = K8sContext.NULL, ctx: Context = Context.NULL) -> Union[PodExecResult, list[PodExecResult]]:
+    def nodetool(self, args: str, status = False, samples = sys.maxsize, k8s: K8sContext = K8sContext.NULL, ctx = NULL) -> Union[PodExecResult, list[PodExecResult]]:
         state = self.handler.state
-        pod = self.handler.pod
+        pods = self.handler.pod
 
         user, pw = state.user_pass()
         command = f"nodetool -u {user} -pw {pw} {args}"
 
-        if pod:
-            return CassandraNodes.exec(pod, state.namespace, command, ctx=ctx)
+        if pods:
+            if isinstance(pods, list):
+                return CassandraClusters.exec(state.sts,
+                                              state.namespace,
+                                              command,
+                                              action='nodetool.status' if status else 'nodetool',
+                                              samples=samples,
+                                              pods = pods,
+                                              k8s=k8s,
+                                              ctx=ctx)
+
+            return CassandraNodes.exec(pods, state.namespace, command, ctx=ctx)
         else:
             return CassandraClusters.exec(state.sts,
                                           state.namespace,

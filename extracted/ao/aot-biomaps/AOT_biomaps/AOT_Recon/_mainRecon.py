@@ -370,9 +370,7 @@ class Recon(ABC):
                 structured_buffer[key][phase] = (structured_buffer[key][phase] + np.array(AOsignal[:,i])) / 2
             else:
                 structured_buffer[key][phase] = np.array(AOsignal[:,i])
-
-
-        
+ 
         for (fs, theta), phases in structured_buffer.items():
             s0 = phases.get(0.0, 0)
             s_pi_2 = phases.get(np.pi/2, 0)

@@ -4,13 +4,13 @@ from kubernetes import client
 from kubernetes.stream import stream
 from kubernetes.stream.ws_client import ERROR_CHANNEL
 
-from adam.config import Config
+from adam.directories import local_downloads_dir
 from adam.repl_session import ReplSession
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.utils_k8s.pods import Pods
 from adam.utils import GeneratorStream
 from adam.utils_log import PodLogFile, log_exc
-from adam.utils_local import local_downloads_dir, local_exec
+from adam.utils_local import local_exec
 
 from websocket._core import WebSocket
 
@@ -19,24 +19,13 @@ def creating_dir(pod_name: str,
                     namespace: str,
                     dir_or_file: str,
                     is_file = False,
-                    ctx: Context = Context.NULL):
+                    ctx = NULL):
     return PodFiles.creating_dir(pod_name, container, namespace, dir_or_file, is_file, ctx)
 
 # utility collection on pods filesystem; methods are all static
 class PodFiles:
     pods_cmder_written = set()
     Pods.creating_dir = creating_dir
-
-    def cmder(pod_name: str, container: str, namespace: str):
-        script = PodFiles.creating_dir(pod_name, container, namespace, Config().get('job.cmder.path', '/tmp/q/cmder.sh'), is_file=True)
-
-        key = f'{namespace}.{container}.{pod_name}'
-        if key not in Pods.pods_cmder_written:
-            cmd_file_content = Config().get('job.cmder.content', "($1; echo QING_$?) > $2 2> $3 &")
-            Pods.exec(pod_name, container, namespace, f"echo '{cmd_file_content}' > {script} && chmod a+x {script}")
-            Pods.pods_cmder_written.add(key)
-
-        return script
 
     def log_file_from_template(log_file: str, pod_name: str):
         if not log_file:
@@ -106,7 +95,7 @@ class PodFiles:
                      namespace: str,
                      dir_or_file: str,
                      is_file = False,
-                     ctx: Context = Context.NULL):
+                     ctx = NULL):
         dir = dir_or_file
         if is_file:
             dir = os.path.dirname(dir_or_file)
@@ -118,7 +107,7 @@ class PodFiles:
 
         return dir_or_file
 
-    def find_files(pod: str, container: str, namespace: str, pattern: str, mmin: int = 0, remote = False, capture_pid = False, ctx: Context = Context.NULL):
+    def find_files(pod: str, container: str, namespace: str, pattern: str, mmin: int = 0, remote = False, capture_pid = False, ctx = NULL):
         log_files: list[PodLogFile] = []
 
         stdout = ''
@@ -140,19 +129,19 @@ class PodFiles:
             if mmin:
                 cmd = f'{cmd} -mmin -{mmin}'
 
-            cmd += " -exec stat -c '%n %s' {} \;"
+            cmd += " -exec stat -c '%n %s %Y' {} \;"
             if capture_pid:
                 cmd += " -exec tail -n 1 {} \;"
 
             stdout = Pods.exec(pod, container, namespace, cmd, shell='bash', ctx=ctx).stdout
 
-        # /tmp/q/logs/21085209.err 58
+        # /tmp/q/logs/21085209.err 58 1750351699
         # nohup: can't execute 'sdfsfsf': No such file or directory
-        # /tmp/q/logs/21085209.log 7
+        # /tmp/q/logs/21085209.log 7 1750351699
         # QING:466607:0
-        # /tmp/q/logs/21142322.log 632
+        # /tmp/q/logs/21142322.log 632 1750351699
         # (4 rows)
-        # /tmp/q/logs/21142322.pid 14
+        # /tmp/q/logs/21142322.pid 14 1750351699
         # QING:477894:0
 
         f: PodLogFile = None
@@ -168,26 +157,8 @@ class PodFiles:
                             f.pid=groups[1]
                 else:
                     tokens = line.split(' ')
-                    if len(tokens) == 2 and tokens[0].startswith('/') and tokens[1].isdigit():
-                        f = PodLogFile(tokens[0], pod, size=tokens[1])
+                    if len(tokens) == 3 and tokens[0].startswith('/') and tokens[1].isdigit() and tokens[2].isdigit():
+                        f = PodLogFile(tokens[0], pod, size=tokens[1], ts=tokens[2])
                         log_files.append(f)
 
         return log_files
-
-# def creating_dir(pod_name: str,
-#                     container: str,
-#                     namespace: str,
-#                     dir_or_file: str,
-#                     show_out = False,
-#                     is_file = False):
-#     return PodFiles.creating_dir(pod_name, container, namespace, dir_or_file, show_out, is_file)
-    # dir = dir_or_file
-    # if is_file:
-    #     dir = os.path.dirname(dir_or_file)
-
-    # key = f'{dir}@{pod_name}'
-    # if key not in PodFiles._dirs_created:
-    #     PodFiles._dirs_created.add(key)
-    #     Pods.exec(pod_name, container, namespace, f'mkdir -p {dir}', show_out=show_out, shell='bash')
-
-    # return dir_or_file

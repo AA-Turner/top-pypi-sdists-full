@@ -263,7 +263,7 @@ def test_run_summary(results: List[TestSummaryResults], only_fail: bool = False,
             total_counts[test.status] = total_counts.get(test.status, 0) + 1
 
             # Skip the PASS tests if we only want the failed ones
-            if only_fail and test.status in [PASS]:
+            if only_fail and test.status == PASS:
                 continue
 
             summary.append(

@@ -13,7 +13,7 @@ from nilearn._utils.estimator_checks import (
     nilearn_check_estimator,
     return_expected_failed_checks,
 )
-from nilearn._utils.tags import SKLEARN_LT_1_6
+from nilearn._utils.versions import SKLEARN_LT_1_6
 from nilearn.image import get_data
 from nilearn.maskers import MultiNiftiMasker
 
@@ -80,6 +80,7 @@ def img_2(data_2, affine_eye):
     return Nifti1Image(data_2, affine_eye)
 
 
+@pytest.mark.slow
 def test_auto_mask(data_1, img_1, data_2, img_2):
     """Test that a proper mask is generated from fitted image."""
     masker = MultiNiftiMasker(mask_args={"opening": 0}, standardize=None)

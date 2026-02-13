@@ -55,6 +55,10 @@ class OracleMigrationSummary(MigrationSummary):
             The value to assign to the executing_job_id property of this OracleMigrationSummary.
         :type executing_job_id: str
 
+        :param assessment_id:
+            The value to assign to the assessment_id property of this OracleMigrationSummary.
+        :type assessment_id: str
+
         :param time_created:
             The value to assign to the time_created property of this OracleMigrationSummary.
         :type time_created: datetime
@@ -74,7 +78,7 @@ class OracleMigrationSummary(MigrationSummary):
 
         :param lifecycle_details:
             The value to assign to the lifecycle_details property of this OracleMigrationSummary.
-            Allowed values for this property are: "READY", "ABORTING", "VALIDATING", "VALIDATED", "WAITING", "MIGRATING", "DONE"
+            Allowed values for this property are: "READY", "ABORTING", "VALIDATING", "VALIDATED", "ASSESSED", "WAITING", "MIGRATING", "DONE"
         :type lifecycle_details: str
 
         :param freeform_tags:
@@ -107,6 +111,7 @@ class OracleMigrationSummary(MigrationSummary):
             'source_database_connection_id': 'str',
             'target_database_connection_id': 'str',
             'executing_job_id': 'str',
+            'assessment_id': 'str',
             'time_created': 'datetime',
             'time_updated': 'datetime',
             'time_last_migration': 'datetime',
@@ -127,6 +132,7 @@ class OracleMigrationSummary(MigrationSummary):
             'source_database_connection_id': 'sourceDatabaseConnectionId',
             'target_database_connection_id': 'targetDatabaseConnectionId',
             'executing_job_id': 'executingJobId',
+            'assessment_id': 'assessmentId',
             'time_created': 'timeCreated',
             'time_updated': 'timeUpdated',
             'time_last_migration': 'timeLastMigration',
@@ -146,6 +152,7 @@ class OracleMigrationSummary(MigrationSummary):
         self._source_database_connection_id = None
         self._target_database_connection_id = None
         self._executing_job_id = None
+        self._assessment_id = None
         self._time_created = None
         self._time_updated = None
         self._time_last_migration = None

@@ -253,13 +253,14 @@ MCP_VECTOR_SEARCH = MCPServiceDefinition(
 )
 
 # Google Workspace MCP - Google Drive, Docs, Sheets integration
-# Package: https://pypi.org/project/workspace-mcp/
+# Package: https://pypi.org/project/gworkspace-mcp/ (v0.1.2+)
+# Entry points: 'workspace' or 'google-workspace-mcp'
 GOOGLE_WORKSPACE_MCP = MCPServiceDefinition(
-    name="google-workspace-mcp",
-    package="workspace-mcp",
+    name="gworkspace-mcp",  # Canonical service name (matches package)
+    package="gworkspace-mcp",  # PyPI package name
     install_method=InstallMethod.UVX,
-    command="uvx",
-    args=["workspace-mcp", "--tool-tier", "core"],
+    command="google-workspace-mcp",  # Entry point command (installed by package)
+    args=[],  # No additional args needed (tool-tier removed)
     required_env=["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET"],
     optional_env=[
         "OAUTHLIB_INSECURE_TRANSPORT",
@@ -359,13 +360,26 @@ MCP_SKILLSET = MCPServiceDefinition(
 # Package: https://www.npmjs.com/package/@notionhq/notion-mcp-server
 NOTION_MCP = MCPServiceDefinition(
     name="notion-mcp",
-    package="@notionhq/notion-mcp-server",
-    install_method=InstallMethod.NPX,
-    command="npx",
-    args=["-y", "@notionhq/notion-mcp-server"],
-    required_env=["NOTION_TOKEN"],
+    package=None,  # Internal server
+    install_method=InstallMethod.INTERNAL,
+    command="notion-mcp",
+    args=[],
+    required_env=["NOTION_API_KEY"],
+    optional_env=["NOTION_DATABASE_ID"],
+    description="Notion integration for databases, pages, and content with markdown import",
+    enabled_by_default=False,
+)
+
+# Confluence - Internal MCP server for Confluence operations
+CONFLUENCE_MCP = MCPServiceDefinition(
+    name="confluence-mcp",
+    package=None,  # Internal server
+    install_method=InstallMethod.INTERNAL,
+    command="confluence-mcp",
+    args=[],
+    required_env=["CONFLUENCE_URL", "CONFLUENCE_EMAIL", "CONFLUENCE_API_TOKEN"],
     optional_env=[],
-    description="Official Notion integration for pages, databases, and blocks",
+    description="Confluence integration for pages, spaces, and content with markdown import",
     enabled_by_default=False,
 )
 
@@ -397,6 +411,7 @@ def _register_builtin_services() -> None:
         MCP_FILESYSTEM,
         MCP_SKILLSET,
         NOTION_MCP,
+        CONFLUENCE_MCP,
         MCP_LSP,
     ]
     for service in services:

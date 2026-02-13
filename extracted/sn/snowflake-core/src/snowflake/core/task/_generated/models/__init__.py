@@ -21,6 +21,8 @@ from snowflake.core.task._generated.models.error_response import ErrorResponse
 from snowflake.core.task._generated.models.minutes_schedule import MinutesSchedule
 from snowflake.core.task._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.task._generated.models.success_response import SuccessResponse
+from snowflake.core.task._generated.models.tag_assignment import TagAssignment
+from snowflake.core.task._generated.models.tag_reference import TagReference
 from snowflake.core.task._generated.models.task import Task
 from snowflake.core.task._generated.models.task_run import TaskRun
 from snowflake.core.task._generated.models.task_schedule import TaskSchedule
@@ -31,6 +33,8 @@ __all__ = [
     "MinutesSchedule",
     "SuccessAcceptedResponse",
     "SuccessResponse",
+    "TagAssignment",
+    "TagReference",
     "Task",
     "TaskRun",
     "TaskSchedule",

@@ -3,7 +3,7 @@ typedload
 Module to load data into typed data structures
 """
 
-# Copyright (C) 2018-2025 Salvo "LtWorf" Tomaselli
+# Copyright (C) 2018-2026 Salvo "LtWorf" Tomaselli
 #
 # typedload is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -34,6 +34,7 @@ from .exceptions import *
 from .typechecks import *
 from .typechecks import discriminatorliterals
 from .helpers import tname
+from . import moretypes
 
 try:
     # A dirty trick
@@ -222,6 +223,7 @@ class Loader:
             ipaddress.IPv4Interface,
             ipaddress.IPv6Interface,
             uuid.UUID,
+            moretypes.HexRGB,
         }
 
         # Bah
@@ -862,11 +864,14 @@ def _enumload(l: Loader, value: Any, type_) -> Enum:
             return type_(l.load(value, t, annotation=Annotation(AnnotationType.UNION, t)))
         except Exception as e:
             exceptions.append(e)
+
+    # For small enums of basic types, list the possible values
     if len(type_.__members__) <= 10 and all(type(i.value) in l.basictypes for i in type_.__members__.values()):
-        lst = '\nValue %s not between: ' % repr(value) + \
+        lst = f'\nValue {value!r} not among: ' + \
         ', '.join(repr(i.value) for i in type_.__members__.values())
     else:
         lst = ''
+
     raise TypedloadValueError(
         'Value of %s could not be loaded into %s%s' % (tname(type(value)), tname(type_), lst),
         value=value,

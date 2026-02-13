@@ -7,6 +7,8 @@ from .._impl import (
     scout_integrations_api_CreateIntegrationRequest as CreateIntegrationRequest,
     scout_integrations_api_CreateOpsgenieIntegrationDetails as CreateOpsgenieIntegrationDetails,
     scout_integrations_api_CreatePagerDutyIntegrationDetails as CreatePagerDutyIntegrationDetails,
+    scout_integrations_api_CreateSecureWebhookIntegrationRequest as CreateSecureWebhookIntegrationRequest,
+    scout_integrations_api_CreateSecureWebhookIntegrationResponse as CreateSecureWebhookIntegrationResponse,
     scout_integrations_api_CreateSimpleWebhookDetails as CreateSimpleWebhookDetails,
     scout_integrations_api_CreateTeamsWebhookIntegrationDetails as CreateTeamsWebhookIntegrationDetails,
     scout_integrations_api_GenerateSlackWebhookResponse as GenerateSlackWebhookResponse,
@@ -24,6 +26,8 @@ from .._impl import (
     scout_integrations_api_OpsgenieRegion as OpsgenieRegion,
     scout_integrations_api_PagerDutyIntegration as PagerDutyIntegration,
     scout_integrations_api_ResolutionFailureMessageFields as ResolutionFailureMessageFields,
+    scout_integrations_api_RotateWebhookSigningKeyResponse as RotateWebhookSigningKeyResponse,
+    scout_integrations_api_SecureWebhookIntegration as SecureWebhookIntegration,
     scout_integrations_api_SendMessageRequest as SendMessageRequest,
     scout_integrations_api_SimpleWebhookIntegration as SimpleWebhookIntegration,
     scout_integrations_api_SlackInstanceType as SlackInstanceType,
@@ -35,8 +39,10 @@ from .._impl import (
     scout_integrations_api_UpdateIntegrationRequest as UpdateIntegrationRequest,
     scout_integrations_api_UpdateOpsgenieIntegrationDetails as UpdateOpsgenieIntegrationDetails,
     scout_integrations_api_UpdatePagerDutyIntegrationDetails as UpdatePagerDutyIntegrationDetails,
+    scout_integrations_api_UpdateSecureWebhookIntegrationDetails as UpdateSecureWebhookIntegrationDetails,
     scout_integrations_api_UpdateSimpleWebhookDetails as UpdateSimpleWebhookDetails,
     scout_integrations_api_UpdateTeamsWebhookIntegrationDetails as UpdateTeamsWebhookIntegrationDetails,
+    scout_integrations_api_WebhookDeliveryConfig as WebhookDeliveryConfig,
 )
 
 __all__ = [
@@ -47,6 +53,8 @@ __all__ = [
     'CreateIntegrationRequest',
     'CreateOpsgenieIntegrationDetails',
     'CreatePagerDutyIntegrationDetails',
+    'CreateSecureWebhookIntegrationRequest',
+    'CreateSecureWebhookIntegrationResponse',
     'CreateSimpleWebhookDetails',
     'CreateTeamsWebhookIntegrationDetails',
     'GenerateSlackWebhookResponse',
@@ -63,6 +71,8 @@ __all__ = [
     'OpsgenieRegion',
     'PagerDutyIntegration',
     'ResolutionFailureMessageFields',
+    'RotateWebhookSigningKeyResponse',
+    'SecureWebhookIntegration',
     'SendMessageRequest',
     'SimpleWebhookIntegration',
     'SlackInstanceType',
@@ -74,8 +84,10 @@ __all__ = [
     'UpdateIntegrationRequest',
     'UpdateOpsgenieIntegrationDetails',
     'UpdatePagerDutyIntegrationDetails',
+    'UpdateSecureWebhookIntegrationDetails',
     'UpdateSimpleWebhookDetails',
     'UpdateTeamsWebhookIntegrationDetails',
+    'WebhookDeliveryConfig',
     'IntegrationsService',
 ]
 

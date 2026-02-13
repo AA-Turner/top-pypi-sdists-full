@@ -1010,7 +1010,7 @@ class CoreCommands(CommandMixin[AnyStr]):
     )
     def cluster_reset(
         self,
-        hard_soft: Literal[PureToken.HARD, PureToken.SOFT] | None = None,
+        reset_type: Literal[PureToken.HARD, PureToken.SOFT] | None = None,
     ) -> CommandRequest[bool]:
         """
         Reset a Redis Cluster node
@@ -1018,8 +1018,8 @@ class CoreCommands(CommandMixin[AnyStr]):
 
         command_arguments: CommandArgList = []
 
-        if hard_soft is not None:
-            command_arguments.append(hard_soft)
+        if reset_type is not None:
+            command_arguments.append(reset_type)
 
         return self.create_request(
             CommandName.CLUSTER_RESET,
@@ -6174,9 +6174,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if args:
             command_arguments.extend(args)
 
-        return self.create_request(
-            command, *command_arguments, callback=NoopCallback[ResponseType]()
-        )
+        return self.create_request(command, *command_arguments, callback=NoopCallback())
 
     @redis_command(CommandName.EVALSHA, group=CommandGroup.SCRIPTING)
     def evalsha(
@@ -6265,15 +6263,15 @@ class CoreCommands(CommandMixin[AnyStr]):
     )
     def script_flush(
         self,
-        sync_type: Literal[PureToken.ASYNC, PureToken.SYNC] | None = None,
+        flush_type: Literal[PureToken.ASYNC, PureToken.SYNC] | None = None,
     ) -> CommandRequest[bool]:
         """
         Flushes all scripts from the script cache
         """
         command_arguments: CommandArgList = []
 
-        if sync_type:
-            command_arguments = [sync_type]
+        if flush_type:
+            command_arguments = [flush_type]
 
         return self.create_request(
             CommandName.SCRIPT_FLUSH, *command_arguments, callback=BoolCallback()
@@ -6308,7 +6306,6 @@ class CoreCommands(CommandMixin[AnyStr]):
 
         :return: The SHA1 digest of the script added into the script cache
         """
-
         return self.create_request(
             CommandName.SCRIPT_LOAD, script, callback=AnyStrCallback[AnyStr]()
         )
@@ -6336,9 +6333,7 @@ class CoreCommands(CommandMixin[AnyStr]):
             *(args or []),
         ]
 
-        return self.create_request(
-            CommandName.FCALL, *command_arguments, callback=NoopCallback[ResponseType]()
-        )
+        return self.create_request(CommandName.FCALL, *command_arguments, callback=NoopCallback())
 
     @versionadded(version="3.1.0")
     @redis_command(
@@ -6365,9 +6360,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         ]
 
         return self.create_request(
-            CommandName.FCALL_RO,
-            *command_arguments,
-            callback=NoopCallback[ResponseType](),
+            CommandName.FCALL_RO, *command_arguments, callback=NoopCallback()
         )
 
     @versionadded(version="3.1.0")
@@ -6418,15 +6411,15 @@ class CoreCommands(CommandMixin[AnyStr]):
         ),
     )
     def function_flush(
-        self, async_: Literal[PureToken.ASYNC, PureToken.SYNC] | None = None
+        self, flush_type: Literal[PureToken.ASYNC, PureToken.SYNC] | None = None
     ) -> CommandRequest[bool]:
         """
         Delete all functions
         """
         command_arguments: CommandArgList = []
 
-        if async_ is not None:
-            command_arguments.append(async_)
+        if flush_type is not None:
+            command_arguments.append(flush_type)
 
         return self.create_request(
             CommandName.FUNCTION_FLUSH,
@@ -6824,17 +6817,20 @@ class CoreCommands(CommandMixin[AnyStr]):
     def client_unblock(
         self,
         client_id: int,
-        timeout_error: Literal[PureToken.TIMEOUT, PureToken.ERROR] | None = None,
+        unblock_type: Literal[PureToken.TIMEOUT, PureToken.ERROR] | None = None,
     ) -> CommandRequest[bool]:
         """
         Unblock a client blocked in a blocking command from a different connection
 
+        :param client_id:  The id of the client to unblock
+        :param unblock_type: Whether to unblock the client with a timeout error
+         or just an error.
         :return: Whether the client was unblocked
         """
         command_arguments: CommandArgList = [client_id]
 
-        if timeout_error is not None:
-            command_arguments.append(timeout_error)
+        if unblock_type is not None:
+            command_arguments.append(unblock_type)
 
         return self.create_request(
             CommandName.CLIENT_UNBLOCK, *command_arguments, callback=BoolCallback()
@@ -6879,7 +6875,6 @@ class CoreCommands(CommandMixin[AnyStr]):
         """
         Returns information about the current client connection.
         """
-
         return self.create_request(CommandName.CLIENT_INFO, callback=ClientInfoCallback())
 
     @versionadded(version="3.0.0")
@@ -7083,13 +7078,17 @@ class CoreCommands(CommandMixin[AnyStr]):
         ),
     )
     def flushall(
-        self, async_: Literal[PureToken.ASYNC, PureToken.SYNC] | None = None
+        self, flush_type: Literal[PureToken.ASYNC, PureToken.SYNC] | None = None
     ) -> CommandRequest[bool]:
-        """Deletes all keys in all databases on the current host"""
+        """
+        Deletes all keys in all databases on the current host
+
+        :param flush_type: Whether to perform an asynchronous or synchronous flush
+        """
         command_arguments: CommandArgList = []
 
-        if async_:
-            command_arguments.append(async_)
+        if flush_type:
+            command_arguments.append(flush_type)
 
         return self.create_request(
             CommandName.FLUSHALL, *command_arguments, callback=SimpleStringCallback()
@@ -7104,13 +7103,17 @@ class CoreCommands(CommandMixin[AnyStr]):
         ),
     )
     def flushdb(
-        self, async_: Literal[PureToken.ASYNC, PureToken.SYNC] | None = None
+        self, flush_type: Literal[PureToken.ASYNC, PureToken.SYNC] | None = None
     ) -> CommandRequest[bool]:
-        """Deletes all keys in the current database"""
+        """
+        Deletes all keys in the current database
+
+        :param flush_type: Whether to perform an asynchronous or synchronous flush
+        """
         command_arguments: CommandArgList = []
 
-        if async_:
-            command_arguments.append(async_)
+        if flush_type:
+            command_arguments.append(flush_type)
 
         return self.create_request(
             CommandName.FLUSHDB, *command_arguments, callback=SimpleStringCallback()
@@ -8160,6 +8163,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         filter: StringT | None = ...,
         filter_ef: int | None = ...,
         truth: bool | None = ...,
+        nothread: bool | None = ...,
     ) -> CommandRequest[tuple[AnyStr, ...]]: ...
     @overload
     def vsim(
@@ -8175,6 +8179,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         filter: StringT | None = ...,
         filter_ef: int | None = ...,
         truth: bool | None = ...,
+        nothread: bool | None = ...,
     ) -> CommandRequest[dict[AnyStr, float]]: ...
     @overload
     def vsim(
@@ -8190,6 +8195,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         filter: StringT | None = ...,
         filter_ef: int | None = ...,
         truth: bool | None = ...,
+        nothread: bool | None = ...,
     ) -> CommandRequest[dict[AnyStr, JsonType]]: ...
     @overload
     def vsim(
@@ -8206,6 +8212,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         filter: StringT | None = ...,
         filter_ef: int | None = ...,
         truth: bool | None = ...,
+        nothread: bool | None = ...,
     ) -> CommandRequest[dict[AnyStr, tuple[float, JsonType]]]: ...
 
     @versionadded(version="5.0.0")
@@ -8214,7 +8221,10 @@ class CoreCommands(CommandMixin[AnyStr]):
         CommandName.VSIM,
         version_introduced="8.0.0",
         group=CommandGroup.VECTOR_SET,
-        arguments={"withattribs": {"version_introduced": "8.1.240"}},
+        arguments={
+            "withattribs": {"version_introduced": "8.2"},
+            "epsilon": {"version_introduced": "8.2"},
+        },
     )
     def vsim(
         self,
@@ -8230,6 +8240,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         filter: StringT | None = None,
         filter_ef: int | None = None,
         truth: bool | None = None,
+        nothread: bool | None = None,
     ) -> CommandRequest[
         tuple[AnyStr, ...]
         | dict[AnyStr, float]
@@ -8252,6 +8263,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         :param filter: Expression to restrict matching elements
         :param filter_ef: limits the number of filtering attempts
         :param truth: forces an exact linear scan of all elements bypassing the HSNW graph
+        :param nothread: execute the search in the main thread instead of a background thread
         :return: the matching elements or a mapping of the matching elements to their scores
          if :paramref:`withscores` is ``True`` and/or their attributes if :paramref:`withattribs`
          is ``True``
@@ -8282,6 +8294,8 @@ class CoreCommands(CommandMixin[AnyStr]):
             command_arguments.extend([PrefixToken.FILTER_EF, filter_ef])
         if truth:
             command_arguments.append(PureToken.TRUTH)
+        if nothread:
+            command_arguments.append(PureToken.NOTHREAD)
         return self.create_request(
             CommandName.VSIM,
             *command_arguments,
@@ -8463,6 +8477,30 @@ class CoreCommands(CommandMixin[AnyStr]):
             CommandName.VRANDMEMBER,
             *command_arguments,
             callback=ItemOrTupleCallback[AnyStr | None](),
+        )
+
+    @versionadded(version="6.0.0")
+    @redis_command(CommandName.VRANGE, version_introduced="8.4.0", group=CommandGroup.VECTOR_SET)
+    def vrange(
+        self, key: KeyT, start: StringT, end: StringT, count: int | None = None
+    ) -> CommandRequest[tuple[AnyStr, ...]]:
+        """
+        :param key: The key containing the vector set
+        :param start: The starting point of the lexicographical range
+        :param end: The ending point of the lexicographical range.
+        :param count: Maximum number of elements to return. If negative,
+         all elements in the range will be returned.
+
+        :return: The elements in lexicographical order within the range
+        """
+        command_arguments: CommandArgList = [key, start, end]
+        if count is not None:
+            command_arguments.append(count)
+
+        return self.create_request(
+            CommandName.VRANGE,
+            *command_arguments,
+            callback=TupleCallback[AnyStr](),
         )
 
     @versionadded(version="5.2.0")

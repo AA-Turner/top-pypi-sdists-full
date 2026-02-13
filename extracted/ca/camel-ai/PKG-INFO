@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: camel-ai
-Version: 0.2.85
+Version: 0.2.89
 Summary: Communicative Agents for AI Society Study
 Project-URL: Homepage, https://www.camel-ai.org/
 Project-URL: Repository, https://github.com/camel-ai/camel
@@ -21,7 +21,8 @@ Requires-Dist: openai>=1.86.0
 Requires-Dist: pillow>=10.0.0
 Requires-Dist: psutil<6,>=5.9.8
 Requires-Dist: pydantic<=2.12.0,>=2.10.6
-Requires-Dist: tiktoken<0.8,>=0.7.0
+Requires-Dist: pyyaml>=6.0.3
+Requires-Dist: tiktoken<=0.12,>=0.7.0
 Requires-Dist: websockets<15.1,>=13.0
 Provides-Extra: all
 Requires-Dist: aci-sdk>=1.0.0b1; extra == 'all'
@@ -137,6 +138,7 @@ Requires-Dist: scikit-image>=0.25.2; extra == 'all'
 Requires-Dist: scipy>=1.15.3; extra == 'all'
 Requires-Dist: scrapegraph-py<2,>=1.12.0; extra == 'all'
 Requires-Dist: sentencepiece<0.3,>=0.2; extra == 'all'
+Requires-Dist: setuptools<79,>=78.1.1; extra == 'all'
 Requires-Dist: slack-bolt<2,>=1.20.1; extra == 'all'
 Requires-Dist: slack-sdk<4,>=3.27.2; extra == 'all'
 Requires-Dist: soundfile<0.14,>=0.13; extra == 'all'
@@ -155,7 +157,7 @@ Requires-Dist: types-colorama<0.5,>=0.4.15; extra == 'all'
 Requires-Dist: types-mock<6,>=5.1.0; extra == 'all'
 Requires-Dist: types-pyyaml<7,>=6.0.12; extra == 'all'
 Requires-Dist: types-requests<3,>=2.31.0; extra == 'all'
-Requires-Dist: types-setuptools<70,>=69.2.0; extra == 'all'
+Requires-Dist: types-setuptools<76,>=75.8.0; extra == 'all'
 Requires-Dist: types-tqdm<5,>=4.66.0; extra == 'all'
 Requires-Dist: unstructured==0.16.20; (python_version < '3.13') and extra == 'all'
 Requires-Dist: weaviate-client>=4.15.0; extra == 'all'
@@ -196,12 +198,13 @@ Requires-Dist: pytest-asyncio<0.24,>=0.23.0; extra == 'dev'
 Requires-Dist: pytest-cov<5,>=4; extra == 'dev'
 Requires-Dist: pytest<8,>=7; extra == 'dev'
 Requires-Dist: ruff<0.8,>=0.7; extra == 'dev'
+Requires-Dist: setuptools<79,>=78.1.1; extra == 'dev'
 Requires-Dist: toml>=0.10.2; extra == 'dev'
 Requires-Dist: types-colorama<0.5,>=0.4.15; extra == 'dev'
 Requires-Dist: types-mock<6,>=5.1.0; extra == 'dev'
 Requires-Dist: types-pyyaml<7,>=6.0.12; extra == 'dev'
 Requires-Dist: types-requests<3,>=2.31.0; extra == 'dev'
-Requires-Dist: types-setuptools<70,>=69.2.0; extra == 'dev'
+Requires-Dist: types-setuptools<76,>=75.8.0; extra == 'dev'
 Requires-Dist: types-tqdm<5,>=4.66.0; extra == 'dev'
 Requires-Dist: uv<0.8,>=0.7.0; extra == 'dev'
 Provides-Extra: dev-tools

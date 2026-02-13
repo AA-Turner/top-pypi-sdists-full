@@ -66,12 +66,24 @@ class Certificate(AWSObject):
     }
 
 
+class ConnectorAsyncMdnConfig(AWSProperty):
+    """
+    `ConnectorAsyncMdnConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-connector-connectorasyncmdnconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "ServerIds": ([str], True),
+        "Url": (str, True),
+    }
+
+
 class As2Config(AWSProperty):
     """
     `As2Config <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-connector-as2config.html>`__
     """
 
     props: PropsDictType = {
+        "AsyncMdnConfig": (ConnectorAsyncMdnConfig, False),
         "BasicAuthSecretId": (str, False),
         "Compression": (str, False),
         "EncryptionAlgorithm": (str, False),
@@ -153,17 +165,25 @@ class Profile(AWSObject):
     }
 
 
-class EndpointDetails(AWSProperty):
+class Vpc(AWSProperty):
     """
-    `EndpointDetails <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-server-endpointdetails.html>`__
+    `Vpc <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-webapp-vpc.html>`__
     """
 
     props: PropsDictType = {
-        "AddressAllocationIds": ([str], False),
         "SecurityGroupIds": ([str], False),
         "SubnetIds": ([str], False),
-        "VpcEndpointId": (str, False),
         "VpcId": (str, False),
+    }
+
+
+class EndpointDetails(AWSProperty):
+    """
+    `EndpointDetails <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-webapp-endpointdetails.html>`__
+    """
+
+    props: PropsDictType = {
+        "Vpc": (Vpc, False),
     }
 
 
@@ -342,6 +362,7 @@ class WebApp(AWSObject):
 
     props: PropsDictType = {
         "AccessEndpoint": (str, False),
+        "EndpointDetails": (EndpointDetails, False),
         "IdentityProviderDetails": (WebAppIdentityProviderDetails, True),
         "Tags": (Tags, False),
         "WebAppCustomization": (WebAppCustomization, False),

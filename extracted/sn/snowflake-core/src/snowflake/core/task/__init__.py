@@ -20,4 +20,11 @@ from ._generated.models.task_run import TaskRun
 from ._task import Cron, StoredProcedureCall, Task, TaskCollection, TaskResource
 
 
-__all__ = ["Cron", "StoredProcedureCall", "Task", "TaskCollection", "TaskResource", "TaskRun"]
+__all__ = [
+    "Cron",
+    "StoredProcedureCall",
+    "Task",
+    "TaskCollection",
+    "TaskResource",
+    "TaskRun",
+]

@@ -449,6 +449,14 @@ class TinyB:
     def datasource_truncate(self, datasource_name: str):
         return self._req(f"/v0/datasources/{datasource_name}/truncate", method="POST", data="")
 
+    def datasource_stop(self, datasource_name: str) -> dict:
+        """Stop Kafka ingestion for a datasource in a forward branch."""
+        return self._req(f"/v0/datasources/{datasource_name}/stop", method="POST", data="")
+
+    def datasource_start(self, datasource_name: str) -> dict:
+        """Start Kafka ingestion for a datasource in a forward branch."""
+        return self._req(f"/v0/datasources/{datasource_name}/start", method="POST", data="")
+
     def datasource_delete_rows(self, datasource_name: str, delete_condition: str, dry_run: bool = False):
         params = {"delete_condition": delete_condition}
         if dry_run:
@@ -482,6 +490,22 @@ class TinyB:
 
     def datasource_sync(self, datasource_id: str):
         return self._req(f"/v0/datasources/{datasource_id}/scheduling/runs", method="POST", data="")
+
+    def datasource_sample(self, datasource_name: str, max_files: int = 1) -> Dict[str, Any]:
+        """Start a sample import job for an S3/GCS connected datasource.
+
+        Args:
+            datasource_name: Name of the datasource to import sample data into
+            max_files: Maximum number of files to import (default 1, max 10)
+
+        Returns:
+            dict with job info including id, job_id, job_url, job, status
+        """
+        return self._req(
+            f"/v0/datasources/{datasource_name}/sample",
+            method="POST",
+            data=json.dumps({"max_files": max_files}),
+        )
 
     def datasource_scheduling_state(self, datasource_id: str):
         response = self._req(f"/v0/datasources/{datasource_id}/scheduling/state", method="GET")

@@ -6,23 +6,23 @@ Implements AST rewriter for Contrast Agent
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import ast
+import builtins
+import contextvars
+import copy
+import cProfile
 import importlib.abc
 import importlib.machinery
 import importlib.util
-import sys
-import ast
-import copy
-import builtins
 import operator
 import os
+import sys
 import time
-import cProfile
-import contextvars
-from types import ModuleType
 
 # Seems like it is necessary to import this prior to rewriting to avoid some weird partial import state
 import tokenize  # noqa: F401
+from datetime import datetime, timezone
+from types import ModuleType
 
 from contrast_vendor.wrapt.importer import _ImportHookChainedLoader
 
@@ -42,6 +42,11 @@ _CONTRAST_PACKAGES = ["contrast", "contrast_vendor", "contrast_rewriter"]
 # disable `assert` in contrast modules. We don't want to do this for contrast_vendor,
 # since some vendored packages might rely on `assert` behavior.
 _PACKAGES_TO_OPTIMIZE = ["contrast"]
+_PACKAGES_TO_SKIP_REWRITES = ["lightgbm", "numpy", "pandas", "scipy", "sklearn"]
+
+
+def skip_rewrites_for_module(fullname: str) -> bool:
+    return _get_top_level_module_name(fullname) in _PACKAGES_TO_SKIP_REWRITES
 
 
 class _ContrastImportHookChainedLoader(_ImportHookChainedLoader):
@@ -150,6 +155,9 @@ def stop_profiler(filename_slug: str):
     profiler.dump_stats(filename)
 
 
+orig_compile = builtins.compile
+
+
 def _load_module(source, module, filename, *, force_optimize=False):
     """
     Convenience method to compile and execute the given module source
@@ -165,7 +173,9 @@ def _load_module(source, module, filename, *, force_optimize=False):
     will be applied to the new module (if not already applied globally).
     """
     optimize_flag = max(1, sys.flags.optimize) if force_optimize else sys.flags.optimize
-    code = compile(source, filename, "exec", dont_inherit=True, optimize=optimize_flag)
+    code = orig_compile(
+        source, filename, "exec", dont_inherit=True, optimize=optimize_flag
+    )
     exec(code, module.__dict__)
 
 
@@ -214,6 +224,8 @@ class ContrastMetaPathFinder(importlib.abc.MetaPathFinder):
             # Here, we're within our own call to importlib.util.find_spec.
             # return None to allow the following MetaPathFinders to find the spec.
             return None
+        if skip_rewrites_for_module(fullname):
+            return None
         self.in_progress.add(fullname)
         try:
             spec = importlib.util.find_spec(fullname, path)
@@ -254,6 +266,21 @@ class ContrastMetaPathFinder(importlib.abc.MetaPathFinder):
             self.in_progress.discard(fullname)
 
 
+def parse(source_code: str) -> ast.AST:
+    """
+    Parse the provided source code into an AST node. This is a vendored variant of ast.parse
+    that won't use a patched compile function.
+    """
+    return orig_compile(
+        source_code,
+        "<unknown>",
+        "exec",
+        dont_inherit=True,
+        optimize=0,
+        flags=ast.PyCF_ONLY_AST,
+    )
+
+
 class ContrastRewriteLoader(importlib.machinery.SourceFileLoader):
     def exec_module(self, module) -> None:
         """
@@ -285,9 +312,18 @@ class ContrastRewriteLoader(importlib.machinery.SourceFileLoader):
             module_name=self.name,
         )
 
+        original_source_code = self.get_source(self.name)
+        if _get_top_level_module_name(self.name) in _PACKAGES_TO_OPTIMIZE:
+            _load_module(
+                original_source_code,
+                module,
+                filename,
+                force_optimize=(not os.environ.get("CONTRAST_TESTING")),
+            )
+            return
+
         try:
-            original_source_code = self.get_source(self.name)
-            tree = ast.parse(original_source_code)
+            tree = parse(original_source_code)
         except Exception as ex:
             rewriter_module.logger.debug(
                 "WARNING: failed to parse module AST",
@@ -297,15 +333,6 @@ class ContrastRewriteLoader(importlib.machinery.SourceFileLoader):
             )
 
             _load_module(original_source_code, module, filename)
-            return
-
-        if _get_top_level_module_name(self.name) in _PACKAGES_TO_OPTIMIZE:
-            _load_module(
-                original_source_code,
-                module,
-                filename,
-                force_optimize=(not os.environ.get("CONTRAST_TESTING")),
-            )
             return
 
         if module_was_rewritten(self.name):

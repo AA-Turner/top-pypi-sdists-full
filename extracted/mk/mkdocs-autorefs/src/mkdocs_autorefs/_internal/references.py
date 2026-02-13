@@ -282,6 +282,45 @@ class AnchorScannerTreeProcessor(Treeprocessor):
                 self.run(el)
 
 
+class HeadingScannerTreeProcessor(Treeprocessor):
+    """Tree processor to scan and register HTML headings."""
+
+    name: str = "mkdocs-autorefs-headings-scanner"
+    """The name of the tree processor."""
+
+    _htags: ClassVar[set[str]] = {"h1", "h2", "h3", "h4", "h5", "h6"}
+
+    def __init__(self, plugin: AutorefsPlugin, md: Markdown | None = None) -> None:
+        """Initialize the tree processor.
+
+        Parameters:
+            plugin: A reference to the autorefs plugin, to use its `register_anchor` method.
+        """
+        super().__init__(md)
+        self._plugin = plugin
+
+    def run(self, root: Element) -> None:
+        """Run the tree processor.
+
+        Arguments:
+            root: The root element of the tree.
+        """
+        if self._plugin.current_page is not None:
+            self._scan_headings(root)
+
+    def _scan_headings(self, parent: Element) -> None:
+        for el in parent:
+            if el.tag in self._htags:
+                if h_id := el.get("id"):
+                    self._plugin.register_anchor(
+                        self._plugin.current_page,  # type: ignore[arg-type]
+                        h_id,
+                        title=el.text,
+                    )
+            else:
+                self._scan_headings(el)
+
+
 class AutorefsExtension(Extension):
     """Markdown extension that transforms unresolved references into auto-references.
 
@@ -323,6 +362,13 @@ class AutorefsExtension(Extension):
             priority=168,  # Right after markdown.inlinepatterns.ReferenceInlineProcessor
         )
         if self.plugin is not None:
+            # Scan headings to register them.
+            if self.plugin.scan_toc:
+                md.treeprocessors.register(
+                    HeadingScannerTreeProcessor(self.plugin, md),
+                    HeadingScannerTreeProcessor.name,
+                    priority=0,
+                )
             # Markdown anchors require the `attr_list` extension.
             if self.plugin.scan_toc and "attr_list" in md.treeprocessors:
                 _log_enabling_markdown_anchors()
@@ -573,10 +619,6 @@ def fix_refs(
     return html, unmapped
 
 
-_html_attrs_parser = _HTMLAttrsParser()
-_html_tag_stripper = _HTMLTagStripper()
-
-
 def _find_url(
     identifiers: Iterable[str],
     url_mapper: Callable[[str], tuple[str, str | None]],
@@ -612,6 +654,10 @@ def _log_enabling_markdown_anchors() -> None:
 @lru_cache
 def _log_enabling_backlinks() -> None:
     _log.debug("Enabling backlinks feature")
+
+
+_html_attrs_parser = _HTMLAttrsParser()
+_html_tag_stripper = _HTMLTagStripper()
 
 
 # YORE: Bump 2: Remove block.

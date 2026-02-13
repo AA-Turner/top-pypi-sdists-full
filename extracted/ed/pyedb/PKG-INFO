@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyedb
-Version: 0.68.3
+Version: 0.69.0
 Summary: Higher-Level Pythonic Ansys Electronics Data Base
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: PyEDB developers <simon.vandenbrouck@ansys.com>
@@ -17,29 +17,29 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 License-File: LICENSE
 Requires-Dist: cffi>=1.16.0,<2.1; platform_system=='Linux'
-Requires-Dist: pywin32 >= 303;platform_system=='Windows'
-Requires-Dist: ansys-pythonnet >= 3.1.0rc4
-Requires-Dist: dotnetcore2 ==3.1.23;platform_system=='Linux'
+Requires-Dist: pywin32>=303;platform_system=='Windows'
+Requires-Dist: ansys-pythonnet>=3.1.0rc4
+Requires-Dist: dotnetcore2==3.1.23;platform_system=='Linux'
 Requires-Dist: numpy>=1.20.0,<3
 Requires-Dist: pandas>=1.1.0,<2.4
 Requires-Dist: pydantic>=2.6.4,<2.13
-Requires-Dist: Rtree >= 1.2.0
-Requires-Dist: toml == 0.10.2
+Requires-Dist: Rtree>=1.2.0
+Requires-Dist: toml==0.10.2
 Requires-Dist: shapely
 Requires-Dist: scikit-rf
-Requires-Dist: ansys-edb-core>=0.2.0,<0.2.6
+Requires-Dist: ansys-edb-core>=0.2.0,<0.2.7
 Requires-Dist: psutil
 Requires-Dist: defusedxml>=0.7,<8.0
 Requires-Dist: matplotlib>=3.5.0,<3.11
 Requires-Dist: ezdxf>=1.4.2
-Requires-Dist: scipy>=1.13, <2.0
+Requires-Dist: scipy>=1.13,<2.0
 Requires-Dist: xmltodict
 Requires-Dist: ansys-sphinx-theme[autoapi]>=1.0.0,<1.7 ; extra == "doc"
 Requires-Dist: imageio>=2.30.0,<2.38 ; extra == "doc"
 Requires-Dist: jupyterlab>=4.0.0,<4.6 ; extra == "doc"
 Requires-Dist: jupytext>=1.16.0,<1.19 ; extra == "doc"
 Requires-Dist: nbsphinx>=0.9.0,<0.10 ; extra == "doc"
-Requires-Dist: nbconvert < 7.17 ; extra == "doc"
+Requires-Dist: nbconvert<7.18 ; extra == "doc"
 Requires-Dist: numpydoc==1.10.0 ; extra == "doc"
 Requires-Dist: pypandoc>=1.10.0,<1.17 ; extra == "doc"
 Requires-Dist: recommonmark ; extra == "doc"
@@ -48,13 +48,10 @@ Requires-Dist: sphinx-autobuild==2024.10.3 ; extra == "doc"
 Requires-Dist: sphinx-copybutton>=0.5.0,<0.6 ; extra == "doc"
 Requires-Dist: sphinx-gallery>=0.14.0,<0.21 ; extra == "doc"
 Requires-Dist: sphinx_design>=0.4.0,<0.7 ; extra == "doc"
-Requires-Dist: matplotlib>=3.5.0,<3.11 ; extra == "tests"
 Requires-Dist: mock>=5.1.0,<5.3 ; extra == "tests"
 Requires-Dist: pytest>=7.4.0,<9.1 ; extra == "tests"
 Requires-Dist: pytest-cov>=4.0.0,<7.1 ; extra == "tests"
 Requires-Dist: pytest-xdist>=3.5.0,<3.7 ; extra == "tests"
-Requires-Dist: scikit-rf ; extra == "tests"
-Requires-Dist: shapely ; extra == "tests"
 Project-URL: Bugs, https://github.com/ansys/pyedb/issues
 Project-URL: Discussions, https://github.com/ansys/pyedb/discussions
 Project-URL: Documentation, https://edb.docs.pyansys.com

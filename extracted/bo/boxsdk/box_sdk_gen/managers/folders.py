@@ -377,9 +377,10 @@ class FoldersManager:
                 :type direction: Optional[GetFolderByIdDirection], optional
                 :param offset: The offset of the item at which to begin the response.
 
-        Queries with offset parameter value
-        exceeding 10000 will be rejected
-        with a 400 response., defaults to None
+        Offset-based pagination is not guaranteed to work reliably for high offset values and may fail for large datasets. In
+        those cases, reduce the number of items in the folder (for example, by
+        restructuring the folder into smaller subfolders) before retrying the
+        request., defaults to None
                 :type offset: Optional[int], optional
                 :param limit: The maximum number of items to return per page., defaults to None
                 :type limit: Optional[int], optional
@@ -689,7 +690,7 @@ class FoldersManager:
                 To request more information about the folder itself, like its size,
 
 
-                use the [Get a folder](#get-folders-id) endpoint instead.
+                use the [Get a folder](https://developer.box.com/reference/get-folders-id) endpoint instead.
 
                 :param folder_id: The unique identifier that represent a folder.
 
@@ -733,9 +734,8 @@ class FoldersManager:
                 :type marker: Optional[str], optional
                 :param offset: The offset of the item at which to begin the response.
 
-        Queries with offset parameter value
-        exceeding 10000 will be rejected
-        with a 400 response., defaults to None
+        Offset-based pagination is not guaranteed to work reliably for high offset values and may fail for large datasets. In
+        those cases, use marker-based pagination by setting `usemarker` to `true`., defaults to None
                 :type offset: Optional[int], optional
                 :param limit: The maximum number of items to return per page., defaults to None
                 :type limit: Optional[int], optional

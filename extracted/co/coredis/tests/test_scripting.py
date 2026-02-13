@@ -4,8 +4,10 @@ import pytest
 from beartype.roar import BeartypeCallHintParamViolation
 
 from coredis import PureToken
+from coredis._concurrency import gather
 from coredis.client import Client
-from coredis.commands import Script
+from coredis.client.basic import Redis
+from coredis.commands import CommandRequest, Script
 from coredis.exceptions import NoScriptError, NotBusyError, ResponseError
 from coredis.typing import AnyStr, KeyT, RedisValueT
 from tests.conftest import targets
@@ -52,7 +54,7 @@ async def flush_scripts(client):
     await client.script_flush()
 
 
-@targets("redis_basic", "redis_basic_blocking")
+@targets("redis_basic")
 class TestScripting:
     async def test_eval(self, client):
         await client.set("a", "2")
@@ -83,10 +85,10 @@ class TestScripting:
 
     async def test_script_flush_sync_mode(self, client):
         sha = await client.script_load(multiply_script)
-        assert await client.script_flush(sync_type=PureToken.SYNC)
+        assert await client.script_flush(flush_type=PureToken.SYNC)
         assert await client.script_exists([sha]) == (False,)
 
-    async def test_script_object(self, client):
+    async def test_script_object(self, client: Redis[str]):
         await client.set("a", "2")
         multiply = client.register_script(multiply_script)
         precalculated_sha = multiply.sha
@@ -101,17 +103,17 @@ class TestScripting:
         # Test first evalsha block
         assert await multiply(keys=["a"], args=[3]) == 6
 
-    async def test_script_object_in_pipeline(self, client):
+    async def test_script_object_in_pipeline(self, client: Redis[str]):
         multiply = client.register_script(multiply_script)
         precalculated_sha = multiply.sha
         assert precalculated_sha
-        pipe = await client.pipeline()
-        pipe.set("a", "2")
-        pipe.get("a")
-        multiply(keys=["a"], args=[3], client=pipe)
-        assert await client.script_exists([multiply.sha]) == (False,)
+        async with client.pipeline() as pipe:
+            a = pipe.set("a", "2")
+            b = pipe.get("a")
+            c = multiply(keys=["a"], args=[3], client=pipe)
+            assert await client.script_exists([multiply.sha]) == (False,)
         # [SET worked, GET 'a', result of multiple script]
-        assert await pipe.execute() == (True, "2", 6)
+        assert await gather(a, b, c) == (True, "2", 6)
         # The script should have been loaded by pipe.execute()
         assert await client.script_exists([multiply.sha]) == (True,)
         # The precalculated sha should have been the correct one
@@ -120,44 +122,47 @@ class TestScripting:
         # purge the script from redis's cache and re-run the pipeline
         # the multiply script should be reloaded by pipe.execute()
         await client.script_flush()
-        pipe = await client.pipeline()
-        pipe.set("a", "2")
-        pipe.get("a")
-        multiply(keys=["a"], args=[3], client=pipe)
-        assert await client.script_exists([multiply.sha]) == (False,)
+        async with client.pipeline() as pipe:
+            a = pipe.set("a", "2")
+            b = pipe.get("a")
+            c = multiply(keys=["a"], args=[3], client=pipe)
+            assert await client.script_exists([multiply.sha]) == (False,)
         # [SET worked, GET 'a', result of multiple script]
-        assert await pipe.execute() == (
-            True,
-            "2",
-            6,
-        )
+        assert await gather(a, b, c) == (True, "2", 6)
         assert await client.script_exists([multiply.sha]) == (True,)
 
     async def testscript_flush_eval_msgpack_pipeline_error_in_lua(self, client):
         msgpack_hello = client.register_script(msgpack_hello_script)
         assert msgpack_hello.sha
 
-        pipe = await client.pipeline()
         # avoiding a dependency to msgpack, this is the output of
         # msgpack.dumps({"name": "joe"})
         msgpack_message_1 = b"\x81\xa4name\xa3Joe"
+        async with client.pipeline() as pipe:
+            res = msgpack_hello(args=[msgpack_message_1], client=pipe)
+            assert await client.script_exists([msgpack_hello.sha]) == (False,)
 
-        msgpack_hello(args=[msgpack_message_1], client=pipe)
-
-        assert await client.script_exists([msgpack_hello.sha]) == (False,)
-        assert (await pipe.execute())[0] == "hello Joe"
+        assert await res == "hello Joe"
         assert await client.script_exists([msgpack_hello.sha]) == (True,)
 
         msgpack_hello_broken = client.register_script(msgpack_hello_script_broken)
 
-        msgpack_hello_broken(args=[msgpack_message_1], client=pipe)
         with pytest.raises(ResponseError) as excinfo:
-            await pipe.execute()
-        assert excinfo.type == ResponseError
+            async with client.pipeline() as pipe:
+                msgpack_hello_broken(args=[msgpack_message_1], client=pipe)
+            assert excinfo.type == ResponseError
 
     async def test_script_kill_no_scripts(self, client):
         with pytest.raises(NotBusyError):
             await client.script_kill()
+
+    async def test_wraps_function_no_args(self, client, cloner, _s):
+        no_args = client.register_script("return 'PONG'")
+
+        @no_args.wraps()
+        def pong() -> CommandRequest[bytes | str]: ...
+
+        assert await pong() == _s("PONG")
 
     async def test_wraps_function_no_keys(self, client):
         no_key_script = client.register_script(
@@ -165,7 +170,7 @@ class TestScripting:
         )
 
         @no_key_script.wraps()
-        def synth_no_key(*args: int) -> list[int]: ...
+        def synth_no_key(*args: int) -> CommandRequest[list[int]]: ...
 
         assert await synth_no_key(1, 2, 3) == [1, 2, 3]
 
@@ -174,7 +179,7 @@ class TestScripting:
         await client.set("co", "redis")
 
         @no_key_script.wraps()
-        async def synth_key_only(key: KeyT) -> str: ...
+        def synth_key_only(key: KeyT) -> CommandRequest[str]: ...
 
         assert await synth_key_only(key="co") == "redis"
 
@@ -182,18 +187,29 @@ class TestScripting:
         script = client.register_script("return redis.call('GET', KEYS[1]) or ARGV[1]")
 
         @script.wraps()
-        async def default_get(key: KeyT, default: RedisValueT) -> RedisValueT: ...
+        def default_get(key: KeyT, default: RedisValueT) -> CommandRequest[RedisValueT]: ...
 
         await client.set("key", "redis")
         await default_get("key", "coredis") == "redis"
         await client.delete(["key"])
         await default_get("key", "coredis") == "coredis"
 
+    async def test_wraps_function_with_callback(self, client):
+        script = client.register_script("return redis.call('GET', KEYS[1]) or ARGV[1]")
+
+        @script.wraps(callback=lambda value: int(value))
+        def int_get(key: KeyT, default: RedisValueT) -> CommandRequest[int]: ...
+
+        await client.set("key", 1)
+        await int_get("key", 2) == 1
+        await client.delete(["key"])
+        await int_get("key", 2) == 2
+
     async def test_wraps_function_key_value_type_checking(self, client):
         script = client.register_script("return redis.call('GET', KEYS[1]) or ARGV[1]")
 
         @script.wraps(runtime_checks=True)
-        async def default_get(key: KeyT, default: str) -> str: ...
+        def default_get(key: KeyT, default: str) -> CommandRequest[str]: ...
 
         await client.set("key", "redis")
         assert await default_get("key", "coredis") == "redis"
@@ -208,13 +224,13 @@ class TestScripting:
 
         class Wrapper:
             @classmethod
-            @scrpt.wraps(key_spec=["key"], client_arg="client", runtime_checks=True)
-            async def default_get(
+            @scrpt.wraps(client_arg="client", runtime_checks=True)
+            def default_get(
                 cls,
                 client: Client[AnyStr] | None,
-                key: str,
+                key: KeyT,
                 default: str = "coredis",
-            ) -> str: ...
+            ) -> CommandRequest[str]: ...
 
         await client.set("key", "redis")
         await Wrapper.default_get(client, "key", "coredis") == "redis"

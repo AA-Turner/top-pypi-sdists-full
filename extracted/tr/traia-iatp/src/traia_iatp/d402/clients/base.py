@@ -178,14 +178,12 @@ class d402Client:
         self,
         payment_requirements: PaymentRequirements,
         d402_version: int = d402_VERSION,
-        request_path: str = None,
     ) -> str:
         """Create a payment header for the given requirements.
 
         Args:
             payment_requirements: Selected payment requirements
             d402_version: d402 protocol version
-            request_path: Optional API request path (if None, uses payment_requirements.resource)
 
         Returns:
             Signed payment header with PullFundsForSettlement signature
@@ -212,7 +210,6 @@ class d402Client:
             self.operator_account,
             payment_requirements,
             unsigned_header,
-            wallet_address=self.wallet_address,
-            request_path=request_path or payment_requirements.resource
+            wallet_address=self.wallet_address
         )
         return signed_header

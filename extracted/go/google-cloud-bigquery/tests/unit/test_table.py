@@ -2495,6 +2495,20 @@ class Test_EmptyRowIterator(unittest.TestCase):
         else:
             assert not hasattr(df, "crs")
 
+    def test_methods_w_timeout(self):
+        pytest.importorskip("pyarrow")
+        pytest.importorskip("geopandas")
+        # Ensure that the timeout parameter is accepted by all methods without raising a TypeError,
+        # even though the _EmptyRowIterator implementations do not use the timeout value.
+        timeout = 42.0
+
+        # Call each type to ensure no TypeError is raised
+        self._make_one().to_arrow(timeout=timeout)
+        self._make_one().to_arrow_iterable(timeout=timeout)
+        self._make_one().to_dataframe(timeout=timeout)
+        self._make_one().to_dataframe_iterable(timeout=timeout)
+        self._make_one().to_geodataframe(timeout=timeout)
+
 
 class TestRowIterator(unittest.TestCase):
     PYARROW_MINIMUM_VERSION = str(_versions_helpers._MIN_PYARROW_VERSION)
@@ -4111,6 +4125,10 @@ class TestRowIterator(unittest.TestCase):
             # Warn that a progress bar was requested, but creating the tqdm
             # progress bar failed.
             for warning in warned:  # pragma: NO COVER
+                # Pyparsing warnings appear to be coming from a transitive
+                # dependency and are unrelated to the code under test.
+                if "Pyparsing" in warning.category.__name__:
+                    continue
                 self.assertIn(
                     warning.category,
                     [UserWarning, DeprecationWarning, tqdm.TqdmExperimentalWarning],
@@ -5665,6 +5683,7 @@ class TestRowIterator(unittest.TestCase):
             int_dtype=DefaultPandasDTypes.INT_DTYPE,
             float_dtype=None,
             string_dtype=None,
+            timeout=None,
         )
 
         self.assertIsInstance(df, geopandas.GeoDataFrame)
@@ -6838,6 +6857,8 @@ def test_to_arrow_iterable_w_bqstorage_max_stream_count(preserve_order):
         parent=mock.ANY,
         read_session=mock.ANY,
         max_stream_count=max_stream_count if not preserve_order else 1,
+        retry=None,
+        timeout=None,
     )
 
 
@@ -6873,4 +6894,6 @@ def test_to_dataframe_iterable_w_bqstorage_max_stream_count(preserve_order):
         parent=mock.ANY,
         read_session=mock.ANY,
         max_stream_count=max_stream_count if not preserve_order else 1,
+        retry=None,
+        timeout=None,
     )

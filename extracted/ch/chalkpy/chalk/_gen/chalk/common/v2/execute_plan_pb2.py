@@ -17,11 +17,12 @@ from chalk._gen.chalk.common.v1 import chalk_error_pb2 as chalk_dot_common_dot_v
 from chalk._gen.chalk.common.v2 import metadata_pb2 as chalk_dot_common_dot_v2_dot_metadata__pb2
 from chalk._gen.chalk.common.v2 import options_pb2 as chalk_dot_common_dot_v2_dot_options__pb2
 from chalk._gen.chalk.common.v2 import table_pb2 as chalk_dot_common_dot_v2_dot_table__pb2
+from chalk._gen.chalk.dataframe.v1 import dataframe_pb2 as chalk_dot_dataframe_dot_v1_dot_dataframe__pb2
 from chalk._gen.chalk.expression.v1 import expression_pb2 as chalk_dot_expression_dot_v1_dot_expression__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n"chalk/common/v2/execute_plan.proto\x12\x0f\x63halk.common.v2\x1a!chalk/common/v1/chalk_error.proto\x1a\x1e\x63halk/common/v2/metadata.proto\x1a\x1d\x63halk/common/v2/options.proto\x1a\x1b\x63halk/common/v2/table.proto\x1a$chalk/expression/v1/expression.proto"\xdf\x03\n\x12\x45xecutePlanRequest\x12P\n\x10lazy_frame_calls\x18\x01 \x01(\x0b\x32$.chalk.expression.v1.LogicalExprNodeH\x00R\x0elazyFrameCalls\x12G\n\x06tables\x18\x02 \x03(\x0b\x32/.chalk.common.v2.ExecutePlanRequest.TablesEntryR\x06tables\x12S\n\x11\x65xecution_options\x18\n \x01(\x0b\x32!.chalk.common.v2.ExecutionOptionsH\x01R\x10\x65xecutionOptions\x88\x01\x01\x12P\n\x10planning_options\x18\x0b \x01(\x0b\x32 .chalk.common.v2.PlanningOptionsH\x02R\x0fplanningOptions\x88\x01\x01\x1aQ\n\x0bTablesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.chalk.common.v2.TableR\x05value:\x02\x38\x01\x42\t\n\x07payloadB\x14\n\x12_execution_optionsB\x13\n\x11_planning_options"\x9e\x03\n\x13\x45xecutePlanResponse\x12\x1a\n\x07\x66\x65\x61ther\x18\x01 \x01(\x0cH\x00R\x07\x66\x65\x61ther\x12\x33\n\x06\x65rrors\x18\x02 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrors\x12V\n\x12\x65xecution_metadata\x18\n \x01(\x0b\x32".chalk.common.v2.ExecutionMetadataH\x01R\x11\x65xecutionMetadata\x88\x01\x01\x12\\\n\x14\x65nvironment_metadata\x18\x0b \x01(\x0b\x32$.chalk.common.v2.EnvironmentMetadataH\x02R\x13\x65nvironmentMetadata\x88\x01\x01\x12<\n\x04meta\x18\x14 \x01(\x0b\x32#.chalk.common.v2.ExecutePlanRequestH\x03R\x04meta\x88\x01\x01\x42\t\n\x07payloadB\x15\n\x13_execution_metadataB\x17\n\x15_environment_metadataB\x07\n\x05_metaB\x85\x01\n\x13\x63om.chalk.common.v2B\x10\x45xecutePlanProtoP\x01\xa2\x02\x03\x43\x43X\xaa\x02\x0f\x43halk.Common.V2\xca\x02\x0f\x43halk\\Common\\V2\xe2\x02\x1b\x43halk\\Common\\V2\\GPBMetadata\xea\x02\x11\x43halk::Common::V2b\x06proto3'
+    b'\n"chalk/common/v2/execute_plan.proto\x12\x0f\x63halk.common.v2\x1a!chalk/common/v1/chalk_error.proto\x1a\x1e\x63halk/common/v2/metadata.proto\x1a\x1d\x63halk/common/v2/options.proto\x1a\x1b\x63halk/common/v2/table.proto\x1a"chalk/dataframe/v1/dataframe.proto\x1a$chalk/expression/v1/expression.proto"\xac\x04\n\x12\x45xecutePlanRequest\x12P\n\x10lazy_frame_calls\x18\x01 \x01(\x0b\x32$.chalk.expression.v1.LogicalExprNodeH\x00R\x0elazyFrameCalls\x12K\n\x0f\x64\x61ta_frame_plan\x18\x03 \x01(\x0b\x32!.chalk.dataframe.v1.DataFramePlanH\x00R\rdataFramePlan\x12G\n\x06tables\x18\x02 \x03(\x0b\x32/.chalk.common.v2.ExecutePlanRequest.TablesEntryR\x06tables\x12S\n\x11\x65xecution_options\x18\n \x01(\x0b\x32!.chalk.common.v2.ExecutionOptionsH\x01R\x10\x65xecutionOptions\x88\x01\x01\x12P\n\x10planning_options\x18\x0b \x01(\x0b\x32 .chalk.common.v2.PlanningOptionsH\x02R\x0fplanningOptions\x88\x01\x01\x1aQ\n\x0bTablesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.chalk.common.v2.TableR\x05value:\x02\x38\x01\x42\t\n\x07payloadB\x14\n\x12_execution_optionsB\x13\n\x11_planning_options"\x9e\x03\n\x13\x45xecutePlanResponse\x12\x1a\n\x07\x66\x65\x61ther\x18\x01 \x01(\x0cH\x00R\x07\x66\x65\x61ther\x12\x33\n\x06\x65rrors\x18\x02 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrors\x12V\n\x12\x65xecution_metadata\x18\n \x01(\x0b\x32".chalk.common.v2.ExecutionMetadataH\x01R\x11\x65xecutionMetadata\x88\x01\x01\x12\\\n\x14\x65nvironment_metadata\x18\x0b \x01(\x0b\x32$.chalk.common.v2.EnvironmentMetadataH\x02R\x13\x65nvironmentMetadata\x88\x01\x01\x12<\n\x04meta\x18\x14 \x01(\x0b\x32#.chalk.common.v2.ExecutePlanRequestH\x03R\x04meta\x88\x01\x01\x42\t\n\x07payloadB\x15\n\x13_execution_metadataB\x17\n\x15_environment_metadataB\x07\n\x05_metaB\x85\x01\n\x13\x63om.chalk.common.v2B\x10\x45xecutePlanProtoP\x01\xa2\x02\x03\x43\x43X\xaa\x02\x0f\x43halk.Common.V2\xca\x02\x0f\x43halk\\Common\\V2\xe2\x02\x1b\x43halk\\Common\\V2\\GPBMetadata\xea\x02\x11\x43halk::Common::V2b\x06proto3'
 )
 
 _globals = globals()
@@ -34,10 +35,10 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     ]._serialized_options = b"\n\023com.chalk.common.v2B\020ExecutePlanProtoP\001\242\002\003CCX\252\002\017Chalk.Common.V2\312\002\017Chalk\\Common\\V2\342\002\033Chalk\\Common\\V2\\GPBMetadata\352\002\021Chalk::Common::V2"
     _globals["_EXECUTEPLANREQUEST_TABLESENTRY"]._options = None
     _globals["_EXECUTEPLANREQUEST_TABLESENTRY"]._serialized_options = b"8\001"
-    _globals["_EXECUTEPLANREQUEST"]._serialized_start = 221
-    _globals["_EXECUTEPLANREQUEST"]._serialized_end = 700
-    _globals["_EXECUTEPLANREQUEST_TABLESENTRY"]._serialized_start = 565
-    _globals["_EXECUTEPLANREQUEST_TABLESENTRY"]._serialized_end = 646
-    _globals["_EXECUTEPLANRESPONSE"]._serialized_start = 703
-    _globals["_EXECUTEPLANRESPONSE"]._serialized_end = 1117
+    _globals["_EXECUTEPLANREQUEST"]._serialized_start = 257
+    _globals["_EXECUTEPLANREQUEST"]._serialized_end = 813
+    _globals["_EXECUTEPLANREQUEST_TABLESENTRY"]._serialized_start = 678
+    _globals["_EXECUTEPLANREQUEST_TABLESENTRY"]._serialized_end = 759
+    _globals["_EXECUTEPLANRESPONSE"]._serialized_start = 816
+    _globals["_EXECUTEPLANRESPONSE"]._serialized_end = 1230
 # @@protoc_insertion_point(module_scope)

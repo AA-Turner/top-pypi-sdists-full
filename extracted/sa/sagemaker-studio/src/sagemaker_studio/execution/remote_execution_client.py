@@ -30,6 +30,7 @@ from sagemaker_studio.projects import ProjectService
 from sagemaker_studio.utils._internal import InternalUtils
 
 DEFAULT_INSTANCE_TYPE = "ml.m6i.xlarge"  # consistent with the default instance in the toolkit
+FALLBACK_INSTANCE_TYPE = "ml.m5.xlarge"  # fallback instance type for regions without m6i support
 DEFAULT_IMAGE_VERSION = "latest"  # default to latest image version
 
 
@@ -63,11 +64,8 @@ class RemoteExecutionClient(ExecutionClient):
         self.session = Session()
         self.domain_identifier = None
         self.project_identifier = None
-        self.datazone_stage = None
-        self.datazone_endpoint = None
         self.datazone_domain_region = None
         self.project_s3_path = None
-        self.datazone_environment_id = None
         self.default_tooling_environment = None
         self.sagemaker_environment = None
         self.sagemaker_client = None
@@ -311,7 +309,6 @@ class RemoteExecutionClient(ExecutionClient):
             search_expression = ExecutionUtils.create_sagemaker_search_expression_for_training(
                 self.domain_identifier,
                 self.project_identifier,
-                self.datazone_environment_id,
                 request.get("start_time_after"),
                 request.get("name_contains"),
                 search_status,
@@ -502,35 +499,26 @@ class RemoteExecutionClient(ExecutionClient):
             )
 
         if "compute" not in request:
-            request["compute"] = {"instance_type": DEFAULT_INSTANCE_TYPE}
+            instance_type_info = self.__get_available_instance_type_with_info(DEFAULT_INSTANCE_TYPE)
+            request["compute"] = {"instance_type": instance_type_info["instance_type"]}
+            has_gpu = instance_type_info["has_gpu"]
+        else:
+            # User provided instance type - validate without fallback
+            user_instance_type = request["compute"]["instance_type"]
+            instance_type_info = self.__get_available_instance_type_with_info(
+                user_instance_type, use_fallback=False
+            )
+            has_gpu = instance_type_info["has_gpu"]
 
         image_details = request.compute.get("image_details", {})
         if "ecr_uri" in image_details:
             ecr_uri = image_details["ecr_uri"]
         else:
-            if self.datazone_stage == "prod":
-                image_name_default = "sagemaker-distribution-prod"
-            else:
-                image_name_default = "sagemaker-distribution-loadtest"
+            image_name_default = "sagemaker-distribution-prod"
             image_name: str = image_details.get("image_name", image_name_default)
             image_version: str = image_details.get("image_version", DEFAULT_IMAGE_VERSION)
-            instance_type = request.compute.get("instance_type", DEFAULT_INSTANCE_TYPE)
-            if instance_type.startswith("ml."):
-                instance_type = ".".join(instance_type.split(".")[1:])
-            try:
-                response = self.ec2_client.describe_instance_types(InstanceTypes=[instance_type])
-                # Extract instance type information
-                instance_info = response["InstanceTypes"][0]
 
-                # Check if the instance has GPUs
-                if "GpuInfo" in instance_info and instance_info["GpuInfo"]["Gpus"]:
-                    image_variant = "gpu"
-                else:
-                    image_variant = "cpu"
-            except ClientError as e:
-                raise RuntimeError(
-                    f"Error fetching instance type information: {AWSClientException(e)}"
-                )
+            image_variant = "gpu" if has_gpu else "cpu"
 
             if image_name != image_name_default:
                 # BYOI case, call describe-image-version api
@@ -582,7 +570,6 @@ class RemoteExecutionClient(ExecutionClient):
 
             # Define environment variables for SM Training job
             environment_variables = {
-                "AWS_DEFAULT_REGION": self.default_tooling_environment["awsAccountRegion"],
                 "SM_EFS_MOUNT_GID": "100",
                 "SM_EFS_MOUNT_PATH": "/home/sagemaker-user",
                 "SM_EFS_MOUNT_UID": "1000",
@@ -594,15 +581,12 @@ class RemoteExecutionClient(ExecutionClient):
                 "SM_KERNEL_NAME": "python3",
                 "SM_OUTPUT_NOTEBOOK_NAME": output["file"],
                 "SM_SKIP_EFS_SIMULATION": "true",
+                # Required by connection magics
                 "DataZoneDomainId": self.domain_identifier,
                 "DataZoneProjectId": self.project_identifier,
-                "DataZoneEndpoint": self.datazone_endpoint,
                 "DataZoneDomainRegion": self.datazone_domain_region,
-                "DataZoneStage": self.datazone_stage,
-                "DataZoneEnvironmentId": self.datazone_environment_id,
-                "InputNotebookPath": local_full_input_file_path,
                 "ProjectS3Path": self.project_s3_path,
-                "AWS_REGION": self.default_tooling_environment["awsAccountRegion"],
+                "InputNotebookPath": local_full_input_file_path,
                 "SM_OUTPUT_FORMATS": (
                     ",".join(output_formats_lowercase) if output_formats_lowercase else ""
                 ),
@@ -861,18 +845,10 @@ class RemoteExecutionClient(ExecutionClient):
         if not self.config.domain_identifier or not self.config.project_identifier:
             raise InternalServerError("Domain identifier and project identifier are required")
 
-        if self.datazone_stage is None:
-            self.datazone_stage = self.config.datazone_stage
-        if self.datazone_endpoint is None:
-            self.datazone_endpoint = self.config.datazone_endpoint
         if self.datazone_domain_region is None:
             self.datazone_domain_region = self.config.datazone_domain_region
         if self.project_s3_path is None:
             self.project_s3_path = self.config.project_s3_path
-        if self.datazone_environment_id is None:
-            if not self.config.datazone_environment_id:
-                raise InternalServerError("DataZone environment id is required")
-            self.datazone_environment_id = self.config.datazone_environment_id
 
         if self.default_tooling_environment is None:
             self.__set_default_tooling_environment()
@@ -939,6 +915,70 @@ class RemoteExecutionClient(ExecutionClient):
         if self.user_role_arn is None:
             raise RuntimeError("Default stack use_role_arn not found")
         return
+
+    def __get_available_instance_type_with_info(
+        self, preferred_instance_type: str, use_fallback: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Get available instance type and its GPU info.
+        Falls back to FALLBACK_INSTANCE_TYPE if preferred is not available.
+
+        Args:
+            preferred_instance_type (str): The preferred instance type
+            use_fallback (bool): Whether to try fallback instance type if preferred unavailable
+
+        Returns:
+            dict: {
+                "instance_type": str,  # The resolved instance type (with ml. prefix)
+                "has_gpu": bool        # Whether the instance has GPU
+            }
+
+        Raises:
+            ValidationError: If instance type is not available (and fallback is disabled or also unavailable)
+        """
+
+        def get_instance_info(instance_type: str) -> Optional[Dict[str, Any]]:
+            """Helper to check if an instance type is available in the region."""
+            try:
+                # Remove 'ml.' prefix for EC2 API call
+                ec2_type = instance_type
+                if instance_type.startswith("ml."):
+                    ec2_type = ".".join(instance_type.split(".")[1:])
+
+                response = self.ec2_client.describe_instance_types(InstanceTypes=[ec2_type])
+
+                if not response.get("InstanceTypes"):
+                    return None
+
+                instance_info = response["InstanceTypes"][0]
+                has_gpu = bool(instance_info.get("GpuInfo", {}).get("Gpus"))
+
+                return {"instance_type": instance_type, "has_gpu": has_gpu}
+
+            except ClientError:
+                return None
+
+        # Try preferred instance type
+        info = get_instance_info(preferred_instance_type)
+        if info:
+            return info
+
+        # Try fallback instance type if user does not provide one
+        if use_fallback:
+            info = get_instance_info(FALLBACK_INSTANCE_TYPE)
+            if info:
+                return info
+
+            # Both do not exist - raise error
+            raise ValidationError(
+                f"Neither the preferred instance type '{preferred_instance_type}' nor the fallback "
+                f"instance type '{FALLBACK_INSTANCE_TYPE}' is available in the current region. "
+                f"Please specify a valid instance type for this region."
+            )
+        else:
+            raise ValidationError(
+                f"Instance type '{preferred_instance_type}' is not available in the current region. Please specify a valid instance type for this region."
+            )
 
     @staticmethod
     def validate_image_version(sem_ver: str):

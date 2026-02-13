@@ -1,22 +1,22 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: tqdm-loggable
-Version: 0.2
+Version: 0.3
 Summary: TQDM progress bar helpers for logging and other headless application
-Home-page: https://github.com/tradingstrategy-ai/tqdm-loggable
 License: MIT
 Keywords: logging,tqdm,sentry,logstash,progress bar,datadog,new relic
 Author: Mikko Ohtamaa
 Author-email: mikko@opensourcehacker.com
-Requires-Python: >3.8
+Requires-Python: >=3.10
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: tqdm (>4.64)
 Project-URL: Changelog, https://github.com/tradingstrategy-ai/tqdm-loggable/blob/master/CHANGELOG.md
 Project-URL: Discord, https://discord.gg/5M88m9nM8H
+Project-URL: Homepage, https://github.com/tradingstrategy-ai/tqdm-loggable
 Project-URL: Repository, https://github.com/tradingstrategy-ai/tqdm-loggable
 Project-URL: Sponsor, https://tradingstrategy.ai
 Project-URL: Twitter, https://twitter.com/tradingprotocol
@@ -26,7 +26,7 @@ Description-Content-Type: text/markdown
 tqdm-loggable
 =============
 
-`tqdm-loggable` is a petite Python package providing logging friendly TQDM progress bars.
+`tqdm-loggable` is a petite Python package providing logging-friendly TQDM progress bars.
 
 If your Python application has [tqdm](https://tqdm.github.io/) progress bars and you use them in a non-interactive session like... 
 
@@ -35,9 +35,10 @@ If your Python application has [tqdm](https://tqdm.github.io/) progress bars and
 - Edge computing
 - [Logstash](https://www.elastic.co/logstash/), [Sentry](https://docs.sentry.io/platforms/python/), [Datadog](https://docs.datadoghq.com/logs/log_collection/python/?tab=jsonlogformatter) or other external log tools
 - Long-running machine learning tasks
+- Datalore notebook environments from JetBrains 
 - ...or [stdout](https://en.wikipedia.org/wiki/Standard_streams) stream is otherwise not available or redirected
 
-...you cannot have interactive progress bar. What happens is that if you are observing
+...you cannot have an interactive progress bar. What happens is that if you are observing
 your application using monitoring tools, you usually do not see anything happening while your
 application is having`tqdm` progress ongoing. If the progress bar'ed operation takes few minutes your appliaction
 may appear frozen. This is  fixed by `tqdm-logging` by sending a regular reports about your progress to logging backend like files and log monitoring
@@ -146,7 +147,7 @@ Development
 -----------
 
 **Note**: This repository is so low activity that we do not actively watch for new issues.
-If you have a issue or a PR please [poke us in Discord](https://tradingstrategy.ai/community).
+If you have a feature or a PR please [poke us in Discord first](https://tradingstrategy.ai/community).
 
 You can use [tqdm_loggable/manual_tests.py](./tqdm_loggable/manual_tests.py) to run the various checks 
 to see what different interactive and non-interactive sessions give for you.

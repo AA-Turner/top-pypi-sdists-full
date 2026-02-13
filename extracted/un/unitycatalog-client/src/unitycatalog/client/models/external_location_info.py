@@ -27,6 +27,7 @@ class ExternalLocationInfo(BaseModel):
     ExternalLocationInfo
     """ # noqa: E501
     name: Optional[StrictStr] = Field(default=None, description="Name of the external location.")
+    id: Optional[StrictStr] = Field(default=None, description="Unique identifier for the external location.")
     url: Optional[StrictStr] = Field(default=None, description="Path URL of the external location.")
     credential_name: Optional[StrictStr] = Field(default=None, description="Name of the storage credential used with this location.")
     comment: Optional[StrictStr] = Field(default=None, description="User-provided free-form text description.")
@@ -36,7 +37,7 @@ class ExternalLocationInfo(BaseModel):
     created_by: Optional[StrictStr] = Field(default=None, description="Username of external location creator.")
     updated_at: Optional[StrictInt] = Field(default=None, description="Time at which external location this was last modified, in epoch milliseconds.")
     updated_by: Optional[StrictStr] = Field(default=None, description="Username of user who last modified the external location.")
-    __properties: ClassVar[List[str]] = ["name", "url", "credential_name", "comment", "owner", "credential_id", "created_at", "created_by", "updated_at", "updated_by"]
+    __properties: ClassVar[List[str]] = ["name", "id", "url", "credential_name", "comment", "owner", "credential_id", "created_at", "created_by", "updated_at", "updated_by"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -90,6 +91,7 @@ class ExternalLocationInfo(BaseModel):
 
         _obj = cls.model_validate({
             "name": obj.get("name"),
+            "id": obj.get("id"),
             "url": obj.get("url"),
             "credential_name": obj.get("credential_name"),
             "comment": obj.get("comment"),

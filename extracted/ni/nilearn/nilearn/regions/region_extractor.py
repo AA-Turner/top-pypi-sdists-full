@@ -202,6 +202,8 @@ def connected_regions(
         region extraction on continuous type atlas images and
         also time series signals extraction from regions extracted.
     """
+    check_params(locals())
+
     all_regions_imgs = []
     index_of_each_map = []
     maps_img = check_niimg(maps_img, atleast_4d=True)
@@ -291,7 +293,7 @@ class RegionExtractor(NiftiMapsMasker):
         Image containing a set of whole brain atlas maps or statistically
         decomposed brain maps.
 
-    mask_img : Niimg-like object or None, optional
+    mask_img : Niimg-like object or None, default=None
         Mask to be applied to input data, passed to NiftiMapsMasker.
         If None, no masking is applied.
 

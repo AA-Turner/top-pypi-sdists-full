@@ -6,7 +6,7 @@ SUBSTITUTION REPLACEMENT 'UV_STICKY_SELECT_MODE_TYPE':
 Literal['SHARED_LOCATION', 'DISABLED', 'SHARED_VERTEX']
 
 SUBSTITUTION REPLACEMENT 'UV_SELECT_FLUSH_MODE_NEEDED':
-This function selection-mode independent, typically bmesh.types.BMesh.uv_select_flush_mode should be called afterwards.
+This function is selection-mode independent, typically bmesh.types.BMesh.uv_select_flush_mode should be called afterwards.
 
 SUBSTITUTION REPLACEMENT 'UV_SELECT_SYNC_TO_MESH_NEEDED':
 This function doesn't flush the selection to the mesh, typically bmesh.types.BMesh.uv_select_sync_to_mesh should be called afterwards.
@@ -42,13 +42,14 @@ class BMDeformVert:
     def clear(self) -> None:
         """Clears all weights."""
 
-    def get(self, key: int, default: typing.Any | None = None) -> None:
+    def get(self, key: int, default: typing.Any | None = None) -> float | typing.Any:
         """Returns the deform weight matching the key or default
         when not found (matches Pythons dictionary function of the same name).
 
                 :param key: The key associated with deform weight.
                 :param default: Optional argument for the value to return if
         key is not found.
+                :return: The deform weight or the default when not found.
         """
 
     def items(self) -> list[tuple[int, float]]:
@@ -153,7 +154,7 @@ class BMEdge:
     def copy_from(self, other: typing_extensions.Self) -> None:
         """Copy values from another element of matching type.
 
-        :param other:
+        :param other: Another element of matching type to copy from.
         """
 
     def hide_set(self, hide: bool) -> None:
@@ -215,7 +216,7 @@ class BMEdgeSeq:
         self,
         verts: collections.abc.Sequence[BMVert],
         fallback: typing.Any | None = None,
-    ) -> BMEdge:
+    ) -> BMEdge | None:
         """Return an edge which uses the verts passed.
 
         :param verts: Sequence of verts.
@@ -227,12 +228,14 @@ class BMEdgeSeq:
         """Initialize the index values of this sequence.This is the equivalent of looping over all elements and assigning the index values."""
 
     def new(
-        self, verts: collections.abc.Sequence[BMVert], example: BMEdge | None = None
+        self,
+        verts: collections.abc.Sequence[BMVert],
+        source: BMEdge | None | None = None,
     ) -> BMEdge:
         """Create a new edge from a given pair of verts.
 
         :param verts: Vertex pair.
-        :param example: Existing edge to initialize settings (optional argument).
+        :param source: Existing edge to initialize settings (optional argument).
         :return: The newly created edge.
         """
 
@@ -288,28 +291,28 @@ class BMEdgeSeq:
 class BMEditSelIter: ...
 
 class BMEditSelSeq:
-    active: BMEdge | BMFace | BMVert
+    active: BMEdge | BMFace | BMVert | None
     """ The last selected element or None (read-only)."""
 
-    def add(self, element) -> None:
+    def add(self, element: BMEdge | BMFace | BMVert) -> None:
         """Add an element to the selection history (no action taken if its already added).
 
-        :param element:
+        :param element: The element to add.
         """
 
     def clear(self) -> None:
         """Empties the selection history."""
 
-    def discard(self, element) -> None:
+    def discard(self, element: BMEdge | BMFace | BMVert) -> None:
         """Discard an element from the selection history.Like remove but doesnt raise an error when the elements not in the selection list.
 
-        :param element:
+        :param element: The element to discard.
         """
 
-    def remove(self, element) -> None:
+    def remove(self, element: BMEdge | BMFace | BMVert) -> None:
         """Remove an element from the selection history.
 
-        :param element:
+        :param element: The element to remove.
         """
 
     def validate(self) -> None:
@@ -456,7 +459,7 @@ class BMFace:
     def copy_from(self, other: typing_extensions.Self) -> None:
         """Copy values from another element of matching type.
 
-        :param other:
+        :param other: Another element of matching type to copy from.
         """
 
     def copy_from_face_interp(
@@ -535,7 +538,7 @@ class BMFaceSeq:
         self,
         verts: collections.abc.Sequence[BMVert],
         fallback: typing.Any | None = None,
-    ) -> BMFace:
+    ) -> BMFace | None:
         """Return a face which uses the verts passed.
 
         :param verts: Sequence of verts.
@@ -547,12 +550,14 @@ class BMFaceSeq:
         """Initialize the index values of this sequence.This is the equivalent of looping over all elements and assigning the index values."""
 
     def new(
-        self, verts: collections.abc.Sequence[BMVert], example: BMFace | None = None
+        self,
+        verts: collections.abc.Sequence[BMVert],
+        source: BMFace | None | None = None,
     ) -> BMFace:
         """Create a new face from a given set of verts.
 
         :param verts: Sequence of 3 or more verts.
-        :param example: Existing face to initialize settings (optional argument).
+        :param source: Existing face to initialize settings (optional argument).
         :return: The newly created face.
         """
 
@@ -739,14 +744,14 @@ class BMLayerCollection[_GenericType1]:
 
     def get[_GenericType2](
         self, key: str, default: _GenericType2 = None
-    ) -> BMLayerItem[_GenericType1] | _GenericType2:
+    ) -> BMLayerItem | typing.Any:
         """Returns the value of the layer matching the key or default
         when not found (matches Pythons dictionary function of the same name).
 
                 :param key: The key associated with the layer.
                 :param default: Optional argument for the value to return if
         key is not found.
-                :return:
+                :return: The layer matching the key or the default value.
         """
 
     def items(self) -> list[str, BMLayerItem[_GenericType1]]:
@@ -763,7 +768,7 @@ class BMLayerCollection[_GenericType1]:
                 :return: the identifiers for each member of this collection.
         """
 
-    def new(self, name: str | None = "") -> BMLayerItem[_GenericType1]:
+    def new(self, name: str = "") -> BMLayerItem[_GenericType1]:
         """Create a new layer
 
         :param name: Optional name argument (will be made unique).
@@ -870,7 +875,7 @@ class BMLoop:
     def copy_from(self, other: typing_extensions.Self) -> None:
         """Copy values from another element of matching type.
 
-        :param other:
+        :param other: Another element of matching type to copy from.
         """
 
     def copy_from_face_interp(
@@ -1019,11 +1024,11 @@ class BMVert:
     def copy_from(self, other: typing_extensions.Self) -> None:
         """Copy values from another element of matching type.
 
-        :param other:
+        :param other: Another element of matching type to copy from.
         """
 
     def copy_from_face_interp(self, face: BMFace) -> None:
-        """Interpolate the customdata from a face onto this loop (the loops vert should overlap the face).
+        """Interpolate the customdata from a face onto this vert (the vert should overlap the face).
 
         :param face: The face to interpolate data from.
         """
@@ -1094,12 +1099,12 @@ class BMVertSeq:
     def new(
         self,
         co: collections.abc.Sequence[float] | mathutils.Vector = (0.0, 0.0, 0.0),
-        example: BMVert | None = None,
+        source: BMVert | None | None = None,
     ) -> BMVert:
         """Create a new vertex.
 
         :param co: The initial location of the vertex (optional argument).
-        :param example: Existing vert to initialize settings.
+        :param source: Existing vert to initialize settings.
         :return: The newly created vertex.
         """
 
@@ -1156,10 +1161,10 @@ class BMesh:
     """The BMesh data structure"""
 
     edges: BMEdgeSeq
-    """ This meshes edge sequence (read-only)."""
+    """ This mesh's edge sequence (read-only)."""
 
     faces: BMFaceSeq
-    """ This meshes face sequence (read-only)."""
+    """ This mesh's face sequence (read-only)."""
 
     is_valid: bool
     """ True when this element is valid (hasn't been removed)."""
@@ -1168,7 +1173,7 @@ class BMesh:
     """ True when this mesh is owned by blender (typically the editmode BMesh)."""
 
     loops: BMLoopSeq
-    """ This meshes loops (read-only)."""
+    """ This mesh's loops (read-only)."""
 
     select_history: BMEditSelSeq
     """ Sequence of selected items (the last is displayed as active)."""
@@ -1180,7 +1185,7 @@ class BMesh:
     """ When true, the UV selection has been synchronized. Setting to False means the UV selection will be ignored. While setting to true is supported it is up to the script author to ensure a correct selection state before doing so."""
 
     verts: BMVertSeq
-    """ This meshes vert sequence (read-only)."""
+    """ This mesh's vert sequence (read-only)."""
 
     def calc_loop_triangles(self) -> list[tuple[BMLoop, BMLoop, BMLoop]]:
         """Calculate triangle tessellation from quads/ngons.
@@ -1253,7 +1258,7 @@ class BMesh:
         """
 
     def select_flush_mode(self, *, flush_down: bool = False) -> None:
-        """Flush selection based on the current mode current `bmesh.types.BMesh.select_mode`.
+        """Flush selection based on the current mode `bmesh.types.BMesh.select_mode`.
 
         :param flush_down: Flush selection down from faces to edges & verts or from edges to verts. This option is ignored when vertex selection mode is enabled.
         """
@@ -1269,7 +1274,8 @@ class BMesh:
         matrix: collections.abc.Sequence[collections.abc.Sequence[float]]
         | mathutils.Matrix,
         *,
-        filter: set[typing.Literal["SELECT", "HIDE", "SEAM", "SMOOTH", "TAG"]]
+        filter: None
+        | set[typing.Literal["SELECT", "HIDE", "SEAM", "SMOOTH", "TAG"]]
         | None = None,
     ) -> None:
         """Transform the mesh (optionally filtering flagged data only).
@@ -1285,7 +1291,7 @@ class BMesh:
         """
 
     def uv_select_flush_mode(self, *, flush_down: bool = False) -> None:
-        """Flush selection based on the current mode current `BMesh.select_mode`.
+        """Flush selection based on the current mode `bmesh.types.BMesh.select_mode`.
 
         :param flush_down: Flush selection down from faces to edges & verts or from edges to verts. This option is ignored when vertex selection mode is enabled.
         """

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from coredis._concurrency import gather
 from coredis.exceptions import (
     NoScriptError,
     NotBusyError,
@@ -33,6 +34,11 @@ return "hello " .. name
 """
 
 
+@pytest.fixture(autouse=True)
+async def flush_scripts(client):
+    await client.script_flush()
+
+
 @targets("redis_cluster")
 class TestScripting:
     async def reset_scripts(self, client):
@@ -45,14 +51,14 @@ class TestScripting:
         await client.eval(multiply_and_set_script, ["a"], [3])
         assert await client.get("a") == _s(6)
 
-    @pytest.mark.min_server_version("7.0")
     async def test_eval_ro(self, cloner, client, _s):
         clone = await cloner(client, read_from_replicas=True)
         await client.set("a", 2)
         # 2 * 3 == 6
-        assert await clone.eval_ro(multiply_script, ["a"], [3]) == 6
-        with pytest.raises(ResponseError, match="Write commands are not allowed"):
-            await clone.eval_ro(multiply_and_set_script, ["a"], [3])
+        async with clone:
+            assert await clone.eval_ro(multiply_script, ["a"], [3]) == 6
+            with pytest.raises(ResponseError, match="Write commands are not allowed"):
+                await clone.eval_ro(multiply_and_set_script, ["a"], [3])
 
     async def test_eval_same_slot(self, client):
         await client.set("A{foo}", 2)
@@ -91,14 +97,13 @@ class TestScripting:
         assert await client.evalsha(sha, ["a"], [3]) == 6
 
     @pytest.mark.parametrize("client_arguments", [{"read_from_replicas": True}])
-    @pytest.mark.min_server_version("7.0")
     async def test_evalsha_ro(self, client, client_arguments, mocker):
         await client.set("a", 2)
         sha = await client.script_load(multiply_script)
         # 2 * 3 == 6
-        get_primary_node_by_slot = mocker.spy(client.connection_pool, "get_primary_node_by_slot")
+        get_primary_node_by_slots = mocker.spy(client.connection_pool, "get_primary_node_by_slots")
         assert await client.evalsha_ro(sha, ["a"], [3]) == 6
-        get_primary_node_by_slot.assert_not_called()
+        get_primary_node_by_slots.assert_not_called()
 
     async def test_evalsha_script_not_loaded(self, client):
         await client.set("a", 2)
@@ -131,3 +136,31 @@ class TestScripting:
         assert await client.script_exists([multiply.sha]) == (True,)
         # test first evalsha
         assert await multiply(keys=["a"], args=[3]) == 6
+
+    async def test_script_object_in_pipeline(self, client):
+        multiply = client.register_script(multiply_script)
+        precalculated_sha = multiply.sha
+        assert precalculated_sha
+        async with client.pipeline() as pipe:
+            a = pipe.set("a", "2")
+            b = pipe.get("a")
+            c = multiply(keys=["a"], args=[3], client=pipe)
+            assert await client.script_exists([multiply.sha]) == (False,)
+        # [SET worked, GET 'a', result of multiple script]
+        assert await gather(a, b, c) == (True, "2", 6)
+        # The script should have been loaded by pipe.execute()
+        assert await client.script_exists([multiply.sha]) == (True,)
+        # The precalculated sha should have been the correct one
+        assert multiply.sha == precalculated_sha
+
+        # purge the script from redis's cache and re-run the pipeline
+        # the multiply script should be reloaded by pipe.execute()
+        await client.script_flush()
+        async with client.pipeline() as pipe:
+            a = pipe.set("a", "2")
+            b = pipe.get("a")
+            c = multiply(keys=["a"], args=[3], client=pipe)
+            assert await client.script_exists([multiply.sha]) == (False,)
+        # [SET worked, GET 'a', result of multiple script]
+        assert await gather(a, b, c) == (True, "2", 6)
+        assert await client.script_exists([multiply.sha]) == (True,)

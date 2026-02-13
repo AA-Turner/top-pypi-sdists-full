@@ -2,7 +2,7 @@
 """
 The `widgets` package provides a collection of classes representing various types of PDF form fields (widgets).
 
-It defines `FieldTypes` as a Union of all supported field types, allowing for flexible
+It defines `FieldTypes` as a collection of all supported field types, allowing for flexible
 type hinting when working with different widget configurations.
 
 Classes within this package encapsulate the properties and behaviors of individual
@@ -10,7 +10,6 @@ form fields, facilitating their creation and manipulation within PDF documents.
 """
 
 from dataclasses import dataclass
-from typing import Union
 
 from .checkbox import CheckBoxField
 from .dropdown import DropdownField
@@ -19,9 +18,9 @@ from .radio import RadioGroup
 from .signature import SignatureField
 from .text import TextField
 
-FieldTypes = Union[
-    TextField, CheckBoxField, RadioGroup, DropdownField, SignatureField, ImageField
-]
+FieldTypes = (
+    TextField | CheckBoxField | RadioGroup | DropdownField | SignatureField | ImageField
+)
 
 
 @dataclass

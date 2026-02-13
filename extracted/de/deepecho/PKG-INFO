@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: deepecho
-Version: 0.8.0
+Version: 0.8.1
 Summary: Create sequential synthetic data of mixed types using a GAN.
 Author-email: "DataCebo, Inc." <info@sdv.dev>
-License: BSL-1.1
+License-Expression: BUSL-1.1
 Project-URL: Source Code, https://github.com/sdv-dev/Deepecho/
 Project-URL: Issue Tracker, https://github.com/sdv-dev/Deepecho/issues
 Project-URL: Twitter, https://twitter.com/sdv_dev
@@ -11,7 +11,6 @@ Project-URL: Chat, https://bit.ly/sdv-slack-invite
 Keywords: deepecho,DeepEcho
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
-Classifier: License :: Free for non-commercial use
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9

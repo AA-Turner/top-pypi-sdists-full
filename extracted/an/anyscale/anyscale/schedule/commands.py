@@ -175,6 +175,8 @@ _LIST_ARG_DOCSTRINGS = {
     "include_all_users": "Include schedules from all users.",
     "page_size": "Number of items per page.",
     "max_items": "Maximum total items to return.",
+    "sort_field": "Field to sort by (NAME, ID, CREATED_AT, NEXT_TRIGGER_AT).",
+    "sort_order": "Sort order (ASC or DESC).",
 }
 
 
@@ -194,6 +196,8 @@ def list(  # noqa: A001, PLR0913
     include_all_users: bool = False,
     page_size: Optional[int] = None,
     max_items: Optional[int] = None,
+    sort_field: Optional[str] = None,
+    sort_order: Optional[str] = None,
     _private_sdk: Optional[PrivateScheduleSDK] = None,
 ) -> ResultIterator[ScheduleStatus]:
     """List schedules with filtering and pagination.
@@ -209,6 +213,8 @@ def list(  # noqa: A001, PLR0913
         include_all_users=include_all_users,
         page_size=page_size,
         max_items=max_items,
+        sort_field=sort_field,
+        sort_order=sort_order,
     )
 
 

@@ -16,15 +16,15 @@ from typing import Any, overload
 from pyrig.src.modules.function import is_func
 from pyrig.src.modules.imports import walk_package
 from pyrig.src.modules.inspection import (
-    get_def_line,
-    get_module_of_obj,
-    get_obj_members,
+    def_line,
+    module_of_obj,
+    obj_members,
 )
 
 logger = logging.getLogger(__name__)
 
 
-def get_all_methods_from_cls(
+def all_methods_from_cls(
     class_: type,
     *,
     exclude_parent_methods: bool = False,
@@ -45,7 +45,7 @@ def get_all_methods_from_cls(
     """
     methods = [
         (method, name)
-        for name, method in get_obj_members(class_, include_annotate=include_annotate)
+        for name, method in obj_members(class_, include_annotate=include_annotate)
         if is_func(method)
     ]
 
@@ -53,16 +53,16 @@ def get_all_methods_from_cls(
         methods = [
             (method, name)
             for method, name in methods
-            if get_module_of_obj(method).__name__ == class_.__module__
+            if module_of_obj(method).__name__ == class_.__module__
             and name in class_.__dict__
         ]
 
     only_methods = [method for method, _name in methods]
     # sort by definition order
-    return sorted(only_methods, key=get_def_line)
+    return sorted(only_methods, key=def_line)
 
 
-def get_all_cls_from_module(module: ModuleType | str) -> list[type]:
+def all_cls_from_module(module: ModuleType | str) -> list[type]:
     """Extract all classes defined directly in a module.
 
     Args:
@@ -82,13 +82,13 @@ def get_all_cls_from_module(module: ModuleType | str) -> list[type]:
     classes = [
         obj
         for _, obj in inspect.getmembers(module, inspect.isclass)
-        if get_module_of_obj(obj, default).__name__ == module.__name__
+        if module_of_obj(obj, default).__name__ == module.__name__
     ]
     # sort by definition order
-    return sorted(classes, key=get_def_line)
+    return sorted(classes, key=def_line)
 
 
-def get_all_subclasses[T: type](
+def discover_all_subclasses[T: type](
     cls: T,
     load_package_before: ModuleType | None = None,
     *,
@@ -129,9 +129,9 @@ def get_all_subclasses[T: type](
         filtered out by other options).
 
     Example:
-        >>> # Discover all ConfigFile subclasses in myapp.dev.configs
-        >>> from myapp.dev import configs
-        >>> subclasses = get_all_subclasses(
+        >>> # Discover all ConfigFile subclasses in myapp.rig.configs
+        >>> from myapp.rig import configs
+        >>> subclasses = subclasses(
         ...     ConfigFile,
         ...     load_package_before=configs,
         ...     discard_parents=True,
@@ -153,7 +153,7 @@ def get_all_subclasses[T: type](
     subclasses_set: set[T] = {cls}
     subclasses_set.update(cls.__subclasses__())
     for subclass in cls.__subclasses__():
-        subclasses_set.update(get_all_subclasses(subclass))
+        subclasses_set.update(discover_all_subclasses(subclass))
     if load_package_before is not None:
         # remove all not in the package
         subclasses_set = {
@@ -201,7 +201,7 @@ def discard_parent_classes[T: type](
 
 
 @cache
-def get_cached_instance[T](cls: type[T]) -> T:
+def cached_instance[T](cls: type[T]) -> T:
     """Get or create a cached singleton instance of a class.
 
     Uses ``functools.cache`` to memoize class instantiation. The first call
@@ -219,8 +219,8 @@ def get_cached_instance[T](cls: type[T]) -> T:
         ...     def __init__(self):
         ...         print("Creating resource...")
         ...
-        >>> get_cached_instance(ExpensiveResource)  # prints "Creating resource..."
-        >>> get_cached_instance(ExpensiveResource)  # returns cached, no print
+        >>> cached_instance(ExpensiveResource)  # prints "Creating resource..."
+        >>> cached_instance(ExpensiveResource)  # returns cached, no print
     """
     return cls()
 
@@ -235,10 +235,10 @@ class classproperty[T]:  # noqa: N801
     Example:
         >>> class MyClass:
         ...     @classproperty
-        ...     def name(cls) -> str:
+        ...     def cls_name(cls) -> str:
         ...         return cls.__name__.lower()
         ...
-        >>> MyClass.name
+        >>> MyClass.cls_name # returns 'myclass'
         'myclass'
 
     Args:

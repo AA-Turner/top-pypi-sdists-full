@@ -164,7 +164,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/create_occ_availability_catalog.py.html>`__ to see an example of how to use create_occ_availability_catalog API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/create_occ_availability_catalog.py.html>`__ to see an example of how to use create_occ_availability_catalog API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -270,7 +270,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/create_occ_capacity_request.py.html>`__ to see an example of how to use create_occ_capacity_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/create_occ_capacity_request.py.html>`__ to see an example of how to use create_occ_capacity_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -379,7 +379,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/create_occ_customer.py.html>`__ to see an example of how to use create_occ_customer API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/create_occ_customer.py.html>`__ to see an example of how to use create_occ_customer API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occCustomerGroupId']
@@ -497,7 +497,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/create_occ_customer_group.py.html>`__ to see an example of how to use create_occ_customer_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/create_occ_customer_group.py.html>`__ to see an example of how to use create_occ_customer_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -603,7 +603,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/delete_occ_availability_catalog.py.html>`__ to see an example of how to use delete_occ_availability_catalog API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/delete_occ_availability_catalog.py.html>`__ to see an example of how to use delete_occ_availability_catalog API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occAvailabilityCatalogId']
@@ -716,7 +716,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/delete_occ_capacity_request.py.html>`__ to see an example of how to use delete_occ_capacity_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/delete_occ_capacity_request.py.html>`__ to see an example of how to use delete_occ_capacity_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occCapacityRequestId']
@@ -832,7 +832,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/delete_occ_customer.py.html>`__ to see an example of how to use delete_occ_customer API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/delete_occ_customer.py.html>`__ to see an example of how to use delete_occ_customer API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occCustomerGroupId', 'occCustomerId']
@@ -946,7 +946,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/delete_occ_customer_group.py.html>`__ to see an example of how to use delete_occ_customer_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/delete_occ_customer_group.py.html>`__ to see an example of how to use delete_occ_customer_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occCustomerGroupId']
@@ -1052,7 +1052,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/get_occ_availability_catalog.py.html>`__ to see an example of how to use get_occ_availability_catalog API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/get_occ_availability_catalog.py.html>`__ to see an example of how to use get_occ_availability_catalog API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occAvailabilityCatalogId']
@@ -1172,7 +1172,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/get_occ_availability_catalog_content.py.html>`__ to see an example of how to use get_occ_availability_catalog_content API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/get_occ_availability_catalog_content.py.html>`__ to see an example of how to use get_occ_availability_catalog_content API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occAvailabilityCatalogId']
@@ -1283,7 +1283,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/get_occ_capacity_request.py.html>`__ to see an example of how to use get_occ_capacity_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/get_occ_capacity_request.py.html>`__ to see an example of how to use get_occ_capacity_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occCapacityRequestId']
@@ -1389,7 +1389,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/get_occ_customer_group.py.html>`__ to see an example of how to use get_occ_customer_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/get_occ_customer_group.py.html>`__ to see an example of how to use get_occ_customer_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occCustomerGroupId']
@@ -1528,7 +1528,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/list_internal_namespace_occ_overviews.py.html>`__ to see an example of how to use list_internal_namespace_occ_overviews API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/list_internal_namespace_occ_overviews.py.html>`__ to see an example of how to use list_internal_namespace_occ_overviews API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespace', 'compartmentId', 'occCustomerGroupId']
@@ -1690,7 +1690,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/list_internal_occ_handover_resource_block_details.py.html>`__ to see an example of how to use list_internal_occ_handover_resource_block_details API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/list_internal_occ_handover_resource_block_details.py.html>`__ to see an example of how to use list_internal_occ_handover_resource_block_details API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occHandoverResourceBlockId']
@@ -1852,7 +1852,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/list_internal_occ_handover_resource_blocks.py.html>`__ to see an example of how to use list_internal_occ_handover_resource_blocks API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/list_internal_occ_handover_resource_blocks.py.html>`__ to see an example of how to use list_internal_occ_handover_resource_blocks API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespace', 'compartmentId', 'occCustomerGroupId']
@@ -2019,7 +2019,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/list_occ_availabilities.py.html>`__ to see an example of how to use list_occ_availabilities API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/list_occ_availabilities.py.html>`__ to see an example of how to use list_occ_availabilities API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occAvailabilityCatalogId']
@@ -2193,7 +2193,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/list_occ_availability_catalogs.py.html>`__ to see an example of how to use list_occ_availability_catalogs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/list_occ_availability_catalogs.py.html>`__ to see an example of how to use list_occ_availability_catalogs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2373,7 +2373,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/list_occ_availability_catalogs_internal.py.html>`__ to see an example of how to use list_occ_availability_catalogs_internal API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/list_occ_availability_catalogs_internal.py.html>`__ to see an example of how to use list_occ_availability_catalogs_internal API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'occCustomerGroupId']
@@ -2554,7 +2554,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/list_occ_capacity_requests.py.html>`__ to see an example of how to use list_occ_capacity_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/list_occ_capacity_requests.py.html>`__ to see an example of how to use list_occ_capacity_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2739,7 +2739,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/list_occ_capacity_requests_internal.py.html>`__ to see an example of how to use list_occ_capacity_requests_internal API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/list_occ_capacity_requests_internal.py.html>`__ to see an example of how to use list_occ_capacity_requests_internal API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'occCustomerGroupId']
@@ -2914,7 +2914,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/list_occ_customer_groups.py.html>`__ to see an example of how to use list_occ_customer_groups API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/list_occ_customer_groups.py.html>`__ to see an example of how to use list_occ_customer_groups API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -3070,7 +3070,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/list_occ_handover_resource_block_details.py.html>`__ to see an example of how to use list_occ_handover_resource_block_details API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/list_occ_handover_resource_block_details.py.html>`__ to see an example of how to use list_occ_handover_resource_block_details API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occHandoverResourceBlockId']
@@ -3229,7 +3229,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/list_occ_handover_resource_blocks.py.html>`__ to see an example of how to use list_occ_handover_resource_blocks API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/list_occ_handover_resource_blocks.py.html>`__ to see an example of how to use list_occ_handover_resource_blocks API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3400,7 +3400,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/list_occ_overviews.py.html>`__ to see an example of how to use list_occ_overviews API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/list_occ_overviews.py.html>`__ to see an example of how to use list_occ_overviews API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['namespace', 'compartmentId']
@@ -3551,7 +3551,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/patch_internal_occ_capacity_request.py.html>`__ to see an example of how to use patch_internal_occ_capacity_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/patch_internal_occ_capacity_request.py.html>`__ to see an example of how to use patch_internal_occ_capacity_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occCapacityRequestId']
@@ -3671,7 +3671,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/patch_occ_capacity_request.py.html>`__ to see an example of how to use patch_occ_capacity_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/patch_occ_capacity_request.py.html>`__ to see an example of how to use patch_occ_capacity_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occCapacityRequestId']
@@ -3795,7 +3795,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/publish_occ_availability_catalog.py.html>`__ to see an example of how to use publish_occ_availability_catalog API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/publish_occ_availability_catalog.py.html>`__ to see an example of how to use publish_occ_availability_catalog API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occAvailabilityCatalogId']
@@ -3914,7 +3914,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/update_internal_occ_capacity_request.py.html>`__ to see an example of how to use update_internal_occ_capacity_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/update_internal_occ_capacity_request.py.html>`__ to see an example of how to use update_internal_occ_capacity_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occCapacityRequestId']
@@ -4034,7 +4034,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/update_occ_availability_catalog.py.html>`__ to see an example of how to use update_occ_availability_catalog API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/update_occ_availability_catalog.py.html>`__ to see an example of how to use update_occ_availability_catalog API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occAvailabilityCatalogId']
@@ -4154,7 +4154,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/update_occ_capacity_request.py.html>`__ to see an example of how to use update_occ_capacity_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/update_occ_capacity_request.py.html>`__ to see an example of how to use update_occ_capacity_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occCapacityRequestId']
@@ -4277,7 +4277,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/update_occ_customer.py.html>`__ to see an example of how to use update_occ_customer API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/update_occ_customer.py.html>`__ to see an example of how to use update_occ_customer API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occCustomerGroupId', 'occCustomerId']
@@ -4398,7 +4398,7 @@ class CapacityManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/capacitymanagement/update_occ_customer_group.py.html>`__ to see an example of how to use update_occ_customer_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/capacitymanagement/update_occ_customer_group.py.html>`__ to see an example of how to use update_occ_customer_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['occCustomerGroupId']

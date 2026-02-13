@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.18.1+obcheckpoint(0.2.10);ob(v1)                                                  #
-# Generated on 2026-02-03T01:51:07.245549                                                            #
+# MF version: 2.19.19.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-02-11T23:40:09.243264                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ class BatchJob(object, metaclass=type):
         ...
     def execute(self):
         ...
-    def job_def(self, image, iam_role, job_queue, execution_role, shared_memory, max_swap, swappiness, inferentia, efa, memory, host_volumes, efs_volumes, use_tmpfs, tmpfs_tempdir, tmpfs_size, tmpfs_path, num_parallel, ephemeral_storage, log_driver, log_options):
+    def job_def(self, image, iam_role, job_queue, execution_role, shared_memory, max_swap, swappiness, inferentia, efa, memory, host_volumes, efs_volumes, use_tmpfs, tmpfs_tempdir, tmpfs_size, tmpfs_path, num_parallel, ephemeral_storage, log_driver, log_options, privileged):
         ...
     def job_name(self, job_name):
         ...

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: liger_kernel
-Version: 0.6.5
+Version: 0.7.0
 Summary: Efficient Triton kernels for LLM Training
 License: BSD 2-CLAUSE LICENSE
         Copyright 2024 LinkedIn Corporation 
@@ -33,7 +33,7 @@ License-File: NOTICE
 Requires-Dist: torch>=2.1.2
 Requires-Dist: triton>=2.3.1
 Provides-Extra: dev
-Requires-Dist: transformers<5.0.0,>=4.49.0; extra == "dev"
+Requires-Dist: transformers>=4.52.0; extra == "dev"
 Requires-Dist: matplotlib>=3.7.2; extra == "dev"
 Requires-Dist: ruff>=0.12.0; extra == "dev"
 Requires-Dist: pytest>=7.1.2; extra == "dev"
@@ -304,6 +304,7 @@ loss.backward()
 | LLaMA 3.2-Vision | `liger_kernel.transformers.apply_liger_kernel_to_mllama`   | RoPE, RMSNorm, SwiGLU, CrossEntropyLoss, FusedLinearCrossEntropy        |
 | Mistral     | `liger_kernel.transformers.apply_liger_kernel_to_mistral`  | RoPE, RMSNorm, SwiGLU, CrossEntropyLoss, FusedLinearCrossEntropy        |
 | Mixtral     | `liger_kernel.transformers.apply_liger_kernel_to_mixtral`  | RoPE, RMSNorm, SwiGLU, CrossEntropyLoss, FusedLinearCrossEntropy        |
+| Pixtral     | `liger_kernel.transformers.apply_liger_kernel_to_pixtral`  | RoPE, RMSNorm, SwiGLU|
 | Gemma1      | `liger_kernel.transformers.apply_liger_kernel_to_gemma`    | RoPE, RMSNorm, GeGLU, CrossEntropyLoss, FusedLinearCrossEntropy         |
 | Gemma2      | `liger_kernel.transformers.apply_liger_kernel_to_gemma2`   | RoPE, RMSNorm, GeGLU, CrossEntropyLoss, FusedLinearCrossEntropy         |
 | Gemma3 (Text)      | `liger_kernel.transformers.apply_liger_kernel_to_gemma3_text`   | RoPE, RMSNorm, GeGLU, CrossEntropyLoss, FusedLinearCrossEntropy         |

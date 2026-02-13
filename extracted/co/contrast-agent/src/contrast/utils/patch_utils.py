@@ -134,6 +134,14 @@ def build_and_apply_patch(
         func.__name__ = ensure_string(attr_name)
 
 
+def is_contrast_module(module_name: str) -> bool:
+    return module_name.split(".", maxsplit=1)[0] in (
+        "contrast",
+        "contrast_vendor",
+        "contrast_rewriter",
+    )
+
+
 # NOTE: ranges are inclusive on both ends
 THIRD_PARTY_SUPPORTED_VERSIONS = {
     "aiohttp": ((3, 7), (3, 10)),
@@ -196,13 +204,12 @@ def register_module_patcher(patcher: ModulePatcher, module_name: str):
 
     If the named module has already been imported, the patcher is called immediately.
     """
-    is_contrast_module = module_name.startswith(("contrast.", "contrast_vendor."))
     if (
         not is_stdlib_module(module_name)
-        and not is_contrast_module
+        and not is_contrast_module(module_name)
         and not is_versioned_patch(patcher)
     ):
-        top_level_module = module_name.split(".")[0]
+        top_level_module = module_name.split(".", maxsplit=1)[0]
         if constraint := THIRD_PARTY_SUPPORTED_VERSIONS.get(top_level_module):
             patcher = versioned_patch(*constraint)(patcher)
         else:
@@ -395,4 +402,6 @@ def repatch_imported_modules():
     patches in those modules.
     """
     for module in get_loaded_modules().values():
+        if is_contrast_module(module.__name__):
+            continue
         repatch_module(module)

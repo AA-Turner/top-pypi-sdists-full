@@ -139,7 +139,7 @@ def test_reftypes_jwst_reference_name_to_tpn_infos(default_shared_state, jwst_da
      ('META.REFTYPE', 'HEADER', 'CHARACTER', 'REQUIRED', values=())
      ('META.SUBARRAY.FASTAXIS', 'HEADER', 'INTEGER', 'OPTIONAL', values=('1', '-1', '2', '-2'))
      ('META.SUBARRAY.FASTAXIS', 'HEADER', 'INTEGER', 'REQUIRED', values=())
-     ('META.SUBARRAY.NAME', 'HEADER', 'CHARACTER', 'OPTIONAL', values=('BRIGHTSKY', 'MASK1065', 'MASK1140', 'MASK1550', 'MASKLYOT', 'SLITLESSPRISM', 'SUB128', 'SUB256', 'SUB64', 'FULL', 'GENERIC', 'ANY', 'N/A'))
+     ('META.SUBARRAY.NAME', 'HEADER', 'CHARACTER', 'OPTIONAL', values=('BRIGHTSKY', 'MASK1065', 'MASK1140', 'MASK1550', 'MASKLYOT', 'SLITLESSPRISM', 'SLITLESSPRISM_IP', 'SLITLESSPRISM_IPS', 'SUB128', 'SUB128_IP', 'SUB256', 'SUB64', 'SUB64_IP', 'SUBSLIT', 'FULL', 'GENERIC', 'ANY', 'N/A'))
      ('META.SUBARRAY.NAME', 'HEADER', 'CHARACTER', 'REQUIRED', values=())
      ('META.SUBARRAY.SLOWAXIS', 'HEADER', 'INTEGER', 'OPTIONAL', values=('1', '-1', '2', '-2'))
      ('META.SUBARRAY.SLOWAXIS', 'HEADER', 'INTEGER', 'REQUIRED', values=())
@@ -212,7 +212,7 @@ def test_reftypes_hst_get_filekinds(default_shared_state):
 def test_reftypes_jwst_get_filekinds(default_shared_state):
     types = reftypes.get_types_object("jwst")
     niriss_types = types.get_filekinds("niriss")
-    expected_types = ['abvegaoffset', 'all', 'amplifier', 'apcorr', 'area', 'bkg', 'dark', 'distortion', 'drizpars', 'extract1d', 'filteroffset', 'flat', 'gain', 'ipc', 'linearity', 'mask', 'nrm', 'pars-backgroundstep', 'pars-chargemigrationstep', 'pars-darkcurrentstep', 'pars-darkpipeline', 'pars-detector1pipeline', 'pars-image2pipeline', 'pars-jumpstep', 'pars-outlierdetectionstep', 'pars-rampfitstep', 'pars-resamplestep', 'pars-sourcecatalogstep', 'pars-spec2pipeline', 'pars-tweakregstep', 'pars-undersamplecorrectionstep', 'pars-whitelightstep', 'pastasoss', 'pathloss', 'persat', 'photom', 'readnoise', 'regions', 'saturation', 'sirskernel', 'speckernel', 'specprofile', 'spectrace', 'specwcs', 'superbias', 'throughput', 'trapdensity', 'trappars', 'wavelengthrange', 'wavemap', 'wcsregions', 'wfssbkg']
+    expected_types = ['abvegaoffset', 'all', 'amplifier', 'apcorr', 'area', 'bkg', 'dark', 'distortion', 'drizpars', 'extract1d', 'filteroffset', 'flat', 'gain', 'ipc', 'linearity', 'mask', 'nrm', 'pars-backgroundstep', 'pars-chargemigrationstep', 'pars-cleanflickernoisestep', 'pars-darkcurrentstep', 'pars-darkpipeline', 'pars-detector1pipeline', 'pars-image2pipeline', 'pars-jumpstep', 'pars-outlierdetectionstep', 'pars-rampfitstep', 'pars-resamplestep', 'pars-sourcecatalogstep', 'pars-spec2pipeline', 'pars-tweakregstep', 'pars-undersamplecorrectionstep', 'pars-wfsscontamstep', 'pars-whitelightstep', 'pastasoss', 'pathloss', 'persat', 'photom', 'readnoise', 'regions', 'saturation', 'sirskernel', 'speckernel', 'specprofile', 'spectrace', 'specwcs', 'superbias', 'throughput', 'trapdensity', 'trappars', 'wavelengthrange', 'wavemap', 'wcsregions', 'wfssbkg']
     assert sorted(niriss_types) == sorted(expected_types)
 
 

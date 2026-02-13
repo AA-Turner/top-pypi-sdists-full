@@ -313,7 +313,9 @@ class ServiceController(BaseController):
         apply_service_model: ApplyServiceModel = self._format_apply_service_model(
             config
         )
-        service: ServiceModel = self.sdk.rollout_service(apply_service_model).result
+        service: ServiceModel = self.sdk._rollout_service(  # noqa: SLF001
+            apply_service_model
+        ).result
         self.log.info(f"Service {service.id} rollout initiated.")
         self.log.info(
             f'View the service in the UI at {get_endpoint(f"/services/{service.id}")}'
@@ -362,7 +364,7 @@ class ServiceController(BaseController):
             )
 
     def rollback(self, service_id: str, max_surge_percent: Optional[int] = None):
-        service: ServiceModel = self.sdk.rollback_service(
+        service: ServiceModel = self.anyscale_api_client.rollback_service(
             service_id,
             rollback_service_model=RollbackServiceModel(
                 max_surge_percent=max_surge_percent

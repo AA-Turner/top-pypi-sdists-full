@@ -19,9 +19,15 @@ from adam.commands.cli.clipboard_copy import ClipboardCopy
 from adam.commands.command_filter import CommandFilter
 from adam.commands.config.param_get import GetParam
 from adam.commands.config.param_set import SetParam
+from adam.commands.deploy.upgrade import Upgrade
 from adam.commands.filters.debug_filter import DebugFilter
 from adam.commands.filters.time_filter import TimeFilter
+from adam.commands.fs.find_files import FindFiles
 from adam.commands.fs.show_thread_pools import ShowThreadPools
+from adam.commands.nodetool.retry import Retry
+from adam.commands.tmux.good import Good
+from adam.commands.tmux.good_morning import GoodMorning
+from adam.commands.tmux.good_night import GoodNight
 from adam.commands.trace.show_offloaded_completes import ShowOffloadedCompletes
 from adam.commands.check_up.check import Check
 from adam.commands.check_up.generate_report import GenerateReport
@@ -63,7 +69,7 @@ from adam.commands.export.show_column_counts import ShowColumnCounts
 from adam.commands.export.show_export_databases import ShowExportDatabases
 from adam.commands.export.show_export_session import ShowExportSession
 from adam.commands.export.show_export_sessions import ShowExportSessions
-from adam.commands.fs.find_files import FindLocalFiles
+from adam.commands.fs.find_files_local import FindLocalFiles
 from adam.commands.fs.find_processes import FindProcesses
 from adam.commands.fs.head import Head
 from adam.commands.fs.head_local import HeadLocal
@@ -101,7 +107,7 @@ class ReplCommands:
         cmds: list[Command] = ReplCommands.navigation() + ReplCommands.cassandra_ops() + ReplCommands.postgres_ops() + \
             ReplCommands.app_ops() + ReplCommands.audit_ops() + ReplCommands.export_ops() + ReplCommands.tools() + ReplCommands.exit()
 
-        intermediate_cmds: list[Command] = [App(), Audit(), Reaper(), Repair(), Deploy(), Show(), Trace(), Undeploy()]
+        intermediate_cmds: list[Command] = [App(), Audit(), Deploy(), Good(), Reaper(), Repair(), Show(), Trace(), Undeploy()]
         ic = [c.command() for c in intermediate_cmds]
         # 1. dedup commands
         deduped = []
@@ -120,9 +126,9 @@ class ReplCommands:
     def navigation() -> list[Command]:
         return [Cd(), Cat(), CatLocal(), ClipboardCopy(),
                 DeviceApp(), DevicePostgres(), DeviceCass(), DeviceAuditLog(), DeviceExport(),
-                DownloadFile(), FindLocalFiles(), FindProcesses(), GetParam(),
-                Head(), HeadLocal(), Ls(), LsLocal(), PreviewTable(), Pwd(), RmLogs(),
-                SetParam(), ShowAdam(), ShowHost(), ShowKubectlCommands(), ShowJobResults(),
+                DownloadFile(), FindFiles(), FindLocalFiles(), FindProcesses(), GetParam(),
+                Head(), HeadLocal(), Ls(), LsLocal(), PreviewTable(), Pwd(), GoodMorning(), RmLogs(),
+                GoodNight(), SetParam(), ShowAdam(), ShowHost(), ShowKubectlCommands(), ShowJobResults(),
                 ShowLogin(), ShowOffloadedCompletes(), ShowParams(), ShowThreadPools(),
                 Tail(), TailLocal()] + \
                 RmLocal().cmd_list()
@@ -132,10 +138,10 @@ class ReplCommands:
                 DownloadCassandraLog(), DropExportDatabase(), DropExportDatabases(), DownloadExportSession(),
                 ExportTables(), ExportXSelect(), ExportUse(),
                 GenerateReport(), ImportSession(), ImportCSVFiles(), Issues(), NodeTool(),
-                RestartNodes(), RestartCluster(), RollOut(),
+                RestartNodes(), RestartCluster(), Retry(), RollOut(),
                 ShowTokens(), ShowStatus(), ShowCassandraVersion(),
                 ShowCassandraRepairs(), ShowColumnCounts(), ShowJobs(), ShowStorage(), ShowExportDatabases(),
-                ShowExportSessions(), ShowExportSession(), ShowProcesses(),
+                ShowExportSessions(), ShowExportSession(), ShowProcesses(), Upgrade(),
                 Watch()] + \
                 Medusa().cmd_list() + \
                 Reaper().cmd_list() + \

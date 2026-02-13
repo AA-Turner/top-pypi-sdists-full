@@ -30,6 +30,8 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 
 
@@ -45,9 +47,7 @@ extend = "../pyproject.toml"
 [tool.ruff.format]
 exclude = [
     "devpi_common/archive.py",
-    "devpi_common/contextlib.py",
     "devpi_common/metadata.py",
-    "devpi_common/request.py",
     "devpi_common/terminal.py",
     "devpi_common/types.py",
     "devpi_common/url.py",
@@ -71,26 +71,42 @@ extend-ignore = [
     "B007", # maybe cleanup later
     "B904", # maybe cleanup later
     "BLE001", # cleanup soon - blind exception
-    "COM812", # cleanup later
     "FBT002", # cleanup soon - boolean positional argument
     "FIX003", # cleanup later - xxx
-    "G002", # cleanup soon - logging statement uses %
-    "I001", # maybe cleanup later - import block unsorted
     "PERF401", # maybe cleanup later - list comprehension
     "PLR0912", # maybe cleanup later
     "PLW2901", # maybe cleanup later
     "PT006", # maybe cleanup later - wrong type for pytest.mark.parametrize
     "PT011", # cleanup soon - pytest.raises match
-    "PT018", # maybe cleanup later - composite assert
     "RET503", # maybe cleanup later - missing return
     "RUF005", # cleanup later
-    "RSE102", # maybe cleanup later
+    "RUF043", # cleanup later - pytest.raises match regexp
+    "RUF059", # cleanup later - unpacked variable unused
     "SIM105", # cleanup soon
     "SIM108", # cleanup later
-    "SIM115", # cleanup soon
-    "TRY004", # maybe cleanup later
     "UP008", # cleanup later - super
     "UP024", # maybe cleanup later - aliased errors
+]
+
+
+[tool.ruff.lint.extend-per-file-ignores]
+"devpi_common/validation.py" = [
+    "I001", # maybe cleanup later - import block unsorted
+]
+"testing/test_archive.py" = [
+    "I001", # maybe cleanup later - import block unsorted
+]
+"testing/test_metadata.py" = [
+    "I001", # maybe cleanup later - import block unsorted
+]
+"testing/test_request.py" = [
+    "I001", # maybe cleanup later - import block unsorted
+]
+"testing/test_url.py" = [
+    "I001", # maybe cleanup later - import block unsorted
+]
+"testing/test_validation.py" = [
+    "I001", # maybe cleanup later - import block unsorted
 ]
 
 

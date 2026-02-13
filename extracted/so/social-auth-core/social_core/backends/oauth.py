@@ -3,10 +3,8 @@ from __future__ import annotations
 import base64
 import hashlib
 from typing import TYPE_CHECKING, Any, Literal, cast
-from urllib.parse import urlencode
 
 from oauthlib.oauth1 import SIGNATURE_TYPE_AUTH_HEADER
-from requests.auth import AuthBase
 from requests_oauthlib import OAuth1
 
 from social_core.exceptions import (
@@ -53,6 +51,7 @@ class OAuthAuth(BaseAuth):
     AUTHORIZATION_URL = ""
     ACCESS_TOKEN_URL = ""
     ACCESS_TOKEN_METHOD: Literal["GET", "POST"] = "POST"
+    ACCESS_TOKEN_PAYLOAD: Literal["form", "json"] = "form"
     REVOKE_TOKEN_URL: str = ""
     REVOKE_TOKEN_METHOD: Literal["GET", "POST", "DELETE"] = "POST"
     ID_KEY = "id"
@@ -89,7 +88,7 @@ class OAuthAuth(BaseAuth):
             # but also added to redirect, that way we can still verify the
             # request if the provider doesn't implement the state parameter.
             # Reuse token if any.
-            name = self.name + "_state"
+            name = f"{self.name}_state"
             state = self.strategy.session_get(name)
             if state is None:
                 state = self.state_token()
@@ -99,7 +98,7 @@ class OAuthAuth(BaseAuth):
         return state
 
     def get_session_state(self):
-        return self.strategy.session_get(self.name + "_state")
+        return self.strategy.session_get(f"{self.name}_state")
 
     def get_request_state(self):
         request_state = self.data.get("state") or self.data.get("redirect_state")
@@ -129,9 +128,9 @@ class OAuthAuth(BaseAuth):
             uri = url_add_parameters(uri, {"redirect_state": state})
         return uri
 
-    def get_scope(self):
+    def get_scope(self) -> list[str]:
         """Return list with needed access scope"""
-        scope = self.setting("SCOPE", [])
+        scope = cast("list[str]", self.setting("SCOPE", []))
         if not self.setting("IGNORE_DEFAULT_SCOPE", False):
             scope = scope + (self.DEFAULT_SCOPE or [])
         return scope
@@ -148,7 +147,7 @@ class OAuthAuth(BaseAuth):
         raise NotImplementedError
 
     def authorization_url(self) -> str:
-        url = self.setting("AUTHORIZATION_URL", self.AUTHORIZATION_URL)
+        url = cast("str", self.setting("AUTHORIZATION_URL", self.AUTHORIZATION_URL))
         if format_params := self.get_authorization_url_format():
             return url.format(**format_params)
         return url
@@ -157,7 +156,7 @@ class OAuthAuth(BaseAuth):
         return {}
 
     def access_token_url(self) -> str:
-        url = self.setting("ACCESS_TOKEN_URL", self.ACCESS_TOKEN_URL)
+        url = cast("str", self.setting("ACCESS_TOKEN_URL", self.ACCESS_TOKEN_URL))
         if format_params := self.get_access_token_url_format():
             return url.format(**format_params)
         return url
@@ -166,7 +165,7 @@ class OAuthAuth(BaseAuth):
         return {}
 
     def revoke_token_url(self, token, uid) -> str:
-        return self.setting("REVOKE_TOKEN_URL", self.REVOKE_TOKEN_URL)
+        return cast("str", self.setting("REVOKE_TOKEN_URL", self.REVOKE_TOKEN_URL))
 
     def revoke_token_params(self, token, uid) -> dict[str, Any]:
         return {}
@@ -181,7 +180,7 @@ class OAuthAuth(BaseAuth):
         if revoke_token_url := self.revoke_token_url(token, uid):
             params = self.revoke_token_params(token, uid)
             headers = self.revoke_token_headers(token, uid)
-            data = urlencode(params) if self.REVOKE_TOKEN_METHOD != "GET" else None
+            data = params if self.REVOKE_TOKEN_METHOD != "GET" else None
             response = self.request(
                 revoke_token_url,
                 params=params,
@@ -217,7 +216,7 @@ class BaseOAuth1(OAuthAuth):
         if "oauth_problem" in data:
             if data["oauth_problem"] == "user_refused":
                 raise AuthCanceled(self, "User refused the access")
-            raise AuthUnknownError(self, "Error was " + data["oauth_problem"])
+            raise AuthUnknownError(self, f"Error was {data['oauth_problem']}")
 
     @handle_http_errors
     def auth_complete(self, *args, **kwargs):
@@ -273,9 +272,9 @@ class BaseOAuth1(OAuthAuth):
         self.strategy.session_set(name, tokens)
         return token
 
-    def request_token_extra_arguments(self):
+    def request_token_extra_arguments(self) -> dict[str, str]:
         """Return extra arguments needed on request-token process"""
-        return self.setting("REQUEST_TOKEN_EXTRA_ARGUMENTS", {})
+        return cast("dict[str, str]", self.setting("REQUEST_TOKEN_EXTRA_ARGUMENTS", {}))
 
     def unauthorized_token(self):
         """Return request for unauthorized token (first stage)"""
@@ -421,7 +420,9 @@ class BaseOAuth2(OAuthAuth):
 
     def auth_headers(self) -> Mapping[str, str | bytes]:
         return {
-            "Content-Type": "application/x-www-form-urlencoded",
+            "Content-Type": "application/json"
+            if self.ACCESS_TOKEN_PAYLOAD == "json"
+            else "application/x-www-form-urlencoded",
             "Accept": "application/json",
         }
 
@@ -446,13 +447,20 @@ class BaseOAuth2(OAuthAuth):
         url: str,
         method: Literal["GET", "POST", "DELETE"] = "GET",
         headers: Mapping[str, str | bytes] | None = None,
-        data: dict | bytes | str | None = None,
+        data: dict | None = None,
+        json: dict | None = None,
         auth: tuple[str, str] | AuthBase | None = None,
         params: dict | None = None,
     ) -> dict[Any, Any]:
         with wrap_access_token_error(self):
             return self.get_json(
-                url, method=method, headers=headers, data=data, auth=auth, params=params
+                url,
+                method=method,
+                headers=headers,
+                data=data,
+                auth=auth,
+                params=params,
+                json=json,
             )
 
     def process_error(self, data) -> None:
@@ -468,15 +476,19 @@ class BaseOAuth2(OAuthAuth):
         """Completes login process, must return user instance"""
         self.process_error(self.data)
         state = self.validate_state()
-        data, params = None, None
+        data = params = json = None
+        auth_params = self.auth_complete_params(state)
         if self.ACCESS_TOKEN_METHOD == "GET":
-            params = self.auth_complete_params(state)
+            params = auth_params
+        elif self.ACCESS_TOKEN_PAYLOAD == "json":
+            json = auth_params
         else:
-            data = self.auth_complete_params(state)
+            data = auth_params
 
         response = self.request_access_token(
             self.access_token_url(),
             data=data,
+            json=json,
             params=params,
             headers=self.auth_headers(),
             auth=self.auth_complete_credentials(),
@@ -552,8 +564,12 @@ class BaseOAuth2PKCE(BaseOAuth2):
 
     def create_code_verifier(self):
         name = f"{self.name}_code_verifier"
-        code_verifier_len = self.setting(
-            "PKCE_CODE_VERIFIER_LENGTH", default=self.PKCE_DEFAULT_CODE_VERIFIER_LENGTH
+        code_verifier_len = cast(
+            "int",
+            self.setting(
+                "PKCE_CODE_VERIFIER_LENGTH",
+                default=self.PKCE_DEFAULT_CODE_VERIFIER_LENGTH,
+            ),
         )
         code_verifier = self.strategy.random_string(code_verifier_len)
         self.strategy.session_set(name, code_verifier)
@@ -577,9 +593,12 @@ class BaseOAuth2PKCE(BaseOAuth2):
         params = super().auth_params(state=state)
 
         if self.setting("USE_PKCE", default=self.DEFAULT_USE_PKCE):
-            code_challenge_method = self.setting(
-                "PKCE_CODE_CHALLENGE_METHOD",
-                default=self.PKCE_DEFAULT_CODE_CHALLENGE_METHOD,
+            code_challenge_method = cast(
+                "str",
+                self.setting(
+                    "PKCE_CODE_CHALLENGE_METHOD",
+                    default=self.PKCE_DEFAULT_CODE_CHALLENGE_METHOD,
+                ),
             )
             code_verifier = self.create_code_verifier()
             code_challenge = self.generate_code_challenge(

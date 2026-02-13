@@ -15,10 +15,8 @@ from exponent.commands.types import exponent_cli_group
 from exponent.core.config import Settings
 from exponent.core.graphql.client import GraphQLClient
 from exponent.core.graphql.generated_client.chats import (
-    ChatsChatsChats,
-    ChatsChatsChatsChats,
-    ChatsChatsChatsChatsPrStatusPRInfo,
-    ChatsChatsUnauthenticatedError,
+    ChatsOrganizationChatsPageChats,
+    ChatsOrganizationChatsPageChatsPrStatusPRInfo,
 )
 from exponent.core.graphql.generated_client.enums import PRStatus
 
@@ -33,25 +31,16 @@ async def fetch_chats(
     api_key: str,
     base_api_url: str,
     base_ws_url: str,
-) -> list[ChatsChatsChatsChats]:
+) -> list[ChatsOrganizationChatsPageChats]:
     graphql_client = GraphQLClient(api_key, base_api_url, base_ws_url)
     result = await graphql_client.get_chats()
-
-    if isinstance(result.chats, ChatsChatsUnauthenticatedError):
-        click.secho(f"Error: {result.chats.message}", fg="red")
-        sys.exit(1)
-
-    if isinstance(result.chats, ChatsChatsChats):
-        return result.chats.chats
-
-    click.secho("Unexpected response from server", fg="red")
-    sys.exit(1)
+    return result.organization_chats_page.chats
 
 
 def sort_chats_by_recency(
-    chats: list[ChatsChatsChatsChats],
-) -> list[ChatsChatsChatsChats]:
-    def parse_updated_at(chat: ChatsChatsChatsChats) -> datetime:
+    chats: list[ChatsOrganizationChatsPageChats],
+) -> list[ChatsOrganizationChatsPageChats]:
+    def parse_updated_at(chat: ChatsOrganizationChatsPageChats) -> datetime:
         updated_at = chat.updated_at
         if updated_at is None:
             return datetime.min
@@ -67,20 +56,20 @@ def sort_chats_by_recency(
 
 @dataclass
 class PRChoice:
-    chat: ChatsChatsChatsChats
+    chat: ChatsOrganizationChatsPageChats
     pr_number: int
     pr_title: str
 
 
-def get_all_open_prs(chat: ChatsChatsChatsChats) -> list[tuple[int, str]]:
+def get_all_open_prs(chat: ChatsOrganizationChatsPageChats) -> list[tuple[int, str]]:
     return [
         (pr.number, pr.title)
         for pr in chat.pr_status
-        if isinstance(pr, ChatsChatsChatsChatsPrStatusPRInfo) and pr.status == PRStatus.OPEN
+        if isinstance(pr, ChatsOrganizationChatsPageChatsPrStatusPRInfo) and pr.status == PRStatus.OPEN
     ]
 
 
-def collect_all_pr_choices(chats: list[ChatsChatsChatsChats]) -> list[PRChoice]:
+def collect_all_pr_choices(chats: list[ChatsOrganizationChatsPageChats]) -> list[PRChoice]:
     choices: list[PRChoice] = []
     for chat in chats:
         for pr_number, pr_title in get_all_open_prs(chat):
@@ -137,7 +126,7 @@ def select_pr_interactive(pr_choices: list[PRChoice]) -> PRChoice:
 
 
 def find_prs_by_chat_id(pr_choices: list[PRChoice], chat_id: str) -> list[PRChoice]:
-    return [pr for pr in pr_choices if chat_id == pr.chat.chat_uuid]
+    return [pr for pr in pr_choices if chat_id == str(pr.chat.chat_uuid)]
 
 
 def get_local_head() -> str | None:

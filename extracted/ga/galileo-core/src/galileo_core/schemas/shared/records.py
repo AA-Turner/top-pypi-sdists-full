@@ -10,6 +10,7 @@ from galileo_core.schemas.logging.span import BaseAgentSpan, BaseRetrieverSpan, 
 from galileo_core.schemas.logging.step import BaseStep, StepAllowedInputType
 from galileo_core.schemas.logging.trace import BaseTrace
 from galileo_core.schemas.shared.feedback import FeedbackRatingInfo
+from galileo_core.schemas.shared.multimodal import Modality
 
 
 class RecordIdsWithMetrics(BaseModel):
@@ -51,6 +52,11 @@ class BaseRecord(PartialModelMixin, BaseStep):
     )
     annotations: Dict[UUID4, Dict[UUID4, FeedbackRatingInfo]] = Field(
         default_factory=dict, description="Annotations keyed by template ID and annotator ID"
+    )
+    file_ids: List[UUID4] = Field(default_factory=list, description="IDs of files associated with this record")
+    file_modalities: List[Modality] = Field(
+        default_factory=list,
+        description="Modalities of files associated with this record",
     )
 
     def to_record_ids_with_metrics(self) -> RecordIdsWithMetrics:

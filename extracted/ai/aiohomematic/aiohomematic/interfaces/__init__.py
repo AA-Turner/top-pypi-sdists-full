@@ -170,26 +170,22 @@ from __future__ import annotations
 from aiohomematic._log_context_protocol import LogContextProtocol
 from aiohomematic.interfaces.central import (
     BackupProviderProtocol,
-    CentralConfigProtocol,
-    CentralHealthProtocol,
     CentralInfoProtocol,
     # Central composite protocol
     CentralProtocol,
-    CentralStateMachineProtocol,
-    CentralStateMachineProviderProtocol,
     ChannelLookupProtocol,
     ConfigProviderProtocol,
-    ConnectionHealthProtocol,
+    ConfigurationFacadeProtocol,
     DataCacheProviderProtocol,
     DataPointProviderProtocol,
     DeviceDataRefresherProtocol,
     DeviceManagementProtocol,
     DeviceProviderProtocol,
+    DeviceQueryFacadeProtocol,
     EventBusProviderProtocol,
     EventPublisherProtocol,
     EventSubscriptionManagerProtocol,
     FileOperationsProtocol,
-    HealthTrackerProtocol,
     HubDataFetcherProtocol,
     HubDataPointManagerProtocol,
     HubFetchOperationsProtocol,
@@ -213,49 +209,36 @@ from aiohomematic.interfaces.client import (
     CommandTrackerProtocol,
     ConnectionStateProviderProtocol,
     DataCacheWriterProtocol,
-    # Combined client operation protocols
-    DataManagementOperationsProtocol,
     DeviceDescriptionsAccessProtocol,
     DeviceDetailsWriterProtocol,
     DeviceDiscoveryOperationsProtocol,
     DeviceLookupProtocol,
     JsonRpcClientProviderProtocol,
     LastEventTrackerProtocol,
-    MaintenanceOperationsProtocol,
     MetadataOperationsProtocol,
     NewDeviceHandlerProtocol,
     ParamsetDescriptionWriterProtocol,
     PingPongTrackerProtocol,
     PrimaryClientProviderProtocol,
     SessionRecorderProviderProtocol,
-    SystemManagementOperationsProtocol,
 )
 from aiohomematic.interfaces.coordinators import CoordinatorProviderProtocol
 from aiohomematic.interfaces.model import (
     BaseDataPointProtocol,
     BaseParameterDataPointProtocol,
-    BaseParameterDataPointProtocolAny,
     CalculatedDataPointProtocol,
     CallbackDataPointProtocol,
     # Channel sub-protocols
     ChannelDataPointAccessProtocol,
     ChannelEventGroupProtocol,
     ChannelIdentityProtocol,
-    # Channel combined protocols
-    ChannelManagementProtocol,
-    ChannelMetadataAndGroupingProtocol,
     ChannelProtocol,
     ClimateWeekProfileDataPointProtocol,
     CustomDataPointProtocol,
     # Device sub-protocols
     DeviceChannelAccessProtocol,
-    DeviceConfigurationProtocol,
     DeviceIdentityProtocol,
-    # Device combined protocols
-    DeviceOperationsProtocol,
     DeviceProtocol,
-    DeviceProvidersProtocol,
-    DeviceStateProtocol,
     GenericDataPointProtocol,
     GenericDataPointProtocolAny,
     GenericEventProtocol,
@@ -296,19 +279,11 @@ __all__ = [
     "ParamsetDescriptionWriterProtocol",
     # Central composite
     "CentralProtocol",
-    # Central config
-    "CentralConfigProtocol",
-    # Central health
-    "CentralHealthProtocol",
-    "ConnectionHealthProtocol",
-    "HealthTrackerProtocol",
     # Central identity
     "CentralInfoProtocol",
     "ConfigProviderProtocol",
+    "ConfigurationFacadeProtocol",
     "SystemInfoProviderProtocol",
-    # Central state machine
-    "CentralStateMachineProtocol",
-    "CentralStateMachineProviderProtocol",
     # Client composite
     "ClientProtocol",
     # Client operations
@@ -316,11 +291,8 @@ __all__ = [
     "ClientIdentityProtocol",
     "ClientLifecycleProtocol",
     "ClientSupportProtocol",
-    "DataManagementOperationsProtocol",
     "DeviceDiscoveryOperationsProtocol",
-    "MaintenanceOperationsProtocol",
     "MetadataOperationsProtocol",
-    "SystemManagementOperationsProtocol",
     # Client providers
     "ClientDependenciesProtocol",
     "ClientFactoryProtocol",
@@ -333,6 +305,7 @@ __all__ = [
     "DataPointProviderProtocol",
     "DeviceLookupProtocol",
     "DeviceProviderProtocol",
+    "DeviceQueryFacadeProtocol",
     # Device operations
     "DeviceDataRefresherProtocol",
     "DeviceManagementProtocol",
@@ -356,13 +329,10 @@ __all__ = [
     "ChannelDataPointAccessProtocol",
     "ChannelEventGroupProtocol",
     "ChannelIdentityProtocol",
-    "ChannelManagementProtocol",
-    "ChannelMetadataAndGroupingProtocol",
     "ChannelProtocol",
     # Model data point
     "BaseDataPointProtocol",
     "BaseParameterDataPointProtocol",
-    "BaseParameterDataPointProtocolAny",
     "CalculatedDataPointProtocol",
     "CallbackDataPointProtocol",
     "CustomDataPointProtocol",
@@ -372,12 +342,8 @@ __all__ = [
     "GenericEventProtocolAny",
     # Model device
     "DeviceChannelAccessProtocol",
-    "DeviceConfigurationProtocol",
     "DeviceIdentityProtocol",
-    "DeviceOperationsProtocol",
     "DeviceProtocol",
-    "DeviceProvidersProtocol",
-    "DeviceStateProtocol",
     # Model hub
     "GenericHubDataPointProtocol",
     "GenericInstallModeDataPointProtocol",

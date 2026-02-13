@@ -3,23 +3,66 @@ from datetime import datetime, timezone
 from typing import Any, overload
 
 from bson.errors import InvalidDocument
-from key_value.shared.errors import DeserializationError, SerializationError
-from key_value.shared.utils.managed_entry import ManagedEntry
-from key_value.shared.utils.sanitization import HybridSanitizationStrategy, SanitizationStrategy
-from key_value.shared.utils.sanitize import ALPHANUMERIC_CHARACTERS
-from key_value.shared.utils.serialization import SerializationAdapter
 from typing_extensions import override
 
 from key_value.aio.stores.base import BaseContextManagerStore, BaseDestroyCollectionStore, BaseStore
+from key_value.shared.errors import DeserializationError, SerializationError
+from key_value.shared.managed_entry import ManagedEntry
+from key_value.shared.sanitization import HybridSanitizationStrategy, SanitizationStrategy
+from key_value.shared.sanitize import ALPHANUMERIC_CHARACTERS
+from key_value.shared.serialization import SerializationAdapter
 
 try:
     from pymongo import AsyncMongoClient, UpdateOne
     from pymongo.asynchronous.collection import AsyncCollection
     from pymongo.asynchronous.database import AsyncDatabase
-    from pymongo.results import DeleteResult  # noqa: TC002
+    from pymongo.results import BulkWriteResult, DeleteResult
 except ImportError as e:
     msg = "MongoDBStore requires py-key-value-aio[mongodb]"
     raise ImportError(msg) from e
+
+
+# Module-level helper functions for MongoDB client operations
+
+
+def _create_mongodb_client(url: str | None = None) -> AsyncMongoClient[dict[str, Any]]:
+    """Create a MongoDB async client.
+
+    Args:
+        url: Optional MongoDB connection URL. If not provided, uses localhost.
+
+    Returns:
+        An AsyncMongoClient instance.
+    """
+    if url:
+        return AsyncMongoClient(url)
+    return AsyncMongoClient()
+
+
+async def _mongodb_bulk_write(
+    collection: AsyncCollection[dict[str, Any]],
+    operations: list[UpdateOne],
+) -> BulkWriteResult:
+    """Execute a bulk write operation on a MongoDB collection.
+
+    Args:
+        collection: The MongoDB collection to write to.
+        operations: List of UpdateOne operations to execute.
+
+    Returns:
+        The BulkWriteResult from the operation.
+    """
+    return await collection.bulk_write(operations)
+
+
+async def _mongodb_drop_database(client: AsyncMongoClient[dict[str, Any]], db_name: str) -> None:  # pyright: ignore[reportUnusedFunction] - Used by tests
+    """Drop a MongoDB database.
+
+    Args:
+        client: The MongoDB client.
+        db_name: The name of the database to drop.
+    """
+    _ = await client.drop_database(name_or_database=db_name)
 
 
 DEFAULT_DB = "kv-store-adapter"
@@ -103,6 +146,7 @@ class MongoDBStore(BaseDestroyCollectionStore, BaseContextManagerStore, BaseStor
     _db: AsyncDatabase[dict[str, Any]]
     _collections_by_name: dict[str, AsyncCollection[dict[str, Any]]]
     _adapter: SerializationAdapter
+    _auto_create: bool
 
     @overload
     def __init__(
@@ -113,6 +157,7 @@ class MongoDBStore(BaseDestroyCollectionStore, BaseContextManagerStore, BaseStor
         coll_name: str | None = None,
         default_collection: str | None = None,
         collection_sanitization_strategy: SanitizationStrategy | None = None,
+        auto_create: bool = True,
     ) -> None:
         """Initialize the MongoDB store.
 
@@ -122,6 +167,7 @@ class MongoDBStore(BaseDestroyCollectionStore, BaseContextManagerStore, BaseStor
             coll_name: The name of the MongoDB collection.
             default_collection: The default collection to use if no collection is provided.
             collection_sanitization_strategy: The sanitization strategy to use for collections.
+            auto_create: Whether to automatically create collections if they don't exist. Defaults to True.
         """
 
     @overload
@@ -133,6 +179,7 @@ class MongoDBStore(BaseDestroyCollectionStore, BaseContextManagerStore, BaseStor
         coll_name: str | None = None,
         default_collection: str | None = None,
         collection_sanitization_strategy: SanitizationStrategy | None = None,
+        auto_create: bool = True,
     ) -> None:
         """Initialize the MongoDB store.
 
@@ -142,6 +189,7 @@ class MongoDBStore(BaseDestroyCollectionStore, BaseContextManagerStore, BaseStor
             coll_name: The name of the MongoDB collection.
             default_collection: The default collection to use if no collection is provided.
             collection_sanitization_strategy: The sanitization strategy to use for collections.
+            auto_create: Whether to automatically create collections if they don't exist. Defaults to True.
         """
 
     def __init__(
@@ -153,6 +201,7 @@ class MongoDBStore(BaseDestroyCollectionStore, BaseContextManagerStore, BaseStor
         coll_name: str | None = None,
         default_collection: str | None = None,
         collection_sanitization_strategy: SanitizationStrategy | None = None,
+        auto_create: bool = True,
     ) -> None:
         """Initialize the MongoDB store.
 
@@ -167,17 +216,16 @@ class MongoDBStore(BaseDestroyCollectionStore, BaseContextManagerStore, BaseStor
             coll_name: The name of the MongoDB collection.
             default_collection: The default collection to use if no collection is provided.
             collection_sanitization_strategy: The sanitization strategy to use for collections.
+            auto_create: Whether to automatically create collections if they don't exist. Defaults to True.
+                When False, raises ValueError if a collection doesn't exist.
         """
 
         client_provided = client is not None
 
         if client:
             self._client = client
-        elif url:
-            self._client = AsyncMongoClient(url)
         else:
-            # Defaults to localhost
-            self._client = AsyncMongoClient()
+            self._client = _create_mongodb_client(url=url)
 
         db_name = db_name or DEFAULT_DB
         coll_name = coll_name or DEFAULT_COLLECTION
@@ -185,6 +233,7 @@ class MongoDBStore(BaseDestroyCollectionStore, BaseContextManagerStore, BaseStor
         self._db = self._client[db_name]
         self._collections_by_name = {}
         self._adapter = MongoDBSerializationAdapter()
+        self._auto_create = auto_create
 
         super().__init__(
             default_collection=default_collection,
@@ -209,6 +258,10 @@ class MongoDBStore(BaseDestroyCollectionStore, BaseContextManagerStore, BaseStor
         if matching_collections:
             self._collections_by_name[collection] = self._db[sanitized_collection]
             return
+
+        if not self._auto_create:
+            msg = f"Collection '{sanitized_collection}' does not exist. Either create the collection manually or set auto_create=True."
+            raise ValueError(msg)
 
         new_collection: AsyncCollection[dict[str, Any]] = await self._db.create_collection(name=sanitized_collection)
 
@@ -308,7 +361,7 @@ class MongoDBStore(BaseDestroyCollectionStore, BaseContextManagerStore, BaseStor
                 )
             )
 
-        _ = await self._collections_by_name[collection].bulk_write(operations)  # pyright: ignore[reportUnknownMemberType]
+        _ = await _mongodb_bulk_write(collection=self._collections_by_name[collection], operations=operations)
 
     @override
     async def _delete_managed_entry(self, *, key: str, collection: str) -> bool:

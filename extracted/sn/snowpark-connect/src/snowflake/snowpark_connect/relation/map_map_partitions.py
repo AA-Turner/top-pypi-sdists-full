@@ -7,7 +7,7 @@ from pyspark.sql.connect.proto.expressions_pb2 import CommonInlineUserDefinedFun
 
 import snowflake.snowpark.functions as snowpark_fn
 from snowflake import snowpark
-from snowflake.snowpark.types import StructType
+from snowflake.snowpark.types import StructField, StructType
 from snowflake.snowpark_connect.config import global_config
 from snowflake.snowpark_connect.constants import MAP_IN_ARROW_EVAL_TYPE
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
@@ -22,7 +22,7 @@ from snowflake.snowpark_connect.relation.output_struct_utils import (
 from snowflake.snowpark_connect.type_mapping import proto_to_snowpark_type
 from snowflake.snowpark_connect.utils.java_udtf_utils import (
     JAVA_UDTF_PREFIX,
-    create_java_udtf_for_scala_flatmap_handling,
+    create_java_udtf,
 )
 from snowflake.snowpark_connect.utils.pandas_udtf_utils import (
     create_pandas_udtf,
@@ -93,6 +93,38 @@ def _call_udtf(
     )
 
 
+def _call_scala_udtf_partitioned(
+    input_df: snowpark.DataFrame,
+    udtf_name: str,
+    udtf_arg_column,
+    partition_hint: int,
+) -> snowpark.DataFrame:
+    """
+    Call a Scala UDTF with OVER(PARTITION BY ...) so that Snowflake groups rows
+    into partitions before invoking the UDTF. The UDTF accumulates rows in
+    process() and applies the function in endPartition().
+    """
+    partition_col_name = "_DUMMY_PARTITION_KEY"
+    if partition_hint == 1:
+        input_df_with_key = input_df.withColumn(partition_col_name, snowpark_fn.lit(1))
+    else:
+        input_df_with_key = input_df.withColumn(
+            partition_col_name,
+            (
+                snowpark_fn.uniform(
+                    snowpark_fn.lit(0),
+                    snowpark_fn.lit(partition_hint - 1),
+                    snowpark_fn.random(),
+                )
+            ).cast("int"),
+        )
+
+    tfc = snowpark_fn.call_table_function(udtf_name, udtf_arg_column).over(
+        partition_by=[snowpark_fn.col(partition_col_name)]
+    )
+    return input_df_with_key.join_table_function(tfc)
+
+
 def _map_with_udtf(
     input_df_container: DataFrameContainer,
     udf_proto: CommonInlineUserDefinedFunction,
@@ -111,31 +143,46 @@ def _map_with_udtf(
             len(udf_proto.scalar_scala_udf.inputTypes) == 1
         ), "len(inputTypes) should be 1 for map and flatMap operations"
 
-        udtf_name = create_java_udtf_for_scala_flatmap_handling(udf_proto)
-
         if udf_proto.scalar_scala_udf.inputTypes[0].WhichOneof("kind") == "struct":
+            arg_types = [
+                StructType(
+                    [
+                        StructField(
+                            spark_column_names[i],
+                            f.datatype,
+                            f.nullable,
+                            _is_column=f._is_column,
+                        )
+                        for i, f in enumerate(input_schema.fields)
+                    ]
+                )
+            ]
             spark_col_name, typed_col = map_unresolved_star_as_single_column(
                 udf_proto.arguments[0],
                 input_df_container.column_map,
                 ExpressionTyper(input_df),
             )
-
             udtf_arg_column = typed_col.col
         else:
             udtf_arg_column = snowpark_fn.col(
                 input_df_container.column_map.get_snowpark_columns()[0]
             )
             spark_col_name = input_df_container.column_map.get_spark_columns()[0]
-
-        if udf_proto.scalar_scala_udf.inputTypes[0].WhichOneof("kind") in (
-            "map",
-            "array",
-        ):
+            arg_types = [input_schema.fields[0].datatype]
             udtf_arg_column = snowpark_fn.to_variant(udtf_arg_column)
 
-        df = input_df.join_table_function(
-            snowpark_fn.call_table_function(udtf_name, udtf_arg_column)
-        )
+        partition_hint = input_df_container.partition_hint
+
+        if partition_hint is not None and partition_hint > 0:
+            udtf_name = create_java_udtf(udf_proto, arg_types, batch_mode=True)
+            df = _call_scala_udtf_partitioned(
+                input_df, udtf_name, udtf_arg_column, partition_hint
+            )
+        else:
+            udtf_name = create_java_udtf(udf_proto, arg_types, batch_mode=False)
+            df = input_df.join_table_function(
+                snowpark_fn.call_table_function(udtf_name, udtf_arg_column)
+            )
 
         return unpack_struct_output_to_container(
             df=df,

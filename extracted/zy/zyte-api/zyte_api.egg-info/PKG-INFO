@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zyte-api
-Version: 0.8.1
+Version: 0.8.2
 Summary: Python interface to Zyte API
 Home-page: https://github.com/zytedata/python-zyte-api
 Author: Zyte Group Ltd
@@ -27,7 +27,7 @@ Requires-Dist: tqdm>=4.16.0
 Requires-Dist: w3lib>=2.1.1
 Provides-Extra: x402
 Requires-Dist: eth-account>=0.13.7; extra == "x402"
-Requires-Dist: x402>=0.1.1; extra == "x402"
+Requires-Dist: x402<2.0.0,>=0.1.1; extra == "x402"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

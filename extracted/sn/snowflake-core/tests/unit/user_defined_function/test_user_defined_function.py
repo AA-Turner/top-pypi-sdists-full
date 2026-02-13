@@ -4,6 +4,7 @@ from urllib.parse import quote
 import pytest
 
 from snowflake.core import PollingOperation, Root
+from snowflake.core.tag import TagValue
 from snowflake.core.user_defined_function import (
     ColumnType,
     ReturnDataType,
@@ -12,6 +13,7 @@ from snowflake.core.user_defined_function import (
     UserDefinedFunction,
     UserDefinedFunctionResource,
 )
+from snowflake.core.user_defined_function._generated import TagAssignment, TagReference
 
 from ...utils import BASE_URL, extra_params, mock_http_response, random_string
 
@@ -176,3 +178,78 @@ def test_execute_udf_table_raises_not_implemented_error(fake_root, user_defined_
         mocked_request.return_value = mock_http_response(model.to_json())
         with pytest.raises(NotImplementedError):
             udf_handle.execute([])
+
+
+def test_set_tags(fake_root, user_defined_function, tag):
+    args = (
+        fake_root,
+        "POST",
+        BASE_URL + f"/databases/my_db/schemas/my_schema/user-defined-functions/{quote('my_udf()')}:set-tags",
+    )
+    tags = {tag: TagValue(value="value")}
+    kwargs = extra_params(
+        body=[
+            TagAssignment(
+                tag_value=v.value, tag_name=k.name, tag_schema=k.schema.name, tag_database=k.database.name
+            ).to_dict()
+            for k, v in tags.items()
+        ]
+    )
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        user_defined_function.set_tags(tags)
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        op = user_defined_function.set_tags_async(tags)
+        assert isinstance(op, PollingOperation)
+        op.result()
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+
+def test_unset_tags(fake_root, user_defined_function, tag):
+    args = (
+        fake_root,
+        "POST",
+        BASE_URL + f"/databases/my_db/schemas/my_schema/user-defined-functions/{quote('my_udf()')}:unset-tags",
+    )
+    tag_resources = {tag}
+    kwargs = extra_params(
+        body=[
+            TagReference(
+                tag_name=tag_res.name, tag_schema=tag_res.schema.name, tag_database=tag_res.database.name
+            ).to_dict()
+            for tag_res in tag_resources
+        ]
+    )
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        user_defined_function.unset_tags(tag_resources)
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        op = user_defined_function.unset_tags_async(tag_resources)
+        assert isinstance(op, PollingOperation)
+        op.result()
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+
+def test_get_tags(fake_root, user_defined_function):
+    args = (
+        fake_root,
+        "GET",
+        BASE_URL + f"/databases/my_db/schemas/my_schema/user-defined-functions/{quote('my_udf()')}:get-tags",
+    )
+    kwargs = extra_params()
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        mocked_request.return_value = mock_http_response()
+        assert user_defined_function.get_tags() == {}
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        mocked_request.return_value = mock_http_response()
+        op = user_defined_function.get_tags_async()
+        assert isinstance(op, PollingOperation)
+        assert op.result() == {}
+    mocked_request.assert_called_once_with(*args, **kwargs)

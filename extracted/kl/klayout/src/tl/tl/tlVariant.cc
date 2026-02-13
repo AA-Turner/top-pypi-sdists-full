@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -110,7 +110,7 @@ template <>
 TL_PUBLIC void extractor_impl (tl::Extractor &ex, __int128 &v)
 {
   if (! test_extractor_impl (ex, v)) {
-    ex.error (tl::to_string (QObject::tr ("Expected a value specification")));
+    ex.error (tl::to_string (tr ("Expected a value specification")));
   }
 }
 

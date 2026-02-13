@@ -5,10 +5,13 @@ from pathlib import Path
 import mkdocs_gen_files
 from jinja2 import Template
 
+from robocop.linter.fix import FixAvailability
+
 sys.path.append(str(Path(__file__).parent.parent))
 import robocop
 from docs.rules_metadata import GROUPS_LOOKUP
 from robocop.linter.rules import SeverityThreshold
+from robocop.runtime.resolver import DocumentationImporter
 
 RULES_LIST_TEMPLATE = """
 # Rules list
@@ -44,6 +47,8 @@ Added: `v{{ rule_doc.robocop_version }}`
 Supported RF version `{{ rule_doc.version }}`
 
 {% if rule_doc.deprecated_names %}Deprecated names: {{ rule_doc.deprecated_names|join(", ") }}{% endif %}
+
+Fix availability: {{ rule_doc.fix_availability }}
 
 **Message**:
 
@@ -116,7 +121,7 @@ Supported RF version `{{ rule_doc.version }}`
 
 def get_checker_docs() -> tuple[list[tuple], int]:
     """Load rules for dynamic docs generation"""
-    doc_importer = robocop.linter.rules.DocumentationImporter()
+    doc_importer = DocumentationImporter()
     rules_count = 0
     for _, rule in doc_importer.get_builtin_rules():
         rules_count += 1
@@ -128,6 +133,12 @@ def get_checker_docs() -> tuple[list[tuple], int]:
             group = GROUPS_LOOKUP[group_id]
         except KeyError:
             raise ValueError(f"Missing group metadata in rules_metadata.py for {group_id}.") from None
+        if rule.fix_availability == FixAvailability.NONE:
+            fix_availability = "There is no automatic fix."
+        elif rule.fix_availability == FixAvailability.SOMETIMES:
+            fix_availability = "Fix is sometimes available."
+        else:
+            fix_availability = "Fix is always available."
         group.rules.append(
             {
                 "name": rule.name,
@@ -141,6 +152,7 @@ def get_checker_docs() -> tuple[list[tuple], int]:
                 "enabled": rule.enabled,
                 "deprecated": rule.deprecated,
                 "deprecated_names": rule.deprecated_names,
+                "fix_availability": fix_availability,
                 "params": [
                     {
                         "name": param.name,

@@ -9,14 +9,19 @@ from .base_model import BaseModel
 from .enums import (
     AsanaAuthenticationTypes,
     AttioAuthenticationTypes,
+    AttioFeedAuthenticationTypes,
+    AttioIssueAuthenticationTypes,
+    AttioMeetingAuthenticationTypes,
     BambooHRAuthenticationTypes,
     BlobListingTypes,
     BoxAuthenticationTypes,
     CalendarListingTypes,
+    ConfluenceAuthenticationTypes,
     ConfluenceTypes,
     DropboxAuthenticationTypes,
     EmailListingTypes,
     EntityState,
+    ExaSearchTypes,
     FeedListingTypes,
     FeedServiceTypes,
     FeedSyncMode,
@@ -33,7 +38,10 @@ from .enums import (
     HubSpotAuthenticationTypes,
     HubSpotFeedAuthenticationTypes,
     HubSpotIssueAuthenticationTypes,
+    IntercomAuthenticationTypes,
     IntercomConversationsAuthenticationTypes,
+    IntercomIssueAuthenticationTypes,
+    JiraAuthenticationTypes,
     MeetingContentTypes,
     MicrosoftCalendarAuthenticationTypes,
     MicrosoftContactsAuthenticationTypes,
@@ -55,6 +63,8 @@ from .enums import (
     TrelloTypes,
     TwitterListingTypes,
     YouTubeTypes,
+    ZendeskAuthenticationTypes,
+    ZendeskIssueAuthenticationTypes,
 )
 
 
@@ -352,11 +362,23 @@ class QueryFeedsFeedsResultsIssue(BaseModel):
 
 
 class QueryFeedsFeedsResultsIssueJira(BaseModel):
-    uri: Any
-    project: str
-    email: str
-    token: str
+    authentication_type: Optional[JiraAuthenticationTypes] = Field(
+        alias="authenticationType"
+    )
+    uri: Optional[Any]
+    project: Optional[str]
+    email: Optional[str]
+    token: Optional[str]
     offset: Optional[Any]
+    client_id: Optional[str] = Field(alias="clientId")
+    client_secret: Optional[str] = Field(alias="clientSecret")
+    refresh_token: Optional[str] = Field(alias="refreshToken")
+    connector: Optional["QueryFeedsFeedsResultsIssueJiraConnector"]
+    cloud_id: Optional[str] = Field(alias="cloudId")
+
+
+class QueryFeedsFeedsResultsIssueJiraConnector(BaseModel):
+    id: str
 
 
 class QueryFeedsFeedsResultsIssueLinear(BaseModel):
@@ -383,12 +405,34 @@ class QueryFeedsFeedsResultsIssueGithubConnector(BaseModel):
 
 
 class QueryFeedsFeedsResultsIssueIntercom(BaseModel):
-    access_token: str = Field(alias="accessToken")
+    authentication_type: Optional[IntercomIssueAuthenticationTypes] = Field(
+        alias="authenticationType"
+    )
+    access_token: Optional[str] = Field(alias="accessToken")
+    client_id: Optional[str] = Field(alias="clientId")
+    client_secret: Optional[str] = Field(alias="clientSecret")
+    refresh_token: Optional[str] = Field(alias="refreshToken")
+    connector: Optional["QueryFeedsFeedsResultsIssueIntercomConnector"]
+
+
+class QueryFeedsFeedsResultsIssueIntercomConnector(BaseModel):
+    id: str
 
 
 class QueryFeedsFeedsResultsIssueZendesk(BaseModel):
+    authentication_type: Optional[ZendeskIssueAuthenticationTypes] = Field(
+        alias="authenticationType"
+    )
     subdomain: str
-    access_token: str = Field(alias="accessToken")
+    access_token: Optional[str] = Field(alias="accessToken")
+    client_id: Optional[str] = Field(alias="clientId")
+    client_secret: Optional[str] = Field(alias="clientSecret")
+    refresh_token: Optional[str] = Field(alias="refreshToken")
+    connector: Optional["QueryFeedsFeedsResultsIssueZendeskConnector"]
+
+
+class QueryFeedsFeedsResultsIssueZendeskConnector(BaseModel):
+    id: str
 
 
 class QueryFeedsFeedsResultsIssueTrello(BaseModel):
@@ -399,7 +443,18 @@ class QueryFeedsFeedsResultsIssueTrello(BaseModel):
 
 
 class QueryFeedsFeedsResultsIssueAttio(BaseModel):
-    api_key: str = Field(alias="apiKey")
+    authentication_type: Optional[AttioIssueAuthenticationTypes] = Field(
+        alias="authenticationType"
+    )
+    api_key: Optional[str] = Field(alias="apiKey")
+    client_id: Optional[str] = Field(alias="clientId")
+    client_secret: Optional[str] = Field(alias="clientSecret")
+    refresh_token: Optional[str] = Field(alias="refreshToken")
+    connector: Optional["QueryFeedsFeedsResultsIssueAttioConnector"]
+
+
+class QueryFeedsFeedsResultsIssueAttioConnector(BaseModel):
+    id: str
 
 
 class QueryFeedsFeedsResultsIssueSalesforce(BaseModel):
@@ -514,6 +569,15 @@ class QueryFeedsFeedsResultsCrmAttio(BaseModel):
         alias="authenticationType"
     )
     api_key: Optional[str] = Field(alias="apiKey")
+    client_id: Optional[str] = Field(alias="clientId")
+    client_secret: Optional[str] = Field(alias="clientSecret")
+    refresh_token: Optional[str] = Field(alias="refreshToken")
+    connector: Optional["QueryFeedsFeedsResultsCrmAttioConnector"]
+    type: Optional[FeedListingTypes]
+
+
+class QueryFeedsFeedsResultsCrmAttioConnector(BaseModel):
+    id: str
 
 
 class QueryFeedsFeedsResultsCrmGoogleContacts(BaseModel):
@@ -524,6 +588,7 @@ class QueryFeedsFeedsResultsCrmGoogleContacts(BaseModel):
     client_secret: Optional[str] = Field(alias="clientSecret")
     refresh_token: Optional[str] = Field(alias="refreshToken")
     connector: Optional["QueryFeedsFeedsResultsCrmGoogleContactsConnector"]
+    type: Optional[FeedListingTypes]
 
 
 class QueryFeedsFeedsResultsCrmGoogleContactsConnector(BaseModel):
@@ -539,6 +604,7 @@ class QueryFeedsFeedsResultsCrmMicrosoftContacts(BaseModel):
     refresh_token: Optional[str] = Field(alias="refreshToken")
     tenant_id: Optional[str] = Field(alias="tenantId")
     connector: Optional["QueryFeedsFeedsResultsCrmMicrosoftContactsConnector"]
+    type: Optional[FeedListingTypes]
 
 
 class QueryFeedsFeedsResultsCrmMicrosoftContactsConnector(BaseModel):
@@ -555,6 +621,7 @@ class QueryFeedsFeedsResultsCrmSalesforce(BaseModel):
     client_secret: Optional[str] = Field(alias="clientSecret")
     refresh_token: Optional[str] = Field(alias="refreshToken")
     connector: Optional["QueryFeedsFeedsResultsCrmSalesforceConnector"]
+    type: Optional[FeedListingTypes]
 
 
 class QueryFeedsFeedsResultsCrmSalesforceConnector(BaseModel):
@@ -570,6 +637,7 @@ class QueryFeedsFeedsResultsCrmHubSpot(BaseModel):
     refresh_token: Optional[str] = Field(alias="refreshToken")
     access_token: Optional[str] = Field(alias="accessToken")
     connector: Optional["QueryFeedsFeedsResultsCrmHubSpotConnector"]
+    type: Optional[FeedListingTypes]
 
 
 class QueryFeedsFeedsResultsCrmHubSpotConnector(BaseModel):
@@ -662,18 +730,32 @@ class QueryFeedsFeedsResultsMeetingFireflies(BaseModel):
     api_key: Optional[str] = Field(alias="apiKey")
     before_date: Optional[Any] = Field(alias="beforeDate")
     after_date: Optional[Any] = Field(alias="afterDate")
+    type: Optional[FeedListingTypes]
 
 
 class QueryFeedsFeedsResultsMeetingAttio(BaseModel):
+    authentication_type: Optional[AttioMeetingAuthenticationTypes] = Field(
+        alias="authenticationType"
+    )
     api_key: Optional[str] = Field(alias="apiKey")
+    client_id: Optional[str] = Field(alias="clientId")
+    client_secret: Optional[str] = Field(alias="clientSecret")
+    refresh_token: Optional[str] = Field(alias="refreshToken")
+    connector: Optional["QueryFeedsFeedsResultsMeetingAttioConnector"]
     after_date: Optional[Any] = Field(alias="afterDate")
     before_date: Optional[Any] = Field(alias="beforeDate")
+    type: Optional[FeedListingTypes]
+
+
+class QueryFeedsFeedsResultsMeetingAttioConnector(BaseModel):
+    id: str
 
 
 class QueryFeedsFeedsResultsMeetingFathom(BaseModel):
     api_key: Optional[str] = Field(alias="apiKey")
     after_date: Optional[Any] = Field(alias="afterDate")
     before_date: Optional[Any] = Field(alias="beforeDate")
+    type: Optional[FeedListingTypes]
 
 
 class QueryFeedsFeedsResultsMeetingHubSpot(BaseModel):
@@ -687,6 +769,7 @@ class QueryFeedsFeedsResultsMeetingHubSpot(BaseModel):
     before_date: Optional[Any] = Field(alias="beforeDate")
     read_limit: Optional[int] = Field(alias="readLimit")
     connector: Optional["QueryFeedsFeedsResultsMeetingHubSpotConnector"]
+    type: Optional[FeedListingTypes]
 
 
 class QueryFeedsFeedsResultsMeetingHubSpotConnector(BaseModel):
@@ -695,6 +778,7 @@ class QueryFeedsFeedsResultsMeetingHubSpotConnector(BaseModel):
 
 class QueryFeedsFeedsResultsMeetingKrisp(BaseModel):
     auth_token: Optional[str] = Field(alias="authToken")
+    type: Optional[FeedListingTypes]
 
 
 class QueryFeedsFeedsResultsRss(BaseModel):
@@ -714,6 +798,11 @@ class QueryFeedsFeedsResultsSearch(BaseModel):
     read_limit: Optional[int] = Field(alias="readLimit")
     type: Optional[SearchServiceTypes]
     text: str
+    exa: Optional["QueryFeedsFeedsResultsSearchExa"]
+
+
+class QueryFeedsFeedsResultsSearchExa(BaseModel):
+    search_type: Optional[ExaSearchTypes] = Field(alias="searchType")
 
 
 class QueryFeedsFeedsResultsReddit(BaseModel):
@@ -741,24 +830,58 @@ class QueryFeedsFeedsResultsNotionConnector(BaseModel):
 
 class QueryFeedsFeedsResultsConfluence(BaseModel):
     read_limit: Optional[int] = Field(alias="readLimit")
-    uri: str
-    email: str
-    token: str
+    authentication_type: Optional[ConfluenceAuthenticationTypes] = Field(
+        alias="authenticationType"
+    )
+    uri: Optional[str]
+    email: Optional[str]
+    token: Optional[str]
+    client_id: Optional[str] = Field(alias="clientId")
+    client_secret: Optional[str] = Field(alias="clientSecret")
+    refresh_token: Optional[str] = Field(alias="refreshToken")
+    connector: Optional["QueryFeedsFeedsResultsConfluenceConnector"]
+    cloud_id: Optional[str] = Field(alias="cloudId")
     space_keys: Optional[list[str]] = Field(alias="spaceKeys")
     identifiers: Optional[list[str]]
     type: ConfluenceTypes
     include_attachments: Optional[bool] = Field(alias="includeAttachments")
 
 
+class QueryFeedsFeedsResultsConfluenceConnector(BaseModel):
+    id: str
+
+
 class QueryFeedsFeedsResultsIntercom(BaseModel):
     read_limit: Optional[int] = Field(alias="readLimit")
-    access_token: str = Field(alias="accessToken")
+    authentication_type: Optional[IntercomAuthenticationTypes] = Field(
+        alias="authenticationType"
+    )
+    access_token: Optional[str] = Field(alias="accessToken")
+    client_id: Optional[str] = Field(alias="clientId")
+    client_secret: Optional[str] = Field(alias="clientSecret")
+    refresh_token: Optional[str] = Field(alias="refreshToken")
+    connector: Optional["QueryFeedsFeedsResultsIntercomConnector"]
+
+
+class QueryFeedsFeedsResultsIntercomConnector(BaseModel):
+    id: str
 
 
 class QueryFeedsFeedsResultsZendesk(BaseModel):
     read_limit: Optional[int] = Field(alias="readLimit")
+    authentication_type: Optional[ZendeskAuthenticationTypes] = Field(
+        alias="authenticationType"
+    )
     subdomain: str
-    access_token: str = Field(alias="accessToken")
+    access_token: Optional[str] = Field(alias="accessToken")
+    client_id: Optional[str] = Field(alias="clientId")
+    client_secret: Optional[str] = Field(alias="clientSecret")
+    refresh_token: Optional[str] = Field(alias="refreshToken")
+    connector: Optional["QueryFeedsFeedsResultsZendeskConnector"]
+
+
+class QueryFeedsFeedsResultsZendeskConnector(BaseModel):
+    id: str
 
 
 class QueryFeedsFeedsResultsYoutube(BaseModel):
@@ -827,7 +950,18 @@ class QueryFeedsFeedsResultsDiscord(BaseModel):
 
 class QueryFeedsFeedsResultsAttio(BaseModel):
     read_limit: Optional[int] = Field(alias="readLimit")
-    api_key: str = Field(alias="apiKey")
+    authentication_type: Optional[AttioFeedAuthenticationTypes] = Field(
+        alias="authenticationType"
+    )
+    api_key: Optional[str] = Field(alias="apiKey")
+    client_id: Optional[str] = Field(alias="clientId")
+    client_secret: Optional[str] = Field(alias="clientSecret")
+    refresh_token: Optional[str] = Field(alias="refreshToken")
+    connector: Optional["QueryFeedsFeedsResultsAttioConnector"]
+
+
+class QueryFeedsFeedsResultsAttioConnector(BaseModel):
+    id: str
 
 
 class QueryFeedsFeedsResultsSalesforce(BaseModel):
@@ -869,6 +1003,9 @@ class QueryFeedsFeedsResultsIntercomConversations(BaseModel):
         alias="authenticationType"
     )
     access_token: Optional[str] = Field(alias="accessToken")
+    client_id: Optional[str] = Field(alias="clientId")
+    client_secret: Optional[str] = Field(alias="clientSecret")
+    refresh_token: Optional[str] = Field(alias="refreshToken")
     connector: Optional["QueryFeedsFeedsResultsIntercomConversationsConnector"]
     state: Optional[str]
     include_notes: Optional[bool] = Field(alias="includeNotes")
@@ -927,7 +1064,11 @@ QueryFeedsFeedsResultsEmail.model_rebuild()
 QueryFeedsFeedsResultsEmailGoogle.model_rebuild()
 QueryFeedsFeedsResultsEmailMicrosoft.model_rebuild()
 QueryFeedsFeedsResultsIssue.model_rebuild()
+QueryFeedsFeedsResultsIssueJira.model_rebuild()
 QueryFeedsFeedsResultsIssueGithub.model_rebuild()
+QueryFeedsFeedsResultsIssueIntercom.model_rebuild()
+QueryFeedsFeedsResultsIssueZendesk.model_rebuild()
+QueryFeedsFeedsResultsIssueAttio.model_rebuild()
 QueryFeedsFeedsResultsIssueSalesforce.model_rebuild()
 QueryFeedsFeedsResultsIssueHubSpot.model_rebuild()
 QueryFeedsFeedsResultsCommit.model_rebuild()
@@ -935,6 +1076,7 @@ QueryFeedsFeedsResultsCommitGithub.model_rebuild()
 QueryFeedsFeedsResultsPullRequest.model_rebuild()
 QueryFeedsFeedsResultsPullRequestGithub.model_rebuild()
 QueryFeedsFeedsResultsCrm.model_rebuild()
+QueryFeedsFeedsResultsCrmAttio.model_rebuild()
 QueryFeedsFeedsResultsCrmGoogleContacts.model_rebuild()
 QueryFeedsFeedsResultsCrmMicrosoftContacts.model_rebuild()
 QueryFeedsFeedsResultsCrmSalesforce.model_rebuild()
@@ -944,10 +1086,16 @@ QueryFeedsFeedsResultsCalendar.model_rebuild()
 QueryFeedsFeedsResultsCalendarGoogle.model_rebuild()
 QueryFeedsFeedsResultsCalendarMicrosoft.model_rebuild()
 QueryFeedsFeedsResultsMeeting.model_rebuild()
+QueryFeedsFeedsResultsMeetingAttio.model_rebuild()
 QueryFeedsFeedsResultsMeetingHubSpot.model_rebuild()
+QueryFeedsFeedsResultsSearch.model_rebuild()
 QueryFeedsFeedsResultsNotion.model_rebuild()
+QueryFeedsFeedsResultsConfluence.model_rebuild()
+QueryFeedsFeedsResultsIntercom.model_rebuild()
+QueryFeedsFeedsResultsZendesk.model_rebuild()
 QueryFeedsFeedsResultsSlack.model_rebuild()
 QueryFeedsFeedsResultsMicrosoftTeams.model_rebuild()
+QueryFeedsFeedsResultsAttio.model_rebuild()
 QueryFeedsFeedsResultsSalesforce.model_rebuild()
 QueryFeedsFeedsResultsHubSpotConversations.model_rebuild()
 QueryFeedsFeedsResultsIntercomConversations.model_rebuild()

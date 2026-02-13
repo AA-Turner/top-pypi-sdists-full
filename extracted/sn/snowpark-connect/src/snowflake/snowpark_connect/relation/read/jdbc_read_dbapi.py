@@ -1058,7 +1058,11 @@ class Neo4jJdbcDialect(JdbcDialect):
         :param url: JDBC URL
         :return: True if URL is for Neo4j JDBC driver otherwise False.
         """
-        return url.lower().startswith("jdbc:neo4j:")
+        # Match all Neo4j JDBC URL variants: jdbc:neo4j://, jdbc:neo4j+s://, jdbc:neo4j+ssc://
+        url_lower = url.lower()
+        return url_lower.startswith("jdbc:neo4j:") or url_lower.startswith(
+            "jdbc:neo4j+"
+        )
 
     def uses_sql_syntax(self) -> bool:
         """

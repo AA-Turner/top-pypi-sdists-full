@@ -146,12 +146,13 @@ class StageResourceBase(SchemaObjectReferenceMixin["StageCollection"]):
         Parameters
         __________
         """
-        return self.collection._api.fetch_stage(
+        result = self.collection._api.fetch_stage(
             self.database.name,
             self.schema.name,
             self._identifier,
             async_req=False,
         )
+        return result
 
     @api_telemetry
     def fetch_async(
@@ -185,7 +186,7 @@ class StageResourceBase(SchemaObjectReferenceMixin["StageCollection"]):
              The full stage path of the file. (required)
         presigned_url_request: PresignedUrlRequest
         """
-        self.collection._api.get_presigned_url(
+        result = self.collection._api.get_presigned_url(
             self.database.name,
             self.schema.name,
             self._identifier,
@@ -193,6 +194,7 @@ class StageResourceBase(SchemaObjectReferenceMixin["StageCollection"]):
             presigned_url_request=presigned_url_request,
             async_req=False,
         )
+        return result
 
     @api_telemetry
     def get_presigned_url_async(
@@ -213,7 +215,8 @@ class StageResourceBase(SchemaObjectReferenceMixin["StageCollection"]):
             presigned_url_request=presigned_url_request,
             async_req=True,
         )
-        return PollingOperations.empty(future)
+
+        return PollingOperations.identity(future)
 
     @api_telemetry
     def list_files(
@@ -227,13 +230,14 @@ class StageResourceBase(SchemaObjectReferenceMixin["StageCollection"]):
         pattern: str
              Parameter that filters the command output by a regular expression pattern.
         """
-        return self.collection._api.list_files(
+        result = self.collection._api.list_files(
             self.database.name,
             self.schema.name,
             self._identifier,
             pattern=pattern,
             async_req=False,
         )
+        return result
 
     @api_telemetry
     def list_files_async(

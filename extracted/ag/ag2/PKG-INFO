@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ag2
-Version: 0.10.5
+Version: 0.11.0
 Summary: A programming framework for agentic AI
 Project-URL: Homepage, https://ag2.ai/
 Project-URL: Documentation, https://docs.ag2.ai
@@ -40,8 +40,10 @@ Requires-Dist: termcolor
 Requires-Dist: tiktoken
 Provides-Extra: a2a
 Requires-Dist: a2a-sdk[http-server]<0.4,>=0.3.11; extra == 'a2a'
+Provides-Extra: ag-ui
+Requires-Dist: ag-ui-protocol<0.2,>=0.1.10; extra == 'ag-ui'
 Provides-Extra: anthropic
-Requires-Dist: anthropic[vertex]>=0.23.1; extra == 'anthropic'
+Requires-Dist: anthropic[vertex]>=0.79.0; extra == 'anthropic'
 Provides-Extra: autobuild
 Requires-Dist: chromadb<1.4,>=1.3.0; extra == 'autobuild'
 Requires-Dist: huggingface-hub; extra == 'autobuild'
@@ -75,6 +77,7 @@ Provides-Extra: deepseek
 Requires-Dist: openai>=1.99.3; extra == 'deepseek'
 Provides-Extra: dev
 Requires-Dist: a2a-sdk[http-server]<0.4,>=0.3.11; extra == 'dev'
+Requires-Dist: ag-ui-protocol<0.2,>=0.1.10; extra == 'dev'
 Requires-Dist: aiofiles<26.0.0,>=24.1.0; extra == 'dev'
 Requires-Dist: cairosvg; extra == 'dev'
 Requires-Dist: codespell==2.4.1; extra == 'dev'
@@ -100,6 +103,9 @@ Requires-Dist: nbclient==0.10.2; extra == 'dev'
 Requires-Dist: nbconvert==7.16.6; extra == 'dev'
 Requires-Dist: nbformat==5.10.4; extra == 'dev'
 Requires-Dist: openai>=1.99.3; extra == 'dev'
+Requires-Dist: opentelemetry-api>=1.20; extra == 'dev'
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.20; extra == 'dev'
+Requires-Dist: opentelemetry-sdk>=1.20; extra == 'dev'
 Requires-Dist: pandas==2.3.2; extra == 'dev'
 Requires-Dist: pdoc3==0.11.6; extra == 'dev'
 Requires-Dist: pillow; extra == 'dev'
@@ -122,6 +128,7 @@ Requires-Dist: types-ujson; extra == 'dev'
 Requires-Dist: uv==0.8.15; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: a2a-sdk[http-server]<0.4,>=0.3.11; extra == 'docs'
+Requires-Dist: ag-ui-protocol<0.2,>=0.1.10; extra == 'docs'
 Requires-Dist: cairosvg; extra == 'docs'
 Requires-Dist: jinja2==3.1.6; extra == 'docs'
 Requires-Dist: mcp>=1.11.0; extra == 'docs'
@@ -136,6 +143,9 @@ Requires-Dist: mkdocs-minify-plugin==0.8.0; extra == 'docs'
 Requires-Dist: mkdocs-redirects==1.2.2; extra == 'docs'
 Requires-Dist: mkdocstrings[python]==0.30.0; extra == 'docs'
 Requires-Dist: nbclient==0.10.2; extra == 'docs'
+Requires-Dist: opentelemetry-api>=1.20; extra == 'docs'
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.20; extra == 'docs'
+Requires-Dist: opentelemetry-sdk>=1.20; extra == 'docs'
 Requires-Dist: pdoc3==0.11.6; extra == 'docs'
 Requires-Dist: pillow; extra == 'docs'
 Requires-Dist: pyyaml==6.0.2; extra == 'docs'
@@ -323,12 +333,17 @@ Requires-Dist: pytest-cov==6.3.0; extra == 'test'
 Requires-Dist: pytest==8.4.2; extra == 'test'
 Provides-Extra: together
 Requires-Dist: together>=1.2; extra == 'together'
+Provides-Extra: tracing
+Requires-Dist: opentelemetry-api>=1.20; extra == 'tracing'
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.20; extra == 'tracing'
+Requires-Dist: opentelemetry-sdk>=1.20; extra == 'tracing'
 Provides-Extra: twilio
 Requires-Dist: fastapi<1,>=0.115.0; extra == 'twilio'
 Requires-Dist: twilio>=9.3.2; extra == 'twilio'
 Requires-Dist: uvicorn<1,>=0.30.6; extra == 'twilio'
 Provides-Extra: types
 Requires-Dist: a2a-sdk[http-server]<0.4,>=0.3.11; extra == 'types'
+Requires-Dist: ag-ui-protocol<0.2,>=0.1.10; extra == 'types'
 Requires-Dist: aiofiles<26.0.0,>=24.1.0; extra == 'types'
 Requires-Dist: dirty-equals==0.9.0; extra == 'types'
 Requires-Dist: fastapi==0.116.1; extra == 'types'

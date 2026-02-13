@@ -32,6 +32,7 @@ from snowflake.snowpark_connect.relation.read.reader_config import (
     CsvReaderConfig,
     JsonReaderConfig,
     ParquetReaderConfig,
+    XmlReaderConfig,
 )
 from snowflake.snowpark_connect.relation.stage_locator import get_paths_from_stage
 from snowflake.snowpark_connect.type_mapping import (
@@ -55,7 +56,7 @@ def map_read(
     """
     Read a file into a Snowpark DataFrame.
 
-    Currently, the supported read formats are `csv`, `json` and `parquet`.
+    Currently, the supported read formats are `csv`, `json`, `parquet`, `text`, and `xml`.
     """
 
     match rel.read.WhichOneof("read_type"):
@@ -92,7 +93,12 @@ def map_read(
                         rel.read.data_source.schema
                     )
                     parsed_schema = json.loads(spark_datatype.json())
-                schema = map_json_schema_to_snowpark(parsed_schema)
+                # For XML format, don't quote schema field names because Snowpark
+                # will quote them internally, leading to double-quoting
+                quote_fields = read_format.lower() != "xml"
+                schema = map_json_schema_to_snowpark(
+                    parsed_schema, quote_struct_fields_names=quote_fields
+                )
             options = dict(rel.read.data_source.options)
             telemetry.report_io_read(read_format)
             session: snowpark.Session = get_or_create_snowpark_session()
@@ -347,6 +353,15 @@ def _read_file(
             )
 
             return map_read_text(rel, schema, session, paths)
+        case "xml":
+            from snowflake.snowpark_connect.relation.read.map_read_xml import (
+                map_read_xml,
+            )
+
+            # XML uses Snowpark's UDTF-based reader which materializes by default
+            return map_read_xml(
+                rel, schema, session, paths, XmlReaderConfig(options)
+            ).without_materialization()
         case _:
             exception = SnowparkConnectNotImplementedError(
                 f"Unsupported format: {read_format}"
@@ -454,7 +469,12 @@ def upload_files_if_needed(
     def _upload_file(target: str, source: str) -> None:
         # Extract the directory from target path for PUT
         # target is like "@stage_name/dir/file.csv", we need "@stage_name/dir/"
-        target_dir = "/".join(target.split("/")[:-1]) + "/"
+        target_dir = os.path.dirname(target)
+        if target_dir:
+            target_dir = target_dir + "/"
+        else:
+            # No directory in path, use the original target
+            target_dir = target
         session.file.put(source, target_dir, auto_compress=False, overwrite=True)
 
     with concurrent.futures.ThreadPoolExecutor(

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import asyncio
 import datetime
 
+import anyio
 import pytest
 from pytest import approx
 
 from coredis import PureToken
-from coredis.exceptions import ConnectionError, ReadOnlyError, RedisError, ResponseError
+from coredis.exceptions import ReadOnlyError, ResponseError
 from coredis.tokens import PrefixToken
 from coredis.typing import RedisCommand
 from tests.conftest import targets
@@ -15,13 +15,9 @@ from tests.conftest import targets
 
 @targets(
     "redis_basic",
-    "redis_basic_resp2",
-    "redis_basic_blocking",
     "redis_basic_raw",
     "redis_cluster",
-    "redis_cluster_blocking",
     "valkey",
-    "redict",
 )
 class TestServer:
     async def slowlog(self, client, _s):
@@ -40,7 +36,6 @@ class TestServer:
     async def test_command_count(self, client, _s):
         assert await client.command_count() > 100  # :D
 
-    @pytest.mark.min_server_version("7.0.0")
     async def test_command_docs(self, client, _s):
         docs = await client.command_docs("geosearch")
         assert _s("summary") in docs[_s("geosearch")]
@@ -61,21 +56,18 @@ class TestServer:
         assert commands["get"]["name"] == _s("get")
         assert commands["get"]["arity"] == 2
 
-    @pytest.mark.min_server_version("7.0.0")
     async def test_command_list(self, client, _s):
         assert _s("get") in await client.command_list()
         assert _s("acl|getuser") in await client.command_list(aclcat="admin")
         assert _s("zrevrange") in await client.command_list(pattern="zrev*")
         assert set() == await client.command_list(module="doesnotexist")
 
-    @pytest.mark.min_server_version("7.0.0")
     async def test_command_getkeys(self, client, _s):
         assert await client.command_getkeys("MSET", ["a", 1, "b", 2]) == (
             _s("a"),
             _s("b"),
         )
 
-    @pytest.mark.min_server_version("7.0.0")
     async def test_command_getkeysandflags(self, client, _s):
         assert await client.command_getkeysandflags("MSET", ["a", 1, "b", 2]) == {
             _s("a"): {_s("OW"), _s("update")},
@@ -126,13 +118,14 @@ class TestServer:
         await client.set("a", "foo")
         await client.set("b", "bar")
         db1 = await cloner(client, connection_kwargs={"db": 1})
-        await db1.set("a", "foo")
-        await db1.set("b", "bar")
-        assert len(await client.keys()) == 2
-        assert len(await db1.keys()) == 2
-        assert await client.flushall(mode)
-        assert len(await client.keys()) == 0
-        assert len(await db1.keys()) == 0
+        async with db1:
+            await db1.set("a", "foo")
+            await db1.set("b", "bar")
+            assert len(await client.keys()) == 2
+            assert len(await db1.keys()) == 2
+            assert await client.flushall(mode)
+            assert len(await client.keys()) == 0
+            assert len(await db1.keys()) == 0
 
     @pytest.mark.parametrize(
         "mode",
@@ -249,7 +242,6 @@ class TestServer:
         assert await client.latency_doctor()
 
     @pytest.mark.nocluster
-    @pytest.mark.noredict
     @pytest.mark.novalkey
     async def test_latency_all(self, client, _s):
         await client.execute_command(RedisCommand(b"debug", ("sleep", 0.05)))
@@ -266,14 +258,12 @@ class TestServer:
         assert latest[_s("command")][2] == approx(50, 60)
 
     @pytest.mark.nocluster
-    @pytest.mark.noredict
     @pytest.mark.novalkey
     async def test_latency_graph(self, client, _s):
         await client.execute_command(RedisCommand(b"debug", ("sleep", 0.05)))
         graph = await client.latency_graph("command")
         assert _s("command - high") in graph
 
-    @pytest.mark.min_server_version("7.0.0")
     @pytest.mark.nocluster
     async def test_latency_histogram(self, client, _s):
         await client.set("a", 1)
@@ -334,34 +324,10 @@ class TestServer:
 
     @pytest.mark.nocluster
     @pytest.mark.max_server_version("7.1")
-    @pytest.mark.xfail
     async def test_quit(self, client):
         assert await client.quit()
-        await asyncio.sleep(0.1)
-        assert not client.connection_pool.peek_available().is_connected
-
-
-@pytest.mark.xfail
-async def test_shutdown(fake_redis):
-    fake_redis.responses = {
-        b"SHUTDOWN": {
-            (): ConnectionError(),
-            (PureToken.NOSAVE,): ConnectionError(),
-            (PureToken.SAVE,): ConnectionError(),
-            (PureToken.NOW,): ConnectionError(),
-            (PureToken.FORCE,): ConnectionError(),
-            (PureToken.ABORT,): b"OK",
-        }
-    }
-    assert await fake_redis.shutdown()
-    assert await fake_redis.shutdown(PureToken.NOSAVE)
-    assert await fake_redis.shutdown(PureToken.SAVE)
-    assert await fake_redis.shutdown(now=True)
-    assert await fake_redis.shutdown(force=True)
-    assert await fake_redis.shutdown(abort=True)
-    with pytest.raises(RedisError, match="Unexpected error"):
-        fake_redis.responses[b"SHUTDOWN"][()] = b"OK"
-        await fake_redis.shutdown()
+        await anyio.sleep(0.1)
+        assert not client.connection_pool.peek_available().usable
 
 
 async def test_failover(fake_redis):

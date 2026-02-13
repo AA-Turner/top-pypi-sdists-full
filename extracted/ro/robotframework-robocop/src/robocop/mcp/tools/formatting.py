@@ -4,25 +4,28 @@ from __future__ import annotations
 
 from difflib import unified_diff
 from pathlib import Path
+from typing import cast
 
 from fastmcp.exceptions import ToolError
 from robot.api import get_model
 from robot.errors import DataError
 
-from robocop.config import FormatterConfig, WhitespaceConfig
+from robocop.config.manager import ConfigManager
+from robocop.config.schema import RawConfig, RawFormatterConfig, RawWhitespaceConfig
 from robocop.formatter import disablers
-from robocop.formatter.utils import misc
 from robocop.mcp.tools.models import FormatContentResult, FormatFileResult, LintAndFormatResult
 from robocop.mcp.tools.utils.constants import VALID_EXTENSIONS
 from robocop.mcp.tools.utils.helpers import _normalize_suffix, _temp_robot_file
+from robocop.runtime.resolver import ConfigResolver
+from robocop.source_file import StatementLinesCollector
 
 
 def _format_content_impl(
     content: str,
     filename: str = "stdin.robot",
     select: list[str] | None = None,
-    space_count: int = 4,
-    line_length: int = 120,
+    space_count: int | None = None,
+    line_length: int | None = None,
 ) -> FormatContentResult:
     """
     Format content and return the result.
@@ -46,30 +49,36 @@ def _format_content_impl(
     with _temp_robot_file(content, suffix) as tmp_path:
         try:
             model = get_model(str(tmp_path))
-
-            whitespace_config = WhitespaceConfig(space_count=space_count, line_length=line_length)
-            formatter_config = FormatterConfig(
-                select=select or [],
-                whitespace_config=whitespace_config,
-                overwrite=False,
-                return_result=True,
-                silent=True,
+            # FIXME: why we are doing it manually when we can reuse runnner class, just with proper config management
+            # also we overwrite any config values user may have
+            # and keeping it here means we have to maintain 2 places - can we create common for it?
+            whitespace_config = RawWhitespaceConfig(space_count=space_count, line_length=line_length)
+            formatter_config = RawFormatterConfig(
+                select=select, whitespace_config=whitespace_config, overwrite=False, return_result=True
             )
+            raw_config = RawConfig(formatter=formatter_config, silent=True)
 
-            old_model = misc.StatementLinesCollector(model)
+            config_manager = ConfigManager(
+                sources=[str(tmp_path)],
+                overwrite_config=raw_config,
+            )
+            config = config_manager.default_config
+            resolved_config = ConfigResolver(load_formatters=True).resolve_config(config)
+
+            old_model = StatementLinesCollector(model)
 
             disabler_finder = disablers.RegisterDisablers(
-                formatter_config.start_line,
-                formatter_config.end_line,
+                config.formatter.start_line,
+                config.formatter.end_line,
             )
             disabler_finder.visit(model)
 
-            for name, formatter in formatter_config.formatters.items():
+            for name, formatter in resolved_config.formatters.items():
                 formatter.disablers = disabler_finder.disablers
                 if not disabler_finder.disablers.is_disabled_in_file(name):
                     formatter.visit(model)
 
-            new_model = misc.StatementLinesCollector(model)
+            new_model = StatementLinesCollector(model)
             changed = new_model != old_model
 
             diff_text = None
@@ -87,8 +96,8 @@ def _format_content_impl(
 def _format_file_impl(
     file_path: str,
     select: list[str] | None = None,
-    space_count: int = 4,
-    line_length: int = 120,
+    space_count: int | None = None,
+    line_length: int | None = None,
     *,
     overwrite: bool = False,
 ) -> FormatFileResult:
@@ -206,6 +215,7 @@ def _lint_and_format_impl(
             source_file = str(path)
         except OSError as e:
             raise ToolError(f"Failed to read file: {e}") from e
+    content = cast("str", content)
 
     # Count issues in original code
     issues_before = _lint_content_impl(content, filename, lint_select, lint_ignore, threshold, configure=configure)

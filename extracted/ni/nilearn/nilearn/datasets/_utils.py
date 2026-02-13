@@ -22,7 +22,10 @@ import requests
 from nilearn._utils import logger
 from nilearn._utils.docs import fill_doc
 from nilearn._utils.logger import find_stack_level
-from nilearn._utils.param_validation import check_parameter_in_allowed
+from nilearn._utils.param_validation import (
+    check_parameter_in_allowed,
+    check_params,
+)
 
 from .utils import get_data_dirs
 
@@ -82,7 +85,9 @@ def read_md5_sum_file(path):
     return hashes
 
 
-def _chunk_report_(bytes_so_far, total_size, initial_size, t0, verbose):
+def _chunk_report_(
+    bytes_so_far, total_size, initial_size, t0, verbose
+) -> None:
     """Show downloading percentage.
 
     Parameters
@@ -134,7 +139,7 @@ def _chunk_read_(
     initial_size=0,
     total_size=None,
     verbose=1,
-):
+) -> None:
     """Download a file chunk by chunk and show advancement.
 
     Parameters
@@ -148,14 +153,15 @@ def _chunk_read_(
     chunk_size : int, default=8192
         Size of downloaded chunks.
 
-    report_hook : bool, optional
-        Whether or not to show downloading advancement. Default: None
+    report_hook : bool or None, default=None
+        Whether or not to show downloading advancement. default=None
 
     initial_size : int, default=0
         If resuming, indicate the initial size of the file.
 
-    total_size : int, optional
+    total_size : int or None, default=None
         Expected final size of download (None means it is unknown).
+
     %(verbose)s
 
     Returns
@@ -211,10 +217,13 @@ def get_dataset_dir(
     ----------
     dataset_name : string
         The unique name of the dataset.
+
     %(data_dir)s
-    default_paths : list of string, optional
+
+    default_paths : list of string or None, default=None
         Default system paths in which the dataset may already have been
         installed by a third party software. They will be checked first.
+
     %(verbose)s
 
     Returns
@@ -285,7 +294,7 @@ def get_dataset_dir(
     )
 
 
-def _add_readme_to_default_data_locations(data_dir=None, verbose=1):
+def _add_readme_to_default_data_locations(data_dir=None, verbose=1) -> None:
     for d in get_data_dirs(data_dir=data_dir):
         file = Path(d) / "README.md"
         if file.parent.exists() and not file.exists():
@@ -314,7 +323,7 @@ def _is_within_directory(directory, target):
     return prefix == str(abs_directory)
 
 
-def _safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+def _safe_extract(tar, path=".", members=None, *, numeric_owner=False) -> None:
     path = Path(path)
     for member in tar.getmembers():
         member_path = path / member.name
@@ -334,7 +343,7 @@ def _safe_extract(tar, path=".", members=None, *, numeric_owner=False):
 
 
 @fill_doc
-def uncompress_file(file_, delete_archive=True, verbose=1):
+def uncompress_file(file_, delete_archive=True, verbose=1) -> None:
     """Uncompress files contained in a data_set.
 
     Parameters
@@ -422,8 +431,8 @@ def _filter_column(array, col: str, criteria):
     # test it across all possible types (pandas, recarray...)
     try:
         array[col]
-    except Exception:
-        raise KeyError(f"Filtering criterion {col} does not exist")
+    except Exception as e:
+        raise KeyError(f"Filtering criterion {col} does not exist") from e
 
     if (
         not isinstance(criteria, str)
@@ -499,7 +508,7 @@ class _NaiveFTPAdapter(requests.adapters.BaseAdapter):
         try:
             data = urllib.request.urlopen(request.url, timeout=timeout)
         except Exception as e:
-            raise requests.RequestException(e.reason)
+            raise requests.RequestException(e.reason) from e
         data.release_conn = data.close
         resp = requests.Response()
         resp.url = data.geturl()
@@ -508,7 +517,7 @@ class _NaiveFTPAdapter(requests.adapters.BaseAdapter):
         resp.headers = dict(data.info().items())
         return resp
 
-    def close(self):
+    def close(self) -> None:
         pass
 
 
@@ -534,16 +543,18 @@ def fetch_single_file(
     overwrite : bool, default=False
         If true and file already exists, delete it.
 
-    md5sum : string, optional
+    md5sum : string or None, default=None
         MD5 sum of the file. Checked if download of the file is required.
 
-    username : string, optional
+    username : string or None, default=None
         Username used for basic HTTP authentication.
 
-    password : string, optional
+    password : string or None, default=None
         Password used for basic HTTP authentication.
+
     %(verbose)s
-    session : requests.Session, optional
+
+    session : requests.Session or None, default=None
         Session to use to send requests.
 
     Returns
@@ -715,7 +726,7 @@ def get_dataset_descr(ds_name):
     return descr
 
 
-def movetree(src, dst):
+def movetree(src, dst) -> None:
     """Move entire tree under `src` inside `dst`.
 
     Creates `dst` if it does not already exist.
@@ -765,6 +776,7 @@ def fetch_files(data_dir, files, resume=True, verbose=1, session=None):
     Parameters
     ----------
     %(data_dir)s
+
     files : list of (string, string, dict)
         List of files and their corresponding url with dictionary that contains
         options regarding the files. Eg. (file_path, url, opt). If a file_path
@@ -775,9 +787,12 @@ def fetch_files(data_dir, files, resume=True, verbose=1, session=None):
             * 'uncompress' to indicate that the file is an archive
             * 'md5sum' to check the md5 sum of the file
             * 'overwrite' if the file should be re-downloaded even if it exists
+
     %(resume)s
+
     %(verbose)s
-    session : `requests.Session`, optional
+
+    session : `requests.Session` or None, default=None
         Session to use to send requests.
 
     Returns
@@ -786,6 +801,8 @@ def fetch_files(data_dir, files, resume=True, verbose=1, session=None):
         Absolute paths of downloaded files on disk.
 
     """
+    check_params(locals())
+
     if session is None:
         with requests.Session() as sess:
             sess.mount("ftp:", _NaiveFTPAdapter())
@@ -904,7 +921,7 @@ def tree(path, pattern=None, dictionary=False):
     path : string or pathlib.Path
         Path browsed.
 
-    pattern : string, optional
+    pattern : string or None, default=None
         Pattern used to filter files (see fnmatch).
 
     dictionary : boolean, default=False

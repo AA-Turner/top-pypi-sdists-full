@@ -34,6 +34,8 @@ from snowflake.core.procedure._generated.models.sql_function import SQLFunction
 from snowflake.core.procedure._generated.models.scala_function import ScalaFunction
 from snowflake.core.procedure._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.procedure._generated.models.success_response import SuccessResponse
+from snowflake.core.procedure._generated.models.tag_assignment import TagAssignment
+from snowflake.core.procedure._generated.models.tag_reference import TagReference
 
 __all__ = [
     "Argument",
@@ -54,4 +56,6 @@ __all__ = [
     "ScalaFunction",
     "SuccessAcceptedResponse",
     "SuccessResponse",
+    "TagAssignment",
+    "TagReference",
 ]

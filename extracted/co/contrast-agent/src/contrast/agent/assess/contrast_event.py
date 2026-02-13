@@ -146,9 +146,12 @@ def stack_filter(keep_level: str):
     elif keep_level == "NONE":
         return lambda action: True
     elif keep_level == "SOME":
-        return lambda action: action not in (
-            AssessEventAction.CREATION,
-            AssessEventAction.TRIGGER,
+        return lambda action: (
+            action
+            not in (
+                AssessEventAction.CREATION,
+                AssessEventAction.TRIGGER,
+            )
         )
     elif keep_level == "SINK":
         return lambda action: action != AssessEventAction.TRIGGER

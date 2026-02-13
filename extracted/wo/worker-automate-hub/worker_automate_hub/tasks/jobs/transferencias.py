@@ -19,7 +19,7 @@ from worker_automate_hub.models.dto.rpa_processo_entrada_dto import (
 )
 from worker_automate_hub.utils.logger import logger
 from pywinauto.keyboard import send_keys
-from worker_automate_hub.utils.toast import show_toast
+from worker_automate_hub.utils.toast import task_bar_toast
 from worker_automate_hub.utils.util import (
     send_to_webhook,
     extract_nf_number,
@@ -967,7 +967,7 @@ async def transferencias(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
             valor_nota,
             transferencia
             )
-            show_toast("Falha", log_msg)
+            #task_bar_toast("Falha", log_msg, "Worker Automate Hub")
             return RpaRetornoProcessoDTO(
                 sucesso=False, retorno=log_msg, status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
             )

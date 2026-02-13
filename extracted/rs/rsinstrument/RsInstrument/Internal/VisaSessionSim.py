@@ -3,6 +3,7 @@
 import threading
 from typing import Callable, Dict, AnyStr
 
+from .InstrumentErrors import RsInstrException
 from .StreamReader import StreamReader
 from .StreamWriter import StreamWriter
 
@@ -19,6 +20,7 @@ class VisaSessionSim(object):
 		self._data_chunk_size: int = None
 		# noinspection PyTypeChecker
 		self._lock: threading.RLock = None
+		self._active = True
 
 		# Event handlers
 		# noinspection PyTypeChecker
@@ -124,6 +126,20 @@ class VisaSessionSim(object):
 		self._update_cmd_vals_cache(cmd)
 		return
 
+	def read_str(self) -> str | None:
+		"""Reads response from the instrument. The response is then trimmed for trailing LF."""
+		return 'Simulation'
+
+	def read_all_bytes(self, stream: StreamWriter) -> None:
+		"""Reads all the data from the instrument as bytes to the provided stream."""
+		raise RsInstrException(f'Non-Vxi11 sessions can not read binary data blocks of unknown length.')
+
+	def write_raw_bytes(self, data: bytes) -> None:
+		"""Writes command to the instrument."""
+		self._last_cmd = '<bin_data>'
+		self._update_cmd_vals_cache(self._last_cmd, data)
+		return
+
 	def query_str(self, query: str) -> str:
 		"""Queries the instrument and reads the response as string.
 		The length of the string is not limited. The response is then trimmed for trailing LF."""
@@ -200,7 +216,12 @@ class VisaSessionSim(object):
 		"""Puts the instrument into remote state."""
 		return
 
+	def is_connection_active(self) -> bool:
+		"""Returns true if connection is active."""
+		return self._active
+
 	def close(self) -> None:
 		"""Closes the Visa session.
 		If the object was created with the direct session input, the session is not closed."""
+		self._active = False
 		return

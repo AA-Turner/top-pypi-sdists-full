@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: jupyterlab_code_formatter
-Version: 3.0.2
+Version: 3.0.3
 Dynamic: Keywords
 Summary:  A JupyterLab plugin to facilitate invocation of code formatters.
 Project-URL: Homepage,  https://github.com/jupyterlab-contrib/jupyterlab_code_formatter

@@ -175,7 +175,7 @@ class FailoverPlugin(Plugin):
 
                 self._pick_new_connection()
                 self._last_exception = ex
-            raise AwsWrapperError(Messages.get_formatted("FailoverPlugin.DetectedException", str(ex))) from ex
+            raise AwsWrapperError(Messages.get_formatted("FailoverPlugin.DetectedException", str(ex)), ex) from ex
 
     def notify_host_list_changed(self, changes: Dict[str, Set[HostEvent]]):
         if not self._enable_failover_setting:
@@ -325,12 +325,12 @@ class FailoverPlugin(Plugin):
 
             writer_host = self._get_writer(result.topology)
             allowed_hosts = self._plugin_service.hosts
-            allowed_hostnames = [host.host for host in allowed_hosts]
-            if writer_host.host not in allowed_hostnames:
+            allowed_hostnames = [host.get_host_and_port() for host in allowed_hosts]
+            if writer_host.get_host_and_port() not in allowed_hostnames:
                 raise FailoverFailedError(
                     Messages.get_formatted(
                         "FailoverPlugin.NewWriterNotAllowed",
-                        "<null>" if writer_host is None else writer_host.host,
+                        "<null>" if writer_host is None else writer_host.get_host_and_port(),
                         LogUtils.log_topology(allowed_hosts)))
 
             self._plugin_service.set_current_connection(result.new_connection, writer_host)
@@ -377,11 +377,10 @@ class FailoverPlugin(Plugin):
             except Exception:
                 pass
 
-        if not driver_dialect.is_closed(conn):
-            try:
-                return driver_dialect.execute(DbApiMethod.CONNECTION_CLOSE.method_name, lambda: conn.close())
-            except Exception:
-                pass
+        try:
+            return driver_dialect.execute(DbApiMethod.CONNECTION_CLOSE.method_name, lambda: conn.close())
+        except Exception:
+            pass
 
         return None
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: RsInstrument
-Version: 1.122.0
+Version: 1.124.0
 Summary: VISA or Socket Communication Module for Rohde & Schwarz Instruments
 Author: Rohde & Schwarz GmbH & Co. KG
 Maintainer: Rohde & Schwarz GmbH & Co. KG
@@ -23,7 +23,7 @@ License-File: LICENSE
 Requires-Dist: pyvisa>=1.13.0
 Requires-Dist: typing-extensions>=4.0.0
 Provides-Extra: mcp
-Requires-Dist: mcp; extra == "mcp"
+Requires-Dist: fastmcp>=2.14.0; extra == "mcp"
 Dynamic: license-file
 
 =============
@@ -59,7 +59,7 @@ Basic Hello-World code:
 
 Check out the full documentation on `ReadTheDocs <https://rsinstrument.readthedocs.io/>`_.
 
-Our public `Rohde&Schwarz Github repository <https://github.com/Rohde-Schwarz/Examples/tree/main/Misc/Python/RsInstrument>`_ hosts many examples using this library.
+Our public `Rohde&Schwarz Github repository <https://github.com/Rohde-Schwarz/Examples>`_ hosts many examples using this library.
 If you're looking for examples with specific instruments, check out the ones for
 `Oscilloscopes <https://github.com/Rohde-Schwarz/Examples/tree/main/Oscilloscopes/Python/RsInstrument>`_,
 `Powersensors <https://github.com/Rohde-Schwarz/Examples/tree/main/Powersensors/Python/RsInstrument>`_,
@@ -70,6 +70,13 @@ If you're looking for examples with specific instruments, check out the ones for
 
 Version history:
 ----------------
+
+    Version 1.124.0.122 (09.02.2026)
+        - Added IVI interfaces: ``ivi_direct_io``, ``ivi_utility``
+
+    Version 1.123.0.121 (18.12.2025)
+        - MCP server: adding health route and using FastMCP package.
+        - Small improvements and linter error fixes.
 
     Version 1.122.0.120 (08.12.2025)
         - Added __all__ variable to the package's __init__ file.

@@ -9,35 +9,10 @@ from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool, ToolException
 from typing import Any, Optional, Union
 from langchain_core.utils.function_calling import convert_to_openai_tool
-from pydantic import ValidationError
 
-from ..langchain.utils import propagate_the_input_mapping
+from ..langchain.utils import propagate_the_input_mapping, safe_serialize, object_to_dict
 
 logger = logging.getLogger(__name__)
-
-
-def safe_serialize(obj: Any) -> str:
-    """
-    Safely serialize any object to a JSON string.
-    Falls back to str() conversion if json.dumps fails.
-
-    Args:
-        obj: Any object to serialize
-
-    Returns:
-        JSON string representation of the object
-    """
-    try:
-        return json.dumps(obj, ensure_ascii=False)
-    except (TypeError, ValueError) as e:
-        # If json.dumps fails, convert to string
-        logger.debug(f"JSON serialization failed for {type(obj).__name__}: {e}. Falling back to str() conversion.")
-        try:
-            return json.dumps(str(obj), ensure_ascii=False)
-        except Exception:
-            # Ultimate fallback - just return string representation
-            return str(obj)
-
 
 def replace_escaped_newlines(data):
     """
@@ -97,7 +72,8 @@ class FunctionTool(BaseTool):
             logger.debug(f"Code node: injecting ONLY specified variables into alita_state: {list(filtered_state.keys())}")
 
         # Use safe_serialize to handle Pydantic models, datetime, and other non-JSON types
-        state_json = safe_serialize(filtered_state)
+        filtered_state_dict = object_to_dict(filtered_state)
+        state_json = safe_serialize(filtered_state_dict)
 
         # Use base64 encoding to avoid all string escaping issues
         # This is more robust than repr() when the code passes through multiple parsers
@@ -170,6 +146,14 @@ alita_state = json.loads(state_json)
         func_args = propagate_the_input_mapping(input_mapping=self.input_mapping, input_variables=self.input_variables,
                                                 state=state)
 
+        # For subgraph nodes, also pass through state variables that match child's expected inputs
+        # This ensures shared state variables are available in the child
+        if hasattr(self.tool, 'is_subgraph') and self.tool.is_subgraph:
+            # Merge state variables that aren't already in func_args
+            for key, value in state.items():
+                if key not in func_args and key not in ['messages', 'input']:
+                    func_args[key] = value
+
         # special handler for PyodideSandboxTool
         if self._is_pyodide_tool():
             func_args['code'] = f"{self._prepare_pyodide_input(state, self.input_variables)}\n{func_args['code']}"
@@ -213,12 +197,12 @@ alita_state = json.loads(state_json)
                                 messages_dict[var] = tool_result
                     return messages_dict
                 else:
-                    return { self.output_variables[0]: tool_result }
-        except ValidationError:
+                    return { self.output_variables[0]: object_to_dict(tool_result) }
+        # save the whole error message to the tool's output
+        except Exception as e:
             return {"messages": [
-                {"role": "assistant", "content": f"""Tool input to the {self.tool.name} with value {func_args} raised ValidationError. 
-        \n\nTool schema is {safe_serialize(params)} \n\nand the input to LLM was 
-        {func_args}"""}]}
+                {"role": "assistant", "content": f"""Tool input to the {self.tool.name} with value {func_args} raised Exception. 
+                        \n\nTool schema is {safe_serialize(params)}. \n\n Details: {e}"""}]}
 
     def _run(self, *args, **kwargs):
         return self.invoke(**kwargs)

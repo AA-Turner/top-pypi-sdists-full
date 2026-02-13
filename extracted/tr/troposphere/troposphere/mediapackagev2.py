@@ -176,6 +176,7 @@ class FilterConfiguration(AWSProperty):
 
     props: PropsDictType = {
         "ClipStartTime": (str, False),
+        "DrmSettings": (str, False),
         "End": (str, False),
         "ManifestFilter": (str, False),
         "Start": (str, False),
@@ -328,6 +329,7 @@ class SpekeKeyProvider(AWSProperty):
     """
 
     props: PropsDictType = {
+        "CertificateArn": (str, False),
         "DrmSystems": ([str], True),
         "EncryptionContractConfiguration": (EncryptionContractConfiguration, True),
         "ResourceId": (str, True),
@@ -357,6 +359,7 @@ class Scte(AWSProperty):
 
     props: PropsDictType = {
         "ScteFilter": ([str], False),
+        "ScteInSegments": (str, False),
     }
 
 

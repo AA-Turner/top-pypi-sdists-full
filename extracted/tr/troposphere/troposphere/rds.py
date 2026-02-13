@@ -186,6 +186,21 @@ class DBClusterParameterGroup(AWSObject):
     }
 
 
+class AdditionalStorageVolume(AWSProperty):
+    """
+    `AdditionalStorageVolume <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbinstance-additionalstoragevolume.html>`__
+    """
+
+    props: PropsDictType = {
+        "AllocatedStorage": (str, False),
+        "Iops": (integer, False),
+        "MaxAllocatedStorage": (integer, False),
+        "StorageThroughput": (integer, False),
+        "StorageType": (str, False),
+        "VolumeName": (str, False),
+    }
+
+
 class CertificateDetails(AWSProperty):
     """
     `CertificateDetails <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbinstance-certificatedetails.html>`__
@@ -239,6 +254,7 @@ class DBInstance(AWSObject):
     resource_type = "AWS::RDS::DBInstance"
 
     props: PropsDictType = {
+        "AdditionalStorageVolumes": ([AdditionalStorageVolume], False),
         "AllocatedStorage": (validate_str_or_int, False),
         "AllowMajorVersionUpgrade": (boolean, False),
         "ApplyImmediately": (boolean, False),

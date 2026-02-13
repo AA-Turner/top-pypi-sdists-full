@@ -38,8 +38,8 @@ def _check_otel_available() -> bool:
     global _otel_available
     if _otel_available is None:
         try:
-            from opentelemetry import trace  # noqa: F401
-            from opentelemetry.trace.propagation.tracecontext import (
+            from opentelemetry import trace  # noqa: F401, PLC0415
+            from opentelemetry.trace.propagation.tracecontext import (  # noqa: PLC0415
                 TraceContextTextMapPropagator,  # noqa: F401
             )
 
@@ -53,7 +53,7 @@ def _get_propagator() -> Any:
     """Get cached W3C TraceContext propagator."""
     global _propagator
     if _propagator is None:
-        from opentelemetry.trace.propagation.tracecontext import (
+        from opentelemetry.trace.propagation.tracecontext import (  # noqa: PLC0415
             TraceContextTextMapPropagator,
         )
 
@@ -65,7 +65,7 @@ def _get_tracer() -> Tracer:
     """Get cached tracer for worker spans."""
     global _tracer
     if _tracer is None:
-        from opentelemetry import trace
+        from opentelemetry import trace  # noqa: PLC0415
 
         _tracer = trace.get_tracer(
             OTEL_TRACER_NAME, instrumenting_library_version=__version__
@@ -108,7 +108,7 @@ def inject_current_trace_context(configurable: dict[str, Any]) -> None:
         return
 
     try:
-        from opentelemetry import trace
+        from opentelemetry import trace  # noqa: PLC0415
 
         span = trace.get_current_span()
         if not span.is_recording():
@@ -154,7 +154,7 @@ def restore_otel_trace_context(
         return
 
     try:
-        from opentelemetry import trace
+        from opentelemetry import trace  # noqa: PLC0415
 
         # Build carrier dict for W3C propagator
         carrier: dict[str, str] = {"traceparent": traceparent}
@@ -192,7 +192,7 @@ def inject_otel_headers() -> dict[str, str]:
         return {}
 
     try:
-        from opentelemetry import trace
+        from opentelemetry import trace  # noqa: PLC0415
 
         span = trace.get_current_span()
         if not span.is_recording():

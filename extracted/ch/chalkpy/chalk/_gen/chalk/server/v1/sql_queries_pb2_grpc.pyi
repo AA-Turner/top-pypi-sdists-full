@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.server.v1.sql_queries_pb2 import (
     GetSqlQueryRequest,
     GetSqlQueryResponse,
+    GetSqlQuerySignedUrlsRequest,
+    GetSqlQuerySignedUrlsResponse,
     ListSqlQueriesRequest,
     ListSqlQueriesResponse,
 )
@@ -32,6 +34,11 @@ class SqlQueriesServiceStub:
         GetSqlQueryResponse,
     ]
     """Get a specific SQL query by ID"""
+    GetSqlQuerySignedUrls: UnaryUnaryMultiCallable[
+        GetSqlQuerySignedUrlsRequest,
+        GetSqlQuerySignedUrlsResponse,
+    ]
+    """Get signed URLs for SQL query results"""
 
 class SqlQueriesServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -48,5 +55,12 @@ class SqlQueriesServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetSqlQueryResponse:
         """Get a specific SQL query by ID"""
+    @abstractmethod
+    def GetSqlQuerySignedUrls(
+        self,
+        request: GetSqlQuerySignedUrlsRequest,
+        context: ServicerContext,
+    ) -> GetSqlQuerySignedUrlsResponse:
+        """Get signed URLs for SQL query results"""
 
 def add_SqlQueriesServiceServicer_to_server(servicer: SqlQueriesServiceServicer, server: Server) -> None: ...

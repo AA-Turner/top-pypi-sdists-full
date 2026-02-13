@@ -1435,6 +1435,8 @@ To do this for a specific stack, add a `suppressTemplateIndentation: true` prope
 stack's `StackProps` parameter. You can also set this property to `false` to override
 the context key setting.
 
+Similarly, to do this for a specific nested stack, add a `suppressTemplateIndentation: true` property to its `NestedStackProps` parameter. You can also set this property to `false` to override the context key setting.
+
 ## App Context
 
 [Context values](https://docs.aws.amazon.com/cdk/v2/guide/context.html) are key-value pairs that can be associated with an app, stack, or construct.
@@ -19523,6 +19525,7 @@ class Names(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Names"):
         "notification_arns": "notificationArns",
         "parameters": "parameters",
         "removal_policy": "removalPolicy",
+        "suppress_template_indentation": "suppressTemplateIndentation",
         "timeout": "timeout",
     },
 )
@@ -19534,6 +19537,7 @@ class NestedStackProps:
         notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         removal_policy: typing.Optional["RemovalPolicy"] = None,
+        suppress_template_indentation: typing.Optional[builtins.bool] = None,
         timeout: typing.Optional["Duration"] = None,
     ) -> None:
         '''Initialization props for the ``NestedStack`` construct.
@@ -19542,6 +19546,7 @@ class NestedStackProps:
         :param notification_arns: The Simple Notification Service (SNS) topics to publish stack related events. Default: - notifications are not sent for this stack.
         :param parameters: The set value pairs that represent the parameters passed to CloudFormation when this nested stack is created. Each parameter has a name corresponding to a parameter defined in the embedded template and a value representing the value that you want to set for the parameter. The nested stack construct will automatically synthesize parameters in order to bind references from the parent stack(s) into the nested stack. Default: - no user-defined parameters are passed to the nested stack
         :param removal_policy: Policy to apply when the nested stack is removed. The default is ``Destroy``, because all Removal Policies of resources inside the Nested Stack should already have been set correctly. You normally should not need to set this value. Default: RemovalPolicy.DESTROY
+        :param suppress_template_indentation: Enable this flag to suppress indentation in generated CloudFormation templates. If not specified, the value of the ``@aws-cdk/core:suppressTemplateIndentation`` context key will be used. If that is not specified, then the default value ``false`` will be used. Default: - the value of ``@aws-cdk/core:suppressTemplateIndentation``, or ``false`` if that is not set.
         :param timeout: The length of time that CloudFormation waits for the nested stack to reach the CREATE_COMPLETE state. When CloudFormation detects that the nested stack has reached the CREATE_COMPLETE state, it marks the nested stack resource as CREATE_COMPLETE in the parent stack and resumes creating the parent stack. If the timeout period expires before the nested stack reaches CREATE_COMPLETE, CloudFormation marks the nested stack as failed and rolls back both the nested stack and parent stack. Default: - no timeout
 
         :exampleMetadata: lit=aws-apigateway/test/integ.restapi-import.lit.ts infused
@@ -19550,8 +19555,10 @@ class NestedStackProps:
 
             from aws_cdk.aws_apigateway import IntegrationResponse, MethodResponse, IntegrationResponse, MethodResponse
             from constructs import Construct
-            from aws_cdk import App, CfnOutput, NestedStack, NestedStackProps, Stack
-            from aws_cdk.aws_apigateway import Deployment, Method, MockIntegration, PassthroughBehavior, RestApi, Stage
+            from aws_cdk import NestedStackProps
+            from aws_cdk import App, CfnOutput, NestedStack, Stack
+            from aws_cdk.aws_apigateway import Method
+            from aws_cdk.aws_apigateway import Deployment, MockIntegration, PassthroughBehavior, RestApi, Stage
             
             #
             # This file showcases how to split up a RestApi's Resources and Methods across nested stacks.
@@ -19596,8 +19603,8 @@ class NestedStackProps:
             
             class PetsStack(NestedStack):
             
-                def __init__(self, scope, *, restApiId, rootResourceId, parameters=None, timeout=None, notificationArns=None, removalPolicy=None, description=None):
-                    super().__init__(scope, "integ-restapi-import-PetsStack", restApiId=restApiId, rootResourceId=rootResourceId, parameters=parameters, timeout=timeout, notificationArns=notificationArns, removalPolicy=removalPolicy, description=description)
+                def __init__(self, scope, *, restApiId, rootResourceId, parameters=None, timeout=None, notificationArns=None, removalPolicy=None, description=None, suppressTemplateIndentation=None):
+                    super().__init__(scope, "integ-restapi-import-PetsStack", restApiId=restApiId, rootResourceId=rootResourceId, parameters=parameters, timeout=timeout, notificationArns=notificationArns, removalPolicy=removalPolicy, description=description, suppressTemplateIndentation=suppressTemplateIndentation)
             
                     api = RestApi.from_rest_api_attributes(self, "RestApi",
                         rest_api_id=rest_api_id,
@@ -19620,8 +19627,8 @@ class NestedStackProps:
             
             class BooksStack(NestedStack):
             
-                def __init__(self, scope, *, restApiId, rootResourceId, parameters=None, timeout=None, notificationArns=None, removalPolicy=None, description=None):
-                    super().__init__(scope, "integ-restapi-import-BooksStack", restApiId=restApiId, rootResourceId=rootResourceId, parameters=parameters, timeout=timeout, notificationArns=notificationArns, removalPolicy=removalPolicy, description=description)
+                def __init__(self, scope, *, restApiId, rootResourceId, parameters=None, timeout=None, notificationArns=None, removalPolicy=None, description=None, suppressTemplateIndentation=None):
+                    super().__init__(scope, "integ-restapi-import-BooksStack", restApiId=restApiId, rootResourceId=rootResourceId, parameters=parameters, timeout=timeout, notificationArns=notificationArns, removalPolicy=removalPolicy, description=description, suppressTemplateIndentation=suppressTemplateIndentation)
             
                     api = RestApi.from_rest_api_attributes(self, "RestApi",
                         rest_api_id=rest_api_id,
@@ -19643,8 +19650,8 @@ class NestedStackProps:
                     self.methods.push(method)
             
             class DeployStack(NestedStack):
-                def __init__(self, scope, *, restApiId, methods=None, parameters=None, timeout=None, notificationArns=None, removalPolicy=None, description=None):
-                    super().__init__(scope, "integ-restapi-import-DeployStack", restApiId=restApiId, methods=methods, parameters=parameters, timeout=timeout, notificationArns=notificationArns, removalPolicy=removalPolicy, description=description)
+                def __init__(self, scope, *, restApiId, methods=None, parameters=None, timeout=None, notificationArns=None, removalPolicy=None, description=None, suppressTemplateIndentation=None):
+                    super().__init__(scope, "integ-restapi-import-DeployStack", restApiId=restApiId, methods=methods, parameters=parameters, timeout=timeout, notificationArns=notificationArns, removalPolicy=removalPolicy, description=description, suppressTemplateIndentation=suppressTemplateIndentation)
             
                     deployment = Deployment(self, "Deployment",
                         api=RestApi.from_rest_api_id(self, "RestApi", rest_api_id)
@@ -19662,6 +19669,7 @@ class NestedStackProps:
             check_type(argname="argument notification_arns", value=notification_arns, expected_type=type_hints["notification_arns"])
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
             check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
+            check_type(argname="argument suppress_template_indentation", value=suppress_template_indentation, expected_type=type_hints["suppress_template_indentation"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if description is not None:
@@ -19672,6 +19680,8 @@ class NestedStackProps:
             self._values["parameters"] = parameters
         if removal_policy is not None:
             self._values["removal_policy"] = removal_policy
+        if suppress_template_indentation is not None:
+            self._values["suppress_template_indentation"] = suppress_template_indentation
         if timeout is not None:
             self._values["timeout"] = timeout
 
@@ -19721,6 +19731,19 @@ class NestedStackProps:
         '''
         result = self._values.get("removal_policy")
         return typing.cast(typing.Optional["RemovalPolicy"], result)
+
+    @builtins.property
+    def suppress_template_indentation(self) -> typing.Optional[builtins.bool]:
+        '''Enable this flag to suppress indentation in generated CloudFormation templates.
+
+        If not specified, the value of the ``@aws-cdk/core:suppressTemplateIndentation``
+        context key will be used. If that is not specified, then the
+        default value ``false`` will be used.
+
+        :default: - the value of ``@aws-cdk/core:suppressTemplateIndentation``, or ``false`` if that is not set.
+        '''
+        result = self._values.get("suppress_template_indentation")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional["Duration"]:
@@ -37468,6 +37491,7 @@ class NestedStack(Stack, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.NestedS
         notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         removal_policy: typing.Optional["RemovalPolicy"] = None,
+        suppress_template_indentation: typing.Optional[builtins.bool] = None,
         timeout: typing.Optional["Duration"] = None,
     ) -> None:
         '''
@@ -37477,6 +37501,7 @@ class NestedStack(Stack, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.NestedS
         :param notification_arns: The Simple Notification Service (SNS) topics to publish stack related events. Default: - notifications are not sent for this stack.
         :param parameters: The set value pairs that represent the parameters passed to CloudFormation when this nested stack is created. Each parameter has a name corresponding to a parameter defined in the embedded template and a value representing the value that you want to set for the parameter. The nested stack construct will automatically synthesize parameters in order to bind references from the parent stack(s) into the nested stack. Default: - no user-defined parameters are passed to the nested stack
         :param removal_policy: Policy to apply when the nested stack is removed. The default is ``Destroy``, because all Removal Policies of resources inside the Nested Stack should already have been set correctly. You normally should not need to set this value. Default: RemovalPolicy.DESTROY
+        :param suppress_template_indentation: Enable this flag to suppress indentation in generated CloudFormation templates. If not specified, the value of the ``@aws-cdk/core:suppressTemplateIndentation`` context key will be used. If that is not specified, then the default value ``false`` will be used. Default: - the value of ``@aws-cdk/core:suppressTemplateIndentation``, or ``false`` if that is not set.
         :param timeout: The length of time that CloudFormation waits for the nested stack to reach the CREATE_COMPLETE state. When CloudFormation detects that the nested stack has reached the CREATE_COMPLETE state, it marks the nested stack resource as CREATE_COMPLETE in the parent stack and resumes creating the parent stack. If the timeout period expires before the nested stack reaches CREATE_COMPLETE, CloudFormation marks the nested stack as failed and rolls back both the nested stack and parent stack. Default: - no timeout
         '''
         if __debug__:
@@ -37488,6 +37513,7 @@ class NestedStack(Stack, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.NestedS
             notification_arns=notification_arns,
             parameters=parameters,
             removal_policy=removal_policy,
+            suppress_template_indentation=suppress_template_indentation,
             timeout=timeout,
         )
 
@@ -41709,6 +41735,7 @@ def _typecheckingstub__68736f67b0cf5effa29d0315b62c690a91db0932ebc56b25811b40ec0
     notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     removal_policy: typing.Optional[RemovalPolicy] = None,
+    suppress_template_indentation: typing.Optional[builtins.bool] = None,
     timeout: typing.Optional[Duration] = None,
 ) -> None:
     """Type checking stubs"""
@@ -44360,6 +44387,7 @@ def _typecheckingstub__ee5361c9ff9702a12ccb2a47971c043f9e498a8ebf09ee316b129cf28
     notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     removal_policy: typing.Optional[RemovalPolicy] = None,
+    suppress_template_indentation: typing.Optional[builtins.bool] = None,
     timeout: typing.Optional[Duration] = None,
 ) -> None:
     """Type checking stubs"""

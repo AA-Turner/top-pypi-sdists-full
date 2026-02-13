@@ -656,7 +656,10 @@ class InvokeToolTool(BaseTool):
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         """Invoke a tool from the registry."""
-        arguments = arguments or {}
+        # Strip None values — LLM often sends explicit nulls for optional params
+        # (because Pydantic schemas show "default": null), which can cause failures
+        # in tools that don't handle None gracefully, leading to retry loops
+        arguments = {k: v for k, v in (arguments or {}).items() if v is not None}
 
         # Get the tool
         actual_tool = self.registry.get_tool(toolkit, tool)
@@ -795,7 +798,7 @@ class InvokeToolTool(BaseTool):
         run_manager: Optional[CallbackManagerForToolRun] = None,
     ) -> str:
         """Async version of invoke_tool."""
-        arguments = arguments or {}
+        arguments = {k: v for k, v in (arguments or {}).items() if v is not None}
 
         actual_tool = self.registry.get_tool(toolkit, tool)
 

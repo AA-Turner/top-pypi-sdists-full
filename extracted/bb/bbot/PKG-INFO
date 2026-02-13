@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bbot
-Version: 2.8.1
+Version: 2.8.2
 Summary: OSINT automation for hackers.
 License: GPL-3.0
 License-File: LICENSE
@@ -48,7 +48,7 @@ Requires-Dist: websockets (>=14.0.0,<16.0.0)
 Requires-Dist: wordninja (>=2.0.0,<3.0.0)
 Requires-Dist: xmltojson (>=2.0.2,<3.0.0)
 Requires-Dist: xxhash (>=3.5.0,<4.0.0)
-Requires-Dist: yara-python (>=4.5.1,<5.0.0)
+Requires-Dist: yara-python (==4.5.2)
 Project-URL: Documentation, https://www.blacklanternsecurity.com/bbot/
 Project-URL: Discord, https://discord.com/invite/PZqkgxu5SA
 Project-URL: Docker Hub, https://hub.docker.com/r/blacklanternsecurity/bbot

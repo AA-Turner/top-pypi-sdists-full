@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: nagisa
-Version: 0.2.11
+Version: 0.2.12
 Summary: A Japanese tokenizer based on recurrent neural networks
 Home-page: https://github.com/taishi-i/nagisa
-Download-URL: https://github.com/taishi-i/nagisa/archive/0.2.11.tar.gz
+Download-URL: https://github.com/taishi-i/nagisa/archive/0.2.12.tar.gz
 Author: Taishi Ikeda
 Author-email: taishi.ikeda.0323@gmail.com
 License: MIT License
@@ -19,6 +19,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: Unix
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
@@ -29,21 +31,34 @@ License-File: LICENSE.txt
 Requires-Dist: six
 Requires-Dist: numpy
 Requires-Dist: DyNet38
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: requires-dist
+Dynamic: summary
 
 <p align="center"><img width="50%" src="/nagisa/data/nagisa_logo.png" /></p>
 
 ---
 
 [![Python package](https://github.com/taishi-i/nagisa/actions/workflows/python-package.yml/badge.svg)](https://github.com/taishi-i/nagisa/actions/workflows/python-package.yml)
-[![Build status](https://ci.appveyor.com/api/projects/status/6k35hmxl1juf1hqf?svg=true)](https://ci.appveyor.com/project/taishi-i/nagisa)
 [![Coverage Status](https://coveralls.io/repos/github/taishi-i/nagisa/badge.svg?branch=master)](https://coveralls.io/github/taishi-i/nagisa?branch=master)
 [![Documentation Status](https://readthedocs.org/projects/nagisa/badge/?version=latest)](https://nagisa.readthedocs.io/en/latest/?badge=latest)
+![GitHub License](https://img.shields.io/github/license/taishi-i/nagisa)
 [![PyPI](https://img.shields.io/pypi/v/nagisa.svg)](https://pypi.python.org/pypi/nagisa)
- [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/taishi-i/nagisa-demo)
+[![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/taishi-i/nagisa-demo)
 [![Downloads](https://static.pepy.tech/badge/nagisa)](https://pepy.tech/project/nagisa)
 
 
 Nagisa is a python module for Japanese word segmentation/POS-tagging.
+
 It is designed to be a simple and easy-to-use tool.
 
 This tool has the following features.
@@ -52,29 +67,30 @@ This tool has the following features.
 -  The POS-tagging model uses tag dictionary information [[Inoue+]](http://www.aclweb.org/anthology/K17-1042).
 
 For more details refer to the following links.
--  The stop words for nagisa are available [here](https://huggingface.co/datasets/taishi-i/nagisa_stopwords).
--  The presentation slide at PyCon JP (2022) is available [here](https://speakerdeck.com/taishii/pycon-jp-2022).
--  The article in Japanese is available [here](https://qiita.com/taishi-i/items/5b9275a606b392f7f58e).
 -  The documentation is available [here](https://nagisa.readthedocs.io/en/latest/?badge=latest).
+-  The article in Japanese is available [here](https://qiita.com/taishi-i/items/5b9275a606b392f7f58e).
+-  The presentation slide at PyCon JP (2022) is available [here](https://speakerdeck.com/taishii/pycon-jp-2022).
 
 
 Installation
 =============
 
-Python 3.6 through 3.12 on Linux,
-or Python 3.6 through 3.11 on macOS Intel is required.
-This tool uses [DyNet](https://github.com/clab/dynet) (the Dynamic Neural Network Toolkit) to calcucate neural networks.
-You can install nagisa by using the following command.
+You can install nagisa using pip:
+
 ```bash
 pip install nagisa
-```
-For Windows users, please run it with python 3.6, 3.7 or 3.8 (64bit).
-It is also compatible with the Windows Subsystem for Linux (WSL).
+````
+
+Supported Platforms:
+- 🐧 Linux: Python 3.6 - 3.14
+- 🍎 macOS: Python 3.9 - 3.14
+- 🪟 Windows: Python 3.9 - 3.14
 
 Basic usage
 =============
 
 Sample of word segmentation and POS-tagging for Japanese.
+The output tokens are normalized using Unicode NFKC normalization.
 
 ```python
 import nagisa
@@ -98,6 +114,8 @@ Post-processing functions
 
 Filter and extarct words by the specific POS tags.
 ```python
+import nagisa
+
 # Filter the words of the specific POS tags.
 words = nagisa.filter(text, filter_postags=['助詞', '助動詞'])
 print(words)
@@ -115,6 +133,8 @@ print(nagisa.tagger.postags)
 
 Add the user dictionary in easy way.
 ```python
+import nagisa
+
 # default
 text = "3月に見た「3月のライオン」"
 print(nagisa.tagging(text))
@@ -126,11 +146,26 @@ print(new_tagger.tagging(text))
 #=> 3/名詞 月/名詞 に/助詞 見/動詞 た/助動詞 「/補助記号 3月のライオン/名詞 」/補助記号
 ```
 
+Nagisa provides a built-in Japanese stopwords list.
+```python
+import nagisa
+
+# default
+text = "日本語のストップワードを簡単に利用できます。"
+tokens = nagisa.tagging(text)
+print(tokens.words)
+#=> ['日本', '語', 'の', 'ストップ', 'ワード', 'を', '簡単', 'に', '利用', 'でき', 'ます', '。']
+
+# Filter out stopwords from the tokenized result
+words = [word for word in tokens.words if word not in nagisa.stopwords]
+print(words)
+#=> ['日本', '語', 'ストップ', 'ワード', '簡単', '利用', '。']
+```
 
 Train a model
 ======
 
-Nagisa (v0.2.0+) provides a simple train method
+Nagisa provides a simple train method
 for a joint word segmentation and sequence labeling (e.g, POS-tagging, NER) model.
 
 The format of the train/dev/test files is tsv.
@@ -161,6 +196,8 @@ EOS
 ```
 
 ```python
+import nagisa
+
 # After finish training, save the three model files (*.vocabs, *.params, *.hp).
 nagisa.fit(train_file="sample.train", dev_file="sample.dev", test_file="sample.test", model_name="sample")
 
@@ -172,5 +209,3 @@ words = sample_tagger.tagging(text)
 print(words)
 #> 福岡/PROPN ・/SYM 博多/PROPN の/ADP 観光/NOUN 情報/NOUN
 ```
-
-

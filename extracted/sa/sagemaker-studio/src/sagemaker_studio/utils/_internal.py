@@ -32,7 +32,6 @@ class InternalUtils:
             parts = execution_role_arn.split(":")
             if len(parts) >= 5 and parts[0] == "arn" and parts[2] == "iam":
                 account_id: str = parts[4]
-                logging.debug(f"Successfully extracted AWS account ID: {account_id}")
                 return account_id
             else:
                 logging.warning(f"ExecutionRoleArn has unexpected format: {execution_role_arn}")

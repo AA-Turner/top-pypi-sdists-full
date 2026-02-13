@@ -1,6 +1,6 @@
 [project]
 name = "splink"
-version = "4.0.12"
+version = "4.0.13"
 description = "Fast probabilistic data linkage at scale"
 authors = [
     { name = "Robin Linacre", email = "robinlinacre@hotmail.com" },
@@ -91,6 +91,12 @@ conflicts = [
     { extra = "athena" }
   ]
 ]
+# problematic constraints, and we do not test or otherwise use this
+# we are removing in Splink 5 anyway
+exclude-dependencies = ["awswrangler"]
+
+[tool.uv.dependency-groups]
+docs = { requires-python = ">=3.13" }
 
 [build-system]
 requires = ["hatchling"]

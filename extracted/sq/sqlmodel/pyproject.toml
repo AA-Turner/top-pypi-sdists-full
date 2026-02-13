@@ -41,7 +41,7 @@ dependencies = [
     "SQLAlchemy >=2.0.14,<2.1.0",
     "pydantic>=2.7.0",
 ]
-version = "0.0.32"
+version = "0.0.33"
 
 [project.urls]
 Homepage = "https://github.com/fastapi/sqlmodel"
@@ -49,8 +49,6 @@ Documentation = "https://sqlmodel.tiangolo.com"
 Repository = "https://github.com/fastapi/sqlmodel"
 Issues = "https://github.com/fastapi/sqlmodel/issues"
 Changelog = "https://sqlmodel.tiangolo.com/release-notes/"
-
-[project.optional-dependencies]
 
 [dependency-groups]
 dev = [
@@ -71,7 +69,7 @@ docs = [
     "mkdocstrings[python]==0.30.1",
     "pillow==11.3.0",
     "pyyaml>=5.3.1,<7.0.0",
-    "typer==0.21.1",
+    "typer==0.21.2",
 ]
 github-actions = [
     "httpx>=0.27.0,<0.29.0",
@@ -90,7 +88,7 @@ tests = [
     "mypy==1.19.1",
     "pre-commit>=2.17.0,<5.0.0",
     "pytest>=7.0.1,<9.0.0",
-    "ruff==0.14.14",
+    "ruff==0.15.0",
     "typing-extensions==4.15.0",
 ]
 
@@ -111,8 +109,25 @@ source-includes = [
 
 [tool.tiangolo._internal-slim-build.packages.sqlmodel-slim.project]
 name = "sqlmodel-slim"
+readme = "sqlmodel-slim/README.md"
+dependencies = [
+    "sqlmodel",
+]
 
-[tool.tiangolo._internal-slim-build.packages.sqlmodel.project.optional-dependencies]
+[tool.tiangolo._internal-slim-build.packages.sqlmodel-slim.project.optional-dependencies]
+
+[tool.tiangolo._internal-slim-build.packages.sqlmodel-slim.project.scripts]
+
+[tool.tiangolo._internal-slim-build.packages.sqlmodel-slim.tool.pdm.build]
+excludes = [
+    "sqlmodel",
+    "docs_src",
+    "tests",
+    "pdm_build.py",
+]
+source-includes = [
+    "",
+]
 
 [tool.coverage.run]
 parallel = true

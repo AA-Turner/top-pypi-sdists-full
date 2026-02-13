@@ -204,6 +204,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def DictGetById(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.DictGetByIdRequest, modal_proto.api_pb2.DictGetByIdResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def DictGetOrCreate(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.DictGetOrCreateRequest, modal_proto.api_pb2.DictGetOrCreateResponse]') -> None:
         pass
 
@@ -449,6 +453,10 @@ class ModalClientBase(abc.ABC):
 
     @abc.abstractmethod
     async def QueueGet(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.QueueGetRequest, modal_proto.api_pb2.QueueGetResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def QueueGetById(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.QueueGetByIdRequest, modal_proto.api_pb2.QueueGetByIdResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -1001,6 +1009,12 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.DictGetRequest,
                 modal_proto.api_pb2.DictGetResponse,
             ),
+            '/modal.client.ModalClient/DictGetById': grpclib.const.Handler(
+                self.DictGetById,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.DictGetByIdRequest,
+                modal_proto.api_pb2.DictGetByIdResponse,
+            ),
             '/modal.client.ModalClient/DictGetOrCreate': grpclib.const.Handler(
                 self.DictGetOrCreate,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -1372,6 +1386,12 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.QueueGetRequest,
                 modal_proto.api_pb2.QueueGetResponse,
+            ),
+            '/modal.client.ModalClient/QueueGetById': grpclib.const.Handler(
+                self.QueueGetById,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.QueueGetByIdRequest,
+                modal_proto.api_pb2.QueueGetByIdResponse,
             ),
             '/modal.client.ModalClient/QueueGetOrCreate': grpclib.const.Handler(
                 self.QueueGetOrCreate,
@@ -2063,6 +2083,12 @@ class ModalClientStub:
             modal_proto.api_pb2.DictGetRequest,
             modal_proto.api_pb2.DictGetResponse,
         )
+        self.DictGetById = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/DictGetById',
+            modal_proto.api_pb2.DictGetByIdRequest,
+            modal_proto.api_pb2.DictGetByIdResponse,
+        )
         self.DictGetOrCreate = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/DictGetOrCreate',
@@ -2434,6 +2460,12 @@ class ModalClientStub:
             '/modal.client.ModalClient/QueueGet',
             modal_proto.api_pb2.QueueGetRequest,
             modal_proto.api_pb2.QueueGetResponse,
+        )
+        self.QueueGetById = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/QueueGetById',
+            modal_proto.api_pb2.QueueGetByIdRequest,
+            modal_proto.api_pb2.QueueGetByIdResponse,
         )
         self.QueueGetOrCreate = grpclib.client.UnaryUnaryMethod(
             channel,

@@ -37,7 +37,9 @@ class SchemaInfo(BaseModel):
     updated_at: Optional[StrictInt] = Field(default=None, description="Time at which this schema was last modified, in epoch milliseconds.")
     updated_by: Optional[StrictStr] = Field(default=None, description="Username of user who last modified schema.")
     schema_id: Optional[StrictStr] = Field(default=None, description="Unique identifier for the schema.")
-    __properties: ClassVar[List[str]] = ["name", "catalog_name", "comment", "properties", "full_name", "owner", "created_at", "created_by", "updated_at", "updated_by", "schema_id"]
+    storage_root: Optional[StrictStr] = Field(default=None, description="Storage root URL for managed storage location of schema. This can be set when creating a schema. Example: s3://bucket/ucroot ")
+    storage_location: Optional[StrictStr] = Field(default=None, description="Storage Location URL (full path) for managed storage location of schema. This is an automatically generated unique path under storage_root. If it is absent, managed securables under this schema will try to use storage_location of the parent catalog instead. Example: s3://bucket/ucroot/__unitystorage/schemas/{schema_id} ")
+    __properties: ClassVar[List[str]] = ["name", "catalog_name", "comment", "properties", "full_name", "owner", "created_at", "created_by", "updated_at", "updated_by", "schema_id", "storage_root", "storage_location"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -100,7 +102,9 @@ class SchemaInfo(BaseModel):
             "created_by": obj.get("created_by"),
             "updated_at": obj.get("updated_at"),
             "updated_by": obj.get("updated_by"),
-            "schema_id": obj.get("schema_id")
+            "schema_id": obj.get("schema_id"),
+            "storage_root": obj.get("storage_root"),
+            "storage_location": obj.get("storage_location")
         })
         return _obj
 

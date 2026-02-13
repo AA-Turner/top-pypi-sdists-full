@@ -562,7 +562,7 @@ class Session:
             >>> # Only report critical violations (score >= 0.8)
             >>> await session.detect_violations(traces=bad_traces, min_score=0.8)
         """
-        from synkro.remediation.detector import PolicyDetector
+        from synkro.guard import PolicyGuard
         from synkro.remediation.store import ViolationStore
 
         if self.logic_map is None:
@@ -588,12 +588,15 @@ class Session:
 
         self._save_snapshot("Before violation detection")
 
-        # Create detector
-        detector = PolicyDetector(self.logic_map, model=model or self.grading_model)
-
-        # Run detection
-        effective_concurrency = concurrency or self.concurrency
-        all_violations = await detector.detect(traces_to_analyze, concurrency=effective_concurrency)
+        # Create guard and run detection
+        guard = PolicyGuard(
+            logic_map=self.logic_map,
+            model=model or self.grading_model,
+            base_url=self.base_url,
+            concurrency=concurrency or self.concurrency,
+        )
+        results = await guard.check_batch_async(traces_to_analyze)
+        all_violations = [r.violation for r in results if r.violation is not None]
 
         # Filter by min_score threshold
         if min_score > 0.0:
@@ -1977,7 +1980,7 @@ class Session:
             >>> await session.refine_trace(3, "mention the receipt requirement")
         """
         from synkro.quality.golden_refiner import GoldenRefiner
-        from synkro.quality.verifier import GoldenVerifier
+        from synkro.quality.verifier import TraceVerifier
 
         traces = self.verified_traces or self.traces
         if not traces:
@@ -2015,8 +2018,8 @@ class Session:
         initial_cost += refiner_llm.total_cost
 
         # Re-verify
-        verifier = GoldenVerifier(llm=verifier_llm)
-        result = await verifier.verify(refined, self.logic_map, scenario, self.policy.text)
+        verifier = TraceVerifier(llm=verifier_llm)
+        result = await verifier.verify(refined, self.logic_map, scenario)
         initial_cost += verifier_llm.total_cost
 
         # Track HITL costs

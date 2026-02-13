@@ -2,7 +2,7 @@
 build-backend = "hatchling.build"
 requires = [
   "hatch-vcs>=0.5",
-  "hatchling>=1.27",
+  "hatchling>=1.28",
 ]
 
 [project]
@@ -36,12 +36,13 @@ dynamic = [
   "version",
 ]
 dependencies = [
-  "pytest>=8.4.2",
-  "tomli>=2.2.1; python_version<'3.11'",
+  "pytest>=9.0.2",
+  "python-dotenv>=1.2.1",
+  "tomli>=2.4; python_version<'3.11'",
 ]
 optional-dependencies.testing = [
   "covdefaults>=2.3",
-  "coverage>=7.10.7",
+  "coverage>=7.13.4",
   "pytest-mock>=3.15.1",
 ]
 urls.Homepage = "https://github.com/pytest-dev/pytest-env"
@@ -62,11 +63,12 @@ lint.select = [
   "ALL",
 ]
 lint.ignore = [
-  "ANN101", # no type annotation for self
   "COM812", # Conflict with formatter
   "CPY",    # No copyright statements
   "D203",   # `one-blank-line-before-class` (D203) and `no-blank-line-before-class` (D211) are incompatible
   "D212",   # `multi-line-summary-first-line` (D212) and `multi-line-summary-second-line` (D213) are incompatible
+  "DOC201", # `return` is not documented in docstring (we prefer minimal docs)
+  "DOC402", # `yield` is not documented in docstring (we prefer minimal docs)
   "ISC001", # Conflict with formatter
   "S104",   # Possible binding to all interface
 ]
@@ -91,23 +93,19 @@ write-changes = true
 count = true
 
 [tool.pyproject-fmt]
-max_supported_python = "3.13"
+max_supported_python = "3.14"
 
 [tool.coverage]
-run.source = [
-  "pytest_env",
-  "tests",
-]
-run.dynamic_context = "test_function"
 run.branch = true
+run.dynamic_context = "test_function"
 run.parallel = true
 run.plugins = [
   "covdefaults",
 ]
-report.fail_under = 100
-report.show_missing = true
-html.show_contexts = true
-html.skip_covered = false
+run.source = [
+  "pytest_env",
+  "tests",
+]
 paths.source = [
   "src",
   ".tox*/*/lib/python*/site-packages",
@@ -116,8 +114,10 @@ paths.source = [
   "*/src",
   "*\\src",
 ]
+report.fail_under = 100
+report.show_missing = true
+html.show_contexts = true
+html.skip_covered = false
 
-[tool.mypy]
-python_version = "3.11"
-show_error_codes = true
-strict = true
+[tool.ty]
+environment.python-version = "3.14"

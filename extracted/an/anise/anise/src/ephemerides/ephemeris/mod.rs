@@ -272,7 +272,7 @@ impl Ephemeris {
             });
         }
         // Grab the N/2 previous states
-        let n = self.degree / 2;
+        let n = self.degree;
         let prev_states: Vec<EphemerisRecord> = {
             let mut states: Vec<EphemerisRecord> = self
                 .state_data
@@ -312,7 +312,7 @@ impl Ephemeris {
                     orbit_data[i] = val;
                 }
             }
-            DataType::Type13HermiteUnequalStep => {
+            DataType::Type13HermiteUnequalStep | DataType::Type12HermiteEqualStep => {
                 for i in 0..3 {
                     let ys = states
                         .clone()

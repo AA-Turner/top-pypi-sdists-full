@@ -13899,4 +13899,4 @@ SPECTRUM: AttrDataFormat  # value = <AttrDataFormat.SPECTRUM: 1>
 Unknown: CmdArgType  # value = <CmdArgType.Unknown: 100>
 WRITE: AttrWriteType  # value = <AttrWriteType.WRITE: 2>
 WT_UNKNOWN: AttrWriteType  # value = <AttrWriteType.WT_UNKNOWN: 4>
-__tangolib_version__: str = "10.1.1"
+__tangolib_version__: str = "10.1.2"

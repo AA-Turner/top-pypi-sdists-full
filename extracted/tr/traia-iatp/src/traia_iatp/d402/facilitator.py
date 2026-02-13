@@ -277,19 +277,18 @@ class IATPSettlementFacilitator:
                 consumer_signature_hash = Web3.keccak(hexstr=consumer_signature)
                 
                 # Prepare output hash for contract verification
-                # Python: output_hash = keccak256(output_json) ← First hash (line 161 in mcp_middleware.py)
-                # Contract: outputHashHash = keccak256(outputHash bytes) ← Second hash (line 245 in IATPWallet.sol)
-                # Provider signs over outputHashHash (the double-hashed value)
+                # output_hash = keccak256(output_json) from mcp_middleware.py - already bytes32
+                # The contract uses outputHash DIRECTLY in the struct hash (no additional hashing).
+                # See IATPWallet.sol _validateProviderAttestationHash():
+                #   structHash = keccak256(abi.encode(TYPEHASH, consumerSigHash, outputHash, ...))
+                # So we sign with the same value that will be passed to the contract.
                 if output_hash:
-                    # Output hash is hex string like "0xabcd..." (already hashed once)
+                    # Output hash is bytes32 hex string like "0xabcd..." (already keccak256, 32 bytes)
                     output_hash_bytes = bytes.fromhex(output_hash[2:] if output_hash.startswith("0x") else output_hash)
-                    # Hash it again to match what contract will compute: keccak256(outputHash)
-                    output_hash_hash = Web3.keccak(output_hash_bytes)
-                    logger.debug(f"Output hash (1st): {output_hash[:20]}...")
-                    logger.debug(f"Output hash (2nd): {output_hash_hash.hex()[:20]}...")
+                    logger.debug(f"Output hash (bytes32): {output_hash[:20]}... ({len(output_hash_bytes)} bytes)")
                 else:
-                    # Use zero hash if no output provided
-                    output_hash_hash = Web3.keccak(b"")
+                    # Use zero bytes32 if no output provided (matches what validation code passes)
+                    output_hash_bytes = b'\x00' * 32
                 
                 # Get service description hash
                 service_description_hash = Web3.keccak(text=payment_requirements.description)
@@ -322,7 +321,7 @@ class IATPSettlementFacilitator:
                     },
                     "message": {
                         "consumerSignature": consumer_signature_hash,
-                        "outputHash": output_hash_hash,
+                        "outputHash": output_hash_bytes,
                         "timestamp": attestation_timestamp,
                         "serviceDescription": service_description_hash,
                         "facilitatorFeePercent": facilitator_fee_percent,
@@ -334,7 +333,7 @@ class IATPSettlementFacilitator:
                 logger.info(f"   Domain: {typed_data['domain']}")
                 logger.info(f"   Message fields:")
                 logger.info(f"      consumerSignature (hash): {consumer_signature_hash.hex()[:40]}...")
-                logger.info(f"      outputHash (double-hash): {output_hash_hash.hex()[:40]}...")
+                logger.info(f"      outputHash (bytes32): {output_hash_bytes.hex()[:40]}...")
                 logger.info(f"      timestamp: {attestation_timestamp}")
                 logger.info(f"      serviceDescription (hash): {service_description_hash.hex()[:40]}...")
                 logger.info(f"      facilitatorFeePercent: {facilitator_fee_percent}")

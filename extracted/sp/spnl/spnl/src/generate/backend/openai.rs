@@ -5,7 +5,7 @@ use async_openai::{
         ChatCompletionRequestAssistantMessage, ChatCompletionRequestAssistantMessageContent,
         ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage,
         ChatCompletionRequestSystemMessageContent, ChatCompletionRequestUserMessage,
-        ChatCompletionRequestUserMessageContent, CreateChatCompletionRequestArgs,
+        ChatCompletionRequestUserMessageContent, CreateChatCompletionRequestArgs, ReasoningEffort,
     },
     types::completions::CreateCompletionRequestArgs,
 };
@@ -29,17 +29,24 @@ pub enum Provider {
     Ollama,
 }
 
-fn api_base(provider: Provider) -> String {
+fn api_base(provider: &Provider) -> (String, ReasoningEffort) {
     match provider {
         // Note: NO TRAILING SLASHES!
-        Provider::OpenAI => {
-            ::std::env::var("OPENAI_API_BASE").unwrap_or("https://api.openai.com/v1".to_string())
-        }
-        Provider::Gemini => ::std::env::var("GEMINI_API_BASE")
-            .unwrap_or("https://generativelanguage.googleapis.com/v1beta/openai".to_string()),
-        Provider::Ollama => ::std::env::var("OLLAMA_API_BASE")
-            .map(|b| format!("{b}/v1"))
-            .unwrap_or("http://localhost:11434/v1".to_string()),
+        Provider::OpenAI => (
+            ::std::env::var("OPENAI_API_BASE").unwrap_or("https://api.openai.com/v1".to_string()),
+            ReasoningEffort::Low,
+        ),
+        Provider::Gemini => (
+            ::std::env::var("GEMINI_API_BASE")
+                .unwrap_or("https://generativelanguage.googleapis.com/v1beta/openai".to_string()),
+            ReasoningEffort::Low,
+        ),
+        Provider::Ollama => (
+            ::std::env::var("OLLAMA_API_BASE")
+                .map(|b| format!("{b}/v1"))
+                .unwrap_or("http://localhost:11434/v1".to_string()),
+            ReasoningEffort::None,
+        ),
     }
 }
 
@@ -66,15 +73,9 @@ pub async fn generate_completion(
         })
         .unwrap_or(2048);
 
-    let start_time = match (mt, &options.time) {
-        (1, Some(crate::WhatToTime::Gen1))
-        | (_, Some(crate::WhatToTime::Gen))
-        | (_, Some(crate::WhatToTime::All)) => Some(::std::time::Instant::now()),
-        _ => None,
-    };
-    let quiet = m.is_some() || start_time.is_some();
+    let quiet = m.is_some() || options.time;
 
-    let pbs = super::progress::bars(n_prompts, &spec.metadata, &m)?;
+    let pbs = super::progress::bars(n_prompts, &spec.metadata, &m, None)?;
 
     let request = CreateCompletionRequestArgs::default()
         .model(spec.metadata.model)
@@ -92,13 +93,35 @@ pub async fn generate_completion(
 
     // TODO: handle with chat_choice.delta.role, rather than hard-wire
     // Asistant (at the end of this function)
-    let client = Client::with_config(OpenAIConfig::new().with_api_base(api_base(provider)));
+    let client = Client::with_config(OpenAIConfig::new().with_api_base(api_base(&provider).0));
     let mut stream = client.completions().create_stream(request).await?;
+
+    // Timing tracking
+    let start_time = if options.time {
+        Some(::std::time::Instant::now())
+    } else {
+        None
+    };
+    let mut ttft: Option<::std::time::Duration> = None;
+    let mut token_count = 0u64;
+
     loop {
         match stream.next().await {
             Some(Ok(res)) => {
                 for choice in res.choices.iter() {
                     let idx: usize = choice.index.try_into()?;
+
+                    // Track TTFT (time to first token)
+                    if ttft.is_none()
+                        && !choice.text.is_empty()
+                        && let Some(start) = start_time
+                    {
+                        ttft = Some(start.elapsed());
+                    }
+
+                    // Count tokens (approximate by characters for now)
+                    token_count += choice.text.len() as u64;
+
                     if !quiet {
                         stdout.write_all(b"\x1b[32m").await?; // green
                         stdout.write_all(choice.text.as_bytes()).await?;
@@ -127,8 +150,15 @@ pub async fn generate_completion(
         .map(|s| Query::Message(Assistant(s)))
         .collect::<Vec<_>>();
 
-    if let Some(start_time) = start_time {
-        println!("GenerateTime {} ns", start_time.elapsed().as_nanos())
+    // Report timing metrics
+    if let Some(start) = start_time {
+        let total_time = start.elapsed();
+        let task = super::timing::TaskTiming {
+            ttft,
+            total_duration: total_time,
+            token_count,
+        };
+        super::timing::print_timing_metrics(&[task]);
     }
 
     if response.len() == 1 {
@@ -174,15 +204,11 @@ pub async fn generate_chat(
         })
         .unwrap_or(2048);
 
-    let start_time = match (mt, &options.time) {
-        (1, Some(crate::WhatToTime::Gen1))
-        | (_, Some(crate::WhatToTime::Gen))
-        | (_, Some(crate::WhatToTime::All)) => Some(::std::time::Instant::now()),
-        _ => None,
-    };
-    let quiet = m.is_some() || start_time.is_some();
+    let quiet = m.is_some() || options.time;
 
-    let pbs = super::progress::bars(spec.n.into(), &spec.generate.metadata, &m)?;
+    let pbs = super::progress::bars(spec.n.into(), &spec.generate.metadata, &m, None)?;
+
+    let (apibase, reasoning_effort) = api_base(&provider);
 
     let mut request_builder_0 = CreateChatCompletionRequestArgs::default();
     let request_builder_1 = request_builder_0
@@ -190,6 +216,7 @@ pub async fn generate_chat(
         .n(spec.n)
         .messages(input_messages)
         .temperature(spec.generate.metadata.temperature.unwrap_or_default())
+        .reasoning_effort(reasoning_effort)
         .max_completion_tokens(mt);
 
     let request_builder = match &provider {
@@ -210,9 +237,18 @@ pub async fn generate_chat(
         stdout.write_all(b"\x1b[1mAssistant: \x1b[0m").await?;
     }
 
+    // Timing tracking
+    let start_time = if options.time {
+        Some(::std::time::Instant::now())
+    } else {
+        None
+    };
+    let mut ttft: Option<::std::time::Duration> = None;
+    let mut token_count = 0u64;
+
     // TODO: handle with choice.delta.role, rather than hard-wire
     // Asistant (at the end of this function)
-    let client = Client::with_config(OpenAIConfig::new().with_api_base(api_base(provider)));
+    let client = Client::with_config(OpenAIConfig::new().with_api_base(apibase));
     let mut stream = client.chat().create_stream(request).await?;
     loop {
         match stream.next().await {
@@ -220,6 +256,18 @@ pub async fn generate_chat(
                 for choice in res.choices.iter() {
                     if let Some(ref content) = choice.delta.content {
                         let idx: usize = choice.index.try_into()?;
+
+                        // Track TTFT (time to first token)
+                        if ttft.is_none()
+                            && !content.is_empty()
+                            && let Some(start) = start_time
+                        {
+                            ttft = Some(start.elapsed());
+                        }
+
+                        // Count tokens (approximate by characters for now)
+                        token_count += content.len() as u64;
+
                         if !quiet {
                             stdout.write_all(b"\x1b[32m").await?; // green
                             stdout.write_all(content.as_bytes()).await?;
@@ -249,8 +297,15 @@ pub async fn generate_chat(
         .map(|s| Query::Message(Assistant(s)))
         .collect::<Vec<_>>();
 
-    if let Some(start_time) = start_time {
-        println!("GenerateTime {} ns", start_time.elapsed().as_nanos())
+    // Report timing metrics
+    if let Some(start) = start_time {
+        let total_time = start.elapsed();
+        let task = super::timing::TaskTiming {
+            ttft,
+            total_duration: total_time,
+            token_count,
+        };
+        super::timing::print_timing_metrics(&[task]);
     }
 
     if response.len() == 1 {
@@ -324,7 +379,7 @@ pub async fn embed(
 ) -> anyhow::Result<impl Iterator<Item = Vec<f32>> + use<>> {
     use async_openai::types::embeddings::CreateEmbeddingRequestArgs;
 
-    let client = Client::with_config(OpenAIConfig::new().with_api_base(api_base(provider)));
+    let client = Client::with_config(OpenAIConfig::new().with_api_base(api_base(&provider).0));
 
     let docs = match data {
         EmbedData::String(s) => &vec![s.clone()],

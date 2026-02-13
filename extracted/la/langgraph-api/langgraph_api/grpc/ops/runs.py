@@ -36,10 +36,13 @@ from langgraph_sdk import Auth
 from starlette.exceptions import HTTPException
 
 from langgraph_api.asyncio import SimpleTaskGroup, ValueEvent
+from langgraph_api.auth.custom import handle_event as auth_handle_event
 from langgraph_api.errors import UserInterrupt, UserRollback
+from langgraph_api.graph import SYSTEM_ASSISTANT_IDS
 from langgraph_api.grpc.client import get_shared_client
 from langgraph_api.grpc.ops import (
     Authenticated,
+    _filters_to_proto,
     _handle_grpc_error,
     build_encryption_context,
     extract_encryption_context,
@@ -51,6 +54,7 @@ from langgraph_api.serde import (
     json_dumpb_optional,
     json_loads_optional,
 )
+from langgraph_api.utils import get_auth_ctx
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Sequence
@@ -194,7 +198,7 @@ class GrpcStreamHandler:
         self,
         *,
         auth_filters: list[pb.AuthFilter],
-        stream_modes: list | None = None,
+        stream_modes: list[str] | None = None,
         ignore_run_not_found: bool = False,
         cancel_on_disconnect: bool = False,
         last_event_id: str | None = None,
@@ -286,16 +290,14 @@ def _map_if_not_exists(
 
 
 def _map_stream_modes(
-    stream_mode: str | list[str] | None,
+    stream_mode: list[str] | None,
 ) -> list[enum_stream_mode.StreamMode]:
     """Map stream mode string(s) to protobuf enum list (filtering invalid modes)."""
     if stream_mode is None:
         return []
 
-    modes = [stream_mode] if isinstance(stream_mode, str) else stream_mode
     result = []
-
-    for mode in modes:
+    for mode in stream_mode:
         proto_mode = STREAM_MODE_TO_PB.get(mode)
         if proto_mode is None:
             sanitized = str(mode)[:50] + ("..." if len(str(mode)) > 50 else "")
@@ -568,28 +570,45 @@ class Runs(Authenticated):
         kwargs = kwargs or {}
         temporary = kwargs.get("temporary", False)
 
+        create_run_value = Auth.types.RunsCreate(
+            thread_id=None if temporary else thread_id,
+            assistant_id=assistant_id,
+            run_id=run_id,
+            status=status,
+            metadata=metadata,
+            prevent_insert_if_inflight=prevent_insert_if_inflight,
+            multitask_strategy=multitask_strategy,
+            if_not_exists=if_not_exists,
+            after_seconds=after_seconds,
+            kwargs=kwargs,
+        )
         auth_filters = await Runs.handle_event(
             ctx,
             "create_run",
-            Auth.types.RunsCreate(
-                thread_id=None if temporary else thread_id,
-                assistant_id=assistant_id,
-                run_id=run_id,
-                status=status,
-                metadata=metadata,
-                prevent_insert_if_inflight=prevent_insert_if_inflight,
-                multitask_strategy=multitask_strategy,
-                if_not_exists=if_not_exists,
-                after_seconds=after_seconds,
-                kwargs=kwargs,
-            ),
+            create_run_value,
         )
+        # Automatically enforce assistant ownership for non-system assistants
+        # by calling the user's assistant search auth handler.
+        assistant_auth_filters: list[pb.AuthFilter] = []
+        if str(assistant_id) not in SYSTEM_ASSISTANT_IDS:
+            ctx_ = ctx or get_auth_ctx()
+            if ctx_ is not None:
+                auth_ctx = Auth.types.AuthContext(
+                    resource="assistants",
+                    action="search",
+                    user=ctx_.user,
+                    permissions=ctx_.permissions,
+                )
+                raw = await auth_handle_event(auth_ctx, {"metadata": {}})
+                if raw:
+                    assistant_auth_filters = _filters_to_proto(raw)
 
         kwargs_json_bytes = json_dumpb(kwargs)
         request_kwargs: dict[str, Any] = {
             "assistant_id": pb.UUID(value=str(assistant_id)),
             "kwargs_json": kwargs_json_bytes,
             "thread_filters": auth_filters,
+            "assistant_filters": assistant_auth_filters,
         }
 
         if thread_id is not None:
@@ -822,7 +841,7 @@ class Runs(Authenticated):
             thread_id: UUID,
             ignore_404: bool = False,
             cancel_on_disconnect: bool = False,
-            stream_mode=None,
+            stream_mode: list[str] | None = None,
             last_event_id: str | None = None,
             ctx: Any = None,
         ):
@@ -945,6 +964,7 @@ class Runs(Authenticated):
         Yields:
             ValueEvent that will be set with UserInterrupt() or UserRollback() if cancelled
         """
+        from langgraph_runtime.retry import RETRIABLE_EXCEPTIONS  # noqa: PLC0415
 
         @asynccontextmanager
         async def _enter_impl():
@@ -1003,6 +1023,12 @@ class Runs(Authenticated):
                         run_id=run_id, thread_id=thread_id, resumable=resumable
                     )
                 except GrpcRetryableException:
+                    logger.info(
+                        "Retriable exception, will not signal done",
+                        run_id=run_id,
+                        thread_id=thread_id,
+                    )
+                except RETRIABLE_EXCEPTIONS:
                     logger.info(
                         "Retriable exception, will not signal done",
                         run_id=run_id,

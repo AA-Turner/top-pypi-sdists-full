@@ -20,10 +20,14 @@ from snowflake.core.password_policy._generated.models.error_response import Erro
 from snowflake.core.password_policy._generated.models.password_policy import PasswordPolicy
 from snowflake.core.password_policy._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.password_policy._generated.models.success_response import SuccessResponse
+from snowflake.core.password_policy._generated.models.tag_assignment import TagAssignment
+from snowflake.core.password_policy._generated.models.tag_reference import TagReference
 
 __all__ = [
     "ErrorResponse",
     "PasswordPolicy",
     "SuccessAcceptedResponse",
     "SuccessResponse",
+    "TagAssignment",
+    "TagReference",
 ]

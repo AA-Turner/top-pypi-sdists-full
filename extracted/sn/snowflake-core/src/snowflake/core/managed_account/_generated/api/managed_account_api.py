@@ -342,7 +342,7 @@ class ManagedAccountApi:
             _header_params["Content-Type"] = _content_types_list
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "SuccessResponse",
@@ -553,7 +553,7 @@ class ManagedAccountApi:
         _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "Iterable[ManagedAccount]",
@@ -735,7 +735,7 @@ class ManagedAccountApi:
         _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "SuccessResponse",

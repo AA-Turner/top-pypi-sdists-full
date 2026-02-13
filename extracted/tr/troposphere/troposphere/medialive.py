@@ -630,6 +630,16 @@ class InputLossBehavior(AWSProperty):
     }
 
 
+class DisabledLockingSettings(AWSProperty):
+    """
+    `DisabledLockingSettings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-disabledlockingsettings.html>`__
+    """
+
+    props: PropsDictType = {
+        "CustomEpoch": (str, False),
+    }
+
+
 class EpochLockingSettings(AWSProperty):
     """
     `EpochLockingSettings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-epochlockingsettings.html>`__
@@ -646,7 +656,10 @@ class PipelineLockingSettings(AWSProperty):
     `PipelineLockingSettings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-pipelinelockingsettings.html>`__
     """
 
-    props: PropsDictType = {}
+    props: PropsDictType = {
+        "CustomEpoch": (str, False),
+        "PipelineLockingMethod": (str, False),
+    }
 
 
 class OutputLockingSettings(AWSProperty):
@@ -655,6 +668,7 @@ class OutputLockingSettings(AWSProperty):
     """
 
     props: PropsDictType = {
+        "DisabledLockingSettings": (DisabledLockingSettings, False),
         "EpochLockingSettings": (EpochLockingSettings, False),
         "PipelineLockingSettings": (PipelineLockingSettings, False),
     }
@@ -1416,12 +1430,23 @@ class HlsGroupSettings(AWSProperty):
     }
 
 
+class MediaPackageAdditionalDestinations(AWSProperty):
+    """
+    `MediaPackageAdditionalDestinations <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackageadditionaldestinations.html>`__
+    """
+
+    props: PropsDictType = {
+        "Destination": (OutputLocationRef, False),
+    }
+
+
 class MediaPackageV2GroupSettings(AWSProperty):
     """
     `MediaPackageV2GroupSettings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2groupsettings.html>`__
     """
 
     props: PropsDictType = {
+        "AdditionalDestinations": ([MediaPackageAdditionalDestinations], False),
         "CaptionLanguageMappings": ([CaptionLanguageMapping], False),
         "Id3Behavior": (str, False),
         "KlvBehavior": (str, False),
@@ -1658,7 +1683,10 @@ class Av1Settings(AWSProperty):
         "QvbrQualityLevel": (integer, False),
         "RateControlMode": (str, False),
         "SceneChangeDetect": (str, False),
+        "SpatialAq": (str, False),
+        "TemporalAq": (str, False),
         "TimecodeBurninSettings": (TimecodeBurninSettings, False),
+        "TimecodeInsertion": (str, False),
     }
 
 
@@ -1780,6 +1808,14 @@ class DolbyVision81Settings(AWSProperty):
     props: PropsDictType = {}
 
 
+class Hlg2020Settings(AWSProperty):
+    """
+    `Hlg2020Settings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-hlg2020settings.html>`__
+    """
+
+    props: PropsDictType = {}
+
+
 class H265ColorSpaceSettings(AWSProperty):
     """
     `H265ColorSpaceSettings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-h265colorspacesettings.html>`__
@@ -1789,6 +1825,7 @@ class H265ColorSpaceSettings(AWSProperty):
         "ColorSpacePassthroughSettings": (ColorSpacePassthroughSettings, False),
         "DolbyVision81Settings": (DolbyVision81Settings, False),
         "Hdr10Settings": (Hdr10Settings, False),
+        "Hlg2020Settings": (Hlg2020Settings, False),
         "Rec601Settings": (Rec601Settings, False),
         "Rec709Settings": (Rec709Settings, False),
     }
@@ -2351,6 +2388,38 @@ class InputSpecification(AWSProperty):
     }
 
 
+class FollowerChannelSettings(AWSProperty):
+    """
+    `FollowerChannelSettings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-followerchannelsettings.html>`__
+    """
+
+    props: PropsDictType = {
+        "LinkedChannelType": (str, False),
+        "PrimaryChannelArn": (str, False),
+    }
+
+
+class PrimaryChannelSettings(AWSProperty):
+    """
+    `PrimaryChannelSettings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-primarychannelsettings.html>`__
+    """
+
+    props: PropsDictType = {
+        "LinkedChannelType": (str, False),
+    }
+
+
+class LinkedChannelSettings(AWSProperty):
+    """
+    `LinkedChannelSettings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-linkedchannelsettings.html>`__
+    """
+
+    props: PropsDictType = {
+        "FollowerChannelSettings": (FollowerChannelSettings, False),
+        "PrimaryChannelSettings": (PrimaryChannelSettings, False),
+    }
+
+
 class MaintenanceCreateSettings(AWSProperty):
     """
     `MaintenanceCreateSettings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-maintenancecreatesettings.html>`__
@@ -2368,9 +2437,11 @@ class MediaPackageOutputDestinationSettings(AWSProperty):
     """
 
     props: PropsDictType = {
+        "ChannelEndpointId": (str, False),
         "ChannelGroup": (str, False),
         "ChannelId": (str, False),
         "ChannelName": (str, False),
+        "MediaPackageRegionName": (str, False),
     }
 
 
@@ -2454,6 +2525,7 @@ class Channel(AWSObject):
         "EncoderSettings": (EncoderSettings, False),
         "InputAttachments": ([InputAttachment], False),
         "InputSpecification": (InputSpecification, False),
+        "LinkedChannelSettings": (LinkedChannelSettings, False),
         "LogLevel": (str, False),
         "Maintenance": (MaintenanceCreateSettings, False),
         "Name": (str, False),
@@ -2683,6 +2755,28 @@ class MulticastSettingsCreateRequest(AWSProperty):
     }
 
 
+class RouterDestinationSettings(AWSProperty):
+    """
+    `RouterDestinationSettings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-routerdestinationsettings.html>`__
+    """
+
+    props: PropsDictType = {
+        "AvailabilityZoneName": (str, False),
+    }
+
+
+class RouterSettings(AWSProperty):
+    """
+    `RouterSettings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-routersettings.html>`__
+    """
+
+    props: PropsDictType = {
+        "Destinations": ([RouterDestinationSettings], False),
+        "EncryptionType": (str, False),
+        "SecretArn": (str, False),
+    }
+
+
 class InputSdpLocation(AWSProperty):
     """
     `InputSdpLocation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-inputsdplocation.html>`__
@@ -2777,6 +2871,7 @@ class Input(AWSObject):
         "MulticastSettings": (MulticastSettingsCreateRequest, False),
         "Name": (str, False),
         "RoleArn": (str, False),
+        "RouterSettings": (RouterSettings, False),
         "SdiSources": ([str], False),
         "Smpte2110ReceiverGroupSettings": (Smpte2110ReceiverGroupSettings, False),
         "Sources": ([InputSourceRequest], False),
@@ -3103,6 +3198,16 @@ class MulticastSettingsUpdateRequest(AWSProperty):
 
     props: PropsDictType = {
         "Sources": ([MulticastSourceUpdateRequest], False),
+    }
+
+
+class SpecialRouterSettings(AWSProperty):
+    """
+    `SpecialRouterSettings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-specialroutersettings.html>`__
+    """
+
+    props: PropsDictType = {
+        "RouterArn": (str, False),
     }
 
 

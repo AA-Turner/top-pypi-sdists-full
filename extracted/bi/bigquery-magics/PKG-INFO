@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bigquery-magics
-Version: 0.11.0
+Version: 0.12.0
 Summary: Google BigQuery magics for Jupyter and IPython
 Home-page: https://github.com/googleapis/python-bigquery-magics
 Author: Google LLC
@@ -164,18 +164,6 @@ Perform a query
 .. code:: python
 
     %%bigquery
-    SELECT name, SUM(number) as count
-    FROM 'bigquery-public-data.usa_names.usa_1910_current'
-    GROUP BY name
-    ORDER BY count DESC
-    LIMIT 3
-
-Since BigQuery supports Python via BigQuery DataFrames, `%%bqsql` is offered as
-an alias to clarify the language of these cells.
-
-.. code:: python
-
-    %%bqsql
     SELECT name, SUM(number) as count
     FROM 'bigquery-public-data.usa_names.usa_1910_current'
     GROUP BY name

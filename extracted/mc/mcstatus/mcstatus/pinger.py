@@ -1,27 +1,37 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from collections.abc import Awaitable
-from dataclasses import dataclass, field
 import json
 import random
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from time import perf_counter
-from typing import final
+from typing import TYPE_CHECKING, final
 
-from mcstatus.address import Address
 from mcstatus.protocol.connection import Connection, TCPAsyncSocketConnection, TCPSocketConnection
 from mcstatus.responses import JavaStatusResponse, RawJavaResponse
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable
+
+    from mcstatus.address import Address
 
 
 @dataclass
 class _BaseServerPinger(ABC):
     connection: TCPSocketConnection | TCPAsyncSocketConnection
     address: Address
-    version: int = 47
-    ping_token: int = field(default_factory=lambda: random.randint(0, (1 << 63) - 1))
+    # keep in sync with server.py
+    version: int
+    """Version of the client."""
+    ping_token: int = None  # pyright: ignore[reportAssignmentType]
+    """Token that is used for the request, default is random number."""
+
+    def __post_init__(self) -> None:
+        if self.ping_token is None:
+            self.ping_token = random.randint(0, (1 << 63) - 1)
 
     def handshake(self) -> None:
-        """Writes the initial handshake packet to the connection."""
+        """Write the initial handshake packet to the connection."""
         packet = Connection()
         packet.write_varint(0)
         packet.write_varint(self.version)
@@ -44,25 +54,25 @@ class _BaseServerPinger(ABC):
     def _handle_status_response(self, response: Connection, start: float, end: float) -> JavaStatusResponse:
         """Given a response buffer (already read from connection), parse and build the JavaStatusResponse."""
         if response.read_varint() != 0:
-            raise IOError("Received invalid status response packet.")
+            raise OSError("Received invalid status response packet.")
         try:
             raw: RawJavaResponse = json.loads(response.read_utf())
         except ValueError:
-            raise IOError("Received invalid JSON")
+            raise OSError("Received invalid JSON")
 
         try:
             latency_ms = (end - start) * 1000
             return JavaStatusResponse.build(raw, latency=latency_ms)
         except KeyError as e:
-            raise IOError(f"Received invalid status response: {e!r}")
+            raise OSError(f"Received invalid status response: {e!r}")
 
     def _handle_ping_response(self, response: Connection, start: float, end: float) -> float:
         """Given a ping response buffer, validate token and compute latency."""
         if response.read_varint() != 1:
-            raise IOError("Received invalid ping response packet.")
+            raise OSError("Received invalid ping response packet.")
         received_token = response.read_long()
         if received_token != self.ping_token:
-            raise IOError(f"Received mangled ping response (expected token {self.ping_token}, got {received_token})")
+            raise OSError(f"Received mangled ping response (expected token {self.ping_token}, got {received_token})")
         return (end - start) * 1000
 
 

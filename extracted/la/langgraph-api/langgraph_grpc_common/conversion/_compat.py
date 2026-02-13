@@ -2,11 +2,11 @@ from collections.abc import Callable
 from typing import Any
 
 try:
-    from langgraph._internal._config import (  # type: ignore[unresolved-import]
+    from langgraph._internal._config import (
         ensure_config,
         patch_config,
     )
-    from langgraph._internal._constants import (  # type: ignore[unresolved-import]
+    from langgraph._internal._constants import (
         CACHE_NS_WRITES,
         CONF,
         CONFIG_KEY_CACHE,
@@ -31,23 +31,23 @@ try:
         PUSH,
         TASKS,
     )
-    from langgraph._internal._scratchpad import (  # type: ignore[unresolved-import]
+    from langgraph._internal._scratchpad import (
         PregelScratchpad,
     )
-    from langgraph._internal._typing import MISSING  # type: ignore[unresolved-import]
-    from langgraph.cache.memory import InMemoryCache  # type: ignore[unresolved-import]
-    from langgraph.pregel._algo import (  # type: ignore[unresolved-import]
+    from langgraph._internal._typing import MISSING
+    from langgraph.cache.memory import InMemoryCache
+    from langgraph.pregel._algo import (
         PregelTaskWrites,
         _proc_input,
         _scratchpad,
         local_read,
     )
-    from langgraph.pregel._call import identifier  # type: ignore[unresolved-import]
-    from langgraph.pregel._read import PregelNode  # type: ignore[unresolved-import]
+    from langgraph.pregel._call import identifier
+    from langgraph.pregel._read import PregelNode
     from langgraph.pregel.protocol import (
-        StreamProtocol,  # type: ignore[unresolved-import]
+        StreamProtocol,
     )
-    from langgraph.runtime import (  # type: ignore[unresolved-import]
+    from langgraph.runtime import (
         DEFAULT_RUNTIME,
         Runtime,
     )

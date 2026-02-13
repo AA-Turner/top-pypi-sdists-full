@@ -18,6 +18,36 @@ __docformat__ = "markdown"
 ########################################################################
 # Scalars and Enumerations
 ########################################################################
+class AccessControlScope(pycarlo.lib.types.Enum):
+    """Enumeration Choices:
+
+    * `API`None
+    * `AirflowCallbacks`None
+    * `AzureDevopsWebhook`None
+    * `CircuitBreaker`None
+    * `DatabricksMetadata`None
+    * `DatabricksWebhook`None
+    * `Global`None
+    * `MCP`None
+    * `OpenTelemetry`None
+    * `SCIM_v2`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "API",
+        "AirflowCallbacks",
+        "AzureDevopsWebhook",
+        "CircuitBreaker",
+        "DatabricksMetadata",
+        "DatabricksWebhook",
+        "Global",
+        "MCP",
+        "OpenTelemetry",
+        "SCIM_v2",
+    )
+
+
 class AccessKeyIndexEnum(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
@@ -864,7 +894,14 @@ class AuthTypeEnum(pycarlo.lib.types.Enum):
 
 
 class AuthorizationGroupSource(pycarlo.lib.types.Enum):
-    """Enumeration Choices:
+    """The source or provider of an authorization group.  Values: -
+    BUILT_IN: Group is automatically provided and managed by Monte
+    Carlo for all customers. - AUTHORIZATION_PROVIDER: Group is
+    automatically created/managed from the account's auth   provider
+    via a protocol such as SCIM. - CUSTOM: Group is defined and
+    managed by the account through the Admin UI or APIs.
+
+    Enumeration Choices:
 
     * `AUTHORIZATION_PROVIDER`: Group is automatically created/managed
       from the account's auth provider via a protocol such as SCIM.
@@ -1069,6 +1106,17 @@ class CollectionStorageModelStatus(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("ASSIGNED", "AVAILABLE", "DELETED", "READY", "UNASSIGNED")
+
+
+class ColumnConfigType(pycarlo.lib.types.Enum):
+    """Enumeration Choices:
+
+    * `CUSTOM`None
+    * `PREDEFINED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CUSTOM", "PREDEFINED")
 
 
 class ComparisonDataSourceType(pycarlo.lib.types.Enum):
@@ -3850,6 +3898,18 @@ class MonitorConfigurationStatusType(pycarlo.lib.types.Enum):
     __choices__ = ("MISCONFIGURED", "NO_STATUS", "SUCCESS")
 
 
+class MonitorExceptionActivityModelAction(pycarlo.lib.types.Enum):
+    """Enumeration Choices:
+
+    * `CREATE`: Create
+    * `DELETE`: Delete
+    * `UPDATE`: Update
+    """
+
+    __schema__ = schema
+    __choices__ = ("CREATE", "DELETE", "UPDATE")
+
+
 class MonitorLabelsMatchType(pycarlo.lib.types.Enum):
     """Used to select the logical operator for matching labels
 
@@ -4150,7 +4210,12 @@ class OpenTelemetryStorageType(pycarlo.lib.types.Enum):
 
 
 class PerformanceDashboardAccessValidationCode(pycarlo.lib.types.Enum):
-    """Performance dashboard access validation codes.
+    """Performance dashboard access validation result codes.  Values: -
+    Ok: User has access to the performance dashboard. -
+    Unsupported_Warehouse: Account has no supported warehouse
+    integration. - Admin_Disabled: Admin disabled performance
+    dashboard for domain-restricted users. - Unauthorized: User lacks
+    the required permission.
 
     Enumeration Choices:
 
@@ -4198,6 +4263,8 @@ class Permission(pycarlo.lib.types.Enum):
     * `IncidentsAccess`None
     * `IncidentsEdit`None
     * `IncidentsUpdateStatus`None
+    * `MonitorExceptionsAccess`None
+    * `MonitorExceptionsEdit`None
     * `MonitorsAccess`None
     * `MonitorsAggregates`None
     * `MonitorsDataSamplingAccess`None
@@ -4227,6 +4294,8 @@ class Permission(pycarlo.lib.types.Enum):
     * `SettingsIntegrationsEdit`None
     * `SettingsMutedDataAccess`None
     * `SettingsMutedDataEdit`None
+    * `SettingsNetworkAccess`None
+    * `SettingsNetworkEdit`None
     * `SettingsNotificationsAccess`None
     * `SettingsNotificationsEdit`None
     * `SettingsPiiFiltersEdit`None
@@ -4264,6 +4333,8 @@ class Permission(pycarlo.lib.types.Enum):
         "IncidentsAccess",
         "IncidentsEdit",
         "IncidentsUpdateStatus",
+        "MonitorExceptionsAccess",
+        "MonitorExceptionsEdit",
         "MonitorsAccess",
         "MonitorsAggregates",
         "MonitorsDataSamplingAccess",
@@ -4293,6 +4364,8 @@ class Permission(pycarlo.lib.types.Enum):
         "SettingsIntegrationsEdit",
         "SettingsMutedDataAccess",
         "SettingsMutedDataEdit",
+        "SettingsNetworkAccess",
+        "SettingsNetworkEdit",
         "SettingsNotificationsAccess",
         "SettingsNotificationsEdit",
         "SettingsPiiFiltersEdit",
@@ -4314,8 +4387,25 @@ class Permission(pycarlo.lib.types.Enum):
     )
 
 
+class PermissionActionType(pycarlo.lib.types.Enum):
+    """Type of action a permission grants.  Values: - Read: Authorizes
+    operations that involve viewing/querying (read only--no changes).
+    - Write: Authorizes operations that involve some form of
+    modification (create, update, delete, etc.)
+
+    Enumeration Choices:
+
+    * `Read`None
+    * `Write`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("Read", "Write")
+
+
 class PermissionEffect(pycarlo.lib.types.Enum):
-    """Possible effects of a policy.
+    """Possible effects of a policy.  Values: - Allow: Permission is
+    granted. - Deny: Permission is explicitly denied.
 
     Enumeration Choices:
 
@@ -4325,6 +4415,40 @@ class PermissionEffect(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("Allow", "Deny")
+
+
+class PermissionPolicyDecisionReason(pycarlo.lib.types.Enum):
+    """Reason why an applicable policy statement was or was not selected
+    as the final/effective policy.  Values: - ExactMatch: Selected
+    because it was an exact permission name match. - ActionTypeMatch:
+    Selected because the policy pattern matched with a specific action
+    type (<resource>/read or <resource>/write) - WildcardMatch:
+    Selected because the policy pattern matched with wildcard
+    (<resource>/*) - LessSpecific: Not selected because a more
+    specific match was selected. - DenyOverrode: Not selected because
+    this Allow lost to a Deny at equal specificity. - SameEffect: Not
+    selected because multiple policies had the same specificity and
+    effect, and the other was the first match found.
+
+    Enumeration Choices:
+
+    * `ActionTypeMatch`None
+    * `DenyOverrode`None
+    * `ExactMatch`None
+    * `LessSpecific`None
+    * `SameEffect`None
+    * `WildcardMatch`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "ActionTypeMatch",
+        "DenyOverrode",
+        "ExactMatch",
+        "LessSpecific",
+        "SameEffect",
+        "WildcardMatch",
+    )
 
 
 class PiiFilteringFailModeType(pycarlo.lib.types.Enum):
@@ -4386,6 +4510,30 @@ class PlatformTypeEnum(pycarlo.lib.types.Enum):
         "GENERIC",
         "SNOWFLAKE",
     )
+
+
+class PolicyMatchSpecificity(pycarlo.lib.types.Enum):
+    """The degree of specificity of the related policy match.  Values: -
+    ExactPermission: Exact permission match (e.g., 'monitors/access:
+    allow' in the policy statement matched the 'monitors/access'
+    permission). - SubResource: Matched at a nested resource level
+    (e.g., 'monitors/data-sampling/*' in the policy statement matched
+    the 'monitors/data-sampling/access' permission). - Resource:
+    Matched at a top-level resource (e.g., 'monitors/*: allow' in the
+    policy statement matched the 'monitors/access' permission). -
+    Indeterminate: Could not determine specificity due to an
+    unexpected path or other error.
+
+    Enumeration Choices:
+
+    * `ExactPermission`None
+    * `Indeterminate`None
+    * `Resource`None
+    * `SubResource`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ExactPermission", "Indeterminate", "Resource", "SubResource")
 
 
 class PowerBIAuthModeEnum(pycarlo.lib.types.Enum):
@@ -5551,6 +5699,21 @@ class TimeRangeUnit(pycarlo.lib.types.Enum):
     __choices__ = ("DAY", "MONTH", "WEEK")
 
 
+class TraceBucketSize(pycarlo.lib.types.Enum):
+    """Time bucket sizes for time series aggregation.
+
+    Enumeration Choices:
+
+    * `DAY`None
+    * `HOUR`None
+    * `MINUTE`None
+    * `WEEK`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("DAY", "HOUR", "MINUTE", "WEEK")
+
+
 class TraceFilterFieldName(pycarlo.lib.types.Enum):
     """Field names for trace filters.
 
@@ -5575,6 +5738,23 @@ class TraceFilterFieldName(pycarlo.lib.types.Enum):
         "TOTAL_TOKENS",
         "WORKFLOW",
     )
+
+
+class TraceSegmentField(pycarlo.lib.types.Enum):
+    """Fields available for segmenting time series data.      Note: Span-
+    level segmentation is intentionally not supported.      Workflows
+    and tasks are already stored as aggregated arrays in agent_traces.
+    Model is also available for segmentation.
+
+    Enumeration Choices:
+
+    * `MODEL`None
+    * `TASK`None
+    * `WORKFLOW`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("MODEL", "TASK", "WORKFLOW")
 
 
 class TraceSortDirection(pycarlo.lib.types.Enum):
@@ -5615,6 +5795,38 @@ class TraceSortField(pycarlo.lib.types.Enum):
         "TRACE_END_TIME",
         "TRACE_ID",
         "TRACE_START_TIME",
+    )
+
+
+class TraceTimeSeriesMetric(pycarlo.lib.types.Enum):
+    """Metrics available for time series queries.      Note: FAILURE_RATE
+    is not yet supported. It requires ingesting error counts
+    (root_trace_error_count, span_error_count) into TimescaleDB.
+    Currently span     status (Unset/Error/Ok) is not ingested during
+    trace ingestion.
+
+    Enumeration Choices:
+
+    * `COMPLETION_TOKENS`None
+    * `LATENCY_AVG`None
+    * `LATENCY_P50`None
+    * `LATENCY_P95`None
+    * `LATENCY_P99`None
+    * `PROMPT_TOKENS`None
+    * `TOTAL_TOKENS`None
+    * `TRACE_COUNT`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "COMPLETION_TOKENS",
+        "LATENCY_AVG",
+        "LATENCY_P50",
+        "LATENCY_P95",
+        "LATENCY_P99",
+        "PROMPT_TOKENS",
+        "TOTAL_TOKENS",
+        "TRACE_COUNT",
     )
 
 
@@ -6431,6 +6643,18 @@ class AlertsFilterInput(sgqlc.types.Input):
     """Exclude alerts that match these conditions. Exclusion criteria
     overrides inclusion criteria.
     """
+
+
+class AllowedIPEntryInput(sgqlc.types.Input):
+    """Input type for an IP allow list entry."""
+
+    __schema__ = schema
+    __field_names__ = ("value", "description")
+    value = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="value")
+    """IP address or CIDR range"""
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+    """Optional description for this entry"""
 
 
 class ApiCallReference(sgqlc.types.Input):
@@ -7990,6 +8214,7 @@ class FilterSpanUnionInput(sgqlc.types.Input):
         "comparison_operator",
         "count",
         "related_span_fields",
+        "id",
         "predicate",
         "span_field",
         "type",
@@ -8003,6 +8228,8 @@ class FilterSpanUnionInput(sgqlc.types.Input):
     related_span_fields = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(FilterSpanInput)), graphql_name="relatedSpanFields"
     )
+
+    id = sgqlc.types.Field(String, graphql_name="id")
 
     predicate = sgqlc.types.Field(
         sgqlc.types.non_null(FilterPredicateInput), graphql_name="predicate"
@@ -8180,6 +8407,52 @@ class GetExplanationRequestType(sgqlc.types.Input):
 
     end_time = sgqlc.types.Field(DateTime, graphql_name="endTime")
     """End time range. By default, current time"""
+
+
+class GetTraceTimeSeriesInput(sgqlc.types.Input):
+    """Input parameters for GetTraceTimeSeries query."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "agent_name",
+        "trace_table_mcon",
+        "start_time",
+        "end_time",
+        "bucket_size",
+        "metrics",
+        "segment_by",
+        "filters",
+    )
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Agent name to filter by"""
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+    """MCON of the trace table to query"""
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Start of time range (inclusive)"""
+
+    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
+    """End of time range (inclusive)"""
+
+    bucket_size = sgqlc.types.Field(
+        sgqlc.types.non_null(TraceBucketSize), graphql_name="bucketSize"
+    )
+    """Size of time buckets (MINUTE, HOUR, DAY, WEEK)"""
+
+    metrics = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(TraceTimeSeriesMetric))),
+        graphql_name="metrics",
+    )
+    """Metrics to include in the response"""
+
+    segment_by = sgqlc.types.Field(TraceSegmentField, graphql_name="segmentBy")
+    """Optional field to segment data by (WORKFLOW, TASK, MODEL)"""
+
+    filters = sgqlc.types.Field("TraceFiltersInput", graphql_name="filters")
+    """Optional filters to refine results"""
 
 
 class GetTracesInput(sgqlc.types.Input):
@@ -11437,10 +11710,14 @@ class FilterInterface(sgqlc.types.Interface):
 
 class FilterSpanInterface(sgqlc.types.Interface):
     __schema__ = schema
-    __field_names__ = ("type", "id")
+    __field_names__ = ("type", "id", "predicate", "span_field")
     type = sgqlc.types.Field(sgqlc.types.non_null(FilterType), graphql_name="type")
 
     id = sgqlc.types.Field(String, graphql_name="id")
+
+    predicate = sgqlc.types.Field(sgqlc.types.non_null("FilterPredicate"), graphql_name="predicate")
+
+    span_field = sgqlc.types.Field(sgqlc.types.non_null("FilterSpan"), graphql_name="spanField")
 
 
 class FilterValueInterface(sgqlc.types.Interface):
@@ -12271,6 +12548,21 @@ class AIMessageOutput(sgqlc.types.Type):
     """When streaming the results, it returns the status of the request"""
 
 
+class AccessControlItemOutput(sgqlc.types.Type):
+    """A network access control item for a given scope."""
+
+    __schema__ = schema
+    __field_names__ = ("scope", "allowed_ips")
+    scope = sgqlc.types.Field(AccessControlScope, graphql_name="scope")
+    """The access control scope"""
+
+    allowed_ips = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("AllowedIPEntryOutput"))),
+        graphql_name="allowedIps",
+    )
+    """List of allowed IP entries"""
+
+
 class AccessRequest(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -12382,7 +12674,9 @@ class Account(sgqlc.types.Type):
         "tableau_accounts",
         "use_monitor_domains",
         "enable_exception_management",
+        "enable_domain_metrics_digest",
         "validate_monitor_domains",
+        "custom_dashboard_domain_validation",
         "active_collection_regions",
         "internal_notifications",
         "can_generate_data_collector_template",
@@ -12962,8 +13256,22 @@ class Account(sgqlc.types.Type):
     )
     """Indicates whether the account has enabled exception management"""
 
+    enable_domain_metrics_digest = sgqlc.types.Field(
+        Boolean, graphql_name="enableDomainMetricsDigest"
+    )
+    """Indicates whether the account has enabled domain metrics digest
+    emails
+    """
+
     validate_monitor_domains = sgqlc.types.Field(Boolean, graphql_name="validateMonitorDomains")
     """Indicates whether the account is validating monitor domains"""
+
+    custom_dashboard_domain_validation = sgqlc.types.Field(
+        Boolean, graphql_name="customDashboardDomainValidation"
+    )
+    """When enabled, enforce domain requirement and access on custom
+    dashboards.
+    """
 
     active_collection_regions = sgqlc.types.Field(
         sgqlc.types.list_of(String), graphql_name="activeCollectionRegions"
@@ -14687,6 +14995,18 @@ class AlertsFilterDataValue(sgqlc.types.Type):
     """If this has a value, it should override the value from
     AlertsFilter
     """
+
+
+class AllowedIPEntryOutput(sgqlc.types.Type):
+    """An IP allow list entry with value and optional description."""
+
+    __schema__ = schema
+    __field_names__ = ("value", "description")
+    value = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="value")
+    """IP address or CIDR range"""
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+    """Optional description for this entry"""
 
 
 class ApiUsageLimits(sgqlc.types.Type):
@@ -16428,6 +16748,13 @@ class BulkAddMonitorTags(sgqlc.types.Type):
     success = sgqlc.types.Field(Boolean, graphql_name="success")
 
 
+class BulkCreateCommentForExceptions(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(Boolean, graphql_name="success")
+    """Whether the bulk comment creation was successful"""
+
+
 class BulkCreateOrUpdateObjectProperties(sgqlc.types.Type):
     """Create or update a list of properties (tags) for objects (e.g.
     tables, fields, etc.)
@@ -17238,6 +17565,21 @@ class CollibraPingResponse(sgqlc.types.Type):
     __field_names__ = ("ping",)
     ping = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="ping")
     """True if got response from Collibra using credentials"""
+
+
+class ColumnConfig(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("is_updatable", "type", "value_options")
+    is_updatable = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isUpdatable")
+    """Whether this column can be updated by users"""
+
+    type = sgqlc.types.Field(sgqlc.types.non_null(ColumnConfigType), graphql_name="type")
+    """Column type: predefined or custom"""
+
+    value_options = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="valueOptions"
+    )
+    """Possible values for this column. Only set for custom columns."""
 
 
 class ColumnLineage(sgqlc.types.Type):
@@ -18069,6 +18411,20 @@ class CreateDatadogIntegration(sgqlc.types.Type):
     """The integration"""
 
 
+class CreateDraftMonitorFromYamlOutput(sgqlc.types.Type):
+    """Output for createDraftMonitorFromYaml mutation."""
+
+    __schema__ = schema
+    __field_names__ = ("monitor", "errors")
+    monitor = sgqlc.types.Field("CreatedMonitor", graphql_name="monitor")
+    """Created monitor information"""
+
+    errors = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("MonitorError")), graphql_name="errors"
+    )
+    """List of errors if creation failed"""
+
+
 class CreateIntegrationKey(sgqlc.types.Type):
     """Create an integration key"""
 
@@ -18140,6 +18496,18 @@ class CreateOpsgenieIntegration(sgqlc.types.Type):
 
 class CreateOrUpdateAccountRole(sgqlc.types.Type):
     """Create or update a custom account role."""
+
+    __schema__ = schema
+    __field_names__ = ("role",)
+    role = sgqlc.types.Field("RoleOutput", graphql_name="role")
+    """The created or updated role."""
+
+
+class CreateOrUpdateAccountRoleFromDefinition(sgqlc.types.Type):
+    """Create or update a custom account role from a YAML definition.
+    Role examples at: https://docs.getmontecarlo.com/docs/iam-built-
+    in-roles
+    """
 
     __schema__ = schema
     __field_names__ = ("role",)
@@ -18858,6 +19226,26 @@ class CreateWebexIntegration(sgqlc.types.Type):
     __field_names__ = ("webex_integration",)
     webex_integration = sgqlc.types.Field("WebexIntegrationOutput", graphql_name="webexIntegration")
     """The integration that was created"""
+
+
+class CreatedMonitor(sgqlc.types.Type):
+    """Information about the created monitor."""
+
+    __schema__ = schema
+    __field_names__ = ("uuid", "monitor_type", "monitor_name", "is_draft")
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """UUID of the created monitor"""
+
+    monitor_type = sgqlc.types.Field(
+        sgqlc.types.non_null(UserDefinedMonitors), graphql_name="monitorType"
+    )
+    """Type of the monitor"""
+
+    monitor_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="monitorName")
+    """Name of the monitor"""
+
+    is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
+    """Whether the monitor is a draft"""
 
 
 class CreatorDimension(sgqlc.types.Type):
@@ -20695,10 +21083,7 @@ class DatasetEntity(sgqlc.types.Type):
 
 class DateTimeAttribute(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("is_updatable", "date_time_value")
-    is_updatable = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isUpdatable")
-    """Whether this attribute can be updated by users"""
-
+    __field_names__ = ("date_time_value",)
     date_time_value = sgqlc.types.Field(
         sgqlc.types.non_null(DateTime), graphql_name="dateTimeValue"
     )
@@ -21607,6 +21992,15 @@ class DeleteMonteCarloConfigTemplate(sgqlc.types.Type):
     __field_names__ = ("response",)
     response = sgqlc.types.Field("MonteCarloConfigTemplateDeleteResponse", graphql_name="response")
     """Response"""
+
+
+class DeleteNetworkAccessControl(sgqlc.types.Type):
+    """Delete an IP allow list for a given scope."""
+
+    __schema__ = schema
+    __field_names__ = ("deleted",)
+    deleted = sgqlc.types.Field(Boolean, graphql_name="deleted")
+    """Whether the IP allow list was deleted successfully"""
 
 
 class DeleteNotificationSetting(sgqlc.types.Type):
@@ -22764,6 +23158,69 @@ class EtlContainer(sgqlc.types.Type):
     """
 
 
+class EvaluatedPermissionPolicy(sgqlc.types.Type):
+    """A policy that was matched and evaluated when resolving a
+    permission's effect.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "groups",
+        "role_name",
+        "policy_statement_path",
+        "policy_statement_effect",
+        "selected",
+        "match_specificity",
+        "decision_reason",
+    )
+    groups = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="groups",
+    )
+
+    role_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="roleName")
+    """Name of the role that this policy statement came from."""
+
+    policy_statement_path = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="policyStatementPath"
+    )
+    """The policy statement path that matched, such as 'monitors/*' or
+    'monitors/edit'.
+    """
+
+    policy_statement_effect = sgqlc.types.Field(
+        sgqlc.types.non_null(PermissionEffect), graphql_name="policyStatementEffect"
+    )
+    """Effect of the policy (Allow/Deny)."""
+
+    selected = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="selected")
+    """Whether this policy was selected as the final effect for the
+    permission.
+    """
+
+    match_specificity = sgqlc.types.Field(
+        sgqlc.types.non_null(PolicyMatchSpecificity), graphql_name="matchSpecificity"
+    )
+    """The degree of specificity for this policy match.  Values: -
+    ExactPermission: Exact permission match (e.g., 'monitors/access:
+    allow' in the policy statement matched the 'monitors/access'
+    permission). - SubResource: Matched at a nested resource level
+    (e.g., 'monitors/data-sampling/*' in the policy statement matched
+    the 'monitors/data-sampling/access' permission). - Resource:
+    Matched at a top-level resource (e.g., 'monitors/*: allow' in the
+    policy statement matched the 'monitors/access' permission). -
+    Indeterminate: Could not determine specificity due to an
+    unexpected path or other error.
+    """
+
+    decision_reason = sgqlc.types.Field(
+        sgqlc.types.non_null("PermissionPolicyDecisionReasonOutput"), graphql_name="decisionReason"
+    )
+    """Why this policy was or was not selected as the final/effective
+    policy.
+    """
+
+
 class EventConnection(sgqlc.types.relay.Connection):
     __schema__ = schema
     __field_names__ = ("page_info", "edges")
@@ -23137,15 +23594,49 @@ class EventTypeSummary(sgqlc.types.Type):
     comparison_rule_anom = sgqlc.types.Field(Int, graphql_name="comparisonRuleAnom")
 
 
+class ExceptionActivityLogEntryConnection(sgqlc.types.relay.Connection):
+    __schema__ = schema
+    __field_names__ = ("page_info", "edges")
+    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
+    """Pagination data for this connection."""
+
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("ExceptionActivityLogEntryEdge")),
+        graphql_name="edges",
+    )
+    """Contains the nodes in this connection."""
+
+
+class ExceptionActivityLogEntryEdge(sgqlc.types.Type):
+    """A Relay edge containing a `ExceptionActivityLogEntry` and its
+    cursor.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field("ExceptionActivityLogEntry", graphql_name="node")
+    """The item at the end of the edge"""
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+    """A cursor for use in pagination"""
+
+
 class ExceptionMetadataSection(sgqlc.types.Type):
     """Data associated to each sampled row. Columns and rows can be
     matched to SampleDataSection by index.
     """
 
     __schema__ = schema
-    __field_names__ = ("columns", "rows")
+    __field_names__ = ("columns", "columns_config", "rows")
     columns = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="columns")
     """Metadata column names"""
+
+    columns_config = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(ColumnConfig)), graphql_name="columnsConfig"
+    )
+    """Configuration for each metadata column, matching the order of
+    columns.
+    """
 
     rows = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.list_of("ExceptionMetadataRowValue")), graphql_name="rows"
@@ -24716,6 +25207,87 @@ class HostingInformation(sgqlc.types.Type):
     """List of enabled configurations (primary/secondary)"""
 
 
+class IAMPermissionDefinition(sgqlc.types.Type):
+    """A permission/action that can be granted or denied on a resource."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "label",
+        "path",
+        "path_label",
+        "type",
+        "description",
+        "deprecated",
+        "deprecation_reason",
+    )
+    label = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="label")
+    """User-friendly display name (e.g., 'Access', 'Edit SSO')."""
+
+    path = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="path")
+    """Fully-qualified permission path including containing resource(s)
+    (e.g., 'monitors/edit', 'monitors/data-sampling/access'). Used in
+    policy statements to grant/deny the permission.
+    """
+
+    path_label = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="pathLabel")
+    """User-friendly display name including resource hierarchy (e.g.,
+    'Monitors → Data Sampling → Access').
+    """
+
+    type = sgqlc.types.Field(sgqlc.types.non_null(PermissionActionType), graphql_name="type")
+    """Type of action this permission grants.  Values: - Read: Authorizes
+    operations that involve viewing/querying (read only--no changes).
+    - Write: Authorizes operations that involve some form of
+    modification (create, update, delete, etc.)
+    """
+
+    description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
+    """Explains what this permission is/how it is used in the system."""
+
+    deprecated = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="deprecated")
+    """Whether or not this permission is deprecated and so should not be
+    used for new roles.
+    """
+
+    deprecation_reason = sgqlc.types.Field(String, graphql_name="deprecationReason")
+    """If deprecated, explains why and how to migrate."""
+
+
+class IAMResourceDefinition(sgqlc.types.Type):
+    """A feature/feature area in the system that can be protected with
+    permissions.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("label", "path", "description", "permissions", "sub_resources")
+    label = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="label")
+    """User-friendly display name (e.g., 'Monitors', 'PII Filters')."""
+
+    path = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="path")
+    """Fully-qualified resource path (e.g., 'settings/users', meaning the
+    Users feature under the Settings feature area). Used in policy
+    statements to grant/deny permissions for itself and any sub-
+    resources.
+    """
+
+    description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
+    """Describes the feature/feature area this resource represents."""
+
+    permissions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(IAMPermissionDefinition))),
+        graphql_name="permissions",
+    )
+    """Permissions that are defined to control access to this resource."""
+
+    sub_resources = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("IAMResourceDefinition"))),
+        graphql_name="subResources",
+    )
+    """Features/feature areas that are conceptually nested under this
+    one.
+    """
+
+
 class IgnoredRoutingRuleInfo(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("rule_uuid", "audience_label", "rule_summary")
@@ -25123,10 +25695,7 @@ class Insight(sgqlc.types.Type):
 
 class IntegerAttribute(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("is_updatable", "integer_value")
-    is_updatable = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isUpdatable")
-    """Whether this attribute can be updated by users"""
-
+    __field_names__ = ("integer_value",)
     integer_value = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="integerValue")
     """Integer value"""
 
@@ -27501,6 +28070,21 @@ class MonitorDataset(sgqlc.types.Type):
     """List of MCONs for the datasets with this name"""
 
 
+class MonitorError(sgqlc.types.Type):
+    """Error information for monitor creation failures."""
+
+    __schema__ = schema
+    __field_names__ = ("message", "field", "code")
+    message = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="message")
+    """Error message"""
+
+    field = sgqlc.types.Field(String, graphql_name="field")
+    """Field that caused the error"""
+
+    code = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="code")
+    """Error code"""
+
+
 class MonitorLabel(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("label",)
@@ -28319,6 +28903,7 @@ class Mutation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
         "bulk_update_monitor_exceptions",
+        "bulk_create_comment_for_exceptions",
         "create_or_update_custom_dashboard",
         "create_or_update_custom_dashboard_from_json",
         "delete_custom_dashboard",
@@ -28417,6 +29002,8 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_data_product_v2",
         "update_data_product_sharing",
         "toggle_data_product_monitoring",
+        "save_network_access_control",
+        "delete_network_access_control",
         "link_ms_teams_installation",
         "link_github_app_installation",
         "register_github_app_installation_request",
@@ -28505,6 +29092,7 @@ class Mutation(sgqlc.types.Type):
         "set_default_failure_audiences",
         "set_pii_filter_status",
         "update_pii_filtering_preferences",
+        "create_draft_monitor_from_yaml",
         "update_monitor_name",
         "update_monitor_description",
         "update_monitor_notes",
@@ -28640,6 +29228,7 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_auth_provisioning",
         "request_access",
         "create_or_update_account_role",
+        "create_or_update_account_role_from_definition",
         "delete_account_role",
         "create_or_update_resource",
         "match_and_create_bi_warehouse_sources",
@@ -28836,6 +29425,37 @@ class Mutation(sgqlc.types.Type):
     * `exception_ids` (`[UUID!]!`): List of exception UUIDs to update
     * `monitor_uuid` (`UUID!`): UUID of the monitor (custom rule or
       metric monitor) that the exceptions belong to.
+    """
+
+    bulk_create_comment_for_exceptions = sgqlc.types.Field(
+        BulkCreateCommentForExceptions,
+        graphql_name="bulkCreateCommentForExceptions",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "exception_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+                        graphql_name="exceptionIds",
+                        default=None,
+                    ),
+                ),
+                (
+                    "text",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="text", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Add a comment to all specified exceptions
+
+    Arguments:
+
+    * `exception_ids` (`[UUID!]!`): List of exception UUIDs to add the
+      comment to
+    * `text` (`String!`): Comment text
     """
 
     create_or_update_custom_dashboard = sgqlc.types.Field(
@@ -32295,6 +32915,61 @@ class Mutation(sgqlc.types.Type):
     * `uuid` (`UUID!`): UUID of data product to monitor
     """
 
+    save_network_access_control = sgqlc.types.Field(
+        "SaveNetworkAccessControl",
+        graphql_name="saveNetworkAccessControl",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "allowed_ips",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(
+                            sgqlc.types.list_of(sgqlc.types.non_null(AllowedIPEntryInput))
+                        ),
+                        graphql_name="allowedIps",
+                        default=None,
+                    ),
+                ),
+                (
+                    "scope",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(AccessControlScope), graphql_name="scope", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(general availability) Save (create or overwrite) an IP allow list
+    for a given scope
+
+    Arguments:
+
+    * `allowed_ips` (`[AllowedIPEntryInput!]!`): List of allowed IP
+      entries
+    * `scope` (`AccessControlScope!`): The access control scope
+    """
+
+    delete_network_access_control = sgqlc.types.Field(
+        DeleteNetworkAccessControl,
+        graphql_name="deleteNetworkAccessControl",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "scope",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(AccessControlScope), graphql_name="scope", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(general availability) Delete an IP allow list for a given scope
+
+    Arguments:
+
+    * `scope` (`AccessControlScope!`): The access control scope
+    """
+
     link_ms_teams_installation = sgqlc.types.Field(
         LinkMsTeamsInstallation,
         graphql_name="linkMsTeamsInstallation",
@@ -35634,6 +36309,31 @@ class Mutation(sgqlc.types.Type):
     * `fail_mode` (`PiiFilteringFailModeType`): Whether PII filter
       failures will allow (open) or prevent (close) data flow for this
       account.
+    """
+
+    create_draft_monitor_from_yaml = sgqlc.types.Field(
+        CreateDraftMonitorFromYamlOutput,
+        graphql_name="createDraftMonitorFromYaml",
+        args=sgqlc.types.ArgDict(
+            (
+                ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=False)),
+                (
+                    "yaml_string",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="yamlString", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create a draft monitor from YAML configuration
+
+    Arguments:
+
+    * `dry_run` (`Boolean`): If true, validate the YAML without
+      creating the monitor (default: `false`)
+    * `yaml_string` (`String!`): YAML string containing monitor
+      configuration
     """
 
     update_monitor_name = sgqlc.types.Field(
@@ -42220,16 +42920,24 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
-                    "permissions",
+                    "policy_statements",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(
                             sgqlc.types.list_of(
                                 sgqlc.types.non_null(AuthorizationPolicyStatementInput)
                             )
                         ),
-                        graphql_name="permissions",
+                        graphql_name="policyStatements",
                         default=None,
                     ),
+                ),
+                (
+                    "recommended_for",
+                    sgqlc.types.Arg(String, graphql_name="recommendedFor", default=None),
+                ),
+                (
+                    "restrictions_summary",
+                    sgqlc.types.Arg(String, graphql_name="restrictionsSummary", default=None),
                 ),
                 ("version", sgqlc.types.Arg(String, graphql_name="version", default=None)),
             )
@@ -42239,16 +42947,45 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
-    * `description` (`String`): Description of the role's
-      purpose/intended use.
+    * `description` (`String`): Description of the role's purpose and
+      intended use.
     * `label` (`String!`): UI/user-friendly display name for the role.
     * `name` (`String!`): Role name in [company-prefix]/[role-name]
       format.  '{MANAGED_ROLE_PREFIX}/' prefix is reserved for Monte
       Carlo managed roles.
-    * `permissions` (`[AuthorizationPolicyStatementInput!]!`): List of
-      permission policy statements for this role.
+    * `policy_statements` (`[AuthorizationPolicyStatementInput!]!`):
+      Authorization policy statements (path: effect) defined by this
+      role.
+    * `recommended_for` (`String`): Who this role is recommended for,
+      e.g., 'Data engineers managing pipelines'.
+    * `restrictions_summary` (`String`): Summary of what this role
+      restricts or does not allow access to.
     * `version` (`String`): Optional version string for tracking
       changes. Defaults to YYYY-MM-DD from today's date.
+    """
+
+    create_or_update_account_role_from_definition = sgqlc.types.Field(
+        CreateOrUpdateAccountRoleFromDefinition,
+        graphql_name="createOrUpdateAccountRoleFromDefinition",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "definition",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="definition", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create or update a custom account role from a YAML
+    definition.
+
+    Arguments:
+
+    * `definition` (`String!`): YAML definition of the role. Must
+      contain 'iam-role:' key with role fields. Role examples at:
+      https://docs.getmontecarlo.com/docs/iam-built-in-roles
     """
 
     delete_account_role = sgqlc.types.Field(
@@ -46529,6 +47266,7 @@ class Mutation(sgqlc.types.Type):
                         sgqlc.types.list_of(String), graphql_name="failureAudiences", default=None
                     ),
                 ),
+                ("is_draft", sgqlc.types.Arg(Boolean, graphql_name="isDraft", default=False)),
                 (
                     "monitor_type",
                     sgqlc.types.Arg(
@@ -46583,6 +47321,8 @@ class Mutation(sgqlc.types.Type):
     * `dry_run` (`Boolean`): Dry run the monitor creation or update
       and return the MaC YAML. (default: `false`)
     * `failure_audiences` (`[String]`): Failure notification audiences
+    * `is_draft` (`Boolean`): Make target a draft monitor. (default:
+      `false`)
     * `monitor_type` (`BulkMonitorTypeEnum!`): Type of bulk monitor
     * `notes` (`String`): Notes for the monitor
     * `priority` (`String`): Priority of the monitor (P1-P5)
@@ -48148,9 +48888,12 @@ class OpenTelemetryCollectorDetails(sgqlc.types.Type):
     """OpenTelemetry collector information"""
 
     __schema__ = schema
-    __field_names__ = ("task_role_arn",)
+    __field_names__ = ("task_role_arn", "s3_vpce_id")
     task_role_arn = sgqlc.types.Field(String, graphql_name="taskRoleArn")
     """OTEL Collector ECS Task Role ARN"""
+
+    s3_vpce_id = sgqlc.types.Field(String, graphql_name="s3VpceId")
+    """OTEL Collector S3 VPC Endpoint ID"""
 
 
 class OpenTelemetryDataStore(sgqlc.types.Type):
@@ -48508,6 +49251,24 @@ class PauseTableMonitor(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("table_monitor",)
     table_monitor = sgqlc.types.Field("TableMonitor", graphql_name="tableMonitor")
+
+
+class PermissionPolicyDecisionReasonOutput(sgqlc.types.Type):
+    """Reason why a policy was or was not selected as the final/effective
+    policy.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("code", "explanation")
+    code = sgqlc.types.Field(
+        sgqlc.types.non_null(PermissionPolicyDecisionReason), graphql_name="code"
+    )
+    """The decision reason code."""
+
+    explanation = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="explanation")
+    """Human-readable explanation of why this policy was or was not
+    selected.
+    """
 
 
 class PiiFilterMetricOutput(sgqlc.types.Type):
@@ -49143,6 +49904,7 @@ class Query(sgqlc.types.Type):
         "get_traces_filters",
         "get_traces_filters_data",
         "get_traces",
+        "get_trace_time_series",
         "get_table_monitor_metric",
         "get_tables_for_coverage_dashboard",
         "get_monitor_counts_by_creator",
@@ -49163,6 +49925,7 @@ class Query(sgqlc.types.Type):
         "get_platform_migration_status",
         "get_caas_collection_node_parameters",
         "get_monitor_exceptions",
+        "get_exception_activity_logs",
         "evaluate_data_source",
         "evaluate_sql_blocks",
         "generate_mc_sql",
@@ -49236,6 +49999,7 @@ class Query(sgqlc.types.Type):
         "get_data_product_dry_run_counts",
         "parse_query",
         "ping_data_collector",
+        "get_network_access_control_lists",
         "get_ms_teams_integrations",
         "get_ms_teams_channels",
         "get_github_integrations",
@@ -49494,9 +50258,12 @@ class Query(sgqlc.types.Type):
         "get_all_domains",
         "get_domain",
         "get_domains_v2",
+        "get_iamresource_definitions",
         "get_account_roles",
         "get_authorization_groups",
         "get_user_authorization",
+        "resolve_roles_permissions",
+        "resolve_groups_permissions",
         "get_authorization_provisioning",
         "get_access_request",
         "search",
@@ -49658,6 +50425,7 @@ class Query(sgqlc.types.Type):
         graphql_name="listCustomDashboards",
         args=sgqlc.types.ArgDict(
             (
+                ("search", sgqlc.types.Arg(String, graphql_name="search", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
@@ -49670,6 +50438,8 @@ class Query(sgqlc.types.Type):
 
     Arguments:
 
+    * `search` (`String`): Filter dashboards by title (case-
+      insensitive partial match)
     * `offset` (`Int`)None
     * `before` (`String`)None
     * `after` (`String`)None
@@ -49827,7 +50597,8 @@ class Query(sgqlc.types.Type):
     """
 
     get_open_telemetry_data_stores = sgqlc.types.Field(
-        sgqlc.types.list_of(OpenTelemetryDataStore), graphql_name="getOpenTelemetryDataStores"
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(OpenTelemetryDataStore))),
+        graphql_name="getOpenTelemetryDataStores",
     )
     """(experimental) List all OpenTelemetry data stores for the account"""
 
@@ -49853,7 +50624,8 @@ class Query(sgqlc.types.Type):
     """
 
     get_agent_trace_tables = sgqlc.types.Field(
-        sgqlc.types.list_of("AgentTraceTable"), graphql_name="getAgentTraceTables"
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("AgentTraceTable"))),
+        graphql_name="getAgentTraceTables",
     )
     """(experimental) Get all agent trace tables"""
 
@@ -49910,6 +50682,32 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `input` (`GetTracesInput!`)None
+    """
+
+    get_trace_time_series = sgqlc.types.Field(
+        sgqlc.types.list_of("TraceTimeSeriesType"),
+        graphql_name="getTraceTimeSeries",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GetTraceTimeSeriesInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get time series metrics for agent traces. Returns
+    time-bucketed aggregations of trace metrics like count, latency
+    percentiles, and token usage. Supports segmentation by workflow,
+    task, or model.
+
+    Arguments:
+
+    * `input` (`GetTraceTimeSeriesInput!`)None
     """
 
     get_table_monitor_metric = sgqlc.types.Field(
@@ -50448,6 +51246,67 @@ class Query(sgqlc.types.Type):
 
     * `job_execution_uuid` (`UUID!`): JobExecution to fetch the output
       sample for
+    """
+
+    get_exception_activity_logs = sgqlc.types.Field(
+        ExceptionActivityLogEntryConnection,
+        graphql_name="getExceptionActivityLogs",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "exception_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="exceptionId", default=None
+                    ),
+                ),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+                (
+                    "attribute_name",
+                    sgqlc.types.Arg(String, graphql_name="attributeName", default=None),
+                ),
+                ("actor_email", sgqlc.types.Arg(String, graphql_name="actorEmail", default=None)),
+                (
+                    "created_time__gte",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdTime_Gte", default=None),
+                ),
+                (
+                    "created_time__lte",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdTime_Lte", default=None),
+                ),
+                (
+                    "created_time__gt",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdTime_Gt", default=None),
+                ),
+                (
+                    "created_time__lt",
+                    sgqlc.types.Arg(DateTime, graphql_name="createdTime_Lt", default=None),
+                ),
+                ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
+            )
+        ),
+    )
+    """(experimental) Get activity logs for an exception
+
+    Arguments:
+
+    * `exception_id` (`UUID!`): UUID of the exception to fetch
+      activity logs for
+    * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    * `attribute_name` (`String`)None
+    * `actor_email` (`String`)None
+    * `created_time__gte` (`DateTime`)None
+    * `created_time__lte` (`DateTime`)None
+    * `created_time__gt` (`DateTime`)None
+    * `created_time__lt` (`DateTime`)None
+    * `order_by` (`String`): Ordering
     """
 
     evaluate_data_source = sgqlc.types.Field(
@@ -52472,6 +53331,14 @@ class Query(sgqlc.types.Type):
       ping.
     * `trace_id` (`UUID!`): A unique identifier for correlating the
       data collector ping.
+    """
+
+    get_network_access_control_lists = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AccessControlItemOutput)),
+        graphql_name="getNetworkAccessControlLists",
+    )
+    """(general availability) List all network access control (IP allow
+    list) entries for the account
     """
 
     get_ms_teams_integrations = sgqlc.types.Field(
@@ -62939,6 +63806,14 @@ class Query(sgqlc.types.Type):
       for descending)
     """
 
+    get_iamresource_definitions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(IAMResourceDefinition))),
+        graphql_name="getIAMResourceDefinitions",
+    )
+    """(experimental) Get all IAM resources and their permissions defined
+    in the system.
+    """
+
     get_account_roles = sgqlc.types.Field(
         sgqlc.types.list_of("RoleOutput"), graphql_name="getAccountRoles"
     )
@@ -62950,9 +63825,75 @@ class Query(sgqlc.types.Type):
     """Get authorization group list for the user's account."""
 
     get_user_authorization = sgqlc.types.Field(
-        "UserAuthorizationOutput", graphql_name="getUserAuthorization"
+        sgqlc.types.non_null("UserAuthorizationOutput"),
+        graphql_name="getUserAuthorization",
+        args=sgqlc.types.ArgDict(
+            (("user_id", sgqlc.types.Arg(UUID, graphql_name="userId", default=None)),)
+        ),
     )
-    """Get resolved authorization info for the user."""
+    """Get resolved authorization info for a user. Pass the userId to get
+    authorization for another user (requires settings/users/access
+    permission). If omitted, returns current user's authorization.
+
+    Arguments:
+
+    * `user_id` (`UUID`): Optional user ID to resolve for another user
+      than the current user. If omitted, returns current user's
+      authorization.
+    """
+
+    resolve_roles_permissions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("UserPermission"))),
+        graphql_name="resolveRolesPermissions",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "roles",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="roles",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Resolve combined permissions for a list of roles.
+    Use to evaluate what permissions a set of roles would grant to
+    determine what the effective permissions would be if those roles
+    were added to a group.
+
+    Arguments:
+
+    * `roles` (`[String!]!`): List of role names to resolve
+      permissions for.
+    """
+
+    resolve_groups_permissions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("UserPermission"))),
+        graphql_name="resolveGroupsPermissions",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "groups",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="groups",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Resolve combined permissions for a list of groups,
+    including domain restrictions. Use to evaluate what permissions
+    would be granted to a user if added to the specified groups.
+
+    Arguments:
+
+    * `groups` (`[String!]!`): List of group names to resolve
+      permissions for.
+    """
 
     get_authorization_provisioning = sgqlc.types.Field(
         AuthorizationProvisioningOutput, graphql_name="getAuthorizationProvisioning"
@@ -63231,6 +64172,18 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.list_of(UUID), graphql_name="dataProductIds", default=None
                     ),
                 ),
+                (
+                    "exclude_standard_prefix_suffix_set",
+                    sgqlc.types.Arg(
+                        Boolean, graphql_name="excludeStandardPrefixSuffixSet", default=None
+                    ),
+                ),
+                (
+                    "mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="mcons", default=None
+                    ),
+                ),
             )
         ),
     )
@@ -63253,6 +64206,9 @@ class Query(sgqlc.types.Type):
     * `domain_ids` (`[UUID]`): Filter by domain UUIDs
     * `tags` (`[TagKeyValuePairInput]`)None
     * `data_product_ids` (`[UUID]`)None
+    * `exclude_standard_prefix_suffix_set` (`Boolean`): Exclude tmp
+      and similar prefix/suffix table and schema names
+    * `mcons` (`[String]`): Filter by mcons
     """
 
     get_object = sgqlc.types.Field(
@@ -68627,6 +69583,8 @@ class RcaJob(sgqlc.types.Type):
         "status",
         "execution_stats",
         "job_execution_uuid",
+        "table_mcons",
+        "all_entities_resolved",
         "status_reason",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
@@ -68645,6 +69603,12 @@ class RcaJob(sgqlc.types.Type):
     execution_stats = sgqlc.types.Field(JSONString, graphql_name="executionStats")
 
     job_execution_uuid = sgqlc.types.Field(UUID, graphql_name="jobExecutionUuid")
+
+    table_mcons = sgqlc.types.Field(JSONString, graphql_name="tableMcons")
+    """Table MCONs at job run time; null means no restriction"""
+
+    all_entities_resolved = sgqlc.types.Field(Boolean, graphql_name="allEntitiesResolved")
+    """Whether all sampling entities resolved at job run time;"""
 
     status_reason = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(EventRcaStatusModelType))),
@@ -68928,8 +69892,8 @@ class ResumeMonitorBootstrap(sgqlc.types.Type):
 
 
 class RoleOutput(sgqlc.types.Type):
-    """A named set of permission policy statements that can be assigned
-    to authorization groups.
+    """A named set of authorization policy statements that can be
+    assigned to authorization groups.
     """
 
     __schema__ = schema
@@ -68939,40 +69903,57 @@ class RoleOutput(sgqlc.types.Type):
         "is_managed",
         "label",
         "description",
-        "permissions",
+        "restrictions_summary",
+        "recommended_for",
+        "policy_statements",
+        "definition",
         "authorization_groups",
     )
-    name = sgqlc.types.Field(String, graphql_name="name")
-    """Unique, human-readable name name with format of [company-
-    prefix]/[role-name]
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Unique, human-readable name with format of [company-prefix]/[role-
+    name]
     """
 
-    version = sgqlc.types.Field(String, graphql_name="version")
+    version = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="version")
     """Version string for the role. Typically YYYY-MM-DD format."""
 
-    is_managed = sgqlc.types.Field(Boolean, graphql_name="isManaged")
+    is_managed = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isManaged")
     """Indicates if this role is managed by Monte Carlo. If so, it may
     not be modified by clients.
     """
 
-    label = sgqlc.types.Field(String, graphql_name="label")
+    label = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="label")
     """UI/user-friendly display name, ex: Editor"""
 
-    description = sgqlc.types.Field(String, graphql_name="description")
-    """Description/help text to help users understand the purpose of the
-    role
+    description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
+    """Description of the role's purpose and intended use."""
+
+    restrictions_summary = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="restrictionsSummary"
+    )
+    """Summary of what this role restricts or does not allow access to."""
+
+    recommended_for = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="recommendedFor")
+    """Who this role is recommended for, e.g., 'Data engineers managing
+    pipelines'.
     """
 
-    permissions = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(AuthorizationPolicyStatement)),
-        graphql_name="permissions",
+    policy_statements = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(AuthorizationPolicyStatement))
+        ),
+        graphql_name="policyStatements",
     )
-    """(experimental) List of permission policy statements defined for
-    the role.
+    """(experimental) Authorization policy statements (path: effect)
+    defined by this role.
     """
+
+    definition = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="definition")
+    """(experimental) YAML definition of the role."""
 
     authorization_groups = sgqlc.types.Field(
-        sgqlc.types.list_of(AuthorizationGroupOutput), graphql_name="authorizationGroups"
+        sgqlc.types.non_null(sgqlc.types.list_of(AuthorizationGroupOutput)),
+        graphql_name="authorizationGroups",
     )
     """(experimental) List of the authorization groups that this role is
     assigned to.
@@ -69244,6 +70225,15 @@ class SaveEventOnboardingData(sgqlc.types.Type):
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
     """Indicates whether the event onboarding data was saved successfully"""
+
+
+class SaveNetworkAccessControl(sgqlc.types.Type):
+    """Save (create or overwrite) an IP allow list for a given scope."""
+
+    __schema__ = schema
+    __field_names__ = ("saved",)
+    saved = sgqlc.types.Field(Boolean, graphql_name="saved")
+    """Whether the IP allow list was saved successfully"""
 
 
 class SaveSlackCredentialsMutation(sgqlc.types.Type):
@@ -71020,10 +72010,7 @@ class StreamingSystemWithClusters(sgqlc.types.Type):
 
 class StringAttribute(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("is_updatable", "string_value")
-    is_updatable = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isUpdatable")
-    """Whether this attribute can be updated by users"""
-
+    __field_names__ = ("string_value",)
     string_value = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="stringValue")
     """String value"""
 
@@ -74047,6 +75034,39 @@ class TracePageInfo(sgqlc.types.Type):
     """Cursor of the last edge"""
 
 
+class TraceTimeSeriesBucketType(sgqlc.types.Type):
+    """A single time bucket in a time series."""
+
+    __schema__ = schema
+    __field_names__ = ("timestamp", "value")
+    timestamp = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="timestamp")
+    """Start of the time bucket"""
+
+    value = sgqlc.types.Field(Float, graphql_name="value")
+    """Metric value for this bucket (null if no data)"""
+
+
+class TraceTimeSeriesType(sgqlc.types.Type):
+    """Time series data for a single metric.  When segmentBy is used,
+    multiple TraceTimeSeries objects are returned per metric, one for
+    each unique segment value (e.g., one per workflow name).
+    """
+
+    __schema__ = schema
+    __field_names__ = ("metric", "buckets", "segment")
+    metric = sgqlc.types.Field(sgqlc.types.non_null(TraceTimeSeriesMetric), graphql_name="metric")
+    """The metric this series represents"""
+
+    buckets = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(TraceTimeSeriesBucketType))),
+        graphql_name="buckets",
+    )
+    """Time-bucketed data points"""
+
+    segment = sgqlc.types.Field(String, graphql_name="segment")
+    """Segment value (e.g., workflow name) if segmentBy was requested"""
+
+
 class TrackTablePayload(sgqlc.types.Type):
     """Add table to account's dashboard"""
 
@@ -75287,21 +76307,15 @@ class UsageAlertConfigOutput(sgqlc.types.Type):
 
 class UserAttribute(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("user_email", "user_id", "first_name", "last_name", "is_updatable")
-    user_email = sgqlc.types.Field(String, graphql_name="userEmail")
+    __field_names__ = ("user_email", "first_name", "last_name")
+    user_email = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="userEmail")
     """Email of the user."""
-
-    user_id = sgqlc.types.Field(String, graphql_name="userId")
-    """UUID of the user."""
 
     first_name = sgqlc.types.Field(String, graphql_name="firstName")
     """First name of the user."""
 
     last_name = sgqlc.types.Field(String, graphql_name="lastName")
     """Last name of the user."""
-
-    is_updatable = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isUpdatable")
-    """Whether this attribute can be updated by users"""
 
 
 class UserAuthorizationOutput(sgqlc.types.Type):
@@ -75310,6 +76324,7 @@ class UserAuthorizationOutput(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
         "groups",
+        "roles",
         "domain_restrictions",
         "permissions",
         "performance_dashboard_access",
@@ -75317,6 +76332,9 @@ class UserAuthorizationOutput(sgqlc.types.Type):
     )
     groups = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="groups")
     """List of the groups this user is a member of."""
+
+    roles = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="roles")
+    """List of roles assigned to this user via their groups"""
 
     domain_restrictions = sgqlc.types.Field(
         sgqlc.types.list_of("DomainRestriction"), graphql_name="domainRestrictions"
@@ -75518,7 +76536,7 @@ class UserPermission(sgqlc.types.Type):
     """An individual permission policy for a user."""
 
     __schema__ = schema
-    __field_names__ = ("permission", "effect", "domain_restriction_ids")
+    __field_names__ = ("permission", "effect", "domain_restriction_ids", "applicable_policies")
     permission = sgqlc.types.Field(Permission, graphql_name="permission")
     """Enum name of permission this policy applies to."""
 
@@ -75531,6 +76549,11 @@ class UserPermission(sgqlc.types.Type):
     """If permission allowed and user is restricted, union of domain IDs
     for which user has this permission.
     """
+
+    applicable_policies = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(EvaluatedPermissionPolicy))),
+        graphql_name="applicablePolicies",
+    )
 
 
 class UserSettingsConnection(sgqlc.types.relay.Connection):
@@ -79126,6 +80149,7 @@ class BulkMonitor(sgqlc.types.Type, Node):
         "notes",
         "priority",
         "is_paused",
+        "is_draft",
         "warehouse_uuid",
         "monitor_name",
         "domain_restrictions",
@@ -79175,6 +80199,9 @@ class BulkMonitor(sgqlc.types.Type, Node):
 
     is_paused = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isPaused")
     """Is this monitor paused?"""
+
+    is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
+    """Is this a draft monitor?"""
 
     warehouse_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="warehouseUuid")
     """Warehouse where this bulk monitor operates"""
@@ -79690,6 +80717,7 @@ class CustomRule(sgqlc.types.Type, Node):
         "comparisons",
         "is_paused",
         "is_draft",
+        "is_tracking_only",
         "rule_type",
         "warehouse_uuid",
         "interval_minutes",
@@ -79817,6 +80845,11 @@ class CustomRule(sgqlc.types.Type, Node):
 
     is_draft = sgqlc.types.Field(Boolean, graphql_name="isDraft")
     """True if rule is a draft"""
+
+    is_tracking_only = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="isTrackingOnly"
+    )
+    """Is this a tracking-only monitor?"""
 
     rule_type = sgqlc.types.Field(CustomRuleModelRuleType, graphql_name="ruleType")
 
@@ -82217,6 +83250,7 @@ class DomainRestriction(sgqlc.types.Type, Node):
         "obj_assignment_update_time",
         "warehouses_using_sampling",
         "data_products_created_in",
+        "custom_dashboards",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
 
@@ -82292,6 +83326,31 @@ class DomainRestriction(sgqlc.types.Type, Node):
         ),
     )
     """Related data product created in a domain
+
+    Arguments:
+
+    * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+    custom_dashboards = sgqlc.types.Field(
+        sgqlc.types.non_null(CustomDashboardConnection),
+        graphql_name="customDashboards",
+        args=sgqlc.types.ArgDict(
+            (
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """Domain this dashboard belongs to. Optional when not domain-
+    restricted.
 
     Arguments:
 
@@ -82611,6 +83670,38 @@ class EventDetectorFeedback(sgqlc.types.Type, Node):
     time_series_uuid = sgqlc.types.Field(UUID, graphql_name="timeSeriesUuid")
 
 
+class ExceptionActivityLogEntry(sgqlc.types.Type, Node):
+    __schema__ = schema
+    __field_names__ = (
+        "created_time",
+        "uuid",
+        "action",
+        "attribute_name",
+        "old_value",
+        "new_value",
+        "actor",
+    )
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+
+    action = sgqlc.types.Field(
+        sgqlc.types.non_null(MonitorExceptionActivityModelAction), graphql_name="action"
+    )
+
+    attribute_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="attributeName")
+    """Name of the attribute that changed"""
+
+    old_value = sgqlc.types.Field(GenericScalar, graphql_name="oldValue")
+    """Previous value of the attribute"""
+
+    new_value = sgqlc.types.Field(GenericScalar, graphql_name="newValue")
+    """New value of the attribute"""
+
+    actor = sgqlc.types.Field(UserAttribute, graphql_name="actor")
+    """User who performed the action"""
+
+
 class FailedDataRca(sgqlc.types.Type, IBaseRca, IQueryRca):
     __schema__ = schema
     __field_names__ = ("error_code", "error_msg")
@@ -82650,11 +83741,7 @@ class FilterGroup(sgqlc.types.Type, FilterInterface):
 
 class FilterSpanOccurrence(sgqlc.types.Type, FilterSpanInterface):
     __schema__ = schema
-    __field_names__ = ("predicate", "span_field", "comparison_operator", "count")
-    predicate = sgqlc.types.Field(sgqlc.types.non_null(FilterPredicate), graphql_name="predicate")
-
-    span_field = sgqlc.types.Field(sgqlc.types.non_null(FilterSpan), graphql_name="spanField")
-
+    __field_names__ = ("comparison_operator", "count")
     comparison_operator = sgqlc.types.Field(
         sgqlc.types.non_null(FilterSpanComparisonOperator), graphql_name="comparisonOperator"
     )
@@ -82664,11 +83751,7 @@ class FilterSpanOccurrence(sgqlc.types.Type, FilterSpanInterface):
 
 class FilterSpanRelation(sgqlc.types.Type, FilterSpanInterface):
     __schema__ = schema
-    __field_names__ = ("predicate", "span_field", "related_span_fields")
-    predicate = sgqlc.types.Field(sgqlc.types.non_null(FilterPredicate), graphql_name="predicate")
-
-    span_field = sgqlc.types.Field(sgqlc.types.non_null(FilterSpan), graphql_name="spanField")
-
+    __field_names__ = ("related_span_fields",)
     related_span_fields = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(FilterSpan))),
         graphql_name="relatedSpanFields",
@@ -83324,6 +84407,7 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "comparisons",
         "is_paused",
         "is_draft",
+        "is_tracking_only",
         "type",
         "warehouse_uuid",
         "controlled_by",
@@ -83434,6 +84518,11 @@ class MetricMonitoring(sgqlc.types.Type, Node):
 
     is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
     """Is this a draft monitor?"""
+
+    is_tracking_only = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="isTrackingOnly"
+    )
+    """Is this a tracking-only monitor?"""
 
     type = sgqlc.types.Field(sgqlc.types.non_null(MetricMonitoringModelType), graphql_name="type")
 
@@ -86177,6 +87266,7 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
         "snooze_until_time",
         "is_paused",
         "is_draft",
+        "is_tracking_only",
         "where_condition",
         "use_partition_clause",
         "namespace",
@@ -86306,6 +87396,10 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
     is_paused = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isPaused")
 
     is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
+
+    is_tracking_only = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="isTrackingOnly"
+    )
 
     where_condition = sgqlc.types.Field(String, graphql_name="whereCondition")
 

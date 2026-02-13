@@ -205,6 +205,83 @@ class TestCatalog(unittest.TestCase):
             glue_api=Mock(),
         )
 
+    def get_test_catalog_with_datazone(self):
+        return Catalog(
+            name="test_catalog",
+            id="0123456789",
+            type="test_type",
+            spark_catalog_name="parent_catalog-test_catalog",
+            resource_arn="glue:catalog:1234",
+            federated_catalog={"ConnectionName": "aws:s3tables"},
+            domain_id="dzd_1234",
+            project_id="abc123",
+            glue_api=Mock(),
+            datazone_api=Mock(),
+        )
+
+    def test_get_catalog_databases_with_default_database_first(self):
+        test_catalog = self.get_test_catalog_with_datazone()
+        get_databases_paginator = _create_mock_paginator(GET_DATABASES_PAGINATED_RESPONSE)
+        test_catalog._glue_api.get_paginator = Mock()
+        test_catalog._glue_api.get_paginator.side_effect = lambda x: get_databases_paginator
+
+        # Mock DataZone API responses for default database
+        test_catalog._datazone_api.list_environments.return_value = {
+            "items": [{"id": "env1", "name": "database-env"}]
+        }
+        test_catalog._datazone_api.get_environment.return_value = {
+            "provisionedResources": [{"name": "glueDBName", "value": "bogus_database_01"}]
+        }
+
+        catalog_dbs: List[Database] = test_catalog.databases
+
+        assert len(catalog_dbs) == 3
+        assert catalog_dbs[0].name == "bogus_database_01"  # Default database should be first
+
+    def test_get_catalog_databases_no_datazone_api(self):
+        test_catalog = self.get_test_catalog()  # No DataZone API
+        get_databases_paginator = _create_mock_paginator(GET_DATABASES_PAGINATED_RESPONSE)
+        test_catalog._glue_api.get_paginator = Mock()
+        test_catalog._glue_api.get_paginator.side_effect = lambda x: get_databases_paginator
+
+        catalog_dbs: List[Database] = test_catalog.databases
+
+        assert len(catalog_dbs) == 3
+        # No reordering should happen without DataZone API
+
+    def test_get_catalog_databases_datazone_expected_exception(self):
+        test_catalog = self.get_test_catalog_with_datazone()
+        get_databases_paginator = _create_mock_paginator(GET_DATABASES_PAGINATED_RESPONSE)
+        test_catalog._glue_api.get_paginator = Mock()
+        test_catalog._glue_api.get_paginator.side_effect = lambda x: get_databases_paginator
+
+        # Mock DataZone API to throw expected ClientError
+        test_catalog._datazone_api.list_environments.side_effect = ClientError(
+            error_response={"Error": {"Code": "ResourceNotFoundException"}},
+            operation_name="ListEnvironments",
+        )
+
+        catalog_dbs: List[Database] = test_catalog.databases
+
+        assert len(catalog_dbs) == 3
+        # Should handle expected exception gracefully and return databases without reordering
+
+    def test_get_catalog_databases_datazone_unexpected_exception(self):
+        test_catalog = self.get_test_catalog_with_datazone()
+        get_databases_paginator = _create_mock_paginator(GET_DATABASES_PAGINATED_RESPONSE)
+        test_catalog._glue_api.get_paginator = Mock()
+        test_catalog._glue_api.get_paginator.side_effect = lambda x: get_databases_paginator
+
+        # Mock DataZone API to throw unexpected ClientError
+        test_catalog._datazone_api.list_environments.side_effect = ClientError(
+            error_response={"Error": {"Code": "ThrottlingException"}},
+            operation_name="ListEnvironments",
+        )
+
+        with self.assertRaises(RuntimeError) as context:
+            test_catalog.databases
+            self.assertTrue("Failed to retrieve project default database" in str(context.exception))
+
     def test_get_catalog_databases_paginator_throws_client_error(self):
         test_catalog = self.get_test_catalog()
         test_catalog._glue_api.get_paginator = Mock()

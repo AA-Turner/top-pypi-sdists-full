@@ -61,8 +61,8 @@ def rcache(**kwargs):
 
     return cached(
         cache=RedisCache,
+        noself=True,  # 忽略 self
         **connection_kwargs,
-
         **kwargs
     )
 

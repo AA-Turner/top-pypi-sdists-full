@@ -58,9 +58,11 @@ extensions += ['sphinx.ext.extlinks']
 extensions += ['jaraco.tidelift']
 nitpick_ignore += [
     ("py:class", "FileDescriptorOrPath"),
-    ("py:class", "_GetItemIterable"),
     ("py:class", "_SupportsDecode"),
     ("py:class", "_TranslateTable"),
+    ("py:class", "SupportsGetItem"),
+    ("py:class", "SupportsNext"),
+    ("py:class", "SupportsIter"),
     ("py:class", "itertools.chain"),
     ("py:class", "jaraco.text._SupportsDecode"),
     ("py:class", "jaraco.text._T"),

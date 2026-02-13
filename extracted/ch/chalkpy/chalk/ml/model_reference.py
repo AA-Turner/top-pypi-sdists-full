@@ -105,7 +105,9 @@ class ModelReference:
         # Only load model if the metadata file exists, which only happens in deployed environments
         registry_metadata_file = get_registry_metadata_file()
         if registry_metadata_file is not None and os.path.exists(registry_metadata_file):
-            model_artifact_metadata = get_model_spec(model_name=name, identifier=identifier)
+            model_artifact_metadata = get_model_spec(
+                model_name=name, identifier=identifier, registry_metadata_file=registry_metadata_file
+            )
 
             mv = ModelVersion(
                 filename=model_artifact_metadata.model_path,

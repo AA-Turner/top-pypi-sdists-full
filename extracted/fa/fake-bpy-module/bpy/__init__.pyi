@@ -1,7 +1,7 @@
 """
 This module is used for all Blender/Python access.
 
-```../examples/bpy.data.py```
+```../examples/bpy.data.0.py```
 
 """
 

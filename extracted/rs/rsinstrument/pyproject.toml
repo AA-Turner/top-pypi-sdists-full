@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "RsInstrument"
-version = "1.122.0"
+version = "1.124.0"
 license="MIT"
 description="VISA or Socket Communication Module for Rohde & Schwarz Instruments"
 readme = {file = "README.rst", content-type = "text/x-rst"}
 keywords = ["RsInstrument", "VISA", "RohdeSchwarz"]
 authors = [{name = "Rohde & Schwarz GmbH & Co. KG"}]
 maintainers = [{name = "Rohde & Schwarz GmbH & Co. KG"}]
-	
+
 requires-python = ">= 3.10"
 dependencies = [
 		"pyvisa>=1.13.0",
@@ -41,9 +41,9 @@ classifiers = [
 [tool.setuptools]
 # ...
 package-dir = {"RsInstrument" = "RsInstrument"}
-	
+
 [project.optional-dependencies]
-mcp = ["mcp"]
+mcp = ["fastmcp>=2.14.0"]
 
 [project.scripts]
 RsInstrument-mcp = "RsInstrument.mcp:main"

@@ -8,9 +8,8 @@ from typing import Iterator
 
 import pytest
 
-from tests.integ.utils import random_string
-
 from snowflake.core.stage import Stage, StageResource
+from tests.integ.utils import random_string
 
 
 @pytest.fixture(scope="module")

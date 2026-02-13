@@ -3,7 +3,6 @@ from adam.apps import Apps
 from adam.commands.command import Command
 from adam.config import Config
 from adam.repl_state import ReplState
-from adam.utils_log import log
 from adam.utils_tabulize import tabulize
 
 class ShowAppActions(Command):
@@ -29,26 +28,26 @@ class ShowAppActions(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            actions = []
-            for typ in Apps().app_types():
-                actions.extend(typ.actions)
+            with self.context(args) as (_, ctx):
+                actions = []
+                for typ in Apps().app_types():
+                    actions.extend(typ.actions)
 
-            ctx = self.context()
-            lines = tabulize(actions,
-                             lambda a: str(a),
-                             header='ACTION,ARGS,DESCRIPTION',
-                             separator=',',
-                             ctx=ctx)
-            ctx.log()
+                lines = tabulize(actions,
+                                lambda a: str(a),
+                                header='ACTION,ARGS,DESCRIPTION',
+                                separator=',',
+                                ctx=ctx)
+                ctx.log()
 
-            app_session: AppSession = AppSession.create(state.app_env or 'c3', state.app_app or 'c3')
-            endpoint = Config().get('app.console-endpoint', 'https://{host}/{env}/{app}/static/console/index.html')
-            endpoint = endpoint.replace('{host}', app_session.host).replace('{env}', app_session.env).replace('{app}', state.app_app or 'c3')
-            tabulize([f'CONSOLE:,{endpoint}'],
-                     separator=',',
-                     ctx=ctx)
+                app_session: AppSession = AppSession.create(state.app_env or 'c3', state.app_app or 'c3')
+                endpoint = Config().get('app.console-endpoint', 'https://{host}/{env}/{app}/static/console/index.html')
+                endpoint = endpoint.replace('{host}', app_session.host).replace('{env}', app_session.env).replace('{app}', state.app_app or 'c3')
+                tabulize([f'CONSOLE:,{endpoint}'],
+                         separator=',',
+                         ctx=ctx)
 
-            return lines
+                return lines
 
     def completion(self, state: ReplState):
         return super().completion(state)

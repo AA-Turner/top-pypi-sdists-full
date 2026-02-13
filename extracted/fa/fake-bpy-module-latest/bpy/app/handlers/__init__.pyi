@@ -6,36 +6,7 @@ This module contains callback lists
 
 This script shows the most simple example of adding a handler.
 
-```../examples/bpy.app.handlers.py```
-
-
---------------------
-
-By default handlers are freed when loading new files, in some cases you may
-want the handler stay running across multiple files (when the handler is
-part of an add-on for example).
-
-For this the bpy.app.handlers.persistent decorator needs to be used.
-
-```../examples/bpy.app.handlers.1.py```
-
-
---------------------
-
-Altering data from handlers should be done carefully. While rendering the
-frame_change_pre
-
- and frame_change_post
-
- handlers are called from one
-thread and the viewport updates from a different thread. If the handler changes
-data that is accessed by the viewport, this can cause a crash of Blender. In
-such cases, lock the interface (Render → Lock Interface or
-bpy.types.RenderSettings.use_lock_interface) before starting a render.
-
-Below is an example of a mesh that is altered from a handler:
-
-```../examples/bpy.app.handlers.2.py```
+```../examples/bpy.app.handlers.0.py```
 
 """
 
@@ -120,7 +91,7 @@ load_post_fail: list[collections.abc.Callable[[bpy.types.Scene], None]]
 """
 
 load_pre: list[collections.abc.Callable[[bpy.types.Scene], None]]
-""" on loading a new blend file (before).Accepts one argument: the file being loaded, an empty string for the startup-file.
+""" on loading a new blend file (before). Accepts one argument: the file being loaded, an empty string for the startup-file.
 """
 
 object_bake_cancel: list[collections.abc.Callable[[bpy.types.Scene], None]]

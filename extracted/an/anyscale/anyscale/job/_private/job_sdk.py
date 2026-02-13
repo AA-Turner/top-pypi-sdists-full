@@ -1,5 +1,6 @@
 from typing import Any, cast, ClassVar, Dict, List, Optional, Union
 import uuid
+import warnings
 
 from anyscale._private.models.model_base import ResultIterator
 from anyscale._private.workload import WorkloadSDK
@@ -221,7 +222,12 @@ class PrivateJobSDK(WorkloadSDK):
         return name
 
     def job_config_to_internal_prod_job_conf(
-        self, config: JobConfig, name: str, cloud_id: str, compute_config_id: str,
+        self,
+        config: JobConfig,
+        name: str,
+        cloud_id: str,
+        compute_config_id: str,
+        connection_ids: Optional[List[str]] = None,
     ) -> ProductionJobConfig:
         build_id = None
         if config.containerfile is not None:
@@ -278,6 +284,7 @@ class PrivateJobSDK(WorkloadSDK):
             compute_config_id=compute_config_id,
             max_retries=config.max_retries,
             timeout_s=config.timeout_s,
+            connection_ids=connection_ids,
         )
 
     def create_job_queue_config(
@@ -311,6 +318,17 @@ class PrivateJobSDK(WorkloadSDK):
         return job_queue_config
 
     def submit(self, config: JobConfig) -> str:
+        # Add warning for max_retries default change
+        if config.max_retries is None:
+            warnings.warn(
+                "The 'max_retries' option was not specified. The current default is 1, "
+                "but this will change to 0 in a future release. To ensure consistent behavior, "
+                "explicitly set 'max_retries' to your desired value.",
+                UserWarning,
+                stacklevel=3,  # Points to user's anyscale.job.submit() call
+            )
+            config = config.options(max_retries=1)  # Apply current default
+
         name = config.name or self.get_default_name()
         compute_config_id, cloud_id = self.resolve_compute_config_and_cloud_id(
             compute_config=config.compute_config, cloud=config.cloud
@@ -320,11 +338,15 @@ class PrivateJobSDK(WorkloadSDK):
             parent_cloud_id=cloud_id, name=config.project
         )
 
+        # Resolve connection names to IDs
+        connection_ids = self.resolve_connection_ids(config.connections)
+
         prod_job_config = self.job_config_to_internal_prod_job_conf(
             config=config,
             name=name,
             cloud_id=cloud_id,
             compute_config_id=compute_config_id,
+            connection_ids=connection_ids,
         )
 
         job_queue_config: Optional[CreateJobQueueConfig] = None
@@ -374,8 +396,13 @@ class PrivateJobSDK(WorkloadSDK):
         return JobRunStatus(name=run.name, state=state)
 
     def prod_job_config_to_job_config(
-        self, prod_job_config: ProductionJobConfig, name: str, project: str,
+        self,
+        prod_job_config: ProductionJobConfig,
+        name: str,
+        project: str,
+        decorated_connections: Optional[List] = None,
     ) -> JobConfig:
+        """Convert ProductionJobConfig to user-facing JobConfig."""
         runtime_env_config: RayRuntimeEnvConfig = prod_job_config.runtime_env if prod_job_config else None
         compute_config = self.get_user_facing_compute_config(
             prod_job_config.compute_config_id
@@ -389,6 +416,16 @@ class PrivateJobSDK(WorkloadSDK):
             )
             if image_uri_obj:
                 image_uri = image_uri_obj.image_uri
+
+        # Use pre-fetched decorated connections if available, otherwise resolve from IDs
+        if decorated_connections is not None:
+            connections = self.resolve_decorated_connections_to_configs(
+                decorated_connections
+            )
+        else:
+            connections = self.resolve_connection_ids_to_configs(
+                prod_job_config.connection_ids
+            )
 
         return JobConfig(
             name=name,
@@ -406,8 +443,10 @@ class PrivateJobSDK(WorkloadSDK):
             else None,
             max_retries=prod_job_config.max_retries
             if prod_job_config.max_retries is not None
-            else -1,
+            and prod_job_config.max_retries >= 0
+            else None,
             project=project,
+            connections=connections,
         )
 
     def _job_model_to_status(self, model: ProductionJob, runs: List[Job]) -> JobStatus:
@@ -459,7 +498,10 @@ class PrivateJobSDK(WorkloadSDK):
 
         prod_job_config: ProductionJobConfig = decorated_job.config
         config = self.prod_job_config_to_job_config(
-            prod_job_config=prod_job_config, name=decorated_job.name, project=project
+            prod_job_config=prod_job_config,
+            name=decorated_job.name,
+            project=project,
+            decorated_connections=decorated_job.connections,
         )
         runs = [self._job_run_model_to_job_run_status(run) for run in runs]
 

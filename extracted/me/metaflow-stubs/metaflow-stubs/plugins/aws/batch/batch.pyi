@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.18                                                                                #
-# Generated on 2026-02-05T18:18:14.375259                                                            #
+# MF version: 2.19.19                                                                                #
+# Generated on 2026-02-09T14:58:07.238248                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -65,9 +65,9 @@ class Batch(object, metaclass=type):
         ...
     def kill_jobs(self, flow_name, run_id, user, echo):
         ...
-    def create_job(self, step_name, step_cli, task_spec, code_package_metadata, code_package_sha, code_package_url, code_package_ds, image, queue, iam_role = None, execution_role = None, cpu = None, gpu = None, memory = None, run_time_limit = None, shared_memory = None, max_swap = None, swappiness = None, inferentia = None, efa = None, env = {}, attrs = {}, host_volumes = None, efs_volumes = None, use_tmpfs = None, aws_batch_tags = None, tmpfs_tempdir = None, tmpfs_size = None, tmpfs_path = None, num_parallel = 0, ephemeral_storage = None, log_driver = None, log_options = None, offload_command_to_s3 = False):
+    def create_job(self, step_name, step_cli, task_spec, code_package_metadata, code_package_sha, code_package_url, code_package_ds, image, queue, iam_role = None, execution_role = None, cpu = None, gpu = None, memory = None, run_time_limit = None, shared_memory = None, max_swap = None, swappiness = None, inferentia = None, efa = None, env = {}, attrs = {}, host_volumes = None, efs_volumes = None, use_tmpfs = None, aws_batch_tags = None, tmpfs_tempdir = None, tmpfs_size = None, tmpfs_path = None, num_parallel = 0, ephemeral_storage = None, log_driver = None, log_options = None, offload_command_to_s3 = False, privileged = False):
         ...
-    def launch_job(self, step_name, step_cli, task_spec, code_package_metadata, code_package_sha, code_package_url, code_package_ds, image, queue, iam_role = None, execution_role = None, cpu = None, gpu = None, memory = None, run_time_limit = None, shared_memory = None, max_swap = None, swappiness = None, inferentia = None, efa = None, host_volumes = None, efs_volumes = None, use_tmpfs = None, aws_batch_tags = None, tmpfs_tempdir = None, tmpfs_size = None, tmpfs_path = None, num_parallel = 0, env = {}, attrs = {}, ephemeral_storage = None, log_driver = None, log_options = None):
+    def launch_job(self, step_name, step_cli, task_spec, code_package_metadata, code_package_sha, code_package_url, code_package_ds, image, queue, iam_role = None, execution_role = None, cpu = None, gpu = None, memory = None, run_time_limit = None, shared_memory = None, max_swap = None, swappiness = None, inferentia = None, efa = None, host_volumes = None, efs_volumes = None, use_tmpfs = None, aws_batch_tags = None, tmpfs_tempdir = None, tmpfs_size = None, tmpfs_path = None, num_parallel = 0, env = {}, attrs = {}, ephemeral_storage = None, log_driver = None, log_options = None, privileged = None):
         ...
     def wait(self, stdout_location, stderr_location, echo = None):
         ...

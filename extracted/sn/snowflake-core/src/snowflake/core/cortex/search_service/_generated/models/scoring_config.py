@@ -18,8 +18,9 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictBool, StrictStr
 
+from snowflake.core.cortex.search_service._generated.models.diversity import Diversity, DiversityModel
 from snowflake.core.cortex.search_service._generated.models.functions import Functions, FunctionsModel
 from snowflake.core.cortex.search_service._generated.models.ranking_weights import RankingWeights, RankingWeightsModel
 from snowflake.core.cortex.search_service._generated.models.retrieval_weights import (
@@ -45,6 +46,10 @@ class ScoringConfig(BaseModel):
     retrieval_weights : RetrievalWeights, optional
 
     ranking_weights : RankingWeights, optional
+
+    disable_vector_embedding_query_prefix : bool,  default False
+        whether to disable query prefix for embedding while searching
+    diversity : Diversity, optional
     """
 
     functions: Optional[Functions] = None
@@ -57,7 +62,19 @@ class ScoringConfig(BaseModel):
 
     ranking_weights: Optional[RankingWeights] = None
 
-    __properties = ["functions", "reranker", "weights", "retrieval_weights", "ranking_weights"]
+    disable_vector_embedding_query_prefix: Optional[StrictBool] = False
+
+    diversity: Optional[Diversity] = None
+
+    __properties = [
+        "functions",
+        "reranker",
+        "weights",
+        "retrieval_weights",
+        "ranking_weights",
+        "disable_vector_embedding_query_prefix",
+        "diversity",
+    ]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -105,6 +122,10 @@ class ScoringConfig(BaseModel):
         if self.ranking_weights:
             _dict["ranking_weights"] = self.ranking_weights.to_dict()
 
+        # override the default output from pydantic by calling `to_dict()` of diversity
+        if self.diversity:
+            _dict["diversity"] = self.diversity.to_dict()
+
         return _dict
 
     def to_dict_without_readonly_properties(self) -> dict[str, Any]:
@@ -131,6 +152,10 @@ class ScoringConfig(BaseModel):
                 "ranking_weights": RankingWeights.from_dict(obj.get("ranking_weights"))
                 if obj.get("ranking_weights") is not None
                 else None,
+                "disable_vector_embedding_query_prefix": obj.get("disable_vector_embedding_query_prefix")
+                if obj.get("disable_vector_embedding_query_prefix") is not None
+                else False,
+                "diversity": Diversity.from_dict(obj.get("diversity")) if obj.get("diversity") is not None else None,
             }
         )
 
@@ -145,6 +170,8 @@ class ScoringConfigModel:
         weights: Optional[Weights] = None,
         retrieval_weights: Optional[RetrievalWeights] = None,
         ranking_weights: Optional[RankingWeights] = None,
+        disable_vector_embedding_query_prefix: Optional[bool] = False,
+        diversity: Optional[Diversity] = None,
     ):
         """A model object representing the ScoringConfig resource.
 
@@ -161,14 +188,28 @@ class ScoringConfigModel:
         retrieval_weights : RetrievalWeights, optional
 
         ranking_weights : RankingWeights, optional
+
+        disable_vector_embedding_query_prefix : bool,  default False
+            whether to disable query prefix for embedding while searching
+        diversity : Diversity, optional
         """
         self.functions = functions
         self.reranker = reranker
         self.weights = weights
         self.retrieval_weights = retrieval_weights
         self.ranking_weights = ranking_weights
+        self.disable_vector_embedding_query_prefix = disable_vector_embedding_query_prefix
+        self.diversity = diversity
 
-    __properties = ["functions", "reranker", "weights", "retrieval_weights", "ranking_weights"]
+    __properties = [
+        "functions",
+        "reranker",
+        "weights",
+        "retrieval_weights",
+        "ranking_weights",
+        "disable_vector_embedding_query_prefix",
+        "diversity",
+    ]
 
     def __repr__(self) -> str:
         return repr(self._to_model())
@@ -180,6 +221,8 @@ class ScoringConfigModel:
             weights=self.weights._to_model() if self.weights is not None else None,
             retrieval_weights=self.retrieval_weights._to_model() if self.retrieval_weights is not None else None,
             ranking_weights=self.ranking_weights._to_model() if self.ranking_weights is not None else None,
+            disable_vector_embedding_query_prefix=self.disable_vector_embedding_query_prefix,
+            diversity=self.diversity._to_model() if self.diversity is not None else None,
         )
 
     @classmethod
@@ -192,6 +235,8 @@ class ScoringConfigModel:
             if model.retrieval_weights
             else None,
             ranking_weights=RankingWeightsModel._from_model(model.ranking_weights) if model.ranking_weights else None,
+            disable_vector_embedding_query_prefix=model.disable_vector_embedding_query_prefix,
+            diversity=DiversityModel._from_model(model.diversity) if model.diversity else None,
         )
 
     def to_dict(self):

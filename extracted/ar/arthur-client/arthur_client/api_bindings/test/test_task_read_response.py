@@ -41,12 +41,17 @@ class TestTaskReadResponse(unittest.TestCase):
                     created_at = 56, 
                     updated_at = 56, 
                     is_agentic = True, 
+                    is_system_task = True, 
+                    is_autocreated = True, 
                     agent_metadata = arthur_client.api_bindings.models.agent_metadata_response.AgentMetadataResponse(
                         provider = 'gcp', 
                         gcp_metadata = arthur_client.api_bindings.models.gcp_agent_metadata_response.GCPAgentMetadataResponse(
                             project_id = '', 
                             region = '', 
-                            resource_id = '', ), ), 
+                            resource_id = '', ), 
+                        service_names = [
+                            ''
+                            ], ), 
                     rules = [
                         arthur_client.api_bindings.models.rule_response.RuleResponse(
                             id = '', 

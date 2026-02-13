@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: wagtail_factories
-Version: 4.3.0
+Version: 4.4.0
 Summary: Factory boy classes for wagtail
 Home-page: https://github.com/wagtail/wagtail-factories/
 Author: Michael van Tellingen
@@ -11,11 +11,11 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Framework :: Django
@@ -26,9 +26,29 @@ Classifier: Framework :: Wagtail
 Classifier: Framework :: Wagtail :: 6
 Classifier: Framework :: Wagtail :: 7
 Description-Content-Type: text/markdown
-Provides-Extra: docs
-Provides-Extra: test
 License-File: LICENSE
+Requires-Dist: factory-boy<4,>=3.2
+Requires-Dist: wagtail>=6.3
+Provides-Extra: docs
+Requires-Dist: sphinx>=8.2.3; extra == "docs"
+Provides-Extra: test
+Requires-Dist: pytest==9.0.0; extra == "test"
+Requires-Dist: pytest-django==4.11.1; extra == "test"
+Requires-Dist: pytest-cov==7.0.0; extra == "test"
+Requires-Dist: coverage==7.11.3; extra == "test"
+Requires-Dist: ruff==0.14.4; extra == "test"
+Requires-Dist: tox==4.32.0; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 # wagtail-factories
 
@@ -48,6 +68,8 @@ for more examples.
 
 ``` python
 import wagtail_factories
+from wagtail import models as wt_models
+
 from . import models
 
 
@@ -89,9 +111,12 @@ class MyTestPageFactory(wagtail_factories.PageFactory):
 
 
 def test_my_page():
-    root_page = wagtail_factories.PageFactory(parent=None)
+    root_page = wt_models.Page.get_first_root_node()
+    assert root_page is not None
+
     my_page = MyTestPageFactory(
         parent=root_page,
+        title="My great page",
         body__0__carousel__items__0__label='Slide 1',
         body__0__carousel__items__0__image__image__title='Image Slide 1',
         body__0__carousel__items__1__label='Slide 2',
@@ -100,6 +125,13 @@ def test_my_page():
         body__0__carousel__items__2__image__image__title='Image Slide 3',
         body__1__news_page__page__title="News",
     )
+
+    # Defaults defined on factory classes are propagated.
+    assert my_page.body[0].value["title"] == "Carousel title"
+
+    # Parameters are propagated.
+    assert my_page.title == "My great page"
+    assert my_page.body[0].value["items"][0].value["label"] == "Slide 1"
 ```
 
 ### Using StreamBlockFactory

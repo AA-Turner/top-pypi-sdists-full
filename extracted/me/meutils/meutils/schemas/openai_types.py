@@ -49,7 +49,7 @@ class CompletionUsage(_CompletionUsage):  # todo 废弃
         super().__init__(**data)
 
         self.completion_tokens = self.completion_tokens or 0
-        self.total_tokens = self.total_tokens or self.prompt_tokens + self.completion_tokens
+        self.total_tokens = self.total_tokens or (self.prompt_tokens + self.completion_tokens)
 
 
 class ChatCompletionMessage(_ChatCompletionMessage):
@@ -137,6 +137,7 @@ class CompletionRequest(BaseModel):
 
     # tools
     tools: Optional[Any] = None
+    response_format: Optional[Any] = None  # md json
 
     # tool_choice: Optional[Union[str, dict]] = None
 
@@ -164,6 +165,7 @@ class CompletionRequest(BaseModel):
         for i, message in enumerate(self.messages[::-1], 1):
             if message.get("role") == "user":
                 contents = message.get("content")
+                # logger.debug(contents)
                 if isinstance(contents, list):
                     for content in contents:
                         if content.get("type") == "text":

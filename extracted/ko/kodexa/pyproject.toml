@@ -1,6 +1,6 @@
 [project]
 name = "kodexa"
-version = "7.4.420675962268"
+version = "7.4.421830084132"
 description = "Python SDK for the Kodexa Platform"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"

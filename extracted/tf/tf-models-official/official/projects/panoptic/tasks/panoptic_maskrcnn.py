@@ -1,4 +1,4 @@
-# Copyright 2024 The TensorFlow Authors. All Rights Reserved.
+# Copyright 2025 The TensorFlow Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -446,6 +446,7 @@ class PanopticMaskRCNNTask(maskrcnn.MaskRCNNTask):
 
   def _reduce_semantic_metrics(self, logs: Dict[str, Any]):
     """Updates the per class and mean semantic metrics in the logs."""
+    assert self.segmentation_perclass_iou_metric is not None
     ious = self.segmentation_perclass_iou_metric.result()
     if self.task_config.segmentation_evaluation.report_per_class_iou:
       for i, value in enumerate(ious.numpy()):
@@ -454,6 +455,7 @@ class PanopticMaskRCNNTask(maskrcnn.MaskRCNNTask):
 
   def _reduce_panoptic_metrics(self, logs: Dict[str, Any]):
     """Updates the per class and mean panoptic metrics in the logs."""
+    assert self.panoptic_quality_metric is not None
     result = self.panoptic_quality_metric.result()
     valid_thing_classes = result['valid_thing_classes']
     valid_stuff_classes = result['valid_stuff_classes']

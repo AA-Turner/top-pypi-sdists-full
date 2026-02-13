@@ -15,11 +15,12 @@ def area_tri(
     v3: collections.abc.Sequence[float] | mathutils.Vector,
     /,
 ) -> float:
-    """Returns the area size of the 2D or 3D triangle defined.
+    """Returns the area of the 2D or 3D triangle defined.
 
     :param v1: Point1
     :param v2: Point2
     :param v3: Point3
+    :return: The area of the triangle.
     """
 
 def barycentric_transform(
@@ -94,7 +95,7 @@ def delaunay_2d_cdt(
     vert_coords: collections.abc.Sequence[
         collections.abc.Sequence[float] | mathutils.Vector
     ],
-    edges: collections.abc.Sequence[collections.abc.Sequence[int, int]],
+    edges: collections.abc.Sequence[tuple[int, int]],
     faces: collections.abc.Sequence[collections.abc.Sequence[int]],
     output_type: int,
     epsilon: float,
@@ -136,11 +137,12 @@ def distance_point_to_plane(
     plane_no: collections.abc.Sequence[float] | mathutils.Vector,
     /,
 ) -> float:
-    """Returns the signed distance between a point and a plane    (negative when below the normal).
+    """Returns the signed distance between a point and a plane (negative when below the normal).
 
     :param pt: Point
     :param plane_co: A point on the plane
     :param plane_no: The direction the plane is facing
+    :return: The signed distance.
     """
 
 def interpolate_bezier(
@@ -228,7 +230,7 @@ def intersect_line_sphere(
         :param sphere_co: The center of the sphere
         :param sphere_radius: Radius of the sphere
         :param clip: When False, dont restrict the intersection to the line segment.
-        :return: The intersection points as a pair of vectors or None when there is no intersection
+        :return: The intersection points as a pair of vectors (each is None when not found).
     """
 
 def intersect_line_sphere_2d(
@@ -239,15 +241,15 @@ def intersect_line_sphere_2d(
     clip: bool = True,
     /,
 ) -> tuple[mathutils.Vector | None, mathutils.Vector | None]:
-    """Takes a line (as 2 points) and a sphere (as a point and a radius) and
+    """Takes a line (as 2 points) and a circle (as a point and a radius) and
     returns the intersection
 
         :param line_a: First point of the line
         :param line_b: Second point of the line
-        :param sphere_co: The center of the sphere
-        :param sphere_radius: Radius of the sphere
+        :param sphere_co: The center of the circle
+        :param sphere_radius: Radius of the circle
         :param clip: When False, dont restrict the intersection to the line segment.
-        :return: The intersection points as a pair of vectors or None when there is no intersection
+        :return: The intersection points as a pair of vectors (each is None when not found).
     """
 
 def intersect_plane_plane(
@@ -272,11 +274,12 @@ def intersect_point_line(
     line_p2: collections.abc.Sequence[float] | mathutils.Vector,
     /,
 ) -> tuple[mathutils.Vector, float]:
-    """Takes a point and a line and returns the closest point on the line and its distance from the first point of the line as a percentage of the length of the line.
+    """Takes a point and a line and returns the closest point on the line and its parametric distance from the first point of the line. A value of 0.0 is the first point, 1.0 is the second, values outside [0, 1] are extrapolated.
 
     :param pt: Point
     :param line_p1: First point of the line
     :param line_p2: Second point of the line
+    :return: The closest point on the line and its parametric distance from the first point.
     """
 
 def intersect_point_line_segment(
@@ -290,6 +293,7 @@ def intersect_point_line_segment(
     :param pt: Point
     :param seg_p1: First point of the segment
     :param seg_p2: Second point of the segment
+    :return: The closest point on the segment and the distance to the segment.
     """
 
 def intersect_point_quad_2d(
@@ -309,6 +313,7 @@ def intersect_point_quad_2d(
         :param quad_p2: Second point of the quad
         :param quad_p3: Third point of the quad
         :param quad_p4: Fourth point of the quad
+        :return: 1 if the point is within the quad, otherwise 0.
     """
 
 def intersect_point_tri(
@@ -340,6 +345,7 @@ def intersect_point_tri_2d(
     :param tri_p1: First point of the triangle
     :param tri_p2: Second point of the triangle
     :param tri_p3: Third point of the triangle
+    :return: 1 if the point is within the triangle, otherwise 0.
     """
 
 def intersect_ray_tri(
@@ -404,6 +410,7 @@ def normal(
     """Returns the normal of a 3D polygon.
 
     :param vectors: 3 or more vectors to calculate normals.
+    :return: The normal vector.
     """
 
 def points_in_planes(
@@ -445,4 +452,5 @@ def volume_tetrahedron(
     :param v2: Point2
     :param v3: Point3
     :param v4: Point4
+    :return: The volume of the tetrahedron.
     """

@@ -14436,6 +14436,8 @@ async def add_water_to_photo(POST_FNAME, POST_FNAME_COPY, POST_WATER, EXTRA_D):
             print(f"[error] paste bg failed: {e}")
 
         try:
+            y = int(y - height * 0.02)
+
             print(f"[step] Drawing text at {(x, y)} ...")
             draw.text((x, y), text, font=font, fill=(255, 255, 255))
             print("[ok] text drawn")

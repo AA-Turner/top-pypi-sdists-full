@@ -21,16 +21,22 @@ class MwsStorageConfigurationsArgs:
     def __init__(__self__, *,
                  account_id: pulumi.Input[_builtins.str],
                  bucket_name: pulumi.Input[_builtins.str],
-                 storage_configuration_name: pulumi.Input[_builtins.str]):
+                 storage_configuration_name: pulumi.Input[_builtins.str],
+                 role_arn: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a MwsStorageConfigurations resource.
         :param pulumi.Input[_builtins.str] account_id: Account Id that could be found in the top right corner of [Accounts Console](https://accounts.cloud.databricks.com/)
         :param pulumi.Input[_builtins.str] bucket_name: name of AWS S3 bucket
         :param pulumi.Input[_builtins.str] storage_configuration_name: name under which this storage configuration is stored
+               
+               The following arguments are optional:
+        :param pulumi.Input[_builtins.str] role_arn: The ARN of the IAM role that Databricks will assume to access the S3 bucket. This allows sharing an S3 bucket between root storage and the default catalog for a workspace. See the [Databricks API documentation](https://docs.databricks.com/api/account/storage/create) for more details.
         """
         pulumi.set(__self__, "account_id", account_id)
         pulumi.set(__self__, "bucket_name", bucket_name)
         pulumi.set(__self__, "storage_configuration_name", storage_configuration_name)
+        if role_arn is not None:
+            pulumi.set(__self__, "role_arn", role_arn)
 
     @_builtins.property
     @pulumi.getter(name="accountId")
@@ -61,12 +67,26 @@ class MwsStorageConfigurationsArgs:
     def storage_configuration_name(self) -> pulumi.Input[_builtins.str]:
         """
         name under which this storage configuration is stored
+
+        The following arguments are optional:
         """
         return pulumi.get(self, "storage_configuration_name")
 
     @storage_configuration_name.setter
     def storage_configuration_name(self, value: pulumi.Input[_builtins.str]):
         pulumi.set(self, "storage_configuration_name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="roleArn")
+    def role_arn(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The ARN of the IAM role that Databricks will assume to access the S3 bucket. This allows sharing an S3 bucket between root storage and the default catalog for a workspace. See the [Databricks API documentation](https://docs.databricks.com/api/account/storage/create) for more details.
+        """
+        return pulumi.get(self, "role_arn")
+
+    @role_arn.setter
+    def role_arn(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "role_arn", value)
 
 
 @pulumi.input_type
@@ -75,14 +95,18 @@ class _MwsStorageConfigurationsState:
                  account_id: Optional[pulumi.Input[_builtins.str]] = None,
                  bucket_name: Optional[pulumi.Input[_builtins.str]] = None,
                  creation_time: Optional[pulumi.Input[_builtins.int]] = None,
+                 role_arn: Optional[pulumi.Input[_builtins.str]] = None,
                  storage_configuration_id: Optional[pulumi.Input[_builtins.str]] = None,
                  storage_configuration_name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering MwsStorageConfigurations resources.
         :param pulumi.Input[_builtins.str] account_id: Account Id that could be found in the top right corner of [Accounts Console](https://accounts.cloud.databricks.com/)
         :param pulumi.Input[_builtins.str] bucket_name: name of AWS S3 bucket
+        :param pulumi.Input[_builtins.str] role_arn: The ARN of the IAM role that Databricks will assume to access the S3 bucket. This allows sharing an S3 bucket between root storage and the default catalog for a workspace. See the [Databricks API documentation](https://docs.databricks.com/api/account/storage/create) for more details.
         :param pulumi.Input[_builtins.str] storage_configuration_id: (String) id of storage config to be used for `databricks_mws_workspace` resource.
         :param pulumi.Input[_builtins.str] storage_configuration_name: name under which this storage configuration is stored
+               
+               The following arguments are optional:
         """
         if account_id is not None:
             pulumi.set(__self__, "account_id", account_id)
@@ -90,6 +114,8 @@ class _MwsStorageConfigurationsState:
             pulumi.set(__self__, "bucket_name", bucket_name)
         if creation_time is not None:
             pulumi.set(__self__, "creation_time", creation_time)
+        if role_arn is not None:
+            pulumi.set(__self__, "role_arn", role_arn)
         if storage_configuration_id is not None:
             pulumi.set(__self__, "storage_configuration_id", storage_configuration_id)
         if storage_configuration_name is not None:
@@ -129,6 +155,18 @@ class _MwsStorageConfigurationsState:
         pulumi.set(self, "creation_time", value)
 
     @_builtins.property
+    @pulumi.getter(name="roleArn")
+    def role_arn(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The ARN of the IAM role that Databricks will assume to access the S3 bucket. This allows sharing an S3 bucket between root storage and the default catalog for a workspace. See the [Databricks API documentation](https://docs.databricks.com/api/account/storage/create) for more details.
+        """
+        return pulumi.get(self, "role_arn")
+
+    @role_arn.setter
+    def role_arn(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "role_arn", value)
+
+    @_builtins.property
     @pulumi.getter(name="storageConfigurationId")
     def storage_configuration_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -145,6 +183,8 @@ class _MwsStorageConfigurationsState:
     def storage_configuration_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
         name under which this storage configuration is stored
+
+        The following arguments are optional:
         """
         return pulumi.get(self, "storage_configuration_name")
 
@@ -161,9 +201,18 @@ class MwsStorageConfigurations(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None,
                  account_id: Optional[pulumi.Input[_builtins.str]] = None,
                  bucket_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 role_arn: Optional[pulumi.Input[_builtins.str]] = None,
                  storage_configuration_name: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
+        This resource to configure root bucket new workspaces within AWS.
+
+        > This resource can only be used with an account-level provider!
+
+        It is important to understand that this will require you to configure your provider separately for the multiple workspaces resources. This will point to <https://accounts.cloud.databricks.com> for the HOST and it will use basic auth as that is the only authentication method available for multiple workspaces api.
+
+        Please follow this complete runnable example with new VPC and new workspace setup. Please pay special attention to the fact that there you have two different instances of a databricks provider - one for deploying workspaces (with `host="https://accounts.cloud.databricks.com/"`) and another for the workspace you've created with MwsWorkspaces resource. If you want both creation of workspaces & clusters within workspace within the same terraform module (essentially same directory), you should use the provider aliasing feature of Pulumi. We strongly recommend having one terraform module for creation of workspace + PAT token and the rest in different modules.
+
         ## Example Usage
 
         ```python
@@ -188,6 +237,21 @@ class MwsStorageConfigurations(pulumi.CustomResource):
             bucket_name=root_storage_bucket["bucket"])
         ```
 
+        ### Example Usage with Role ARN
+
+        When sharing an S3 bucket between root storage and a Unity Catalog metastore, you can specify a role ARN:
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        this = databricks.MwsStorageConfigurations("this",
+            account_id=databricks_account_id,
+            storage_configuration_name=f"{prefix}-storage",
+            bucket_name=root_storage_bucket["bucket"],
+            role_arn=unity_catalog_role["arn"])
+        ```
+
         ## Related Resources
 
         The following resources are used in the same context:
@@ -200,39 +264,14 @@ class MwsStorageConfigurations(pulumi.CustomResource):
         * MwsNetworks to [configure VPC](https://docs.databricks.com/administration-guide/cloud-configurations/aws/customer-managed-vpc.html) & subnets for new workspaces within AWS.
         * MwsWorkspaces to set up [AWS and GCP workspaces](https://docs.databricks.com/getting-started/overview.html#e2-architecture-1).
 
-        ## Import
-
-        This resource can be imported by Databricks account ID and storage configuration ID.
-
-        hcl
-
-        import {
-
-          to = databricks_mws_storage_configurations.this
-
-          id = "<account_id>/<storage_configuration_id>"
-
-        }
-
-        Alternatively, when using `terraform` version 1.4 or earlier, import using the `pulumi import` command:
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/mwsStorageConfigurations:MwsStorageConfigurations this "<account_id>/<storage_configuration_id>"
-        ```
-
-        ~> This resource does not support updates. If your configuration does not match the existing resource,
-
-           the next `pulumi up` will cause the resource to be destroyed and recreated. After importing,
-
-           verify that the configuration matches the existing resource by running `pulumi preview`.
-
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] account_id: Account Id that could be found in the top right corner of [Accounts Console](https://accounts.cloud.databricks.com/)
         :param pulumi.Input[_builtins.str] bucket_name: name of AWS S3 bucket
+        :param pulumi.Input[_builtins.str] role_arn: The ARN of the IAM role that Databricks will assume to access the S3 bucket. This allows sharing an S3 bucket between root storage and the default catalog for a workspace. See the [Databricks API documentation](https://docs.databricks.com/api/account/storage/create) for more details.
         :param pulumi.Input[_builtins.str] storage_configuration_name: name under which this storage configuration is stored
+               
+               The following arguments are optional:
         """
         ...
     @overload
@@ -241,6 +280,14 @@ class MwsStorageConfigurations(pulumi.CustomResource):
                  args: MwsStorageConfigurationsArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
+        This resource to configure root bucket new workspaces within AWS.
+
+        > This resource can only be used with an account-level provider!
+
+        It is important to understand that this will require you to configure your provider separately for the multiple workspaces resources. This will point to <https://accounts.cloud.databricks.com> for the HOST and it will use basic auth as that is the only authentication method available for multiple workspaces api.
+
+        Please follow this complete runnable example with new VPC and new workspace setup. Please pay special attention to the fact that there you have two different instances of a databricks provider - one for deploying workspaces (with `host="https://accounts.cloud.databricks.com/"`) and another for the workspace you've created with MwsWorkspaces resource. If you want both creation of workspaces & clusters within workspace within the same terraform module (essentially same directory), you should use the provider aliasing feature of Pulumi. We strongly recommend having one terraform module for creation of workspace + PAT token and the rest in different modules.
+
         ## Example Usage
 
         ```python
@@ -265,6 +312,21 @@ class MwsStorageConfigurations(pulumi.CustomResource):
             bucket_name=root_storage_bucket["bucket"])
         ```
 
+        ### Example Usage with Role ARN
+
+        When sharing an S3 bucket between root storage and a Unity Catalog metastore, you can specify a role ARN:
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        this = databricks.MwsStorageConfigurations("this",
+            account_id=databricks_account_id,
+            storage_configuration_name=f"{prefix}-storage",
+            bucket_name=root_storage_bucket["bucket"],
+            role_arn=unity_catalog_role["arn"])
+        ```
+
         ## Related Resources
 
         The following resources are used in the same context:
@@ -276,34 +338,6 @@ class MwsStorageConfigurations(pulumi.CustomResource):
         * MwsLogDelivery to configure delivery of [billable usage logs](https://docs.databricks.com/administration-guide/account-settings/billable-usage-delivery.html) and [audit logs](https://docs.databricks.com/administration-guide/account-settings/audit-logs.html).
         * MwsNetworks to [configure VPC](https://docs.databricks.com/administration-guide/cloud-configurations/aws/customer-managed-vpc.html) & subnets for new workspaces within AWS.
         * MwsWorkspaces to set up [AWS and GCP workspaces](https://docs.databricks.com/getting-started/overview.html#e2-architecture-1).
-
-        ## Import
-
-        This resource can be imported by Databricks account ID and storage configuration ID.
-
-        hcl
-
-        import {
-
-          to = databricks_mws_storage_configurations.this
-
-          id = "<account_id>/<storage_configuration_id>"
-
-        }
-
-        Alternatively, when using `terraform` version 1.4 or earlier, import using the `pulumi import` command:
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/mwsStorageConfigurations:MwsStorageConfigurations this "<account_id>/<storage_configuration_id>"
-        ```
-
-        ~> This resource does not support updates. If your configuration does not match the existing resource,
-
-           the next `pulumi up` will cause the resource to be destroyed and recreated. After importing,
-
-           verify that the configuration matches the existing resource by running `pulumi preview`.
 
         :param str resource_name: The name of the resource.
         :param MwsStorageConfigurationsArgs args: The arguments to use to populate this resource's properties.
@@ -322,6 +356,7 @@ class MwsStorageConfigurations(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None,
                  account_id: Optional[pulumi.Input[_builtins.str]] = None,
                  bucket_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 role_arn: Optional[pulumi.Input[_builtins.str]] = None,
                  storage_configuration_name: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
@@ -338,6 +373,7 @@ class MwsStorageConfigurations(pulumi.CustomResource):
             if bucket_name is None and not opts.urn:
                 raise TypeError("Missing required property 'bucket_name'")
             __props__.__dict__["bucket_name"] = bucket_name
+            __props__.__dict__["role_arn"] = role_arn
             if storage_configuration_name is None and not opts.urn:
                 raise TypeError("Missing required property 'storage_configuration_name'")
             __props__.__dict__["storage_configuration_name"] = storage_configuration_name
@@ -358,6 +394,7 @@ class MwsStorageConfigurations(pulumi.CustomResource):
             account_id: Optional[pulumi.Input[_builtins.str]] = None,
             bucket_name: Optional[pulumi.Input[_builtins.str]] = None,
             creation_time: Optional[pulumi.Input[_builtins.int]] = None,
+            role_arn: Optional[pulumi.Input[_builtins.str]] = None,
             storage_configuration_id: Optional[pulumi.Input[_builtins.str]] = None,
             storage_configuration_name: Optional[pulumi.Input[_builtins.str]] = None) -> 'MwsStorageConfigurations':
         """
@@ -369,8 +406,11 @@ class MwsStorageConfigurations(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] account_id: Account Id that could be found in the top right corner of [Accounts Console](https://accounts.cloud.databricks.com/)
         :param pulumi.Input[_builtins.str] bucket_name: name of AWS S3 bucket
+        :param pulumi.Input[_builtins.str] role_arn: The ARN of the IAM role that Databricks will assume to access the S3 bucket. This allows sharing an S3 bucket between root storage and the default catalog for a workspace. See the [Databricks API documentation](https://docs.databricks.com/api/account/storage/create) for more details.
         :param pulumi.Input[_builtins.str] storage_configuration_id: (String) id of storage config to be used for `databricks_mws_workspace` resource.
         :param pulumi.Input[_builtins.str] storage_configuration_name: name under which this storage configuration is stored
+               
+               The following arguments are optional:
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -379,6 +419,7 @@ class MwsStorageConfigurations(pulumi.CustomResource):
         __props__.__dict__["account_id"] = account_id
         __props__.__dict__["bucket_name"] = bucket_name
         __props__.__dict__["creation_time"] = creation_time
+        __props__.__dict__["role_arn"] = role_arn
         __props__.__dict__["storage_configuration_id"] = storage_configuration_id
         __props__.__dict__["storage_configuration_name"] = storage_configuration_name
         return MwsStorageConfigurations(resource_name, opts=opts, __props__=__props__)
@@ -405,6 +446,14 @@ class MwsStorageConfigurations(pulumi.CustomResource):
         return pulumi.get(self, "creation_time")
 
     @_builtins.property
+    @pulumi.getter(name="roleArn")
+    def role_arn(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        The ARN of the IAM role that Databricks will assume to access the S3 bucket. This allows sharing an S3 bucket between root storage and the default catalog for a workspace. See the [Databricks API documentation](https://docs.databricks.com/api/account/storage/create) for more details.
+        """
+        return pulumi.get(self, "role_arn")
+
+    @_builtins.property
     @pulumi.getter(name="storageConfigurationId")
     def storage_configuration_id(self) -> pulumi.Output[_builtins.str]:
         """
@@ -417,6 +466,8 @@ class MwsStorageConfigurations(pulumi.CustomResource):
     def storage_configuration_name(self) -> pulumi.Output[_builtins.str]:
         """
         name under which this storage configuration is stored
+
+        The following arguments are optional:
         """
         return pulumi.get(self, "storage_configuration_name")
 

@@ -104,6 +104,7 @@ class DatasetRevisionMeta(_message.Message):
         "num_rows_calculated",
         "physical_size_bytes_calculated",
         "created_at",
+        "archived_at",
     )
     NUMERIC_ID_FIELD_NUMBER: _ClassVar[int]
     OFFLINE_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
@@ -126,6 +127,7 @@ class DatasetRevisionMeta(_message.Message):
     NUM_ROWS_CALCULATED_FIELD_NUMBER: _ClassVar[int]
     PHYSICAL_SIZE_BYTES_CALCULATED_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    ARCHIVED_AT_FIELD_NUMBER: _ClassVar[int]
     numeric_id: int
     offline_query_id: str
     dataset_id: str
@@ -147,6 +149,7 @@ class DatasetRevisionMeta(_message.Message):
     num_rows_calculated: int
     physical_size_bytes_calculated: int
     created_at: _timestamp_pb2.Timestamp
+    archived_at: _timestamp_pb2.Timestamp
     def __init__(
         self,
         numeric_id: _Optional[int] = ...,
@@ -170,6 +173,7 @@ class DatasetRevisionMeta(_message.Message):
         num_rows_calculated: _Optional[int] = ...,
         physical_size_bytes_calculated: _Optional[int] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        archived_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
 class DatasetMeta(_message.Message):
@@ -240,15 +244,27 @@ class GetDatasetResponse(_message.Message):
     def __init__(self, dataset: _Optional[_Union[DatasetMeta, _Mapping]] = ...) -> None: ...
 
 class ListDatasetRevisionsRequest(_message.Message):
-    __slots__ = ("dataset_id", "cursor", "limit")
+    __slots__ = ("dataset_id", "cursor", "limit", "include_archived", "start_time", "end_time")
     DATASET_ID_FIELD_NUMBER: _ClassVar[int]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_ARCHIVED_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
     dataset_id: str
     cursor: str
     limit: int
+    include_archived: bool
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
     def __init__(
-        self, dataset_id: _Optional[str] = ..., cursor: _Optional[str] = ..., limit: _Optional[int] = ...
+        self,
+        dataset_id: _Optional[str] = ...,
+        cursor: _Optional[str] = ...,
+        limit: _Optional[int] = ...,
+        include_archived: bool = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
 class ListDatasetRevisionsResponse(_message.Message):
@@ -262,10 +278,12 @@ class ListDatasetRevisionsResponse(_message.Message):
     ) -> None: ...
 
 class GetDatasetRevisionRequest(_message.Message):
-    __slots__ = ("id",)
-    ID_FIELD_NUMBER: _ClassVar[int]
-    id: str
-    def __init__(self, id: _Optional[str] = ...) -> None: ...
+    __slots__ = ("revision_id", "include_archived")
+    REVISION_ID_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_ARCHIVED_FIELD_NUMBER: _ClassVar[int]
+    revision_id: str
+    include_archived: bool
+    def __init__(self, revision_id: _Optional[str] = ..., include_archived: bool = ...) -> None: ...
 
 class GetDatasetRevisionResponse(_message.Message):
     __slots__ = ("revision",)
@@ -313,3 +331,29 @@ class GetDatasetRevisionDownloadLinksResponse(_message.Message):
         error: _Optional[str] = ...,
         expiration: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
+
+class RenameDatasetRequest(_message.Message):
+    __slots__ = ("dataset_id", "new_name")
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    NEW_NAME_FIELD_NUMBER: _ClassVar[int]
+    dataset_id: str
+    new_name: str
+    def __init__(self, dataset_id: _Optional[str] = ..., new_name: _Optional[str] = ...) -> None: ...
+
+class RenameDatasetResponse(_message.Message):
+    __slots__ = ("dataset",)
+    DATASET_FIELD_NUMBER: _ClassVar[int]
+    dataset: DatasetMeta
+    def __init__(self, dataset: _Optional[_Union[DatasetMeta, _Mapping]] = ...) -> None: ...
+
+class ArchiveDatasetRevisionRequest(_message.Message):
+    __slots__ = ("revision_id",)
+    REVISION_ID_FIELD_NUMBER: _ClassVar[int]
+    revision_id: str
+    def __init__(self, revision_id: _Optional[str] = ...) -> None: ...
+
+class ArchiveDatasetRevisionResponse(_message.Message):
+    __slots__ = ("revision",)
+    REVISION_FIELD_NUMBER: _ClassVar[int]
+    revision: DatasetRevisionMeta
+    def __init__(self, revision: _Optional[_Union[DatasetRevisionMeta, _Mapping]] = ...) -> None: ...

@@ -4,13 +4,8 @@ import traceback
 
 from adam.config import Config
 from adam.utils import ExecResult
-from adam.utils_log import creating_dir, debug
-
-def local_qing_dir():
-    return creating_dir(Config().get('local-qing-dir', '/tmp/qing-db/q'))
-
-def local_downloads_dir():
-    return creating_dir(Config().get('local-downloads-dir', '/tmp/qing-db/q/downloads'))
+from adam.directories import Directories
+from adam.utils_log import debug
 
 class LocalExecResult(ExecResult):
     def __init__(self, stdout: str, stderr: str, command: str = None, exit_code = 0, log_file: str = None, job_id: str = None):
@@ -64,7 +59,7 @@ def local_exec(cmd: list[str], shell=False, show_out=False):
 
     return LocalExecResult(stdout, stderr, ' '.join(cmd), returncode)
 
-def find_local_files(pattern: str = f'{local_qing_dir()}/*', file_type: str = None, max_depth = 0, mmin: int = 0):
+def find_local_files(pattern: str = f'{Directories.local_q_dir()}/*', file_type: str = None, max_depth = 0, mmin: int = 0):
     # find . -maxdepth 1 -type f -name '*'
     log_files = []
     try:

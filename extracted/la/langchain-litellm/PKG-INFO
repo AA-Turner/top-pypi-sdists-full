@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-litellm
-Version: 0.4.0
+Version: 0.5.1
 Summary: An integration package connecting Litellm and LangChain
 License: MIT
 License-File: LICENSE
@@ -13,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: httpx (>=0.28.1,<0.29.0)
 Requires-Dist: langchain-core (>0.3.15,<2.0.0)
 Requires-Dist: litellm (>=1.77.2,<2.0.0)
 Project-URL: Repository, https://github.com/langchain-ai/langchain/blob/master/docs/docs/integrations/chat/litellm.ipynb

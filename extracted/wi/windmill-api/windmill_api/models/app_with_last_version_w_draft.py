@@ -11,7 +11,6 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.app_with_last_version_w_draft_extra_perms import AppWithLastVersionWDraftExtraPerms
     from ..models.app_with_last_version_w_draft_policy import AppWithLastVersionWDraftPolicy
-    from ..models.app_with_last_version_w_draft_value import AppWithLastVersionWDraftValue
 
 
 T = TypeVar("T", bound="AppWithLastVersionWDraft")
@@ -28,7 +27,7 @@ class AppWithLastVersionWDraft:
         versions (List[int]):
         created_by (str):
         created_at (datetime.datetime):
-        value (AppWithLastVersionWDraftValue):
+        value (Any):
         policy (AppWithLastVersionWDraftPolicy):
         execution_mode (AppWithLastVersionWDraftExecutionMode):
         extra_perms (AppWithLastVersionWDraftExtraPerms):
@@ -46,7 +45,7 @@ class AppWithLastVersionWDraft:
     versions: List[int]
     created_by: str
     created_at: datetime.datetime
-    value: "AppWithLastVersionWDraftValue"
+    value: Any
     policy: "AppWithLastVersionWDraftPolicy"
     execution_mode: AppWithLastVersionWDraftExecutionMode
     extra_perms: "AppWithLastVersionWDraftExtraPerms"
@@ -67,8 +66,7 @@ class AppWithLastVersionWDraft:
         created_by = self.created_by
         created_at = self.created_at.isoformat()
 
-        value = self.value.to_dict()
-
+        value = self.value
         policy = self.policy.to_dict()
 
         execution_mode = self.execution_mode.value
@@ -114,7 +112,6 @@ class AppWithLastVersionWDraft:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.app_with_last_version_w_draft_extra_perms import AppWithLastVersionWDraftExtraPerms
         from ..models.app_with_last_version_w_draft_policy import AppWithLastVersionWDraftPolicy
-        from ..models.app_with_last_version_w_draft_value import AppWithLastVersionWDraftValue
 
         d = src_dict.copy()
         id = d.pop("id")
@@ -131,7 +128,7 @@ class AppWithLastVersionWDraft:
 
         created_at = isoparse(d.pop("created_at"))
 
-        value = AppWithLastVersionWDraftValue.from_dict(d.pop("value"))
+        value = d.pop("value")
 
         policy = AppWithLastVersionWDraftPolicy.from_dict(d.pop("policy"))
 

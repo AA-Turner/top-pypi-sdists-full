@@ -1,23 +1,17 @@
 from __future__ import annotations
 
-import pytest
-
 from tests.conftest import targets
 
 
 @targets(
     "redis_basic",
-    "redis_basic_resp2",
-    "redis_basic_blocking",
     "redis_basic_raw",
     "redis_cluster",
-    "redis_cluster_blocking",
     "redis_cluster_raw",
     "redis_cached",
     "redis_cluster_cached",
     "dragonfly",
     "valkey",
-    "redict",
 )
 class TestSet:
     async def test_sadd(self, client, _s):
@@ -57,7 +51,6 @@ class TestSet:
         assert await client.sinterstore(["a{foo}", "b{foo}"], destination=_s("c{foo}")) == 2
         assert await client.smembers("c{foo}") == {_s("2"), _s("3")}
 
-    @pytest.mark.min_server_version("7.0.0")
     async def test_sintercard(self, client, _s):
         await client.sadd("a{fu}", ["1", "2", "3", "4"])
         await client.sadd("b{fu}", ["3", "4", "5", "6"])
@@ -77,7 +70,6 @@ class TestSet:
         await client.sadd("a", ["1", "2", "3"])
         assert await client.smembers("a") == {_s("1"), _s("2"), _s("3")}
 
-    @pytest.mark.nodragonfly
     async def test_smismember(self, client, _s):
         await client.sadd("a", ["1", "2", "3"])
         result_list = (True, False, True, True)
@@ -102,13 +94,11 @@ class TestSet:
         values = await client.spop("a", 2)
         assert await client.smembers("a") == {_s(m) for m in s} - values
 
-    @pytest.mark.nodragonfly
     async def test_srandmember(self, client, _s):
         s = ["1", "2", "3"]
         await client.sadd("a", s)
         assert await client.srandmember("a") in {_s(m) for m in s}
 
-    @pytest.mark.nodragonfly
     async def test_srandmember_multi_value(self, client, _s):
         s = ["1", "2", "3"]
         await client.sadd("a", s)

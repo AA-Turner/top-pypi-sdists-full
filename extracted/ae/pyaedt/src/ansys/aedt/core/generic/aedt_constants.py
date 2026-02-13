@@ -392,6 +392,14 @@ class Maxwell3dConstants(metaclass=DynamicMeta):
             "default_adaptive": "LastAdaptive",
             "intrinsics": ["Freq", "Phase"],
         },
+        "AC Magnetic APhi": {
+            "name": "AC Magnetic APhi",
+            "options": None,
+            "report_type": "AC Magnetic",
+            "default_setup": 7,
+            "default_adaptive": "LastAdaptive",
+            "intrinsics": ["Freq", "Phase"],
+        },
         "DCBiasedEddyCurrent": {
             "name": "DCBiasedEddyCurrent",
             "options": None,
@@ -803,24 +811,24 @@ class CircuitNetlistConstants(metaclass=DynamicMeta):
     solution_default = ""
     solution_types = {
         "NexximLNA": {
-            "name": None,
+            "name": "LNA",
             "options": None,
-            "report_type": "Standard",
+            "report_type": "Netlist",
             "default_setup": 15,
             "default_adaptive": None,
             "intrinsics": ["Freq"],
         },
         "NexximDC": {
-            "name": None,
+            "name": "DC",
             "options": None,
-            "report_type": "Standard",
+            "report_type": "Netlist",
             "default_setup": 16,
             "default_adaptive": None,
         },
         "NexximTransient": {
-            "name": None,
+            "name": "TRAN",
             "options": None,
-            "report_type": "Standard",
+            "report_type": "Netlist",
             "default_setup": 17,
             "default_adaptive": None,
             "intrinsics": ["Time"],

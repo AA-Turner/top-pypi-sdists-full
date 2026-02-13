@@ -2,7 +2,7 @@ import functools
 import re
 
 from adam.utils_cassandra import cassandra_exec
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.utils_k8s.secrets import Secrets
 from adam.utils_k8s.pod_exec_result import PodExecResult
 from adam.repl_state import ReplState
@@ -64,7 +64,7 @@ def run_cql(state: ReplState,
             use_single_quotes = False,
             on_any = False,
             no_color = False,
-            ctx: Context = Context.NULL) -> list[PodExecResult]:
+            ctx = NULL) -> list[PodExecResult]:
     command = None
     with log_timing('k8s.secrets.get_user_pass'):
         user, pw = Secrets.get_user_pass(state.sts if state.sts else state.pod, state.namespace, secret_path='cql.secret')

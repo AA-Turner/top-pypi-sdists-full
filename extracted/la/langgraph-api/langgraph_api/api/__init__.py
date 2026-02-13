@@ -71,7 +71,7 @@ async def ok(request: Request, *, disabled: bool = False):
         healthcheck_coroutines.append(healthcheck())
 
     if js_bg_tasks:
-        from langgraph_api.js.remote import js_healthcheck
+        from langgraph_api.js.remote import js_healthcheck  # noqa: PLC0415
 
         healthcheck_coroutines.append(js_healthcheck())
 

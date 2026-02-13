@@ -7,6 +7,8 @@
 #
 # pylint: disable=protected-access,too-few-public-methods
 
+import struct
+
 from typing import List
 
 FMT_CFHEADER = "<4sxxxxIxxxxIxxxxBBHHHHH"
@@ -16,33 +18,41 @@ FMT_CFFILE = "<IIHHHH"
 FMT_CFDATA = "<IHH"
 
 
-def _chunkify(arr: bytes, size: int) -> List[bytearray]:
+def _chunkify(arr: bytes, size: int) -> List[memoryview]:
     """Split up a bytestream into chunks"""
     arrs = []
+    arr_mv = memoryview(arr)
     for i in range(0, len(arr), size):
-        chunk = bytearray(arr[i : i + size])
-        arrs.append(chunk)
+        arrs.append(arr_mv[i : i + size])
     return arrs
 
 
-def _checksum_compute(content: bytes, seed: int = 0) -> int:
+def _checksum_compute(buf: bytes, seed: int = 0) -> int:
     """Compute the MS cabinet checksum"""
-    csum = seed
-    chunks = _chunkify(content, 4)
-    for chunk in chunks:
-        if len(chunk) == 4:
-            ul = chunk[0]
-            ul |= chunk[1] << 8
-            ul |= chunk[2] << 16
-            ul |= chunk[3] << 24
-        else:
-            # WTF: I can only assume this is a typo from the original
-            # author of the cabinet file specification
-            if len(chunk) == 3:
-                ul = (chunk[0] << 16) | (chunk[1] << 8) | chunk[2]
-            elif len(chunk) == 2:
-                ul = (chunk[0] << 8) | chunk[1]
-            elif len(chunk) == 1:
-                ul = chunk[0]
-        csum ^= ul
+    csum: int = seed
+    n_words = len(buf) // 4
+
+    # process complete 4-byte words in chunks to minimise struct calls
+    chunk_sz = 256
+    pos = 0
+    while pos + chunk_sz <= n_words:
+        words = struct.unpack_from(f"<{chunk_sz}I", buf, pos << 2)
+        for ul in words:
+            csum ^= ul
+        pos += chunk_sz
+    if pos < n_words:
+        rest = n_words - pos
+        words = struct.unpack_from(f"<{rest}I", buf, pos << 2)
+        for ul in words:
+            csum ^= ul
+
+    # tail: 1–3 bytes (spec quirk)
+    tail = n_words << 2
+    left = len(buf) - tail
+    if left == 3:
+        csum ^= (buf[tail] << 16) | (buf[tail + 1] << 8) | buf[tail + 2]
+    elif left == 2:
+        csum ^= (buf[tail] << 8) | buf[tail + 1]
+    elif left == 1:
+        csum ^= buf[tail]
     return csum

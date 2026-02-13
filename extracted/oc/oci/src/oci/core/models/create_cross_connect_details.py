@@ -64,6 +64,14 @@ class CreateCrossConnectDetails(object):
             The value to assign to the macsec_properties property of this CreateCrossConnectDetails.
         :type macsec_properties: oci.core.models.CreateMacsecProperties
 
+        :param oci_physical_device_name:
+            The value to assign to the oci_physical_device_name property of this CreateCrossConnectDetails.
+        :type oci_physical_device_name: str
+
+        :param interface_name:
+            The value to assign to the interface_name property of this CreateCrossConnectDetails.
+        :type interface_name: str
+
         """
         self.swagger_types = {
             'compartment_id': 'str',
@@ -76,7 +84,9 @@ class CreateCrossConnectDetails(object):
             'near_cross_connect_or_cross_connect_group_id': 'str',
             'port_speed_shape_name': 'str',
             'customer_reference_name': 'str',
-            'macsec_properties': 'CreateMacsecProperties'
+            'macsec_properties': 'CreateMacsecProperties',
+            'oci_physical_device_name': 'str',
+            'interface_name': 'str'
         }
         self.attribute_map = {
             'compartment_id': 'compartmentId',
@@ -89,7 +99,9 @@ class CreateCrossConnectDetails(object):
             'near_cross_connect_or_cross_connect_group_id': 'nearCrossConnectOrCrossConnectGroupId',
             'port_speed_shape_name': 'portSpeedShapeName',
             'customer_reference_name': 'customerReferenceName',
-            'macsec_properties': 'macsecProperties'
+            'macsec_properties': 'macsecProperties',
+            'oci_physical_device_name': 'ociPhysicalDeviceName',
+            'interface_name': 'interfaceName'
         }
         self._compartment_id = None
         self._cross_connect_group_id = None
@@ -102,6 +114,8 @@ class CreateCrossConnectDetails(object):
         self._port_speed_shape_name = None
         self._customer_reference_name = None
         self._macsec_properties = None
+        self._oci_physical_device_name = None
+        self._interface_name = None
 
     @property
     def compartment_id(self):
@@ -426,6 +440,54 @@ class CreateCrossConnectDetails(object):
         :type: oci.core.models.CreateMacsecProperties
         """
         self._macsec_properties = macsec_properties
+
+    @property
+    def oci_physical_device_name(self):
+        """
+        Gets the oci_physical_device_name of this CreateCrossConnectDetails.
+        The name of the FastConnect device where this cross-connect is installed.
+
+
+        :return: The oci_physical_device_name of this CreateCrossConnectDetails.
+        :rtype: str
+        """
+        return self._oci_physical_device_name
+
+    @oci_physical_device_name.setter
+    def oci_physical_device_name(self, oci_physical_device_name):
+        """
+        Sets the oci_physical_device_name of this CreateCrossConnectDetails.
+        The name of the FastConnect device where this cross-connect is installed.
+
+
+        :param oci_physical_device_name: The oci_physical_device_name of this CreateCrossConnectDetails.
+        :type: str
+        """
+        self._oci_physical_device_name = oci_physical_device_name
+
+    @property
+    def interface_name(self):
+        """
+        Gets the interface_name of this CreateCrossConnectDetails.
+        The name of the FastConnect interface where this cross-connect is installed.
+
+
+        :return: The interface_name of this CreateCrossConnectDetails.
+        :rtype: str
+        """
+        return self._interface_name
+
+    @interface_name.setter
+    def interface_name(self, interface_name):
+        """
+        Sets the interface_name of this CreateCrossConnectDetails.
+        The name of the FastConnect interface where this cross-connect is installed.
+
+
+        :param interface_name: The interface_name of this CreateCrossConnectDetails.
+        :type: str
+        """
+        self._interface_name = interface_name
 
     def __repr__(self):
         return formatted_flat_dict(self)

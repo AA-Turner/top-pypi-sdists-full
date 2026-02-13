@@ -20,7 +20,7 @@ from typing_extensions import Self
 
 class ModelVersionStatus(str, Enum):
     """
-    All possible model version statuses (MODEL_VERSION_STATUS_UNKNOWN, PENDING_REGISTRATION, FAILED_REGISTRATION, READY). PENDING_REGISTRATION status indicates that the client has not completely written all model artifacts to external storage. FAILED_REGISTRATION status indicates that the client has failed to write all model artifacts to external storage. READY status indicates that the client has successfully written all model artifacts to external storage. 
+    All possible model version statuses.
     """
 
     """

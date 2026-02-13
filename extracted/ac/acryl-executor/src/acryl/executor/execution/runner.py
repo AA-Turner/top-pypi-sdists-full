@@ -483,6 +483,7 @@ async def setup_venv(
             str(requirements_file),
         ],
         env={
+            **os.environ,
             **venv_config.extra_env_vars,
             "VIRTUAL_ENV": str(venv_loc),
         },

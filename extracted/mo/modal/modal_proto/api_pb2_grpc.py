@@ -245,6 +245,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.DictGetRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.DictGetResponse.FromString,
                 )
+        self.DictGetById = channel.unary_unary(
+                '/modal.client.ModalClient/DictGetById',
+                request_serializer=modal__proto_dot_api__pb2.DictGetByIdRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.DictGetByIdResponse.FromString,
+                )
         self.DictGetOrCreate = channel.unary_unary(
                 '/modal.client.ModalClient/DictGetOrCreate',
                 request_serializer=modal__proto_dot_api__pb2.DictGetOrCreateRequest.SerializeToString,
@@ -554,6 +559,11 @@ class ModalClientStub(object):
                 '/modal.client.ModalClient/QueueGet',
                 request_serializer=modal__proto_dot_api__pb2.QueueGetRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.QueueGetResponse.FromString,
+                )
+        self.QueueGetById = channel.unary_unary(
+                '/modal.client.ModalClient/QueueGetById',
+                request_serializer=modal__proto_dot_api__pb2.QueueGetByIdRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.QueueGetByIdResponse.FromString,
                 )
         self.QueueGetOrCreate = channel.unary_unary(
                 '/modal.client.ModalClient/QueueGetOrCreate',
@@ -1185,6 +1195,12 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def DictGetById(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def DictGetOrCreate(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1566,6 +1582,12 @@ class ModalClientServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def QueueGet(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def QueueGetById(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2221,6 +2243,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.DictGetRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.DictGetResponse.SerializeToString,
             ),
+            'DictGetById': grpc.unary_unary_rpc_method_handler(
+                    servicer.DictGetById,
+                    request_deserializer=modal__proto_dot_api__pb2.DictGetByIdRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.DictGetByIdResponse.SerializeToString,
+            ),
             'DictGetOrCreate': grpc.unary_unary_rpc_method_handler(
                     servicer.DictGetOrCreate,
                     request_deserializer=modal__proto_dot_api__pb2.DictGetOrCreateRequest.FromString,
@@ -2530,6 +2557,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     servicer.QueueGet,
                     request_deserializer=modal__proto_dot_api__pb2.QueueGetRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.QueueGetResponse.SerializeToString,
+            ),
+            'QueueGetById': grpc.unary_unary_rpc_method_handler(
+                    servicer.QueueGetById,
+                    request_deserializer=modal__proto_dot_api__pb2.QueueGetByIdRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.QueueGetByIdResponse.SerializeToString,
             ),
             'QueueGetOrCreate': grpc.unary_unary_rpc_method_handler(
                     servicer.QueueGetOrCreate,
@@ -3664,6 +3696,23 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def DictGetById(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/DictGetById',
+            modal__proto_dot_api__pb2.DictGetByIdRequest.SerializeToString,
+            modal__proto_dot_api__pb2.DictGetByIdResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def DictGetOrCreate(request,
             target,
             options=(),
@@ -4714,6 +4763,23 @@ class ModalClient(object):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/QueueGet',
             modal__proto_dot_api__pb2.QueueGetRequest.SerializeToString,
             modal__proto_dot_api__pb2.QueueGetResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def QueueGetById(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/QueueGetById',
+            modal__proto_dot_api__pb2.QueueGetByIdRequest.SerializeToString,
+            modal__proto_dot_api__pb2.QueueGetByIdResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from robot.api.parsing import Comment, ElseHeader, ElseIfHeader, End, If, IfHeader, KeywordCall, Token
 from robot.utils.escaping import split_from_equals
-from robot.variables.search import is_dict_variable, is_list_variable
+from robot.variables.search import is_dict_variable, is_list_variable, search_variable
 
 try:
     from robot.api.parsing import InlineIfHeader, Var
@@ -61,7 +61,7 @@ class ReplaceWithVAR(Formatter):
         replace_create_list: bool = True,
         replace_create_dictionary: bool = True,
         replace_set_variable_if: bool = True,
-    ):
+    ) -> None:
         super().__init__()
         self.explicit_local = explicit_local
         self.replace_catenate = replace_catenate
@@ -82,7 +82,7 @@ class ReplaceWithVAR(Formatter):
         }
 
     @skip_if_disabled
-    def visit_KeywordCall(self, node):  # noqa: N802
+    def visit_KeywordCall(self, node: KeywordCall) -> KeywordCall:  # noqa: N802
         if node.errors:
             return node
         kw_name = misc.after_last_dot(misc.normalize_name(node.keyword))
@@ -90,13 +90,16 @@ class ReplaceWithVAR(Formatter):
             return node
         comments = node.get_tokens(Token.COMMENT)
         indent = node.get_token(Token.SEPARATOR)
-        converted_node = self.SET_KW[kw_name](node, kw_name, indent.value)
+        assign = list(node.assign)
+        if self.assign_is_item_access(assign):
+            return node
+        converted_node = self.SET_KW[kw_name](node, kw_name, indent.value, assign)
         if converted_node is None:
             return node
         return self.restore_comments(converted_node, comments, indent.value)
 
     @skip_if_disabled
-    def visit_If(self, node: If):  # noqa: N802,PLR0915  TODO
+    def visit_If(self, node: If) -> If:  # noqa: N802,PLR0915  TODO
         if not self.is_inline_if(node):
             return self.generic_visit(node)
         indent = node.header.get_token(Token.SEPARATOR).value
@@ -148,7 +151,7 @@ class ReplaceWithVAR(Formatter):
                 branch_statement = [branch_statement]
             if_node = If(header=header, body=branch_statement)
             if head:
-                tail.orelse = if_node
+                tail.orelse = if_node  # type: ignore[union-attr]
             else:
                 head = if_node
                 head.end = End.from_params(indent=indent)
@@ -160,18 +163,20 @@ class ReplaceWithVAR(Formatter):
             return head
         return node
 
-    def is_inline_if(self, node):
+    def is_inline_if(self, node: If) -> bool:
         return isinstance(node.header, InlineIfHeader)
 
     @staticmethod
-    def update_statement_in_inline_if(statement, indent_token):
+    def update_statement_in_inline_if(statement: KeywordCall, indent_token: Token) -> KeywordCall:
         updated_tokens = [indent_token, *list(statement.tokens[1:])]
         if updated_tokens[-1].type == Token.SEPARATOR:
             updated_tokens[-1] = Token(Token.EOL)
         statement.tokens = tuple(updated_tokens)
         return statement
 
-    def restore_comments(self, node, comments: list[Token], indent: str):
+    def restore_comments(
+        self, node: If | Var | list[Var], comments: list[Token], indent: str
+    ) -> If | Var | list[Var] | tuple[Comment, If] | tuple[Comment, Var] | tuple[Comment, ...]:
         if not comments:
             return node
         if len(comments) == 1:
@@ -184,7 +189,7 @@ class ReplaceWithVAR(Formatter):
                     node.header.tokens[-1],
                 ]
             else:
-                node.tokens = [*node.tokens[:-1], Token(Token.SEPARATOR, "  "), comments[0], node.tokens[-1]]
+                node.tokens = [*node.tokens[:-1], Token(Token.SEPARATOR, "  "), comments[0], node.tokens[-1]]  # type: ignore[union-attr]
             return node
         comment_nodes = [Comment.from_params(comment=comment.value, indent=indent) for comment in comments]
         return *comment_nodes, node
@@ -198,8 +203,18 @@ class ReplaceWithVAR(Formatter):
             name = f"{name[0]}{{{name[1:]}}}"
         return name
 
-    def replace_set_variable(self, node, _kw_name: str, indent: str, assign: list[str] | None = None):
-        assign = assign or node.assign
+    @staticmethod
+    def assign_is_item_access(assign: list[str]) -> bool:
+        """Check whether the assignment is item access like ${var.item} or ${var}[item]."""
+        for var_name in assign:
+            var_parsed = search_variable(var_name)
+            if var_parsed.items or "." in var_parsed.base:
+                return True
+        return False
+
+    def replace_set_variable(
+        self, node: KeywordCall, _kw_name: str, indent: str, assign: list[str]
+    ) -> Var | list[Var] | None:
         args = node.get_tokens(Token.ARGUMENT)
         if not assign or (len(assign) != 1 and len(assign) != len(args)):
             return None
@@ -219,15 +234,14 @@ class ReplaceWithVAR(Formatter):
             Var.from_params(
                 name=var_assign, value=value, separator=self.formatting_config.separator, indent=indent, scope=scope
             )
-            for var_assign, value in zip(assign, values)
+            for var_assign, value in zip(assign, values, strict=False)
         ]
 
-    def replace_set_variable_scope(self, node, kw_name: str, indent: str, assign: list[str] | None = None):
-        assign = assign or node.assign
+    def replace_set_variable_scope(self, node: KeywordCall, kw_name: str, indent: str, assign: list[str]) -> Var | None:
         args = node.get_tokens(Token.ARGUMENT)
         if not args or assign:
             return None
-        scope = self.SET_SCOPE[kw_name]
+        scope_str = self.SET_SCOPE[kw_name]
         var_name = args[0].value
         var_name = self.resolve_variable_name(var_name)
         if not var_name:
@@ -243,12 +257,12 @@ class ReplaceWithVAR(Formatter):
                     var_name = "@" + var_name[1:]
         else:
             values = [var_name]
-        scope = scope.upper() if self.explicit_local or scope != "local" else None
+        scope = scope_str.upper() if self.explicit_local or scope_str != "local" else None
         return Var.from_params(
             name=var_name, value=values, separator=self.formatting_config.separator, indent=indent, scope=scope
         )
 
-    def replace_set_variable_if_kw(self, node, _kw_name: str, indent: str, assign: list[str] | None = None):
+    def replace_set_variable_if_kw(self, node: KeywordCall, _kw_name: str, indent: str, assign: list[str]) -> If | None:
         """
         Replace Set Variable If keyword with IF.
 
@@ -263,7 +277,6 @@ class ReplaceWithVAR(Formatter):
 
         # Set Variable If    @{ITEMS} -> cannot be converted
         """
-        assign = assign or node.assign
         if not self.replace_set_variable_if or len(assign) != 1:
             return None
         args = [arg.value for arg in node.get_tokens(Token.ARGUMENT)]
@@ -293,7 +306,7 @@ class ReplaceWithVAR(Formatter):
                 header = IfHeader.from_params(condition=condition, indent=indent, separator=separator)
             if_node = If(header=header, body=[variable])
             if head:
-                tail.orelse = if_node
+                tail.orelse = if_node  # type: ignore[union-attr]
             else:
                 head = if_node
                 head.end = End.from_params(indent=indent)
@@ -302,8 +315,7 @@ class ReplaceWithVAR(Formatter):
                 return head
             args = args[2:]
 
-    def replace_catenate_kw(self, node, _kw_name: str, indent: str, assign: list[str] | None = None):
-        assign = assign or node.assign
+    def replace_catenate_kw(self, node: KeywordCall, _kw_name: str, indent: str, assign: list[str]) -> Var | None:
         # not items - VAR with ${EMPTY}
         if not self.replace_catenate or len(assign) != 1:
             return None
@@ -322,8 +334,7 @@ class ReplaceWithVAR(Formatter):
         scope = "LOCAL" if self.explicit_local else None
         return Var.from_params(name=var_name, value=values, indent=indent, value_separator=separator, scope=scope)
 
-    def replace_create_list_kw(self, node, _kw_name: str, indent: str, assign: list[str] | None = None):
-        assign = assign or node.assign
+    def replace_create_list_kw(self, node: KeywordCall, _kw_name: str, indent: str, assign: list[str]) -> Var | None:
         if not self.replace_create_list or len(assign) != 1:
             return None
         var_name = assign[0]
@@ -348,16 +359,17 @@ class ReplaceWithVAR(Formatter):
         return separate, items[len(separate) :]
 
     @staticmethod
-    def _combine_separated_items(items: list[str]):
+    def _combine_separated_items(items: list[str]) -> list[str]:
         if not items:
             return items
-        combined = [f"{key}={value}" for key, value in zip(items[::2], items[1::2])]
+        combined = [f"{key}={value}" for key, value in zip(items[::2], items[1::2], strict=False)]
         if len(items) % 2 != 0:
             combined.append(items[-1])
         return combined
 
-    def replace_create_dictionary_kw(self, node, _kw_name: str, indent: str, assign: list[str] | None = None):
-        assign = assign or node.assign
+    def replace_create_dictionary_kw(
+        self, node: KeywordCall, _kw_name: str, indent: str, assign: list[str]
+    ) -> Var | None:
         if not self.replace_create_dictionary or len(assign) != 1:
             return None
         var_name = assign[0]

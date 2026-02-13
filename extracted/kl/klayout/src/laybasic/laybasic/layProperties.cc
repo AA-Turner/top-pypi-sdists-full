@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -28,7 +28,7 @@ namespace lay
 {
 
 PropertiesPage::PropertiesPage (QWidget *parent, db::Manager *manager, lay::Editable *editable)
-  : QFrame (parent), mp_manager (manager), mp_editable (editable)
+  : QFrame (parent), mp_manager (manager), mp_editable (editable), mp_page_set (0)
 {
   //  .. nothing else ..
 }

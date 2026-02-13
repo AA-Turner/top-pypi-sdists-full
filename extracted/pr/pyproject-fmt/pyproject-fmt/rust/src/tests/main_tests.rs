@@ -15,6 +15,7 @@ fn default_settings() -> Settings {
         table_format: String::from("short"),
         expand_tables: vec![],
         collapse_tables: vec![],
+        skip_wrap_for_keys: vec![],
     }
 }
 
@@ -127,6 +128,7 @@ fn test_expand_tables_with_project() {
         table_format: String::from("short"),
         expand_tables: vec![String::from("project")],
         collapse_tables: vec![],
+        skip_wrap_for_keys: vec![],
     };
     let got = format_toml(start, &settings);
     assert_snapshot!(got, @r#"
@@ -161,6 +163,7 @@ fn test_collapse_project_authors() {
         table_format: String::from("long"),
         expand_tables: vec![],
         collapse_tables: vec![String::from("project.authors")],
+        skip_wrap_for_keys: vec![],
     };
     let got = format_toml(start, &settings);
     assert_snapshot!(got, @r#"
@@ -190,6 +193,7 @@ fn test_collapse_project_maintainers() {
         table_format: String::from("long"),
         expand_tables: vec![],
         collapse_tables: vec![String::from("project.maintainers")],
+        skip_wrap_for_keys: vec![],
     };
     let got = format_toml(start, &settings);
     assert_snapshot!(got, @r#"
@@ -404,6 +408,7 @@ fn test_issue_146_expand_specific_subtable() {
         table_format: String::from("short"),
         expand_tables: vec![String::from("project.optional-dependencies")],
         collapse_tables: vec![],
+        skip_wrap_for_keys: vec![],
     };
     let got = format_toml(start, &settings);
     assert!(
@@ -434,6 +439,7 @@ fn test_css_specificity_more_specific_wins() {
         table_format: String::from("long"),
         expand_tables: vec![String::from("project.urls")],
         collapse_tables: vec![String::from("project")],
+        skip_wrap_for_keys: vec![],
     };
     let got = format_toml(start, &settings);
     assert!(
@@ -538,6 +544,7 @@ fn test_issue_146_deeply_nested_ruff_table() {
         table_format: String::from("short"),
         expand_tables: vec![String::from("tool.ruff.lint.flake8-tidy-imports.banned-api")],
         collapse_tables: vec![],
+        skip_wrap_for_keys: vec![],
     };
     let got = format_toml(start, &settings);
     assert!(
@@ -643,6 +650,7 @@ fn test_extract_table_names_from_array_tables() {
         table_format: String::from("long"),
         expand_tables: vec![String::from("project.authors")],
         collapse_tables: vec![],
+        skip_wrap_for_keys: vec![],
     };
     let got = format_toml(start, &settings);
     assert_snapshot!(got, @r#"
@@ -728,6 +736,7 @@ fn test_settings_new() {
         String::from("short"),
         vec![String::from("project.urls")],
         vec![String::from("project.authors")],
+        vec![],
     );
     assert_eq!(settings.column_width, 120);
     assert_eq!(settings.indent, 4);
@@ -754,6 +763,7 @@ fn test_table_format_config_from_settings() {
         String::from("short"),
         vec![String::from("tool.ruff")],
         vec![String::from("project")],
+        vec![],
     );
     let config = TableFormatConfig::from_settings(&settings);
     assert!(config.default_collapse);
@@ -792,6 +802,7 @@ fn test_idempotent_formatting() {
         table_format: String::from("short"),
         expand_tables: vec![],
         collapse_tables: vec![],
+        skip_wrap_for_keys: vec![],
     };
     let first = format_toml(start, &settings);
     let second = format_toml(&first, &settings);
@@ -859,5 +870,79 @@ fn test_table_key_without_prefix_match_long_format() {
     key = "value"
     [custom.nested]
     other = "data"
+    "#);
+}
+
+#[test]
+fn test_issue_217_mixed_quotes_idempotent() {
+    let start = indoc! {r#"
+    [project]
+    name = "flexget"
+    requires-python = ">=3.14"
+    classifiers = [
+      "Programming Language :: Python :: 3 :: Only",
+      "Programming Language :: Python :: 3.14",
+    ]
+
+    [tool.ruff]
+    lint.per-file-ignores.'docs/scripts/*' = [ "T20" ]
+    lint.per-file-ignores.'tests/*' = [ "T20" ]
+    lint.per-file-ignores."flexget/*" = [ "PTH" ] # TODO
+    "#};
+    let settings = Settings {
+        keep_full_version: true,
+        max_supported_python: (3, 14),
+        min_supported_python: (3, 14),
+        ..default_settings()
+    };
+    let first = format_toml(start, &settings);
+    assert_valid_toml(&first);
+    let second = format_toml(&first, &settings);
+    assert_eq!(first, second, "formatting should be idempotent");
+    assert_snapshot!(first, @r#"
+    [project]
+    name = "flexget"
+    requires-python = ">=3.14"
+    classifiers = [
+      "Programming Language :: Python :: 3 :: Only",
+      "Programming Language :: Python :: 3.14",
+    ]
+
+    [tool.ruff]
+    lint.per-file-ignores."docs/scripts/*" = [ "T20" ]
+    lint.per-file-ignores."flexget/*" = [ "PTH" ]  # TODO
+    lint.per-file-ignores."tests/*" = [ "T20" ]
+    "#);
+}
+
+#[test]
+fn test_issue_217_full_pyproject_idempotent() {
+    let start = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("rust/src/tests/data/issue-217.toml"),
+    )
+    .unwrap();
+    let settings = Settings {
+        keep_full_version: true,
+        max_supported_python: (3, 14),
+        min_supported_python: (3, 10),
+        ..default_settings()
+    };
+    let first = format_toml(&start, &settings);
+    assert_valid_toml(&first);
+    let second = format_toml(&first, &settings);
+    assert_eq!(first, second, "formatting should be idempotent");
+    assert_snapshot!(first);
+}
+
+#[test]
+fn test_issue_202_preserve_inline_comment_after_array() {
+    let start = indoc! {r#"
+    [tool.uv]
+    lint.per-file-ignores."docs/**/*.py" = [ "INP001" ] # No __init__.py in docs
+    "#};
+    let got = format_toml(start, &default_settings());
+    assert_snapshot!(got, @r#"
+    [tool.uv]
+    lint.per-file-ignores."docs/**/*.py" = [ "INP001" ]  # No __init__.py in docs
     "#);
 }

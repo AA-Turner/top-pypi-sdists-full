@@ -135,12 +135,12 @@ if __name__ == '__main__':
     # print(payload)
     # arun(put_user(payload['data'], -1))
 
-    # arun(get_api_key_log("sk-"))
+    arun(get_api_key_log("sk-41qOAlugpMxlLhfHYppZa9kpfBtz2NytdiclobG307KVBU9q"))
 
     # arun(get_api_key_log(os.getenv("OPENAI_API_KEY")))
 
     # arun(get_api_key_log('sk-'))
-    arun(get_user_money('sk-x'))
+    # arun(get_user_money(''))
 
     # arun(get_user_quota("sk-x"))
 

@@ -1,4 +1,4 @@
-# Copyright 2025 The Brax Authors.
+# Copyright 2026 The Brax Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -246,7 +246,20 @@ def train(
     )
     return params_with_noise, params_with_anti_noise, noise
 
-  prun_episode = jax.pmap(run_episode, in_axes=(None, 0, 0))
+  if jax.config.jax_pmap_shmap_merge:
+    def run_episode_shmap(normalizer_params, params, key):
+      params = jax.tree_util.tree_map(lambda x: jnp.squeeze(x, axis=0), params)
+      key = jnp.squeeze(key, axis=0)
+      return run_episode(normalizer_params, params, key)
+
+    mesh = jax.make_mesh((local_devices_to_use,), ('i',))
+    prun_episode = jax.shard_map(
+        run_episode_shmap, mesh=mesh,
+        in_specs=(jax.P(), jax.P('i'), jax.P('i')),
+        out_specs=(jax.P('i'), jax.P('i'), jax.P('i')),
+        check_vma=False)
+  else:
+    prun_episode = jax.pmap(run_episode, in_axes=(None, 0, 0))
 
   def compute_delta(
       params: jnp.ndarray,
@@ -301,8 +314,16 @@ def train(
         lambda x: jnp.reshape(x, (local_devices_to_use, -1) + x.shape[1:]),
         pparams,
     )
+    if jax.config.jax_pmap_shmap_merge:
+      sharding = jax.sharding.NamedSharding(mesh, jax.P('i'))
+      pparams = jax.tree_util.tree_map(
+          lambda x: jax.reshard(x, sharding), pparams
+      )
 
     key_es_eval = jax.random.split(key_es_eval, local_devices_to_use)
+    if jax.config.jax_pmap_shmap_merge:
+      sharding = jax.sharding.NamedSharding(mesh, jax.P('i'))
+      key_es_eval = jax.reshard(key_es_eval, sharding)
     eval_scores, obs, obs_weights = prun_episode(
         training_state.normalizer_params, pparams, key_es_eval
     )

@@ -87,7 +87,7 @@ class BodyStream(StringIO):
         return StringIO.read(self)
 
 
-class MockHttp(LibcloudConnection):
+class MockHttp(LibcloudConnection, unittest.TestCase):
     """
     A mock HTTP client/server suitable for testing purposes. This replaces
     `HTTPConnection` by implementing its API and returning a mock response.
@@ -108,7 +108,11 @@ class MockHttp(LibcloudConnection):
         # within a response
         if isinstance(self, unittest.TestCase):
             unittest.TestCase.__init__(self, "__init__")
-        super().__init__(*args, **kwargs)
+        # When this class is collected, it is instantiated with no arguments,
+        # which breaks any superclasses that expect arguments, so only
+        # do so if we were passed any keyword arguments.
+        if kwargs:
+            super().__init__(*args, **kwargs)
 
     def _get_request(self, method, url, body=None, headers=None):
         # Find a method we can use for this request
@@ -205,7 +209,7 @@ class MockHttp(LibcloudConnection):
         )  # Python 3.7 no longer quotes ~
 
         if type:
-            meth_name = "{}_{}".format(meth_name, self.type)
+            meth_name = "{}_{}".format(meth_name, type)
 
         if use_param and use_param in qs:
             param = qs[use_param][0].replace(".", "_").replace("-", "_")

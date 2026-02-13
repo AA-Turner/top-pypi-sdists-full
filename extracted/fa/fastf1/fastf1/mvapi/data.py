@@ -1,10 +1,10 @@
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 import pandas as pd
 
 import fastf1.core
+import fastf1.exceptions
 from fastf1.mvapi.api import get_circuit
 from fastf1.mvapi.internals import _logger
 
@@ -76,7 +76,7 @@ class CircuitInfo:
         # only position values are used that are not interpolated
         try:
             tel = reference_lap.get_telemetry(frequency='original')
-        except fastf1.core.DataNotLoadedError:
+        except fastf1.exceptions.DataNotLoadedError:
             _logger.warning("Failed to generate marker distance information: "
                             "telemetry data has not been loaded")
             return
@@ -117,7 +117,7 @@ class CircuitInfo:
             df['Distance'] = distances
 
 
-def get_circuit_info(*, year: int, circuit_key: int) -> Optional[CircuitInfo]:
+def get_circuit_info(*, year: int, circuit_key: int) -> CircuitInfo | None:
     """:meta private:
     Load circuit information from the MultiViewer API and convert it into
     as :class:``SessionInfo`` object.

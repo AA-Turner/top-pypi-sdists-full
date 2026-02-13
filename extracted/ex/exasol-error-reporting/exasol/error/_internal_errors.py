@@ -6,9 +6,6 @@ from inspect import cleandoc
 from pathlib import Path
 from typing import (
     Any,
-    Dict,
-    List,
-    Optional,
 )
 
 
@@ -16,12 +13,12 @@ from typing import (
 class _ExaStaticError:
     identifier: str
     message: str
-    messagePlaceholders: List[Dict[str, str]]
-    description: Optional[str]
-    mitigations: List[str]
+    messagePlaceholders: list[dict[str, str]]
+    description: str | None
+    mitigations: list[str]
     sourceFile: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Converts the static error to a dictionary, excluding "description" if it is None
         """
@@ -83,8 +80,9 @@ INVALID_ERROR_CODE_DEFINITION = _ExaStaticError(
     identifier="E-ERP-3",
     message=(
         "Invalid error code definition: {{error_element}} "
-        "only can contain constant values, "
-        "but is of type: {{defined_type}}. "
+        "only can contain constant values of type string, "
+        "but is of type: {{defined_type}} with "
+        "value of type {{value_type}}. "
         "In file {{file}} line {{line}}"
     ),
     messagePlaceholders=[
@@ -92,6 +90,7 @@ INVALID_ERROR_CODE_DEFINITION = _ExaStaticError(
             "error_element": "The element within the error "
             "definition which caused the error.",
             "defined_type": "The actual Python type of the error definition.",
+            "value_type": "The type of the actual Python value used in the error definition.",
             "file": "The file in which the error occurred.",
             "line": "The line where the error occurred.",
         }
@@ -102,11 +101,10 @@ INVALID_ERROR_CODE_DEFINITION = _ExaStaticError(
     mitigations=[
         cleandoc(
             """
-            Check the definition of ExaError. Possible errors: 
+            Check the definition of ExaError. Possible errors:
             1. Usage of none-constant expression in error code, message
             2. Mitigations are not a list, but another container
             3. Invalid definition of parameters.
-
             """
         )
     ],
@@ -126,7 +124,7 @@ INTERNAL_ERROR_WHEN_CREATING_ERROR_CATALOG = _ExaStaticError(
     mitigations=[
         cleandoc(
             """
-            Open a bug ticket at 
+            Open a bug ticket at
             https://github.com/exasol/error-reporting-python/issues/new?template=bug.md
             """
         )

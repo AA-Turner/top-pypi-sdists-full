@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -57,13 +57,12 @@ public:
 
 #else
 
-//  The non-Qt version is a dummy implementation as threading is not supported (yet)
 class TL_PUBLIC Mutex
 {
 public:
   Mutex () : m_spinlock () { }
-  void lock() { m_spinlock.lock(); }
-  void unlock() { m_spinlock.unlock(); }
+  void lock () { m_spinlock.lock (); }
+  void unlock () { m_spinlock.unlock (); }
 private:
   atomic::spinlock m_spinlock;
 };
@@ -91,7 +90,6 @@ public:
 
 class WaitConditionPrivate;
 
-//  The non-Qt version is a dummy implementation as threading is not supported (yet)
 class TL_PUBLIC WaitCondition
 {
 public:

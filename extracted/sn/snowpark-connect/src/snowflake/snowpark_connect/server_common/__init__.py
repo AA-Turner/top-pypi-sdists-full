@@ -347,9 +347,18 @@ def get_session(url: Optional[str] = None, conf: SparkConf = None) -> SparkSessi
             url = get_client_url()
 
         if url.startswith("unix:/"):
+            # Unix domain socket transport (default on Mac/Linux)
             b = SparkSession.builder.channelBuilder(UnixDomainSocketChannelBuilder())
         else:
-            b = SparkSession.builder.remote(url)
+            # TCP transport (default on Windows, or when sc:// URL is specified).
+            # The standard PySpark ChannelBuilder does not set
+            # grpc.max_metadata_size, defaulting to ~8KB. This causes
+            # "received metadata size exceeds hard limit" errors when error
+            # messages (which include the full SQL text) exceed 8KB.
+            # Pass _get_default_grpc_options() to match the Unix domain socket
+            # channel's gRPC configuration.
+            cb = ChannelBuilder(url, channelOptions=_get_default_grpc_options())
+            b = SparkSession.builder.channelBuilder(cb)
 
         if conf is not None:
             for k, v in conf.getAll():

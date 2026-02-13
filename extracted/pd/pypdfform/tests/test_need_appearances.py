@@ -7,123 +7,30 @@ import pytest
 from PyPDFForm import Fields, PdfWrapper
 
 
-def test_fill(template_stream, pdf_samples, data_dict, request):
-    expected_path = os.path.join(pdf_samples, "need_appearances", "sample_filled.pdf")
-    with open(expected_path, "rb+") as f:
-        obj = PdfWrapper(template_stream, need_appearances=True).fill(
-            data_dict,
-        )
-
-        request.config.results["expected_path"] = expected_path
-        request.config.results["stream"] = obj.read()
-
-        expected = f.read()
-
-        assert len(obj.read()) == len(expected)
-        assert obj.read() == expected
-
-
-def test_dropdown_two(sample_template_with_dropdown, pdf_samples, request):
-    expected_path = os.path.join(
-        pdf_samples, "need_appearances", "dropdown", "dropdown_two.pdf"
-    )
-    with open(expected_path, "rb+") as f:
-        obj = PdfWrapper(sample_template_with_dropdown, need_appearances=True).fill(
-            {
-                "test_1": "test_1",
-                "test_2": "test_2",
-                "test_3": "test_3",
-                "check_1": True,
-                "check_2": True,
-                "check_3": True,
-                "radio_1": 1,
-                "dropdown_1": 1,
-            },
-        )
-
-        request.config.results["expected_path"] = expected_path
-        request.config.results["stream"] = obj.read()
-
-        expected = f.read()
-
-        assert len(obj.read()) == len(expected)
-        assert obj.read() == expected
-
-
-def test_fill_sejda_complex(sejda_template_complex, pdf_samples, request):
-    expected_path = os.path.join(
-        pdf_samples, "need_appearances", "paragraph", "sample_filled_sejda_complex.pdf"
-    )
-    with open(expected_path, "rb+") as f:
-        obj = PdfWrapper(sejda_template_complex, need_appearances=True).fill(
-            {
-                "checkbox": True,
-                "radio": 0,
-                "dropdown_font_auto_left": 0,
-                "dropdown_font_auto_center": 1,
-                "dropdown_font_auto_right": 2,
-                "dropdown_font_ten_left": 0,
-                "dropdown_font_ten_center": 1,
-                "dropdown_font_ten_right": 2,
-                "paragraph_font_auto_left": "paragraph_font_auto_left",
-                "paragraph_font_auto_center": "paragraph_font_auto_center",
-                "paragraph_font_auto_right": "paragraph_font_auto_right",
-                "paragraph_font_ten_left": "paragraph_font_ten_left",
-                "paragraph_font_ten_center": "paragraph_font_ten_center",
-                "paragraph_font_ten_right": "paragraph_font_ten_right",
-                "text__font_auto_left": "test text",
-                "text_font_auto_center": "test text",
-                "text_font_auto_right": "test text",
-                "text_font_ten_left": "text_font_ten_left",
-                "text_font_ten_center": "text_font_ten_center",
-                "text_font_ten_right": "text_font_ten_right",
-            },
-        )
-
-        request.config.results["expected_path"] = expected_path
-        request.config.results["stream"] = obj.read()
-
-        expected = f.read()
-
-        assert len(obj.read()) == len(expected)
-        assert obj.read() == expected
-
-
-def test_issue_613(pdf_samples, request):
-    expected_path = os.path.join(
-        pdf_samples, "need_appearances", "issues", "613_expected.pdf"
-    )
-    with open(expected_path, "rb+") as f:
-        obj = PdfWrapper(
-            os.path.join(pdf_samples, "scenario", "issues", "613.pdf"),
-            need_appearances=True,
-        ).fill(
-            {
-                "301 Full name": "John Smith",
-                "301 Address Street": "1234 road number 6",
-            },
-        )
-
-        request.config.results["expected_path"] = expected_path
-        request.config.results["stream"] = obj.read()
-
-        expected = f.read()
-
-        assert len(obj.read()) == len(expected)
-        assert obj.read() == expected
-
-
-@pytest.mark.posix_only
-def test_sample_template_library(
-    pdf_samples, image_samples, sample_font_stream, request
+def run_sample_template_library_test(
+    pdf_samples,
+    image_samples,
+    sample_font_stream,
+    request,
+    generate_appearance_streams=False,
+    need_appearances=False,
 ):
+    subdir = (
+        "generate_appearance_streams"
+        if generate_appearance_streams
+        else "need_appearances"
+    )
     expected_path = os.path.join(
-        pdf_samples, "need_appearances", "test_sample_template_library.pdf"
+        pdf_samples, subdir, "test_sample_template_library.pdf"
     )
 
     with open(expected_path, "rb+") as f:
         obj = (
-            PdfWrapper(os.path.join(pdf_samples, "dummy.pdf"), need_appearances=True)
+            PdfWrapper(
+                os.path.join(pdf_samples, "dummy.pdf"),
+                generate_appearance_streams=generate_appearance_streams,
+                need_appearances=need_appearances,
+            )
             .register_font("new_font", sample_font_stream)
             .create_field(
                 Fields.TextField(
@@ -195,7 +102,9 @@ def test_sample_template_library(
 
         obj.widgets["new_text_field_widget"].font = "new_font"
         obj.widgets["new_text_field_widget"].font_color = (1, 0, 0)
+        # TODO: why is alignment not rendered right in the appearance stream?
         obj.widgets["new_text_field_widget"].alignment = 2
+
         obj.widgets["new_checkbox_widget"].size = 40
         obj.widgets["new_radio_group"].size = 50
 
@@ -205,4 +114,107 @@ def test_sample_template_library(
         expected = f.read()
 
         assert len(obj.read()) == len(expected)
+        if generate_appearance_streams:
+            request.config.results["skip_regenerate"] = len(obj.read()) == len(expected)
+        else:
+            assert obj.read() == expected
+
+
+def test_fill(template_stream, pdf_samples, data_dict, request):
+    expected_path = os.path.join(pdf_samples, "need_appearances", "sample_filled.pdf")
+    with open(expected_path, "rb+") as f:
+        obj = PdfWrapper(template_stream, need_appearances=True).fill(
+            data_dict,
+        )
+
+        request.config.results["expected_path"] = expected_path
+        request.config.results["stream"] = obj.read()
+
+        expected = f.read()
+
+        assert len(obj.read()) == len(expected)
         assert obj.read() == expected
+
+
+def test_dropdown_two(sample_template_with_dropdown, pdf_samples, request):
+    expected_path = os.path.join(
+        pdf_samples, "need_appearances", "dropdown", "dropdown_two.pdf"
+    )
+    with open(expected_path, "rb+") as f:
+        obj = PdfWrapper(sample_template_with_dropdown, need_appearances=True).fill(
+            {
+                "test_1": "test_1",
+                "test_2": "test_2",
+                "test_3": "test_3",
+                "check_1": True,
+                "check_2": True,
+                "check_3": True,
+                "radio_1": 1,
+                "dropdown_1": 1,
+            },
+        )
+
+        request.config.results["expected_path"] = expected_path
+        request.config.results["stream"] = obj.read()
+
+        expected = f.read()
+
+        assert len(obj.read()) == len(expected)
+        assert obj.read() == expected
+
+
+def test_fill_sejda_complex(
+    sejda_template_complex, sejda_complex_data, pdf_samples, request
+):
+    expected_path = os.path.join(
+        pdf_samples, "need_appearances", "paragraph", "sample_filled_sejda_complex.pdf"
+    )
+    with open(expected_path, "rb+") as f:
+        obj = PdfWrapper(sejda_template_complex, need_appearances=True).fill(
+            sejda_complex_data,
+        )
+
+        request.config.results["expected_path"] = expected_path
+        request.config.results["stream"] = obj.read()
+
+        expected = f.read()
+
+        assert len(obj.read()) == len(expected)
+        assert obj.read() == expected
+
+
+def test_issue_613(pdf_samples, request):
+    expected_path = os.path.join(
+        pdf_samples, "need_appearances", "issues", "613_expected.pdf"
+    )
+    with open(expected_path, "rb+") as f:
+        obj = PdfWrapper(
+            os.path.join(pdf_samples, "scenario", "issues", "613.pdf"),
+            need_appearances=True,
+        ).fill(
+            {
+                "301 Full name": "John Smith",
+                "301 Address Street": "1234 road number 6",
+            },
+        )
+
+        request.config.results["expected_path"] = expected_path
+        request.config.results["stream"] = obj.read()
+
+        expected = f.read()
+
+        assert len(obj.read()) == len(expected)
+        assert obj.read() == expected
+
+
+@pytest.mark.posix_only
+def test_sample_template_library(
+    pdf_samples, image_samples, sample_font_stream, request
+):
+    run_sample_template_library_test(
+        pdf_samples,
+        image_samples,
+        sample_font_stream,
+        request,
+        need_appearances=True,
+    )

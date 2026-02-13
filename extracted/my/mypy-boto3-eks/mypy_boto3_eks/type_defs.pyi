@@ -618,6 +618,7 @@ class CreatePodIdentityAssociationRequestTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
     disableSessionTags: NotRequired[bool]
     targetRoleArn: NotRequired[str]
+    policy: NotRequired[str]
 
 class PodIdentityAssociationTypeDef(TypedDict):
     clusterName: NotRequired[str]
@@ -633,6 +634,7 @@ class PodIdentityAssociationTypeDef(TypedDict):
     disableSessionTags: NotRequired[bool]
     targetRoleArn: NotRequired[str]
     externalId: NotRequired[str]
+    policy: NotRequired[str]
 
 class DeleteAccessEntryRequestTypeDef(TypedDict):
     clusterName: str
@@ -1008,6 +1010,7 @@ class UpdatePodIdentityAssociationRequestTypeDef(TypedDict):
     clientRequestToken: NotRequired[str]
     disableSessionTags: NotRequired[bool]
     targetRoleArn: NotRequired[str]
+    policy: NotRequired[str]
 
 class AssociatedAccessPolicyTypeDef(TypedDict):
     policyArn: NotRequired[str]

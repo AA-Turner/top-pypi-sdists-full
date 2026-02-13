@@ -1,7 +1,7 @@
 import time
 import click
 
-from adam.commands import extract_options, extract_trailing_options
+from adam.commands import extract_options
 from adam.commands.command import Command
 from adam.commands.command_helpers import ClusterOrPodCommandHelper
 from adam.commands.devices.devices import device
@@ -9,10 +9,10 @@ from adam.commands.nodetool.nodetool_commands import NODETOOL_COMMANDS
 from adam.commands.nodetool.utils_nodetool import abort_nodetool_tasks, find_running_nodetool_tasks
 from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
+from adam.utils_context import NULL
 from adam.utils_log import log
 from adam.utils_cassandra.pod_service import cassandra
 from adam.utils_tabulize import tabulize
-from adam.utils_context import Context
 
 class NodeTool(Command):
     COMMAND = 'nodetool'
@@ -32,19 +32,21 @@ class NodeTool(Command):
     def required(self):
         return RequiredState.CLUSTER_OR_POD
 
+    def backgrounable(self):
+        return True
+
     def run(self, cmd: str, state: ReplState):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with extract_options(args, '--force') as (args, forced):
-                with cassandra(state, pod=state.pod) as pods:
-                    with extract_trailing_options(args, '&') as (args, background):
+            with self.context(args) as (args, ctx):
+                with extract_options(args, '--force') as (args, forced):
+                    with cassandra(state, pod=state.pod) as pods:
                         if subcommand := args[0]:
                             if subcommand in ['repair']:
                                 ps = find_running_nodetool_tasks(subcommand, state)
                                 if ps:
-                                    ctx = self.context()
                                     tabulize(ps,
                                              lambda p: '\t'.join(p),
                                              header='POD\tCMD\tID/PID\tLAST_ARG\tREAPER_RUN_STATE',
@@ -64,16 +66,24 @@ class NodeTool(Command):
 
                                         return state
 
-                        ctx = Context.new(cmd, background, show_out=True, history=Context.PODS)
                         pods.nodetool(' '.join(args), status=(args[0] == 'status'), ctx=ctx)
 
                         return state
 
+    def retry(self, cmd: str, state: ReplState, failed: list[str] = None, ctx = NULL):
+        if failed:
+            ctx.log2(f'Retrying {len(failed)} failed nodetool commands...')
+            with cassandra(state, pod=failed) as pods:
+                args = cmd.split(' ')[1:]
+                pods.nodetool(' '.join(args), status=(args[0] == 'status'), ctx=ctx.copy(background=True))
+        else:
+            ctx.log2('No failed nodetool commands.')
+
     def completion(self, state: ReplState):
-        return super().completion(state, {c: {'--force': {'&': None}, '&': None} for c in NODETOOL_COMMANDS}, pods=device(state).pods(state, '-'))
+        return super().completion(state, {c: {'--force': None, '&': None} for c in NODETOOL_COMMANDS}, pods=device(state).pods(state, '-'))
 
     def help(self, state: ReplState):
-        return super().help(state, 'run nodetool with arguments', args='<sub-command> [&]')
+        return super().help(state, 'run nodetool with arguments', args='<sub-command>')
 
 class NodeToolCommandHelper(click.Command):
     def get_help(self, ctx: click.Context):

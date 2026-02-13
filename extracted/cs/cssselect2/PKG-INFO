@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: cssselect2
-Version: 0.8.0
+Version: 0.9.0
 Summary: CSS selectors for Python ElementTree
 Keywords: css,elementtree
 Author-email: Simon Sapin <simon.sapin@exyr.org>
 Maintainer-email: CourtBouillon <contact@courtbouillon.org>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -14,11 +14,11 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet :: WWW/HTTP
@@ -43,7 +43,7 @@ documents (HTML, XML, etc.) that can be read by ElementTree-like parsers
 (including cElementTree, lxml, html5lib, etc.)
 
 * Free software: BSD license
-* For Python 3.9+, tested on CPython and PyPy
+* For Python 3.10+, tested on CPython and PyPy
 * Documentation: https://doc.courtbouillon.org/cssselect2
 * Changelog: https://github.com/Kozea/cssselect2/releases
 * Code, issues, tests: https://github.com/Kozea/cssselect2

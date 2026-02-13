@@ -1,4 +1,4 @@
-#   Copyright 2022 - 2025 The PyMC Labs Developers
+#   Copyright 2022 - 2026 The PyMC Labs Developers
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -740,8 +740,10 @@ def test_sample_posterior_predictive(fitted_regression_model_instance, combined)
 
 def test_id():
     model_builder = RegressionModelBuilderTest()
+    # Model ID now uses JSON serialization for deterministic hashing
+    config_json = json.dumps(model_builder._serializable_model_config, sort_keys=True)
     expected_id = hashlib.sha256(
-        str(model_builder.model_config.values()).encode()
+        config_json.encode()
         + model_builder.version.encode()
         + model_builder._model_type.encode()
     ).hexdigest()[:16]

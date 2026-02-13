@@ -10,6 +10,7 @@ import platform
 import shutil
 import subprocess
 import tarfile
+import typing
 
 import packaging.version
 import requests
@@ -17,13 +18,12 @@ import rich.console
 import rich.progress
 import rich.text
 import typer
-import typing_extensions
 import yaml
 
 from . import _platforms
 
 app = typer.Typer(help="Fast first-time builds for charmcraft")
-Verbose = typing_extensions.Annotated[bool, typer.Option("--verbose", "-v")]
+Verbose = typing.Annotated[bool, typer.Option("--verbose", "-v")]
 running_in_ci = os.environ.get("CI") == "true"
 if running_in_ci:
     # Show colors in CI (https://rich.readthedocs.io/en/stable/console.html#terminal-detection)
@@ -290,7 +290,7 @@ class Platform(_platforms.Platform):
 def pack(
     context: typer.Context,
     verbose: Verbose = False,
-    selected_platforms: typing_extensions.Annotated[
+    selected_platforms: typing.Annotated[
         list[_platforms.Platform],
         typer.Option(
             "--platform",

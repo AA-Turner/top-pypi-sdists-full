@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nominal
-Version: 1.112.0
+Version: 1.113.0
 Summary: Automate Nominal workflows in Python
 Project-URL: Homepage, https://nominal.io
 Project-URL: Documentation, https://docs.nominal.io
@@ -35,7 +35,7 @@ Requires-Dist: types-cachetools>=6.0.0.20250525
 Requires-Dist: typing-extensions<5,>=4
 Requires-Dist: urllib3==2.6.3
 Provides-Extra: protos
-Requires-Dist: nominal-api-protos>=0.949.2; extra == 'protos'
+Requires-Dist: nominal-api-protos>=0.1090.0; extra == 'protos'
 Provides-Extra: tdms
 Requires-Dist: nptdms<2,>=1.9.0; extra == 'tdms'
 Description-Content-Type: text/markdown

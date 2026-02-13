@@ -117,6 +117,21 @@ from .platform_data import (
     WSL2,
     XENSERVER,
 )
+from .shell_data import (
+    ASH,
+    BASH,
+    CMD,
+    CSH,
+    DASH,
+    FISH,
+    KSH,
+    NUSHELL,
+    POWERSHELL,
+    TCSH,
+    UNKNOWN_SHELL,
+    XONSH,
+    ZSH,
+)
 
 # =============================================================================
 # Architecture groups
@@ -157,7 +172,7 @@ ALL_ARCHITECTURES: Group = Group(
 """All recognized architectures.
 
 .. caution::
-    This group does not contain the :data:`UNKNOWN_ARCHITECTURE` trait.
+    This group does not contain the :data:`~extra_platforms.UNKNOWN_ARCHITECTURE` trait.
 """
 
 
@@ -396,7 +411,7 @@ ALL_PLATFORMS: Group = Group(
 """All recognized platforms.
 
 .. caution::
-    This group does not contain the :data:`UNKNOWN_PLATFORM` trait.
+    This group does not contain the :data:`~extra_platforms.UNKNOWN_PLATFORM` trait.
 """
 
 
@@ -433,7 +448,7 @@ This is useful to avoid macOS-specific workarounds on Unix platforms.
 BSD = Group(
     "bsd",
     "All BSD",
-    "🅱️+",
+    "Ⓑ",
     (DRAGONFLY_BSD, FREEBSD, MACOS, MIDNIGHTBSD, NETBSD, OPENBSD, SUNOS),
 )
 """All BSD platforms.
@@ -534,7 +549,7 @@ LINUX_LAYERS = Group(
 LINUX_LIKE = Group(
     "linux_like",
     "All Linux & compatibility layers",
-    "🐧+",
+    "🐣",
     tuple(LINUX | LINUX_LAYERS),
 )
 """Sum of all Linux distributions and Linux compatibility layers."""
@@ -623,6 +638,59 @@ OTHER_POSIX = Group(
 
 
 # =============================================================================
+# Shell groups
+# =============================================================================
+
+ALL_SHELLS: Group = Group(
+    "all_shells",
+    "All shells",
+    "🐚",
+    (ASH, BASH, CMD, CSH, DASH, FISH, KSH, NUSHELL, POWERSHELL, TCSH, XONSH, ZSH),
+)
+"""All recognized shells.
+
+.. caution::
+    This group does not contain the :data:`~extra_platforms.UNKNOWN_SHELL` trait.
+"""
+
+
+BOURNE_SHELLS = Group(
+    "bourne_shells",
+    "Bourne-compatible shells",
+    "💲",
+    (ASH, BASH, DASH, KSH, ZSH),
+)
+"""All Bourne-compatible shells."""
+
+
+C_SHELLS = Group(
+    "c_shells",
+    "C shells",
+    "🅲",
+    (CSH, TCSH),
+)
+"""C shell family."""
+
+
+OTHER_SHELLS = Group(
+    "other_shells",
+    "Other shells",
+    "◇",
+    (FISH, NUSHELL, XONSH),
+)
+"""Other non-traditional shells."""
+
+
+WINDOWS_SHELLS = Group(
+    "windows_shells",
+    "Windows shells",
+    "⌨️",
+    (CMD, POWERSHELL),
+)
+"""Windows-native shells."""
+
+
+# =============================================================================
 # CI groups
 # =============================================================================
 
@@ -647,7 +715,7 @@ ALL_CI = Group(
 """All recognized Continuous Integration systems.
 
 .. caution::
-    This group does not contain the :data:`UNKNOWN_CI` trait.
+    This group does not contain the :data:`~extra_platforms.UNKNOWN_CI` trait.
 
 .. seealso::
     `List of known CI systems
@@ -663,18 +731,18 @@ UNKNOWN = Group(
     "unknown",
     "Unknown",
     "❓",
-    (UNKNOWN_ARCHITECTURE, UNKNOWN_CI, UNKNOWN_PLATFORM),
+    (UNKNOWN_ARCHITECTURE, UNKNOWN_PLATFORM, UNKNOWN_SHELL, UNKNOWN_CI),
 )
 """Unknown or unrecognized traits."""
 
 
 ALL_TRAITS = Group(
     "all_traits",
-    "All architectures, platforms and CI systems",
+    "All architectures, platforms, shells, and CI systems",
     "⁕",
-    tuple(ALL_ARCHITECTURES | ALL_PLATFORMS | ALL_CI | UNKNOWN),
+    tuple(ALL_ARCHITECTURES | ALL_PLATFORMS | ALL_SHELLS | ALL_CI | UNKNOWN),
 )
-"""All predefined architectures, platforms and CI systems.
+"""All predefined architectures, platforms, shells, and CI systems.
 
 .. hint::
     This group includes all ``UNKNOWN_*`` traits.
@@ -685,7 +753,7 @@ ALL_TRAITS = Group(
 # Collections of groups
 # =============================================================================
 
-#: All groups whose members are architectures.
+#: All groups whose members are :class:`~extra_platforms.Architecture`.
 ALL_ARCHITECTURE_GROUPS: frozenset[Group] = frozenset(
     (
         ALL_ARCHITECTURES,
@@ -706,7 +774,7 @@ ALL_ARCHITECTURE_GROUPS: frozenset[Group] = frozenset(
 )
 
 
-#: All groups whose members are platforms.
+#: All groups whose members are :class:`~extra_platforms.Platform`.
 ALL_PLATFORM_GROUPS: frozenset[Group] = frozenset(
     (
         ALL_PLATFORMS,
@@ -725,21 +793,34 @@ ALL_PLATFORM_GROUPS: frozenset[Group] = frozenset(
 )
 
 
-#: All groups whose members are CI systems.
+#: All groups whose members are :class:`~extra_platforms.Shell`.
+ALL_SHELL_GROUPS: frozenset[Group] = frozenset(
+    (
+        ALL_SHELLS,
+        BOURNE_SHELLS,
+        C_SHELLS,
+        OTHER_SHELLS,
+        WINDOWS_SHELLS,
+    ),
+)
+
+
+#: All groups whose members are :class:`~extra_platforms.CI`.
 #:
 #: .. note::
-#:     Not that useful currently, but provided for symmetry with architecture and platform
-#:     groups.
+#:     Not that useful as there is only one CI group, but provided for symmetry with
+#:     :data:`ALL_ARCHITECTURE_GROUPS` and :data:`ALL_PLATFORM_GROUPS`.
 ALL_CI_GROUPS: frozenset[Group] = frozenset((ALL_CI,))
 
 
 #: Non-overlapping groups.
 #:
 #: .. hint::
-#:     These groups together cover all predefined architectures, platforms, and CI systems,
-#:     including traits from the :data:`~UNKNOWN` group.
+#:     These groups together cover all :class:`~extra_platforms.Architecture`,
+#:     :class:`~extra_platforms.Platform`, and :class:`~extra_platforms.CI` traits,
+#:     including traits from the :data:`~extra_platforms.UNKNOWN` group.
 #:
-#:     All groups in this collection are marked as canonical.
+#:     All groups in this collection are marked as :attr:`~extra_platforms.Group.canonical`.
 NON_OVERLAPPING_GROUPS: frozenset[Group] = frozenset(
     (
         # Architecture groups.
@@ -760,6 +841,11 @@ NON_OVERLAPPING_GROUPS: frozenset[Group] = frozenset(
         SYSTEM_V,
         UNIX_LAYERS,
         OTHER_POSIX,
+        # Shell groups.
+        BOURNE_SHELLS,
+        C_SHELLS,
+        OTHER_SHELLS,
+        WINDOWS_SHELLS,
         # CI groups.
         ALL_CI,
         # Mixed groups.
@@ -771,7 +857,7 @@ NON_OVERLAPPING_GROUPS: frozenset[Group] = frozenset(
 #: Overlapping groups, defined for convenience.
 #:
 #: .. hint::
-#:     None of these groups are marked as canonical.
+#:     None of these groups are marked as :attr:`~extra_platforms.Group.canonical`.
 EXTRA_GROUPS: frozenset[Group] = frozenset(
     (
         ALL_TRAITS,
@@ -787,6 +873,8 @@ EXTRA_GROUPS: frozenset[Group] = frozenset(
         UNIX_WITHOUT_MACOS,
         BSD_WITHOUT_MACOS,
         LINUX_LIKE,
+        # Shell groups.
+        ALL_SHELLS,
     ),
 )
 
@@ -794,8 +882,8 @@ EXTRA_GROUPS: frozenset[Group] = frozenset(
 #: All predefined groups.
 #:
 #: .. hint::
-#:     This collection contains both canonical and non-canonical groups, including the
-#:     :data:`~UNKNOWN` group.
+#:     This collection contains both :attr:`~extra_platforms.Group.canonical` and
+#:     non-canonical groups, including the :data:`~extra_platforms.UNKNOWN` group.
 ALL_GROUPS: frozenset[Group] = frozenset(NON_OVERLAPPING_GROUPS | EXTRA_GROUPS)
 
 
@@ -813,7 +901,7 @@ ALL_TRAIT_IDS: frozenset[str] = frozenset(p.id for p in ALL_TRAITS - UNKNOWN)
 #: A :class:`frozenset` of all recognized group IDs.
 #:
 #: .. attention::
-#:     This collection does not contain the :data:`~UNKNOWN` group.
+#:     This collection does not contain the :data:`~extra_platforms.UNKNOWN` group.
 ALL_GROUP_IDS: frozenset[str] = frozenset(p.id for p in ALL_GROUPS - {UNKNOWN})
 
 
@@ -821,5 +909,5 @@ ALL_GROUP_IDS: frozenset[str] = frozenset(p.id for p in ALL_GROUPS - {UNKNOWN})
 #:
 #: .. attention::
 #:     This collection does not contain all the ``UNKNOWN_*`` traits and the
-#:     :data:`~UNKNOWN` group.
+#:     :data:`~extra_platforms.UNKNOWN` group.
 ALL_IDS: frozenset[str] = ALL_TRAIT_IDS | ALL_GROUP_IDS

@@ -6,7 +6,7 @@ Aggregate benchmark results and generate a Slack summary message.
 import json
 import sys
 from collections import defaultdict
-from datetime import UTC
+from datetime import UTC, datetime
 from pathlib import Path
 
 MAX_MIXED_SCENARIOS = 3
@@ -258,8 +258,6 @@ def generate_slack_message(
         lines.append("")
 
     # Footer
-    from datetime import datetime
-
     run_time = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     lines.extend(
         [

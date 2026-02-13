@@ -247,7 +247,7 @@ def _log_timing(
     exc: BaseException | None = None,
     extra: dict[str, Any] | None = None,
 ) -> None:
-    from langgraph_api import config
+    from langgraph_api import config  # noqa: PLC0415
 
     kwargs = kwargs or {}
 

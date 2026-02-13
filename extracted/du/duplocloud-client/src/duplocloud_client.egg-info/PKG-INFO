@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: duplocloud-client
-Version: 0.3.8
+Version: 0.4.0
 Summary: Command line Client for interacting with Duplocloud portals.
 Author-email: Kelly <kelly@duplocloud.net>
 Maintainer-email: Kelly <kelly@duplocloud.net>
@@ -50,7 +50,8 @@ Requires-Dist: boto3>=1.34.83; extra == "aws"
 Provides-Extra: docs
 Requires-Dist: mkdocs; extra == "docs"
 Requires-Dist: mkdocs-material; extra == "docs"
-Requires-Dist: mkdocstrings[python]; extra == "docs"
+Requires-Dist: mkdocstrings[python]<1.0; extra == "docs"
+Requires-Dist: mkdocstrings-python<2.0; extra == "docs"
 Dynamic: license-file
 
 # Duplocloud Py Client

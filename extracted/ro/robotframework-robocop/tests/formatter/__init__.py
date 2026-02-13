@@ -14,7 +14,7 @@ from robot.version import VERSION as RF_VERSION
 from robocop.formatter.utils.misc import decorate_diff_with_color
 from robocop.run import format_files
 
-VERSION_MATRIX = {"ReplaceReturns": 5, "InlineIf": 5, "ReplaceBreakContinue": 5, "Translate": 6, "ReplaceWithVAR": 7}
+VERSION_MATRIX = {"InlineIf": 5, "ReplaceBreakContinue": 5, "Translate": 6, "ReplaceWithVAR": 7}
 ROBOT_VERSION = version.parse(RF_VERSION)
 
 
@@ -48,7 +48,7 @@ class FormatterAcceptanceTest:
         test_on_version: str | None = None,
         run_all: bool = False,
         select: list[str] | None = None,
-        **kwargs,
+        **kwargs: object,
     ):
         """
         Compare actual (source) and expected files.
@@ -82,7 +82,7 @@ class FormatterAcceptanceTest:
         exit_code: int = 0,
         not_modified: bool = False,
         test_on_version: str | None = None,
-        **kwargs,
+        **kwargs: object,
     ):
         if not self.enabled_in_version(test_on_version):
             pytest.skip(f"Test enabled only for RF {test_on_version}")
@@ -115,6 +115,7 @@ class FormatterAcceptanceTest:
             pytest.fail(f"File {actual_name} is not same as expected")
 
     def enabled_in_version(self, target_version: str | None) -> bool:
+        # TODO: this can potentially be solved with robocop version handling instead
         if target_version and ROBOT_VERSION not in SpecifierSet(target_version, prereleases=True):
             return False
         if self.FORMATTER_NAME in VERSION_MATRIX:

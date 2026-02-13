@@ -5,6 +5,7 @@ from decimal import Decimal
 from io import TextIOWrapper
 import logging
 import os
+import random
 import re
 import shutil
 import sys
@@ -141,7 +142,10 @@ class MyCli:
         # this parallel config exists to
         #  * compare with my.cnf
         #  * support the --checkup feature
+        # todo: after removing my.cnf, create the parallel configs only when --checkup is set
         self.config_without_package_defaults = read_config_files(config_files, ignore_package_defaults=True)
+        # this parallel config exists to compare with my.cnf support the --checkup feature
+        self.config_without_user_options = read_config_files(config_files, ignore_user_options=True)
         self.multi_line = c["main"].as_bool("multi_line")
         self.key_bindings = c["main"]["key_bindings"]
         special.set_timing_enabled(c["main"].as_bool("timing"))
@@ -169,9 +173,17 @@ class MyCli:
         self.null_string = c['main'].get('null_string')
         self.numeric_alignment = c['main'].get('numeric_alignment', 'right')
         self.binary_display = c['main'].get('binary_display')
+        if 'llm' in c and re.match(r'^\d+$', c['llm'].get('prompt_field_truncate', '')):
+            self.llm_prompt_field_truncate = int(c['llm'].get('prompt_field_truncate'))
+        else:
+            self.llm_prompt_field_truncate = 0
+        if 'llm' in c and re.match(r'^\d+$', c['llm'].get('prompt_section_truncate', '')):
+            self.llm_prompt_section_truncate = int(c['llm'].get('prompt_section_truncate'))
+        else:
+            self.llm_prompt_section_truncate = 0
 
         # set ssl_mode if a valid option is provided in a config file, otherwise None
-        ssl_mode = c["main"].get("ssl_mode", None)
+        ssl_mode = c["main"].get("ssl_mode", None) or c["connection"].get("default_ssl_mode", None)
         if ssl_mode not in ("auto", "on", "off", None):
             self.echo(f"Invalid config option provided for ssl_mode ({ssl_mode}); ignoring.", err=True, fg="red")
             self.ssl_mode = None
@@ -813,7 +825,10 @@ class MyCli:
             print(sqlexecute.server_info)
             print("mycli", __version__)
             print(SUPPORT_INFO)
-            print("Thanks to the contributor -", thanks_picker())
+            if random.random() <= 0.5:
+                print("Thanks to the contributor —", thanks_picker())
+            else:
+                print("Tip —", tips_picker())
 
         def get_message() -> ANSI:
             prompt = self.get_prompt(self.prompt_format)
@@ -965,9 +980,16 @@ class MyCli:
                 while special.is_llm_command(text):
                     start = time()
                     try:
+                        assert isinstance(self.sqlexecute, SQLExecute)
                         assert sqlexecute.conn is not None
                         cur = sqlexecute.conn.cursor()
-                        context, sql, duration = special.handle_llm(text, cur)
+                        context, sql, duration = special.handle_llm(
+                            text,
+                            cur,
+                            sqlexecute.dbname or '',
+                            self.llm_prompt_field_truncate,
+                            self.llm_prompt_section_truncate,
+                        )
                         if context:
                             click.echo("LLM Response:")
                             click.echo(context)
@@ -2191,17 +2213,41 @@ def thanks_picker() -> str:
     import mycli
 
     lines: str = ""
-    with resources.files(mycli).joinpath("AUTHORS").open('r') as f:
-        lines += f.read()
+    try:
+        with resources.files(mycli).joinpath("AUTHORS").open('r') as f:
+            lines += f.read()
+    except FileNotFoundError:
+        pass
 
-    with resources.files(mycli).joinpath("SPONSORS").open('r') as f:
-        lines += f.read()
+    try:
+        with resources.files(mycli).joinpath("SPONSORS").open('r') as f:
+            lines += f.read()
+    except FileNotFoundError:
+        pass
 
     contents = []
     for line in lines.split("\n"):
         if m := re.match(r"^ *\* (.*)", line):
             contents.append(m.group(1))
     return choice(contents) if contents else 'our sponsors'
+
+
+def tips_picker() -> str:
+    import mycli
+
+    tips = []
+
+    try:
+        with resources.files(mycli).joinpath('TIPS').open('r') as f:
+            for line in f:
+                if line.startswith("#"):
+                    continue
+                if tip := line.strip():
+                    tips.append(tip)
+    except FileNotFoundError:
+        pass
+
+    return choice(tips) if tips else r'\? or "help" for help!'
 
 
 @prompt_register("edit-and-execute-command")
@@ -2231,28 +2277,76 @@ def read_ssh_config(ssh_config_path: str):
 
 
 def do_config_checkup(mycli: MyCli) -> None:
-    did_output = False
+    did_output_missing = False
+    did_output_unsupported = False
+    did_output_deprecated = False
+
+    indent = '    '
+    transitions = {
+        f'{indent}[main]\n{indent}default_character_set': f'{indent}[connection]\n{indent}default_character_set',
+        f'{indent}[main]\n{indent}ssl_mode': f'{indent}[connection]\n{indent}default_ssl_mode',
+    }
+    reverse_transitions = {v: k for k, v in transitions.items()}
 
     if not list(mycli.config.keys()):
         print('\nThe local ~/,myclirc is missing or empty.\n')
-        did_output = True
+        did_output_missing = True
     else:
-        for section_name in mycli.config.keys():
+        for section_name in mycli.config:
             if section_name not in mycli.config_without_package_defaults:
-                if not did_output:
-                    print('\nMissing in user ~/.myclirc:\n')
-                print(f'The entire section:\n\n    [{section_name}]\n')
-                did_output = True
+                if not did_output_missing:
+                    print('\n### Missing in user ~/.myclirc:\n')
+                print(f'The entire section:\n\n{indent}[{section_name}]\n')
+                did_output_missing = True
                 continue
             for item_name in mycli.config[section_name]:
+                transition_key = f'{indent}[{section_name}]\n{indent}{item_name}'
+                if transition_key in reverse_transitions:
+                    continue
                 if item_name not in mycli.config_without_package_defaults[section_name]:
-                    if not did_output:
-                        print('\nMissing in user ~/.myclirc:\n')
-                    print(f'The item:\n\n    [{section_name}]\n    {item_name} =\n')
-                    did_output = True
-    if did_output:
+                    if not did_output_missing:
+                        print('\n### Missing in user ~/.myclirc:\n')
+                    print(f'The item:\n\n{indent}[{section_name}]\n{indent}{item_name} =\n')
+                    did_output_missing = True
+
+        for section_name in mycli.config_without_package_defaults:
+            if section_name not in mycli.config_without_user_options:
+                if not did_output_unsupported:
+                    print('\n### Unsupported in user ~/.myclirc:\n')
+                did_output_unsupported = True
+                print(f'The entire section:\n\n{indent}[{section_name}]\n')
+                continue
+            for item_name in mycli.config_without_package_defaults[section_name]:
+                if section_name == 'colors' and item_name.startswith('sql.'):
+                    # these are commented out in the package myclirc
+                    continue
+                transition_key = f'{indent}[{section_name}]\n{indent}{item_name}'
+                if transition_key in transitions:
+                    continue
+                if item_name not in mycli.config_without_user_options[section_name]:
+                    if not did_output_unsupported:
+                        print('\n### Unsupported in user ~/.myclirc:\n')
+                    print(f'The item:\n\n{indent}[{section_name}]\n{indent}{item_name} =\n')
+                    did_output_unsupported = True
+
+        for section_name in mycli.config_without_package_defaults:
+            if section_name not in mycli.config_without_user_options:
+                continue
+            for item_name in mycli.config_without_package_defaults[section_name]:
+                if section_name == 'colors' and item_name.startswith('sql.'):
+                    # these are commented out in the package myclirc
+                    continue
+                transition_key = f'{indent}[{section_name}]\n{indent}{item_name}'
+                if transition_key in transitions:
+                    if not did_output_deprecated:
+                        print('\n### Deprecated in user ~/.myclirc:\n')
+                    transition_value = transitions[transition_key]
+                    print(f'It is recommended to transition:\n\n{transition_key}\n\nto\n\n{transition_value}\n')
+                    did_output_deprecated = True
+
+    if did_output_missing or did_output_unsupported or did_output_deprecated:
         print(
-            'For more info on new features, see the commentary and defaults at:\n\n    * https://github.com/dbcli/mycli/blob/main/mycli/myclirc\n'
+            'For more info on supported features, see the commentary and defaults at:\n\n    * https://github.com/dbcli/mycli/blob/main/mycli/myclirc\n'
         )
     else:
         print('User configuration all up to date!')

@@ -65,7 +65,7 @@ async def put_item(request: ApiRequest):
     }
     await handle_event("put", handler_payload)
     await (await get_store()).aput(
-        namespace, handler_payload["key"], handler_payload["value"]
+        handler_payload["namespace"], handler_payload["key"], handler_payload["value"]
     )
     return Response(status_code=204)
 

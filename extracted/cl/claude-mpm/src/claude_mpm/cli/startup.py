@@ -84,10 +84,10 @@ def cleanup_user_level_hooks() -> bool:
 
 
 def sync_hooks_on_startup(quiet: bool = False) -> bool:
-    """Ensure hooks are up-to-date on startup.
+    """Sync hooks on startup if not already installed.
 
     WHY: Users can have stale hook configurations in settings.json that cause errors.
-    Reinstalling hooks ensures the hook format matches the current code.
+    This ensures hooks exist without reinstalling on every startup (which causes lock conflicts).
 
     DESIGN DECISION: Shows brief status message on success for user awareness.
     Failures are logged but don't prevent startup to ensure claude-mpm
@@ -127,8 +127,14 @@ def sync_hooks_on_startup(quiet: bool = False) -> bool:
         if is_tty:
             print("Installing project hooks...", end=" ", flush=True)
 
-        # Reinstall hooks (force=True ensures update)
-        success = installer.install_hooks(force=True)
+        # Check if hooks need installation
+        status = installer.get_status()
+        if not status.get("installed", False):
+            # Hooks not installed, install them now
+            success = installer.install_hooks(force=False)
+        else:
+            # Hooks already installed, skip reinstall to avoid file lock conflicts
+            success = True
 
         if is_tty:
             if success:
@@ -1678,15 +1684,23 @@ def check_mcp_auto_configuration():
     a 10-second timeout. Shows progress feedback during checks to avoid
     appearing frozen.
 
-    OPTIMIZATION: Skip ALL MCP checks for doctor and configure commands to avoid
-    duplicate checks (doctor performs its own comprehensive check, configure
-    allows users to select services).
+    OPTIMIZATION: Skip ALL MCP checks for doctor, configure, and setup commands to
+    avoid conflicts (doctor performs its own comprehensive check, configure allows
+    users to select services, setup has exclusive control over .mcp.json during
+    installation).
     """
-    # Skip MCP service checks for the doctor and configure commands
+    # Check if auto-config should be skipped via environment variable
+    # (set by configure command when launching run)
+    if os.getenv("CLAUDE_MPM_SKIP_AUTO_CONFIG") == "1":
+        os.environ.pop("CLAUDE_MPM_SKIP_AUTO_CONFIG", None)  # Clear immediately
+        return
+
+    # Skip MCP service checks for the doctor, configure, and setup commands
     # The doctor command performs its own comprehensive MCP service check
     # The configure command allows users to configure which services to enable
-    # Running both would cause duplicate checks and log messages (9 seconds apart)
-    if len(sys.argv) > 1 and sys.argv[1] in ("doctor", "configure"):
+    # The setup command installs MCP servers with exclusive control over .mcp.json
+    # Running auto-configuration during these commands would cause conflicts
+    if len(sys.argv) > 1 and sys.argv[1] in ("doctor", "configure", "setup"):
         return
 
     try:

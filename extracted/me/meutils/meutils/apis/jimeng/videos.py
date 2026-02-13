@@ -174,7 +174,7 @@ async def create_task(request: VideoRequest, token: Optional[str] = None):
 
 if __name__ == '__main__':
     token = None
-    token = "d2d142fc877e696484cc2fc521127b36"
+    api_key = token = "4a7a0a0515b0a972a879170a065c795e"
 
     request = VideoRequest(
         model="dreamina_ic_generate_video_model_vgfm_3.0",

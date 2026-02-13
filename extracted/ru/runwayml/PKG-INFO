@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: runwayml
-Version: 4.5.0
+Version: 4.6.0
 Summary: The official Python library for the runwayml API
 Project-URL: Homepage, https://github.com/runwayml/sdk-python
 Project-URL: Repository, https://github.com/runwayml/sdk-python
@@ -166,6 +166,7 @@ from runwayml import RunwayML
 client = RunwayML()
 
 text_to_image = client.text_to_image.create(
+    duration=2,
     model="gen4_image",
     prompt_text="promptText",
     ratio="1920:1080",

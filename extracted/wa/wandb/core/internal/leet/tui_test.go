@@ -2,8 +2,10 @@ package leet_test
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,19 +28,23 @@ const (
 
 // newTestModel creates a test model and sends an initial WindowSizeMsg to force the first render.
 // The model's View returns "Loading..." until width/height are non-zero, so we always size first.
-// (See Model.View early return.)
+// Uses the full Model (not bare Run) so help and mode-switching work correctly.
 func newTestModel(
 	t *testing.T,
 	cfg *leet.ConfigManager,
 	runPath string,
 	w, h int,
-) (*teatest.TestModel, *leet.Model) {
+) *teatest.TestModel {
 	t.Helper()
 	logger := observability.NewNoOpLogger()
-	m := leet.NewModel(runPath, cfg, logger)
+	m := leet.NewModel(leet.ModelParams{
+		RunFile: runPath,
+		Config:  cfg,
+		Logger:  logger,
+	})
 	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(w, h))
 	tm.Send(tea.WindowSizeMsg{Width: w, Height: h})
-	return tm, m
+	return tm
 }
 
 // writeRecord marshals and writes a single protobuf record to the leveldb writer.
@@ -63,7 +69,7 @@ func forceRepaint(tm *teatest.TestModel, w, h int) {
 func TestLoadingScreenAndQuit(t *testing.T) {
 	logger := observability.NewNoOpLogger()
 	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
-	tm, _ := newTestModel(t, cfg, "no/such/file.wandb", 100, 30)
+	tm := newTestModel(t, cfg, "no/such/file.wandb", 100, 30)
 
 	// Wait for loading screen text.
 	teatest.WaitFor(t, tm.Output(),
@@ -133,7 +139,7 @@ func TestMetricsAndSystemMetrics_RenderAndSeriesCount(t *testing.T) {
 
 	// Spin up the TUI against the live file.
 	const W, H = 240, 80
-	tm, _ := newTestModel(t, cfg, tmp.Name(), W, H)
+	tm := newTestModel(t, cfg, tmp.Name(), W, H)
 
 	// Wait for the main grid to show (loss chart).
 	teatest.WaitFor(t, tm.Output(),
@@ -221,6 +227,219 @@ func TestMetricsAndSystemMetrics_RenderAndSeriesCount(t *testing.T) {
 		teatest.WithDuration(shortWait),
 	)
 	tm.Type("h")
+
+	// Quit.
+	tm.Type("q")
+	tm.WaitFinished(t, teatest.WithFinalTimeout(shortWait))
+}
+
+// newWorkspaceTestModel mirrors newTestModel from tui_test.go but starts in workspace mode.
+func newWorkspaceTestModel(
+	t *testing.T,
+	cfg *leet.ConfigManager,
+	wandbDir string,
+	w, h int,
+) *teatest.TestModel {
+	t.Helper()
+	logger := observability.NewNoOpLogger()
+
+	m := leet.NewModel(leet.ModelParams{
+		WandbDir: wandbDir,
+		Config:   cfg,
+		Logger:   logger,
+	})
+
+	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(w, h))
+	tm.Send(tea.WindowSizeMsg{Width: w, Height: h})
+	return tm
+}
+
+func writeWorkspaceRunWandbFile(
+	t *testing.T,
+	wandbDir, runKey, runID string,
+	loss float64,
+) string {
+	t.Helper()
+
+	runFile := filepath.Join(wandbDir, runKey, "run-"+runID+".wandb")
+	require.NoError(t, os.MkdirAll(filepath.Dir(runFile), 0o755))
+
+	f, err := os.Create(runFile)
+	require.NoError(t, err)
+	defer func() { _ = f.Close() }()
+
+	writer := leveldb.NewWriterExt(f, leveldb.CRCAlgoIEEE, 0)
+
+	// Minimal Run record (powers run overview preload + nicer UI).
+	writeRecord(t, writer, &spb.Record{
+		RecordType: &spb.Record_Run{
+			Run: &spb.RunRecord{
+				RunId:       runID,
+				DisplayName: runID,
+				Project:     "test-project",
+			},
+		},
+	})
+
+	// Minimal History record with a single metric ("loss") so the MetricsGrid renders.
+	writeRecord(t, writer, &spb.Record{
+		RecordType: &spb.Record_History{
+			History: &spb.HistoryRecord{
+				Step: &spb.HistoryStep{Num: 1},
+				Item: []*spb.HistoryItem{
+					{NestedKey: []string{"_step"}, ValueJson: "1"},
+					{NestedKey: []string{"loss"}, ValueJson: fmt.Sprintf("%g", loss)},
+				},
+			},
+		},
+	})
+
+	require.NoError(t, writer.Flush())
+	require.NoError(t, writer.Close())
+
+	return runFile
+}
+
+func waitForPlainOutput(
+	t *testing.T,
+	tm *teatest.TestModel,
+	want []string,
+	notWant []string,
+) {
+	t.Helper()
+
+	teatest.WaitFor(t, tm.Output(),
+		func(b []byte) bool {
+			s := stripANSI(string(b))
+			for _, w := range want {
+				if !strings.Contains(s, w) {
+					return false
+				}
+			}
+			for _, nw := range notWant {
+				if strings.Contains(s, nw) {
+					return false
+				}
+			}
+			return true
+		},
+		teatest.WithDuration(longWait),
+	)
+}
+
+func TestWorkspace_MultiRun_SelectPinDeselect_OverlaySeriesCount(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+
+	require.NoError(t, cfg.SetStartupMode(leet.StartupModeWorkspaceLatest))
+	require.NoError(t, cfg.SetMetricsRows(1))
+	require.NoError(t, cfg.SetMetricsCols(1))
+
+	wandbDir := t.TempDir()
+
+	newestRunKey := "run-20260209_010102-newest"
+	olderRunKey := "run-20260209_010101-older"
+
+	writeWorkspaceRunWandbFile(t, wandbDir, newestRunKey, "newest", 1.0)
+	writeWorkspaceRunWandbFile(t, wandbDir, olderRunKey, "older", 2.0)
+
+	const W, H = 240, 60
+	tm := newWorkspaceTestModel(t, cfg, wandbDir, W, H)
+
+	// Toggle sidebars.
+	tm.Type("[")
+	tm.Type("[")
+	tm.Type("]")
+	tm.Type("]")
+
+	// Track width bumps so forceRepaint always changes layout (teatest output consumption).
+	repaintW := W
+
+	// 1) Initial load: workspace scans wandbDir, lists runs, auto-selects + pins the newest run.
+	waitForPlainOutput(t, tm,
+		[]string{
+			"Runs: 1/2 selected",
+			"Pinned: " + newestRunKey,
+			leet.PinnedRunMark + " " + newestRunKey,
+			"loss",
+		},
+		nil,
+	)
+
+	// Exercise filtering codepath.
+	tm.Type("/")
+	tm.Type("l")
+	tm.Type("o")
+	tm.Type("s")
+	tm.Type("s")
+	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	waitForPlainOutput(t, tm,
+		[]string{
+			"Filter",
+			"loss",
+			"[1/1]",
+		},
+		nil,
+	)
+	tm.Send(tea.KeyMsg{Type: tea.KeyCtrlL})
+
+	// 2) Select the older run (down + space). Expect multi-series overlay.
+	tm.Send(tea.KeyMsg{Type: tea.KeyDown})
+	tm.Send(tea.KeyMsg{Type: tea.KeySpace})
+
+	forceRepaint(tm, repaintW, H)
+	repaintW++
+
+	waitForPlainOutput(t, tm,
+		[]string{
+			"Runs: 2/2 selected",
+			"Pinned: " + newestRunKey,
+			leet.PinnedRunMark + " " + newestRunKey,
+			leet.SelectedRunMark + " " + olderRunKey,
+			"loss",
+		},
+		nil,
+	)
+
+	// 3) Pin the older run. The pinned marker should move; both still selected.
+	tm.Type("p")
+
+	forceRepaint(tm, repaintW, H)
+	repaintW++
+
+	waitForPlainOutput(t, tm,
+		[]string{
+			"Runs: 2/2 selected",
+			"Pinned: " + olderRunKey,
+			leet.PinnedRunMark + " " + olderRunKey,
+			leet.SelectedRunMark + " " + newestRunKey,
+			"loss",
+		},
+		nil,
+	)
+
+	// 4) Deselect the newest run (up + space). Should drop back to single run.
+	tm.Send(tea.KeyMsg{Type: tea.KeyUp})
+	tm.Send(tea.KeyMsg{Type: tea.KeySpace})
+
+	forceRepaint(tm, repaintW, H)
+
+	waitForPlainOutput(t, tm,
+		[]string{
+			"Runs: 1/2 selected",
+			"Pinned: " + olderRunKey,
+			leet.PinnedRunMark + " " + olderRunKey,
+			leet.RunMark + " " + newestRunKey,
+			"loss",
+		},
+		nil,
+	)
+
+	// Exercise navigation.
+	tm.Send(tea.KeyMsg{Type: tea.KeyLeft})
+	tm.Send(tea.KeyMsg{Type: tea.KeyRight})
+	tm.Send(tea.KeyMsg{Type: tea.KeyTab})
+	tm.Send(tea.KeyMsg{Type: tea.KeyTab})
 
 	// Quit.
 	tm.Type("q")

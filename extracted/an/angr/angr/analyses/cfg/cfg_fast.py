@@ -752,14 +752,12 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         # necessary warnings
         if collect_data_references is not None:
             l.warning(
-                '"collect_data_references" is deprecated and will be removed soon. Please use '
-                '"data_references" instead'
+                '"collect_data_references" is deprecated and will be removed soon. Please use "data_references" instead'
             )
             data_references = collect_data_references
         if extra_cross_references is not None:
             l.warning(
-                '"extra_cross_references" is deprecated and will be removed soon. Please use '
-                '"cross_references" instead'
+                '"extra_cross_references" is deprecated and will be removed soon. Please use "cross_references" instead'
             )
             cross_references = extra_cross_references
 
@@ -1771,7 +1769,6 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         # we need to rely on indirect jump resolving to identify this call to stack_chk_fail before knowing that
         # function 0x100006480 does not return. Hence, we resolve indirect jumps before popping undecided pending jobs.
         if self._resolve_indirect_jumps and self._indirect_jumps_to_resolve:
-
             self._transitory_resolved_indirect_jumps = self._transitory_unresolved_indirect_jumps = 0
             self._process_unresolved_indirect_jumps()
             self._transitory_resolved_indirect_jumps = self._transitory_unresolved_indirect_jumps = 0
@@ -1876,7 +1873,6 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         self._model.edges_to_repair = remaining_edges_to_repair
 
     def _post_analysis(self):
-
         self.stage = "Analysis (Stage 2)"
 
         self._repair_edges()
@@ -2345,9 +2341,7 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                 addr_ = new_exit["address"]
                 jumpkind = new_exit["jumpkind"]
                 namehint = new_exit.get("namehint", None)
-                if (
-                    isinstance(addr_, claripy.ast.BV) and not addr_.symbolic
-                ):  # pylint:disable=isinstance-second-argument-not-valid-type
+                if isinstance(addr_, claripy.ast.BV) and not addr_.symbolic:  # pylint:disable=isinstance-second-argument-not-valid-type
                     addr_ = addr_.concrete_value
                 if not isinstance(addr_, int):
                     continue
@@ -2365,13 +2359,7 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                     None,
                     None,
                 )
-                if namehint and (
-                    addr_ not in self.kb.labels
-                    or self.kb.labels[addr_]
-                    in {
-                        "_ftext",
-                    }
-                ):
+                if namehint and (addr_ not in self.kb.labels or self.kb.labels[addr_] == "_ftext"):
                     unique_label = self.kb.labels.get_unique_label(namehint)
                     self.kb.labels[addr_] = unique_label
 
@@ -3243,7 +3231,7 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                 # put
                 # e.g. PUT(rdi) = 0x0000000000400714
                 is_itstate = is_arm_arch(self.project.arch) and stmt.offset == self.project.arch.registers["itstate"][0]
-                if stmt.offset not in (self._initial_state.arch.ip_offset,) and not is_itstate:
+                if stmt.offset != self._initial_state.arch.ip_offset and not is_itstate:
                     _process(stmt_idx, stmt.data, instr_addr, next_instr_addr)
 
                 if is_arm_arch(self.project.arch) and not is_itstate:
@@ -4439,7 +4427,7 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                     last_sp = tmps[stmt.data.tmp]
 
         if last_sp is not None and isinstance(tmp_irsb.next, pyvex.IRExpr.RdTmp):
-            val = tmps.get(tmp_irsb.next.tmp, None)
+            val = tmps.get(tmp_irsb.next.tmp)
             # val being None means there are statements that we do not handle
             if isinstance(val, tuple) and val[0] == "load":
                 # the value comes from memory

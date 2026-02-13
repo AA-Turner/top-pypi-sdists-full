@@ -314,11 +314,13 @@ WEBSAMPLEBETA = $(WEBHOME)/files/sample_coverage_html_beta
 publish:				#- Publish the sample HTML report.
 	rm -f $(WEBSAMPLE)/*.*
 	mkdir -p $(WEBSAMPLE)
+	rm doc/sample_html/status.json
 	cp doc/sample_html/*.* $(WEBSAMPLE)
 
 publishbeta:
 	rm -f $(WEBSAMPLEBETA)/*.*
 	mkdir -p $(WEBSAMPLEBETA)
+	rm doc/sample_html_beta/status.json
 	cp doc/sample_html_beta/*.* $(WEBSAMPLEBETA)
 
 CHANGES_MD = tmp/rst_rst/changes.md

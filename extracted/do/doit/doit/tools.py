@@ -46,7 +46,7 @@ def run_once(task, values):
 
 
 # uptodate
-class config_changed(object):
+class config_changed:
     """check if passed config was modified
     @var config (str) or (dict)
     @var encoder (json.JSONEncoder) Encoder used to convert non-default values.
@@ -79,10 +79,13 @@ class config_changed(object):
             return False
         return (last_success == self.config_digest)
 
+    def __repr__(self):
+        return "config_changed(%r)" % self.config
+
 
 
 # uptodate
-class timeout(object):
+class timeout:
     """add timeout to task
 
     @param timeout_limit: (datetime.timedelta, int) in seconds
@@ -113,7 +116,7 @@ class timeout(object):
 
 
 # uptodate
-class check_timestamp_unchanged(object):
+class check_timestamp_unchanged:
     """check if timestamp of a given file/dir is unchanged since last run.
 
     The C{cmp_op} parameter can be used to customize when timestamps are
@@ -181,7 +184,8 @@ class LongRunning(CmdAction):
     """
     def execute(self, out=None, err=None):
         action = self.expand_action()
-        process = subprocess.Popen(action, shell=self.shell, **self.pkwargs)
+        process = subprocess.Popen(
+            action, shell=self.shell, stdout=out, stderr=err, **self.pkwargs)
         try:
             process.wait()
         except KeyboardInterrupt:
@@ -199,7 +203,8 @@ class Interactive(CmdAction):
     """
     def execute(self, out=None, err=None):
         action = self.expand_action()
-        process = subprocess.Popen(action, shell=self.shell, **self.pkwargs)
+        process = subprocess.Popen(
+            action, shell=self.shell, stdout=out, stderr=err, **self.pkwargs)
         process.wait()
         if process.returncode != 0:
             return exceptions.TaskFailed(

@@ -11,7 +11,6 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.app_with_last_version_extra_perms import AppWithLastVersionExtraPerms
     from ..models.app_with_last_version_policy import AppWithLastVersionPolicy
-    from ..models.app_with_last_version_value import AppWithLastVersionValue
 
 
 T = TypeVar("T", bound="AppWithLastVersion")
@@ -28,7 +27,7 @@ class AppWithLastVersion:
         versions (List[int]):
         created_by (str):
         created_at (datetime.datetime):
-        value (AppWithLastVersionValue):
+        value (Any):
         policy (AppWithLastVersionPolicy):
         execution_mode (AppWithLastVersionExecutionMode):
         extra_perms (AppWithLastVersionExtraPerms):
@@ -44,7 +43,7 @@ class AppWithLastVersion:
     versions: List[int]
     created_by: str
     created_at: datetime.datetime
-    value: "AppWithLastVersionValue"
+    value: Any
     policy: "AppWithLastVersionPolicy"
     execution_mode: AppWithLastVersionExecutionMode
     extra_perms: "AppWithLastVersionExtraPerms"
@@ -63,8 +62,7 @@ class AppWithLastVersion:
         created_by = self.created_by
         created_at = self.created_at.isoformat()
 
-        value = self.value.to_dict()
-
+        value = self.value
         policy = self.policy.to_dict()
 
         execution_mode = self.execution_mode.value
@@ -104,7 +102,6 @@ class AppWithLastVersion:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.app_with_last_version_extra_perms import AppWithLastVersionExtraPerms
         from ..models.app_with_last_version_policy import AppWithLastVersionPolicy
-        from ..models.app_with_last_version_value import AppWithLastVersionValue
 
         d = src_dict.copy()
         id = d.pop("id")
@@ -121,7 +118,7 @@ class AppWithLastVersion:
 
         created_at = isoparse(d.pop("created_at"))
 
-        value = AppWithLastVersionValue.from_dict(d.pop("value"))
+        value = d.pop("value")
 
         policy = AppWithLastVersionPolicy.from_dict(d.pop("policy"))
 

@@ -19,6 +19,7 @@ from langgraph_grpc_common.proto.encryption_pb2 import (
 from langgraph_grpc_common.proto.encryption_pb2_grpc import EncryptionServicer
 from langgraph_sdk import EncryptionContext
 
+from langgraph_api.encryption.middleware import _extract_skip_fields
 from langgraph_api.encryption.shared import get_encryption
 from langgraph_api.schema import NESTED_ENCRYPTED_SUBFIELDS
 
@@ -100,15 +101,25 @@ class EncryptionServicerImpl(EncryptionServicer):
         field_name: str,
         metadata: dict[str, bytes],
         encryptor,
+        path: str | None = None,
     ) -> dict[str, Any]:
         """Encrypt a field, handling nested subfields defined in NESTED_ENCRYPTED_SUBFIELDS.
 
         This mirrors the middleware's _encrypt_field behavior:
         1. Extract subfields that need separate encryption
-        2. Encrypt the parent field (without subfields)
-        3. Recursively encrypt each subfield
-        4. Add encrypted subfields back to the result
+        2. Extract fields that should never be encrypted (NEVER_ENCRYPT_* rules)
+        3. Encrypt the parent field (without subfields or skipped fields)
+        4. Merge skipped fields back as plaintext
+        5. Recursively encrypt each subfield
+        6. Add encrypted subfields back to the result
         """
+        # Build the current path for skip-field evaluation
+        current_path = (
+            f"{path}.{field_name}"
+            if path
+            else (f"{model_type}.{field_name}" if model_type else field_name)
+        )
+
         subfields_to_extract: dict[str, Any] = {}
 
         # Check if this field has nested subfields that need separate encryption
@@ -128,15 +139,29 @@ class EncryptionServicerImpl(EncryptionServicer):
         else:
             data_without_subfields = data
 
-        # Encrypt the parent field (without subfields)
+        # Extract fields that should never be encrypted (custom encryption only)
+        data_without_subfields, skipped_fields = _extract_skip_fields(
+            data_without_subfields, current_path
+        )
+
+        # Encrypt the parent field (without subfields or skipped fields)
         ctx = _build_encryption_context(model_type, field_name, metadata)
         encrypted = await encryptor(ctx, data_without_subfields)
+
+        # Merge back skipped fields as plaintext
+        if skipped_fields and isinstance(encrypted, dict):
+            encrypted = {**encrypted, **skipped_fields}
 
         # Recursively encrypt subfields and add them back
         if subfields_to_extract and isinstance(encrypted, dict):
             subfield_tasks = [
                 self._encrypt_field_recursive(
-                    sf_value, model_type, sf_name, metadata, encryptor
+                    sf_value,
+                    model_type,
+                    sf_name,
+                    metadata,
+                    encryptor,
+                    path=current_path,
                 )
                 for sf_name, sf_value in subfields_to_extract.items()
             ]

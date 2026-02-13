@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -257,6 +257,37 @@ public:
   END_PROTECTED
   }
 
+  bool event (QEvent *e)
+  {
+    if (e->type () == QEvent::MaxUser) {
+
+      //  GTF probe event
+      //  record the contents (the screenshot) as ASCII text
+      mp_view->gtf_probe ();
+
+      e->accept ();
+      return true;
+
+    } else if (e->type () == QEvent::ShortcutOverride) {
+
+    BEGIN_PROTECTED
+      QKeyEvent *ke = dynamic_cast<QKeyEvent *> (e);
+      if (ke) {
+        unsigned int buttons = qt_to_buttons (Qt::MouseButtons (), ke->modifiers ());
+        if (mp_view->send_shortcut_override_event ((unsigned int) ke->key (), buttons)) {
+          e->accept ();
+          return true;
+        }
+      }
+    END_PROTECTED
+
+      return false;
+
+    } else {
+      return QWidget::event (e);
+    }
+  }
+
   DragDropDataBase *get_drag_drop_data (const QMimeData *data)
   {
     if (! data || ! data->hasFormat (QString::fromUtf8 (drag_drop_mime_type ()))) {
@@ -481,24 +512,6 @@ public:
     END_PROTECTED
   }
 
-#if defined(HAVE_QT)
-  bool event (QEvent *e)
-  {
-    if (e->type () == QEvent::MaxUser) {
-
-      //  GTF probe event
-      //  record the contents (the screenshot) as ASCII text
-      mp_view->gtf_probe ();
-
-      e->accept ();
-      return true;
-
-    } else {
-      return QWidget::event (e);
-    }
-  }
-#endif
-
 private:
   ViewObjectUI *mp_view;
 };
@@ -674,7 +687,7 @@ ViewObjectUI::realize_cursor ()
 #endif
 }
 
-void
+bool
 ViewObjectUI::send_key_press_event (unsigned int key, unsigned int buttons)
 {
   bool done = false;
@@ -685,6 +698,23 @@ ViewObjectUI::send_key_press_event (unsigned int key, unsigned int buttons)
   if (! done) {
     key_event (key, buttons);
   }
+
+  return done;
+}
+
+bool
+ViewObjectUI::send_shortcut_override_event(unsigned int key, unsigned int buttons)
+{
+  bool done = false;
+  if (mp_active_service) {
+    done = (mp_active_service->enabled () && mp_active_service->shortcut_override_event (key, buttons));
+  }
+
+  if (! done) {
+    done = shortcut_override_event (key, buttons);
+  }
+
+  return done;
 }
 
 void
@@ -907,7 +937,7 @@ ViewObjectUI::send_mouse_double_clicked_event (const db::DPoint &pt, unsigned in
 }
 
 void
-ViewObjectUI::send_mouse_release_event (const db::DPoint &pt, unsigned int /*buttons*/)
+ViewObjectUI::send_mouse_release_event (const db::DPoint &pt, unsigned int buttons)
 {
   try {
 
@@ -916,23 +946,27 @@ ViewObjectUI::send_mouse_release_event (const db::DPoint &pt, unsigned int /*but
 
     bool done = false;
 
+    //  Qt does not include the released button in the mask, so we take the mouse buttons that we stored
+    //  on "press", but use the current modifiers (issue #2214)
+    unsigned int effective_buttons = (m_mouse_buttons & lay::MouseButtonMask) | (buttons & lay::ModifierMask);
+
     m_mouse_pos = pt;
     db::DPoint p = pixel_to_um (m_mouse_pos);
 
     auto grabbed = m_grabbed;
     for (auto g = grabbed.begin (); !done && g != grabbed.end (); ++g) {
       if (m_mouse_pressed_state) {
-        done = (*g)->enabled () && (*g)->mouse_click_event (p, m_mouse_buttons, true);
+        done = (*g)->enabled () && (*g)->mouse_click_event (p, effective_buttons, true);
       } else {
-        done = (*g)->enabled () && (*g)->mouse_release_event (p, m_mouse_buttons, true);
+        done = (*g)->enabled () && (*g)->mouse_release_event (p, effective_buttons, true);
       }
     }
 
     if (! done && mp_active_service && mp_active_service->enabled ()) {
       if (m_mouse_pressed_state) {
-        done = mp_active_service->mouse_click_event (p, m_mouse_buttons, true);
+        done = mp_active_service->mouse_click_event (p, effective_buttons, true);
       } else {
-        done = mp_active_service->mouse_release_event (p, m_mouse_buttons, true);
+        done = mp_active_service->mouse_release_event (p, effective_buttons, true);
       }
     }
 
@@ -942,9 +976,9 @@ ViewObjectUI::send_mouse_release_event (const db::DPoint &pt, unsigned int /*but
       ++next;
       if ((*svc)->enabled ()) {
         if (m_mouse_pressed_state) {
-          done = (*svc)->mouse_click_event (p, m_mouse_buttons, false);
+          done = (*svc)->mouse_click_event (p, effective_buttons, false);
         } else {
-          done = (*svc)->mouse_release_event (p, m_mouse_buttons, false);
+          done = (*svc)->mouse_release_event (p, effective_buttons, false);
         }
       }
       svc = next;
@@ -952,9 +986,9 @@ ViewObjectUI::send_mouse_release_event (const db::DPoint &pt, unsigned int /*but
 
     if (! done) {
       if (m_mouse_pressed_state) {
-        mouse_click_event (p, m_mouse_buttons);
+        mouse_click_event (p, effective_buttons);
       } else {
-        mouse_release_event (p, m_mouse_buttons);
+        mouse_release_event (p, effective_buttons);
       }
     }
 

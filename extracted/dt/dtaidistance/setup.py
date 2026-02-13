@@ -10,8 +10,6 @@ from setuptools import Distribution
 from distutils.errors import CCompilerError, DistutilsExecError, DistutilsPlatformError
 import platform
 import os
-import sys
-import re
 import subprocess as sp
 from pathlib import Path
 
@@ -28,7 +26,7 @@ except ImportError:
     cythonize = None
 
 here = Path(__file__).parent
-dtaidistancec_path = Path('src') / 'dtaidistance' / 'lib' / 'DTAIDistanceC' / 'DTAIDistanceC'
+dtaidistancec_path = Path('src') / 'DTAIDistanceC' / 'DTAIDistanceC'
 
 c_args = {
     # Xpreprocessor is required for the built-in CLANG on macos, but other
@@ -366,35 +364,52 @@ if cythonize is not None:
         Extension(
             "dtaidistance.dtw_cc",
             ["src/dtaidistance/dtw_cc.pyx",
-             "src/dtaidistance/lib/DTAIDistanceC/DTAIDistanceC/dd_dtw.c",
-             "src/dtaidistance/lib/DTAIDistanceC/DTAIDistanceC/dd_ed.c"
+             "src/DTAIDistanceC/DTAIDistanceC/dd_dtw.c",
+             "src/DTAIDistanceC/DTAIDistanceC/dd_ed.c",
+             "src/DTAIDistanceC/DTAIDistanceC/dd_globals.c"
              ],
-            depends=["dtaidistance/lib/DTAIDistanceC/DTAIDistanceC/dd_globals.h",
-                     "dtaidistance/lib/DTAIDistanceC/DTAIDistanceC/dd_ed.h"],
-            include_dirs=[str(dtaidistancec_path), "src/dtaidistance/lib/DTAIDistanceC/DTAIDistanceC"],
-            library_dirs=[str(dtaidistancec_path), "src/dtaidistance/lib/DTAIDistanceC/DTAIDistanceC"],
+            depends=["src/DTAIDistanceC/DTAIDistanceC/dd_globals.h",
+                     "src/DTAIDistanceC/DTAIDistanceC/dd_ed.h"],
+            include_dirs=[str(dtaidistancec_path),
+                          "src/DTAIDistanceC/DTAIDistanceC"],
+            library_dirs=[str(dtaidistancec_path),
+                          "src/DTAIDistanceC/DTAIDistanceC"],
             extra_compile_args=[],
             extra_link_args=[]))
     extensions.append(
         Extension(
             "dtaidistance.ed_cc",
             ["src/dtaidistance/ed_cc.pyx",
-             "src/dtaidistance/lib/DTAIDistanceC/DTAIDistanceC/dd_ed.c"],
-            depends=["src/dtaidistance/lib/DTAIDistanceC/DTAIDistanceC/dd_globals.h"],
-            include_dirs=[str(dtaidistancec_path), "src/dtaidistance/lib/DTAIDistanceC/DTAIDistanceC"],
+             "src/DTAIDistanceC/DTAIDistanceC/dd_ed.c",
+             "src/DTAIDistanceC/DTAIDistanceC/dd_globals.c"],
+            depends=["src/DTAIDistanceC/DTAIDistanceC/dd_globals.h"],
+            include_dirs=[str(dtaidistancec_path),
+                          "src/DTAIDistanceC/DTAIDistanceC"],
             extra_compile_args=[],
             extra_link_args=[]))
     extensions.append(
         Extension(
             "dtaidistance.dtw_cc_omp",
             ["src/dtaidistance/dtw_cc_omp.pyx",
-             "src/dtaidistance/lib/DTAIDistanceC/DTAIDistanceC/dd_dtw_openmp.c",
-             "src/dtaidistance/lib/DTAIDistanceC/DTAIDistanceC/dd_dtw.c",
-             "src/dtaidistance/lib/DTAIDistanceC/DTAIDistanceC/dd_ed.c"],
-            depends=["src/dtaidistance/lib/DTAIDistanceC/DTAIDistanceC/dd_globals.h",
-                     "src/dtaidistance/lib/DTAIDistanceC/DTAIDistanceC/dd_dtw.h"
-                     "src/dtaidistance/lib/DTAIDistanceC/DTAIDistanceC/dd_ed.h"],
-            include_dirs=[str(dtaidistancec_path), "src/dtaidistance/lib/DTAIDistanceC/DTAIDistanceC"],
+             "src/DTAIDistanceC/DTAIDistanceC/dd_dtw_openmp.c",
+             "src/DTAIDistanceC/DTAIDistanceC/dd_dtw.c",
+             "src/DTAIDistanceC/DTAIDistanceC/dd_ed.c",
+             "src/DTAIDistanceC/DTAIDistanceC/dd_globals.c"],
+            depends=["src/DTAIDistanceC/DTAIDistanceC/dd_globals.h",
+                     "src/DTAIDistanceC/DTAIDistanceC/dd_dtw.h",
+                     "src/DTAIDistanceC/DTAIDistanceC/dd_ed.h"],
+            include_dirs=[str(dtaidistancec_path),
+                          "src/DTAIDistanceC/DTAIDistanceC"],
+            extra_compile_args=[],
+            extra_link_args=[]))
+    extensions.append(
+        Extension(
+            "dtaidistance.loco_cc",
+            ["src/dtaidistance/loco_cc.pyx",
+             "src/DTAIDistanceC/DTAIDistanceC/dd_loco.c",
+             "src/DTAIDistanceC/DTAIDistanceC/dd_globals.c"],
+            depends=["src/DTAIDistanceC/DTAIDistanceC/dd_globals.h"],
+            include_dirs=[str(dtaidistancec_path), "src/DTAIDistanceC/DTAIDistanceC"],
             extra_compile_args=[],
             extra_link_args=[]))
 
@@ -402,9 +417,12 @@ if cythonize is not None:
         extensions.append(
             Extension(
                 "dtaidistance.dtw_cc_numpy",
-                ["src/dtaidistance/util_numpy_cc.pyx"],
-                depends=["src/dtaidistance/lib/DTAIDistanceC/DTAIDistanceC/dd_globals.h"],
-                include_dirs=[numpy.get_include(), str(dtaidistancec_path), "src/dtaidistance/lib/DTAIDistanceC/DTAIDistanceC"],
+                ["src/dtaidistance/util_numpy_cc.pyx",
+                 "src/DTAIDistanceC/DTAIDistanceC/dd_globals.c"],
+                depends=["src/DTAIDistanceC/DTAIDistanceC/dd_globals.h"],
+                include_dirs=[numpy.get_include(),
+                              str(dtaidistancec_path),
+                              "src/DTAIDistanceC/DTAIDistanceC"],
                 extra_compile_args=[],
                 extra_link_args=[]))
     else:
@@ -416,20 +434,14 @@ else:
     print("WARNING: Cython was not found, preparing a pure Python version.")
     ext_modules = []
 
-
-# Create setup
-setup_kwargs = {}
-def set_setup_kwargs(**kwargs):
-    global setup_kwargs
-    setup_kwargs = kwargs
-
-set_setup_kwargs(
-    distclass=MyDistribution,
-    cmdclass={
+setup_kwargs = {
+    "package_dir": {"": "src"},
+    "distclass": MyDistribution,
+    "cmdclass": {
         'buildinplace': MyBuildExtInPlaceCommand,
         'build_ext': MyBuildExtCommand,
     },
-)
+}
 
 try:
     setup(ext_modules=ext_modules, **setup_kwargs)

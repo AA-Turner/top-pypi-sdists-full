@@ -2,7 +2,6 @@
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 from contrast.agent.policy.registry import register_deadzone_nodes
 
-
 deadzone_nodes = [
     {
         # Prevent recursive propagation when logging in assess
@@ -162,6 +161,13 @@ deadzone_nodes = [
         "module": "_pytest.assertion.rewrite",
         "class_name": "AssertionRewritingHook",
         "method_name": "exec_module",
+    },
+    {
+        # Prevents our compile patch from being applied within import machinery.
+        # The rewriter would have already done necessary work.
+        "module": "importlib._bootstrap_external",
+        "class_name": "SourceLoader",
+        "method_name": "source_to_code",
     },
 ]
 

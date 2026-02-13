@@ -186,11 +186,12 @@ class Gizmo:
 
     @staticmethod
     def new_custom_shape(
-        type: str, verts: collections.abc.Sequence[collections.abc.Sequence[float]]
+        type: typing.Literal["POINTS", "LINES", "TRIS", "LINE_STRIP"],
+        verts: collections.abc.Sequence[collections.abc.Sequence[float]],
     ) -> typing.Any:
         """Create a new shape that can be passed to `Gizmo.draw_custom_shape`.
 
-        :param type: The type of shape to create in (POINTS, LINES, TRIS, LINE_STRIP).
+        :param type: The type of shape to create.
         :param verts: Sequence of 2D or 3D coordinates.
         :return: The newly created shape (the return type make change).
         """

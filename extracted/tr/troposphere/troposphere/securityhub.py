@@ -459,6 +459,54 @@ class ConfigurationPolicy(AWSObject):
     }
 
 
+class JiraCloudProviderConfiguration(AWSProperty):
+    """
+    `JiraCloudProviderConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connectorv2-jiracloudproviderconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "ProjectKey": (str, True),
+    }
+
+
+class ServiceNowProviderConfiguration(AWSProperty):
+    """
+    `ServiceNowProviderConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connectorv2-servicenowproviderconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "InstanceName": (str, True),
+        "SecretArn": (str, True),
+    }
+
+
+class Provider(AWSProperty):
+    """
+    `Provider <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connectorv2-provider.html>`__
+    """
+
+    props: PropsDictType = {
+        "JiraCloud": (JiraCloudProviderConfiguration, False),
+        "ServiceNow": (ServiceNowProviderConfiguration, False),
+    }
+
+
+class ConnectorV2(AWSObject):
+    """
+    `ConnectorV2 <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-connectorv2.html>`__
+    """
+
+    resource_type = "AWS::SecurityHub::ConnectorV2"
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "KmsKeyArn": (str, False),
+        "Name": (str, True),
+        "Provider": (Provider, True),
+        "Tags": (dict, False),
+    }
+
+
 class DelegatedAdmin(AWSObject):
     """
     `DelegatedAdmin <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-delegatedadmin.html>`__

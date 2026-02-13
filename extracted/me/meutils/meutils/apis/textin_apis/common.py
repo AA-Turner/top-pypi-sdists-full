@@ -51,7 +51,7 @@ class Textin(object):
                 image = data["result"]["image"]
 
                 if request.response_format != "b64_json":
-                    image = await to_url(image, filename=f'{shortuuid.random()}.png')
+                    image = await to_url(image, filename=f'{shortuuid.random()}.jpeg')
 
                 if isinstance(request, ImageRequest):
                     data = [{"url": image}]

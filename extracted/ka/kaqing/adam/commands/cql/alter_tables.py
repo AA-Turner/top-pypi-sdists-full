@@ -5,7 +5,7 @@ from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
 from adam.utils_log import log2, log_exc
 from adam.utils_cassandra.pod_service import cassandra
-from adam.utils_context import Context
+from adam.utils_context import NULL
 
 class AlterTables(Command):
     COMMAND = 'alter tables with'
@@ -30,39 +30,40 @@ class AlterTables(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with extract_options(args, '--include-reaper') as (args, include_reaper):
-                with validate_args(args, state, name='gc grace in seconds') as arg_str:
-                    excludes = [e.strip(' \r\n') for e in Config().get(
-                        'cql.alter-tables.excludes',
-                        'system_auth,system_traces,reaper_db,system_distributed,system_views,system,system_schema,system_virtual_schema').split(',')]
-                    batching = Config().get('cql.alter-tables.batching', True)
-                    tables = get_tables(state, on_any=True)
-                    for k, v in tables.items():
-                        if k not in excludes or k == 'reaper_db' and include_reaper:
-                            if batching:
-                                # alter table <table_name> with GC_GRACE_SECONDS = <timeout>;
-                                cql = ';\n'.join([f'alter table {k}.{t} with {arg_str}' for t in v])
-                                with log_exc(True):
-                                    with cassandra(state) as pods:
-                                        pods.cql(cql, on_any=True, ctx=Context.new(cmd, show_out=True))
-                                    continue
-                            else:
-                                for t in v:
+            with self.context(args) as (args, ctx):
+                with extract_options(args, '--reaper') as (args, include_reaper):
+                    with validate_args(args, state, name='gc grace in seconds') as arg_str:
+                        excludes = [e.strip(' \r\n') for e in Config().get(
+                            'cql.alter-tables.excludes',
+                            'system_auth,system_traces,reaper_db,system_distributed,system_views,system,system_schema,system_virtual_schema').split(',')]
+                        batching = Config().get('cql.alter-tables.batching', True)
+                        tables = get_tables(state, on_any=True)
+                        for k, v in tables.items():
+                            if k not in excludes or k == 'reaper_db' and include_reaper:
+                                if batching:
+                                    # alter table <table_name> with GC_GRACE_SECONDS = <timeout>;
+                                    cql = ';\n'.join([f'alter table {k}.{t} with {arg_str}' for t in v])
                                     with log_exc(True):
-                                        # alter table <table_name> with GC_GRACE_SECONDS = <timeout>;
-                                        cql = f'alter table {k}.{t} with {arg_str}'
                                         with cassandra(state) as pods:
-                                            pods.cql(cql, on_any=True, ctx=Context.new(cmd, show_out=True))
+                                            pods.cql(cql, on_any=True, ctx=ctx)
                                         continue
+                                else:
+                                    for t in v:
+                                        with log_exc(True):
+                                            # alter table <table_name> with GC_GRACE_SECONDS = <timeout>;
+                                            cql = f'alter table {k}.{t} with {arg_str}'
+                                            with cassandra(state) as pods:
+                                                pods.cql(cql, on_any=True, ctx=ctx)
+                                            continue
 
-                            log2(f'{len(v)} tables altered in {k}.')
+                                log2(f'{len(v)} tables altered in {k}.')
 
-                    # do not continue to cql route
-                    return state
+                        # do not continue to cql route
+                        return state
 
     def completion(self, _: ReplState) -> dict[str, any]:
         # auto completion is taken care of by lark completer
         return {}
 
     def help(self, state: ReplState) -> str:
-        return super().help(state, 'alter schema on all tables', args='with <param=value>,... [--include-reaper]')
+        return super().help(state, 'alter schema on all tables  --reaper include reaper', args='with <param=value>,... [--reaper]')

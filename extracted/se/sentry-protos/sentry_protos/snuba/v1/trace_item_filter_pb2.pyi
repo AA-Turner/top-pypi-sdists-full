@@ -153,6 +153,66 @@ class ExistsFilter(google.protobuf.message.Message):
 global___ExistsFilter = ExistsFilter
 
 @typing.final
+class AnyAttributeFilter(google.protobuf.message.Message):
+    """Filter that matches trace items where ANY attribute matches the given value.
+    Use this for searching across all attributes without specifying a key.
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    class _Op:
+        ValueType = typing.NewType("ValueType", builtins.int)
+        V: typing_extensions.TypeAlias = ValueType
+
+    class _OpEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[AnyAttributeFilter._Op.ValueType], builtins.type):
+        DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+        OP_UNSPECIFIED: AnyAttributeFilter._Op.ValueType  # 0
+        OP_EQUALS: AnyAttributeFilter._Op.ValueType  # 1
+        OP_NOT_EQUALS: AnyAttributeFilter._Op.ValueType  # 2
+        OP_LIKE: AnyAttributeFilter._Op.ValueType  # 3
+        OP_NOT_LIKE: AnyAttributeFilter._Op.ValueType  # 4
+        OP_IN: AnyAttributeFilter._Op.ValueType  # 5
+        OP_NOT_IN: AnyAttributeFilter._Op.ValueType  # 6
+
+    class Op(_Op, metaclass=_OpEnumTypeWrapper):
+        """Restricted set of operations that make sense for all-attribute search"""
+
+    OP_UNSPECIFIED: AnyAttributeFilter.Op.ValueType  # 0
+    OP_EQUALS: AnyAttributeFilter.Op.ValueType  # 1
+    OP_NOT_EQUALS: AnyAttributeFilter.Op.ValueType  # 2
+    OP_LIKE: AnyAttributeFilter.Op.ValueType  # 3
+    OP_NOT_LIKE: AnyAttributeFilter.Op.ValueType  # 4
+    OP_IN: AnyAttributeFilter.Op.ValueType  # 5
+    OP_NOT_IN: AnyAttributeFilter.Op.ValueType  # 6
+
+    OP_FIELD_NUMBER: builtins.int
+    VALUE_FIELD_NUMBER: builtins.int
+    IGNORE_CASE_FIELD_NUMBER: builtins.int
+    ATTRIBUTE_TYPES_FIELD_NUMBER: builtins.int
+    op: global___AnyAttributeFilter.Op.ValueType
+    ignore_case: builtins.bool
+    @property
+    def value(self) -> sentry_protos.snuba.v1.trace_item_attribute_pb2.AttributeValue: ...
+    @property
+    def attribute_types(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[sentry_protos.snuba.v1.trace_item_attribute_pb2.AttributeKey.Type.ValueType]:
+        """Optional: Restrict search to specific attribute types.
+        If empty, searches all string-type attributes by default.
+        """
+
+    def __init__(
+        self,
+        *,
+        op: global___AnyAttributeFilter.Op.ValueType = ...,
+        value: sentry_protos.snuba.v1.trace_item_attribute_pb2.AttributeValue | None = ...,
+        ignore_case: builtins.bool = ...,
+        attribute_types: collections.abc.Iterable[sentry_protos.snuba.v1.trace_item_attribute_pb2.AttributeKey.Type.ValueType] | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["value", b"value"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["attribute_types", b"attribute_types", "ignore_case", b"ignore_case", "op", b"op", "value", b"value"]) -> None: ...
+
+global___AnyAttributeFilter = AnyAttributeFilter
+
+@typing.final
 class TraceItemFilter(google.protobuf.message.Message):
     """a condition used to filter for matching "trace items"
 
@@ -171,6 +231,7 @@ class TraceItemFilter(google.protobuf.message.Message):
     NOT_FILTER_FIELD_NUMBER: builtins.int
     COMPARISON_FILTER_FIELD_NUMBER: builtins.int
     EXISTS_FILTER_FIELD_NUMBER: builtins.int
+    ANY_ATTRIBUTE_FILTER_FIELD_NUMBER: builtins.int
     @property
     def and_filter(self) -> global___AndFilter: ...
     @property
@@ -181,6 +242,8 @@ class TraceItemFilter(google.protobuf.message.Message):
     def comparison_filter(self) -> global___ComparisonFilter: ...
     @property
     def exists_filter(self) -> global___ExistsFilter: ...
+    @property
+    def any_attribute_filter(self) -> global___AnyAttributeFilter: ...
     def __init__(
         self,
         *,
@@ -189,9 +252,10 @@ class TraceItemFilter(google.protobuf.message.Message):
         not_filter: global___NotFilter | None = ...,
         comparison_filter: global___ComparisonFilter | None = ...,
         exists_filter: global___ExistsFilter | None = ...,
+        any_attribute_filter: global___AnyAttributeFilter | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["and_filter", b"and_filter", "comparison_filter", b"comparison_filter", "exists_filter", b"exists_filter", "not_filter", b"not_filter", "or_filter", b"or_filter", "value", b"value"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["and_filter", b"and_filter", "comparison_filter", b"comparison_filter", "exists_filter", b"exists_filter", "not_filter", b"not_filter", "or_filter", b"or_filter", "value", b"value"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing.Literal["value", b"value"]) -> typing.Literal["and_filter", "or_filter", "not_filter", "comparison_filter", "exists_filter"] | None: ...
+    def HasField(self, field_name: typing.Literal["and_filter", b"and_filter", "any_attribute_filter", b"any_attribute_filter", "comparison_filter", b"comparison_filter", "exists_filter", b"exists_filter", "not_filter", b"not_filter", "or_filter", b"or_filter", "value", b"value"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["and_filter", b"and_filter", "any_attribute_filter", b"any_attribute_filter", "comparison_filter", b"comparison_filter", "exists_filter", b"exists_filter", "not_filter", b"not_filter", "or_filter", b"or_filter", "value", b"value"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["value", b"value"]) -> typing.Literal["and_filter", "or_filter", "not_filter", "comparison_filter", "exists_filter", "any_attribute_filter"] | None: ...
 
 global___TraceItemFilter = TraceItemFilter

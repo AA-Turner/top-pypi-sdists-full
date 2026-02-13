@@ -18,6 +18,8 @@ from chalk._gen.chalk.server.v1.benchmark_pb2 import (
     GetInputFileUploadUrlsResponse,
     GetResultFileUrlsRequest,
     GetResultFileUrlsResponse,
+    KillBenchmarkRequest,
+    KillBenchmarkResponse,
 )
 from grpc import (
     Channel,
@@ -47,6 +49,10 @@ class BenchmarkServiceStub:
     GetResultFileUrls: UnaryUnaryMultiCallable[
         GetResultFileUrlsRequest,
         GetResultFileUrlsResponse,
+    ]
+    KillBenchmark: UnaryUnaryMultiCallable[
+        KillBenchmarkRequest,
+        KillBenchmarkResponse,
     ]
 
 class BenchmarkServiceServicer(metaclass=ABCMeta):
@@ -80,5 +86,11 @@ class BenchmarkServiceServicer(metaclass=ABCMeta):
         request: GetResultFileUrlsRequest,
         context: ServicerContext,
     ) -> GetResultFileUrlsResponse: ...
+    @abstractmethod
+    def KillBenchmark(
+        self,
+        request: KillBenchmarkRequest,
+        context: ServicerContext,
+    ) -> KillBenchmarkResponse: ...
 
 def add_BenchmarkServiceServicer_to_server(servicer: BenchmarkServiceServicer, server: Server) -> None: ...

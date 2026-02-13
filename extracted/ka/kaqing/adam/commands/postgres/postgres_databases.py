@@ -5,7 +5,7 @@ import subprocess
 from adam.config import Config
 from adam.repl_state import ReplState
 from adam.utils_color import Color
-from adam.utils_context import Context
+from adam.utils_context import NULL, Context
 from adam.utils_k8s.kube_context import KubeContext
 from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.secrets import Secrets
@@ -116,7 +116,7 @@ class PostgresDatabases:
 
         return dbs
 
-    def run_sql(state: ReplState, sql: str, database: str = None, ctx: Context = Context.NULL) -> ExecResult:
+    def run_sql(state: ReplState, sql: str, database: str = None, ctx = NULL) -> ExecResult:
         if not database:
             database = PostgresDatabases.database(state)
         if not database:

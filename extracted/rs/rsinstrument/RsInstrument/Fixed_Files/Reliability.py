@@ -1,11 +1,11 @@
 """Class for R&S Mobile Radio Test instruments that use reliability indicators."""
 
 
-import time
-from typing import Callable
+from time import localtime, strftime
+from typing import Callable, Any
 
-from ..Internal import ArgLinkedEventArgs
-from ..Internal import Core
+from ..Internal.ArgLinkedEventArgs import ArgLinkedEventArgs
+from ..Internal.Core import Core
 
 codes_table = {
 				0:       'OK',
@@ -87,7 +87,7 @@ class Reliability:
 		return self._last_context
 
 	@property
-	def last_timestamp(self) -> time:
+	def last_timestamp(self) -> Any:
 		"""Returns the time of the last Reliability update."""
 		return self._last_timestamp
 
@@ -126,10 +126,10 @@ class Reliability:
 			self._on_update_handler(rel_events_args)
 		if self._exception_on_error and self._last_value != 0:
 			raise Exception(
-				f'Reliability indicator error. Time: {time.strftime("%H:%M:%S", time.localtime(self._last_timestamp))}, '
+				f'Reliability indicator error. Time: {strftime("%H:%M:%S", localtime(self._last_timestamp))}, '
 				f'Context: {self._last_context}, Value {self._last_value}: {self.last_message}')
 
 	def sync_from(self, source: 'Reliability') -> None:
-		"""Synchronises this Reliability with the source."""
+		"""Synchronizes this Reliability with the source."""
 		self.exception_on_error = source.exception_on_error
 		self.on_update_handler(source._on_update_handler)

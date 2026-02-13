@@ -55,7 +55,7 @@ class SurfaceMapsMasker(ClassNamePrefixFeaturesOutMixin, _BaseSurfaceMasker):
         per map is extracted using least square regression. The data for \
         each hemisphere is of shape (n_vertices_per_hemisphere, n_regions).
 
-    mask_img : :obj:`~nilearn.surface.SurfaceImage`, optional, default=None
+    mask_img : :obj:`~nilearn.surface.SurfaceImage` or None, default=None
         Mask to apply to regions before extracting signals. Defines the \
         overall area of the brain to consider. The data for each \
         hemisphere is of shape (n_vertices_per_hemisphere, n_regions).
@@ -267,7 +267,7 @@ class SurfaceMapsMasker(ClassNamePrefixFeaturesOutMixin, _BaseSurfaceMasker):
 
         return self
 
-    def __sklearn_is_fitted__(self):
+    def __sklearn_is_fitted__(self) -> bool:
         return hasattr(self, "n_elements_")
 
     @fill_doc
@@ -479,7 +479,7 @@ class SurfaceMapsMasker(ClassNamePrefixFeaturesOutMixin, _BaseSurfaceMasker):
 
             if self._reporting_data.get("images") is None:
                 msg = (
-                    "SurfaceMapsMasker has not been transformed "
+                    f"{self.__class__.__name__} has not been transformed "
                     "(via transform() method) on any image yet. "
                     "Plotting only maps for reporting."
                 )

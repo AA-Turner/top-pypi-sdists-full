@@ -85,9 +85,9 @@ def scale(scale: collections.abc.Sequence[float]) -> None:
     """
 
 def scale_uniform(scale: float) -> None:
-    """
+    """Scale the current stack matrix uniformly.
 
-    :param scale: Scale the current stack matrix.
+    :param scale: Uniform scale factor.
     """
 
 def translate(offset: collections.abc.Sequence[float]) -> None:

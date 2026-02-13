@@ -1,3 +1,4 @@
+import json
 import threading
 import time
 from collections import deque
@@ -72,6 +73,26 @@ def bind_ws_with_connection(ws: WsLike, conn: ConnectionProtocol, block: bool):
             cleanup_done.set()
 
         AbstraLogger.info(f"[WS:{binding_id}] Cleanup started (reason={reason})")
+
+        # Notify editor frontend that execution status may have changed
+        execution_id = getattr(conn, "execution_id", None)
+        if execution_id:
+            try:
+                from abstra_internals.controllers.execution.execution_stdio import (
+                    BroadcastController,
+                )
+                from abstra_internals.utils import serialize
+
+                BroadcastController.broadcast(
+                    msg=serialize(
+                        {
+                            "type": "execution:update",
+                            "payload": {"execution_id": execution_id},
+                        }
+                    )
+                )
+            except Exception:
+                pass
 
         # Signal both threads to stop
         shutdown_event.set()
@@ -180,8 +201,56 @@ def bind_ws_with_connection(ws: WsLike, conn: ConnectionProtocol, block: bool):
                 if shutdown_event.is_set():
                     break
 
+                # Intercept stdio/task messages and forward to BroadcastController
+                if isinstance(message, dict) and message.get("type") in (
+                    "stdio",
+                    "task",
+                ):
+                    try:
+                        from abstra_internals.controllers.execution.execution_stdio import (
+                            BroadcastController,
+                        )
+                        from abstra_internals.utils import serialize
+
+                        BroadcastController.broadcast(msg=serialize(message))
+                    except Exception as e:
+                        AbstraLogger.error(f"[WS:{binding_id}] Broadcast error: {e}")
+                    continue
+
+                # Intercept stdio_batch: unpack and broadcast as individual stdio msgs
+                if isinstance(message, dict) and message.get("type") == "stdio_batch":
+                    try:
+                        from abstra_internals.controllers.execution.execution_stdio import (
+                            BroadcastController,
+                        )
+                        from abstra_internals.utils import serialize
+
+                        for item in message.get("payload", []):
+                            individual = {"type": "stdio", "payload": item}
+                            BroadcastController.broadcast(msg=serialize(individual))
+                    except Exception as e:
+                        AbstraLogger.error(
+                            f"[WS:{binding_id}] Batch broadcast error: {e}"
+                        )
+                    continue
+
+                # Handle execution:ended — forward to browser THEN trigger cleanup
+                if isinstance(message, str):
+                    try:
+                        parsed = json.loads(message)
+                        if parsed.get("type") == "execution:ended":
+                            # Send the message to browser BEFORE cleanup
+                            ws.send(str(message))
+                            AbstraLogger.debug(
+                                f"[WS:{binding_id}] Sent execution:ended to browser"
+                            )
+                            do_cleanup("execution_ended")
+                            break
+                    except (json.JSONDecodeError, AttributeError):
+                        pass
+
                 # Send to WebSocket (browser)
-                ws.send(message)
+                ws.send(str(message))
                 AbstraLogger.debug(f"[WS:{binding_id}] Conn->WS message sent")
 
             except TimeoutError:

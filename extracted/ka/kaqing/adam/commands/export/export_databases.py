@@ -4,17 +4,18 @@ import boto3
 from adam.commands.export.export_sessions import ExportSessions
 from adam.commands.export.importer import Importer
 from adam.config import Config
+from adam.directories import local_db_dir
 from adam.repl_state import ReplState
 from adam.utils_log import debug, log_timing, ing, log_exc
 from adam.utils_tabulize import tabulize
 from adam.utils_athena import Athena
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.utils_sqlite import SQLite
 
 LIKE = 'e%_%'
 
 class ExportDatabases:
-    def run_query(query: str, database: str, ctx: Context = Context.NULL) -> int:
+    def run_query(query: str, database: str, ctx = NULL) -> int:
         cnt: int = 0
 
         ctx.log2(query)
@@ -54,7 +55,7 @@ class ExportDatabases:
             with ing(f'Droping {len(dbs)} SQLite databases'):
                 with log_exc():
                     for db in dbs:
-                        file_path = f'{SQLite.local_db_dir()}/{db}'
+                        file_path = f'{local_db_dir()}/{db}'
                         try:
                             os.remove(file_path)
                         except OSError as e:
@@ -82,7 +83,7 @@ class ExportDatabases:
 
         return dbs
 
-    def show_database(database: str, ctx: Context = Context.NULL):
+    def show_database(database: str, ctx = NULL):
         if not database:
             return
 
@@ -182,7 +183,7 @@ class ExportDatabases:
         if not database or database.startswith('e'):
             Athena.clear_cache()
 
-    def show_databases(importer: str = None, ctx: Context = Context.NULL):
+    def show_databases(importer: str = None, ctx = NULL):
         lines = [f'{k}\t{v}' for k, v in ExportDatabases.database_names_with_keyspace_cnt(importer).items()]
         tabulize(lines,
                  header='NAME\tKEYSPACES',
@@ -193,7 +194,7 @@ class ExportDatabaseService:
     def __init__(self, handler: 'ExportDatabaseHandler'):
         self.handler = handler
 
-    def sql(self, query: str, database: str = None, ctx: Context = Context.NULL):
+    def sql(self, query: str, database: str = None, ctx = NULL):
         if not database:
             database = self.handler.state.export_session
 
@@ -215,10 +216,10 @@ class ExportDatabaseService:
 
         state.export_session = None
 
-    def show_databases(self, importer: str = None, ctx: Context = Context.NULL):
+    def show_databases(self, importer: str = None, ctx = NULL):
         ExportDatabases.show_databases(importer, ctx=ctx)
 
-    def show_database(self, database: str = None, ctx: Context = Context.NULL):
+    def show_database(self, database: str = None, ctx = NULL):
         if not database:
             database = self.handler.state.export_session
 

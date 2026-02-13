@@ -5,7 +5,7 @@ import importlib.util
 import random
 import sys
 import threading
-from collections.abc import AsyncIterator, Callable, Sequence
+from collections.abc import AsyncIterator, Callable
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Self, cast
@@ -25,7 +25,7 @@ from langgraph_api.timing import profiled_import
 from langgraph_api.utils.config import run_in_executor
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable, Sequence
+    from collections.abc import AsyncIterator, Callable, Iterable, Sequence
 
     from langchain_core.runnables import RunnableConfig
     from langgraph.checkpoint.base import (
@@ -63,6 +63,9 @@ class CheckpointerCapabilities:
 
     has_aget_iter: bool
     has_adelete_thread: bool
+    has_adelete_for_runs: bool
+    has_acopy_thread: bool
+    has_aprune: bool
 
     @classmethod
     def from_type(cls: type[Self], inner_type: type) -> Self:
@@ -70,6 +73,9 @@ class CheckpointerCapabilities:
         return cls(
             has_aget_iter=_is_overridden(inner_type, "aget_iter"),
             has_adelete_thread=_is_overridden(inner_type, "adelete_thread"),
+            has_adelete_for_runs=_has_method(inner_type, "adelete_for_runs"),
+            has_acopy_thread=_has_method(inner_type, "acopy_thread"),
+            has_aprune=_has_method(inner_type, "aprune"),
         )
 
 
@@ -80,7 +86,6 @@ class _CustomCheckpointerAdapter(BaseCheckpointSaver):
         _validate_required_methods(inner)
         self._inner = inner
         self._capabilities = capabilities
-        self.latest_iter: AsyncIterator[CheckpointTuple] | None = None
         super().__init__(serde=getattr(inner, "serde", None))
 
     def __getattr__(self, name: str) -> Any:
@@ -106,7 +111,7 @@ class _CustomCheckpointerAdapter(BaseCheckpointSaver):
         metadata: CheckpointMetadata,
         new_versions: ChannelVersions,
     ) -> RunnableConfig:
-        metadata = _ensure_run_id(metadata, config)
+        metadata = _enrich_metadata(metadata, config)
         return await self._inner.aput(config, checkpoint, metadata, new_versions)
 
     async def aput_writes(
@@ -142,23 +147,36 @@ class _CustomCheckpointerAdapter(BaseCheckpointSaver):
             "Please implement adelete_thread in your custom checkpointer to support thread deletion."
         )
 
-    async def aget_tuple(self, config: RunnableConfig) -> CheckpointTuple | None:
-        # Use cached latest_iter if available and matches
-        if self.latest_iter is not None:
-            try:
-                item = await anext(self.latest_iter, None)
-                if item is not None:
-                    item_config = item.config.get("configurable", {})
-                    requested = config.get("configurable", {})
-                    if item_config.get("thread_id") == requested.get(
-                        "thread_id"
-                    ) and item_config.get("checkpoint_ns", "") == requested.get(
-                        "checkpoint_ns", ""
-                    ):
-                        return item
-            finally:
-                self.latest_iter = None
+    async def adelete_for_runs(self, run_ids: Iterable[str]) -> None:
+        if self._capabilities.has_adelete_for_runs:
+            await self._inner.adelete_for_runs(run_ids)
+            return
+        raise RuntimeError(
+            "Please implement adelete_for_runs in your custom checkpointer "
+            "to support run deletion/rollback."
+        )
 
+    async def acopy_thread(self, source_thread_id: str, target_thread_id: str) -> None:
+        if self._capabilities.has_acopy_thread:
+            await self._inner.acopy_thread(source_thread_id, target_thread_id)
+            return
+        raise RuntimeError(
+            "Please implement acopy_thread in your custom checkpointer "
+            "to support thread copy."
+        )
+
+    async def aprune(
+        self, thread_ids: Sequence[str], *, strategy: str = "keep_latest"
+    ) -> None:
+        if self._capabilities.has_aprune:
+            await self._inner.aprune(thread_ids, strategy=strategy)
+            return
+        raise RuntimeError(
+            "Please implement aprune in your custom checkpointer "
+            "to support thread pruning."
+        )
+
+    async def aget_tuple(self, config: RunnableConfig) -> CheckpointTuple | None:
         return await self._inner.aget_tuple(config)
 
     def get_next_version(self, current: str | None, channel: None) -> str:
@@ -180,7 +198,7 @@ async def get_checkpointer(
     use_direct_connection: bool = False,
 ) -> CheckpointerProtocol:
     global _CHECKPOINTER_CAPABILITIES
-    if CUSTOM_CHECKPOINTER:
+    if CUSTOM_CHECKPOINTER is not None:
         # Get or create the inner checkpointer (cached per-thread)
         if not hasattr(CHECKPOINTER_STACK, "inner"):
             stack = AsyncExitStack()
@@ -198,22 +216,27 @@ async def get_checkpointer(
                 f"Using custom checkpointer: {inner}",
                 kind=str(type(inner)),
             )
-        # Create fresh adapter each time (not cached) - each gets own latest_iter
+        # Create a fresh adapter each time (not cached) - each gets own latest_iter
         if _CHECKPOINTER_CAPABILITIES is None:
             raise RuntimeError("Capabilities not initialized")
         return _CustomCheckpointerAdapter(
             inner=CHECKPOINTER_STACK.inner, capabilities=_CHECKPOINTER_CAPABILITIES
         )
 
-    from langgraph_runtime.checkpoint import Checkpointer
+    from langgraph_runtime.checkpoint import Checkpointer  # noqa: PLC0415
 
     return Checkpointer(
         conn, unpack_hook=unpack_hook, use_direct_connection=use_direct_connection
     )
 
 
+def get_checkpointer_capabilities() -> CheckpointerCapabilities | None:
+    """Return the capabilities of the custom checkpointer, or None if not configured."""
+    return _CHECKPOINTER_CAPABILITIES
+
+
 async def exit_checkpointer() -> None:
-    if not CUSTOM_CHECKPOINTER:
+    if CUSTOM_CHECKPOINTER is None:
         return
     stack = cast("AsyncExitStack|None", getattr(CHECKPOINTER_STACK, "stack", None))
     if stack is None:
@@ -231,8 +254,8 @@ async def collect_checkpointer_from_env() -> None:
 
     await logger.ainfo(
         f"Heads up! You are configuring a custom checkpointer at {checkpointer_path}\n\n"
-        "This checkpointer will be used IN STEAD OF the default persistence backend."
-        "The availability of some functionality, such as TTLs and pruning, may depend on the completion of your implementation."
+        "This checkpointer will be used INSTEAD OF the default persistence backend.\n"
+        "The availability of some functionality, such as TTLs and pruning, may depend on the completion of your implementation.\n"
         "Performance & feature support will depend on the quality of your implementation."
     )
 
@@ -252,7 +275,7 @@ async def collect_checkpointer_from_env() -> None:
 async def _yield_checkpointer(value: Any):
     if isinstance(value, BaseCheckpointSaver):
         yield value
-    # Async ontext manager
+    # Async context manager
     elif hasattr(value, "__aenter__") and hasattr(value, "__aexit__"):
         async with value as ctx_value:
             yield ctx_value
@@ -338,28 +361,64 @@ def _load_checkpointer(checkpointer_path: str) -> Any:
         raise ValueError(
             f"Could not find checkpointer '{checkpointer_path}'. "
             f"Please check that:\n"
-            f"1. The file exports a variable named '{checkpointer_path}'\n"
+            f"1. The file exports a variable named '{function}'\n"
             f"2. The variable name in your config matches the export name{suggestion}"
         ) from e
     return checkpointer
 
 
-def _ensure_run_id(
+# Keys from config["configurable"] that should NOT be copied into checkpoint metadata.
+_EXCLUDED_CONFIGURABLE_KEYS = frozenset({"checkpoint_ns", "checkpoint_id"})
+# Keys that are request-scoped and must not be persisted in checkpoints.
+_TRANSIENT_CONFIGURABLE_KEYS = frozenset(
+    {
+        "langgraph_request_id",
+        "langgraph_auth_user",
+        "langgraph_auth_user_id",
+        "langgraph_auth_permissions",
+    }
+)
+
+
+def _enrich_metadata(
     metadata: CheckpointMetadata, config: RunnableConfig
 ) -> CheckpointMetadata:
-    run_id = metadata.get("run_id")
-    if run_id:
-        return metadata
-    run_id = config.get("run_id")
-    if run_id:
-        return {**metadata, "run_id": run_id}
-    run_id = config.get("metadata", {}).get("run_id")
-    if run_id:
-        return {**metadata, "run_id": run_id}
-    run_id = config["configurable"].get("run_id")
-    if run_id:
-        return {**metadata, "run_id": run_id}
-    raise RuntimeError("Could not find run_id in config")
+    """Enrich checkpoint metadata with config fields.
+
+    Mirrors the metadata enrichment performed by the built-in checkpointers
+    so that downstream consumers (API, state endpoints, copy) see a
+    consistent metadata shape regardless of checkpointer implementation.
+    """
+    configurable = config.get("configurable", {})
+    config_metadata = config.get("metadata", {})
+    enriched: dict = {
+        # 1. Non-internal configurable keys (thread_id, graph_id, etc.)
+        **{
+            k: v
+            for k, v in configurable.items()
+            if not k.startswith("__")
+            and k not in _EXCLUDED_CONFIGURABLE_KEYS
+            and k not in _TRANSIENT_CONFIGURABLE_KEYS
+        },
+        # 2. Config metadata (assistant_id, model_name, etc.)
+        **{
+            k: v
+            for k, v in config_metadata.items()
+            if k not in _TRANSIENT_CONFIGURABLE_KEYS
+        },
+        # 3. Original metadata on top (source, step, parents, etc.)
+        **{k: v for k, v in metadata.items() if k not in _TRANSIENT_CONFIGURABLE_KEYS},
+    }
+    # Ensure run_id is present when available (not always set, e.g. state updates)
+    if not enriched.get("run_id"):
+        run_id = (
+            config.get("run_id")
+            or config_metadata.get("run_id")
+            or configurable.get("run_id")
+        )
+        if run_id:
+            enriched["run_id"] = run_id
+    return enriched
 
 
 def _validate_required_methods(inner: BaseCheckpointSaver):
@@ -381,3 +440,8 @@ def _is_overridden(inner_type: type, method: str) -> bool:
     if base is None or impl is None:
         return impl is not None
     return impl is not base
+
+
+def _has_method(inner_type: type, method: str) -> bool:
+    """Check if a type has a callable method (for methods not on BaseCheckpointSaver)."""
+    return callable(getattr(inner_type, method, None))

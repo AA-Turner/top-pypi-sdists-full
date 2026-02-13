@@ -3,7 +3,7 @@ Type annotations for neptunedata service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_neptunedata/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -430,6 +430,7 @@ StartLoaderJobInputTypeDef = TypedDict(
         "queueRequest": NotRequired[bool],
         "dependencies": NotRequired[Sequence[str]],
         "userProvidedEdgeIds": NotRequired[bool],
+        "edgeOnlyLoad": NotRequired[bool],
     },
 )
 StartMLDataProcessingJobInputTypeDef = TypedDict(

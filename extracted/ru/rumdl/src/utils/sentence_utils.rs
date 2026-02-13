@@ -76,8 +76,12 @@ pub fn text_ends_with_abbreviation(text: &str, abbreviations: &HashSet<String>) 
         return false;
     }
 
+    // Strip leading punctuation (parentheses, brackets, quotes, emphasis markers)
+    // that may precede the abbreviation, e.g. "(e.g." or "[i.e."
+    let stripped = last_word.trim_start_matches(|c: char| !c.is_alphanumeric() && c != '.');
+
     // O(1) HashSet lookup (abbreviations are already lowercase)
-    abbreviations.contains(&last_word.to_lowercase())
+    abbreviations.contains(&stripped.to_lowercase())
 }
 
 /// Check if a character is CJK sentence-ending punctuation
@@ -292,6 +296,30 @@ mod tests {
         assert!(!text_ends_with_abbreviation("paradigms.", &abbrevs));
     }
 
+    #[test]
+    fn test_text_ends_with_abbreviation_after_punctuation() {
+        let abbrevs = get_abbreviations(&None);
+        // Abbreviations preceded by opening parenthesis
+        assert!(text_ends_with_abbreviation("(e.g.", &abbrevs));
+        assert!(text_ends_with_abbreviation("(i.e.", &abbrevs));
+        assert!(text_ends_with_abbreviation("word (e.g.", &abbrevs));
+        assert!(text_ends_with_abbreviation("word (i.e.", &abbrevs));
+        // Abbreviations preceded by opening bracket
+        assert!(text_ends_with_abbreviation("[e.g.", &abbrevs));
+        assert!(text_ends_with_abbreviation("[Dr.", &abbrevs));
+        // Abbreviations preceded by quotes
+        assert!(text_ends_with_abbreviation("\"Dr.", &abbrevs));
+        // Abbreviations preceded by emphasis markers
+        assert!(text_ends_with_abbreviation("*e.g.", &abbrevs));
+        assert!(text_ends_with_abbreviation("**e.g.", &abbrevs));
+        // Nested punctuation (quote + paren)
+        assert!(text_ends_with_abbreviation("(\"e.g.", &abbrevs));
+        assert!(text_ends_with_abbreviation("([Dr.", &abbrevs));
+        // Non-abbreviations with leading punctuation should still not match
+        assert!(!text_ends_with_abbreviation("(paradigms.", &abbrevs));
+        assert!(!text_ends_with_abbreviation("[Doctor.", &abbrevs));
+    }
+
     // === Punctuation helper tests ===
 
     #[test]
@@ -435,6 +463,17 @@ mod tests {
         // i.e. and e.g. should not be sentence endings
         assert!(!is_after_sentence_ending("i.e.  example", 4));
         assert!(!is_after_sentence_ending("e.g.  example", 4));
+    }
+
+    #[test]
+    fn test_abbreviations_after_opening_punctuation() {
+        // Abbreviations preceded by parentheses, brackets, quotes
+        assert!(!is_after_sentence_ending("(e.g.  Wasm)", 5));
+        assert!(!is_after_sentence_ending("(i.e.  PyO3)", 5));
+        assert!(!is_after_sentence_ending("[e.g.  Chapter]", 5));
+        assert!(!is_after_sentence_ending("(Dr.  Smith)", 4));
+        // Nested punctuation: quote + paren
+        assert!(!is_after_sentence_ending("(\"e.g.  something\")", 6));
     }
 
     #[test]

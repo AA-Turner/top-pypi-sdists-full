@@ -1,6 +1,7 @@
 """Run command for comfy-test CLI."""
 
 import os
+import shutil
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -64,6 +65,12 @@ def cmd_run(args) -> int:
         timestamp = datetime.now().strftime("%H%M")
         short_name = node_dir.name.removeprefix("ComfyUI-")
         work_dir = workspaces_dir / f"{short_name}-{timestamp}"
+        if work_dir.exists():
+            if not args.force:
+                print(f"Workspace already exists: {work_dir}", file=sys.stderr)
+                print("Use --force to overwrite.", file=sys.stderr)
+                return 1
+            shutil.rmtree(work_dir)
         work_dir.mkdir()
 
         print(f"[comfy-test] Workspace: {work_dir}")
@@ -201,5 +208,10 @@ def add_run_parser(subparsers):
     run_parser.add_argument(
         "--branch", "-b",
         help="Git branch name (adds branch folder to output path)",
+    )
+    run_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing workspace directory",
     )
     run_parser.set_defaults(func=cmd_run)

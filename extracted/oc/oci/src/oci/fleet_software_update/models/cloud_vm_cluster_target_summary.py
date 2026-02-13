@@ -25,7 +25,7 @@ class CloudVmClusterTargetSummary(TargetDetails):
 
         :param entity_type:
             The value to assign to the entity_type property of this CloudVmClusterTargetSummary.
-            Allowed values for this property are: "DATABASE", "VMCLUSTER", "CLOUDVMCLUSTER"
+            Allowed values for this property are: "DATABASE", "VMCLUSTER", "CLOUDVMCLUSTER", "EXADBVMCLUSTER"
         :type entity_type: str
 
         :param id:

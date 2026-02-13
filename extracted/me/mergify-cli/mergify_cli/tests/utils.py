@@ -68,32 +68,28 @@ class GitMock:
 
         # Base commit SHA
         self.mock("merge-base", "--fork-point", "origin/main", output="base_commit_sha")
-        # Commit message
+
+    def finalize(self) -> None:
+        # Register batch log mock
+        records = []
+        for c in self._commits:
+            body = f"{c['message']}\n\nChange-Id: {c['change_id']}"
+            records.append(f"{c['sha']}\x00{c['title']}\x00{body}")
         self.mock(
             "log",
-            "-1",
-            "--format=%b",
-            commit["sha"],
-            output=f"{commit['message']}\n\nChange-Id: {commit['change_id']}",
-        )
-        # Commit title
-        self.mock("log", "-1", "--format=%s", commit["sha"], output=commit["title"])
-        # List of commit SHAs
-        self.mock(
-            "log",
-            "--format=%H",
+            "--reverse",
+            "--format=%H%x00%s%x00%b%x1e",
             "base_commit_sha..current-branch",
-            output="\n".join(c["sha"] for c in reversed(self._commits)),
+            output="\x1e".join(records) + "\x1e" if records else "",
         )
-        self.mock("branch", "mergify-cli-tmp", commit["sha"], output="")
-        self.mock("branch", "-D", "mergify-cli-tmp", output="")
-        self.mock(
-            "push",
-            "-f",
-            "origin",
-            f"mergify-cli-tmp:current-branch/{commit['change_id']}",
-            output="",
-        )
+
+        # Register batch push mock
+        refspecs = [
+            f"{c['sha']}:refs/heads/current-branch/{c['change_id']}"
+            for c in self._commits
+        ]
+        if refspecs:
+            self.mock("push", "-f", "origin", *refspecs, output="")
 
 
 @dataclasses.dataclass

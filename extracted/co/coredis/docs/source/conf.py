@@ -46,9 +46,13 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
     "sphinx_copybutton",
+    "sphinx_design",
+    "sphinx_inline_tabs",
     "sphinx_issues",
     "sphinx_paramlinks",
     "sphinx_sitemap",
+    "sphinx_design",
+    "sphinx_inline_tabs",
     "sphinxcontrib.programoutput",
     "sphinxext.opengraph",
 ]
@@ -88,12 +92,13 @@ autodoc_typehints_format = "short"
 autodoc_preserve_defaults = True
 autodoc_type_aliases = {
     "KeyT": "~coredis.typing.KeyT",
+    "ValueT": "~coredis.typing.ValueT",
     "RedisValueT": "~coredis.typing.RedisValueT",
     "StringT": "~coredis.typing.StringT",
     "ResponsePrimitive": "~coredis.typing.ResponsePrimitive",
     "ResponseType": "~coredis.typing.ResponseType",
     "Parameters": "~coredis.typing.Parameters",
-    "SubscriptionCallback": "~coredis.commands.pubsub.SubscriptionCallback",
+    "SubscriptionCallback": "~coredis.patterns.pubsub.SubscriptionCallback",
 }
 autosectionlabel_maxdepth = 3
 autosectionlabel_prefix_document = True
@@ -133,6 +138,8 @@ texinfo_documents = [
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "redis-py": ("https://redis-py.readthedocs.io/en/latest/", None),
+    "anyio": ("https://anyio.readthedocs.io/en/latest/", None),
+    "trio": ("https://trio.readthedocs.io/en/latest/", None),
 }
 
 # Workaround for https://github.com/sphinx-doc/sphinx/issues/9560

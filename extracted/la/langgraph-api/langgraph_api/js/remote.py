@@ -521,7 +521,7 @@ class PassthroughSerialiser(SerializerProtocol):
 
 
 async def _get_passthrough_checkpointer():
-    from langgraph_api import _checkpointer as api_checkpointer
+    from langgraph_api import _checkpointer as api_checkpointer  # noqa: PLC0415
 
     checkpointer = await api_checkpointer.get_checkpointer()
     # This checkpointer does not attempt to revive LC-objects.
@@ -876,11 +876,13 @@ class CustomJsAuthBackend(AuthenticationBackend):
     ls_auth: AuthenticationBackend | None
 
     def __init__(self, disable_studio_auth: bool = False):
-        from langgraph_api.utils.cache import LRUCache
+        from langgraph_api.utils.cache import LRUCache  # noqa: PLC0415
 
         self.ls_auth = None
         if not disable_studio_auth and LANGGRAPH_AUTH_TYPE == "langsmith":
-            from langgraph_api.auth.langsmith.backend import LangsmithAuthBackend
+            from langgraph_api.auth.langsmith.backend import (  # noqa: PLC0415
+                LangsmithAuthBackend,
+            )
 
             self.ls_auth = LangsmithAuthBackend()
         self.ttl_cache: LRUCache | None = None

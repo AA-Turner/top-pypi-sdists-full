@@ -1,12 +1,19 @@
+import argparse
 import asyncio
 import contextlib
+import inspect
 import json
 import logging
 import os
 import pathlib
 import threading
+import time
 import typing
+import urllib.error
+import urllib.request
 from collections.abc import Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from typing import Literal
 
 if typing.TYPE_CHECKING:
@@ -22,8 +29,8 @@ SUPPORT_STATUS = Literal["active", "critical", "eol"]
 
 
 def _get_ls_origin() -> str | None:
-    from langsmith.client import Client
-    from langsmith.utils import tracing_is_enabled
+    from langsmith.client import Client  # noqa: PLC0415
+    from langsmith.utils import tracing_is_enabled  # noqa: PLC0415
 
     if not tracing_is_enabled():
         return
@@ -32,8 +39,8 @@ def _get_ls_origin() -> str | None:
 
 
 def _get_org_id() -> str | None:
-    from langsmith.client import Client
-    from langsmith.utils import tracing_is_enabled
+    from langsmith.client import Client  # noqa: PLC0415
+    from langsmith.utils import tracing_is_enabled  # noqa: PLC0415
 
     # Yes, the organizationId is actually the workspace iD
     # which is actually the tenantID which we actually get via
@@ -100,6 +107,7 @@ def run_server(
     ui: dict | None = None,
     webhooks: dict | None = None,
     ui_config: dict | None = None,
+    checkpointer: dict | None = None,
     studio_url: str | None = None,
     disable_persistence: bool = False,
     allow_blocking: bool = False,
@@ -113,10 +121,7 @@ def run_server(
 ):
     """Run the LangGraph API server."""
 
-    import inspect
-    import time
-
-    import uvicorn
+    import uvicorn  # noqa: PLC0415
 
     start_time = time.time()
 
@@ -130,7 +135,9 @@ def run_server(
         mount_prefix = os.environ.get("LANGGRAPH_MOUNT_PREFIX")
     if isinstance(env, str | pathlib.Path):
         try:
-            from dotenv.main import DotEnv  # type: ignore[unresolved-import]
+            from dotenv.main import (  # type: ignore[unresolved-import]  # noqa: PLC0415
+                DotEnv,
+            )
 
             env_vars = DotEnv(dotenv_path=env).dict() or {}
             logger.debug(f"Loaded environment variables from {env}: {sorted(env_vars)}")
@@ -142,7 +149,7 @@ def run_server(
 
     if debug_port is not None:
         try:
-            import debugpy  # type: ignore[unresolved-import]
+            import debugpy  # type: ignore[unresolved-import]  # noqa: PLC0415
         except ImportError:
             logger.warning("debugpy is not installed. Debugging will not be available.")
             logger.info("To enable debugging, install debugpy: pip install debugpy")
@@ -169,9 +176,7 @@ def run_server(
         upstream_url += mount_prefix
     if tunnel:
         logger.info("Starting Cloudflare Tunnel...")
-        from concurrent.futures import TimeoutError as FutureTimeoutError
-
-        from langgraph_api.tunneling.cloudflare import start_tunnel
+        from langgraph_api.tunneling.cloudflare import start_tunnel  # noqa: PLC0415
 
         tunnel_obj = start_tunnel(port)
         try:
@@ -205,6 +210,7 @@ def run_server(
         LANGGRAPH_UI=json.dumps(ui) if ui else None,
         LANGGRAPH_WEBHOOKS=json.dumps(webhooks) if webhooks else None,
         LANGGRAPH_UI_CONFIG=json.dumps(ui_config) if ui_config else None,
+        LANGGRAPH_CHECKPOINTER=json.dumps(checkpointer) if checkpointer else None,
         LANGGRAPH_UI_BUNDLER="true",
         LANGGRAPH_API_URL=local_url,
         LANGGRAPH_DISABLE_FILE_PERSISTENCE=str(disable_persistence).lower(),
@@ -229,11 +235,7 @@ def run_server(
 
         def _open_browser():
             nonlocal studio_origin, full_studio_url
-            import time
-            import urllib.error
-            import urllib.request
-            import webbrowser
-            from concurrent.futures import ThreadPoolExecutor
+            import webbrowser  # noqa: PLC0415
 
             thread_logger = logging.getLogger("browser_opener")
             if not thread_logger.handlers:
@@ -291,7 +293,7 @@ For production use, please use LangSmith Deployment.
             threading.Thread(target=_open_browser, daemon=True).start()
         nvc = os.getenv("LANGGRAPH_NO_VERSION_CHECK")
         if nvc is None or nvc.lower() not in ("true", "1"):
-            from langgraph_api import __version__
+            from langgraph_api import __version__  # noqa: PLC0415
 
             threading.Thread(
                 target=_check_newer_version,
@@ -340,7 +342,7 @@ For production use, please use LangSmith Deployment.
                 **supported_kwargs,
             )
         elif __entrypoint__ == "python-executor":
-            from langgraph_api.executor_entrypoint import (
+            from langgraph_api.executor_entrypoint import (  # noqa: PLC0415
                 main as executor_entrypoint_main,
             )
 
@@ -354,8 +356,6 @@ For production use, please use LangSmith Deployment.
 
 
 def main():
-    import argparse
-
     parser = argparse.ArgumentParser(
         description="CLI entrypoint for running the LangGraph API server."
     )
@@ -413,6 +413,7 @@ def main():
     ui = config_data.get("ui")
     webhooks = config_data.get("webhooks")
     ui_config = config_data.get("ui_config")
+    checkpointer = config_data.get("checkpointer")
     kwargs = {}
     if args.runtime_edition == "postgres":
         kwargs["__redis_uri__"] = os.getenv("REDIS_URI")
@@ -435,6 +436,7 @@ def main():
         ui=ui,
         webhooks=webhooks,
         ui_config=ui_config,
+        checkpointer=checkpointer,
         runtime_edition=args.runtime_edition,
         **kwargs,
     )
@@ -446,10 +448,7 @@ def _check_newer_version(pkg: str, current_version: str, timeout: float = 0.5) -
     Critical = one minor behind on same major, OR latest minor of previous major while latest is X.0.*
     EOL = two+ minors behind on same major, OR any previous major after X.1.*
     """
-    import json
-    import urllib.request
-
-    from packaging.version import InvalidVersion, Version
+    from packaging.version import InvalidVersion, Version  # noqa: PLC0415
 
     log = logging.getLogger("version_check")
     if not log.handlers:

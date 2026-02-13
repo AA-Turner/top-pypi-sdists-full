@@ -35,13 +35,29 @@ _JOB_SDK_SINGLETON_KEY = "job_sdk"
 
 _SUBMIT_EXAMPLE = """
 import anyscale
-from anyscale.job.models import JobConfig
+from anyscale.job.models import JobConfig, ConnectionConfig, ConnectionType
 
+# Basic job submission
 anyscale.job.submit(
     JobConfig(
         name="my-job",
         entrypoint="python main.py",
         working_dir=".",
+    ),
+)
+
+# Job with Databricks connection for credential injection
+anyscale.job.submit(
+    JobConfig(
+        name="my-job-with-databricks",
+        entrypoint="python main.py",
+        working_dir=".",
+        connections=[
+            ConnectionConfig(
+                connection_type=ConnectionType.DATABRICKS,
+                connection_name="my-databricks-connection",
+            )
+        ],
     ),
 )
 """

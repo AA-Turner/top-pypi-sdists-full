@@ -36,13 +36,13 @@ classifiers = [
 ]
 # The version for the `snowflake` namespace package must be defined
 # statically, since there's no actual code to a namespace package.
-version = '1.11.0'
+version = '1.12.0'
 
 # Our custom metadata hook won't run without the dynamic field.
 dynamic = ['']
 
 dependencies = [
-    'snowflake.core == 1.11.0',
+    'snowflake.core == 1.12.0',
     'snowflake._legacy',
 ]
 

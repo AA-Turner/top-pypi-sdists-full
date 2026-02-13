@@ -1,6 +1,6 @@
 [project]
 name = "commitizen"
-version = "4.13.6"
+version = "4.13.7"
 description = "Python commitizen client tool"
 authors = [{ name = "Santiago Fraire", email = "santiwilly@gmail.com" }]
 maintainers = [
@@ -237,8 +237,9 @@ select = [
 ]
 ignore = ["E501", "D1", "D415"]
 extend-safe-fixes = [
-    "TC", # Move imports inside/outside TYPE_CHECKING blocks
-    "UP", # Update syntaxes for current Python version recommendations
+    "TC",    # Move imports inside/outside TYPE_CHECKING blocks
+    "UP",    # Update syntaxes for current Python version recommendations
+    "PT006", # Use tuple in pytest.mark.parametrize
 ]
 
 [tool.ruff.lint.per-file-ignores]

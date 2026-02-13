@@ -9,6 +9,8 @@ from snowflake.core.catalog_integration import (
     CatalogIntegrationResource,
     ObjectStore,
 )
+from snowflake.core.catalog_integration._generated import TagAssignment, TagReference
+from snowflake.core.tag import TagValue
 
 from ...utils import BASE_URL, extra_params, mock_http_response
 
@@ -111,4 +113,67 @@ def test_drop_async(fake_root, catalog_integration):
         op = catalog_integration.drop_async()
         assert isinstance(op, PollingOperation)
         op.result()
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+
+def test_set_tags(fake_root, catalog_integration, tag):
+    args = (fake_root, "POST", BASE_URL + "/catalog-integrations/my_catalog_integration:set-tags")
+    tags = {tag: TagValue(value="value")}
+    kwargs = extra_params(
+        body=[
+            TagAssignment(
+                tag_value=v.value, tag_name=k.name, tag_schema=k.schema.name, tag_database=k.database.name
+            ).to_dict()
+            for k, v in tags.items()
+        ]
+    )
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        catalog_integration.set_tags(tags)
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        op = catalog_integration.set_tags_async(tags)
+        assert isinstance(op, PollingOperation)
+        op.result()
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+
+def test_unset_tags(fake_root, catalog_integration, tag):
+    args = (fake_root, "POST", BASE_URL + "/catalog-integrations/my_catalog_integration:unset-tags")
+    tag_resources = {tag}
+    kwargs = extra_params(
+        body=[
+            TagReference(
+                tag_name=tag_res.name, tag_schema=tag_res.schema.name, tag_database=tag_res.database.name
+            ).to_dict()
+            for tag_res in tag_resources
+        ]
+    )
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        catalog_integration.unset_tags(tag_resources)
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        op = catalog_integration.unset_tags_async(tag_resources)
+        assert isinstance(op, PollingOperation)
+        op.result()
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+
+def test_get_tags(fake_root, catalog_integration):
+    args = (fake_root, "GET", BASE_URL + "/catalog-integrations/my_catalog_integration:get-tags")
+    kwargs = extra_params()
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        mocked_request.return_value = mock_http_response()
+        assert catalog_integration.get_tags() == {}
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        mocked_request.return_value = mock_http_response()
+        op = catalog_integration.get_tags_async()
+        assert isinstance(op, PollingOperation)
+        assert op.result() == {}
     mocked_request.assert_called_once_with(*args, **kwargs)

@@ -391,7 +391,7 @@ def awatch_duration(
             result = await afunc(*args, **kwargs)
             duration = time.time() - time_start
             if duration > warn_timeout:
-                log().warning("%s took %.2fms", afunc, duration * 1000)
+                log().warning("%s took %.2fms", afunc.__name__, duration * 1000)
             return result
 
         return decorated

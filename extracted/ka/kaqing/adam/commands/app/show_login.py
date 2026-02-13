@@ -32,26 +32,25 @@ class ShowLogin(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            login: IdpLogin = None
-            with log_exc(True):
-                ctx = self.context()
+            with self.context(args) as (_, ctx):
+                login: IdpLogin = None
+                with log_exc(True):
+                    if not(host := Apps.app_host('c3', 'c3', state.namespace)):
+                        ctx.log2('Cannot locate ingress for app.')
+                        return state
 
-                if not(host := Apps.app_host('c3', 'c3', state.namespace)):
-                    ctx.log2('Cannot locate ingress for app.')
-                    return state
+                    login = Idp.login(host, use_token_from_env=True)
+                    if login and login.id_token_obj:
+                        it = login.id_token_obj
+                        lines = [
+                            f'email\t{it.email}',
+                            f'user\t{it.username}',
+                            f'IDP expires in\t{duration(time.time(), it.exp)}',
+                            f'IDP Groups\t{",".join(it.groups)}'
+                        ]
+                        tabulize(lines, separator='\t', ctx=ctx)
 
-                login = Idp.login(host, use_token_from_env=True)
-                if login and login.id_token_obj:
-                    it = login.id_token_obj
-                    lines = [
-                        f'email\t{it.email}',
-                        f'user\t{it.username}',
-                        f'IDP expires in\t{duration(time.time(), it.exp)}',
-                        f'IDP Groups\t{",".join(it.groups)}'
-                    ]
-                    tabulize(lines, separator='\t', ctx=ctx)
-
-            return state
+                return state
 
     def completion(self, state: ReplState):
         return super().completion(state)

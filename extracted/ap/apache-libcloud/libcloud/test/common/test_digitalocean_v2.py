@@ -15,22 +15,28 @@
 import sys
 import unittest
 
+from libcloud.http import LibcloudConnection
 from libcloud.test import MockHttp, LibcloudTestCase
 from libcloud.utils.py3 import httplib
 from libcloud.common.types import InvalidCredsError
 from libcloud.test.secrets import DIGITALOCEAN_v2_PARAMS
 from libcloud.test.file_fixtures import FileFixtures
-from libcloud.common.digitalocean import DigitalOceanBaseDriver
+from libcloud.common.digitalocean import DigitalOceanBaseDriver, DigitalOcean_v2_BaseDriver
 
 
 class DigitalOceanTests(LibcloudTestCase):
     def setUp(self):
-        DigitalOceanBaseDriver.connectionCls.conn_class = DigitalOceanMockHttp
-        DigitalOceanMockHttp.type = None
+        DigitalOceanBaseDriver.connectionCls.conn_class = DigitalOceanCommonMockHttp
+        DigitalOcean_v2_BaseDriver.connectionCls.conn_class = DigitalOceanCommonMockHttp
+        DigitalOceanCommonMockHttp.type = None
         self.driver = DigitalOceanBaseDriver(*DIGITALOCEAN_v2_PARAMS)
 
+    def tearDown(self):
+        LibcloudConnection.type = None
+        DigitalOceanCommonMockHttp.type = None
+
     def test_authentication(self):
-        DigitalOceanMockHttp.type = "UNAUTHORIZED"
+        DigitalOceanCommonMockHttp.type = "UNAUTHORIZED"
         self.assertRaises(InvalidCredsError, self.driver.ex_account_info)
 
     def test_ex_account_info(self):
@@ -51,13 +57,13 @@ class DigitalOceanTests(LibcloudTestCase):
         self.assertEqual(action["type"], "power_on")
 
     def test__paginated_request(self):
-        DigitalOceanMockHttp.type = "page_1"
+        DigitalOceanCommonMockHttp.type = "page_1"
         actions = self.driver._paginated_request("/v2/actions", "actions")
         self.assertEqual(actions[0]["id"], 12345671)
         self.assertEqual(actions[0]["status"], "completed")
 
 
-class DigitalOceanMockHttp(MockHttp):
+class DigitalOceanCommonMockHttp(MockHttp):
     fixtures = FileFixtures("common", "digitalocean")
 
     response = {

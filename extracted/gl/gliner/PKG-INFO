@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gliner
-Version: 0.2.24
+Version: 0.2.25
 Summary: Generalist model for NER (Extract any entity types from texts)
 Author: Urchade Zaratiana, Nadi Tomeh, Pierre Holat, Thierry Charnois
 Maintainer: Urchade Zaratiana
@@ -11,7 +11,7 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: torch>=2.0.0
-Requires-Dist: transformers>=4.57.3
+Requires-Dist: transformers<5.2.0,>=4.51.3
 Requires-Dist: huggingface_hub>=0.21.4
 Requires-Dist: tqdm
 Requires-Dist: onnxruntime
@@ -56,7 +56,7 @@ Dynamic: license-file
     <br>
 </div>
 
-GLiNER is a framework for training and deploying Named Entity Recognition (NER) models that can identify any entity type using bidirectional transformer encoders (BERT-like). Beyond standard NER, GLiNER supports multiple tasks including joint entity and relation extraction through specialized architectures. It provides a practical alternative to both traditional NER models, which are limited to predefined entity types, and Large Language Models (LLMs), which offer flexibility but require significant computational resources.
+GLiNER is a framework for training and deploying small Named Entity Recognition (NER) models with zero-shot capabilities. In addition to tradition NER, it also supports joint entity and relation extraction. GLiNER is fine-tunable, optimized to run on CPUs and consumer hardware, and has performance competitive with LLMs several times its size, like ChatGPT and UniNER.
 
 
 ## Example Notebooks
@@ -113,6 +113,14 @@ UEFA European Championship => competitions
 UEFA Nations League => competitions
 European Championship => competitions
 ```
+
+## 👨‍💻 Model Authors
+GLiNER was originally developed by:
+* [Urchade Zaratiana](urchade.github.io)
+* Nadi Tomeh
+* Pierre Holat
+* Thierry Charnois
+
 ## 🌟 Maintainers
 
 <div align="center">
@@ -121,24 +129,17 @@ European Championship => competitions
       <td align="center">
         <strong>Urchade Zaratiana</strong><br>
         <em>Member of technical staff at Fastino</em><br>
-        <a href="https://www.linkedin.com/in/urchade-zaratiana/"><img src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn" /></a>
+        <a href="https://www.linkedin.com/in/urchade-zaratiana-36ba9814b/"><img src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn" /></a>
       </td>
       <td align="center">
         <strong>Ihor Stepanov</strong><br>
         <em>Co-Founder at Knowledgator</em><br>
-        <a href="https://www.linkedin.com/in/ihor-stepanov/"><img src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn" /></a>
+        <a href="https://www.linkedin.com/in/ihor-knowledgator/"><img src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn" /></a>
       </td>
     </tr>
   </table>
 </div>
 
-## 👨‍💻 Model Authors
-The model authors are:
-* [Urchade Zaratiana](https://huggingface.co/urchade)
-* [Ihor Stepanov](https://github.com/Ingvarstep)
-* Nadi Tomeh
-* Pierre Holat
-* Thierry Charnois
 
 ## 📚 Citations
 

@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -188,9 +188,11 @@ snap_angle (const db::DVector &in, lay::angle_constraint_type ac, db::DVector *s
   std::vector <db::DVector> ref_dir;
   if (ac != lay::AC_Any) {
     ref_dir.reserve (4);
-    ref_dir.push_back (db::DVector (1.0, 0));
-    ref_dir.push_back (db::DVector (0, 1.0));
-    if (ac == lay::AC_Diagonal) {
+    if (ac != lay::AC_DiagonalOnly) {
+      ref_dir.push_back (db::DVector (1.0, 0));
+      ref_dir.push_back (db::DVector (0, 1.0));
+    }
+    if (ac == lay::AC_Diagonal || ac == lay::AC_DiagonalOnly) {
       ref_dir.push_back (db::DVector (-1.0, 1.0));
       ref_dir.push_back (db::DVector (1.0, 1.0));
     }
@@ -262,7 +264,7 @@ public:
    *  "vertex_mode" is:
    *    0: no snapping to vertexes
    *    1: snapping to edge vertexes
-   *    2: also snapping to centers
+   *    2: snapping to edge vertexes with high prio and also snapping to centers
    */
   ContourFinder (const db::DPoint &original, const db::DVector &grid, const std::vector <db::DEdge> &cutlines, int vertex_mode = 2, bool directed = false)
     : m_any (false), m_any_exact (false), 
@@ -449,8 +451,11 @@ private:
   void 
   find_closest_exact (const db::DPoint &p, const db::DEdge &e)
   {
-    bool was_vertex = m_edge1_exact.is_degenerate () && m_edge2_exact.is_degenerate ();
-    bool is_vertex = e.is_degenerate ();
+    //  NOTE: in vertex mode 2, vertices have higher priority than edges, so we capture the nature of the
+    //  object to snap to. In vertex mode 1, "was_vertex" and "is_vertex" is always false and priority
+    //  is given by distance. That mode is used in measurements (aka obj_snap2).
+    bool was_vertex = m_vertex_mode > 1 && m_edge1_exact.is_degenerate () && m_edge2_exact.is_degenerate ();
+    bool is_vertex = m_vertex_mode > 1 && e.is_degenerate ();
 
     if (! m_any_exact || (! (was_vertex && ! is_vertex) && (m_original.distance (p) < m_original.distance (m_closest_exact) || (! was_vertex && is_vertex)))) {
 
@@ -473,8 +478,11 @@ private:
   void 
   find_closest (const db::DPoint &p, const db::DEdge &e)
   {
-    bool was_vertex = m_edge1.is_degenerate () && m_edge2.is_degenerate ();
-    bool is_vertex = e.is_degenerate ();
+    //  NOTE: in vertex mode 2, vertices have higher priority than edges, so we capture the nature of the
+    //  object to snap to. In vertex mode 1, "was_vertex" and "is_vertex" is always false and priority
+    //  is given by distance. That mode is used in measurements (aka obj_snap2).
+    bool was_vertex = m_vertex_mode > 1 && m_edge1.is_degenerate () && m_edge2.is_degenerate ();
+    bool is_vertex = m_vertex_mode > 1 && e.is_degenerate ();
 
     if (! m_any || (! (was_vertex && ! is_vertex) && (m_original.distance (p) < m_original.distance (m_closest) || (! was_vertex && is_vertex)))) {
 
@@ -955,6 +963,10 @@ make_cutlines (lay::angle_constraint_type snap_mode, const db::DPoint &p1, std::
     cutlines.reserve (4);
     cutlines.push_back (db::DEdge (p1, p1 + db::DVector (0.0, 1.0)));
     cutlines.push_back (db::DEdge (p1, p1 + db::DVector (1.0, 0.0)));
+    cutlines.push_back (db::DEdge (p1, p1 + db::DVector (1.0, 1.0)));
+    cutlines.push_back (db::DEdge (p1, p1 + db::DVector (1.0, -1.0)));
+  } else if (snap_mode == lay::AC_DiagonalOnly) {
+    cutlines.reserve (2);
     cutlines.push_back (db::DEdge (p1, p1 + db::DVector (1.0, 1.0)));
     cutlines.push_back (db::DEdge (p1, p1 + db::DVector (1.0, -1.0)));
   }

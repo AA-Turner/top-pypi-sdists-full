@@ -2442,13 +2442,20 @@ class Langfuse:
         )
 
     def get_dataset(
-        self, name: str, *, fetch_items_page_size: Optional[int] = 50
+        self,
+        name: str,
+        *,
+        fetch_items_page_size: Optional[int] = 50,
+        version: Optional[datetime] = None,
     ) -> "DatasetClient":
         """Fetch a dataset by its name.
 
         Args:
             name (str): The name of the dataset to fetch.
             fetch_items_page_size (Optional[int]): All items of the dataset will be fetched in chunks of this size. Defaults to 50.
+            version (Optional[datetime]): Retrieve dataset items as they existed at this specific point in time (UTC).
+                If provided, returns the state of items at the specified UTC timestamp.
+                If not provided, returns the latest version. Must be a timezone-aware datetime object in UTC.
 
         Returns:
             DatasetClient: The dataset with the given name.
@@ -2465,6 +2472,7 @@ class Langfuse:
                     dataset_name=self._url_encode(name, is_url_param=True),
                     page=page,
                     limit=fetch_items_page_size,
+                    version=version,
                 )
                 dataset_items.extend(new_items.data)
 
@@ -2475,7 +2483,7 @@ class Langfuse:
 
             items = [DatasetItemClient(i, langfuse=self) for i in dataset_items]
 
-            return DatasetClient(dataset, items=items)
+            return DatasetClient(dataset, items=items, version=version)
 
         except Error as e:
             handle_fern_exception(e)
@@ -2566,6 +2574,7 @@ class Langfuse:
         run_evaluators: List[RunEvaluatorFunction] = [],
         max_concurrency: int = 50,
         metadata: Optional[Dict[str, str]] = None,
+        _dataset_version: Optional[datetime] = None,
     ) -> ExperimentResult:
         """Run an experiment on a dataset with automatic tracing and evaluation.
 
@@ -2743,6 +2752,7 @@ class Langfuse:
                     run_evaluators=run_evaluators or [],
                     max_concurrency=max_concurrency,
                     metadata=metadata,
+                    dataset_version=_dataset_version,
                 ),
             ),
         )
@@ -2760,6 +2770,7 @@ class Langfuse:
         run_evaluators: List[RunEvaluatorFunction],
         max_concurrency: int,
         metadata: Optional[Dict[str, Any]] = None,
+        dataset_version: Optional[datetime] = None,
     ) -> ExperimentResult:
         langfuse_logger.debug(
             f"Starting experiment '{name}' run '{run_name}' with {len(data)} items"
@@ -2780,6 +2791,7 @@ class Langfuse:
                     run_name,
                     description,
                     metadata,
+                    dataset_version,
                 )
 
         # Run all items concurrently
@@ -2866,6 +2878,7 @@ class Langfuse:
         experiment_run_name: str,
         experiment_description: Optional[str],
         experiment_metadata: Optional[Dict[str, Any]] = None,
+        dataset_version: Optional[datetime] = None,
     ) -> ExperimentItemResult:
         span_name = "experiment-item-run"
 
@@ -2917,6 +2930,7 @@ class Langfuse:
                                 datasetItemId=item.id,  # type: ignore
                                 traceId=trace_id,
                                 observationId=span.id,
+                                datasetVersion=dataset_version,
                             ),
                         )
 

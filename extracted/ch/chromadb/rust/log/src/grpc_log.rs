@@ -8,7 +8,7 @@ use chroma_config::registry::Registry;
 use chroma_config::Configurable;
 use chroma_error::{ChromaError, ErrorCodes};
 use chroma_memberlist::client_manager::{
-    ClientAssigner, ClientAssignmentError, ClientManager, ClientOptions,
+    ClientAssigner, ClientAssignmentError, ClientManager, ClientOptions, Tier,
 };
 use chroma_memberlist::config::MemberlistProviderConfig;
 use chroma_memberlist::memberlist_provider::{
@@ -18,7 +18,8 @@ use chroma_system::System;
 use chroma_types::chroma_proto::log_service_client::LogServiceClient;
 use chroma_types::chroma_proto::{self, GetAllCollectionInfoToCompactResponse};
 use chroma_types::{
-    Cmek, CollectionUuid, ForkLogsResponse, LogRecord, OperationRecord, RecordConversionError,
+    Cmek, CollectionUuid, DatabaseName, ForkLogsResponse, LogRecord, OperationRecord,
+    RecordConversionError,
 };
 use std::fmt::Debug;
 use std::time::Duration;
@@ -257,7 +258,7 @@ impl Configurable<(GrpcLogConfig, System)> for GrpcLog {
         let (my_config, system) = my_config;
         let assignment_policy =
             Box::<dyn AssignmentPolicy>::try_from_config(&my_config.assignment, registry).await?;
-        let client_assigner = ClientAssigner::new(assignment_policy, 1);
+        let client_assigner = ClientAssigner::new(assignment_policy, 1, vec![]);
         let client_manager = ClientManager::new(
             client_assigner.clone(),
             1,
@@ -297,7 +298,7 @@ impl GrpcLog {
         // would return a provably non-empty vector, but in lieu of that, or panic'ing
         // on a impossible state, we return the underlying error here.
         self.client_assigner
-            .clients(&collection_id.to_string())?
+            .clients(&collection_id.to_string(), Tier::default())?
             .drain(..)
             .next()
             .ok_or(ClientAssignmentError::NoClientFound(
@@ -308,6 +309,7 @@ impl GrpcLog {
     // ScoutLogs returns the offset of the next record to be inserted into the log.
     pub(super) async fn scout_logs(
         &mut self,
+        database_name: DatabaseName,
         collection_id: CollectionUuid,
         _start_from: u64,
     ) -> Result<u64, Box<dyn ChromaError>> {
@@ -316,6 +318,7 @@ impl GrpcLog {
             .map_err(|err| Box::new(err) as Box<dyn ChromaError>)?;
         let request = client.scout_logs(chroma_proto::ScoutLogsRequest {
             collection_id: collection_id.0.to_string(),
+            database_name: database_name.into_string(),
         });
         let response = request.await;
         let response = match response {
@@ -331,6 +334,7 @@ impl GrpcLog {
 
     pub(super) async fn read(
         &mut self,
+        database_name: DatabaseName,
         collection_id: CollectionUuid,
         offset: i64,
         batch_size: i32,
@@ -339,7 +343,7 @@ impl GrpcLog {
         let end_timestamp = end_timestamp.unwrap_or(i64::MAX);
         let mut client = self.client_for(collection_id)?;
         let request = client.pull_logs(chroma_proto::PullLogsRequest {
-            // NOTE(rescrv):  Use the untyped string representation of the collection ID.
+            database_name: database_name.into_string(),
             collection_id: collection_id.0.to_string(),
             start_from_offset: offset,
             batch_size,
@@ -379,6 +383,7 @@ impl GrpcLog {
 
     pub(super) async fn push_logs(
         &mut self,
+        database_name: DatabaseName,
         collection_id: CollectionUuid,
         records: Vec<OperationRecord>,
         cmek: Option<Cmek>,
@@ -389,6 +394,7 @@ impl GrpcLog {
         let cmek_proto = cmek.map(|c| c.into());
 
         let request = chroma_proto::PushLogsRequest {
+            database_name: database_name.into_string(),
             collection_id: collection_id.0.to_string(),
 
             records:
@@ -428,14 +434,19 @@ impl GrpcLog {
 
     pub(super) async fn fork_logs(
         &mut self,
+        database_name: DatabaseName,
         source_collection_id: CollectionUuid,
         target_collection_id: CollectionUuid,
+        cmek: Option<Cmek>,
     ) -> Result<ForkLogsResponse, GrpcForkLogsError> {
+        let cmek_proto = cmek.map(|c| c.into());
         let response = self
             .client_for(source_collection_id)?
             .fork_logs(chroma_proto::ForkLogsRequest {
+                database_name: database_name.into_string(),
                 source_collection_id: source_collection_id.to_string(),
                 target_collection_id: target_collection_id.to_string(),
+                cmek: cmek_proto,
             })
             .await
             .map_err(|err| match err.code() {
@@ -511,32 +522,46 @@ impl GrpcLog {
                     }
                 };
                 let collection_id = CollectionUuid(collection_uuid);
+                let topology_name = match &collection.topology_name {
+                    Some(name) => match chroma_types::TopologyName::new(name) {
+                        Ok(t) => Some(t),
+                        Err(_) => {
+                            tracing::error!("Failed to parse topology name: {}", name);
+                            continue;
+                        }
+                    },
+                    None => None,
+                };
                 all_collections.push(CollectionInfo {
                     collection_id,
+                    topology_name,
                     first_log_offset: collection.first_log_offset,
                     first_log_ts: collection.first_log_ts,
                 });
             }
         }
 
-        // NOTE(rescrv):  What we want is to return each collection once.  If there are two of the
-        // same collection, assume that the older offset is correct.  In the event that a writer
-        // migrates from one server to another the dirty log entries will be fractured between two
-        // servers.  To not panic the compactor, we sort by (collection_id, offset) and then dedup.
-        all_collections.sort_by_key(|x| (x.collection_id, x.first_log_offset));
-        all_collections.dedup_by_key(|x| x.collection_id);
+        // NOTE(rescrv):  What we want is to return each (topology, collection) pair once.  If
+        // there are two of the same pair, assume that the older offset is correct.  In the event
+        // that a writer migrates from one server to another the dirty log entries will be
+        // fractured between two servers.  To not panic the compactor, we sort by
+        // (topology_name, collection_id, offset) and then dedup on (topology_name, collection_id).
+        all_collections
+            .sort_by_key(|x| (x.topology_name.clone(), x.collection_id, x.first_log_offset));
+        all_collections.dedup_by_key(|x| (x.topology_name.clone(), x.collection_id));
         Ok(all_collections)
     }
 
     pub(super) async fn update_collection_log_offset(
         &mut self,
+        database_name: DatabaseName,
         collection_id: CollectionUuid,
         new_offset: i64,
     ) -> Result<(), GrpcUpdateCollectionLogOffsetError> {
         let mut client = self.client_for(collection_id)?;
         let request =
             client.update_collection_log_offset(chroma_proto::UpdateCollectionLogOffsetRequest {
-                // NOTE(rescrv):  Use the untyped string representation of the collection ID.
+                database_name: database_name.into_string(),
                 collection_id: collection_id.0.to_string(),
                 log_offset: new_offset,
             });
@@ -549,6 +574,7 @@ impl GrpcLog {
 
     pub(super) async fn update_collection_log_offset_on_every_node(
         &mut self,
+        database_name: DatabaseName,
         collection_id: CollectionUuid,
         new_offset: i64,
     ) -> Result<(), GrpcUpdateCollectionLogOffsetError> {
@@ -557,7 +583,7 @@ impl GrpcLog {
             let mut client = client.clone();
             let request = client.update_collection_log_offset(
                 chroma_proto::UpdateCollectionLogOffsetRequest {
-                    // NOTE(rescrv):  Use the untyped string representation of the collection ID.
+                    database_name: database_name.clone().into_string(),
                     collection_id: collection_id.0.to_string(),
                     log_offset: new_offset,
                 },
@@ -591,7 +617,6 @@ impl GrpcLog {
                 let _permit = limiter.acquire().await;
                 client
                     .purge_dirty_for_collection(chroma_proto::PurgeDirtyForCollectionRequest {
-                        // NOTE(rescrv):  Use the untyped string representation of the collection ID.
                         collection_ids: collection_ids_clone
                             .iter()
                             .map(ToString::to_string)
@@ -618,11 +643,12 @@ impl GrpcLog {
 
     pub async fn garbage_collect_phase2(
         &mut self,
+        database_name: DatabaseName,
         collection_id: CollectionUuid,
     ) -> Result<(), GarbageCollectError> {
         let mut client = self
             .client_assigner
-            .clients(&collection_id.to_string())?
+            .clients(&collection_id.to_string(), Tier::default())?
             .drain(..)
             .next()
             .ok_or(ClientAssignmentError::NoClientFound(
@@ -635,6 +661,7 @@ impl GrpcLog {
                         collection_id.to_string(),
                     ),
                 ),
+                database_name: database_name.into_string(),
             })
             .await?;
         Ok(())
@@ -676,6 +703,7 @@ impl GrpcLog {
                     "rust-log-service-{ordinal}"
                 )),
             ),
+            database_name: "ignored".to_string(),
         })
         .await?;
         Ok(())
@@ -694,6 +722,7 @@ mod tests {
         let response1 = GetAllCollectionInfoToCompactResponse {
             all_collection_info: vec![ProtoCollectionInfo {
                 collection_id: collection_id.to_string(),
+                topology_name: None,
                 first_log_offset: 100,
                 first_log_ts: 1000,
             }],
@@ -702,6 +731,7 @@ mod tests {
         let response2 = GetAllCollectionInfoToCompactResponse {
             all_collection_info: vec![ProtoCollectionInfo {
                 collection_id: collection_id.to_string(),
+                topology_name: None,
                 first_log_offset: 50,
                 first_log_ts: 2000,
             }],
@@ -713,5 +743,93 @@ mod tests {
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].first_log_offset, 50);
         assert_eq!(result[0].collection_id.to_string(), collection_id);
+    }
+
+    #[test]
+    fn post_process_get_all_preserves_different_topologies_for_same_collection() {
+        let collection_id = "12345678-1234-1234-1234-123456789abc";
+
+        // Same collection UUID but different topologies should be preserved as separate entries.
+        let response = GetAllCollectionInfoToCompactResponse {
+            all_collection_info: vec![
+                ProtoCollectionInfo {
+                    collection_id: collection_id.to_string(),
+                    topology_name: Some("topology1".to_string()),
+                    first_log_offset: 100,
+                    first_log_ts: 1000,
+                },
+                ProtoCollectionInfo {
+                    collection_id: collection_id.to_string(),
+                    topology_name: Some("topology2".to_string()),
+                    first_log_offset: 200,
+                    first_log_ts: 2000,
+                },
+                ProtoCollectionInfo {
+                    collection_id: collection_id.to_string(),
+                    topology_name: None,
+                    first_log_offset: 300,
+                    first_log_ts: 3000,
+                },
+            ],
+        };
+
+        let result = GrpcLog::post_process_get_all(vec![response]).unwrap();
+
+        // All three entries should be preserved because they have different topology_name values.
+        assert_eq!(
+            result.len(),
+            3,
+            "Expected 3 entries for same collection with different topologies, got {}",
+            result.len()
+        );
+
+        // Verify each topology is present.
+        let has_topology1 = result
+            .iter()
+            .any(|c| c.topology_name.as_ref().map(|t| t.to_string()) == Some("topology1".into()));
+        let has_topology2 = result
+            .iter()
+            .any(|c| c.topology_name.as_ref().map(|t| t.to_string()) == Some("topology2".into()));
+        let has_none = result.iter().any(|c| c.topology_name.is_none());
+
+        assert!(has_topology1, "Missing topology1 entry");
+        assert!(has_topology2, "Missing topology2 entry");
+        assert!(has_none, "Missing None topology entry");
+    }
+
+    #[test]
+    fn post_process_get_all_dedups_same_topology_and_collection() {
+        let collection_id = "12345678-1234-1234-1234-123456789abc";
+
+        // Same collection UUID and same topology should be deduped, keeping smaller offset.
+        let response1 = GetAllCollectionInfoToCompactResponse {
+            all_collection_info: vec![ProtoCollectionInfo {
+                collection_id: collection_id.to_string(),
+                topology_name: Some("topology1".to_string()),
+                first_log_offset: 100,
+                first_log_ts: 1000,
+            }],
+        };
+
+        let response2 = GetAllCollectionInfoToCompactResponse {
+            all_collection_info: vec![ProtoCollectionInfo {
+                collection_id: collection_id.to_string(),
+                topology_name: Some("topology1".to_string()),
+                first_log_offset: 50,
+                first_log_ts: 2000,
+            }],
+        };
+
+        let result = GrpcLog::post_process_get_all(vec![response1, response2]).unwrap();
+
+        assert_eq!(result.len(), 1, "Expected deduplication to 1 entry");
+        assert_eq!(
+            result[0].first_log_offset, 50,
+            "Expected smaller offset to be kept"
+        );
+        assert_eq!(
+            result[0].topology_name.as_ref().map(|t| t.to_string()),
+            Some("topology1".into())
+        );
     }
 }

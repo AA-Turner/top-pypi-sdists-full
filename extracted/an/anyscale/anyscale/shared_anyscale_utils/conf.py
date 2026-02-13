@@ -48,6 +48,9 @@ ANYSCALE_ENV = cast(
     os.environ.get("ANYSCALE_DEPLOY_ENVIRONMENT")
     or os.environ.get("DEPLOY_ENVIRONMENT", anyscale_env_default),
 )
+# NOTE: `ANYSCALE_HOST` here doesn't respect the `DEPLOY_INFRA_PROVIDER` environment variable.
+# Do not use this variable to construct URLs in the backend. Use the `ANYSCALE_HOST` variable in `backend.conf` instead.
+# TODO: Make this variable respect the `DEPLOY_INFRA_PROVIDER` environment variable.
 ANYSCALE_HOST = os.environ.get("ANYSCALE_HOST", ANYSCALE_ENDPOINTS[ANYSCALE_ENV])
 ANYSCALE_CORS_ORIGIN = ANYSCALE_CORS_ORIGINS.get(
     ANYSCALE_HOST, "https://*.anyscale-dev.dev"

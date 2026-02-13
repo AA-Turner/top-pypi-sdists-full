@@ -115,6 +115,9 @@ class APIClient:
             response = self.client.request(method, url, params=params, json=json, timeout=timeout)
             response.raise_for_status()
 
+            if response.status_code == 204 and not response.content:
+                return {}
+
             result = response.json()
             if not isinstance(result, dict):
                 raise APIError("API response was not a dictionary")
@@ -165,13 +168,22 @@ class APIClient:
         """Make a POST request to the API"""
         return self.request("POST", endpoint, json=json)
 
-    def patch(self, endpoint: str, json: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def patch(
+        self,
+        endpoint: str,
+        json: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """Make a PATCH request to the API"""
-        return self.request("PATCH", endpoint, json=json)
+        return self.request("PATCH", endpoint, json=json, params=params)
 
-    def delete(self, endpoint: str) -> Dict[str, Any]:
+    def delete(
+        self,
+        endpoint: str,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """Make a DELETE request to the API"""
-        return self.request("DELETE", endpoint)
+        return self.request("DELETE", endpoint, params=params)
 
     def __str__(self) -> str:
         """For debugging"""
@@ -243,6 +255,9 @@ class AsyncAPIClient:
 
             response.raise_for_status()
 
+            if response.status_code == 204 and not response.content:
+                return {}
+
             result = response.json()
             if not isinstance(result, dict):
                 raise APIError("API response was not a dictionary")
@@ -293,13 +308,22 @@ class AsyncAPIClient:
         """Make an async POST request to the API"""
         return await self.request("POST", endpoint, json=json)
 
-    async def patch(self, endpoint: str, json: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def patch(
+        self,
+        endpoint: str,
+        json: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """Make an async PATCH request to the API"""
-        return await self.request("PATCH", endpoint, json=json)
+        return await self.request("PATCH", endpoint, json=json, params=params)
 
-    async def delete(self, endpoint: str) -> Dict[str, Any]:
+    async def delete(
+        self,
+        endpoint: str,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """Make an async DELETE request to the API"""
-        return await self.request("DELETE", endpoint)
+        return await self.request("DELETE", endpoint, params=params)
 
     async def aclose(self) -> None:
         """Close the async client"""

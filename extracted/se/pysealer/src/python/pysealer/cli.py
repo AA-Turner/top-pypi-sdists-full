@@ -16,7 +16,7 @@ from pathlib import Path
 import typer
 from typing_extensions import Annotated
 
-from . import __version__
+from . import __version__, generate_signature, verify_signature
 from .setup import setup_keypair
 from .add_decorators import add_decorators, add_decorators_to_folder
 from .check_decorators import check_decorators, check_decorators_in_folder
@@ -86,7 +86,7 @@ def init(
     ] = "mandatory",
     hook_pattern: Annotated[
         str,
-        typer.Option("--hook-pattern", help="File pattern for hook to process (e.g., '**/*.py' or 'src/**/*.py').")
+        typer.Option("--hook-pattern", help="File pattern for hook to process. Use quotes to prevent shell expansion: '**/*.py' or 'src/**/*.py'")
     ] = "**/*.py"
 ):
     """Initialize pysealer with an .env file and optionally upload public key to GitHub."""
@@ -95,6 +95,13 @@ def init(
         
         # Generate and store keypair (will raise error if keys already exist)
         public_key, private_key = setup_keypair(env_path)
+
+        # Self-test the generated keypair before any GitHub upload
+        probe_message = "pysealer-keypair-self-test"
+        probe_signature = generate_signature(probe_message, private_key)
+        if not verify_signature(probe_message, probe_signature, public_key):
+            raise RuntimeError("Generated keypair self-test failed. Aborting initialization.")
+
         typer.echo(typer.style("Successfully initialized pysealer!", fg=typer.colors.BLUE, bold=True))
         typer.echo(f"🔑 Keypair generated and stored in {env_path}")
         typer.echo("🔍 Keep your .env file secure and add it to .gitignore")
@@ -240,11 +247,13 @@ def check(
             total_valid = 0
             files_with_decorators = []
             files_with_issues = []
+            files_with_errors = []
             
             for file_path, results in all_results.items():
-                # Skip files with errors
+                # Track files with errors separately
                 if "error" in results:
                     typer.echo(typer.style(f"✗ {file_path}: {results['error']}", fg=typer.colors.RED))
+                    files_with_errors.append((file_path, results['error']))
                     files_with_issues.append(file_path)
                     continue
                 
@@ -262,7 +271,14 @@ def check(
                         files_with_issues.append(file_path)
             
             # Summary header
-            if total_decorated == 0:
+            if files_with_errors and total_decorated == 0:
+                # All files had errors, couldn't check for decorators
+                error_count = len(files_with_errors)
+                file_word = "file" if error_count == 1 else "files"
+                typer.echo(typer.style(f"\nFailed to check decorators in {error_count} {file_word} due to errors.", fg=typer.colors.RED, bold=True))
+                typer.echo(typer.style("Fix the errors above to verify decorators.", fg=typer.colors.YELLOW))
+                raise typer.Exit(code=1)
+            elif total_decorated == 0:
                 typer.echo(typer.style(f"No pysealer decorators found in folder.", fg=typer.colors.YELLOW, bold=True))
             elif total_valid == total_decorated:
                 file_word = "file" if len(files_with_decorators) == 1 else "files"
@@ -295,8 +311,10 @@ def check(
                                 if result.get("diff"):
                                     _format_diff_output(func_name, result["diff"])
             
-            # Exit with error if there were failures
-            if total_decorated > 0 and total_valid < total_decorated:
+            # Exit with error if there were failures or errors
+            if files_with_errors:
+                raise typer.Exit(code=1)
+            elif total_decorated > 0 and total_valid < total_decorated:
                 raise typer.Exit(code=1)
         
         # Handle file path

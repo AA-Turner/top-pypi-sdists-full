@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -91,7 +91,6 @@ private:
   lay::LayoutViewBase *mp_view;
   lay::RubberBox *mp_box;
   unsigned int m_color;
-  unsigned int m_buttons;
   bool m_hover;
   bool m_hover_wait;
   db::DPoint m_hover_point;

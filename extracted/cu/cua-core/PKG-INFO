@@ -1,11 +1,9 @@
 Metadata-Version: 2.1
 Name: cua-core
-Version: 0.1.16
+Version: 0.1.17
 Summary: Core functionality for Cua including telemetry and shared utilities
 Author-Email: TryCua <gh@trycua.com>
 Requires-Python: <3.14,>=3.12
-Requires-Dist: pydantic>=2.0.0
-Requires-Dist: httpx>=0.24.0
 Requires-Dist: posthog>=3.20.0
 Provides-Extra: otel
 Requires-Dist: opentelemetry-api>=1.20.0; extra == "otel"

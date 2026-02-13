@@ -1035,3 +1035,82 @@ fn test_format_trailing_comment_no_comma() {
     ]
     "#);
 }
+
+#[test]
+fn test_issue_202_trailing_comment_preserves_single_line_array() {
+    let input = r#"a = [ "x" ] # trailing comment
+"#;
+    let root_ast = tombi_parser::parse(input, TomlVersion::default())
+        .syntax_node()
+        .clone_for_update();
+    ensure_all_arrays_multiline(&root_ast, 120);
+    let result = root_ast.to_string();
+    assert!(
+        !result.contains("\n  "),
+        "Array should stay single-line when trailing comment is after ]"
+    );
+    assert!(
+        result.contains("# trailing comment"),
+        "Trailing comment should be preserved"
+    );
+}
+
+#[test]
+fn test_comment_inside_array_triggers_multiline() {
+    let input = r#"a = [ "x", # inline comment
+"y" ]
+"#;
+    let root_ast = tombi_parser::parse(input, TomlVersion::default())
+        .syntax_node()
+        .clone_for_update();
+    ensure_all_arrays_multiline(&root_ast, 120);
+    let result = root_ast.to_string();
+    assert!(
+        result.contains("# inline comment"),
+        "Comment inside array should be preserved"
+    );
+}
+
+#[test]
+fn test_comment_in_nested_array_triggers_multiline() {
+    let input = r#"a = [ [ "x" # nested comment
+] ]
+"#;
+    let root_ast = tombi_parser::parse(input, TomlVersion::default())
+        .syntax_node()
+        .clone_for_update();
+    ensure_all_arrays_multiline(&root_ast, 120);
+    let result = root_ast.to_string();
+    assert!(
+        result.contains("# nested comment"),
+        "Comment in nested array should be preserved"
+    );
+}
+
+#[test]
+fn test_sort_preserves_trailing_comment_after_bracket_end() {
+    let start = r#"a = [ "no-sysmon" ] # 3.11 and earlier"#;
+    let res = apply_to_arrays(start, |array| {
+        sort_strings::<String, _, _>(array, |s| s.to_lowercase(), &|lhs, rhs| lhs.cmp(rhs));
+    });
+    insta::assert_snapshot!(res, @r#"a = [ "no-sysmon" ]  # 3.11 and earlier"#);
+}
+
+#[test]
+fn test_sort_preserves_trailing_comment_after_bracket_end_multiline() {
+    let start = indoc! {r#"
+        a = [
+          "b",
+          "a",
+        ] # trailing comment
+    "#};
+    let res = apply_to_arrays(start, |array| {
+        sort_strings::<String, _, _>(array, |s| s.to_lowercase(), &|lhs, rhs| lhs.cmp(rhs));
+    });
+    insta::assert_snapshot!(res, @r#"
+    a = [
+      "a",
+      "b",
+    ]  # trailing comment
+    "#);
+}

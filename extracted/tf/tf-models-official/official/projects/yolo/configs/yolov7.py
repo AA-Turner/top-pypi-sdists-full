@@ -1,4 +1,4 @@
-# Copyright 2024 The TensorFlow Authors. All Rights Reserved.
+# Copyright 2025 The TensorFlow Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -376,4 +376,20 @@ def coco_yolov7x() -> cfg.ExperimentConfig:
   config = coco_yolov7()
   config.task.model.backbone.yolov7.model_id = 'yolov7x'
   config.task.model.decoder.yolov7.model_id = 'yolov7x'
+  return config
+
+
+@exp_factory.register_config_factory('coco_yolov7_nano')
+def coco_yolov7_nano() -> cfg.ExperimentConfig:
+  config = coco_yolov7()
+  config.task.model.backbone.yolov7.model_id = 'yolov7-nano'
+  config.task.model.decoder.yolov7.model_id = 'yolov7-nano'
+  return config
+
+
+@exp_factory.register_config_factory('coco_yolov7_pico')
+def coco_yolov7_pico() -> cfg.ExperimentConfig:
+  config = coco_yolov7()
+  config.task.model.backbone.yolov7.model_id = 'yolov7-pico'
+  config.task.model.decoder.yolov7.model_id = 'yolov7-pico'
   return config

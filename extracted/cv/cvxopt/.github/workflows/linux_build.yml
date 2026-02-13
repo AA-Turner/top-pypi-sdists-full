@@ -9,8 +9,8 @@ jobs:
 
     runs-on: ubuntu-latest
     env:
-      SUITESPARSE_VERSION: 5.13.0
-      SUITESPARSE_SHA256: 59c6ca2959623f0c69226cf9afb9a018d12a37fab3a8869db5f6d7f83b6b147d
+      SUITESPARSE_VERSION: 7.11.0
+      SUITESPARSE_SHA256: 93ed4c4e546a49fc75884c3a8b807d5af4a91e39d191fbbc60a07380b12a35d1
       CVXOPT_BUILD_DSDP: 1
       CVXOPT_BUILD_FFTW: 1
       CVXOPT_BUILD_GLPK: 1
@@ -18,18 +18,18 @@ jobs:
 
     strategy:
       matrix:
-        python-version: ['3.7','3.11']
+        python-version: ['3.14']
         suitesparse: [src, lib]
         #suitesparse: [lib]
 
     steps:
     - name: Checkout source    
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
 
@@ -46,7 +46,7 @@ jobs:
         echo "${SUITESPARSE_SHA256}  v${SUITESPARSE_VERSION}.tar.gz" > SuiteSparse.sha256
         sha256sum -c SuiteSparse.sha256
         tar -xf v${SUITESPARSE_VERSION}.tar.gz
-        echo "CVXOPT_SUITESPARSE_SRC_DIR=${{github.workspace}}/SuiteSparse-${SUITESPARSE_VERSION}" >> $GITHUB_ENV
+        echo "CVXOPT_SUITESPARSE_SRC_DIR=SuiteSparse-${SUITESPARSE_VERSION}" >> $GITHUB_ENV
 
     - name: Build/install CVXOPT
       run: |

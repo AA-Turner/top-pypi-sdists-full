@@ -46,17 +46,19 @@ class LoginRadiusAuth(BaseOAuth2):
         url: str,
         method: Literal["GET", "POST", "DELETE"] = "GET",
         headers: Mapping[str, str | bytes] | None = None,
-        data: dict | bytes | str | None = None,
+        data: dict | None = None,
+        json: dict | None = None,
         auth: tuple[str, str] | AuthBase | None = None,
         params: dict | None = None,
     ) -> dict[Any, Any]:
         return super().request_access_token(
             url,
-            method,
-            headers,
-            data,
-            auth,
-            {
+            method=method,
+            headers=headers,
+            data=data,
+            json=json,
+            auth=auth,
+            params={
                 "token": self.data.get("token"),
                 "secret": self.setting("SECRET"),
             },
@@ -92,4 +94,4 @@ class LoginRadiusAuth(BaseOAuth2):
         """Return a unique ID for the current user, by default from server
         response. Since LoginRadius handles multiple providers, we need to
         distinguish them to prevent conflicts."""
-        return "{}-{}".format(response.get("Provider"), response.get(self.id_key()))
+        return f"{response.get('Provider')}-{response.get(self.id_key())}"

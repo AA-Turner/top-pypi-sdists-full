@@ -19,6 +19,8 @@ from __future__ import absolute_import
 from snowflake.core.view._generated.models.error_response import ErrorResponse
 from snowflake.core.view._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.view._generated.models.success_response import SuccessResponse
+from snowflake.core.view._generated.models.tag_assignment import TagAssignment
+from snowflake.core.view._generated.models.tag_reference import TagReference
 from snowflake.core.view._generated.models.view import View
 from snowflake.core.view._generated.models.view_column import ViewColumn
 
@@ -26,6 +28,8 @@ __all__ = [
     "ErrorResponse",
     "SuccessAcceptedResponse",
     "SuccessResponse",
+    "TagAssignment",
+    "TagReference",
     "View",
     "ViewColumn",
 ]

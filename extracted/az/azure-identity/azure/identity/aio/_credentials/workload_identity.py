@@ -2,8 +2,10 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 # ------------------------------------
+# cspell:ignore cafile
 import os
 from typing import Any, Optional
+
 from .client_assertion import ClientAssertionCredential
 from ..._credentials.workload_identity import TokenFileMixin, WORKLOAD_CONFIG_ERROR
 from ..._constants import EnvironmentVariables
@@ -72,6 +74,7 @@ class WorkloadIdentityCredential(ClientAssertionCredential, TokenFileMixin):
         assert token_file_path is not None
 
         self._token_file_path = token_file_path
+
         super().__init__(
             tenant_id=tenant_id,
             client_id=client_id,

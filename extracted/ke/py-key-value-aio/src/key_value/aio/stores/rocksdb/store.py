@@ -3,11 +3,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import overload
 
-from key_value.shared.utils.compound import compound_key
-from key_value.shared.utils.managed_entry import ManagedEntry
 from typing_extensions import override
 
 from key_value.aio.stores.base import BaseContextManagerStore, BaseStore
+from key_value.shared.compound import compound_key
+from key_value.shared.managed_entry import ManagedEntry
 
 try:
     from rocksdict import Options, Rdict, WriteBatch
@@ -20,23 +20,26 @@ class RocksDBStore(BaseContextManagerStore, BaseStore):
     """A RocksDB-based key-value store."""
 
     _db: Rdict
+    _auto_create: bool
 
     @overload
-    def __init__(self, *, db: Rdict, default_collection: str | None = None) -> None:
+    def __init__(self, *, db: Rdict, default_collection: str | None = None, auto_create: bool = True) -> None:
         """Initialize the RocksDB store.
 
         Args:
             db: An existing Rdict database instance to use.
             default_collection: The default collection to use if no collection is provided.
+            auto_create: Whether to automatically create the directory if it doesn't exist. Defaults to True.
         """
 
     @overload
-    def __init__(self, *, path: Path | str, default_collection: str | None = None) -> None:
+    def __init__(self, *, path: Path | str, default_collection: str | None = None, auto_create: bool = True) -> None:
         """Initialize the RocksDB store.
 
         Args:
             path: The path to the RocksDB database directory.
             default_collection: The default collection to use if no collection is provided.
+            auto_create: Whether to automatically create the directory if it doesn't exist. Defaults to True.
         """
 
     def __init__(
@@ -45,6 +48,7 @@ class RocksDBStore(BaseContextManagerStore, BaseStore):
         db: Rdict | None = None,
         path: Path | str | None = None,
         default_collection: str | None = None,
+        auto_create: bool = True,
     ) -> None:
         """Initialize the RocksDB store.
 
@@ -54,6 +58,8 @@ class RocksDBStore(BaseContextManagerStore, BaseStore):
                 the database's lifecycle.
             path: The path to the RocksDB database directory.
             default_collection: The default collection to use if no collection is provided.
+            auto_create: Whether to automatically create the directory if it doesn't exist. Defaults to True.
+                When False, raises ValueError if the directory doesn't exist.
         """
         if db is not None and path is not None:
             msg = "Provide only one of db or path"
@@ -64,12 +70,18 @@ class RocksDBStore(BaseContextManagerStore, BaseStore):
             raise ValueError(msg)
 
         client_provided = db is not None
+        self._auto_create = auto_create
 
         if db:
             self._db = db
         elif path:
             path = Path(path)
-            path.mkdir(parents=True, exist_ok=True)
+
+            if not path.exists():
+                if not self._auto_create:
+                    msg = f"Directory '{path}' does not exist. Either create the directory manually or set auto_create=True."
+                    raise ValueError(msg)
+                path.mkdir(parents=True, exist_ok=True)
 
             opts = Options()
             opts.create_if_missing(True)
@@ -89,8 +101,25 @@ class RocksDBStore(BaseContextManagerStore, BaseStore):
             self._exit_stack.callback(self._close_and_flush)
 
     def _close_and_flush(self) -> None:
-        self._db.flush()
-        self._db.close()
+        import contextlib
+
+        # Flush the memtable to disk before closing to ensure data is persisted.
+        # We explicitly call flush() with wait=True to ensure all data is
+        # written to disk before close() is called. This is important because
+        # the close() call may have timing issues on some platforms (e.g., macOS)
+        # if there's unflushed data in the memtable.
+        # We use contextlib.suppress to ignore any exceptions during cleanup,
+        # as we still want to attempt to close the database even if flush fails.
+        with contextlib.suppress(Exception):
+            self._db.flush(wait=True)
+
+        # Close the database. According to rocksdict docs, close() does its own
+        # flush, but we do an explicit flush above for safety.
+        # We suppress exceptions here because if close fails during cleanup,
+        # we don't want to propagate the error as the database is being torn
+        # down anyway. This can happen in some edge cases on certain platforms.
+        with contextlib.suppress(Exception):
+            self._db.close()
 
     @override
     async def _get_managed_entry(self, *, key: str, collection: str) -> ManagedEntry | None:

@@ -108,6 +108,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     SuspendClusterGatewayResponse,
     SuspendEnvironmentRequest,
     SuspendEnvironmentResponse,
+    UpdateClusterTimescaleDBRequest,
+    UpdateClusterTimescaleDBResponse,
     UpdateEnvironmentVariablesRequest,
     UpdateEnvironmentVariablesResponse,
     UpdateKarpenterNodepoolRequest,
@@ -202,6 +204,10 @@ class BuilderServiceStub:
     CreateClusterTimescaleDB: UnaryUnaryMultiCallable[
         CreateClusterTimescaleDBRequest,
         CreateClusterTimescaleDBResponse,
+    ]
+    UpdateClusterTimescaleDB: UnaryUnaryMultiCallable[
+        UpdateClusterTimescaleDBRequest,
+        UpdateClusterTimescaleDBResponse,
     ]
     GetClusterTimescaleDefault: UnaryUnaryMultiCallable[
         GetClusterTimescaleDefaultRequest,
@@ -465,6 +471,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: CreateClusterTimescaleDBRequest,
         context: ServicerContext,
     ) -> CreateClusterTimescaleDBResponse: ...
+    @abstractmethod
+    def UpdateClusterTimescaleDB(
+        self,
+        request: UpdateClusterTimescaleDBRequest,
+        context: ServicerContext,
+    ) -> UpdateClusterTimescaleDBResponse: ...
     @abstractmethod
     def GetClusterTimescaleDefault(
         self,

@@ -1,54 +1,49 @@
 [build-system]
-requires = [
-    "setuptools>=57",
-    "wheel"
-]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
-
-[tool.pytest.ini_options]
-addopts = [
-    "--strict-markers",
-    "--color=yes"
+[project]
+name = "u8darts"
+version = "0.41.0"
+description = "⚠️ DEPRECATED - Use 'darts' package instead. This legacy compatibility package redirects to 'darts'."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+keywords = ["time series", "forecasting"]
+maintainers = [
+    {name = "Unit8 SA", email = "darts@unit8.co"}
 ]
-markers = [
-    "slow: marks tests as slow (deselect with `-m 'not slow'`)",
+classifiers = [
+    "Development Status :: 7 - Inactive",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python",
+    "Topic :: Software Development",
+    "Topic :: Scientific/Engineering",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 
+# Pure redirect: u8darts depends on darts with exact version match
+dependencies = ["darts==0.41.0"]
 
-[tool.ruff]
-target-version = "py39"
-line-length = 88
+[project.urls]
+Homepage = "https://unit8co.github.io/darts/"
+Documentation = "https://unit8co.github.io/darts/"
+Repository = "https://github.com/unit8co/darts"
 
-[tool.ruff.format]
-preview = true
+[project.optional-dependencies]
+# Redirect all extras to darts equivalents
+torch = ["darts[torch]==0.41.0"]
+notorch = ["darts[notorch]==0.41.0"]
+all = ["darts[all]==0.41.0"]
 
-[tool.ruff.lint]
-select = [
-    "E",
-    "W", # see: https://pypi.org/project/pycodestyle
-    "F", # see: https://pypi.org/project/pyflakes
-    "I", #see: https://pypi.org/project/isort/
-    "UP", # see: https://docs.astral.sh/ruff/rules/#pyupgrade-up
-#    "D", # see: https://pypi.org/project/pydocstyle
-]
-ignore = [
-    "E203",
-    "E402",  # todo: use noqa per line
-    "E731",  # Do not assign a `lambda` expression, use a `def`
-]
-unfixable = ["F401"]
-
-[tool.ruff.lint.pydocstyle]
-# Use Google-style docstrings.
-convention = "google"
-
-#[tool.ruff.pycodestyle]
-#ignore-overlong-task-comments = true
-
-[tool.ruff.lint.mccabe]
-# Unlike Flake8, default to a complexity level of 10.
-max-complexity = 10
-
-[tool.ruff.lint.pycodestyle]
-max-line-length = 120 # E501 reports lines that exceed the length of 100.
+[tool.setuptools]
+# Empty metapackage - no source code included
+packages = []

@@ -126,6 +126,7 @@ from inspect_ai._util.json import to_json_str_safe
 from inspect_ai._util.logger import warn_once
 from inspect_ai._util.trace import trace_message
 from inspect_ai._util.url import data_uri_mime_type, data_uri_to_base64, is_http_url
+from inspect_ai.log._samples import set_active_model_event_call
 from inspect_ai.model._compaction.edit import (
     TOOL_RESULT_REMOVED,
     is_result_cleared,
@@ -151,7 +152,7 @@ from .._chat_message import (
 )
 from .._generate_config import GenerateConfig, normalized_batch_config
 from .._model import ModelAPI, log_model_retry
-from .._model_call import ModelCall
+from .._model_call import ModelCall, as_error_response
 from .._model_output import ChatCompletionChoice, ModelOutput, ModelUsage, StopReason
 from .._providers._anthropic_citations import (
     to_anthropic_citation,
@@ -342,17 +343,7 @@ class AnthropicAPI(ModelAPI):
         # allocate request_id (so we can see it from ModelCall)
         request_id = self._http_hooks.start_request()
 
-        # setup request and response for ModelCall
-        request: dict[str, Any] = {}
-        response: dict[str, Any] = {}
-
-        def model_call() -> ModelCall:
-            return ModelCall.create(
-                request=request,
-                response=response,
-                filter=model_call_filter,
-                time=self._http_hooks.end_request(request_id),
-            )
+        model_call: ModelCall | None = None
 
         # generate
         try:
@@ -364,7 +355,7 @@ class AnthropicAPI(ModelAPI):
             ) = await self.resolve_chat_input(input, tools, config)
 
             # prepare request params (assembled this way so we can log the raw model call)
-            request = dict(messages=messages)
+            request: dict[str, Any] = dict(messages=messages)
 
             # system messages and tools
             if system_param is not None:
@@ -439,6 +430,8 @@ class AnthropicAPI(ModelAPI):
                     request[EXTRA_BODY] = dict()
                 request[EXTRA_BODY]["mcp_servers"] = mcp_servers_param
 
+            model_call = set_active_model_event_call(request, model_call_filter)
+
             # stream if we are using reasoning or >= 8192 max_tokens
             streaming = (
                 self.auto_streaming(config)
@@ -446,14 +439,22 @@ class AnthropicAPI(ModelAPI):
                 else self.streaming
             )
 
-            response, output = await self._perform_request_and_continuations(
-                request, streaming, tools, config
-            )
+            try:
+                response, output = await self._perform_request_and_continuations(
+                    request, streaming, tools, config
+                )
+            except (BadRequestError, APIStatusError) as ex:
+                model_call.set_response(
+                    as_error_response(ex.body), self._http_hooks.end_request(request_id)
+                )
+                raise ex
 
-            return output, model_call()
+            model_call.set_response(response, self._http_hooks.end_request(request_id))
+
+            return output, model_call
 
         except BadRequestError as ex:
-            return self.handle_bad_request(ex), model_call()
+            return self.handle_bad_request(ex), model_call or ModelCall(request={})
 
         except APIStatusError as ex:
             if ex.status_code == 413:
@@ -462,7 +463,7 @@ class AnthropicAPI(ModelAPI):
                     content=ex.message,
                     stop_reason="model_length",
                     error=ex.message,
-                ), model_call()
+                ), model_call or ModelCall(request={})
             else:
                 raise ex
 
@@ -567,7 +568,11 @@ class AnthropicAPI(ModelAPI):
         if isinstance(output, ModelOutput):
             # confirm a compaction occurred
             if _message_has_compaction(output.message):
-                return [output.message], output.usage
+                # Strip reasoning blocks from the compacted output — they're
+                # from the compaction inference, not the task, and would waste
+                # input tokens on subsequent turns.
+                message = _strip_reasoning(output.message)
+                return [message], output.usage
             else:
                 raise RuntimeError(
                     f"Anthropic native compaction did not trigger. "
@@ -733,10 +738,9 @@ class AnthropicAPI(ModelAPI):
             for field in anthropic_extra_body_fields():
                 if field in config.extra_body and field not in params:
                     params[field] = config.extra_body[field]
-            # pass through other extra_body fields (e.g. context_management for compaction)
-            for key, value in config.extra_body.items():
-                if key not in anthropic_extra_body_fields():
-                    extra_body[key] = value
+            # pass through context_management for compaction
+            if CONTEXT_MANAGEMENT in config.extra_body:
+                extra_body[CONTEXT_MANAGEMENT] = config.extra_body[CONTEXT_MANAGEMENT]
 
         # return config
         return params, extra_body, headers, betas
@@ -1799,6 +1803,15 @@ async def assistant_message_block_params(
             )
         )
 
+    # Ensure thinking blocks are not the final block in the message.
+    # The API rejects messages where the last block is thinking/redacted_thinking.
+    # This can happen when the model uses its entire output budget on thinking
+    # and produces no text or tool calls.
+    if block_params and all(
+        c.get("type") in ("thinking", "redacted_thinking") for c in block_params
+    ):
+        block_params.append(TextBlockParam(type="text", text=NO_CONTENT))
+
     return block_params
 
 
@@ -2287,6 +2300,21 @@ def _is_compaction_content(content: Content) -> bool:
     if isinstance(content, ContentData):
         return _compaction_from_content_data(content) is not None
     return False
+
+
+def _strip_reasoning(message: ChatMessageAssistant) -> ChatMessageAssistant:
+    """Strip reasoning blocks from a compacted assistant message.
+
+    The compaction generate call may include reasoning (thinking) blocks
+    that reflect the model's thinking about compaction, not the task itself.
+    These should be removed so they don't waste input tokens on subsequent turns.
+    """
+    if not isinstance(message.content, list):
+        return message
+    stripped = [c for c in message.content if not isinstance(c, ContentReasoning)]
+    if len(stripped) == len(message.content):
+        return message  # nothing to strip
+    return message.model_copy(update={"content": stripped})
 
 
 async def _capture_compaction_from_stream(

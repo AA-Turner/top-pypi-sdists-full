@@ -356,6 +356,74 @@ class DatabaseReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_lightsail.DatabaseSnapshotReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "database_snapshot_arn": "databaseSnapshotArn",
+        "relational_database_snapshot_name": "relationalDatabaseSnapshotName",
+    },
+)
+class DatabaseSnapshotReference:
+    def __init__(
+        self,
+        *,
+        database_snapshot_arn: builtins.str,
+        relational_database_snapshot_name: builtins.str,
+    ) -> None:
+        '''A reference to a DatabaseSnapshot resource.
+
+        :param database_snapshot_arn: The ARN of the DatabaseSnapshot resource.
+        :param relational_database_snapshot_name: The RelationalDatabaseSnapshotName of the DatabaseSnapshot resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_lightsail as interfaces_lightsail
+            
+            database_snapshot_reference = interfaces_lightsail.DatabaseSnapshotReference(
+                database_snapshot_arn="databaseSnapshotArn",
+                relational_database_snapshot_name="relationalDatabaseSnapshotName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__502d7f0d341a4f9923c01b4d2389b077e255ea4beef655b8efc3498fa2ded806)
+            check_type(argname="argument database_snapshot_arn", value=database_snapshot_arn, expected_type=type_hints["database_snapshot_arn"])
+            check_type(argname="argument relational_database_snapshot_name", value=relational_database_snapshot_name, expected_type=type_hints["relational_database_snapshot_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "database_snapshot_arn": database_snapshot_arn,
+            "relational_database_snapshot_name": relational_database_snapshot_name,
+        }
+
+    @builtins.property
+    def database_snapshot_arn(self) -> builtins.str:
+        '''The ARN of the DatabaseSnapshot resource.'''
+        result = self._values.get("database_snapshot_arn")
+        assert result is not None, "Required property 'database_snapshot_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def relational_database_snapshot_name(self) -> builtins.str:
+        '''The RelationalDatabaseSnapshotName of the DatabaseSnapshot resource.'''
+        result = self._values.get("relational_database_snapshot_name")
+        assert result is not None, "Required property 'relational_database_snapshot_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DatabaseSnapshotReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_lightsail.DiskReference",
     jsii_struct_bases=[],
     name_mapping={"disk_arn": "diskArn", "disk_name": "diskName"},
@@ -834,6 +902,51 @@ class _IDatabaseRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IDatabaseRef).__jsii_proxy_class__ = lambda : _IDatabaseRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lightsail.IDatabaseSnapshotRef")
+class IDatabaseSnapshotRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DatabaseSnapshot.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="databaseSnapshotRef")
+    def database_snapshot_ref(self) -> "DatabaseSnapshotReference":
+        '''(experimental) A reference to a DatabaseSnapshot resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDatabaseSnapshotRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DatabaseSnapshot.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_lightsail.IDatabaseSnapshotRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="databaseSnapshotRef")
+    def database_snapshot_ref(self) -> "DatabaseSnapshotReference":
+        '''(experimental) A reference to a DatabaseSnapshot resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("DatabaseSnapshotReference", jsii.get(self, "databaseSnapshotRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDatabaseSnapshotRef).__jsii_proxy_class__ = lambda : _IDatabaseSnapshotRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lightsail.IDiskRef")
@@ -1600,6 +1713,7 @@ __all__ = [
     "CertificateReference",
     "ContainerReference",
     "DatabaseReference",
+    "DatabaseSnapshotReference",
     "DiskReference",
     "DiskSnapshotReference",
     "DistributionReference",
@@ -1609,6 +1723,7 @@ __all__ = [
     "ICertificateRef",
     "IContainerRef",
     "IDatabaseRef",
+    "IDatabaseSnapshotRef",
     "IDiskRef",
     "IDiskSnapshotRef",
     "IDistributionRef",
@@ -1663,6 +1778,14 @@ def _typecheckingstub__70ccc827d1fd7d7e85890ebbac083c9ca9e853e21bdda3342eea18468
     *,
     database_arn: builtins.str,
     relational_database_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__502d7f0d341a4f9923c01b4d2389b077e255ea4beef655b8efc3498fa2ded806(
+    *,
+    database_snapshot_arn: builtins.str,
+    relational_database_snapshot_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1740,5 +1863,5 @@ def _typecheckingstub__1f2476e04990a2a193f7c9e6433f145827b121d8f492aee4e2e21896a
     """Type checking stubs"""
     pass
 
-for cls in [IAlarmRef, IBucketRef, ICertificateRef, IContainerRef, IDatabaseRef, IDiskRef, IDiskSnapshotRef, IDistributionRef, IDomainRef, IInstanceRef, IInstanceSnapshotRef, ILoadBalancerRef, ILoadBalancerTlsCertificateRef, IStaticIpRef]:
+for cls in [IAlarmRef, IBucketRef, ICertificateRef, IContainerRef, IDatabaseRef, IDatabaseSnapshotRef, IDiskRef, IDiskSnapshotRef, IDistributionRef, IDomainRef, IInstanceRef, IInstanceSnapshotRef, ILoadBalancerRef, ILoadBalancerTlsCertificateRef, IStaticIpRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

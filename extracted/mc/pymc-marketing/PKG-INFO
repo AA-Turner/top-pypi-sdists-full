@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymc-marketing
-Version: 0.17.1
+Version: 0.18.0
 Summary: Marketing Statistical Models in PyMC
 Project-URL: repository, https://github.com/pymc-labs/pymc-marketing
 Project-URL: homepage, https://www.pymc-marketing.io
@@ -222,16 +222,19 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.11
 Requires-Dist: arviz>=0.13.0
 Requires-Dist: matplotlib>=3.5.1
-Requires-Dist: numpy>=1.17
+Requires-Dist: narwhals
+Requires-Dist: numpy>=2.0
 Requires-Dist: pandas
 Requires-Dist: preliz>=0.20.0
 Requires-Dist: pydantic>=2.1.0
 Requires-Dist: pymc-extras>=0.4.0
-Requires-Dist: pymc>=5.24.1
+Requires-Dist: pymc>=5.27.0
 Requires-Dist: pyprojroot
-Requires-Dist: pytensor>=2.31.3
+Requires-Dist: pytensor>=2.36.3
+Requires-Dist: pyyaml
 Requires-Dist: scikit-learn>=1.1.1
 Requires-Dist: seaborn>=0.12.2
+Requires-Dist: tqdm
 Requires-Dist: xarray-einstats>=0.5.1
 Requires-Dist: xarray>=2024.1.0
 Provides-Extra: dag
@@ -259,12 +262,14 @@ Requires-Dist: nutpie; extra == 'docs'
 Requires-Dist: osqp<1.0.0,>=0.6.2; extra == 'docs'
 Requires-Dist: preliz>=0.20.0; extra == 'docs'
 Requires-Dist: pylint; extra == 'docs'
+Requires-Dist: setuptools<81; extra == 'docs'
 Requires-Dist: sphinx; extra == 'docs'
 Requires-Dist: sphinx-autodoc-typehints; extra == 'docs'
 Requires-Dist: sphinx-copybutton; extra == 'docs'
 Requires-Dist: sphinx-design; extra == 'docs'
 Requires-Dist: sphinx-notfound-page; extra == 'docs'
 Requires-Dist: sphinx-remove-toctrees; extra == 'docs'
+Requires-Dist: sphinx-sitemap; extra == 'docs'
 Requires-Dist: sphinxext-opengraph; extra == 'docs'
 Requires-Dist: watermark; extra == 'docs'
 Provides-Extra: lint
@@ -276,7 +281,8 @@ Provides-Extra: test
 Requires-Dist: blackjax; extra == 'test'
 Requires-Dist: dowhy; extra == 'test'
 Requires-Dist: graphviz>=0.20.1; extra == 'test'
-Requires-Dist: jax<0.7.0; extra == 'test'
+Requires-Dist: ipykernel; extra == 'test'
+Requires-Dist: jax; extra == 'test'
 Requires-Dist: lifetimes==0.11.3; extra == 'test'
 Requires-Dist: mlflow>=2.0.0; extra == 'test'
 Requires-Dist: networkx; extra == 'test'
@@ -284,12 +290,15 @@ Requires-Dist: numpyro; extra == 'test'
 Requires-Dist: nutpie; extra == 'test'
 Requires-Dist: osqp<1.0.0,>=0.6.2; extra == 'test'
 Requires-Dist: papermill; extra == 'test'
+Requires-Dist: plotly>=6.3.0; extra == 'test'
+Requires-Dist: polars>=1.0.0; extra == 'test'
 Requires-Dist: preliz>=0.20.0; extra == 'test'
 Requires-Dist: pygraphviz; extra == 'test'
 Requires-Dist: pyprojroot; extra == 'test'
 Requires-Dist: pytest-cov>=3.0.0; extra == 'test'
 Requires-Dist: pytest-mock>=3.14.0; extra == 'test'
 Requires-Dist: pytest>=7.0.1; extra == 'test'
+Requires-Dist: setuptools<81; extra == 'test'
 Description-Content-Type: text/markdown
 
 <div align="center">
@@ -304,7 +313,7 @@ Description-Content-Type: text/markdown
 ![Test Notebook](https://github.com/pymc-labs/pymc-marketing/actions/workflows/test_notebook.yml/badge.svg)
 [![codecov](https://codecov.io/gh/pymc-labs/pymc-marketing/branch/main/graph/badge.svg?token=OBV3BS5TYE)](https://codecov.io/gh/pymc-labs/pymc-marketing)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![docs](https://readthedocs.org/projects/pymc-marketing/badge/?version=latest)](https://docs.readthedocs.io/en/latest/)
+[![docs](https://readthedocs.org/projects/pymc-marketing/badge/?version=latest)](https://www.pymc-marketing.io/en/latest/)
 
 [![PyPI Version](https://img.shields.io/pypi/v/pymc-marketing.svg)](https://pypi.python.org/pypi/pymc-marketing)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -375,14 +384,16 @@ Leverage our Bayesian MMM API to tailor your marketing strategies effectively. L
 
 ### MMM Quickstart
 
+The following snippet of code shows how to initiate and fit a `MMM` model.
+
 ```python
 import pandas as pd
 
 from pymc_marketing.mmm import (
     GeometricAdstock,
     LogisticSaturation,
-    MMM,
 )
+from pymc_marketing.mmm.multidimensional import MMM
 from pymc_marketing.paths import data_dir
 
 file_path = data_dir / "mmm_example.csv"
@@ -400,16 +411,13 @@ mmm = MMM(
     ],
     yearly_seasonality=2,
 )
-```
 
-Initiate fitting and get insightful plots and summaries. For example, we can plot the components contributions:
-
-```python
 X = data.drop("y", axis=1)
 y = data["y"]
 mmm.fit(X, y)
-mmm.plot_components_contributions()
 ```
+
+After the model is fitted, we can explore the reults and insights. For example, we can plot the components contributions:
 
 ![](https://raw.githubusercontent.com/pymc-labs/pymc-marketing/main/docs/source/_static/mmm_plot_components_contributions.png)
 
@@ -450,7 +458,7 @@ Understand and optimize your customer's value with our **CLV models**. Our API s
 - [BG/NBD model](https://www.pymc-marketing.io/en/stable/notebooks/clv/bg_nbd.html)
 - [Pareto/NBD model](https://www.pymc-marketing.io/en/stable/notebooks/clv/pareto_nbd.html)
 - [Gamma-Gamma model](https://www.pymc-marketing.io/en/stable/notebooks/clv/gamma_gamma.html)
-- [Shifted Beta-Geo model](https://www.pymc-marketing.io/en/stable/api/generated/pymc_marketing.clv.models.shifted_beta_geo.ShiftedBetaGeoModel.html)
+- [Shifted BG model](https://www.pymc-marketing.io/en/stable/notebooks/clv/sbg.html)
 - [Modified BG/NBD model](https://www.pymc-marketing.io/en/stable/notebooks/clv/mbg_nbd.html)
 
 ### Examples

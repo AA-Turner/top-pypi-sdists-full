@@ -1,17 +1,22 @@
 from copy import copy
+from typing import Callable, TypeVar
 
 from adam.config_holder import ConfigHolder
 from adam.repl_session import ReplSession
 from adam.utils_color import Color
+from adam.utils_concurrent import offload
+from adam.directories import Directories
 from adam.utils_job.job import Job
-from adam.utils_log import _log, log2, pod_log_dir
+from adam.utils_log import _log, log2
+
+T = TypeVar('T')
 
 class Context:
     ALL = 'all'
     PODS = 'pods'
     LOCAL = 'local'
 
-    def new(cmd: str = None, background = False, show_out = False, text_color: str = None, history = 'all', debug: bool = None):
+    def new(cmd: str = None, background = False, show_out = False, text_color: str = None, history = 'pods', debug: bool = None):
         return Context(cmd, background=background, show_out=show_out, text_color=text_color, history=history, debug=debug)
 
     def copy(self,
@@ -22,7 +27,9 @@ class Context:
              text_color: str = None,
              history: str = None,
              debug: bool = None,
-             bg_init_msg: str = None):
+             bg_init_msg: str = None,
+             job_id: str = None,
+             cmd: str = None):
         ctx1 = copy(self)
 
         if background is not None:
@@ -48,6 +55,12 @@ class Context:
         if debug is not None:
             ctx1.debug = debug
 
+        if job_id is not None:
+            ctx1.job_id = job_id
+
+        if cmd is not None:
+            ctx1.cmd = cmd
+
         return ctx1
 
     def __init__(self,
@@ -55,7 +68,7 @@ class Context:
                  background = False,
                  show_out = False,
                  text_color: str = None,
-                 history = 'all',
+                 history = 'pods',
                  debug: bool = False,
                  bg_init_msg: str = None):
         self.cmd = cmd
@@ -77,7 +90,8 @@ class Context:
             self._init_backgrounded()
 
     def _init_backgrounded(self, extra: dict[str, str] = {}):
-        self.job_id = Job.new_id()
+        if not self.job_id:
+            self.job_id = Job.new_id()
         bg_init_msg = self.bg_init_msg
         if bg_init_msg is None:
             bg_init_msg = '[{job_id}] Use :? to get the results.'
@@ -115,7 +129,7 @@ class Context:
         if self._pod_log_file:
             return self._pod_log_file
 
-        pod_log_file, pod_log_cnt = Job.pod_log_file(self.cmd, job_id=self.job_id, pod_suffix='', suffix=suffix, dir=pod_log_dir())
+        pod_log_file, pod_log_cnt = Job.pod_log_file(self.cmd, job_id=self.job_id, pod_suffix='', suffix=suffix, dir=Directories.remote_log_dir())
         # append only the first accessed pod log to history
         if not pod_log_cnt and pod and history and self.history in [Context.ALL, Context.PODS]:
             self.append_history(f'@{pod} tail {pod_log_file}')
@@ -128,4 +142,10 @@ class Context:
 
             self._histories.add(command)
 
-Context.NULL = Context(None, background=False)
+    # simple version with no message or specific thread pool
+    def submit(self, fn: Callable[..., T], /, *args, **kwargs):
+        with offload(self.background) as submit:
+            submit(fn, *args, **kwargs)
+
+# the null object pattern
+NULL = Context(None, background=False)

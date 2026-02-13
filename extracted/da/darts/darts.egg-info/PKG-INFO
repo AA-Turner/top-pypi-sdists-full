@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: darts
-Version: 0.40.0
+Version: 0.41.0
 Summary: A python library for easy manipulation and forecasting of time series.
-Home-page: https://unit8co.github.io/darts/
-Maintainer: Unit8 SA
-Maintainer-email: darts@unit8.co
-License: Apache License 2.0
-Project-URL: Bug Tracker, https://github.com/unit8co/darts/issues
+Maintainer-email: Unit8 SA <darts@unit8.co>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://unit8co.github.io/darts/
 Project-URL: Documentation, https://unit8co.github.io/darts/
-Project-URL: Source Code, https://github.com/unit8co/darts
-Keywords: time series forecasting
+Project-URL: Repository, https://github.com/unit8co/darts
+Project-URL: Bug Tracker, https://github.com/unit8co/darts/issues
+Keywords: time series,forecasting
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
@@ -32,8 +31,8 @@ Requires-Dist: joblib>=0.16.0
 Requires-Dist: matplotlib>=3.3.0
 Requires-Dist: narwhals>=1.25.1
 Requires-Dist: nfoursid>=1.0.0
-Requires-Dist: numpy>=1.19.0
-Requires-Dist: pandas>=1.0.5
+Requires-Dist: numpy>=2.2.0
+Requires-Dist: pandas>=2.2.0
 Requires-Dist: pyod>=0.9.5
 Requires-Dist: requests>=2.22.0
 Requires-Dist: scikit-learn<1.8.0,>=1.6.0
@@ -41,26 +40,23 @@ Requires-Dist: scipy>=1.3.2
 Requires-Dist: shap>=0.40.0
 Requires-Dist: statsmodels>=0.14.0
 Requires-Dist: tqdm>=4.60.0
-Requires-Dist: typing-extensions
+Requires-Dist: typing-extensions>=4.0.0
 Requires-Dist: xarray>=0.17.0
-Requires-Dist: pytorch-lightning<2.5.3,>=2.0.0
-Requires-Dist: tensorboardX>=2.1
-Requires-Dist: torch>=2.0.0
-Requires-Dist: huggingface-hub>=0.35.3
-Requires-Dist: safetensors>=0.6.2
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
+Provides-Extra: torch
+Requires-Dist: torch>=2.0.0; extra == "torch"
+Requires-Dist: pytorch-lightning<2.5.3,>=2.0.0; extra == "torch"
+Requires-Dist: tensorboardx>=2.1; extra == "torch"
+Requires-Dist: huggingface-hub>=0.35.3; extra == "torch"
+Requires-Dist: safetensors>=0.6.2; extra == "torch"
+Provides-Extra: notorch
+Requires-Dist: catboost>=1.0.6; extra == "notorch"
+Requires-Dist: lightgbm>=3.2.0; extra == "notorch"
+Requires-Dist: prophet>=1.1.1; extra == "notorch"
+Requires-Dist: statsforecast>=1.4; extra == "notorch"
+Requires-Dist: xgboost>=2.1.4; extra == "notorch"
+Provides-Extra: all
+Requires-Dist: darts[notorch,torch]; extra == "all"
 Dynamic: license-file
-Dynamic: maintainer
-Dynamic: maintainer-email
-Dynamic: project-url
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # Time Series Made Easy in Python
 
@@ -339,6 +335,7 @@ Here's a breakdown of the forecasting models currently implemented in Darts. Our
 | [TSMixerModel](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.tsmixer_model.html#darts.models.forecasting.tsmixer_model.TSMixerModel)                                                                                                               | [TSMixer paper](https://arxiv.org/pdf/2303.06053.pdf), [PyTorch Implementation](https://github.com/ditschuk/pytorch-tsmixer)                                                                                                      | ✅ ✅                                                          | ✅ ✅ ✅                                                                    | ✅ ✅                                                                      | ✅                                         |
 | **Foundation Models**<br/>([GlobalForecastingModel](https://unit8co.github.io/darts/userguide/covariates.html#global-forecasting-models-gfms)): No training required                                                                                                        |                                                                                                                                                                                                                                   |                                                              |                                                                          |                                                                          |                                           |
 | [Chronos2Model](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.chronos2_model.html#darts.models.forecasting.chronos2_model.Chronos2Model)                                                                                                           | [Chronos-2 report](https://arxiv.org/abs/2510.15821), [Amazon blog post](https://www.amazon.science/blog/introducing-chronos-2-from-univariate-to-universal-forecasting)                                                          | ✅ ✅                                                          | ✅ ✅ 🔴                                                                   | ✅ ✅                                                                      | ✅                                         |
+| [TimesFM2p5Model](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.timesfm2p5_model.html#darts.models.forecasting.timesfm2p5_model.TimesFM2p5Model)                                                                                                           | [TimesFM 1.0 paper](https://arxiv.org/abs/2310.10688), [Google blog post](https://research.google/blog/a-decoder-only-foundation-model-for-time-series-forecasting)                                                          | ✅ ✅                                                          | 🔴 🔴 🔴                                                                   | ✅ ✅                                                                      | ✅                                         |
 | **Ensemble Models**<br/>([GlobalForecastingModel](https://unit8co.github.io/darts/userguide/covariates.html#global-forecasting-models-gfms)): Model support is dependent on ensembled forecasting models and the ensemble model itself                                      |                                                                                                                                                                                                                                   |                                                              |                                                                          |                                                                          |                                           |
 | [NaiveEnsembleModel](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.baselines.html#darts.models.forecasting.baselines.NaiveEnsembleModel)                                                                                                           |                                                                                                                                                                                                                                   | ✅ ✅                                                          | ✅ ✅ ✅                                                                    | ✅ ✅                                                                      | ✅                                         |
 | [RegressionEnsembleModel](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.regression_ensemble_model.html#darts.models.forecasting.regression_ensemble_model.RegressionEnsembleModel)                                                                 |                                                                                                                                                                                                                                   | ✅ ✅                                                          | ✅ ✅ ✅                                                                    | ✅ ✅                                                                      | ✅                                         |

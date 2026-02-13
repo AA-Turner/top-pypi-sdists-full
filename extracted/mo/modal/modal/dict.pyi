@@ -466,6 +466,32 @@ class _Dict(modal._object._Object):
         ...
 
     @staticmethod
+    def from_id(dict_id: str, client: typing.Optional[modal.client._Client] = None) -> _Dict:
+        """Construct a Dict from an id and look up the Dict metadata.
+
+        This is a lazy method that defers hydrating the local
+        object with metadata from Modal servers until the first
+        time it is actually used.
+
+        The ID of a Dict object can be accessed using `.object_id`.
+
+        **Example:**
+
+        ```python notest
+        @app.function()
+        def my_worker(dict_id: str):
+            d = modal.Dict.from_id(dict_id)
+            d["key"] = "Hello from remote function!"
+
+        with modal.Dict.ephemeral() as d:
+            # Pass the dict ID to a remote function
+            my_worker.remote(d.object_id)
+            print(d["key"])  # "Hello from remote function!"
+        ```
+        """
+        ...
+
+    @staticmethod
     async def delete(
         name: str,
         *,
@@ -707,6 +733,32 @@ class Dict(modal.object.Object):
         ```python
         d = modal.Dict.from_name("my-dict", create_if_missing=True)
         d[123] = 456
+        ```
+        """
+        ...
+
+    @staticmethod
+    def from_id(dict_id: str, client: typing.Optional[modal.client.Client] = None) -> Dict:
+        """Construct a Dict from an id and look up the Dict metadata.
+
+        This is a lazy method that defers hydrating the local
+        object with metadata from Modal servers until the first
+        time it is actually used.
+
+        The ID of a Dict object can be accessed using `.object_id`.
+
+        **Example:**
+
+        ```python notest
+        @app.function()
+        def my_worker(dict_id: str):
+            d = modal.Dict.from_id(dict_id)
+            d["key"] = "Hello from remote function!"
+
+        with modal.Dict.ephemeral() as d:
+            # Pass the dict ID to a remote function
+            my_worker.remote(d.object_id)
+            print(d["key"])  # "Hello from remote function!"
         ```
         """
         ...

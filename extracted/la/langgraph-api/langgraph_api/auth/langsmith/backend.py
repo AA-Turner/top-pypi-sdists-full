@@ -31,7 +31,7 @@ class AuthCacheEntry(TypedDict):
 
 class LangsmithAuthBackend(AuthenticationBackend):
     def __init__(self, *, base_url: str | None = None):
-        from langgraph_api.utils.cache import LRUCache
+        from langgraph_api.utils.cache import LRUCache  # noqa: PLC0415
 
         self._cache = LRUCache[AuthCacheEntry](max_size=1000, ttl=60)
         self._base_url = base_url

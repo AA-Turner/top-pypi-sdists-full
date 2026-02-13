@@ -5,14 +5,13 @@ Adapted from: https://github.com/encode/httpx/blob/6c7af967734bafd011164f2a1653a
 
 from __future__ import annotations
 
+import asyncio
 import typing
 
 from httpx import ASGITransport as ASGITransportBase
 from httpx import AsyncByteStream, Request, Response
 
 if typing.TYPE_CHECKING:  # pragma: no cover
-    import asyncio
-
     import trio  # type: ignore[unresolved-import]
 
     Event = asyncio.Event | trio.Event
@@ -25,7 +24,7 @@ def is_running_trio() -> bool:
         # sniffio is a dependency of trio.
 
         # See https://github.com/python-trio/trio/issues/2802
-        import sniffio  # type: ignore[unresolved-import]
+        import sniffio  # type: ignore[unresolved-import]  # noqa: PLC0415
 
         if sniffio.current_async_library() == "trio":
             return True
@@ -37,11 +36,9 @@ def is_running_trio() -> bool:
 
 def create_event() -> Event:
     if is_running_trio():
-        import trio  # type: ignore[unresolved-import]
+        import trio  # type: ignore[unresolved-import]  # noqa: PLC0415
 
         return trio.Event()
-
-    import asyncio
 
     return asyncio.Event()
 
@@ -82,7 +79,7 @@ class ASGITransport(ASGITransportBase):
         self,
         request: Request,
     ) -> Response:
-        from langgraph_api.asyncio import call_soon_in_main_loop
+        from langgraph_api.asyncio import call_soon_in_main_loop  # noqa: PLC0415
 
         if not isinstance(request.stream, AsyncByteStream):
             raise ValueError("Request stream must be an AsyncByteStream")

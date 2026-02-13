@@ -50,7 +50,7 @@ DICT_VALUE_TYPE_REGEX = re.compile(r'dict\(str, (.+?)\)$')  # noqa: W605
 LIST_ITEM_TYPE_REGEX = re.compile(r'list\[(.+?)\]$')  # noqa: W605
 TROUBLESHOOT_URL = 'https://docs.oracle.com/en-us/iaas/Content/API/Concepts/sdk_troubleshooting.htm'
 OCI_DUAL_STACK_ENDPOINT_ENABLED_ENV_VAR = "OCI_DUAL_STACK_ENDPOINT_ENABLED"
-PATTERN_FOR_ENDPOINT_TEMPLATE_OPTIONS = re.compile(r"\{\w*\?(\w*.|\s*)\:(\w*.|\s*)\}*")
+PATTERN_FOR_ENDPOINT_TEMPLATE_OPTIONS = re.compile(r"{([^}]+)}")
 DUAL_STACK_OPTION = "{dualStack"
 
 # Expect header is enabled by default
@@ -398,22 +398,54 @@ class BaseClient(object):
         pattern = PATTERN_FOR_ENDPOINT_TEMPLATE_OPTIONS
         endpoint = self.endpoint
         matchers = re.finditer(pattern, endpoint)
+        segments = []
+        last_index = 0
+        ds_enabled = self.is_dual_stack_enabled()
 
         for matcher in matchers:
             option = matcher.group()
+            start, end = matcher.span()
+
+            segments.append(endpoint[last_index:start])
+
+            is_option_block = ('?' in option and ':' in option)
+            if not is_option_block:
+                segments.append(option)
+                last_index = end
+                continue
+
+            # Ignore unknown options and invalid dualStack tokens (any whitespace inside the braces)
+            if DUAL_STACK_OPTION not in option or re.search(r"\s", option):
+                last_index = end
+                continue
+
             option_enabled_param = option[option.index('?') + 1:option.index(':')]
             option_disabled_param = option[option.index(':') + 1:-1]
-            # Dual stack option
-            if DUAL_STACK_OPTION in option:
-                if self.is_dual_stack_enabled():
-                    # TODO replacing endpoint options should be factored out in the outer loop when dealing with multiple options
-                    endpoint = endpoint.replace(option, option_enabled_param)
-                else:
-                    endpoint = endpoint.replace(option, option_disabled_param)
-            else:
-                endpoint = endpoint.replace(option, '')
 
-        return endpoint
+            # Valid if empty or starts with an alphanumeric character
+            def _valid_side(s):
+                return (s == '') or (s[0].isalnum())
+
+            if not (_valid_side(option_enabled_param) and _valid_side(option_disabled_param)):
+                last_index = end
+                continue
+
+            replacement = option_enabled_param if ds_enabled else option_disabled_param
+
+            # If previous literal ends with '.' and replacement starts with '.', drop one dot.
+            if replacement.startswith('.') and segments and segments[-1].endswith('.'):
+                replacement = replacement[1:]
+
+            # If replacement ends with '.' and next literal char is '.', skip the next dot.
+            if replacement.endswith('.') and end < len(endpoint) and endpoint[end] == '.':
+                last_index = end + 1
+
+            segments.append(replacement)
+            last_index = max(last_index, end)
+
+        segments.append(endpoint[last_index:])
+        updated_endpoint = ''.join(segments)
+        return updated_endpoint
 
     @property
     def endpoint(self):
@@ -690,16 +722,31 @@ class BaseClient(object):
         return service_params_map
 
     def handle_service_params_in_endpoint(self, path_params, query_params, required_arguments):
+        # Apply option replacements first, then substitute service params in the final URL
         endpoint = self.update_endpoint_template_for_options()
-        start_idx = len("https://")
-        if endpoint[start_idx] == "{":  # If the character after https:// is a "{", we have service params
-            end_idx = endpoint.rfind("}")
-            service_params_url = endpoint[start_idx:end_idx + 1]
-            service_params_map = self.map_service_params_to_values(service_params_url, path_params, query_params, required_arguments)
 
-            for service_param, value in service_params_map.items():
-                service_param = "{" + service_param + "}"
-                endpoint = endpoint.replace(service_param, value)
+        # Replace tokens even if they appear mid-host (e.g., ...ds.oci.{secondLevelDomain})
+        first_idx = endpoint.find("{")
+        if first_idx == -1:
+            return endpoint
+        last_idx = endpoint.rfind("}")
+        if last_idx < first_idx:
+            return endpoint
+
+        service_params_url = endpoint[first_idx:last_idx + 1]
+
+        # Build token with value map using required_arguments and '+Dot' suffix rules
+        service_params_map = self.map_service_params_to_values(
+            service_params_url,
+            path_params or {},
+            query_params or {},
+            required_arguments or []
+        )
+
+        # Replace every '{token}' occurrence across the endpoint string
+        for service_param, value in service_params_map.items():
+            token = "{" + service_param + "}"
+            endpoint = endpoint.replace(token, value)
 
         return endpoint
 
@@ -973,7 +1020,7 @@ class BaseClient(object):
 
         :return string: quoted value.
         """
-        if type(obj) == list:
+        if isinstance(obj, list):
             return ','.join(obj)
         else:
             return str(obj)
@@ -1164,7 +1211,7 @@ class BaseClient(object):
             # we do not update the response_data with the json_response.
             # If we do later steps will fail because they are expecting the
             # response_data to be a string.
-            if response_type != "str" or type(json_response) == six.text_type:
+            if response_type != "str" or isinstance(json_response, six.text_type):
                 response_data = json_response
         except ValueError:
             pass

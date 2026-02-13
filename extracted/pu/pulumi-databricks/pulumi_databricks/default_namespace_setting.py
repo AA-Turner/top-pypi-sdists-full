@@ -23,14 +23,18 @@ class DefaultNamespaceSettingArgs:
     def __init__(__self__, *,
                  namespace: pulumi.Input['DefaultNamespaceSettingNamespaceArgs'],
                  etag: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input['DefaultNamespaceSettingProviderConfigArgs']] = None,
                  setting_name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a DefaultNamespaceSetting resource.
         :param pulumi.Input['DefaultNamespaceSettingNamespaceArgs'] namespace: The configuration details.
+        :param pulumi.Input['DefaultNamespaceSettingProviderConfigArgs'] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         """
         pulumi.set(__self__, "namespace", namespace)
         if etag is not None:
             pulumi.set(__self__, "etag", etag)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
         if setting_name is not None:
             pulumi.set(__self__, "setting_name", setting_name)
 
@@ -56,6 +60,18 @@ class DefaultNamespaceSettingArgs:
         pulumi.set(self, "etag", value)
 
     @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional[pulumi.Input['DefaultNamespaceSettingProviderConfigArgs']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
+
+    @provider_config.setter
+    def provider_config(self, value: Optional[pulumi.Input['DefaultNamespaceSettingProviderConfigArgs']]):
+        pulumi.set(self, "provider_config", value)
+
+    @_builtins.property
     @pulumi.getter(name="settingName")
     def setting_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         return pulumi.get(self, "setting_name")
@@ -70,15 +86,19 @@ class _DefaultNamespaceSettingState:
     def __init__(__self__, *,
                  etag: Optional[pulumi.Input[_builtins.str]] = None,
                  namespace: Optional[pulumi.Input['DefaultNamespaceSettingNamespaceArgs']] = None,
+                 provider_config: Optional[pulumi.Input['DefaultNamespaceSettingProviderConfigArgs']] = None,
                  setting_name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering DefaultNamespaceSetting resources.
         :param pulumi.Input['DefaultNamespaceSettingNamespaceArgs'] namespace: The configuration details.
+        :param pulumi.Input['DefaultNamespaceSettingProviderConfigArgs'] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         """
         if etag is not None:
             pulumi.set(__self__, "etag", etag)
         if namespace is not None:
             pulumi.set(__self__, "namespace", namespace)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
         if setting_name is not None:
             pulumi.set(__self__, "setting_name", setting_name)
 
@@ -104,6 +124,18 @@ class _DefaultNamespaceSettingState:
         pulumi.set(self, "namespace", value)
 
     @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional[pulumi.Input['DefaultNamespaceSettingProviderConfigArgs']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
+
+    @provider_config.setter
+    def provider_config(self, value: Optional[pulumi.Input['DefaultNamespaceSettingProviderConfigArgs']]):
+        pulumi.set(self, "provider_config", value)
+
+    @_builtins.property
     @pulumi.getter(name="settingName")
     def setting_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         return pulumi.get(self, "setting_name")
@@ -121,6 +153,7 @@ class DefaultNamespaceSetting(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None,
                  etag: Optional[pulumi.Input[_builtins.str]] = None,
                  namespace: Optional[pulumi.Input[Union['DefaultNamespaceSettingNamespaceArgs', 'DefaultNamespaceSettingNamespaceArgsDict']]] = None,
+                 provider_config: Optional[pulumi.Input[Union['DefaultNamespaceSettingProviderConfigArgs', 'DefaultNamespaceSettingProviderConfigArgsDict']]] = None,
                  setting_name: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
@@ -145,31 +178,10 @@ class DefaultNamespaceSetting(pulumi.CustomResource):
         })
         ```
 
-        ## Import
-
-        This resource can be imported by predefined name `global`:
-
-        hcl
-
-        import {
-
-          to = databricks_default_namespace_setting.this
-
-          id = "global"
-
-        }
-
-        Alternatively, when using `terraform` version 1.4 or earlier, import using the `pulumi import` command:
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/defaultNamespaceSetting:DefaultNamespaceSetting this global
-        ```
-
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['DefaultNamespaceSettingNamespaceArgs', 'DefaultNamespaceSettingNamespaceArgsDict']] namespace: The configuration details.
+        :param pulumi.Input[Union['DefaultNamespaceSettingProviderConfigArgs', 'DefaultNamespaceSettingProviderConfigArgsDict']] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         """
         ...
     @overload
@@ -199,28 +211,6 @@ class DefaultNamespaceSetting(pulumi.CustomResource):
         })
         ```
 
-        ## Import
-
-        This resource can be imported by predefined name `global`:
-
-        hcl
-
-        import {
-
-          to = databricks_default_namespace_setting.this
-
-          id = "global"
-
-        }
-
-        Alternatively, when using `terraform` version 1.4 or earlier, import using the `pulumi import` command:
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/defaultNamespaceSetting:DefaultNamespaceSetting this global
-        ```
-
         :param str resource_name: The name of the resource.
         :param DefaultNamespaceSettingArgs args: The arguments to use to populate this resource's properties.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -238,6 +228,7 @@ class DefaultNamespaceSetting(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None,
                  etag: Optional[pulumi.Input[_builtins.str]] = None,
                  namespace: Optional[pulumi.Input[Union['DefaultNamespaceSettingNamespaceArgs', 'DefaultNamespaceSettingNamespaceArgsDict']]] = None,
+                 provider_config: Optional[pulumi.Input[Union['DefaultNamespaceSettingProviderConfigArgs', 'DefaultNamespaceSettingProviderConfigArgsDict']]] = None,
                  setting_name: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
@@ -252,6 +243,7 @@ class DefaultNamespaceSetting(pulumi.CustomResource):
             if namespace is None and not opts.urn:
                 raise TypeError("Missing required property 'namespace'")
             __props__.__dict__["namespace"] = namespace
+            __props__.__dict__["provider_config"] = provider_config
             __props__.__dict__["setting_name"] = setting_name
         super(DefaultNamespaceSetting, __self__).__init__(
             'databricks:index/defaultNamespaceSetting:DefaultNamespaceSetting',
@@ -265,6 +257,7 @@ class DefaultNamespaceSetting(pulumi.CustomResource):
             opts: Optional[pulumi.ResourceOptions] = None,
             etag: Optional[pulumi.Input[_builtins.str]] = None,
             namespace: Optional[pulumi.Input[Union['DefaultNamespaceSettingNamespaceArgs', 'DefaultNamespaceSettingNamespaceArgsDict']]] = None,
+            provider_config: Optional[pulumi.Input[Union['DefaultNamespaceSettingProviderConfigArgs', 'DefaultNamespaceSettingProviderConfigArgsDict']]] = None,
             setting_name: Optional[pulumi.Input[_builtins.str]] = None) -> 'DefaultNamespaceSetting':
         """
         Get an existing DefaultNamespaceSetting resource's state with the given name, id, and optional extra
@@ -274,6 +267,7 @@ class DefaultNamespaceSetting(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['DefaultNamespaceSettingNamespaceArgs', 'DefaultNamespaceSettingNamespaceArgsDict']] namespace: The configuration details.
+        :param pulumi.Input[Union['DefaultNamespaceSettingProviderConfigArgs', 'DefaultNamespaceSettingProviderConfigArgsDict']] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -281,6 +275,7 @@ class DefaultNamespaceSetting(pulumi.CustomResource):
 
         __props__.__dict__["etag"] = etag
         __props__.__dict__["namespace"] = namespace
+        __props__.__dict__["provider_config"] = provider_config
         __props__.__dict__["setting_name"] = setting_name
         return DefaultNamespaceSetting(resource_name, opts=opts, __props__=__props__)
 
@@ -296,6 +291,14 @@ class DefaultNamespaceSetting(pulumi.CustomResource):
         The configuration details.
         """
         return pulumi.get(self, "namespace")
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> pulumi.Output[Optional['outputs.DefaultNamespaceSettingProviderConfig']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
 
     @_builtins.property
     @pulumi.getter(name="settingName")

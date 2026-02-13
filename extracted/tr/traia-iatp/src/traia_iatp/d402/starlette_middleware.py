@@ -332,7 +332,6 @@ class D402PaymentMiddleware(BaseHTTPMiddleware):
                             logger.info(f"   Payment amount: {payment_amount} wei (required: {required_amount} wei)")
                             logger.info(f"   From (wallet): {auth.get('from', 'unknown')}")
                             logger.info(f"   To (provider): {auth.get('to', 'unknown')}")
-                            logger.info(f"   Request path: {auth.get('requestPath', auth.get('request_path', 'unknown'))}")
 
                             # Set api_key_to_use for tool to access
                             request.state.api_key_to_use = self.internal_api_key
@@ -521,7 +520,7 @@ class D402PaymentMiddleware(BaseHTTPMiddleware):
         return await call_next(new_request)
     
     def _create_402_response(self, config: Dict[str, Any], error_message: str, request_path: str = "/mcp") -> JSONResponse:
-        """Helper to create HTTP 402 response with request path for signature binding."""
+        """Helper to create HTTP 402 response with request path."""
         # Include EIP712 domain in extra for client to sign payment
         # This should be IATPWallet domain (consumer's wallet contract)
         extra_data = config.get("eip712_domain", {
@@ -538,7 +537,7 @@ class D402PaymentMiddleware(BaseHTTPMiddleware):
             max_amount_required=config["price_wei"],
             max_timeout_seconds=86400,  # 24 hours for settlement window
             description=config["description"],
-            resource=request_path,  # Include actual API path for signature binding
+            resource=request_path,  # API path for resource identification
             mime_type="application/json",
             asset=config["token_address"],
             extra=extra_data  # EIP712 domain for signature

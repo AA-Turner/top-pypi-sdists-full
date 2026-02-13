@@ -11,6 +11,7 @@ from abstra_internals.contracts_generated import (
     CloudApiConsoleWorkflowUpdateTaskRequestCompleted,
     CloudApiConsoleWorkflowUpdateTaskRequestLocked,
 )
+from abstra_internals.environment import WORKER_LOG_TO_QUEUE
 from abstra_internals.services.sql_storage import SqlStorage
 from abstra_internals.utils.datetime import to_utc_iso_string
 from abstra_internals.utils.serializable import Serializable
@@ -114,6 +115,23 @@ class LocalTasksRepository(TasksRepository):
     def __init__(self):
         self.fs_storage = SqlStorage(directory=TASKS_DIR_PATH, model=TaskDTO)
 
+    def _broadcast_task_if_connected(self, task: TaskDTO):
+        if not WORKER_LOG_TO_QUEUE:
+            return
+
+        from abstra_internals.controllers.execution.execution_conn import (
+            get_execution_conn,
+        )
+
+        conn = get_execution_conn()
+        if conn is None:
+            return
+
+        try:
+            conn.send({"type": "task", "payload": task.dump()})
+        except Exception:
+            pass
+
     def clear(self):
         self.fs_storage.clear()
 
@@ -148,6 +166,7 @@ class LocalTasksRepository(TasksRepository):
             completed=None,
         )
         self.fs_storage.save(id, task)
+        self._broadcast_task_if_connected(task)
         return task
 
     def lock_task(
@@ -166,6 +185,7 @@ class LocalTasksRepository(TasksRepository):
         )
 
         self.fs_storage.save(task_id, task)
+        self._broadcast_task_if_connected(task)
 
     def complete_task(
         self, task_id: str, execution_id: Optional[str], stage_id: Optional[str]
@@ -183,6 +203,7 @@ class LocalTasksRepository(TasksRepository):
         )
 
         self.fs_storage.save(task_id, task)
+        self._broadcast_task_if_connected(task)
 
     def set_task_to_pending(self, task_id: str) -> None:
         task = self.get(task_id)
@@ -193,6 +214,7 @@ class LocalTasksRepository(TasksRepository):
         task.status = "pending"
 
         self.fs_storage.save(task_id, task)
+        self._broadcast_task_if_connected(task)
 
     def _where_matches(self, task: TaskDTO, where: Dict) -> bool:
         payload = task.payload

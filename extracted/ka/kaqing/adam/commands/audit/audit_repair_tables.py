@@ -4,6 +4,7 @@ from adam.commands import validate_args
 from adam.commands.command import Command
 from adam.config import Config
 from adam.repl_state import ReplState
+from adam.utils_context import NULL
 from adam.utils_log import log, log2
 from adam.utils_athena import Athena
 from adam.utils_audits import AuditMeta, Audits, audit
@@ -32,21 +33,20 @@ class AuditRepairTables(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with validate_args(args, state, default=Config().get('audit.athena.repair-partition-tables', 'audit').split(',')) as tables:
-                meta = Audits.get_meta()
-                self.repair(tables, meta)
+            with self.context(args) as (args, ctx):
+                with validate_args(args, state, default=Config().get('audit.athena.repair-partition-tables', 'audit').split(',')) as tables:
+                    meta = Audits.get_meta()
+                    self.repair(tables, meta, ctx=ctx)
 
-            return state
+                return state
 
     def completion(self, state: ReplState):
         # trigger auto repair if on l: drive
         if state.device == ReplState.L:
             if not self.auto_repaired:
                 if hours := Config().get('audit.athena.auto-repair.elapsed_hours', 12):
-                    with audit() as exec:
-                        exec.submit(lambda: self.auto_repair(hours))
-
-            # return super().completion(state)
+                    with audit() as submit:
+                        submit(lambda: self.auto_repair(hours))
 
         return {}
 
@@ -59,14 +59,14 @@ class AuditRepairTables(Command):
             self.repair(tables, meta, show_sql=True)
             log2(f'Audit tables have been auto-repaired.')
 
-    def repair(self, tables: list[str], meta: AuditMeta, show_sql = False):
-        with audit() as exec:
+    def repair(self, tables: list[str], meta: AuditMeta, show_sql = False, ctx = NULL):
+        with audit() as submit:
             for table in tables:
                 if show_sql:
-                    log(f'MSCK REPAIR TABLE {table}')
+                    ctx.log(f'MSCK REPAIR TABLE {table}')
 
-                exec.submit(Athena.query, f'MSCK REPAIR TABLE {table}', None,)
-            exec.submit(Audits.put_meta, Audits.PARTITIONS_ADDED, meta,)
+                submit(Athena.query, f'MSCK REPAIR TABLE {table}', None,)
+            submit(Audits.put_meta, Audits.PARTITIONS_ADDED, meta,)
 
     def help(self, state: ReplState):
         return super().help(state, 'run MSCK REPAIR to discover new partitions')

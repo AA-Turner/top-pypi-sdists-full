@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: mirakuru
-Version: 3.0.1
+Version: 3.0.2
 Summary: Process executor (not only) for tests.
 Author-email: Grzegorz Śliwiński <fizyk+pypi@fizyk.dev>
 License-Expression: LGPL-3.0-or-later
 Project-URL: Source, https://github.com/dbfixtures/mirakuru
 Project-URL: Bug Tracker, https://github.com/dbfixtures/mirakuru/issues
-Project-URL: Changelog, https://github.com/dbfixtures/mirakuru/blob/v3.0.1/CHANGES.rst
+Project-URL: Changelog, https://github.com/dbfixtures/mirakuru/blob/v3.0.2/CHANGES.rst
 Keywords: process,executor,tests,orchestration
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers

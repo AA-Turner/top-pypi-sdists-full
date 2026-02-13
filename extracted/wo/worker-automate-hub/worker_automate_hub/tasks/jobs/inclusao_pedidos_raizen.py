@@ -33,7 +33,6 @@ async def inclusao_pedidos_raizen(task: RpaRetornoProcessoDTO):
                     "--disable-gpu",
                     "--disable-infobars",
                     "--window-size=1920,1080"])
-            
             page = await browser.new_page()
             await page.set_viewport_size({"width": 1850, "height": 900})
             #Going to Main page
@@ -50,7 +49,8 @@ async def inclusao_pedidos_raizen(task: RpaRetornoProcessoDTO):
             logger.print("Sending verification code")
             await page.locator("#readOnlyEmail_ver_but_send").click()
             await page.wait_for_load_state('load')
-            await asyncio.sleep(60)
+            await asyncio.sleep(90)
+        
             #chamar endpoint com código retornado
             code = await get_mfa_code('mfa-raizen')
             if code['status_code'] == 200:
@@ -59,7 +59,7 @@ async def inclusao_pedidos_raizen(task: RpaRetornoProcessoDTO):
             else:
                 await capture_and_send_screenshot(task.historico_id, "Erro MFA")
                 raise Exception("Failed to retrieve MFA code")
-
+                
             # Select Company
             logger.print("Selecting company")
             relacao_cod_raizen = await get_config_by_name("RelacaoCodigosRaizen")

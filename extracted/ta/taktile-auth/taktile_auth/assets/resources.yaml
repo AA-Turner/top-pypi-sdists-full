@@ -125,6 +125,14 @@ workspace_agent_management:
   # delete: can delete agents and agent versions
   org_id: wildcard
   ws_id: wildcard
+  type: wildcard
+workspace_agent_execution:
+  # write: can execute agents
+  # read: can read agent execution results
+  org_id: wildcard
+  ws_id: wildcard
+  env: wildcard
+  type: wildcard
 workspace_file:
   # read: can read files from workspace
   # write: can upload files to workspace
@@ -144,6 +152,11 @@ workspace_endpoint:
 workspace_sandbox_endpoint:
   # write: can create sandbox decisions i.e. POST /sandbox/decide
   # read: can fetch sandbox decisions i.e. GET /sandbox/decide
+  org_id: wildcard
+  ws_id: wildcard
+workspace_test_endpoint:
+  # write: can create test decisions i.e. POST /test/decide
+  # read: can fetch test decisions i.e. GET /test/decide
   org_id: wildcard
   ws_id: wildcard
 workspace_api_keys:

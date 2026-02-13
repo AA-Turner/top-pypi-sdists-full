@@ -25,11 +25,12 @@ class ShowAppQueues(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (_, state):
-            with extract_options(args, '--force') as (args, forced):
-                with app(state) as http:
-                    http.post(['InvalidationQueue.countAll'], forced=forced, ctx=self.context())
+            with self.context(args) as (_, ctx):
+                with extract_options(args, '--force') as (args, forced):
+                    with app(state) as http:
+                        http.post(['InvalidationQueue.countAll'], forced=forced, ctx=ctx)
 
-                return state
+                    return state
 
     def completion(self, state: ReplState):
         return super().completion(state, {'--force': None})

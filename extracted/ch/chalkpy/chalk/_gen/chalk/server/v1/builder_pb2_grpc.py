@@ -95,6 +95,11 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterTimescaleDBRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterTimescaleDBResponse.FromString,
         )
+        self.UpdateClusterTimescaleDB = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/UpdateClusterTimescaleDB",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpdateClusterTimescaleDBRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpdateClusterTimescaleDBResponse.FromString,
+        )
         self.GetClusterTimescaleDefault = channel.unary_unary(
             "/chalk.server.v1.BuilderService/GetClusterTimescaleDefault",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterTimescaleDefaultRequest.SerializeToString,
@@ -382,6 +387,12 @@ class BuilderServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def CreateClusterTimescaleDB(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpdateClusterTimescaleDB(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -695,6 +706,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             servicer.CreateClusterTimescaleDB,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterTimescaleDBRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterTimescaleDBResponse.SerializeToString,
+        ),
+        "UpdateClusterTimescaleDB": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateClusterTimescaleDB,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpdateClusterTimescaleDBRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpdateClusterTimescaleDBResponse.SerializeToString,
         ),
         "GetClusterTimescaleDefault": grpc.unary_unary_rpc_method_handler(
             servicer.GetClusterTimescaleDefault,
@@ -1344,6 +1360,35 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/CreateClusterTimescaleDB",
             chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterTimescaleDBRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterTimescaleDBResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpdateClusterTimescaleDB(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/UpdateClusterTimescaleDB",
+            chalk_dot_server_dot_v1_dot_builder__pb2.UpdateClusterTimescaleDBRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.UpdateClusterTimescaleDBResponse.FromString,
             options,
             channel_credentials,
             insecure,

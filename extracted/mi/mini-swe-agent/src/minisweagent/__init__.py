@@ -8,7 +8,7 @@ This file provides:
   unless you want the static type checking.
 """
 
-__version__ = "1.17.5"
+__version__ = "2.1.0"
 
 import os
 from pathlib import Path
@@ -17,34 +17,21 @@ from typing import Any, Protocol
 import dotenv
 from platformdirs import user_config_dir
 from rich.console import Console
-from rich.panel import Panel
 
 from minisweagent.utils.log import logger
 
 package_dir = Path(__file__).resolve().parent
+
 
 global_config_dir = Path(os.getenv("MSWEA_GLOBAL_CONFIG_DIR") or user_config_dir("mini-swe-agent"))
 global_config_dir.mkdir(parents=True, exist_ok=True)
 global_config_file = Path(global_config_dir) / ".env"
 
 if not os.getenv("MSWEA_SILENT_STARTUP"):
-    console = Console()
-    console.print(
-        Panel(
-            "[bold]mini-swe-agent v2.0 is coming soon.[/bold]\n\n"
-            "It will be even more flexible, extensible and performant. "
-            "However, [bold]breaking changes[/bold] were necessary.\n\n"
-            "To stay with the current major version for now, you can pin your dependency: "
-            "[bold white]mini-swe-agent~=1.0[/bold white]",
-            border_style="bold red",
-            title="BREAKING CHANGES AHEAD",
-            title_align="left",
-            expand=False,
-        )
-    )
-    console.print(
+    Console().print(
         f"👋 This is [bold green]mini-swe-agent[/bold green] version [bold green]{__version__}[/bold green].\n"
-        f"Loading global config from [bold green]'{global_config_file}'[/bold green]"
+        f"Check the [bold red]v2 migration guide[/] at [bold red]https://klieret.short.gy/mini-v2-migration[/]\n",
+        f"Loading global config from [bold green]'{global_config_file}'[/bold green]",
     )
 dotenv.load_dotenv(dotenv_path=global_config_file)
 
@@ -57,12 +44,18 @@ class Model(Protocol):
     """Protocol for language models."""
 
     config: Any
-    cost: float
-    n_calls: int
 
     def query(self, messages: list[dict[str, str]], **kwargs) -> dict: ...
 
-    def get_template_vars(self) -> dict[str, Any]: ...
+    def format_message(self, **kwargs) -> dict: ...
+
+    def format_observation_messages(
+        self, message: dict, outputs: list[dict], template_vars: dict | None = None
+    ) -> list[dict]: ...
+
+    def get_template_vars(self, **kwargs) -> dict[str, Any]: ...
+
+    def serialize(self) -> dict: ...
 
 
 class Environment(Protocol):
@@ -70,20 +63,21 @@ class Environment(Protocol):
 
     config: Any
 
-    def execute(self, command: str, cwd: str = "") -> dict[str, str]: ...
+    def execute(self, action: dict, cwd: str = "") -> dict[str, Any]: ...
 
-    def get_template_vars(self) -> dict[str, Any]: ...
+    def get_template_vars(self, **kwargs) -> dict[str, Any]: ...
+
+    def serialize(self) -> dict: ...
 
 
 class Agent(Protocol):
     """Protocol for agents."""
 
-    model: Model
-    env: Environment
-    messages: list[dict[str, str]]
     config: Any
 
-    def run(self, task: str, **kwargs) -> tuple[str, str]: ...
+    def run(self, task: str, **kwargs) -> dict: ...
+
+    def save(self, path: Path | None, *extra_dicts) -> dict: ...
 
 
 __all__ = [

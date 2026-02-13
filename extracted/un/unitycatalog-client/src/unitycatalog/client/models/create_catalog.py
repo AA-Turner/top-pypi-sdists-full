@@ -29,7 +29,8 @@ class CreateCatalog(BaseModel):
     name: StrictStr = Field(description="Name of catalog.")
     comment: Optional[StrictStr] = Field(default=None, description="User-provided free-form text description.")
     properties: Optional[Dict[str, StrictStr]] = Field(default=None, description="A map of key-value properties attached to the securable.")
-    __properties: ClassVar[List[str]] = ["name", "comment", "properties"]
+    storage_root: Optional[StrictStr] = Field(default=None, description="Storage root URL for managed storage location of catalog. Example: s3://bucket/ucroot ")
+    __properties: ClassVar[List[str]] = ["name", "comment", "properties", "storage_root"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -84,7 +85,8 @@ class CreateCatalog(BaseModel):
         _obj = cls.model_validate({
             "name": obj.get("name"),
             "comment": obj.get("comment"),
-            "properties": obj.get("properties")
+            "properties": obj.get("properties"),
+            "storage_root": obj.get("storage_root")
         })
         return _obj
 

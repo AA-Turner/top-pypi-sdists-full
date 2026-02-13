@@ -6,7 +6,7 @@ Various utility functions related to rotation representations.
 """
 
 import torch
-import numpy as np
+import math
 import roma.internal
 import roma.mappings
 
@@ -48,12 +48,15 @@ def is_rotation_matrix(R, epsilon=1e-7):
         return False
     return torch.all(torch.det(R) > 0)
 
-def random_unitquat(size = tuple(), dtype=torch.float, device=None):
+def random_unitquat(size = tuple(), dtype=torch.float, device=None, generator=None):
     r"""
     Generates a batch of random unit quaternions, uniformly sampled according to the usual quaternion metric.
 
     Args:
         size (tuple or int): batch size. Use for example ``tuple()`` to generate a single element, and ``(5,2)`` to generate a 5x2 batch.
+        dtype (torch.dtype): data type of the returned tensor.
+        device: device of the returned tensor.
+        generator: random number generator for sampling. Use for example ``torch.Generator(device='cuda')``.
     Returns:
         batch of unit quaternions (size x 4 tensor).
 
@@ -64,27 +67,30 @@ def random_unitquat(size = tuple(), dtype=torch.float, device=None):
     if type(size) == int:
         size = (size,)
 
-    x0 = torch.rand(size, dtype=dtype, device=device)
-    theta1 = (2.0 * np.pi) * torch.rand(size, dtype=dtype, device=device)
-    theta2 = (2.0 * np.pi) * torch.rand(size, dtype=dtype, device=device)
+    x0 = torch.rand(size, dtype=dtype, device=device, generator=generator)
+    theta1 = (2.0 * math.pi) * torch.rand(size, dtype=dtype, device=device)
+    theta2 = (2.0 * math.pi) * torch.rand(size, dtype=dtype, device=device)
     r1 = torch.sqrt(1.0 - x0)
     r2 = torch.sqrt(x0)
     return torch.stack((r1 * torch.sin(theta1), r1 * torch.cos(theta1), r2 * torch.sin(theta2), r2 * torch.cos(theta2)), dim=-1)
 
-def random_rotmat(size  = tuple(), dtype=torch.float, device=None):
+def random_rotmat(size  = tuple(), dtype=torch.float, device=None, generator=None):
     r"""
     Generates a batch of random 3x3 rotation matrices, uniformly sampled according to the usual rotation metric.
 
     Args:
         size (tuple or int): batch size. Use for example ``tuple()`` to generate a single element, and ``(5,2)`` to generate a 5x2 batch.
+        dtype (torch.dtype): data type of the returned tensor.
+        device: device of the returned tensor.
+        generator: random number generator for sampling. Use for example ``torch.Generator(device='cuda
     Returns:
         batch of rotation matrices (size x 3x3 tensor).
     """
-    quat = random_unitquat(size, dtype=dtype, device=device)
+    quat = random_unitquat(size, dtype=dtype, device=device, generator=generator)
     R = roma.mappings.unitquat_to_rotmat(quat)
     return R
 
-def random_rotvec(size = tuple(), dtype=torch.float, device=None):
+def random_rotvec(size = tuple(), dtype=torch.float, device=None, generator=None):
     r"""
     Generates a batch of random rotation vectors, uniformly sampled according to the usual rotation metric.
 
@@ -93,7 +99,7 @@ def random_rotvec(size = tuple(), dtype=torch.float, device=None):
     Returns:
         batch of rotation vectors (size x 3 tensor).
     """
-    quat = random_unitquat(size, dtype=dtype, device=device)
+    quat = random_unitquat(size, dtype=dtype, device=device, generator=generator)
     return roma.mappings.unitquat_to_rotvec(quat)
 
 def identity_quat(size = tuple(), dtype=torch.float, device=None):
@@ -128,7 +134,7 @@ def rotmat_cosine_angle(R):
     assert R.shape[-2:] == (3,3), "Expecting a ...x3x3 batch of rotation matrices"
     return  0.5 * (R[...,0,0] + R[...,1,1] + R[...,2,2] - 1.0)
 
-_ONE_OVER_2SQRT2 = 1.0 / (2 * np.sqrt(2))
+_ONE_OVER_2SQRT2 = 1.0 / (2 * math.sqrt(2))
 def rotmat_geodesic_distance(R1, R2, clamping=1.0):
     r"""
     Returns the angular distance alpha between a pair of rotation matrices.

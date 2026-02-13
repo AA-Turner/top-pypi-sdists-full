@@ -54,15 +54,15 @@ from google.api_core import (
 )
 from google.api_core import client_options
 from google.api_core import exceptions as core_exceptions
-from google.api_core import operation_async  # type: ignore
 from google.api_core import retry as retries
+import google.api_core.operation_async as operation_async  # type: ignore
 import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.cloud.location import locations_pb2
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 
 from google.cloud.documentai_v1beta3.services.document_service import (
     DocumentServiceAsyncClient,
@@ -5865,7 +5865,6 @@ def test_update_dataset_rest_call_success(request_type):
             "schema": "schema_value",
         },
         "unmanaged_dataset_config": {},
-        "spanner_indexing_config": {},
         "name": "projects/sample1/locations/sample2/processors/sample3/dataset",
         "state": 1,
         "satisfies_pzs": True,
@@ -6768,6 +6767,7 @@ def test_update_dataset_schema_rest_call_success(request_type):
                 "prefixed_naming_on_properties": True,
                 "skip_naming_validation": True,
             },
+            "document_prompt": "document_prompt_value",
         },
         "satisfies_pzs": True,
         "satisfies_pzi": True,

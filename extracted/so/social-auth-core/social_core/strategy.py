@@ -4,7 +4,11 @@ import secrets
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from .backends.utils import get_backend
-from .exceptions import StrategyMissingBackendError, StrategyMissingFeatureError
+from .exceptions import (
+    SocialAuthImproperlyConfiguredError,
+    StrategyMissingBackendError,
+    StrategyMissingFeatureError,
+)
 from .pipeline import DEFAULT_AUTH_PIPELINE, DEFAULT_DISCONNECT_PIPELINE
 from .pipeline.utils import partial_load
 from .store import OpenIdSessionWrapper, OpenIdStore
@@ -16,7 +20,8 @@ if TYPE_CHECKING:
 
 
 class HttpResponseProtocol(Protocol):
-    url: str
+    @property
+    def url(self) -> str: ...
 
 
 class BaseTemplateStrategy:
@@ -53,8 +58,14 @@ class BaseStrategy:
         storage: type[BaseStorage] | None = None,
         tpl: type[BaseTemplateStrategy] | None = None,
     ) -> None:
-        self.storage = storage
+        self._storage = storage
         self.tpl = (tpl or self.DEFAULT_TEMPLATE_STRATEGY)(self)
+
+    @property
+    def storage(self) -> type[BaseStorage]:
+        if self._storage is None:
+            raise StrategyMissingBackendError
+        return self._storage
 
     def setting(self, name: str, default=None, backend: BaseAuth | None = None):
         names = [setting_name(name), name]
@@ -68,13 +79,9 @@ class BaseStrategy:
         return default
 
     def create_user(self, *args, **kwargs):
-        if self.storage is None:
-            raise StrategyMissingBackendError
         return self.storage.user.create_user(*args, **kwargs)
 
     def get_user(self, *args, **kwargs):
-        if self.storage is None:
-            raise StrategyMissingBackendError
         return self.storage.user.get_user(*args, **kwargs)
 
     def session_setdefault(self, name: str, value):
@@ -121,8 +128,6 @@ class BaseStrategy:
         return partial_load(self, token)
 
     def clean_partial_pipeline(self, token) -> None:
-        if self.storage is None:
-            raise StrategyMissingBackendError
         self.storage.partial.destroy(token)
         current_token_in_session = self.session_get(PARTIAL_TOKEN_SESSION_NAME)
         if current_token_in_session == token:
@@ -145,7 +150,7 @@ class BaseStrategy:
     def random_string(self, length: int = 12, chars: str = ALLOWED_CHARS) -> str:
         return "".join([secrets.choice(chars) for i in range(length)])
 
-    def absolute_uri(self, path: str | None = None) -> str | None:
+    def absolute_uri(self, path: str | None = None) -> str:
         uri = self.build_absolute_uri(path)
         if uri and self.setting("REDIRECT_IS_HTTPS"):
             uri = uri.replace("http://", "https://")
@@ -158,17 +163,17 @@ class BaseStrategy:
     def send_email_validation(
         self, backend: BaseAuth, email: str, partial_token: str | None = None
     ) -> CodeMixin:
-        if self.storage is None:
-            raise StrategyMissingBackendError
         email_validation = self.setting("EMAIL_VALIDATION_FUNCTION")
+        if not email_validation:
+            raise SocialAuthImproperlyConfiguredError(
+                "EMAIL_VALIDATION_FUNCTION missing"
+            )
         send_email = module_member(email_validation)
         code = self.storage.code.make_code(email)
         send_email(self, backend, code, partial_token)
         return code
 
     def validate_email(self, email: str, code: str) -> bool:
-        if self.storage is None:
-            raise StrategyMissingBackendError
         verification_code = self.storage.code.get_code(code)
         if not verification_code or verification_code.code != code:
             return False
@@ -193,8 +198,6 @@ class BaseStrategy:
     ) -> UserProtocol | HttpResponseProtocol | None:
         """Trigger the authentication mechanism tied to the current
         framework"""
-        if self.storage is None:
-            raise StrategyMissingBackendError
         kwargs["strategy"] = self
         kwargs["storage"] = self.storage
         kwargs["backend"] = backend
@@ -256,7 +259,7 @@ class BaseStrategy:
         """Pop session value for given key"""
         raise NotImplementedError("Implement in subclass")
 
-    def build_absolute_uri(self, path: str | None = None) -> str | None:
+    def build_absolute_uri(self, path: str | None = None) -> str:
         """Build absolute URI with given (optional) path"""
         raise NotImplementedError("Implement in subclass")
 

@@ -10,16 +10,19 @@ def new_triangles(
 
     :param range: Pair of ints.
     :param coords: Sequence of bytes (6 floats for one triangle) for (X, Y) coordinates.
-    :param colors: Sequence of bytes (12 for one triangles) for RGBA.
+    :param colors: Sequence of bytes (12 for one triangle) for RGBA.
     :return: Unique icon value (pass to interface icon_value argument).
     """
 
-def new_triangles_from_file(filepath: str | None) -> int:
+def new_triangles_from_file(filepath: bytes | str | None) -> int:
     """Create a new icon from triangle geometry.
 
     :param filepath: File path.
     :return: Unique icon value (pass to interface icon_value argument).
     """
 
-def release(icon_id) -> None:
-    """Release the icon."""
+def release(icon_id: int | None) -> None:
+    """Release the icon.
+
+    :param icon_id: The icon id to release.
+    """

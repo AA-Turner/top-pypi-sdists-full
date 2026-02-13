@@ -33,3 +33,5 @@ from snowflake.core.database._generated.models.point_of_time_statement import Po
 from snowflake.core.database._generated.models.point_of_time_timestamp import PointOfTimeTimestamp
 from snowflake.core.database._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.database._generated.models.success_response import SuccessResponse
+from snowflake.core.database._generated.models.tag_assignment import TagAssignment
+from snowflake.core.database._generated.models.tag_reference import TagReference

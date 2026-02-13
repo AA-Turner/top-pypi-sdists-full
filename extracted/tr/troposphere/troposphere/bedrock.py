@@ -459,6 +459,29 @@ class ModalityProcessingConfiguration(AWSProperty):
     }
 
 
+class PIIEntitiesConfiguration(AWSProperty):
+    """
+    `PIIEntitiesConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-piientitiesconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "PiiEntityTypes": ([str], False),
+        "RedactionMaskMode": (str, False),
+    }
+
+
+class SensitiveDataConfiguration(AWSProperty):
+    """
+    `SensitiveDataConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-sensitivedataconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "DetectionMode": (str, False),
+        "DetectionScope": ([str], False),
+        "PiiEntitiesConfiguration": (PIIEntitiesConfiguration, False),
+    }
+
+
 class AudioOverrideConfiguration(AWSProperty):
     """
     `AudioOverrideConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-audiooverrideconfiguration.html>`__
@@ -467,6 +490,7 @@ class AudioOverrideConfiguration(AWSProperty):
     props: PropsDictType = {
         "LanguageConfiguration": (AudioLanguageConfiguration, False),
         "ModalityProcessing": (ModalityProcessingConfiguration, False),
+        "SensitiveDataConfiguration": (SensitiveDataConfiguration, False),
     }
 
 
@@ -487,6 +511,7 @@ class DocumentOverrideConfiguration(AWSProperty):
 
     props: PropsDictType = {
         "ModalityProcessing": (ModalityProcessingConfiguration, False),
+        "SensitiveDataConfiguration": (SensitiveDataConfiguration, False),
         "Splitter": (SplitterConfiguration, False),
     }
 
@@ -498,6 +523,7 @@ class ImageOverrideConfiguration(AWSProperty):
 
     props: PropsDictType = {
         "ModalityProcessing": (ModalityProcessingConfiguration, False),
+        "SensitiveDataConfiguration": (SensitiveDataConfiguration, False),
     }
 
 
@@ -521,6 +547,7 @@ class VideoOverrideConfiguration(AWSProperty):
 
     props: PropsDictType = {
         "ModalityProcessing": (ModalityProcessingConfiguration, False),
+        "SensitiveDataConfiguration": (SensitiveDataConfiguration, False),
     }
 
 
@@ -842,6 +869,7 @@ class DataAutomationProject(AWSObject):
         "OverrideConfiguration": (OverrideConfiguration, False),
         "ProjectDescription": (str, False),
         "ProjectName": (str, True),
+        "ProjectType": (str, False),
         "StandardOutputConfiguration": (StandardOutputConfiguration, False),
         "Tags": (Tags, False),
     }
@@ -2491,14 +2519,56 @@ class SqlKnowledgeBaseConfiguration(AWSProperty):
     }
 
 
+class AudioSegmentationConfiguration(AWSProperty):
+    """
+    `AudioSegmentationConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-audiosegmentationconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "FixedLengthDuration": (integer, True),
+    }
+
+
+class AudioConfiguration(AWSProperty):
+    """
+    `AudioConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-audioconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "SegmentationConfiguration": (AudioSegmentationConfiguration, True),
+    }
+
+
+class VideoSegmentationConfiguration(AWSProperty):
+    """
+    `VideoSegmentationConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-videosegmentationconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "FixedLengthDuration": (integer, True),
+    }
+
+
+class VideoConfiguration(AWSProperty):
+    """
+    `VideoConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-videoconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "SegmentationConfiguration": (VideoSegmentationConfiguration, True),
+    }
+
+
 class BedrockEmbeddingModelConfiguration(AWSProperty):
     """
     `BedrockEmbeddingModelConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-bedrockembeddingmodelconfiguration.html>`__
     """
 
     props: PropsDictType = {
+        "Audio": ([AudioConfiguration], False),
         "Dimensions": (integer, False),
         "EmbeddingDataType": (str, False),
+        "Video": ([VideoConfiguration], False),
     }
 
 
@@ -2726,6 +2796,18 @@ class RdsConfiguration(AWSProperty):
     }
 
 
+class S3VectorsConfiguration(AWSProperty):
+    """
+    `S3VectorsConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-s3vectorsconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "IndexArn": (str, False),
+        "IndexName": (str, False),
+        "VectorBucketArn": (str, False),
+    }
+
+
 class StorageConfiguration(AWSProperty):
     """
     `StorageConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-storageconfiguration.html>`__
@@ -2741,6 +2823,7 @@ class StorageConfiguration(AWSProperty):
         "OpensearchServerlessConfiguration": (OpenSearchServerlessConfiguration, False),
         "PineconeConfiguration": (PineconeConfiguration, False),
         "RdsConfiguration": (RdsConfiguration, False),
+        "S3VectorsConfiguration": (S3VectorsConfiguration, False),
         "Type": (str, True),
     }
 

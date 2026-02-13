@@ -803,11 +803,13 @@ def move_to_layer(
     /,
     *,
     target_layer_name: str = "",
+    target_group_name: str = "",
     add_new_layer: bool | None = False,
 ) -> None:
     """Move selected strokes to another layer
 
     :param target_layer_name: Name, Target Grease Pencil Layer
+    :param target_group_name: Target Group, Group to add the new layer to
     :param add_new_layer: New Layer, Move selection to a new layer
     """
 

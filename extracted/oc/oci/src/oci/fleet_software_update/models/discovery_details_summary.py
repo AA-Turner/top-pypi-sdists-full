@@ -39,6 +39,10 @@ class DiscoveryDetailsSummary(object):
     #: This constant has a value of "EXACC"
     SERVICE_TYPE_EXACC = "EXACC"
 
+    #: A constant which can be used with the service_type property of a DiscoveryDetailsSummary.
+    #: This constant has a value of "EXADBXS"
+    SERVICE_TYPE_EXADBXS = "EXADBXS"
+
     #: A constant which can be used with the criteria property of a DiscoveryDetailsSummary.
     #: This constant has a value of "SEARCH_QUERY"
     CRITERIA_SEARCH_QUERY = "SEARCH_QUERY"
@@ -60,7 +64,7 @@ class DiscoveryDetailsSummary(object):
 
         :param service_type:
             The value to assign to the service_type property of this DiscoveryDetailsSummary.
-            Allowed values for this property are: "EXACS", "EXACC", 'UNKNOWN_ENUM_VALUE'.
+            Allowed values for this property are: "EXACS", "EXACC", "EXADBXS", 'UNKNOWN_ENUM_VALUE'.
             Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type service_type: str
 
@@ -121,7 +125,7 @@ class DiscoveryDetailsSummary(object):
         **[Required]** Gets the service_type of this DiscoveryDetailsSummary.
         Exadata service type for the target resource members.
 
-        Allowed values for this property are: "EXACS", "EXACC", 'UNKNOWN_ENUM_VALUE'.
+        Allowed values for this property are: "EXACS", "EXACC", "EXADBXS", 'UNKNOWN_ENUM_VALUE'.
         Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
 
 
@@ -140,7 +144,7 @@ class DiscoveryDetailsSummary(object):
         :param service_type: The service_type of this DiscoveryDetailsSummary.
         :type: str
         """
-        allowed_values = ["EXACS", "EXACC"]
+        allowed_values = ["EXACS", "EXACC", "EXADBXS"]
         if not value_allowed_none_or_none_sentinel(service_type, allowed_values):
             service_type = 'UNKNOWN_ENUM_VALUE'
         self._service_type = service_type

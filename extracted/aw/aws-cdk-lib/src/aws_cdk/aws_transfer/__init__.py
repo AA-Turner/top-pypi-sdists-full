@@ -1779,6 +1779,7 @@ class CfnConnector(
         jsii_type="aws-cdk-lib.aws_transfer.CfnConnector.As2ConfigProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "async_mdn_config": "asyncMdnConfig",
             "basic_auth_secret_id": "basicAuthSecretId",
             "compression": "compression",
             "encryption_algorithm": "encryptionAlgorithm",
@@ -1795,6 +1796,7 @@ class CfnConnector(
         def __init__(
             self,
             *,
+            async_mdn_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.ConnectorAsyncMdnConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             basic_auth_secret_id: typing.Optional[builtins.str] = None,
             compression: typing.Optional[builtins.str] = None,
             encryption_algorithm: typing.Optional[builtins.str] = None,
@@ -1808,6 +1810,7 @@ class CfnConnector(
         ) -> None:
             '''A structure that contains the parameters for an AS2 connector object.
 
+            :param async_mdn_config: 
             :param basic_auth_secret_id: Provides Basic authentication support to the AS2 Connectors API. To use Basic authentication, you must provide the name or Amazon Resource Name (ARN) of a secret in AWS Secrets Manager . The default value for this parameter is ``null`` , which indicates that Basic authentication is not enabled for the connector. If the connector should use Basic authentication, the secret needs to be in the following format: ``{ "Username": "user-name", "Password": "user-password" }`` Replace ``user-name`` and ``user-password`` with the credentials for the actual user that is being authenticated. Note the following: - You are storing these credentials in Secrets Manager, *not passing them directly* into this API. - If you are using the API, SDKs, or CloudFormation to configure your connector, then you must create the secret before you can enable Basic authentication. However, if you are using the AWS management console, you can have the system create the secret for you. If you have previously enabled Basic authentication for a connector, you can disable it by using the ``UpdateConnector`` API call. For example, if you are using the CLI, you can run the following command to remove Basic authentication: ``update-connector --connector-id my-connector-id --as2-config 'BasicAuthSecretId=""'``
             :param compression: Specifies whether the AS2 file is compressed.
             :param encryption_algorithm: The algorithm that is used to encrypt the file. Note the following: - Do not use the ``DES_EDE3_CBC`` algorithm unless you must support a legacy client that requires it, as it is a weak encryption algorithm. - You can only specify ``NONE`` if the URL for your connector uses HTTPS. Using HTTPS ensures that no traffic is sent in clear text.
@@ -1829,6 +1832,10 @@ class CfnConnector(
                 from aws_cdk import aws_transfer as transfer
                 
                 as2_config_property = transfer.CfnConnector.As2ConfigProperty(
+                    async_mdn_config=transfer.CfnConnector.ConnectorAsyncMdnConfigProperty(
+                        server_ids=["serverIds"],
+                        url="url"
+                    ),
                     basic_auth_secret_id="basicAuthSecretId",
                     compression="compression",
                     encryption_algorithm="encryptionAlgorithm",
@@ -1843,6 +1850,7 @@ class CfnConnector(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__328497a7bbb181a996e0747268f6105731221ad3f578e8a5ca68e405dcdd7e63)
+                check_type(argname="argument async_mdn_config", value=async_mdn_config, expected_type=type_hints["async_mdn_config"])
                 check_type(argname="argument basic_auth_secret_id", value=basic_auth_secret_id, expected_type=type_hints["basic_auth_secret_id"])
                 check_type(argname="argument compression", value=compression, expected_type=type_hints["compression"])
                 check_type(argname="argument encryption_algorithm", value=encryption_algorithm, expected_type=type_hints["encryption_algorithm"])
@@ -1854,6 +1862,8 @@ class CfnConnector(
                 check_type(argname="argument preserve_content_type", value=preserve_content_type, expected_type=type_hints["preserve_content_type"])
                 check_type(argname="argument signing_algorithm", value=signing_algorithm, expected_type=type_hints["signing_algorithm"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if async_mdn_config is not None:
+                self._values["async_mdn_config"] = async_mdn_config
             if basic_auth_secret_id is not None:
                 self._values["basic_auth_secret_id"] = basic_auth_secret_id
             if compression is not None:
@@ -1874,6 +1884,16 @@ class CfnConnector(
                 self._values["preserve_content_type"] = preserve_content_type
             if signing_algorithm is not None:
                 self._values["signing_algorithm"] = signing_algorithm
+
+        @builtins.property
+        def async_mdn_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.ConnectorAsyncMdnConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-connector-as2config.html#cfn-transfer-connector-as2config-asyncmdnconfig
+            '''
+            result = self._values.get("async_mdn_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.ConnectorAsyncMdnConfigProperty"]], result)
 
         @builtins.property
         def basic_auth_secret_id(self) -> typing.Optional[builtins.str]:
@@ -2006,6 +2026,75 @@ class CfnConnector(
 
         def __repr__(self) -> str:
             return "As2ConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_transfer.CfnConnector.ConnectorAsyncMdnConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"server_ids": "serverIds", "url": "url"},
+    )
+    class ConnectorAsyncMdnConfigProperty:
+        def __init__(
+            self,
+            *,
+            server_ids: typing.Sequence[builtins.str],
+            url: builtins.str,
+        ) -> None:
+            '''
+            :param server_ids: 
+            :param url: URL of the server to receive the MDN response on.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-connector-connectorasyncmdnconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_transfer as transfer
+                
+                connector_async_mdn_config_property = transfer.CfnConnector.ConnectorAsyncMdnConfigProperty(
+                    server_ids=["serverIds"],
+                    url="url"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__208c3720e0c5694b16eae4c6d5ccf697ff4b9fe918e40bd61b5b451a206c17db)
+                check_type(argname="argument server_ids", value=server_ids, expected_type=type_hints["server_ids"])
+                check_type(argname="argument url", value=url, expected_type=type_hints["url"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "server_ids": server_ids,
+                "url": url,
+            }
+
+        @builtins.property
+        def server_ids(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-connector-connectorasyncmdnconfig.html#cfn-transfer-connector-connectorasyncmdnconfig-serverids
+            '''
+            result = self._values.get("server_ids")
+            assert result is not None, "Required property 'server_ids' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def url(self) -> builtins.str:
+            '''URL of the server to receive the MDN response on.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-connector-connectorasyncmdnconfig.html#cfn-transfer-connector-connectorasyncmdnconfig-url
+            '''
+            result = self._values.get("url")
+            assert result is not None, "Required property 'url' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConnectorAsyncMdnConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -5371,6 +5460,13 @@ class CfnWebApp(
         
             # the properties below are optional
             access_endpoint="accessEndpoint",
+            endpoint_details=transfer.CfnWebApp.EndpointDetailsProperty(
+                vpc=transfer.CfnWebApp.VpcProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"],
+                    vpc_id="vpcId"
+                )
+            ),
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -5394,6 +5490,7 @@ class CfnWebApp(
         *,
         identity_provider_details: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebApp.IdentityProviderDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
         access_endpoint: typing.Optional[builtins.str] = None,
+        endpoint_details: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebApp.EndpointDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         web_app_customization: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebApp.WebAppCustomizationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         web_app_endpoint_policy: typing.Optional[builtins.str] = None,
@@ -5405,6 +5502,7 @@ class CfnWebApp(
         :param id: Construct identifier for this resource (unique in its scope).
         :param identity_provider_details: You can provide a structure that contains the details for the identity provider to use with your web app. For more details about this parameter, see `Configure your identity provider for Transfer Family web apps <https://docs.aws.amazon.com//transfer/latest/userguide/webapp-identity-center.html>`_ .
         :param access_endpoint: The ``AccessEndpoint`` is the URL that you provide to your users for them to interact with the Transfer Family web app. You can specify a custom URL or use the default value. Before you enter a custom URL for this parameter, follow the steps described in `Update your access endpoint with a custom URL <https://docs.aws.amazon.com//transfer/latest/userguide/webapp-customize.html>`_ .
+        :param endpoint_details: 
         :param tags: Key-value pairs that can be used to group and search for web apps. Tags are metadata attached to web apps for any purpose.
         :param web_app_customization: A structure that contains the customization fields for the web app. You can provide a title, logo, and icon to customize the appearance of your web app.
         :param web_app_endpoint_policy: Setting for the type of endpoint policy for the web app. The default value is ``STANDARD`` . If your web app was created in an AWS GovCloud (US) Region , the value of this parameter can be ``FIPS`` , which indicates the web app endpoint is FIPS-compliant.
@@ -5417,6 +5515,7 @@ class CfnWebApp(
         props = CfnWebAppProps(
             identity_provider_details=identity_provider_details,
             access_endpoint=access_endpoint,
+            endpoint_details=endpoint_details,
             tags=tags,
             web_app_customization=web_app_customization,
             web_app_endpoint_policy=web_app_endpoint_policy,
@@ -5497,6 +5596,14 @@ class CfnWebApp(
         return typing.cast(builtins.str, jsii.get(self, "attrIdentityProviderDetailsApplicationArn"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrVpcEndpointId")
+    def attr_vpc_endpoint_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: VpcEndpointId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVpcEndpointId"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrWebAppId")
     def attr_web_app_id(self) -> builtins.str:
         '''The unique identifier for the web app.
@@ -5552,6 +5659,23 @@ class CfnWebApp(
             type_hints = typing.get_type_hints(_typecheckingstub__b49260e5a1b945671ba6797a35aa7d7bf93a577eac3292e024438feec4dc1976)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accessEndpoint", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="endpointDetails")
+    def endpoint_details(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebApp.EndpointDetailsProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebApp.EndpointDetailsProperty"]], jsii.get(self, "endpointDetails"))
+
+    @endpoint_details.setter
+    def endpoint_details(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebApp.EndpointDetailsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b969fd051f6746fc8b685a632cf3cada5dec4597392a391d5f688f775fc4c316)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "endpointDetails", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -5617,6 +5741,66 @@ class CfnWebApp(
             type_hints = typing.get_type_hints(_typecheckingstub__05c81ce4f64dae1408aa42ef29823b95b141813512df0fe6ef85a451fc930f0a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "webAppUnits", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_transfer.CfnWebApp.EndpointDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"vpc": "vpc"},
+    )
+    class EndpointDetailsProperty:
+        def __init__(
+            self,
+            *,
+            vpc: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebApp.VpcProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param vpc: You can provide a structure that contains the details for the VPC endpoint to use with your web app.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-webapp-endpointdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_transfer as transfer
+                
+                endpoint_details_property = transfer.CfnWebApp.EndpointDetailsProperty(
+                    vpc=transfer.CfnWebApp.VpcProperty(
+                        security_group_ids=["securityGroupIds"],
+                        subnet_ids=["subnetIds"],
+                        vpc_id="vpcId"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__4cda8699c628c69f1fa7fc66b77837699f715ba4bbc7856a7ae90ad9eed877e1)
+                check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if vpc is not None:
+                self._values["vpc"] = vpc
+
+        @builtins.property
+        def vpc(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebApp.VpcProperty"]]:
+            '''You can provide a structure that contains the details for the VPC endpoint to use with your web app.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-webapp-endpointdetails.html#cfn-transfer-webapp-endpointdetails-vpc
+            '''
+            result = self._values.get("vpc")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebApp.VpcProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EndpointDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_transfer.CfnWebApp.IdentityProviderDetailsProperty",
@@ -5704,6 +5888,92 @@ class CfnWebApp(
 
         def __repr__(self) -> str:
             return "IdentityProviderDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_transfer.CfnWebApp.VpcProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "security_group_ids": "securityGroupIds",
+            "subnet_ids": "subnetIds",
+            "vpc_id": "vpcId",
+        },
+    )
+    class VpcProperty:
+        def __init__(
+            self,
+            *,
+            security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+            subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+            vpc_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''You can provide a structure that contains the details for the VPC endpoint to use with your web app.
+
+            :param security_group_ids: 
+            :param subnet_ids: 
+            :param vpc_id: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-webapp-vpc.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_transfer as transfer
+                
+                vpc_property = transfer.CfnWebApp.VpcProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"],
+                    vpc_id="vpcId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__10e679ca50b2fbdd3de1dfd25dca7199be14ca1a6d880cb2bc8349d670c8e598)
+                check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+                check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+                check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if security_group_ids is not None:
+                self._values["security_group_ids"] = security_group_ids
+            if subnet_ids is not None:
+                self._values["subnet_ids"] = subnet_ids
+            if vpc_id is not None:
+                self._values["vpc_id"] = vpc_id
+
+        @builtins.property
+        def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-webapp-vpc.html#cfn-transfer-webapp-vpc-securitygroupids
+            '''
+            result = self._values.get("security_group_ids")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-webapp-vpc.html#cfn-transfer-webapp-vpc-subnetids
+            '''
+            result = self._values.get("subnet_ids")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def vpc_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-webapp-vpc.html#cfn-transfer-webapp-vpc-vpcid
+            '''
+            result = self._values.get("vpc_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VpcProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -5859,6 +6129,7 @@ class CfnWebApp(
     name_mapping={
         "identity_provider_details": "identityProviderDetails",
         "access_endpoint": "accessEndpoint",
+        "endpoint_details": "endpointDetails",
         "tags": "tags",
         "web_app_customization": "webAppCustomization",
         "web_app_endpoint_policy": "webAppEndpointPolicy",
@@ -5871,6 +6142,7 @@ class CfnWebAppProps:
         *,
         identity_provider_details: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebApp.IdentityProviderDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
         access_endpoint: typing.Optional[builtins.str] = None,
+        endpoint_details: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebApp.EndpointDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         web_app_customization: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebApp.WebAppCustomizationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         web_app_endpoint_policy: typing.Optional[builtins.str] = None,
@@ -5880,6 +6152,7 @@ class CfnWebAppProps:
 
         :param identity_provider_details: You can provide a structure that contains the details for the identity provider to use with your web app. For more details about this parameter, see `Configure your identity provider for Transfer Family web apps <https://docs.aws.amazon.com//transfer/latest/userguide/webapp-identity-center.html>`_ .
         :param access_endpoint: The ``AccessEndpoint`` is the URL that you provide to your users for them to interact with the Transfer Family web app. You can specify a custom URL or use the default value. Before you enter a custom URL for this parameter, follow the steps described in `Update your access endpoint with a custom URL <https://docs.aws.amazon.com//transfer/latest/userguide/webapp-customize.html>`_ .
+        :param endpoint_details: 
         :param tags: Key-value pairs that can be used to group and search for web apps. Tags are metadata attached to web apps for any purpose.
         :param web_app_customization: A structure that contains the customization fields for the web app. You can provide a title, logo, and icon to customize the appearance of your web app.
         :param web_app_endpoint_policy: Setting for the type of endpoint policy for the web app. The default value is ``STANDARD`` . If your web app was created in an AWS GovCloud (US) Region , the value of this parameter can be ``FIPS`` , which indicates the web app endpoint is FIPS-compliant.
@@ -5904,6 +6177,13 @@ class CfnWebAppProps:
             
                 # the properties below are optional
                 access_endpoint="accessEndpoint",
+                endpoint_details=transfer.CfnWebApp.EndpointDetailsProperty(
+                    vpc=transfer.CfnWebApp.VpcProperty(
+                        security_group_ids=["securityGroupIds"],
+                        subnet_ids=["subnetIds"],
+                        vpc_id="vpcId"
+                    )
+                ),
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -5923,6 +6203,7 @@ class CfnWebAppProps:
             type_hints = typing.get_type_hints(_typecheckingstub__fbc7bdd479da7eca2bd2264125d2580878fa82f5b9dcf4a35fe4aca05da20d4d)
             check_type(argname="argument identity_provider_details", value=identity_provider_details, expected_type=type_hints["identity_provider_details"])
             check_type(argname="argument access_endpoint", value=access_endpoint, expected_type=type_hints["access_endpoint"])
+            check_type(argname="argument endpoint_details", value=endpoint_details, expected_type=type_hints["endpoint_details"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument web_app_customization", value=web_app_customization, expected_type=type_hints["web_app_customization"])
             check_type(argname="argument web_app_endpoint_policy", value=web_app_endpoint_policy, expected_type=type_hints["web_app_endpoint_policy"])
@@ -5932,6 +6213,8 @@ class CfnWebAppProps:
         }
         if access_endpoint is not None:
             self._values["access_endpoint"] = access_endpoint
+        if endpoint_details is not None:
+            self._values["endpoint_details"] = endpoint_details
         if tags is not None:
             self._values["tags"] = tags
         if web_app_customization is not None:
@@ -5967,6 +6250,16 @@ class CfnWebAppProps:
         '''
         result = self._values.get("access_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def endpoint_details(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebApp.EndpointDetailsProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-transfer-webapp.html#cfn-transfer-webapp-endpointdetails
+        '''
+        result = self._values.get("endpoint_details")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebApp.EndpointDetailsProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
@@ -8014,6 +8307,7 @@ def _typecheckingstub__7f2f8d48aab925fcdb11fb86f8b12aeae11aa8b85048a7ded27a817b5
 
 def _typecheckingstub__328497a7bbb181a996e0747268f6105731221ad3f578e8a5ca68e405dcdd7e63(
     *,
+    async_mdn_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.ConnectorAsyncMdnConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     basic_auth_secret_id: typing.Optional[builtins.str] = None,
     compression: typing.Optional[builtins.str] = None,
     encryption_algorithm: typing.Optional[builtins.str] = None,
@@ -8024,6 +8318,14 @@ def _typecheckingstub__328497a7bbb181a996e0747268f6105731221ad3f578e8a5ca68e405d
     partner_profile_id: typing.Optional[builtins.str] = None,
     preserve_content_type: typing.Optional[builtins.str] = None,
     signing_algorithm: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__208c3720e0c5694b16eae4c6d5ccf697ff4b9fe918e40bd61b5b451a206c17db(
+    *,
+    server_ids: typing.Sequence[builtins.str],
+    url: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8524,6 +8826,7 @@ def _typecheckingstub__7e725b505349ad94c74b92c89fcff0a41d3c479d533cc008fb193cc8b
     *,
     identity_provider_details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebApp.IdentityProviderDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
     access_endpoint: typing.Optional[builtins.str] = None,
+    endpoint_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebApp.EndpointDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     web_app_customization: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebApp.WebAppCustomizationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     web_app_endpoint_policy: typing.Optional[builtins.str] = None,
@@ -8568,6 +8871,12 @@ def _typecheckingstub__b49260e5a1b945671ba6797a35aa7d7bf93a577eac3292e024438feec
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b969fd051f6746fc8b685a632cf3cada5dec4597392a391d5f688f775fc4c316(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWebApp.EndpointDetailsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__30b2b42c451b5cf18bc021ed1ab027f439a56a366c31b4bec2874a1319670127(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
@@ -8592,11 +8901,27 @@ def _typecheckingstub__05c81ce4f64dae1408aa42ef29823b95b141813512df0fe6ef85a451f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__4cda8699c628c69f1fa7fc66b77837699f715ba4bbc7856a7ae90ad9eed877e1(
+    *,
+    vpc: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebApp.VpcProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b302a4e89f0273c2f4ecb9d1e9d455f99c8de91db6c0a9f929e41a9c0140a4a4(
     *,
     application_arn: typing.Optional[builtins.str] = None,
     instance_arn: typing.Optional[builtins.str] = None,
     role: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__10e679ca50b2fbdd3de1dfd25dca7199be14ca1a6d880cb2bc8349d670c8e598(
+    *,
+    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    vpc_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8621,6 +8946,7 @@ def _typecheckingstub__fbc7bdd479da7eca2bd2264125d2580878fa82f5b9dcf4a35fe4aca05
     *,
     identity_provider_details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebApp.IdentityProviderDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
     access_endpoint: typing.Optional[builtins.str] = None,
+    endpoint_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebApp.EndpointDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     web_app_customization: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebApp.WebAppCustomizationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     web_app_endpoint_policy: typing.Optional[builtins.str] = None,

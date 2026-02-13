@@ -7,7 +7,6 @@ import csv
 import inspect
 import time
 import warnings
-from collections.abc import Iterable
 from pathlib import Path
 from warnings import warn
 
@@ -118,7 +117,7 @@ def _yule_walker(x, order):
     n = np.prod(np.array(x.shape[:-1], int))
     r = np.zeros((n, order + 1), np.float64)
     y = x - x.mean()
-    y.shape = (n, x.shape[-1])  # inplace
+    y = y.reshape(n, x.shape[-1])  # inplace
     r[:, 0] += (y[:, np.newaxis, :] @ y[:, :, np.newaxis])[:, 0, 0]
     for k in range(1, order + 1):
         r[:, k] += (y[:, np.newaxis, 0:-k] @ y[:, k:, np.newaxis])[:, 0, 0]
@@ -130,7 +129,8 @@ def _yule_walker(x, order):
     # section removed-ambiguity-when-broadcasting-in-np-solve
     rho = np.linalg.solve(rt, r[:, 1:, None])[..., 0]
 
-    rho.shape = x.shape[:-1] + (order,)
+    rho = rho.reshape((*x.shape[:-1], order))
+
     return rho
 
 
@@ -182,6 +182,8 @@ def run_glm(
         values are RegressionResults instances corresponding to the voxels.
 
     """
+    check_params(locals())
+
     acceptable_noise_models = ["ols", "arN"]
     if (noise_model[:2] != "ar") and (noise_model != "ols"):
         raise ValueError(
@@ -207,8 +209,8 @@ def run_glm(
         )
         try:
             ar_order = int(noise_model[2:])
-        except ValueError:
-            raise ValueError(err_msg)
+        except ValueError as e:
+            raise ValueError(err_msg) from e
 
         # compute the AR coefficients
         ar_coef_ = _yule_walker(ols_result.residuals.T, ar_order)
@@ -260,7 +262,7 @@ def run_glm(
     return labels, results
 
 
-def _check_trial_type(events) -> None:
+def _check_trial_type(events: list[str | Path]) -> None:
     """Check that the event files contain a "trial_type" column.
 
     Parameters
@@ -432,7 +434,7 @@ class FirstLevelModel(BaseGLM):
         further inspection of model details. This has an important impact
         on memory consumption.
 
-    subject_label : :obj:`str`, optional
+    subject_label : :obj:`str` or None, default=None
         This id will be used to identify a `FirstLevelModel` when passed to
         a `SecondLevelModel` object.
 
@@ -646,7 +648,7 @@ class FirstLevelModel(BaseGLM):
 
     def _log(
         self, step, run_idx=None, n_runs=None, t0=None, time_in_second=None
-    ):
+    ) -> None:
         """Generate and log messages for different step of the model fit."""
         if step == "progress":
             msg = self._report_progress(run_idx, n_runs, t0)
@@ -683,7 +685,7 @@ class FirstLevelModel(BaseGLM):
             f"Computing run {run_idx + 1} out of {n_runs} runs ({remaining})."
         )
 
-    def _fit_single_run(self, sample_masks, bins, run_img, run_idx):
+    def _fit_single_run(self, sample_masks, bins, run_img, run_idx) -> None:
         """Fit the model for a single and keep only the regression results."""
         design = self.design_matrices_[run_idx]
 
@@ -817,7 +819,7 @@ class FirstLevelModel(BaseGLM):
 
         return design
 
-    def __sklearn_is_fitted__(self):
+    def __sklearn_is_fitted__(self) -> bool:
         return (
             hasattr(self, "labels_")
             and hasattr(self, "results_")
@@ -1258,10 +1260,7 @@ class FirstLevelModel(BaseGLM):
             Used for setting up the masker object.
         """
         masker_type = "nii"
-        # all elements of X should be of the similar type by now
-        # so we can only check the first one
-        to_check = run_img[0] if isinstance(run_img, Iterable) else run_img
-        if not self._is_volume_glm() or isinstance(to_check, SurfaceImage):
+        if not self._is_volume_glm() or isinstance(run_img, SurfaceImage):
             masker_type = "surface"
 
         # Learn the mask
@@ -1345,10 +1344,6 @@ def _check_events_file_uses_tab_separators(events_files):
         A single file's path or a collection of filepaths.
         Files are expected to be text files.
         Non-text files will raise ValueError.
-
-    Returns
-    -------
-    None
 
     Raises
     ------
@@ -1498,7 +1493,7 @@ def first_level_from_bids(
     exclude_subjects : :obj:`list` of :obj:`str` or None, default=None
         Specifies the subset of subject labels to skip.
 
-        .. nilearn_versionadded:: 0.13.0dev
+        .. nilearn_versionadded:: 0.13.0
 
     img_filters : :obj:`list` of :obj:`tuple` (:obj:`str`, :obj:`str`), \
         default=None
@@ -1912,7 +1907,7 @@ def _list_valid_subjects(derivatives_path, sub_labels) -> list[str]:
     return sorted(set(sub_labels_exist))
 
 
-def _report_found_files(files, text, sub_label, filters, verbose):
+def _report_found_files(files, text, sub_label, filters, verbose) -> None:
     """Print list of files found for a given subject and filter.
 
     Parameters
@@ -2227,7 +2222,7 @@ def _get_confounds(
     return confounds
 
 
-def _check_confounds_list(confounds, imgs):
+def _check_confounds_list(confounds, imgs) -> None:
     """Check the number of confounds.tsv files.
 
     If no file is found, it will be assumed there are none,
@@ -2382,14 +2377,14 @@ def _make_bids_files_filter(
     task_label : :obj:`str`
         Task label as specified in the file names like _task-<task_label>_.
 
-    space_label : :obj:`str` or None, optional
+    space_label : :obj:`str` or None, default=None
         Specifies the space label of the preprocessed bold.nii images.
         As they are specified in the file names like _space-<space_label>_.
 
-    supported_filters : :obj:`list` of :obj:`str` or None, optional
+    supported_filters : :obj:`list` of :obj:`str` or None, default=None
         List of authorized BIDS entities
 
-    extra_filter : :obj:`list` of :obj:`tuple` (str, str) or None, optional
+    extra_filter : :obj:`list` of :obj:`tuple` (str, str) or None, default=None
         Filters are of the form (field, label).
         Only one filter per field allowed.
 
@@ -2502,7 +2497,7 @@ def _check_bids_image_list(imgs, sub_label, filters):
 
 def _check_bids_events_list(
     events, imgs, sub_label, task_label, dataset_path, events_filters, verbose
-):
+) -> None:
     """Check input BIDS events.
 
     Check that:

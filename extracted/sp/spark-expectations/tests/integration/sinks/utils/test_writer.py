@@ -1,3 +1,4 @@
+import json
 import os
 import unittest.mock
 from datetime import datetime
@@ -87,7 +88,9 @@ def fixture_context():
                 "description": "col1 should not be null",
                 "enable_error_drop_alert": False,
                 "error_drop_threshold": 0,
-                "priority": "medium"
+                "priority": "medium",
+                "id_hash": None,
+                "expectation_hash": None
             },
             {
                 "product_id": "product1",
@@ -103,7 +106,9 @@ def fixture_context():
                 "description": "col2 should start with A",
                 "enable_error_drop_alert": False,
                 "error_drop_threshold": 0,
-                "priority": "medium"
+                "priority": "medium",
+                "id_hash": None,
+                "expectation_hash": None
             },
         ]
     }
@@ -177,7 +182,8 @@ def fixture_create_stats_table():
     meta_dq_run_id STRING,
     meta_dq_run_date DATE,
     meta_dq_run_datetime TIMESTAMP,
-    dq_env STRING
+    dq_env STRING,
+    se_job_metadata STRING
     )
     USING delta
     """
@@ -2047,6 +2053,11 @@ def test_write_error_stats(
         "get_rules_exceeds_threshold",
         input_record.get("row_dq_error_threshold"),
     )
+    setattr(
+        _mock_context,
+        "get_se_job_metadata",
+        {"runtime_env": {"host": "local"}},
+    )
 
     setattr(
         _mock_context,
@@ -2179,6 +2190,8 @@ def test_write_error_stats(
         '{"dag": "dag1", "task": "task1", "team": "my_squad"}',
     )
     setattr(_mock_context, "get_topic_name", "dq-sparkexpectations-stats")
+    setattr(_mock_context, "get_dbr_workspace_id", "local")
+    setattr(_mock_context, "get_dbr_workspace_url", "local")
 
     if writer_config is None:
         setattr(
@@ -2229,7 +2242,22 @@ def test_write_error_stats(
         # assert row.dq_run_time == input_record.get("dq_run_time")
         assert row.dq_status == input_record.get("status")
         assert row.meta_dq_run_id == "product1_run_test"
+        assert row.dq_env == "test_env"
+        se_job_metadata = json.loads(row.se_job_metadata)
+        assert se_job_metadata.get("runtime_env", {}).get("host") == "local"
 
+        # Compare Kafka output to stats table; the Kafka writer converts
+        # se_job_metadata from a JSON string to a struct so the comparison
+        # must apply the same transformation to the stats table DataFrame.
+        from pyspark.sql.functions import from_json, schema_of_json, lit as _lit
+        expected_stats = stats_table
+        if "se_job_metadata" in expected_stats.columns:
+            _sample = expected_stats.select("se_job_metadata").first()[0]
+            if _sample:
+                expected_stats = expected_stats.withColumn(
+                    "se_job_metadata",
+                    from_json(col("se_job_metadata"), schema_of_json(_lit(_sample))),
+                )
         assert (
             spark.read.format("kafka")
             .option("kafka.bootstrap.servers", "localhost:9092")
@@ -2241,7 +2269,7 @@ def test_write_error_stats(
             .limit(1)
             .selectExpr("cast(value as string) as value")
             .collect()
-            == stats_table.selectExpr("to_json(struct(*)) AS value").collect()
+            == expected_stats.selectExpr("to_json(struct(*)) AS value").collect()
         )
 
 
@@ -3914,7 +3942,9 @@ def test_write_error_records_final_dependent(
                             "column_name":"col1",
                             "tag": "validity",
                             "action_if_failed": "ignore",
-                            "priority": "medium"
+                            "priority": "medium",
+                            "id_hash": "hash1",
+                            "expectation_hash": "exp_hash1"
                         },
                         {
                             "rule_type": "row_dq",
@@ -3923,7 +3953,9 @@ def test_write_error_records_final_dependent(
                             "column_name": "col2",
                             "tag": "validity",
                             "action_if_failed": "ignore",
-                            "priority": "medium"
+                            "priority": "medium",
+                            "id_hash": "hash2",
+                            "expectation_hash": "exp_hash2"
                         },
                     ],
                     "meta_dq_run_id": "run_id",
@@ -3938,7 +3970,9 @@ def test_write_error_records_final_dependent(
                             "column_name": "col1",
                             "tag": "validity",
                             "action_if_failed": "ignore",
-                            "priority": "medium"
+                            "priority": "medium",
+                            "id_hash": "hash1",
+                            "expectation_hash": "exp_hash1"
                         }
                     ],
                     "meta_dq_run_id": "run_id",
@@ -3953,7 +3987,9 @@ def test_write_error_records_final_dependent(
                             "column_name": "col2",
                             "tag": "validity",
                             "action_if_failed": "ignore",
-                            "priority": "medium"
+                            "priority": "medium",
+                            "id_hash": "hash2",
+                            "expectation_hash": "exp_hash2"
                         }
                     ],
                     "meta_dq_run_id": "run_id",
@@ -3969,7 +4005,9 @@ def test_write_error_records_final_dependent(
                     "tag": "validity",
                     "action_if_failed": "ignore",
                     "failed_row_count": 2,
-                    "priority": "medium"
+                    "priority": "medium",
+                    "id_hash": "hash1",
+                    "expectation_hash": "exp_hash1"
                 },
                 {
                     "rule_type": "row_dq",
@@ -3979,7 +4017,9 @@ def test_write_error_records_final_dependent(
                     "tag": "validity",
                     "action_if_failed": "ignore",
                     "failed_row_count": 2,
-                    "priority": "medium"
+                    "priority": "medium",
+                    "id_hash": "hash2",
+                    "expectation_hash": "exp_hash2"
                 },
             ],
         ),
@@ -3994,7 +4034,9 @@ def test_write_error_records_final_dependent(
                             "column_name":"col1",
                             "tag": "validity",
                             "action_if_failed": "ignore",
-                            "priority": "medium"
+                            "priority": "medium",
+                            "id_hash": "hash1",
+                            "expectation_hash": "exp_hash1"
                         }
                     ],
                     "meta_dq_run_id": "run_id",
@@ -4009,7 +4051,9 @@ def test_write_error_records_final_dependent(
                             "column_name": "col1",
                             "tag": "validity",
                             "action_if_failed": "ignore",
-                            "priority": "medium"
+                            "priority": "medium",
+                            "id_hash": "hash1",
+                            "expectation_hash": "exp_hash1"
                         }
                     ],
                     "meta_dq_run_id": "run_id",
@@ -4025,7 +4069,9 @@ def test_write_error_records_final_dependent(
                     "tag": "validity",
                     "action_if_failed": "ignore",
                     "failed_row_count": 2,
-                    "priority": "medium"
+                    "priority": "medium",
+                    "id_hash": "hash1",
+                    "expectation_hash": "exp_hash1"
                 },
                 {
                     "rule_type": "row_dq",
@@ -4035,7 +4081,9 @@ def test_write_error_records_final_dependent(
                     "tag": "validity",
                     "action_if_failed": "ignore",
                     "failed_row_count": 0,
-                    "priority": "medium"
+                    "priority": "medium",
+                    "id_hash": None,
+                    "expectation_hash": None
                 },
             ],
         ),
@@ -4302,7 +4350,7 @@ def test_generate_rules_exceeds_threshold_exception():
     "dbr_version,env,expected_options",
     [
         (
-            13.3,
+            "13.3",
             "prod",
             {
                 "kafka.bootstrap.servers": "test-server-url",
@@ -4315,7 +4363,7 @@ def test_generate_rules_exceeds_threshold_exception():
             },
         ),
         (
-            12,
+            "12",
             "local",
             {
                 "kafka.bootstrap.servers": "localhost:9092",
@@ -4324,7 +4372,7 @@ def test_generate_rules_exceeds_threshold_exception():
             },
         ),
         (
-            12,
+            "12",
             "prod",
             {
                 "kafka.bootstrap.servers": "test-server-url",
@@ -4332,6 +4380,45 @@ def test_generate_rules_exceeds_threshold_exception():
                 "kafka.sasl.mechanism": "OAUTHBEARER",
                 "kafka.sasl.jaas.config": """kafkashaded.org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required oauth.client.id='test-client-id'  oauth.client.secret='test-token' oauth.token.endpoint.uri='test-endpoint'; """,
                 "kafka.sasl.login.callback.handler.class": "io.strimzi.kafka.oauth.client.JaasClientOauthLoginCallbackHandler",
+                "topic": "test-topic",
+            },
+        ),
+        (
+            "client.1.13",  # Serverless compute version string
+            "prod",
+            {
+                "kafka.bootstrap.servers": "test-server-url",
+                "kafka.security.protocol": "SASL_SSL",
+                "kafka.sasl.mechanism": "OAUTHBEARER",
+                "kafka.sasl.jaas.config": """kafkashaded.org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required clientId="test-client-id" clientSecret="test-token";""",
+                "kafka.sasl.oauthbearer.token.endpoint.url": "test-endpoint",
+                "kafka.sasl.login.callback.handler.class": "kafkashaded.org.apache.kafka.common.security.oauthbearer.secured.OAuthBearerLoginCallbackHandler",
+                "topic": "test-topic",
+            },
+        ),
+        (
+            "15.4.x-gpu-ml",  # Unrecognizable version string defaults to modern config
+            "prod",
+            {
+                "kafka.bootstrap.servers": "test-server-url",
+                "kafka.security.protocol": "SASL_SSL",
+                "kafka.sasl.mechanism": "OAUTHBEARER",
+                "kafka.sasl.jaas.config": """kafkashaded.org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required clientId="test-client-id" clientSecret="test-token";""",
+                "kafka.sasl.oauthbearer.token.endpoint.url": "test-endpoint",
+                "kafka.sasl.login.callback.handler.class": "kafkashaded.org.apache.kafka.common.security.oauthbearer.secured.OAuthBearerLoginCallbackHandler",
+                "topic": "test-topic",
+            },
+        ),
+        (
+            None,  # No DATABRICKS_RUNTIME_VERSION (non-Databricks env) defaults to modern config
+            "prod",
+            {
+                "kafka.bootstrap.servers": "test-server-url",
+                "kafka.security.protocol": "SASL_SSL",
+                "kafka.sasl.mechanism": "OAUTHBEARER",
+                "kafka.sasl.jaas.config": """kafkashaded.org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required clientId="test-client-id" clientSecret="test-token";""",
+                "kafka.sasl.oauthbearer.token.endpoint.url": "test-endpoint",
+                "kafka.sasl.login.callback.handler.class": "kafkashaded.org.apache.kafka.common.security.oauthbearer.secured.OAuthBearerLoginCallbackHandler",
                 "topic": "test-topic",
             },
         ),
@@ -4453,3 +4540,90 @@ def test_get_kafka_write_options_custom():
             {}
         )  # Empty dict since we mock everything
         assert actual_options == expected_options
+
+
+def test_save_df_as_table_auto_merge_schema_for_stats_table(_fixture_employee, _fixture_context):
+    """Test that mergeSchema is automatically enabled for stats table writes"""
+    import shutil
+    
+    # Clean up any existing table data
+    table_path = "/tmp/hive/warehouse/test_auto_merge_schema_table"
+    if os.path.exists(table_path):
+        shutil.rmtree(table_path)
+    
+    spark.sql("DROP TABLE IF EXISTS test_auto_merge_schema_table")
+    
+    writer = SparkExpectationsWriter(_fixture_context)
+    
+    # Test 1: Config with no options - mergeSchema should be auto-added
+    config_no_options = {"mode": "append", "format": "delta"}
+    config_copy = config_no_options.copy()
+    
+    writer.save_df_as_table(
+        _fixture_employee,
+        "test_auto_merge_schema_table",
+        config=config_copy,
+        stats_table=True
+    )
+    
+    # Verify original config was not mutated
+    assert "options" not in config_no_options
+    
+    # Test 2: Config with empty options - mergeSchema should be auto-added  
+    spark.sql("DROP TABLE IF EXISTS test_auto_merge_schema_table2")
+    table_path2 = "/tmp/hive/warehouse/test_auto_merge_schema_table2"
+    if os.path.exists(table_path2):
+        shutil.rmtree(table_path2)
+        
+    config_empty_options = {"mode": "append", "format": "delta", "options": {}}
+    config_copy2 = config_empty_options.copy()
+    config_copy2["options"] = config_empty_options["options"].copy()
+    
+    writer.save_df_as_table(
+        _fixture_employee,
+        "test_auto_merge_schema_table2", 
+        config=config_copy2,
+        stats_table=True
+    )
+    
+    # Verify original config was not mutated
+    assert config_empty_options["options"] == {}
+    
+    # Clean up
+    spark.sql("DROP TABLE IF EXISTS test_auto_merge_schema_table")
+    spark.sql("DROP TABLE IF EXISTS test_auto_merge_schema_table2")
+
+
+def test_save_df_as_table_respects_user_merge_schema(_fixture_employee, _fixture_context):
+    """Test that user-specified mergeSchema is not overwritten"""
+    import shutil
+    
+    # Clean up any existing table data
+    table_path = "/tmp/hive/warehouse/test_user_merge_schema_table"
+    if os.path.exists(table_path):
+        shutil.rmtree(table_path)
+    
+    spark.sql("DROP TABLE IF EXISTS test_user_merge_schema_table")
+    
+    writer = SparkExpectationsWriter(_fixture_context)
+    
+    # User explicitly sets mergeSchema to "false" - should be respected
+    config_user_specified = {
+        "mode": "append",
+        "format": "delta",
+        "options": {"mergeSchema": "false"}
+    }
+    original_merge_schema = config_user_specified["options"]["mergeSchema"]
+    
+    writer.save_df_as_table(
+        _fixture_employee,
+        "test_user_merge_schema_table",
+        config=config_user_specified,
+        stats_table=True
+    )
+    
+    # Verify user's setting was preserved (not mutated)
+    assert config_user_specified["options"]["mergeSchema"] == original_merge_schema
+    
+    # Clean up
+    spark.sql("DROP TABLE IF EXISTS test_user_merge_schema_table")

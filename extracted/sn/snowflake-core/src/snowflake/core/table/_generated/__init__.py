@@ -38,4 +38,6 @@ from snowflake.core.table._generated.models.table_clone import TableClone
 from snowflake.core.table._generated.models.table_column import TableColumn
 from snowflake.core.table._generated.models.table_like import TableLike
 from snowflake.core.table._generated.models.table_using_template import TableUsingTemplate
+from snowflake.core.table._generated.models.tag_assignment import TagAssignment
+from snowflake.core.table._generated.models.tag_reference import TagReference
 from snowflake.core.table._generated.models.unique_key import UniqueKey

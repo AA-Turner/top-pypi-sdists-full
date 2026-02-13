@@ -2,13 +2,13 @@ from adam.checks.check_result import CheckResult
 from adam.checks.issue import Issue
 from adam.repl_session import ReplSession
 from adam.utils_tabulize import tabulize
-from adam.utils_context import Context
+from adam.utils_context import NULL
 
 class IssuesUtils:
-    def show(check_results: list[CheckResult], in_repl = False, err = False, ctx: Context = Context.NULL) -> str:
+    def show(check_results: list[CheckResult], in_repl = False, err = False, ctx = NULL) -> str:
         return IssuesUtils.show_issues(CheckResult.collect_issues(check_results), in_repl=in_repl, err = err, ctx=ctx)
 
-    def show_issues(issues: list[Issue], in_repl = False, err = False, ctx: Context = Context.NULL):
+    def show_issues(issues: list[Issue], in_repl = False, err = False, ctx = NULL):
         lines = []
 
         if not issues:

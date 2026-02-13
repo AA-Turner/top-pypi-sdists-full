@@ -15,19 +15,27 @@
 import sys
 import unittest
 
+from libcloud.http import LibcloudConnection
 from libcloud.test import MockHttp, LibcloudTestCase
 from libcloud.dns.types import RecordType
 from libcloud.utils.py3 import httplib
 from libcloud.test.secrets import DIGITALOCEAN_v2_PARAMS
 from libcloud.test.file_fixtures import DNSFileFixtures
+from libcloud.common.digitalocean import DigitalOceanBaseDriver, DigitalOcean_v2_BaseDriver
 from libcloud.dns.drivers.digitalocean import DigitalOceanDNSDriver
 
 
 class DigitalOceanDNSTests(LibcloudTestCase):
     def setUp(self):
+        DigitalOceanBaseDriver.connectionCls.conn_class = DigitalOceanDNSMockHttp
+        DigitalOcean_v2_BaseDriver.connectionCls.conn_class = DigitalOceanDNSMockHttp
         DigitalOceanDNSDriver.connectionCls.conn_class = DigitalOceanDNSMockHttp
         DigitalOceanDNSMockHttp.type = None
         self.driver = DigitalOceanDNSDriver(*DIGITALOCEAN_v2_PARAMS)
+
+    def tearDown(self):
+        LibcloudConnection.type = None
+        DigitalOceanDNSMockHttp.type = None
 
     def test_list_zones(self):
         zones = self.driver.list_zones()

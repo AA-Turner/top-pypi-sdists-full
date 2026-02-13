@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trl
-Version: 0.27.2
+Version: 0.28.0
 Summary: Train transformer language models with reinforcement learning.
 Author-email: Leandro von Werra <leandro.vonwerra@gmail.com>
 License-Expression: Apache-2.0
@@ -28,9 +28,11 @@ Requires-Dist: scikit-learn; extra == "bco"
 Requires-Dist: joblib; extra == "bco"
 Provides-Extra: deepspeed
 Requires-Dist: deepspeed>=0.14.4; extra == "deepspeed"
+Requires-Dist: transformers!=5.1.0; extra == "deepspeed"
 Provides-Extra: judges
 Requires-Dist: openai>=1.23.2; extra == "judges"
 Requires-Dist: llm-blender>=0.0.2; extra == "judges"
+Requires-Dist: transformers<5.0.0; extra == "judges"
 Provides-Extra: kernels
 Requires-Dist: kernels; extra == "kernels"
 Provides-Extra: liger
@@ -46,6 +48,7 @@ Provides-Extra: scikit
 Requires-Dist: scikit-learn; extra == "scikit"
 Provides-Extra: test
 Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: pytest-datadir>=1.7.0; extra == "test"
 Requires-Dist: pytest-rerunfailures==15.1; extra == "test"
 Requires-Dist: pytest-xdist; extra == "test"
 Requires-Dist: pytest; extra == "test"
@@ -74,6 +77,7 @@ Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: hf-doc-builder; extra == "dev"
 Requires-Dist: bitsandbytes; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: pytest-datadir>=1.7.0; extra == "dev"
 Requires-Dist: pytest-rerunfailures==15.1; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
@@ -278,13 +282,12 @@ Read more in the [Experimental docs](https://huggingface.co/docs/trl/experimenta
 ## Citation
 
 ```bibtex
-@misc{vonwerra2022trl,
-  author = {Leandro von Werra and Younes Belkada and Lewis Tunstall and Edward Beeching and Tristan Thrush and Nathan Lambert and Shengyi Huang and Kashif Rasul and Quentin Gallouédec},
-  title = {TRL: Transformer Reinforcement Learning},
-  year = {2020},
-  publisher = {GitHub},
-  journal = {GitHub repository},
-  howpublished = {\url{https://github.com/huggingface/trl}}
+@software{vonwerra2020trl,
+  title   = {{TRL: Transformers Reinforcement Learning}},
+  author  = {von Werra, Leandro and Belkada, Younes and Tunstall, Lewis and Beeching, Edward and Thrush, Tristan and Lambert, Nathan and Huang, Shengyi and Rasul, Kashif and Gallouédec, Quentin},
+  license = {Apache-2.0},
+  url     = {https://github.com/huggingface/trl},
+  year    = {2020}
 }
 ```
 

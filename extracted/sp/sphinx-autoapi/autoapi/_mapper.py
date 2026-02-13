@@ -15,7 +15,6 @@ import sphinx.util
 import sphinx.util.logging
 from sphinx.util.console import colorize
 from sphinx.util.display import status_iterator
-import sphinx.util.docstrings
 from sphinx.util.osutil import ensuredir
 
 from ._parser import Parser
@@ -31,13 +30,6 @@ from ._objects import (
     PythonException,
 )
 from .settings import OWN_PAGE_LEVELS, TEMPLATE_DIR
-
-if sys.version_info < (3, 10):  # PY310
-    from stdlib_list import in_stdlib
-else:
-
-    def in_stdlib(module_name: str) -> bool:
-        return module_name in sys.stdlib_module_names
 
 
 LOGGER = sphinx.util.logging.getLogger(__name__)
@@ -312,9 +304,10 @@ class Mapper:
         self._use_implicit_namespace = (
             self.app.config.autoapi_python_use_implicit_namespaces
         )
+        self._follow_symlinks = self.app.config.autoapi_follow_symlinks
 
     @staticmethod
-    def find_files(patterns, dirs, ignore):
+    def find_files(patterns, dirs, ignore, follow_symlinks: bool):
         if not ignore:
             ignore = []
 
@@ -324,7 +317,9 @@ class Mapper:
             pattern_regexes.append((pattern, regex))
 
         for _dir in dirs:  # iterate autoapi_dirs
-            for root, subdirectories, filenames in os.walk(_dir):
+            for root, subdirectories, filenames in os.walk(
+                _dir, followlinks=follow_symlinks
+            ):
                 # skip directories if needed
                 for sub_dir in subdirectories.copy():
                     # iterate copy as we adapt subdirectories during loop
@@ -342,6 +337,10 @@ class Mapper:
                 for pattern, pattern_re in pattern_regexes:
                     for filename in fnmatch.filter(filenames, pattern):
                         match = re.match(pattern_re, filename)
+                        if match is None:
+                            raise ValueError(
+                                f'Could not match pattern "{pattern_re}" to filename "{filename}".'
+                            )
                         norm_name = match.groups()
                         if norm_name in seen:
                             continue
@@ -429,7 +428,12 @@ class Mapper:
             ):
                 dir_root = os.path.abspath(os.path.join(dir_, os.pardir))
 
-            for path in self.find_files(patterns=patterns, dirs=[dir_], ignore=ignore):
+            for path in self.find_files(
+                patterns=patterns,
+                dirs=[dir_],
+                ignore=ignore,
+                follow_symlinks=self._follow_symlinks,
+            ):
                 yield dir_root, path
 
     def load(self, patterns, dirs, ignore=None):
@@ -495,7 +499,7 @@ class Mapper:
             if obj.get("inherited", False):
                 module = obj["inherited_from"]["full_name"].split(".", 1)[0]
                 if (
-                    in_stdlib(module)
+                    module in sys.stdlib_module_names
                     and not obj["inherited_from"]["is_abstract"]
                     and module not in documented_modules
                 ):

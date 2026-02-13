@@ -31,6 +31,7 @@ class RegisteredModelArgs:
                  metastore_id: Optional[pulumi.Input[_builtins.str]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  owner: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input['RegisteredModelProviderConfigArgs']] = None,
                  schema_name: Optional[pulumi.Input[_builtins.str]] = None,
                  storage_location: Optional[pulumi.Input[_builtins.str]] = None,
                  updated_at: Optional[pulumi.Input[_builtins.int]] = None,
@@ -41,6 +42,7 @@ class RegisteredModelArgs:
         :param pulumi.Input[_builtins.str] comment: The comment attached to the registered model.
         :param pulumi.Input[_builtins.str] name: The name of the registered model.  *Change of this parameter forces recreation of the resource.*
         :param pulumi.Input[_builtins.str] owner: Name of the registered model owner.
+        :param pulumi.Input['RegisteredModelProviderConfigArgs'] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] schema_name: The name of the schema where the registered model resides. *Change of this parameter forces recreation of the resource.*
         :param pulumi.Input[_builtins.str] storage_location: The storage location under which model version data files are stored.  If the URL contains special characters, such as space, `&`, etc., they should be percent-encoded (space > `%20`, etc.). *Change of this parameter forces recreation of the resource.*
         """
@@ -64,6 +66,8 @@ class RegisteredModelArgs:
             pulumi.set(__self__, "name", name)
         if owner is not None:
             pulumi.set(__self__, "owner", owner)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
         if schema_name is not None:
             pulumi.set(__self__, "schema_name", schema_name)
         if storage_location is not None:
@@ -174,6 +178,18 @@ class RegisteredModelArgs:
     @owner.setter
     def owner(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "owner", value)
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional[pulumi.Input['RegisteredModelProviderConfigArgs']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
+
+    @provider_config.setter
+    def provider_config(self, value: Optional[pulumi.Input['RegisteredModelProviderConfigArgs']]):
+        pulumi.set(self, "provider_config", value)
 
     @_builtins.property
     @pulumi.getter(name="schemaName")
@@ -231,6 +247,7 @@ class _RegisteredModelState:
                  metastore_id: Optional[pulumi.Input[_builtins.str]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  owner: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input['RegisteredModelProviderConfigArgs']] = None,
                  schema_name: Optional[pulumi.Input[_builtins.str]] = None,
                  storage_location: Optional[pulumi.Input[_builtins.str]] = None,
                  updated_at: Optional[pulumi.Input[_builtins.int]] = None,
@@ -241,6 +258,7 @@ class _RegisteredModelState:
         :param pulumi.Input[_builtins.str] comment: The comment attached to the registered model.
         :param pulumi.Input[_builtins.str] name: The name of the registered model.  *Change of this parameter forces recreation of the resource.*
         :param pulumi.Input[_builtins.str] owner: Name of the registered model owner.
+        :param pulumi.Input['RegisteredModelProviderConfigArgs'] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] schema_name: The name of the schema where the registered model resides. *Change of this parameter forces recreation of the resource.*
         :param pulumi.Input[_builtins.str] storage_location: The storage location under which model version data files are stored.  If the URL contains special characters, such as space, `&`, etc., they should be percent-encoded (space > `%20`, etc.). *Change of this parameter forces recreation of the resource.*
         """
@@ -264,6 +282,8 @@ class _RegisteredModelState:
             pulumi.set(__self__, "name", name)
         if owner is not None:
             pulumi.set(__self__, "owner", owner)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
         if schema_name is not None:
             pulumi.set(__self__, "schema_name", schema_name)
         if storage_location is not None:
@@ -374,6 +394,18 @@ class _RegisteredModelState:
     @owner.setter
     def owner(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "owner", value)
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional[pulumi.Input['RegisteredModelProviderConfigArgs']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
+
+    @provider_config.setter
+    def provider_config(self, value: Optional[pulumi.Input['RegisteredModelProviderConfigArgs']]):
+        pulumi.set(self, "provider_config", value)
 
     @_builtins.property
     @pulumi.getter(name="schemaName")
@@ -434,6 +466,7 @@ class RegisteredModel(pulumi.CustomResource):
                  metastore_id: Optional[pulumi.Input[_builtins.str]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  owner: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input[Union['RegisteredModelProviderConfigArgs', 'RegisteredModelProviderConfigArgsDict']]] = None,
                  schema_name: Optional[pulumi.Input[_builtins.str]] = None,
                  storage_location: Optional[pulumi.Input[_builtins.str]] = None,
                  updated_at: Optional[pulumi.Input[_builtins.int]] = None,
@@ -469,34 +502,13 @@ class RegisteredModel(pulumi.CustomResource):
         * Schema to manage schemas within Unity Catalog.
         * Catalog to manage catalogs within Unity Catalog.
 
-        ## Import
-
-        The registered model resource can be imported using the full (3-level) name of the model.
-
-        hcl
-
-        import {
-
-          to = databricks_registered_model.this
-
-          id = "<catalog_name>.<schema_name>.<model_name>"
-
-        }
-
-        Alternatively, when using `terraform` version 1.4 or earlier, import using the `pulumi import` command:
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/registeredModel:RegisteredModel this <catalog_name>.<schema_name>.<model_name>
-        ```
-
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] catalog_name: The name of the catalog where the schema and the registered model reside. *Change of this parameter forces recreation of the resource.*
         :param pulumi.Input[_builtins.str] comment: The comment attached to the registered model.
         :param pulumi.Input[_builtins.str] name: The name of the registered model.  *Change of this parameter forces recreation of the resource.*
         :param pulumi.Input[_builtins.str] owner: Name of the registered model owner.
+        :param pulumi.Input[Union['RegisteredModelProviderConfigArgs', 'RegisteredModelProviderConfigArgsDict']] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] schema_name: The name of the schema where the registered model resides. *Change of this parameter forces recreation of the resource.*
         :param pulumi.Input[_builtins.str] storage_location: The storage location under which model version data files are stored.  If the URL contains special characters, such as space, `&`, etc., they should be percent-encoded (space > `%20`, etc.). *Change of this parameter forces recreation of the resource.*
         """
@@ -536,28 +548,6 @@ class RegisteredModel(pulumi.CustomResource):
         * Schema to manage schemas within Unity Catalog.
         * Catalog to manage catalogs within Unity Catalog.
 
-        ## Import
-
-        The registered model resource can be imported using the full (3-level) name of the model.
-
-        hcl
-
-        import {
-
-          to = databricks_registered_model.this
-
-          id = "<catalog_name>.<schema_name>.<model_name>"
-
-        }
-
-        Alternatively, when using `terraform` version 1.4 or earlier, import using the `pulumi import` command:
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/registeredModel:RegisteredModel this <catalog_name>.<schema_name>.<model_name>
-        ```
-
         :param str resource_name: The name of the resource.
         :param RegisteredModelArgs args: The arguments to use to populate this resource's properties.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -583,6 +573,7 @@ class RegisteredModel(pulumi.CustomResource):
                  metastore_id: Optional[pulumi.Input[_builtins.str]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  owner: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input[Union['RegisteredModelProviderConfigArgs', 'RegisteredModelProviderConfigArgsDict']]] = None,
                  schema_name: Optional[pulumi.Input[_builtins.str]] = None,
                  storage_location: Optional[pulumi.Input[_builtins.str]] = None,
                  updated_at: Optional[pulumi.Input[_builtins.int]] = None,
@@ -606,6 +597,7 @@ class RegisteredModel(pulumi.CustomResource):
             __props__.__dict__["metastore_id"] = metastore_id
             __props__.__dict__["name"] = name
             __props__.__dict__["owner"] = owner
+            __props__.__dict__["provider_config"] = provider_config
             __props__.__dict__["schema_name"] = schema_name
             __props__.__dict__["storage_location"] = storage_location
             __props__.__dict__["updated_at"] = updated_at
@@ -630,6 +622,7 @@ class RegisteredModel(pulumi.CustomResource):
             metastore_id: Optional[pulumi.Input[_builtins.str]] = None,
             name: Optional[pulumi.Input[_builtins.str]] = None,
             owner: Optional[pulumi.Input[_builtins.str]] = None,
+            provider_config: Optional[pulumi.Input[Union['RegisteredModelProviderConfigArgs', 'RegisteredModelProviderConfigArgsDict']]] = None,
             schema_name: Optional[pulumi.Input[_builtins.str]] = None,
             storage_location: Optional[pulumi.Input[_builtins.str]] = None,
             updated_at: Optional[pulumi.Input[_builtins.int]] = None,
@@ -645,6 +638,7 @@ class RegisteredModel(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] comment: The comment attached to the registered model.
         :param pulumi.Input[_builtins.str] name: The name of the registered model.  *Change of this parameter forces recreation of the resource.*
         :param pulumi.Input[_builtins.str] owner: Name of the registered model owner.
+        :param pulumi.Input[Union['RegisteredModelProviderConfigArgs', 'RegisteredModelProviderConfigArgsDict']] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] schema_name: The name of the schema where the registered model resides. *Change of this parameter forces recreation of the resource.*
         :param pulumi.Input[_builtins.str] storage_location: The storage location under which model version data files are stored.  If the URL contains special characters, such as space, `&`, etc., they should be percent-encoded (space > `%20`, etc.). *Change of this parameter forces recreation of the resource.*
         """
@@ -662,6 +656,7 @@ class RegisteredModel(pulumi.CustomResource):
         __props__.__dict__["metastore_id"] = metastore_id
         __props__.__dict__["name"] = name
         __props__.__dict__["owner"] = owner
+        __props__.__dict__["provider_config"] = provider_config
         __props__.__dict__["schema_name"] = schema_name
         __props__.__dict__["storage_location"] = storage_location
         __props__.__dict__["updated_at"] = updated_at
@@ -729,6 +724,14 @@ class RegisteredModel(pulumi.CustomResource):
         Name of the registered model owner.
         """
         return pulumi.get(self, "owner")
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> pulumi.Output[Optional['outputs.RegisteredModelProviderConfig']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
 
     @_builtins.property
     @pulumi.getter(name="schemaName")

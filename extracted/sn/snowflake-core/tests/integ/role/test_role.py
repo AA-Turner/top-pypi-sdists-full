@@ -1,10 +1,9 @@
 import pytest
 
-from tests.utils import random_string
-
 from snowflake.core._common import CreateMode
 from snowflake.core.exceptions import ConflictError, NotFoundError
 from snowflake.core.role import Role
+from tests.utils import random_string
 
 
 @pytest.mark.use_accountadmin

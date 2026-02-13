@@ -11,6 +11,7 @@ from langgraph_grpc_common.proto.checkpointer_pb2_grpc import CheckpointerStub
 from langgraph_grpc_common.proto.core_api_pb2_grpc import (
     AdminStub,
     AssistantsStub,
+    CacheStub,
     RunsStub,
     ThreadsStub,
 )
@@ -48,6 +49,7 @@ class GrpcClient:
         self._runs_stub: RunsStub | None = None
         self._threads_stub: ThreadsStub | None = None
         self._admin_stub: AdminStub | None = None
+        self._cache_stub: CacheStub | None = None
         self._checkpointer_stub: CheckpointerStub | None = None
         self._health_stub: health_pb2_grpc.HealthStub | None = None
 
@@ -76,6 +78,7 @@ class GrpcClient:
         self._runs_stub = RunsStub(self._channel)
         self._threads_stub = ThreadsStub(self._channel)
         self._admin_stub = AdminStub(self._channel)
+        self._cache_stub = CacheStub(self._channel)
         self._checkpointer_stub = CheckpointerStub(self._channel)
         self._health_stub = health_pb2_grpc.HealthStub(self._channel)
 
@@ -92,6 +95,7 @@ class GrpcClient:
             self._runs_stub = None
             self._threads_stub = None
             self._admin_stub = None
+            self._cache_stub = None
             self._checkpointer_stub = None
             self._health_stub = None
             await logger.adebug("Closed gRPC connection")
@@ -155,6 +159,15 @@ class GrpcClient:
                 "Client not connected. Use async context manager or call connect() first."
             )
         return self._admin_stub
+
+    @property
+    def cache(self) -> CacheStub:
+        """Get the cache service stub."""
+        if self._cache_stub is None:
+            raise RuntimeError(
+                "Client not connected. Use async context manager or call connect() first."
+            )
+        return self._cache_stub
 
     @property
     def checkpointer(self) -> CheckpointerStub:

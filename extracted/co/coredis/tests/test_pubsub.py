@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-import asyncio
 import pickle
 import time
 
+import anyio
 import pytest
 
-import coredis
-from coredis.exceptions import ConnectionError
+from coredis.client.basic import Redis
+from coredis.patterns.pubsub import PubSub
 from tests.conftest import targets
 
 
-async def wait_for_message(pubsub, timeout=0.5, ignore_subscribe_messages=False):
+async def wait_for_message(pubsub: PubSub, timeout=0.5, ignore_subscribe_messages=False):
     now = time.time()
     timeout = now + timeout
 
@@ -22,7 +22,7 @@ async def wait_for_message(pubsub, timeout=0.5, ignore_subscribe_messages=False)
 
         if message is not None:
             return message
-        await asyncio.sleep(0.01)
+        await anyio.sleep(0.01)
         now = time.time()
 
     return None
@@ -69,14 +69,7 @@ def make_subscribe_test_data(pubsub, encoder, type):
     assert False, f"invalid subscribe type: {type}"
 
 
-@targets(
-    "redis_basic",
-    "redis_basic_blocking",
-    "redis_basic_raw",
-    "dragonfly",
-    "valkey",
-    "redict",
-)
+@targets("redis_basic", "redis_basic_raw", "valkey")
 class TestPubSubSubscribeUnsubscribe:
     async def _test_subscribe_unsubscribe(
         self,
@@ -116,7 +109,7 @@ class TestPubSubSubscribeUnsubscribe:
         await self._test_subscribe_unsubscribe(**kwargs)
 
     async def _test_resubscribe_on_reconnection(
-        self, p, encoder, sub_type, unsub_type, sub_func, unsub_func, keys
+        self, p: PubSub, encoder, sub_type, unsub_type, sub_func, unsub_func, keys
     ):
         async with p:
             for key in keys:
@@ -126,8 +119,7 @@ class TestPubSubSubscribeUnsubscribe:
             for i, key in enumerate(keys):
                 assert await wait_for_message(p) == make_message(sub_type, encoder(key), i + 1)
 
-            # manually disconnect
-            p.connection.disconnect()
+            await p.connection.stream.send_eof()
             # calling get_message again reconnects and resubscribes
             # note, we may not re-subscribe to channels in exactly the same order
             # so we have to do some extra checks to make sure we got them all
@@ -249,7 +241,7 @@ class TestPubSubSubscribeUnsubscribe:
                 assert message is None
             assert p.subscribed is False
 
-    async def test_subscribe_on_construct(self, client, _s):
+    async def test_subscribe_on_construct(self, client: Redis, _s):
         handled = []
 
         def handle(message):
@@ -262,7 +254,6 @@ class TestPubSubSubscribeUnsubscribe:
             patterns=["baz*"],
             pattern_handlers={"qu*": handle},
         ) as pubsub:
-            assert pubsub.subscribed
             await client.publish("foo", "bar")
             await client.publish("bar", "foo")
             await client.publish("baz", "qux")
@@ -275,7 +266,22 @@ class TestPubSubSubscribeUnsubscribe:
             )
 
         assert handled == [_s("foo"), _s("quxx")]
-        assert not pubsub.subscribed
+
+    async def test_subscribe_timeout(self, client: Redis):
+        async with client.pubsub(subscription_timeout=1e-4) as pubsub:
+            with pytest.raises(TimeoutError, match="Subscription timed out"):
+                await pubsub.subscribe(*(f"topic{k}" for k in range(100)))
+        async with client.pubsub(subscription_timeout=1e-4) as pubsub:
+            with pytest.raises(TimeoutError, match="Subscription timed out"):
+                await pubsub.psubscribe(*(f"topic{k}-*" for k in range(100)))
+        async with client.pubsub(subscription_timeout=1) as pubsub:
+            await pubsub.subscribe(*(f"topic{k}" for k in range(100)))
+        with pytest.RaisesGroup(pytest.RaisesExc(TimeoutError, match="Subscription timed out")):
+            async with client.pubsub(
+                subscription_timeout=1e-4,
+                channels=[f"topic{k}" for k in range(100)],
+            ) as pubsub:
+                pass
 
 
 @targets("redis_basic", "redis_basic_raw")
@@ -418,7 +424,7 @@ class TestPubSubMessages:
             await client.publish("fu", "bar")
             await client.publish("bar", "fu")
 
-            await asyncio.sleep(0.1)
+            await anyio.sleep(0.1)
 
             assert messages == {_s("fu"), _s("bar")}
 
@@ -434,24 +440,15 @@ class TestPubSubMessages:
                 [messages.append(message) async for message in p]
 
             async def unsubscribe():
-                await asyncio.sleep(0.1)
+                await anyio.sleep(0.1)
                 await p.punsubscribe("fu*")
                 await p.unsubscribe("test")
 
-            completed, pending = await asyncio.wait(
-                [asyncio.create_task(collect()), asyncio.create_task(unsubscribe())], timeout=1
-            )
-            assert all(task.done() for task in completed)
-            assert not pending
+            with anyio.fail_after(1):
+                async with anyio.create_task_group() as tg:
+                    tg.start_soon(collect)
+                    tg.start_soon(unsubscribe)
             assert len(messages) == 20
-
-
-class TestPubSubRedisDown:
-    async def test_channel_subscribe(self):
-        client = coredis.Redis(host="localhost", port=9999)
-        p = client.pubsub()
-        with pytest.raises(ConnectionError):
-            await p.subscribe("foo")
 
 
 @targets("redis_basic", "redis_basic_raw")
@@ -464,20 +461,15 @@ class TestPubSubPubSubSubcommands:
 
     async def test_pubsub_numsub(self, client, _s):
         p1 = client.pubsub(ignore_subscribe_messages=True)
-        await p1.subscribe("foo", "bar", "baz")
         p2 = client.pubsub(ignore_subscribe_messages=True)
-        await p2.subscribe("bar", "baz")
         p3 = client.pubsub(ignore_subscribe_messages=True)
-        await p3.subscribe("baz")
+        async with p1, p2, p3:
+            await p1.subscribe("foo", "bar", "baz")
+            await p2.subscribe("bar", "baz")
+            await p3.subscribe("baz")
 
-        channels = {_s("foo"): 1, _s("bar"): 2, _s("baz"): 3}
-        assert channels == await client.pubsub_numsub("foo", "bar", "baz")
-        await p1.unsubscribe()
-        await p2.unsubscribe()
-        await p3.unsubscribe()
-        p1.close()
-        p2.close()
-        p3.close()
+            channels = {_s("foo"): 1, _s("bar"): 2, _s("baz"): 3}
+            assert channels == await client.pubsub_numsub("foo", "bar", "baz")
 
     async def test_pubsub_numpat(self, client):
         pubsub_count = await client.pubsub_numpat()

@@ -5,29 +5,11 @@ from datetime import datetime
 
 import pytest
 
-from icalendar import Calendar, Event, vBinary, vRecur
+from icalendar import vBinary, vRecur
+from icalendar.cal.calendar import Calendar
+from icalendar.cal.component_factory import ComponentFactory
+from icalendar.cal.event import Event
 from icalendar.parser import Contentline, Parameters, unescape_char
-
-
-@pytest.mark.parametrize(
-    "calendar_name",
-    [
-        # Issue #178 - A component with an unknown/invalid name is represented
-        # as one of the known components, the information about the original
-        # component name is lost.
-        # https://github.com/collective/icalendar/issues/178 https://github.com/collective/icalendar/pull/180
-        # Parsing of a nonstandard component
-        "issue_178_component_with_invalid_name_represented",
-        # Nonstandard component inside other components, also has properties
-        "issue_178_custom_component_inside_other",
-        # Nonstandard component is able to contain other components
-        "issue_178_custom_component_contains_other",
-    ],
-)
-def test_calendar_to_ical_is_inverse_of_from_ical(calendars, calendar_name):
-    calendar = getattr(calendars, calendar_name)
-    assert calendar.to_ical().splitlines() == calendar.raw_ics.splitlines()
-    assert calendar.to_ical() == calendar.raw_ics
 
 
 @pytest.mark.parametrize(
@@ -255,3 +237,46 @@ def test_escaped_characters_read(event_name, expected_cn, expected_ics, events):
 def test_unescape_char():
     assert unescape_char(b"123") == b"123"
     assert unescape_char(b"\\n") == b"\n"
+
+
+def test_split_on_unescaped_comma():
+    """Test splitting on unescaped commas."""
+    from icalendar.parser import split_on_unescaped_comma
+
+    # Simple case
+    assert split_on_unescaped_comma("a,b,c") == ["a", "b", "c"]
+
+    # Escaped comma
+    assert split_on_unescaped_comma("a\\,b,c") == ["a,b", "c"]
+
+    # Multiple escaped commas
+    assert split_on_unescaped_comma("a\\,b\\,c") == ["a,b,c"]
+
+    # Mixed
+    assert split_on_unescaped_comma("Work,Personal\\, Urgent") == [
+        "Work",
+        "Personal, Urgent",
+    ]
+
+    # Empty string
+    assert split_on_unescaped_comma("") == [""]
+
+    # Only commas
+    assert split_on_unescaped_comma(",,,") == ["", "", "", ""]
+
+    # Trailing comma
+    assert split_on_unescaped_comma("a,b,") == ["a", "b", ""]
+
+    # Leading comma
+    assert split_on_unescaped_comma(",a,b") == ["", "a", "b"]
+
+    # Other escaped chars
+    assert split_on_unescaped_comma("a\\;b,c\\nd") == ["a;b", "c\nd"]
+
+
+def test_create_a_component():
+    """Create a component with the factory."""
+    factory = ComponentFactory()
+    my_component_class = factory.get_component_class("My-Component")
+    assert my_component_class.name == "MY-COMPONENT"
+    assert my_component_class.__name__ == "MyComponent"

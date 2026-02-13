@@ -82,7 +82,7 @@ def get_engine(
 
     if connection.type not in sql_executor.get_supported_connection_types():
         raise RuntimeError(
-            f"SQL is not supported for connection type {connection.type}. Supported types are { ', '.join(sql_executor.get_supported_connection_types())}."
+            f"SQL is not supported for connection type {connection.type}. Supported types are {', '.join(sql_executor.get_supported_connection_types())}."
         )
 
     sql_helper = HelperFactory.get_sql_helper(connection.type)

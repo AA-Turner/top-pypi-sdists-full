@@ -150,16 +150,18 @@ class Dropout(Module):
     broadcast_shape = list(inputs.shape)
     for dim in self.broadcast_dims:
       broadcast_shape[dim] = 1
-    mask = random.bernoulli(key, p=keep_prob, shape=broadcast_shape)
+    mask = random.bernoulli(
+      key, p=keep_prob, shape=broadcast_shape, out_sharding=jax.typeof(inputs).sharding
+    )
     mask = jnp.broadcast_to(mask, inputs.shape)
     return lax.select(mask, inputs / keep_prob, jnp.zeros_like(inputs))
 
-  def set_mode(
+  def set_view(
       self,
       deterministic: bool | None = None,
       **kwargs,
   ) -> dict:
-    """Class method used by ``nnx.set_mode``.
+    """Class method used by ``nnx.view``.
 
     Args:
       deterministic: if True, disables dropout masking.

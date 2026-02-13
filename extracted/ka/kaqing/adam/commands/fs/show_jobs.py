@@ -1,7 +1,6 @@
 from adam.commands.command import Command
 from adam.repl_state import ReplState
 from adam.utils_job.job import Job
-from adam.utils_context import Context
 from adam.utils_job.utils_job_results import show_last_results_for_background_jobs, show_last_results_with_local_log
 
 class ShowJobs(Command):
@@ -26,13 +25,12 @@ class ShowJobs(Command):
         if not self.args(cmd):
             return super().run(cmd, state)
 
-        if job := Job.show_restarts_command():
-            ctx = self.context()
+        with self.context() as (_, ctx):
+            if job := Job.show_restarts_command():
+                show_last_results_with_local_log(state, job, ctx=ctx)
+                show_last_results_for_background_jobs(state, job, ctx=ctx)
 
-            show_last_results_with_local_log(state, job, ctx=ctx)
-            show_last_results_for_background_jobs(state, job, ctx=ctx)
-
-        return state
+            return state
 
     def completion(self, state: ReplState):
         return super().completion(state)

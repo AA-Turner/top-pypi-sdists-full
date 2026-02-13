@@ -14,9 +14,11 @@
 
 # pyre-strict
 """
-This TestCase attempts to track all tasks so that they are ensured to have
-been awaited. Any time asyncio calls logger.error() it is considered a
-test failure.
+Task tracking utilities for async test cases.
+
+This module provides :class:`TestTask`, an instrumented asyncio Task subclass
+that tracks whether tasks have been properly awaited or otherwise managed.
+It is used by :class:`later.unittest.TestCase` to detect task leaks in tests.
 """
 
 from __future__ import annotations
@@ -29,34 +31,50 @@ import asyncio.log
 import asyncio.tasks
 import os.path
 import reprlib
-import sys
 import traceback
 from collections.abc import Callable, Coroutine, Generator, Iterator
 from contextvars import Context
 from functools import wraps
-from typing import Generic, TYPE_CHECKING, TypeVar
+from typing import TypeVar
 
 _T = TypeVar("_T")
-atleastpy38: bool = sys.version_info[:2] >= (3, 8)
 
-# We can get rid of this when we drop support for 3.8
-if TYPE_CHECKING:  # pragma: nocover
 
-    class _BaseTask(asyncio.Task[_T]):
-        pass
+class _BaseTask(asyncio.Task[_T]):
+    """Base class for generic Task typing. Uses subscripted Task (Python 3.9+)."""
 
-else:
-
-    class _BaseTask(Generic[_T], asyncio.Task):
-        pass
+    pass
 
 
 class TestTask(_BaseTask[_T]):
+    """
+    An instrumented asyncio Task that tracks whether it has been managed.
+
+    This class wraps a coroutine as an asyncio Task while tracking whether
+    the task result was properly consumed. A task is considered "managed" when:
+
+    - It is awaited (via ``await task``)
+    - Its result is retrieved (via ``task.result()``)
+    - Its exception is retrieved (via ``task.exception()``)
+    - A done callback is added (via ``task.add_done_callback()``)
+    - It completes with ``None`` result (fire-and-forget pattern)
+
+    When a TestTask is garbage collected without being managed, it logs
+    an error through the event loop's exception handler, which can be
+    used by test frameworks to fail tests that leak tasks.
+
+    Attributes:
+        _managed: Whether the task has been properly managed.
+        _coro_repr: String representation of the wrapped coroutine.
+        _creation_stack: Stack trace from where the task was created,
+            with asyncio internals filtered out for readability.
+    """
+
     _managed: bool = False
     _coro_repr: str
     _creation_stack: list[traceback.FrameSummary]
 
-    # pyre-ignore[2]: We don't case *args and **kws has no type they are passed through
+    # pyre-ignore[2]: We don't cast *args and **kws as they are passed through
     def __init__(self, coro: Coroutine[object, object, _T], *args, **kws) -> None:
         # pyre-fixme[16]: Module `coroutines` has no attribute `_format_coroutine`.
         self._coro_repr = asyncio.coroutines._format_coroutine(coro)
@@ -85,10 +103,8 @@ class TestTask(_BaseTask[_T]):
     def __repr__(self) -> str:
         repr_info = asyncio.base_tasks._task_repr_info(self)
         coro = f"coro={self._coro_repr}"
-        if atleastpy38:  # py3.8 added name=
-            repr_info[2] = coro  # pragma: nocover
-        else:
-            repr_info[1] = coro  # pragma: nocover
+        # Index 2 is the coro slot (after name= which was added in Python 3.8)
+        repr_info[2] = coro
 
         if self._creation_stack:
             frame = self._creation_stack[-1]

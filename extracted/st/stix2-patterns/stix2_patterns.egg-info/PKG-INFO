@@ -1,27 +1,50 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: stix2-patterns
-Version: 2.0.0
+Version: 2.1.2
 Summary: Validate STIX 2 Patterns.
 Home-page: https://github.com/oasis-open/cti-pattern-validator
 Author: OASIS Cyber Threat Intelligence Technical Committee
 Author-email: cti-users@lists.oasis-open.org
-Maintainer: Chris Lenk
-Maintainer-email: clenk@mitre.org
-License: UNKNOWN
-Platform: UNKNOWN
 Classifier: Development Status :: 3 - Alpha
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Requires-Python: >=3.6
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
-Provides-Extra: dev
-Provides-Extra: docs
-Provides-Extra: test
 License-File: LICENSE
+Requires-Dist: antlr4-python3-runtime~=4.13.0
+Provides-Extra: dev
+Requires-Dist: sphinx; extra == "dev"
+Requires-Dist: sphinx-prompt; extra == "dev"
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: bumpversion; extra == "dev"
+Requires-Dist: check-manifest; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: tox; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx-prompt; extra == "docs"
+Provides-Extra: test
+Requires-Dist: coverage; extra == "test"
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 cti-pattern-validator
 =====================
@@ -38,7 +61,7 @@ code, an ANTLR grammar, automated tests and associated documentation for the
 tool. The validator can be used as a command-line tool or as a Python library
 which can be included in other applications.
 
-|Build_Status| |Coverage| |Version|
+|Build_Status| |Coverage| |Version| |Scorecard|
 
 Quickstart
 ----------
@@ -133,10 +156,12 @@ additional or substitute Maintainers, per `consensus agreements
 Current Maintainers of this TC Open Repository
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
--  `Chris Lenk <mailto:clenk@mitre.org>`__; GitHub ID:
-   https://github.com/clenk; WWW: `MITRE <https://www.mitre.org>`__
--  `Jason Keirstead <mailto:Jason.Keirstead@ca.ibm.com>`__; GitHub ID:
-   https://github.com/JasonKeirstead; WWW: `IBM <http://www.ibm.com/>`__
+-  `Emily Ratliff <mailto:Emily.Ratliff@ibm.com>`__; GitHub ID:
+   https://github.com/ejratl; WWW: `IBM <http://www.ibm.com/>`__
+-  `Alexandre Dulaunoy <mailto:alexandre.dulaunoy@circl.lu>`__; GitHub ID:
+   https://github.com/adulau; WWW: `CIRCL <http://www.circl.lu/>`__
+-  `Christian Studer <mailto:christian.studer@circl.lu>`__; GitHub ID:
+   https://github.com/chrisr3d; WWW: `CIRCL <http://www.circl.lu/>`__
 
 About OASIS TC Open Repositories
 --------------------------------
@@ -168,5 +193,5 @@ and any specific CLA-related questions to repository-cla@oasis-open.org.
    :target: https://codecov.io/gh/oasis-open/cti-pattern-validator
 .. |Version| image:: https://img.shields.io/pypi/v/stix2-patterns.svg?maxAge=3600
    :target: https://pypi.org/project/stix2-patterns/
-
-
+.. |Scorecard| image:: https://api.securityscorecards.dev/projects/github.com/oasis-open/cti-pattern-validator/badge
+     :target: https://api.securityscorecards.dev/projects/github.com/oasis-open/cti-pattern-validator

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: impit
-Version: 0.9.3
+Version: 0.11.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -18,10 +18,10 @@ Keywords: apify,http,requests,browser,impersonation
 Author: Jindřich Bär
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Homepage, https://apify.github.io/impit/python
 Project-URL: Apify homepage, https://apify.com
 Project-URL: Changelog, https://github.com/apify/impit/blob/master/impit-python/CHANGELOG.md
 Project-URL: Documentation, https://apify.github.io/impit/python
+Project-URL: Homepage, https://apify.github.io/impit/python
 Project-URL: Issue tracker, https://github.com/apify/impit/issues
 Project-URL: Repository, https://github.com/apify/impit
 

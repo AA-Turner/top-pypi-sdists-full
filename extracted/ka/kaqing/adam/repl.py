@@ -4,7 +4,6 @@ import traceback
 from typing import Callable, cast
 import click
 from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit import HTML
 
 from adam.cli_group import cli
 from adam.commands.command import Command, InvalidArgumentsException, InvalidStateException
@@ -15,7 +14,8 @@ from adam.commands.help import Help
 from adam.config import Config
 from adam.sql.async_executor import AsyncExecutor
 from adam.utils_audits import Audits, audit
-from adam.utils_context import Context
+from adam.utils_color import Color, colored_text
+from adam.utils_context import NULL
 from adam.utils_k8s.kube_context import KubeContext
 from adam.repl_commands import ReplCommands
 from adam.repl_session import ReplSession
@@ -26,6 +26,7 @@ from adam.utils_repl.set_completer import SetCompleter
 from adam.utils_tabulize import tabulize
 from adam.apps import Apps
 from adam.utils_repl.repl_completer import ReplCompleter, merge_completions
+from adam.utils_version import get_latest_version
 from . import __version__
 
 import nest_asyncio
@@ -51,6 +52,13 @@ def enter_repl(state: ReplState):
 
     Log.log2(f'kaqing {__version__}')
 
+    # 2.1.37-CA4.1.9PG15
+    latest_version = get_latest_version()
+    if latest_version and (v := latest_version.split('-')[0]) != __version__:
+        Log.log2('*')
+        Log.log2(f'* Docker repository has newer version: {v}. Please update ops pod.')
+        Log.log2('*')
+
     device(state).enter(state)
 
     kb = KeyBindings()
@@ -75,7 +83,7 @@ def enter_repl(state: ReplState):
             result = None
             try:
                 completer = repl_completer(state, cmd_list)
-                cmd = session.prompt(HTML(f'<ansibrightblue>{prompt_msg()}</ansibrightblue>'),
+                cmd = session.prompt(colored_text(prompt_msg(), Color.brightblue),
                                      completer=completer,
                                      key_bindings=kb,
                                      bottom_toolbar=None)
@@ -212,7 +220,7 @@ def cmd_list_n_chain():
 
     return cmd_list, cmds
 
-def try_device_default_action(state: ReplState, cmds: Command, cmd_list: list[Command], cmd: str, ctx: Context = Context.NULL):
+def try_device_default_action(state: ReplState, cmds: Command, cmd_list: list[Command], cmd: str, ctx = NULL):
     action_taken, result = device(state).try_fallback_action(cmds, state, cmd)
 
     if not action_taken:

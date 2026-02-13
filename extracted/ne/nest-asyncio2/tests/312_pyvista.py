@@ -3,12 +3,13 @@
 # dependencies = [
 #     "nest-asyncio2",
 #     "pytest",
-#     "pyvista[jupyter]",
+#     # Lock version as tests use internal details and may break.
+#     "pyvista[jupyter]==0.47.0",
 # ]
 #
 # [tool.uv.sources]
 # nest-asyncio2 = { path = "../", editable = true }
-# pyvista = { git = "https://github.com/pyvista/pyvista", branch = "testing/python3.14" }
+# # pyvista = { git = "https://github.com/pyvista/pyvista", branch = "testing/python3.14" }
 # ///
 from __future__ import annotations
 

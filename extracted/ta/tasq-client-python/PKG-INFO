@@ -1,4 +1,4 @@
 Metadata-Version: 2.4
 Name: tasq-client-python
-Version: 0.1.22
+Version: 0.1.23
 Requires-Dist: requests

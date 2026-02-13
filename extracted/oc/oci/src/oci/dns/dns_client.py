@@ -186,7 +186,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/change_resolver_compartment.py.html>`__ to see an example of how to use change_resolver_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/change_resolver_compartment.py.html>`__ to see an example of how to use change_resolver_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['resolverId']
@@ -336,7 +336,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/change_steering_policy_compartment.py.html>`__ to see an example of how to use change_steering_policy_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/change_steering_policy_compartment.py.html>`__ to see an example of how to use change_steering_policy_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['steeringPolicyId']
@@ -486,7 +486,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/change_tsig_key_compartment.py.html>`__ to see an example of how to use change_tsig_key_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/change_tsig_key_compartment.py.html>`__ to see an example of how to use change_tsig_key_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['tsigKeyId']
@@ -638,7 +638,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/change_view_compartment.py.html>`__ to see an example of how to use change_view_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/change_view_compartment.py.html>`__ to see an example of how to use change_view_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['viewId']
@@ -795,7 +795,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/change_zone_compartment.py.html>`__ to see an example of how to use change_zone_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/change_zone_compartment.py.html>`__ to see an example of how to use change_zone_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['zoneId']
@@ -938,7 +938,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/create_resolver_endpoint.py.html>`__ to see an example of how to use create_resolver_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/create_resolver_endpoint.py.html>`__ to see an example of how to use create_resolver_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['resolverId']
@@ -1081,7 +1081,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/create_steering_policy.py.html>`__ to see an example of how to use create_steering_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/create_steering_policy.py.html>`__ to see an example of how to use create_steering_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1214,7 +1214,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/create_steering_policy_attachment.py.html>`__ to see an example of how to use create_steering_policy_attachment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/create_steering_policy_attachment.py.html>`__ to see an example of how to use create_steering_policy_attachment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1335,7 +1335,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/create_tsig_key.py.html>`__ to see an example of how to use create_tsig_key API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/create_tsig_key.py.html>`__ to see an example of how to use create_tsig_key API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1460,7 +1460,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/create_view.py.html>`__ to see an example of how to use create_view API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/create_view.py.html>`__ to see an example of how to use create_view API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1591,7 +1591,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/create_zone.py.html>`__ to see an example of how to use create_zone API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/create_zone.py.html>`__ to see an example of how to use create_zone API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1724,7 +1724,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/create_zone_from_zone_file.py.html>`__ to see an example of how to use create_zone_from_zone_file API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/create_zone_from_zone_file.py.html>`__ to see an example of how to use create_zone_from_zone_file API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1891,7 +1891,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/delete_domain_records.py.html>`__ to see an example of how to use delete_domain_records API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/delete_domain_records.py.html>`__ to see an example of how to use delete_domain_records API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['zoneNameOrId', 'domain']
@@ -2046,7 +2046,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/delete_resolver_endpoint.py.html>`__ to see an example of how to use delete_resolver_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/delete_resolver_endpoint.py.html>`__ to see an example of how to use delete_resolver_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['resolverId', 'resolverEndpointName']
@@ -2205,7 +2205,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/delete_rr_set.py.html>`__ to see an example of how to use delete_rr_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/delete_rr_set.py.html>`__ to see an example of how to use delete_rr_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['zoneNameOrId', 'domain', 'rtype']
@@ -2358,7 +2358,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/delete_steering_policy.py.html>`__ to see an example of how to use delete_steering_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/delete_steering_policy.py.html>`__ to see an example of how to use delete_steering_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['steeringPolicyId']
@@ -2500,7 +2500,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/delete_steering_policy_attachment.py.html>`__ to see an example of how to use delete_steering_policy_attachment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/delete_steering_policy_attachment.py.html>`__ to see an example of how to use delete_steering_policy_attachment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['steeringPolicyAttachmentId']
@@ -2641,7 +2641,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/delete_tsig_key.py.html>`__ to see an example of how to use delete_tsig_key API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/delete_tsig_key.py.html>`__ to see an example of how to use delete_tsig_key API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['tsigKeyId']
@@ -2787,7 +2787,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/delete_view.py.html>`__ to see an example of how to use delete_view API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/delete_view.py.html>`__ to see an example of how to use delete_view API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['viewId']
@@ -2940,7 +2940,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/delete_zone.py.html>`__ to see an example of how to use delete_zone API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/delete_zone.py.html>`__ to see an example of how to use delete_zone API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['zoneNameOrId']
@@ -3123,7 +3123,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/get_domain_records.py.html>`__ to see an example of how to use get_domain_records API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/get_domain_records.py.html>`__ to see an example of how to use get_domain_records API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['zoneNameOrId', 'domain']
@@ -3300,7 +3300,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/get_resolver.py.html>`__ to see an example of how to use get_resolver API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/get_resolver.py.html>`__ to see an example of how to use get_resolver API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['resolverId']
@@ -3449,7 +3449,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/get_resolver_endpoint.py.html>`__ to see an example of how to use get_resolver_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/get_resolver_endpoint.py.html>`__ to see an example of how to use get_resolver_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['resolverId', 'resolverEndpointName']
@@ -3619,7 +3619,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/get_rr_set.py.html>`__ to see an example of how to use get_rr_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/get_rr_set.py.html>`__ to see an example of how to use get_rr_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['zoneNameOrId', 'domain', 'rtype']
@@ -3774,7 +3774,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/get_steering_policy.py.html>`__ to see an example of how to use get_steering_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/get_steering_policy.py.html>`__ to see an example of how to use get_steering_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['steeringPolicyId']
@@ -3917,7 +3917,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/get_steering_policy_attachment.py.html>`__ to see an example of how to use get_steering_policy_attachment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/get_steering_policy_attachment.py.html>`__ to see an example of how to use get_steering_policy_attachment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['steeringPolicyAttachmentId']
@@ -4060,7 +4060,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/get_tsig_key.py.html>`__ to see an example of how to use get_tsig_key API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/get_tsig_key.py.html>`__ to see an example of how to use get_tsig_key API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['tsigKeyId']
@@ -4207,7 +4207,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/get_view.py.html>`__ to see an example of how to use get_view API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/get_view.py.html>`__ to see an example of how to use get_view API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['viewId']
@@ -4361,7 +4361,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/get_zone.py.html>`__ to see an example of how to use get_zone API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/get_zone.py.html>`__ to see an example of how to use get_zone API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['zoneNameOrId']
@@ -4511,7 +4511,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/get_zone_content.py.html>`__ to see an example of how to use get_zone_content API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/get_zone_content.py.html>`__ to see an example of how to use get_zone_content API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['zoneNameOrId']
@@ -4704,7 +4704,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/get_zone_records.py.html>`__ to see an example of how to use get_zone_records API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/get_zone_records.py.html>`__ to see an example of how to use get_zone_records API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['zoneNameOrId']
@@ -4896,7 +4896,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/list_resolver_endpoints.py.html>`__ to see an example of how to use list_resolver_endpoints API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/list_resolver_endpoints.py.html>`__ to see an example of how to use list_resolver_endpoints API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['resolverId']
@@ -5088,7 +5088,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/list_resolvers.py.html>`__ to see an example of how to use list_resolvers API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/list_resolvers.py.html>`__ to see an example of how to use list_resolvers API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -5290,7 +5290,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/list_steering_policies.py.html>`__ to see an example of how to use list_steering_policies API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/list_steering_policies.py.html>`__ to see an example of how to use list_steering_policies API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -5506,7 +5506,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/list_steering_policy_attachments.py.html>`__ to see an example of how to use list_steering_policy_attachments API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/list_steering_policy_attachments.py.html>`__ to see an example of how to use list_steering_policy_attachments API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -5696,7 +5696,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/list_tsig_keys.py.html>`__ to see an example of how to use list_tsig_keys API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/list_tsig_keys.py.html>`__ to see an example of how to use list_tsig_keys API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -5879,7 +5879,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/list_views.py.html>`__ to see an example of how to use list_views API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/list_views.py.html>`__ to see an example of how to use list_views API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -6035,7 +6035,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/list_zone_transfer_servers.py.html>`__ to see an example of how to use list_zone_transfer_servers API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/list_zone_transfer_servers.py.html>`__ to see an example of how to use list_zone_transfer_servers API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -6214,7 +6214,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/list_zones.py.html>`__ to see an example of how to use list_zones API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/list_zones.py.html>`__ to see an example of how to use list_zones API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -6424,7 +6424,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/patch_domain_records.py.html>`__ to see an example of how to use patch_domain_records API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/patch_domain_records.py.html>`__ to see an example of how to use patch_domain_records API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['zoneNameOrId', 'domain']
@@ -6596,7 +6596,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/patch_rr_set.py.html>`__ to see an example of how to use patch_rr_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/patch_rr_set.py.html>`__ to see an example of how to use patch_rr_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['zoneNameOrId', 'domain', 'rtype']
@@ -6765,7 +6765,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/patch_zone_records.py.html>`__ to see an example of how to use patch_zone_records API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/patch_zone_records.py.html>`__ to see an example of how to use patch_zone_records API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['zoneNameOrId']
@@ -6938,7 +6938,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/promote_zone_dnssec_key_version.py.html>`__ to see an example of how to use promote_zone_dnssec_key_version API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/promote_zone_dnssec_key_version.py.html>`__ to see an example of how to use promote_zone_dnssec_key_version API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['zoneId']
@@ -7103,7 +7103,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/stage_zone_dnssec_key_version.py.html>`__ to see an example of how to use stage_zone_dnssec_key_version API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/stage_zone_dnssec_key_version.py.html>`__ to see an example of how to use stage_zone_dnssec_key_version API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['zoneId']
@@ -7270,7 +7270,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/update_domain_records.py.html>`__ to see an example of how to use update_domain_records API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/update_domain_records.py.html>`__ to see an example of how to use update_domain_records API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['zoneNameOrId', 'domain']
@@ -7425,7 +7425,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/update_resolver.py.html>`__ to see an example of how to use update_resolver API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/update_resolver.py.html>`__ to see an example of how to use update_resolver API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['resolverId']
@@ -7578,7 +7578,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/update_resolver_endpoint.py.html>`__ to see an example of how to use update_resolver_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/update_resolver_endpoint.py.html>`__ to see an example of how to use update_resolver_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['resolverId', 'resolverEndpointName']
@@ -7746,7 +7746,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/update_rr_set.py.html>`__ to see an example of how to use update_rr_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/update_rr_set.py.html>`__ to see an example of how to use update_rr_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['zoneNameOrId', 'domain', 'rtype']
@@ -7902,7 +7902,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/update_steering_policy.py.html>`__ to see an example of how to use update_steering_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/update_steering_policy.py.html>`__ to see an example of how to use update_steering_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['steeringPolicyId']
@@ -8052,7 +8052,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/update_steering_policy_attachment.py.html>`__ to see an example of how to use update_steering_policy_attachment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/update_steering_policy_attachment.py.html>`__ to see an example of how to use update_steering_policy_attachment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['steeringPolicyAttachmentId']
@@ -8202,7 +8202,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/update_tsig_key.py.html>`__ to see an example of how to use update_tsig_key API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/update_tsig_key.py.html>`__ to see an example of how to use update_tsig_key API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['tsigKeyId']
@@ -8352,7 +8352,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/update_view.py.html>`__ to see an example of how to use update_view API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/update_view.py.html>`__ to see an example of how to use update_view API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['viewId']
@@ -8517,7 +8517,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/update_zone.py.html>`__ to see an example of how to use update_zone API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/update_zone.py.html>`__ to see an example of how to use update_zone API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['zoneNameOrId']
@@ -8685,7 +8685,7 @@ class DnsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/dns/update_zone_records.py.html>`__ to see an example of how to use update_zone_records API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/dns/update_zone_records.py.html>`__ to see an example of how to use update_zone_records API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['zoneNameOrId']

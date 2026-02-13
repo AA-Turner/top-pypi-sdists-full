@@ -4,7 +4,7 @@ Hooks for pytest-httpserver
 
 import os
 import time
-from typing import Callable
+from collections.abc import Callable
 
 from werkzeug import Request
 from werkzeug import Response
@@ -20,7 +20,7 @@ class Chain:
     similar to reduce.
     """
 
-    def __init__(self, *args: Callable[[Request, Response], Response]):
+    def __init__(self, *args: Callable[[Request, Response], Response]) -> None:
         """
         :param *args: callable objects specified in the same order they should
             be called.
@@ -43,13 +43,13 @@ class Delay:
     Delays returning the response
     """
 
-    def __init__(self, seconds: float):
+    def __init__(self, seconds: float) -> None:
         """
         :param seconds: seconds to sleep before returning the response
         """
         self._seconds = seconds
 
-    def _sleep(self):
+    def _sleep(self) -> None:
         """
         Sleeps for the seconds specified in the constructor
         """
@@ -65,7 +65,7 @@ class Delay:
 
 
 class Garbage:
-    def __init__(self, prefix_size: int = 0, suffix_size: int = 0):
+    def __init__(self, prefix_size: int = 0, suffix_size: int = 0) -> None:
         """
         Adds random bytes to the beginning or to the end of the response data.
 

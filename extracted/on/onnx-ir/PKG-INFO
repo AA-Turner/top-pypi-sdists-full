@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onnx-ir
-Version: 0.1.15
+Version: 0.1.16
 Summary: Efficient in-memory representation for ONNX
 Author-email: ONNX Contributors <onnx-technical-discuss@lists.lfaidata.foundation>
 License-Expression: Apache-2.0

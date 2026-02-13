@@ -263,6 +263,11 @@ CONFIG_MAP = {
         "type": str,
         "default": "3.29.724",
     },
+    # Update to actual backend release version once the update-owner PR is merged.
+    "comet.api_owner.minimum_backend_version": {
+        "type": str,
+        "default": "4.35.0",
+    },
     "comet.api_experiment.get_all_experiment_metrics_minimum_backend_version": {
         "type": str,
         "default": "3.20.60",

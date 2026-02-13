@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-adk
-Version: 1.24.1
+Version: 1.25.0
 Summary: Agent Development Kit
 Author-email: Google LLC <googleapis-packages@google.com>
 Requires-Python: >=3.10
@@ -68,12 +68,12 @@ Requires-Dist: google-adk-community ; extra == "community"
 Requires-Dist: flit>=3.10.0 ; extra == "dev"
 Requires-Dist: isort>=6.0.0 ; extra == "dev"
 Requires-Dist: mypy>=1.15.0 ; extra == "dev"
-Requires-Dist: pyink>=24.10.0 ; extra == "dev"
+Requires-Dist: pyink>=25.12.0 ; extra == "dev"
 Requires-Dist: pylint>=2.6.0 ; extra == "dev"
 Requires-Dist: autodoc_pydantic ; extra == "docs"
 Requires-Dist: furo ; extra == "docs"
 Requires-Dist: myst-parser ; extra == "docs"
-Requires-Dist: sphinx ; extra == "docs"
+Requires-Dist: sphinx<9.0.0 ; extra == "docs"
 Requires-Dist: sphinx-autodoc-typehints ; extra == "docs"
 Requires-Dist: sphinx-rtd-theme ; extra == "docs"
 Requires-Dist: google-cloud-aiplatform[evaluation]>=1.100.0 ; extra == "eval"
@@ -244,7 +244,7 @@ root_agent = Agent(
 
 ### Define a multi-agent system:
 
-Define a multi-agent system with coordinator agent, greeter agent, and task execution agent. Then ADK engine and the model will guide the agents works together to accomplish the task.
+Define a multi-agent system with coordinator agent, greeter agent, and task execution agent. Then ADK engine and the model will guide the agents to work together to accomplish the task.
 
 ```python
 from google.adk.agents import LlmAgent, BaseAgent

@@ -12,10 +12,14 @@ from chalk._gen.chalk.server.v1.billing_pb2 import (
     GetCreditBundlesResponse,
     GetInstanceUsageRequest,
     GetInstanceUsageResponse,
+    GetNodeTimeRangesRequest,
+    GetNodeTimeRangesResponse,
     GetNodesAndPodsRequest,
     GetNodesAndPodsResponse,
     GetNodesAndPodsUIRequest,
     GetNodesAndPodsUIResponse,
+    GetPodTimeRangesRequest,
+    GetPodTimeRangesResponse,
     GetUsageChartRequest,
     GetUsageChartResponse,
     GetUtilizationRatesRequest,
@@ -86,6 +90,20 @@ class BillingServiceStub:
         GetInstanceUsageRequest,
         GetInstanceUsageResponse,
     ]
+    GetPodTimeRanges: UnaryUnaryMultiCallable[
+        GetPodTimeRangesRequest,
+        GetPodTimeRangesResponse,
+    ]
+    """GetPodTimeRanges returns the earliest and latest observed timestamps
+    for a list of pods from the usage data.
+    """
+    GetNodeTimeRanges: UnaryUnaryMultiCallable[
+        GetNodeTimeRangesRequest,
+        GetNodeTimeRangesResponse,
+    ]
+    """GetNodeTimeRanges returns the earliest and latest observed timestamps
+    for a list of nodes from the usage data.
+    """
 
 class BillingServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -154,5 +172,23 @@ class BillingServiceServicer(metaclass=ABCMeta):
         request: GetInstanceUsageRequest,
         context: ServicerContext,
     ) -> GetInstanceUsageResponse: ...
+    @abstractmethod
+    def GetPodTimeRanges(
+        self,
+        request: GetPodTimeRangesRequest,
+        context: ServicerContext,
+    ) -> GetPodTimeRangesResponse:
+        """GetPodTimeRanges returns the earliest and latest observed timestamps
+        for a list of pods from the usage data.
+        """
+    @abstractmethod
+    def GetNodeTimeRanges(
+        self,
+        request: GetNodeTimeRangesRequest,
+        context: ServicerContext,
+    ) -> GetNodeTimeRangesResponse:
+        """GetNodeTimeRanges returns the earliest and latest observed timestamps
+        for a list of nodes from the usage data.
+        """
 
 def add_BillingServiceServicer_to_server(servicer: BillingServiceServicer, server: Server) -> None: ...

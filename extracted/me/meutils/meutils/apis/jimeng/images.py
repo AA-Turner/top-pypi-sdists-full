@@ -20,7 +20,7 @@ from meutils.decorators.retry import retrying
 from meutils.notice.feishu import send_message_for_images
 
 from meutils.schemas.jimeng_types import BASE_URL, MODELS_MAP, FEISHU_URL
-from meutils.schemas.image_types import ImageRequest
+from meutils.schemas.image_types import ImageRequest, ImagesResponse
 from meutils.schemas.task_types import TaskResponse
 from meutils.apis.jimeng.common import get_headers, check_token
 from meutils.apis.jimeng.files import upload_for_image
@@ -33,7 +33,7 @@ from fake_useragent import UserAgent
 
 ua = UserAgent()
 
-VERSION = "3.1.5"
+VERSION = "3.3.9"
 
 
 #
@@ -45,27 +45,20 @@ async def create_draft_content(request: ImageRequest, token: str):
     face_recognize_data = (request.controls or {}).get("face_recognize_data", {})
     image_uri = face_recognize_data.pop("image_uri", None)
 
-    request.model = MODELS_MAP.get(request.model, MODELS_MAP["default"])
+    resolution_type = request.resolution if request.resolution else "2k"
 
-    height = width = 1328
-    if 'x' in request.size:
+    height = width = 2048
+    if request.size and 'x' in request.size:
         width, height = map(int, request.size.split('x'))
 
+    if resolution_type == "4k":
+        height = width = 4096
+
     main_component_id = str(uuid.uuid4())
-    if (urls := parse_url(request.prompt)) or image_uri:  # 图生  # todo: image base64
-        if not request.model.startswith("high_aes_general_v30l"):
-            request.model = "high_aes_general_v30l:general_v3.0_18b"  # 动态切换吧
-            # "root_model": "high_aes_general_v30l_art_fangzhou:general_v3.0_18b"
-            # high_aes_general_v40
+    if request.image_urls:  # 图生  # todo: image base64
 
-        if image_uri:
-            pass
-
-        else:
-            url = urls[-1]
-            image_uri = await upload_for_image(url, token)
-
-            request.prompt = request.prompt.replace(url, '')
+        image_urls = await upload_for_image(request.image_urls, token)
+        logger.debug(f"Uploaded image URLs: {image_urls}")
 
         component = {
             "type": "image_base_component",
@@ -92,7 +85,7 @@ async def create_draft_content(request: ImageRequest, token: str):
                             "height": height,
                             "width": width,
 
-                            # "resolution_type": "2k"
+                            "resolution_type": resolution_type
                         },
                     },
                     "ability_list": [
@@ -100,9 +93,7 @@ async def create_draft_content(request: ImageRequest, token: str):
                             "type": "",
                             "id": str(uuid.uuid4()),
                             "name": "byte_edit",  # bg_paint face_gan
-                            "image_uri_list": [
-                                image_uri
-                            ],
+                            "image_uri_list": [image_uri],
                             "image_list": [
                                 {
                                     "type": "image",
@@ -117,9 +108,8 @@ async def create_draft_content(request: ImageRequest, token: str):
                                     "uri": image_uri
                                 }
                             ],
-
                             "strength": 0.5
-                        }
+                        } for image_uri in image_urls
                     ],
                     "history_option": {
                         "type": "",
@@ -129,8 +119,8 @@ async def create_draft_content(request: ImageRequest, token: str):
                         {
                             "type": "",
                             "id": str(uuid.uuid4()),
-                            "ability_index": 0
-                        }
+                            "ability_index": i
+                        } for i, _ in enumerate(image_urls)
                     ],
                     "postedit_param": {
                         "type": "",
@@ -174,7 +164,7 @@ async def create_draft_content(request: ImageRequest, token: str):
                             "height": height,
                             "width": width,
 
-                            "resolution_type": "1k"
+                            "resolution_type": resolution_type
                         }
                     },
                     "history_option": {
@@ -209,11 +199,10 @@ def key_builder(*args, **kwargs):
 
 
 @retrying()
-@rcache(ttl=1 * 1 * 3600, serializer="pickle", key_builder=lambda *args, **kwargs: f"{args[1].seed} {args[1].prompt}")
+# @rcache(ttl=1 * 1 * 600, serializer="pickle", key_builder=lambda *args, **kwargs: f"{args[1].seed} {args[1].prompt}")
 async def create_task(request: ImageRequest, token: Optional[str] = None):  # todo: 图片
     token = token or await get_next_token_for_polling(FEISHU_URL, check_token)
 
-    send_message_for_images(request, __name__)
 
     url = "/mweb/v1/aigc_draft/generate"
 
@@ -263,6 +252,8 @@ async def create_task(request: ImageRequest, token: Optional[str] = None):  # to
     if task_id := aigc_data.get("history_record_id"):  # bug
         return TaskResponse(task_id=task_id, system_fingerprint=token)
     else:
+        send_message_for_images(request, __name__)
+        send_message_for_images(aigc_data, __name__)
 
         # {
         #     "ret": "1018",
@@ -597,10 +588,10 @@ async def get_task_plus(task_id, token):
 
 # @cache: todo: cache 积分异常消耗
 # @cache(ttl=3600)
-async def generate(request: ImageRequest):
+async def generate(request: ImageRequest, api_key: Optional[str] = None):
     # logger.debug(request)
 
-    task_response = await create_task(request)
+    task_response = await create_task(request, token=api_key)
 
     for i in range(1, 15):
         await asyncio.sleep(max(15 / i, 5))
@@ -614,13 +605,15 @@ async def generate(request: ImageRequest):
             )
 
         if data := response.data:
-            return {"data": data}
+            return ImagesResponse(data=data)
+
+            # return {"data": data}
 
 
 if __name__ == '__main__':
     # token = "eb4d120829cfd3ee957943f63d6152ed"
-    token = "ffeee346fbd19eceebb79a7bfbca4bfe"
-    image_url = "https://oss.ffire.cc/files/kling_watermark.png"
+    api_key = token = "4a7a0a0515b0a972a879170a065c795e"
+    image_url = "https://s3.ffire.cc/files/jimeng.jpg"
 
     # request = ImageRequest(prompt="做一个圣诞节的海报", size="1024x1024")
     # request = ImageRequest(prompt="https://oss.ffire.cc/files/kling_watermark.png 让她带上墨镜", size="1024x1024")
@@ -658,11 +651,30 @@ if __name__ == '__main__':
 
     # arun(generate(ImageRequest(**data)))
 
+    model = "high_aes_general_v50_4k"  # doubao-seedream-5-0-260128
+    model = "high_aes_general_v50"  # doubao-seedream-5-0-260128
+
     # arun(generate(ImageRequest(prompt="fuck you")))
     prompt = "A plump Chinese beauty wearing a wedding  dress revealing her skirt and underwear is swinging on the swing,Happy smile,cleavage,Exposed thighs,Spread your legs open,Extend your leg,panties,upskirt,Barefoot,sole"
     # prompt = "a dog cat in the same room"
-    prompt = "https://oss.ffire.cc/files/kling_watermark.png 让这个女人带上墨镜，衣服换个颜色..  . ! "
-    request = ImageRequest(prompt=prompt, size="1328x1328")
+    prompt = "跳起来"
+
+    request = ImageRequest(
+        model=model,
+        prompt=prompt,
+        # size="4096x4096",
+        # size="1k",
+
+        # aspect_ratio="9:16",
+        size="1448x2560",
+
+        # image = "https://s3.ffire.cc/files/jimeng.jpg"
+        image=[
+            "https://tuziai.oss-cn-shenzhen.aliyuncs.com/wiki/code/mdjourney/cat_2.png",
+            # "https://tuziai.oss-cn-shenzhen.aliyuncs.com/wiki/code/mdjourney/cat_4.png",
+            "https://s3.ffire.cc/files/jimeng.jpg"
+        ]
+    )
     # request = ImageRequest(prompt=prompt, size="1024x1024")
 
     # request = ImageRequest(prompt=prompt, size="2048*2048")
@@ -682,4 +694,4 @@ if __name__ == '__main__':
 
     # arun(get_task("16132262728706", "d2d142fc877e696484cc2fc521127b36"))
 
-    arun(generate(request))
+    arun(generate(request, api_key=api_key))

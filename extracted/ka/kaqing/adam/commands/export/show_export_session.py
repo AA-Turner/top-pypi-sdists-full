@@ -26,11 +26,12 @@ class ShowExportSession(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with validate_args(args, state, name='export session') as session:
-                with export_session(state) as sessions:
-                    sessions.show_session(session, self.context())
+            with self.context(args) as (args, ctx):
+                with validate_args(args, state, name='export session') as session:
+                    with export_session(state) as sessions:
+                        sessions.show_session(session, ctx=ctx)
 
-            return state
+                return state
 
     def completion(self, _: ReplState):
         return {}

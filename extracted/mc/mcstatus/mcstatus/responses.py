@@ -109,7 +109,7 @@ class BaseStatusResponse(ABC):
 
     @classmethod
     @abstractmethod
-    def build(cls, *args, **kwargs) -> Self:
+    def build(cls, *args: Any, **kwargs: Any) -> Self:
         """Build BaseStatusResponse and check is it valid.
 
         :param args: Arguments in specific realisation.
@@ -209,7 +209,6 @@ class LegacyStatusResponse(BaseStatusResponse):
         :param latency: Latency of the request.
         :return: :class:`LegacyStatusResponse` object.
         """
-
         return cls(
             players=LegacyStatusPlayers(
                 online=int(decoded_data[3]),
@@ -243,7 +242,6 @@ class BedrockStatusResponse(BaseStatusResponse):
         :param latency: Latency of the request.
         :return: :class:`BedrockStatusResponse` object.
         """
-
         try:
             map_name = decoded_data[7]
         except IndexError:
@@ -407,12 +405,12 @@ class BedrockStatusVersion(BaseStatusVersion):
     """``MCPE`` or ``MCEE`` for Education Edition."""
 
     @property
-    @deprecated(replacement="name", date="2025-12")
+    @deprecated(replacement="name", removal_version="13.0.0")
     def version(self) -> str:
         """
         .. deprecated:: 12.0.0
-            Will be removed 2025-12, use :attr:`.name` instead.
-        """
+            Will be removed in 13.0.0, use :attr:`.name` instead.
+        """  # noqa: D205, D212 # no summary line
         return self.name
 
 
@@ -481,12 +479,12 @@ class QueryResponse:
         return as_dict
 
     @property
-    @deprecated(replacement="map_name", date="2025-12")
+    @deprecated(replacement="map_name", removal_version="13.0.0")
     def map(self) -> str | None:
         """
         .. deprecated:: 12.0.0
-            Will be removed 2025-12, use :attr:`.map_name` instead.
-        """
+            Will be removed in 13.0.0, use :attr:`.map_name` instead.
+        """  # noqa: D205, D212 # no summary line
         return self.map_name
 
 
@@ -510,12 +508,12 @@ class QueryPlayers:
         )
 
     @property
-    @deprecated(replacement="'list' attribute", date="2025-12")
+    @deprecated(replacement="'list' attribute", removal_version="13.0.0")
     def names(self) -> list[str]:
         """
         .. deprecated:: 12.0.0
-            Will be removed 2025-12, use :attr:`.list` instead.
-        """
+            Will be removed in 13.0.0, use :attr:`.list` instead.
+        """  # noqa: D205, D212 # no summary line
         return self.list
 
 

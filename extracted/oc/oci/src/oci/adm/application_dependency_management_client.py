@@ -164,7 +164,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/activate_remediation_recipe.py.html>`__ to see an example of how to use activate_remediation_recipe API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/activate_remediation_recipe.py.html>`__ to see an example of how to use activate_remediation_recipe API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['remediationRecipeId']
@@ -283,7 +283,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/cancel_remediation_run.py.html>`__ to see an example of how to use cancel_remediation_run API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/cancel_remediation_run.py.html>`__ to see an example of how to use cancel_remediation_run API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['remediationRunId']
@@ -402,7 +402,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/cancel_work_request.py.html>`__ to see an example of how to use cancel_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/cancel_work_request.py.html>`__ to see an example of how to use cancel_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -526,7 +526,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/change_knowledge_base_compartment.py.html>`__ to see an example of how to use change_knowledge_base_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/change_knowledge_base_compartment.py.html>`__ to see an example of how to use change_knowledge_base_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['knowledgeBaseId']
@@ -655,7 +655,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/change_remediation_recipe_compartment.py.html>`__ to see an example of how to use change_remediation_recipe_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/change_remediation_recipe_compartment.py.html>`__ to see an example of how to use change_remediation_recipe_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['remediationRecipeId']
@@ -782,7 +782,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/change_remediation_run_compartment.py.html>`__ to see an example of how to use change_remediation_run_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/change_remediation_run_compartment.py.html>`__ to see an example of how to use change_remediation_run_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['remediationRunId']
@@ -909,7 +909,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/change_vulnerability_audit_compartment.py.html>`__ to see an example of how to use change_vulnerability_audit_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/change_vulnerability_audit_compartment.py.html>`__ to see an example of how to use change_vulnerability_audit_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['vulnerabilityAuditId']
@@ -1026,7 +1026,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/create_knowledge_base.py.html>`__ to see an example of how to use create_knowledge_base API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/create_knowledge_base.py.html>`__ to see an example of how to use create_knowledge_base API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1129,7 +1129,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/create_remediation_recipe.py.html>`__ to see an example of how to use create_remediation_recipe API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/create_remediation_recipe.py.html>`__ to see an example of how to use create_remediation_recipe API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1232,7 +1232,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/create_remediation_run.py.html>`__ to see an example of how to use create_remediation_run API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/create_remediation_run.py.html>`__ to see an example of how to use create_remediation_run API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1344,7 +1344,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/create_vulnerability_audit.py.html>`__ to see an example of how to use create_vulnerability_audit API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/create_vulnerability_audit.py.html>`__ to see an example of how to use create_vulnerability_audit API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1453,7 +1453,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/deactivate_remediation_recipe.py.html>`__ to see an example of how to use deactivate_remediation_recipe API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/deactivate_remediation_recipe.py.html>`__ to see an example of how to use deactivate_remediation_recipe API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['remediationRecipeId']
@@ -1567,7 +1567,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/delete_knowledge_base.py.html>`__ to see an example of how to use delete_knowledge_base API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/delete_knowledge_base.py.html>`__ to see an example of how to use delete_knowledge_base API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['knowledgeBaseId']
@@ -1681,7 +1681,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/delete_remediation_recipe.py.html>`__ to see an example of how to use delete_remediation_recipe API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/delete_remediation_recipe.py.html>`__ to see an example of how to use delete_remediation_recipe API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['remediationRecipeId']
@@ -1793,7 +1793,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/delete_remediation_run.py.html>`__ to see an example of how to use delete_remediation_run API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/delete_remediation_run.py.html>`__ to see an example of how to use delete_remediation_run API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['remediationRunId']
@@ -1905,7 +1905,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/delete_vulnerability_audit.py.html>`__ to see an example of how to use delete_vulnerability_audit API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/delete_vulnerability_audit.py.html>`__ to see an example of how to use delete_vulnerability_audit API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['vulnerabilityAuditId']
@@ -2012,7 +2012,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/get_knowledge_base.py.html>`__ to see an example of how to use get_knowledge_base API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/get_knowledge_base.py.html>`__ to see an example of how to use get_knowledge_base API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['knowledgeBaseId']
@@ -2119,7 +2119,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/get_remediation_recipe.py.html>`__ to see an example of how to use get_remediation_recipe API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/get_remediation_recipe.py.html>`__ to see an example of how to use get_remediation_recipe API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['remediationRecipeId']
@@ -2224,7 +2224,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/get_remediation_run.py.html>`__ to see an example of how to use get_remediation_run API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/get_remediation_run.py.html>`__ to see an example of how to use get_remediation_run API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['remediationRunId']
@@ -2334,7 +2334,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/get_stage.py.html>`__ to see an example of how to use get_stage API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/get_stage.py.html>`__ to see an example of how to use get_stage API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['remediationRunId', 'stageType']
@@ -2440,7 +2440,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/get_vulnerability_audit.py.html>`__ to see an example of how to use get_vulnerability_audit API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/get_vulnerability_audit.py.html>`__ to see an example of how to use get_vulnerability_audit API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['vulnerabilityAuditId']
@@ -2547,7 +2547,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2680,7 +2680,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/list_application_dependency_recommendations.py.html>`__ to see an example of how to use list_application_dependency_recommendations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/list_application_dependency_recommendations.py.html>`__ to see an example of how to use list_application_dependency_recommendations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['remediationRunId']
@@ -2867,7 +2867,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/list_application_dependency_vulnerabilities.py.html>`__ to see an example of how to use list_application_dependency_vulnerabilities API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/list_application_dependency_vulnerabilities.py.html>`__ to see an example of how to use list_application_dependency_vulnerabilities API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['vulnerabilityAuditId']
@@ -3056,7 +3056,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/list_knowledge_bases.py.html>`__ to see an example of how to use list_knowledge_bases API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/list_knowledge_bases.py.html>`__ to see an example of how to use list_knowledge_bases API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3227,7 +3227,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/list_remediation_recipes.py.html>`__ to see an example of how to use list_remediation_recipes API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/list_remediation_recipes.py.html>`__ to see an example of how to use list_remediation_recipes API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3402,7 +3402,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/list_remediation_runs.py.html>`__ to see an example of how to use list_remediation_runs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/list_remediation_runs.py.html>`__ to see an example of how to use list_remediation_runs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3571,7 +3571,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/list_stages.py.html>`__ to see an example of how to use list_stages API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/list_stages.py.html>`__ to see an example of how to use list_stages API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['remediationRunId']
@@ -3691,6 +3691,132 @@ class ApplicationDependencyManagementClient(object):
                 api_reference_link=api_reference_link,
                 required_arguments=required_arguments)
 
+    def list_vulnerabilities(self, vulnerability_audit_id, **kwargs):
+        """
+        Returns a list of vulnerability details for an audit.
+
+
+        :param str vulnerability_audit_id: (required)
+            Unique Vulnerability Audit identifier path parameter.
+
+        :param bool is_direct_vulnerability: (optional)
+            A filter when set returns only vulnerabilities that are immediately(directly) affecting any artifact, when unset all vulnerabilities are returned.
+
+        :param int limit: (optional)
+            The maximum number of items to return.
+
+        :param str page: (optional)
+            A token representing the position at which to start retrieving results. This must come from the `opc-next-page` header field of a previous response.
+
+        :param str opc_request_id: (optional)
+            The client request ID for tracing.
+
+        :param obj retry_strategy: (optional)
+            A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
+
+            This should be one of the strategies available in the :py:mod:`~oci.retry` module. This operation uses :py:data:`~oci.retry.DEFAULT_RETRY_STRATEGY` as default if no retry strategy is provided.
+            The specifics of the default retry strategy are described `here <https://docs.oracle.com/en-us/iaas/tools/python/latest/sdk_behaviors/retries.html>`__.
+
+            To have this operation explicitly not perform any retries, pass an instance of :py:class:`~oci.retry.NoneRetryStrategy`.
+
+        :param bool allow_control_chars: (optional)
+            allow_control_chars is a boolean to indicate whether or not this request should allow control characters in the response object.
+            By default, the response will not allow control characters in strings
+
+        :param bool enable_strict_url_encoding: (optional)
+            enable_strict_url_encoding is a boolean to indicate whether or not this request should enable strict url encoding for path params.
+            By default, strict url encoding for path params is disabled
+
+        :return: A :class:`~oci.response.Response` object with data of type :class:`~oci.adm.models.VulnerabilityDetailsCollection`
+        :rtype: :class:`~oci.response.Response`
+
+        :example:
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/list_vulnerabilities.py.html>`__ to see an example of how to use list_vulnerabilities API.
+        """
+        # Required path and query arguments. These are in camelCase to replace values in service endpoints.
+        required_arguments = ['vulnerabilityAuditId']
+        resource_path = "/vulnerabilityAudits/{vulnerabilityAuditId}/vulnerabilities"
+        method = "GET"
+        operation_name = "list_vulnerabilities"
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/adm/20220421/VulnerabilityAudit/ListVulnerabilities"
+
+        # Don't accept unknown kwargs
+        expected_kwargs = [
+            "allow_control_chars",
+            "enable_strict_url_encoding",
+            "retry_strategy",
+            "is_direct_vulnerability",
+            "limit",
+            "page",
+            "opc_request_id"
+        ]
+        extra_kwargs = [_key for _key in six.iterkeys(kwargs) if _key not in expected_kwargs]
+        if extra_kwargs:
+            raise ValueError(
+                f"list_vulnerabilities got unknown kwargs: {extra_kwargs!r}")
+
+        path_params = {
+            "vulnerabilityAuditId": vulnerability_audit_id
+        }
+
+        path_params = {k: v for (k, v) in six.iteritems(path_params) if v is not missing}
+
+        for (k, v) in six.iteritems(path_params):
+            if v is None or (isinstance(v, six.string_types) and len(v.strip()) == 0):
+                raise ValueError(f'Parameter {k} cannot be None, whitespace or empty string')
+
+        query_params = {
+            "isDirectVulnerability": kwargs.get("is_direct_vulnerability", missing),
+            "limit": kwargs.get("limit", missing),
+            "page": kwargs.get("page", missing)
+        }
+        query_params = {k: v for (k, v) in six.iteritems(query_params) if v is not missing and v is not None}
+
+        header_params = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "opc-request-id": kwargs.get("opc_request_id", missing)
+        }
+        header_params = {k: v for (k, v) in six.iteritems(header_params) if v is not missing and v is not None}
+
+        retry_strategy = self.base_client.get_preferred_retry_strategy(
+            operation_retry_strategy=kwargs.get('retry_strategy'),
+            client_retry_strategy=self.retry_strategy
+        )
+        if retry_strategy is None:
+            retry_strategy = retry.DEFAULT_RETRY_STRATEGY
+
+        if retry_strategy:
+            if not isinstance(retry_strategy, retry.NoneRetryStrategy):
+                self.base_client.add_opc_client_retries_header(header_params)
+                retry_strategy.add_circuit_breaker_callback(self.circuit_breaker_callback)
+            return retry_strategy.make_retrying_call(
+                self.base_client.call_api,
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="VulnerabilityDetailsCollection",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+        else:
+            return self.base_client.call_api(
+                resource_path=resource_path,
+                method=method,
+                path_params=path_params,
+                query_params=query_params,
+                header_params=header_params,
+                response_type="VulnerabilityDetailsCollection",
+                allow_control_chars=kwargs.get('allow_control_chars'),
+                enable_strict_url_encoding=kwargs.get('enable_strict_url_encoding'),
+                operation_name=operation_name,
+                api_reference_link=api_reference_link,
+                required_arguments=required_arguments)
+
     def list_vulnerability_audits(self, **kwargs):
         """
         Returns a list of Vulnerability Audits based on the specified query parameters.
@@ -3706,7 +3832,7 @@ class ApplicationDependencyManagementClient(object):
             Required only if the id query param is not specified.
 
         :param str knowledge_base_id: (optional)
-            A filter to return only Vulnerability Audits that were created against the specified knowledge base.
+            A filter to return only Audits that were created against the specified knowledge base.
 
         :param bool is_success: (optional)
             A filter to return only successful or failed Vulnerability Audits.
@@ -3779,7 +3905,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/list_vulnerability_audits.py.html>`__ to see an example of how to use list_vulnerability_audits API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/list_vulnerability_audits.py.html>`__ to see an example of how to use list_vulnerability_audits API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3950,7 +4076,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -4101,7 +4227,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -4264,7 +4390,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -4412,7 +4538,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/update_knowledge_base.py.html>`__ to see an example of how to use update_knowledge_base API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/update_knowledge_base.py.html>`__ to see an example of how to use update_knowledge_base API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['knowledgeBaseId']
@@ -4531,7 +4657,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/update_remediation_recipe.py.html>`__ to see an example of how to use update_remediation_recipe API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/update_remediation_recipe.py.html>`__ to see an example of how to use update_remediation_recipe API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['remediationRecipeId']
@@ -4648,7 +4774,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/update_remediation_run.py.html>`__ to see an example of how to use update_remediation_run API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/update_remediation_run.py.html>`__ to see an example of how to use update_remediation_run API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['remediationRunId']
@@ -4767,7 +4893,7 @@ class ApplicationDependencyManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/adm/update_vulnerability_audit.py.html>`__ to see an example of how to use update_vulnerability_audit API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/adm/update_vulnerability_audit.py.html>`__ to see an example of how to use update_vulnerability_audit API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['vulnerabilityAuditId']

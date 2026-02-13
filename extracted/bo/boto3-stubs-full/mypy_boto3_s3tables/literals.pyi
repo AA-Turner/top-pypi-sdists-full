@@ -23,6 +23,8 @@ else:
 
 __all__ = (
     "IcebergCompactionStrategyType",
+    "IcebergNullOrderType",
+    "IcebergSortDirectionType",
     "JobStatusType",
     "ListNamespacesPaginatorName",
     "ListTableBucketsPaginatorName",
@@ -46,6 +48,8 @@ __all__ = (
 )
 
 IcebergCompactionStrategyType = Literal["auto", "binpack", "sort", "z-order"]
+IcebergNullOrderType = Literal["nulls-first", "nulls-last"]
+IcebergSortDirectionType = Literal["asc", "desc"]
 JobStatusType = Literal["Disabled", "Failed", "Not_Yet_Run", "Successful"]
 ListNamespacesPaginatorName = Literal["list_namespaces"]
 ListTableBucketsPaginatorName = Literal["list_table_buckets"]

@@ -4,7 +4,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="zyte-api",
-    version="0.8.1",
+    version="0.8.2",
     description="Python interface to Zyte API",
     long_description=Path("README.rst").read_text(encoding="utf-8"),
     long_description_content_type="text/x-rst",
@@ -31,7 +31,7 @@ setup(
     extras_require={
         "x402": [
             "eth-account>=0.13.7",
-            "x402>=0.1.1",
+            "x402>=0.1.1,<2.0.0",
         ]
     },
     classifiers=[

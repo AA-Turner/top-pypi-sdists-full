@@ -387,9 +387,9 @@ if __name__ == "__main__":
 
     # arun(get_task("cgt-20250707160713-j8kll"))
 
-    tokens = arun(polling_keys('', channel_id=21443))
+    tokens = arun(polling_keys('', channel_id=21452))
 
-    tokens = list(set(tokens)) + ['68b877dc-a337-4a20-9091-738bb0fcd79c']
+    tokens = list(set(tokens)) + ['68b877dc-a337-4a20-9091-738bb0fcd79c'] + ["f8bf3116-d644-465a-b2e0-cad74469cf0b"]
 
     from meutils.apis.oneapi.tasks import get_tasks
 

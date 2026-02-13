@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -181,9 +181,10 @@ PropertiesPage::count () const
 void
 PropertiesPage::select_entries (const std::vector<size_t> &entries)
 {
-  tl_assert (entries.size () == 1);
-  m_index = entries.front ();
-  invalidate ();
+  if (! entries.empty ()) {
+    m_index = entries.front ();
+    invalidate ();
+  }
 }
 
 std::string

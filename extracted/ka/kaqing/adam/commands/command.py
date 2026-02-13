@@ -79,21 +79,51 @@ class Command:
             else:
                 leaf = None
 
-        d = leaf
+        d = self.affix_background(leaf)
         for t in reversed(self.command().split(' ')):
             d = {t: d}
 
         if aliases := self.aliases():
             for alias in aliases:
-                a = leaf
+                a = self.affix_background(leaf)
                 for t in reversed(alias.split(' ')):
                     a = {t: a}
                 d |= a
 
         return d
 
+    def affix_background(self, dict1: dict):
+        if not self.backgrounable():
+            return dict1
+
+        if not dict1:
+            return {'&': None}
+
+        if not isinstance(dict1, dict):
+            return dict1
+
+        return {'&': None} | self._affix_background(dict1)
+
+    def _affix_background(self, dict1: dict):
+        dict2: dict = {}
+
+        for k, v in dict1.items():
+            if v is None:
+                v = {'&': None}
+            elif isinstance(v, dict):
+                v = self._affix_background(v)
+            else:
+                v = v
+
+            dict2[k] = v
+
+        return dict2
+
     def required(self) -> RequiredState:
         return None
+
+    def backgrounable(self):
+        return False
 
     def validate(self, args: list[str], state: ReplState, apply = True):
         return ValidateStateHandler(self, args, state, apply = apply)
@@ -101,18 +131,28 @@ class Command:
     def validate_state(self, state: ReplState, show_err = True):
         return state.validate(self.required(), show_err=show_err)
 
+    def context(self, args: list[str] = None, show_out = True, ignore_bg = False):
+        return ContextHandler(self.command(), args, self.backgrounable(), show_out=show_out, ignore_bg=ignore_bg)
+
     def help(self, _: ReplState, desc: str = None, command: str = None, args: str = None):
         if not desc:
             return None
 
         if not command:
             command = self.command()
+
         if args:
             args = f' {args}'
         else:
             args = ''
-        aliases = '  alias ' + ','.join(self.aliases()) if self.aliases() else ''
-        return f'{command}{args}{aliases}\t{desc}'
+
+        aliases = ','.join(self.aliases()) if self.aliases() else ''
+
+        if self.backgrounable():
+            args += ' [&]'
+            desc += '  & background'
+
+        return f'{command}{args}\t{aliases}\t{desc}'
 
     def args(self, cmd: str):
         a = list(filter(None, cmd.split(' ')))
@@ -232,9 +272,6 @@ class Command:
             print(f'-> {s.command()}', end = '')
             cmd = s
         print()
-
-    def context(self, show_out=True) -> Context:
-        return Context.new(self.command(), show_out=show_out)
 
     def comma_separated_args(self, args: list[str]):
         safe_args = []
@@ -367,6 +404,28 @@ class ExtractSequenceOptionsHandler:
     def __enter__(self) -> tuple[list[str], list[str]]:
         args, _, sequence, _ = Command.extract_options(self.args, sequence=self.sequence)
         return args, sequence
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return False
+
+class ContextHandler:
+    def __init__(self, command: str, args: list[str] = None, backgroundable = False, show_out = True, ignore_bg = False):
+        self.command = command
+        self.args = args
+        self.backgrounable = backgroundable
+        self.show_out = show_out
+        self.ignore_bg = ignore_bg
+
+    def __enter__(self) -> tuple[list[str], Context]:
+        args = self.args
+        background = False
+        if not self.ignore_bg:
+            args, background, _, _ = Command.extract_options(self.args, '&')
+            if not self.backgrounable and background:
+                log2(f"'&' is not a valid option for '{self.command}', ignoring")
+                background = False
+
+        return args, Context.new(self.command + ' ' + ' '.join(args), show_out=self.show_out, background=background)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         return False

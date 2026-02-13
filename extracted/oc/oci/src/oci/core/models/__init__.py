@@ -69,7 +69,23 @@ from .boot_volume_source_from_boot_volume_backup_details import BootVolumeSource
 from .boot_volume_source_from_boot_volume_details import BootVolumeSourceFromBootVolumeDetails
 from .boot_volume_source_from_boot_volume_replica_details import BootVolumeSourceFromBootVolumeReplicaDetails
 from .bulk_add_virtual_circuit_public_prefixes_details import BulkAddVirtualCircuitPublicPrefixesDetails
+from .bulk_create_ipv6s_details import BulkCreateIpv6sDetails
+from .bulk_create_ipv6s_item import BulkCreateIpv6sItem
+from .bulk_create_private_ip_item import BulkCreatePrivateIpItem
+from .bulk_create_private_ips_details import BulkCreatePrivateIpsDetails
+from .bulk_delete_ipv6s_details import BulkDeleteIpv6sDetails
+from .bulk_delete_ipv6s_item import BulkDeleteIpv6sItem
+from .bulk_delete_private_ip_item import BulkDeletePrivateIpItem
+from .bulk_delete_private_ips_details import BulkDeletePrivateIpsDetails
 from .bulk_delete_virtual_circuit_public_prefixes_details import BulkDeleteVirtualCircuitPublicPrefixesDetails
+from .bulk_detach_ipv6s_details import BulkDetachIpv6sDetails
+from .bulk_detach_ipv6s_item import BulkDetachIpv6sItem
+from .bulk_detach_private_ip_item import BulkDetachPrivateIpItem
+from .bulk_detach_private_ips_details import BulkDetachPrivateIpsDetails
+from .bulk_update_ipv6s_details import BulkUpdateIpv6sDetails
+from .bulk_update_ipv6s_item import BulkUpdateIpv6sItem
+from .bulk_update_private_ip_item import BulkUpdatePrivateIpItem
+from .bulk_update_private_ips_details import BulkUpdatePrivateIpsDetails
 from .byoasn import Byoasn
 from .byoasn_byoip_range import ByoasnByoipRange
 from .byoasn_collection import ByoasnCollection
@@ -749,7 +765,23 @@ core_type_mapping = {
     "BootVolumeSourceFromBootVolumeDetails": BootVolumeSourceFromBootVolumeDetails,
     "BootVolumeSourceFromBootVolumeReplicaDetails": BootVolumeSourceFromBootVolumeReplicaDetails,
     "BulkAddVirtualCircuitPublicPrefixesDetails": BulkAddVirtualCircuitPublicPrefixesDetails,
+    "BulkCreateIpv6sDetails": BulkCreateIpv6sDetails,
+    "BulkCreateIpv6sItem": BulkCreateIpv6sItem,
+    "BulkCreatePrivateIpItem": BulkCreatePrivateIpItem,
+    "BulkCreatePrivateIpsDetails": BulkCreatePrivateIpsDetails,
+    "BulkDeleteIpv6sDetails": BulkDeleteIpv6sDetails,
+    "BulkDeleteIpv6sItem": BulkDeleteIpv6sItem,
+    "BulkDeletePrivateIpItem": BulkDeletePrivateIpItem,
+    "BulkDeletePrivateIpsDetails": BulkDeletePrivateIpsDetails,
     "BulkDeleteVirtualCircuitPublicPrefixesDetails": BulkDeleteVirtualCircuitPublicPrefixesDetails,
+    "BulkDetachIpv6sDetails": BulkDetachIpv6sDetails,
+    "BulkDetachIpv6sItem": BulkDetachIpv6sItem,
+    "BulkDetachPrivateIpItem": BulkDetachPrivateIpItem,
+    "BulkDetachPrivateIpsDetails": BulkDetachPrivateIpsDetails,
+    "BulkUpdateIpv6sDetails": BulkUpdateIpv6sDetails,
+    "BulkUpdateIpv6sItem": BulkUpdateIpv6sItem,
+    "BulkUpdatePrivateIpItem": BulkUpdatePrivateIpItem,
+    "BulkUpdatePrivateIpsDetails": BulkUpdatePrivateIpsDetails,
     "Byoasn": Byoasn,
     "ByoasnByoipRange": ByoasnByoipRange,
     "ByoasnCollection": ByoasnCollection,

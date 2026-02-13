@@ -23,7 +23,6 @@ from anyscale.commands.job_commands import job_cli
 from anyscale.commands.job_queue_commands import job_queue_cli
 from anyscale.commands.login_commands import anyscale_login, anyscale_logout
 from anyscale.commands.logs_commands import log_cli
-from anyscale.commands.machine_commands import machine_cli
 from anyscale.commands.machine_pool_commands import machine_pool_cli
 from anyscale.commands.migrate_commands import migrate_cli
 from anyscale.commands.organization_invitation_commands import (
@@ -136,7 +135,6 @@ cli.add_command(anyscale_api)
 cli.add_command(log_cli)
 cli.add_command(anyscale_login)
 cli.add_command(anyscale_logout)
-cli.add_command(machine_cli)
 cli.add_command(machine_pool_cli)
 cli.add_command(service_account_cli)
 cli.add_command(resource_quota_cli)

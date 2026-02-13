@@ -1,4 +1,4 @@
-__version__ = "0.11.4"
+__version__ = "0.12.0"
 
 from scikit_posthocs._global import global_simes_test, global_f_test
 from scikit_posthocs._omnibus import test_osrt, test_durbin, test_mackwolfe
@@ -34,6 +34,9 @@ from scikit_posthocs._plotting import (
     sign_plot,
     sign_table,
     critical_difference_diagram,
+)
+from scikit_posthocs._grouping import (
+    compact_letter_display,
 )
 from scikit_posthocs._outliers import (
     outliers_gesd,

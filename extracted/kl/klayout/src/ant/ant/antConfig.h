@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -50,12 +50,6 @@ extern ANT_PUBLIC const std::string cfg_current_ruler_template;
 
 // ------------------------------------------------------------
 //  Helper functions to get and set the configuration
-
-struct ACConverter 
-{
-  std::string to_string (const lay::angle_constraint_type &m);
-  void from_string (const std::string &s, lay::angle_constraint_type &m);
-};
 
 struct StyleConverter 
 {

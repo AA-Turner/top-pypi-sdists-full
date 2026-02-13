@@ -485,7 +485,7 @@ def insert_node(parent, insert_location: str, node, node_idx: int, label=None):
             parent.default_node = seq
         else:
             raise TypeError(
-                f'Unsupported label value "{label}". Must be one of the following: switch_expr, case, ' f"default."
+                f'Unsupported label value "{label}". Must be one of the following: switch_expr, case, default.'
             )
     elif isinstance(parent, LoopNode):
         if label == "condition":
@@ -856,6 +856,7 @@ class _PeepholeExprsWalker(ailment.AILBlockRewriter):
                 if isinstance(expr, expr_opt.expr_classes):
                     r = expr_opt.optimize(expr, stmt_idx=stmt_idx, block=block)
                     if r is not None and r is not expr:
+                        assert expr.bits == r.bits
                         expr = r
                         redo = True
                         break
@@ -1028,6 +1029,7 @@ def decompile_functions(
     preset: str | None = None,
     cca: bool = False,
     cca_callsites: bool = True,
+    llm: bool = False,
     progressbar: bool = False,
 ) -> str:
     """
@@ -1087,6 +1089,8 @@ def decompile_functions(
         (PARAM_TO_OPTION["structurer_cls"], structurer),
         (PARAM_TO_OPTION["show_casts"], show_casts),
     ]
+    if llm:
+        dec_options.append(("llm_refine", True))
     for func in functions:
         f = cfg.functions[func]
         if f is None or f.is_plt or f.is_syscall or f.is_alignment or f.is_simprocedure:
@@ -1099,20 +1103,15 @@ def decompile_functions(
             try:
                 # TODO: add a timeout
                 dec = proj.analyses.Decompiler(
-                    f, cfg=cfg, options=dec_options, preset=preset, show_progressbar=progressbar
+                    f, cfg=cfg, options=dec_options, preset=preset, show_progressbar=progressbar, fail_fast=True
                 )
             except Exception as e:
                 exception_string = str(e).replace("\n", " ")
                 dec = None
 
         # do sanity checks on decompilation, skip checks if we already errored
-        if not exception_string:
-            if dec is None or not dec.codegen or not dec.codegen.text:
-                exception_string = "Decompilation had no code output (failed in decompilation)"
-            elif "{\n}" in dec.codegen.text:
-                exception_string = "Decompilation outputted an empty function (failed in structuring)"
-            elif structurer in ["dream", "combing"] and "goto" in dec.codegen.text:
-                exception_string = "Decompilation outputted a goto for a Gotoless algorithm (failed in structuring)"
+        if not exception_string and (dec is None or not dec.codegen or not dec.codegen.text):
+            exception_string = "Decompilation had no code output (failed in decompilation)"
 
         if exception_string:
             _l.critical("Failed to decompile %s because %s", repr(f), exception_string)

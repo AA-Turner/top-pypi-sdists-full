@@ -228,3 +228,105 @@ class GetInstanceUsageResponse(_message.Message):
     INSTANCES_FIELD_NUMBER: _ClassVar[int]
     instances: _containers.RepeatedCompositeFieldContainer[InstanceUsage]
     def __init__(self, instances: _Optional[_Iterable[_Union[InstanceUsage, _Mapping]]] = ...) -> None: ...
+
+class GetPodTimeRangesRequest(_message.Message):
+    __slots__ = (
+        "pod_names",
+        "pod_name_regex",
+        "resource_group",
+        "nodepool",
+        "component",
+        "service_kind",
+        "start_time",
+        "end_time",
+    )
+    POD_NAMES_FIELD_NUMBER: _ClassVar[int]
+    POD_NAME_REGEX_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    NODEPOOL_FIELD_NUMBER: _ClassVar[int]
+    COMPONENT_FIELD_NUMBER: _ClassVar[int]
+    SERVICE_KIND_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    pod_names: _containers.RepeatedScalarFieldContainer[str]
+    pod_name_regex: str
+    resource_group: str
+    nodepool: str
+    component: str
+    service_kind: str
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        pod_names: _Optional[_Iterable[str]] = ...,
+        pod_name_regex: _Optional[str] = ...,
+        resource_group: _Optional[str] = ...,
+        nodepool: _Optional[str] = ...,
+        component: _Optional[str] = ...,
+        service_kind: _Optional[str] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class PodTimeRange(_message.Message):
+    __slots__ = ("pod_name", "start_time", "end_time")
+    POD_NAME_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    pod_name: str
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        pod_name: _Optional[str] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetPodTimeRangesResponse(_message.Message):
+    __slots__ = ("time_ranges",)
+    TIME_RANGES_FIELD_NUMBER: _ClassVar[int]
+    time_ranges: _containers.RepeatedCompositeFieldContainer[PodTimeRange]
+    def __init__(self, time_ranges: _Optional[_Iterable[_Union[PodTimeRange, _Mapping]]] = ...) -> None: ...
+
+class GetNodeTimeRangesRequest(_message.Message):
+    __slots__ = ("node_names", "node_name_regex", "nodepool", "start_time", "end_time")
+    NODE_NAMES_FIELD_NUMBER: _ClassVar[int]
+    NODE_NAME_REGEX_FIELD_NUMBER: _ClassVar[int]
+    NODEPOOL_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    node_names: _containers.RepeatedScalarFieldContainer[str]
+    node_name_regex: str
+    nodepool: str
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        node_names: _Optional[_Iterable[str]] = ...,
+        node_name_regex: _Optional[str] = ...,
+        nodepool: _Optional[str] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class NodeTimeRange(_message.Message):
+    __slots__ = ("node_name", "start_time", "end_time")
+    NODE_NAME_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    node_name: str
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        node_name: _Optional[str] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetNodeTimeRangesResponse(_message.Message):
+    __slots__ = ("time_ranges",)
+    TIME_RANGES_FIELD_NUMBER: _ClassVar[int]
+    time_ranges: _containers.RepeatedCompositeFieldContainer[NodeTimeRange]
+    def __init__(self, time_ranges: _Optional[_Iterable[_Union[NodeTimeRange, _Mapping]]] = ...) -> None: ...

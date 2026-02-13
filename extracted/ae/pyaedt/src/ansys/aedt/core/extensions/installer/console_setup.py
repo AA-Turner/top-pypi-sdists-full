@@ -40,22 +40,17 @@ import sys
 from IPython import get_ipython
 import tempfile
 
-aedt_process_id = int(os.environ.get("PYAEDT_PROCESS_ID", None)) # pragma: no cover
-version = os.environ.get("PYAEDT_DESKTOP_VERSION", None) # pragma: no cover
+aedt_process_id = int(os.environ.get("PYAEDT_PROCESS_ID", None))  # pragma: no cover
+version = os.environ.get("PYAEDT_DESKTOP_VERSION", None)  # pragma: no cover
 print("Loading the PyAEDT Console.")
 
 try:  # pragma: no cover
-    if version <= "2023.1":
-        from pyaedt import Desktop
-        from pyaedt.generic.general_methods import active_sessions
-        from pyaedt.generic.general_methods import is_windows
-    else:
-        from ansys.aedt.core import *
-        import ansys.aedt.core  # noqa: F401
-        from ansys.aedt.core import Desktop
-        from ansys.aedt.core.generic.general_methods import active_sessions
-        from ansys.aedt.core.generic.general_methods import is_windows
-        from ansys.aedt.core.generic.file_utils import available_file_name
+    from ansys.aedt.core import *
+    import ansys.aedt.core  # noqa: F401
+    from ansys.aedt.core import Desktop
+    from ansys.aedt.core.generic.general_methods import active_sessions
+    from ansys.aedt.core.generic.general_methods import is_windows
+    from ansys.aedt.core.generic.file_utils import available_file_name
 
 except ImportError:  # pragma: no cover
     # Debug only purpose. If the tool is added to the ribbon from a GitHub clone, then a link
@@ -63,20 +58,16 @@ except ImportError:  # pragma: no cover
     console_setup_dir = Path(__file__).resolve().parent
     if "PersonalLib" in console_setup_dir.parts:
         sys.path.append(str(console_setup_dir / ".." / ".." / ".."))
-    if version <= "2023.1":
-        from pyaedt import Desktop
-        from pyaedt.generic.general_methods import active_sessions
-        from pyaedt.generic.general_methods import is_windows
-    else:
-        from ansys.aedt.core import *  # noqa: F401
-        import ansys.aedt.core  # noqa: F401
-        from ansys.aedt.core import Desktop
-        from ansys.aedt.core.generic.general_methods import active_sessions
-        from ansys.aedt.core.generic.general_methods import is_windows
-        from ansys.aedt.core.generic.file_utils import available_file_name
+
+    from ansys.aedt.core import *  # noqa: F401
+    import ansys.aedt.core  # noqa: F401
+    from ansys.aedt.core import Desktop
+    from ansys.aedt.core.generic.general_methods import active_sessions
+    from ansys.aedt.core.generic.general_methods import is_windows
+    from ansys.aedt.core.generic.file_utils import available_file_name
 
 
-def release(d):  # pragma: no cover
+def release(d) -> None:  # pragma: no cover
     d.logger.info("Exiting the PyAEDT Console.")
 
     d.release_desktop(False, False)
@@ -143,7 +134,7 @@ if not error:  # pragma: no cover
             import win32api
             import win32con
 
-            def handler(ctrl_type):
+            def handler(ctrl_type) -> bool:
                 if ctrl_type == win32con.CTRL_CLOSE_EVENT:
                     release(desktop)
                     return False
@@ -156,7 +147,7 @@ if not error:  # pragma: no cover
         try:
             import signal
 
-            def signal_handler(sig, frame):
+            def signal_handler(sig, frame) -> None:
                 release(desktop)
                 sys.exit(0)
 
@@ -176,7 +167,7 @@ if version > "2023.1":  # pragma: no cover
         f.write("import ansys.aedt.core\n")
         f.write("from ansys.aedt.core import *\n")
 
-    def log_successful_command(result):
+    def log_successful_command(result) -> None:
         """
         IPython Hook: Executes after every command (cell).
         Logs the input command only if 'result.error_in_exec' is False (no exception).

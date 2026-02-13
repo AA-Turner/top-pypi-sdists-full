@@ -20,7 +20,6 @@ __all__ = ["BaseHTTPError", "RateLimitReachedError", "exception_from_message"]
 
 
 class BaseHTTPError(Exception):
-
     """
     The base exception class for all HTTP related exceptions.
     """

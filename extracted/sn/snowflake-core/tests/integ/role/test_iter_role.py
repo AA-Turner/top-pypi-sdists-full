@@ -1,8 +1,7 @@
 import pytest
 
-from tests.utils import random_string
-
 from snowflake.core.role import Role
+from tests.utils import random_string
 
 
 @pytest.mark.use_accountadmin

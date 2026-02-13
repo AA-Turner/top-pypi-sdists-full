@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.datasets_pb2 import (
+    ArchiveDatasetRevisionRequest,
+    ArchiveDatasetRevisionResponse,
     GetDatasetRequest,
     GetDatasetResponse,
     GetDatasetRevisionDownloadLinksRequest,
@@ -18,6 +20,8 @@ from chalk._gen.chalk.server.v1.datasets_pb2 import (
     ListDatasetRevisionsResponse,
     ListDatasetsRequest,
     ListDatasetsResponse,
+    RenameDatasetRequest,
+    RenameDatasetResponse,
 )
 from grpc import (
     Channel,
@@ -47,6 +51,14 @@ class DatasetMetadataServiceStub:
     GetDatasetRevisionDownloadLinks: UnaryUnaryMultiCallable[
         GetDatasetRevisionDownloadLinksRequest,
         GetDatasetRevisionDownloadLinksResponse,
+    ]
+    RenameDataset: UnaryUnaryMultiCallable[
+        RenameDatasetRequest,
+        RenameDatasetResponse,
+    ]
+    ArchiveDatasetRevision: UnaryUnaryMultiCallable[
+        ArchiveDatasetRevisionRequest,
+        ArchiveDatasetRevisionResponse,
     ]
 
 class DatasetMetadataServiceServicer(metaclass=ABCMeta):
@@ -80,5 +92,17 @@ class DatasetMetadataServiceServicer(metaclass=ABCMeta):
         request: GetDatasetRevisionDownloadLinksRequest,
         context: ServicerContext,
     ) -> GetDatasetRevisionDownloadLinksResponse: ...
+    @abstractmethod
+    def RenameDataset(
+        self,
+        request: RenameDatasetRequest,
+        context: ServicerContext,
+    ) -> RenameDatasetResponse: ...
+    @abstractmethod
+    def ArchiveDatasetRevision(
+        self,
+        request: ArchiveDatasetRevisionRequest,
+        context: ServicerContext,
+    ) -> ArchiveDatasetRevisionResponse: ...
 
 def add_DatasetMetadataServiceServicer_to_server(servicer: DatasetMetadataServiceServicer, server: Server) -> None: ...

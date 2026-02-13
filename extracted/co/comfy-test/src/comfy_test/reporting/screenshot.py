@@ -2,10 +2,12 @@
 
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import tempfile
 import time
+import traceback
 import requests
 from pathlib import Path
 from typing import Optional, Callable, List, TYPE_CHECKING
@@ -128,18 +130,40 @@ def ensure_dependencies(
 
     log("Installing screenshot dependencies (playwright, pillow)...")
 
-    python = str(python_path) if python_path else sys.executable
-
     try:
-        # Install playwright and pillow
+        # Try installing into the running process's environment first
+        python = sys.executable
         result = subprocess.run(
             ["uv", "pip", "install", "--python", python, "playwright", "pillow"],
             capture_output=True,
             text=True,
         )
+
         if result.returncode != 0:
-            log(f"  Failed to install packages: {result.stderr}")
-            return False
+            # Current env not writable (e.g. system Python). Fall back to workspace venv.
+            if python_path and str(python_path) != python:
+                log(f"  Current env not writable, installing into workspace venv...")
+                python = str(python_path)
+                result = subprocess.run(
+                    ["uv", "pip", "install", "--python", python, "playwright", "pillow"],
+                    capture_output=True,
+                    text=True,
+                )
+                if result.returncode != 0:
+                    log(f"  Failed to install packages: {result.stderr}")
+                    return False
+                # Add workspace venv site-packages to sys.path so we can import
+                sp_result = subprocess.run(
+                    [python, "-c", "import site; print(site.getsitepackages()[0])"],
+                    capture_output=True, text=True,
+                )
+                if sp_result.returncode == 0:
+                    site_pkg = sp_result.stdout.strip()
+                    if site_pkg not in sys.path:
+                        sys.path.insert(0, site_pkg)
+            else:
+                log(f"  Failed to install packages: {result.stderr}")
+                return False
 
         log("  Packages installed, downloading chromium browser...")
 
@@ -155,13 +179,7 @@ def ensure_dependencies(
 
         log("  Screenshot dependencies installed successfully")
 
-        # If we installed to a different Python environment, we can't verify
-        # via import in the current process - just trust the subprocess succeeded
-        if python_path:
-            return True
-
-        # Update availability flags and import globals (only for current env)
-        # We need to set the global names so WorkflowScreenshot can use them
+        # Update availability flags and import globals
         try:
             from playwright.sync_api import sync_playwright, Page, Browser
             PLAYWRIGHT_AVAILABLE = True
@@ -224,13 +242,17 @@ class WorkflowScreenshot:
 
         self._log("Starting headless browser...")
         self._playwright = sync_playwright().start()
-        self._browser = self._playwright.chromium.launch(headless=True)
+        self._browser = self._playwright.chromium.launch(
+            headless=True,
+            args=["--disable-gpu", "--use-gl=angle", "--use-angle=swiftshader"],
+        )
         self._page = self._browser.new_page(
             viewport={"width": self.width, "height": self.height},
             device_scale_factor=2,  # HiDPI for crisp screenshots
         )
-        # Increase default timeout for CI environments (macOS can be slow)
-        self._page.set_default_timeout(60000)
+        # Increase default timeout for CI environments (macOS/WSL can be slow)
+        screenshot_timeout = int(os.environ.get("COMFY_TEST_SCREENSHOT_TIMEOUT", "120000"))
+        self._page.set_default_timeout(screenshot_timeout)
         # Capture browser console messages
         self._page.on("console", self._handle_console)
 
@@ -251,6 +273,20 @@ class WorkflowScreenshot:
         """Clear captured console logs."""
         self._console_logs.clear()
 
+    def _safe_screenshot(self, path: str, **kwargs) -> bool:
+        """Take a screenshot, logging the full traceback on failure instead of crashing.
+
+        Returns:
+            True if screenshot succeeded, False if it failed.
+        """
+        try:
+            self._page.screenshot(path=path, **kwargs)
+            return True
+        except Exception:
+            self._log(f"  WARNING: Screenshot failed ({path}):")
+            self._log(traceback.format_exc())
+            return False
+
     def _screenshot_with_retry(self, path: str, retries: int = 3, **kwargs) -> None:
         """Take screenshot with retry logic for flaky CI environments.
 
@@ -266,8 +302,9 @@ class WorkflowScreenshot:
                 return
             except Exception as e:
                 last_error = e
+                self._log(f"  Screenshot attempt {attempt + 1}/{retries} failed:")
+                self._log(traceback.format_exc())
                 if attempt < retries - 1:
-                    self._log(f"  Screenshot attempt {attempt + 1} failed, retrying...")
                     self._page.wait_for_timeout(1000)  # Wait before retry
         raise last_error
 
@@ -322,24 +359,74 @@ class WorkflowScreenshot:
         except Exception:
             pass  # Best effort
 
-    def _validate_workflow_in_browser(self) -> None:
+    def _trigger_3d_previews(self) -> None:
+        """Activate Load3d/Preview3D nodes so their Three.js loop renders.
+
+        ComfyUI's Load3d widget skips rendering unless isActive() is true.
+        We find all such nodes and dispatch mouseenter on their DOM widgets
+        to set STATUS_MOUSE_ON_SCENE = true, then wait for a render cycle.
+        """
+        try:
+            self._page.evaluate("""
+                (() => {
+                    const nodes = window.app.graph._nodes || [];
+                    for (const node of nodes) {
+                        const t = (node.type || '').toLowerCase();
+                        if (!t.includes('3d') && !t.includes('load3d') && !t.includes('preview3d')) continue;
+
+                        if (node.widgets) {
+                            for (const widget of node.widgets) {
+                                const el = widget.element || widget.inputEl;
+                                if (el) {
+                                    el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+                                }
+                            }
+                        }
+
+                        if (typeof node.onMouseEnter === 'function') {
+                            try { node.onMouseEnter({}); } catch(e) {}
+                        }
+                    }
+                })();
+            """)
+            self._page.wait_for_timeout(2000)
+        except Exception:
+            pass  # Best effort
+
+    def _validate_workflow_in_browser(self) -> dict:
         """Validate workflow using browser's graphToPrompt() conversion.
 
         Must be called after workflow is loaded into browser via loadGraphData().
         Uses graphToPrompt() for consistent conversion - this ensures we validate
         using the exact same API format that queuePrompt() will use.
 
-        The browser's graphToPrompt() is the canonical conversion. Validating with
-        its output prevents mismatches between Python's converter and the browser's.
+        Returns:
+            Dict with 'success' bool and optional 'node_errors' dict.
 
         Raises:
-            ScreenshotError: If workflow validation fails
+            ScreenshotError: If workflow validation hard-fails (HTTP error, missing class_type)
         """
         result = self._page.evaluate("""
             async () => {
                 try {
                     // Get API format using browser's converter
                     const { output } = await window.app.graphToPrompt();
+
+                    // Diagnostic: check conversion quality
+                    const nodeIds = Object.keys(output || {});
+                    const nodesWithoutClassType = nodeIds.filter(id => !output[id] || !output[id].class_type);
+                    const sample = nodeIds.length > 0 ? JSON.stringify(output[nodeIds[0]]).substring(0, 300) : 'empty';
+                    const diag = `graphToPrompt: ${nodeIds.length} nodes, missing class_type: [${nodesWithoutClassType.join(',')}], sample: ${sample}`;
+                    console.log('[comfy-test] ' + diag);
+
+                    if (nodesWithoutClassType.length > 0) {
+                        return {
+                            success: false,
+                            error: {
+                                message: 'graphToPrompt produced nodes without class_type: ' + diag
+                            }
+                        };
+                    }
 
                     // Validate via /validate endpoint
                     const validateResp = await fetch('/validate', {
@@ -376,6 +463,11 @@ class WorkflowScreenshot:
                         return { success: false, error: data.error, node_errors: data.node_errors };
                     }
 
+                    // Pass through node_errors even when valid (caller decides what to do)
+                    if (data.node_errors && Object.keys(data.node_errors).length > 0) {
+                        return { success: true, node_errors: data.node_errors };
+                    }
+
                     return { success: true };
                 } catch (e) {
                     return { success: false, error: { message: e.toString() } };
@@ -390,7 +482,10 @@ class WorkflowScreenshot:
             details = error_msg
             if node_errors:
                 details += f"\nNode errors:\n{json.dumps(node_errors, indent=2)}"
+            self._log(f"  Validation failed: {details}")
             raise ScreenshotError("Workflow validation failed", details)
+
+        return result
 
     def __enter__(self) -> "WorkflowScreenshot":
         self.start()
@@ -682,6 +777,9 @@ class WorkflowScreenshot:
         # Close any open panels (Templates sidebar) and dismiss alerts
         self._close_panels_and_alerts()
 
+        # Activate Load3d/Preview3D nodes so their Three.js viewports render
+        self._trigger_3d_previews()
+
         # Take screenshot with a temp file first
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
             tmp_path = Path(tmp.name)
@@ -872,8 +970,8 @@ class WorkflowScreenshot:
         try:
             # Take initial frame (before execution)
             initial_frame = temp_dir / "frame_000.png"
-            self._page.screenshot(path=str(initial_frame))
-            frames.append(Image.open(initial_frame))
+            if self._safe_screenshot(path=str(initial_frame)):
+                frames.append(Image.open(initial_frame))
 
             # Validate workflow using browser's graphToPrompt() conversion
             self._log("  Validating workflow...")
@@ -905,9 +1003,9 @@ class WorkflowScreenshot:
                 # Take periodic screenshot to catch execution state (green boxes)
                 if (current_time - last_screenshot_time) * 1000 >= screenshot_interval_ms:
                     frame_path = temp_dir / f"frame_{frame_num:03d}.png"
-                    self._page.screenshot(path=str(frame_path))
-                    frames.append(Image.open(frame_path))
-                    frame_num += 1
+                    if self._safe_screenshot(path=str(frame_path)):
+                        frames.append(Image.open(frame_path))
+                        frame_num += 1
                     last_screenshot_time = current_time
 
                 if state["complete"]:
@@ -930,8 +1028,8 @@ class WorkflowScreenshot:
             # Final frame after completion
             self._page.wait_for_timeout(1000)  # Wait for final renders
             final_frame = temp_dir / f"frame_{frame_num:03d}.png"
-            self._page.screenshot(path=str(final_frame))
-            frames.append(Image.open(final_frame))
+            if self._safe_screenshot(path=str(final_frame)):
+                frames.append(Image.open(final_frame))
 
             self._log(f"  Captured {len(frames)} total frames")
 
@@ -963,11 +1061,11 @@ class WorkflowScreenshot:
         final_screenshot_delay_ms: int = 5000,
         timeout: int = 300,
     ) -> List[Path]:
-        """Capture workflow execution as individual WebP frames for slider playback.
+        """Capture workflow execution as frames triggered by node execution events.
 
-        Takes periodic screenshots during execution and saves as compressed WebP.
-        Uses 1x scale (not HiDPI) to reduce file size. Also saves metadata.json
-        with timestamps and log snapshots for each frame.
+        Takes a screenshot each time a node finishes executing (via WebSocket
+        'executed' events), producing one frame per node instead of continuous
+        polling. Also saves metadata.json with timestamps and log snapshots.
 
         Optionally captures a high-quality PNG screenshot after execution completes,
         waiting for previews to fully render.
@@ -975,13 +1073,13 @@ class WorkflowScreenshot:
         Args:
             workflow_path: Path to the workflow JSON file
             output_dir: Directory to save frames (e.g., videos/workflow_name/)
-            webp_quality: WebP compression quality 0-100 (default: 60, lower for video)
+            webp_quality: JPEG compression quality 0-100 (default: 60)
             log_lines: Optional list that accumulates log lines (for syncing logs to frames)
             final_screenshot_path: Optional path to save high-quality PNG after execution
             final_screenshot_delay_ms: Delay before final screenshot (default: 5000ms)
 
         Returns:
-            List of paths to saved WebP frames
+            List of paths to saved JPEG frames
 
         Raises:
             ScreenshotError: If capture or execution fails
@@ -1056,10 +1154,11 @@ class WorkflowScreenshot:
         except Exception:
             self._log("  Warning: WebSocket not ready, proceeding anyway")
 
-        # Inject WebSocket listener to track execution completion
+        # Inject WebSocket listener to track execution completion and per-node events
         self._page.evaluate("""
             window._executionComplete = false;
             window._executionError = null;
+            window._executedNodeCount = 0;
 
             if (window.app && window.app.api && window.app.api.socket) {
                 const origOnMessage = window.app.api.socket.onmessage;
@@ -1070,7 +1169,9 @@ class WorkflowScreenshot:
                     if (event && typeof event.data === 'string') {
                         try {
                             const msg = JSON.parse(event.data);
-                            if (msg && msg.type === 'execution_success') {
+                            if (msg && msg.type === 'executed' && msg.data && msg.data.node) {
+                                window._executedNodeCount++;
+                            } else if (msg && msg.type === 'execution_success') {
                                 window._executionComplete = true;
                             } else if (msg && msg.type === 'execution_error') {
                                 window._executionError = msg.data;
@@ -1095,44 +1196,49 @@ class WorkflowScreenshot:
             frame_num = 0
             capture_start = time.time()
             temp_path = output_dir / f"frame_{frame_num:03d}.png"
-            self._page.screenshot(path=str(temp_path), scale="css")  # 1x scale
-            log_snapshot = "\n".join(log_lines) if log_lines else ""
-            temp_frames.append((temp_path, 0.0, log_snapshot))
+            if self._safe_screenshot(path=str(temp_path), scale="css"):
+                log_snapshot = "\n".join(log_lines) if log_lines else ""
+                temp_frames.append((temp_path, 0.0, log_snapshot))
 
             # Validate workflow using browser's graphToPrompt() conversion
             self._log("  Validating workflow...")
-            self._validate_workflow_in_browser()
+            validation = self._validate_workflow_in_browser()
+            node_errors = validation.get("node_errors")
+            if node_errors:
+                self._log(f"  Warning: {len(node_errors)} node(s) have validation errors (will fail after screenshots)")
 
             # Queue using queuePrompt for proper WebSocket handling
             self._log("  Queuing workflow for execution...")
             self._page.evaluate("window.app.queuePrompt(0)")
 
-            # Capture loop - periodic screenshots with timeout
-            last_screenshot_time = 0
+            # Capture loop - screenshot on each node execution event
             frame_num = 1
-            screenshot_interval_ms = 100  # Capture every 100ms
+            last_executed_count = 0
             timed_out = False
 
             while time.time() - capture_start < timeout:
-                current_time = time.time()
-                elapsed = current_time - capture_start
+                elapsed = time.time() - capture_start
 
-                # Check execution state
+                # Check execution state and node execution count
                 state = self._page.evaluate("""
                     () => ({
                         complete: window._executionComplete,
-                        error: window._executionError
+                        error: window._executionError,
+                        executedCount: window._executedNodeCount
                     })
                 """)
 
-                # Take periodic screenshot
-                if (current_time - capture_start - last_screenshot_time) * 1000 >= screenshot_interval_ms:
+                # Take screenshot when new node(s) have executed
+                if state["executedCount"] > last_executed_count:
+                    # Brief pause to let the UI render the node's output
+                    self._page.wait_for_timeout(150)
+                    elapsed = time.time() - capture_start
                     temp_path = output_dir / f"frame_{frame_num:03d}.png"
-                    self._page.screenshot(path=str(temp_path), scale="css")  # 1x scale
-                    log_snapshot = "\n".join(log_lines) if log_lines else ""
-                    temp_frames.append((temp_path, round(elapsed, 2), log_snapshot))
-                    frame_num += 1
-                    last_screenshot_time = elapsed
+                    if self._safe_screenshot(path=str(temp_path), scale="css"):
+                        log_snapshot = "\n".join(log_lines) if log_lines else ""
+                        temp_frames.append((temp_path, round(elapsed, 2), log_snapshot))
+                        frame_num += 1
+                    last_executed_count = state["executedCount"]
 
                 if state["complete"]:
                     if state["error"]:
@@ -1147,7 +1253,7 @@ class WorkflowScreenshot:
                         raise WorkflowError(f"Workflow execution failed: {error_msg}", workflow_file=str(workflow_path), node_error=node_error)
                     break
 
-                self._page.wait_for_timeout(20)
+                self._page.wait_for_timeout(100)
             else:
                 # Timeout reached
                 timed_out = True
@@ -1157,9 +1263,9 @@ class WorkflowScreenshot:
             self._page.wait_for_timeout(1000)
             elapsed = time.time() - capture_start
             temp_path = output_dir / f"frame_{frame_num:03d}.png"
-            self._page.screenshot(path=str(temp_path), scale="css")
-            log_snapshot = "\n".join(log_lines) if log_lines else ""
-            temp_frames.append((temp_path, round(elapsed, 2), log_snapshot))
+            if self._safe_screenshot(path=str(temp_path), scale="css"):
+                log_snapshot = "\n".join(log_lines) if log_lines else ""
+                temp_frames.append((temp_path, round(elapsed, 2), log_snapshot))
 
             total_time = round(time.time() - capture_start, 2)
             self._log(f"  Captured {len(temp_frames)} frames over {total_time}s")
@@ -1189,7 +1295,7 @@ class WorkflowScreenshot:
                 # Remove temp PNG
                 temp_path.unlink()
 
-            self._log(f"  {len(frame_paths)} unique frames saved as WebP")
+            self._log(f"  {len(frame_paths)} unique frames saved")
 
             # Capture high-quality final screenshot if requested
             if final_screenshot_path:
@@ -1199,6 +1305,9 @@ class WorkflowScreenshot:
                 # Fit graph to view again (in case previews changed layout)
                 self._fit_graph_to_view()
                 self._page.wait_for_timeout(500)
+
+                # Activate Load3d/Preview3D nodes so their Three.js viewports render
+                self._trigger_3d_previews()
 
                 # Take high-quality screenshot at 2x scale
                 with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
@@ -1234,6 +1343,18 @@ class WorkflowScreenshot:
                 "total_time": total_time,
             }
             (output_dir / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding='utf-8')
+
+            # Fail after screenshots if nodes had validation errors (silently skipped by ComfyUI)
+            if node_errors:
+                error_summary = "; ".join(
+                    f"node {nid}: {errs['errors'][0]['details']}"
+                    for nid, errs in node_errors.items()
+                    if errs.get("errors")
+                )
+                raise WorkflowError(
+                    f"{len(node_errors)} node(s) had validation errors and were silently skipped: {error_summary}",
+                    workflow_file=str(workflow_path),
+                )
 
             return frame_paths
 

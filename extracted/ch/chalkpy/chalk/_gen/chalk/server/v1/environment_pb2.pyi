@@ -399,6 +399,8 @@ class Environment(_message.Message):
         "default_build_profile",
         "vector_db_kind",
         "vector_db_secret",
+        "internal_metadata",
+        "customer_metadata",
     )
     class AdditionalEnvVarsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -417,6 +419,26 @@ class Environment(_message.Message):
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
     class SpecConfigJsonEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _struct_pb2.Value
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+        ) -> None: ...
+
+    class InternalMetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _struct_pb2.Value
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+        ) -> None: ...
+
+    class CustomerMetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
         VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -487,6 +509,8 @@ class Environment(_message.Message):
     DEFAULT_BUILD_PROFILE_FIELD_NUMBER: _ClassVar[int]
     VECTOR_DB_KIND_FIELD_NUMBER: _ClassVar[int]
     VECTOR_DB_SECRET_FIELD_NUMBER: _ClassVar[int]
+    INTERNAL_METADATA_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_METADATA_FIELD_NUMBER: _ClassVar[int]
     name: str
     project_id: str
     id: str
@@ -548,6 +572,8 @@ class Environment(_message.Message):
     default_build_profile: DeploymentBuildProfile
     vector_db_kind: VectorDBKind
     vector_db_secret: str
+    internal_metadata: _containers.MessageMap[str, _struct_pb2.Value]
+    customer_metadata: _containers.MessageMap[str, _struct_pb2.Value]
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -611,4 +637,6 @@ class Environment(_message.Message):
         default_build_profile: _Optional[_Union[DeploymentBuildProfile, str]] = ...,
         vector_db_kind: _Optional[_Union[VectorDBKind, str]] = ...,
         vector_db_secret: _Optional[str] = ...,
+        internal_metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
+        customer_metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
     ) -> None: ...

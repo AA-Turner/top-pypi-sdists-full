@@ -1,14 +1,12 @@
 import re
 
-from adam.commands import extract_trailing_options
 from adam.commands.command import Command
-from adam.commands.devices.devices import device
+from adam.commands.devices.device_cass import DeviceCass
 from adam.repl_state import ReplState, RequiredState
 from adam.utils_log import log_timing
 from adam.utils_cassandra.cassandra_status import AddressTranslationError, CassandraStatus
 from adam.utils_cassandra.node_restartability import NodeRestartability
 from adam.utils_tabulize import tabulize
-from adam.utils_context import Context
 
 class ShowTokens(Command):
     COMMAND = 'show tokens'
@@ -33,10 +31,8 @@ class ShowTokens(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with extract_trailing_options(args, '&') as (args, background):
+            with self.context(args) as (args, ctx):
                 with log_timing('show.tokens'):
-                    ctx: Context = self.context().copy(background=background)
-
                     status: CassandraStatus = None
                     ring: list[dict] = None
                     status, ring = NodeRestartability.tokens(state, ctx)
@@ -98,7 +94,7 @@ class ShowTokens(Command):
                     return state
 
     def completion(self, state: ReplState):
-        return super().completion(state, {'&': None}, pods=device(state).pods(state, '-'))
+        return super().completion(state, pods=DeviceCass().pods(state, '-'))
 
     def help(self, state: ReplState):
-        return super().help(state, 'show Cassandra tokens', args='[&]')
+        return super().help(state, 'show Cassandra tokens')

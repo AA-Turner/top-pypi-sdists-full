@@ -31,6 +31,9 @@ from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
 from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
     MCPRequestHandler,
 )
+from litellm.proxy._experimental.mcp_server.discoverable_endpoints import (
+    get_request_base_url,
+)
 from litellm.proxy._experimental.mcp_server.utils import (
     LITELLM_MCP_SERVER_DESCRIPTION,
     LITELLM_MCP_SERVER_NAME,
@@ -38,6 +41,9 @@ from litellm.proxy._experimental.mcp_server.utils import (
 )
 from litellm.proxy._types import UserAPIKeyAuth
 from litellm.proxy.auth.ip_address_utils import IPAddressUtils
+from litellm.proxy.litellm_pre_call_utils import (
+    LiteLLMProxyRequestSetup,
+)
 from litellm.types.mcp import MCPAuth
 from litellm.types.mcp_server.mcp_server_manager import MCPInfo, MCPServer
 from litellm.types.utils import CallTypes, StandardLoggingMCPToolCall
@@ -839,6 +845,7 @@ if MCP_AVAILABLE:
         raw_headers: Optional[Dict[str, str]] = None,
         log_list_tools_to_spendlogs: bool = False,
         list_tools_log_source: Optional[str] = None,
+        litellm_trace_id: Optional[str] = None,
     ) -> List[MCPTool]:
         """
         Helper method to fetch tools from MCP servers based on server filtering criteria.
@@ -876,6 +883,7 @@ if MCP_AVAILABLE:
                 "model": "MCP: list_tools",
                 "call_type": CallTypes.list_mcp_tools.value,
                 "litellm_call_id": list_tools_call_id,
+                "litellm_trace_id": litellm_trace_id,
                 "metadata": {
                     "spend_logs_metadata": spend_logs_metadata,
                 },
@@ -891,13 +899,14 @@ if MCP_AVAILABLE:
                 ],
             }
 
-            # Attach user identifiers when available (matches call_mcp_tool style)
+            # Attach user identifiers using the standard helper
             if user_api_key_auth is not None:
-                user_api_key = getattr(user_api_key_auth, "api_key", None)
-                if user_api_key:
-                    cast(dict, list_tools_request_data["metadata"])[
-                        "user_api_key"
-                    ] = user_api_key
+
+                LiteLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
+                    data=list_tools_request_data,
+                    user_api_key_dict=user_api_key_auth,
+                    _metadata_variable_name="metadata",
+                )
 
                 user_identifier = getattr(
                     user_api_key_auth, "end_user_id", None
@@ -1972,7 +1981,7 @@ if MCP_AVAILABLE:
                 )
                 if server and server.auth_type == MCPAuth.oauth2 and not oauth2_headers:
                     request = StarletteRequest(scope)
-                    base_url = str(request.base_url).rstrip("/")
+                    base_url = get_request_base_url(request)
 
                     authorization_uri = (
                         f"Bearer authorization_uri="

@@ -21,7 +21,7 @@ def test_bench_enabled_header_with_perf(
     with codspeed_env():
         result = pytester.runpytest()
     result.stdout.fnmatch_lines(
-        ["codspeed: * (enabled, mode: instrumentation, callgraph: enabled)"]
+        ["codspeed: * (enabled, mode: simulation, callgraph: enabled)"]
     )
 
 
@@ -36,7 +36,7 @@ def test_plugin_enabled_cpu_instrumentation_without_env(
                 return 1 + 1
         """
     )
-    result = run_pytest_codspeed_with_mode(pytester, MeasurementMode.Instrumentation)
+    result = run_pytest_codspeed_with_mode(pytester, MeasurementMode.Simulation)
     result.stdout.fnmatch_lines(
         [
             (
@@ -76,7 +76,7 @@ def test_perf_maps_generation(pytester: pytest.Pytester, codspeed_env) -> None:
     with open(perf_filepath) as perf_file:
         lines = perf_file.readlines()
         assert any(
-            "py::ValgrindInstrument.measure.<locals>.__codspeed_root_frame__" in line
+            "py::AnalysisInstrument.measure.<locals>.__codspeed_root_frame__" in line
             for line in lines
         ), "No root frame found in perf map"
         assert any("py::test_some_addition_marked" in line for line in lines), (
@@ -132,11 +132,11 @@ def test_valgrind_pedantic_warning(pytester: pytest.Pytester) -> None:
             benchmark.pedantic(foo, rounds=10, iterations=100)
         """
     )
-    result = run_pytest_codspeed_with_mode(pytester, MeasurementMode.Instrumentation)
+    result = run_pytest_codspeed_with_mode(pytester, MeasurementMode.Simulation)
     result.stdout.fnmatch_lines(
         [
-            "*UserWarning: Valgrind instrument ignores rounds and iterations settings "
-            "in pedantic mode*"
+            "*UserWarning: Simulation instrument ignores rounds and iterations settings"
+            " in pedantic mode*"
         ]
     )
     result.assert_outcomes(passed=1)
@@ -192,8 +192,6 @@ def test_benchmark_pedantic_instrumentation(
         """
     )
     with codspeed_env():
-        result = run_pytest_codspeed_with_mode(
-            pytester, MeasurementMode.Instrumentation
-        )
+        result = run_pytest_codspeed_with_mode(pytester, MeasurementMode.Simulation)
     assert result.ret == 0, "the run should have succeeded"
     result.assert_outcomes(passed=1)

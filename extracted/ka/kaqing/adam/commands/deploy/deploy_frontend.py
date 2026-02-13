@@ -1,5 +1,5 @@
 from adam.commands.command import Command
-from adam.commands.deploy.deploy_utils import deploy_frontend
+from adam.commands.deploy.utils_deploy import deploy_frontend
 from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
 from adam.utils_log import log2

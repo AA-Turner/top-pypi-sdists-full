@@ -543,7 +543,25 @@ class Connection:
             )
 
         snake_case_endpoint["_connection_instance"] = self
-        return PhysicalEndpoint(**snake_case_endpoint)
+
+        # Filter out fields that are not defined in PhysicalEndpoint to avoid TypeError
+        # Get the field names that PhysicalEndpoint accepts
+        physical_endpoint_fields = {f.name for f in PhysicalEndpoint.__dataclass_fields__.values()}
+
+        # Only pass fields that PhysicalEndpoint knows about
+        filtered_endpoint = {
+            k: v for k, v in snake_case_endpoint.items() if k in physical_endpoint_fields
+        }
+
+        # Create the PhysicalEndpoint instance with only known fields
+        physical_endpoint = PhysicalEndpoint(**filtered_endpoint)
+
+        # Add any extra fields as attributes dynamically
+        for key, value in snake_case_endpoint.items():
+            if key not in physical_endpoint_fields:
+                setattr(physical_endpoint, key, value)
+
+        return physical_endpoint
 
     def _create_connection_data(self, connection_data: Dict[str, Any]):
         fields = []
@@ -667,6 +685,7 @@ class Connection:
             domain_id=str(self.domain_id),
             project_id=str(self.project_id),
             glue_api=self._glue_api,
+            datazone_api=self._datazone_api,
         )
 
     def _validate_catalog_id(self, catalog_id: str) -> bool:

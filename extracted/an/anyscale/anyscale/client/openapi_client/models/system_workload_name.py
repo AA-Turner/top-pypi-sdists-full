@@ -29,8 +29,9 @@ class SystemWorkloadName(object):
     allowed enum values
     """
     RAY_OBS_EVENTS_API_SERVICE = "RAY_OBS_EVENTS_API_SERVICE"
+    LOGS_API_SERVICE = "LOGS_API_SERVICE"
 
-    allowable_values = [RAY_OBS_EVENTS_API_SERVICE]  # noqa: E501
+    allowable_values = [RAY_OBS_EVENTS_API_SERVICE, LOGS_API_SERVICE]  # noqa: E501
 
     """
     Attributes:

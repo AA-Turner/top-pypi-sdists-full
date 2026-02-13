@@ -3,7 +3,9 @@ from unittest import mock
 import pytest
 
 from snowflake.core import PollingOperation
+from snowflake.core.tag import TagValue
 from snowflake.core.user import Securable, User, UserCollection, UserResource
+from snowflake.core.user._generated import TagAssignment, TagReference
 
 from ...utils import BASE_URL, extra_params, mock_http_response
 
@@ -156,4 +158,67 @@ def test_iter_grants_to_user(fake_root, user):
         assert isinstance(op, PollingOperation)
         it = op.result()
         assert list(it) == []
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+
+def test_set_tags(fake_root, user, tag):
+    args = (fake_root, "POST", BASE_URL + "/users/admin:set-tags")
+    tags = {tag: TagValue(value="value")}
+    kwargs = extra_params(
+        body=[
+            TagAssignment(
+                tag_value=v.value, tag_name=k.name, tag_schema=k.schema.name, tag_database=k.database.name
+            ).to_dict()
+            for k, v in tags.items()
+        ]
+    )
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        user.set_tags(tags)
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        op = user.set_tags_async(tags)
+        assert isinstance(op, PollingOperation)
+        op.result()
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+
+def test_unset_tags(fake_root, user, tag):
+    args = (fake_root, "POST", BASE_URL + "/users/admin:unset-tags")
+    tag_resources = {tag}
+    kwargs = extra_params(
+        body=[
+            TagReference(
+                tag_name=tag_res.name, tag_schema=tag_res.schema.name, tag_database=tag_res.database.name
+            ).to_dict()
+            for tag_res in tag_resources
+        ]
+    )
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        user.unset_tags(tag_resources)
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        op = user.unset_tags_async(tag_resources)
+        assert isinstance(op, PollingOperation)
+        op.result()
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+
+def test_get_tags(fake_root, user):
+    args = (fake_root, "GET", BASE_URL + "/users/admin:get-tags")
+    kwargs = extra_params()
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        mocked_request.return_value = mock_http_response()
+        assert user.get_tags() == {}
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        mocked_request.return_value = mock_http_response()
+        op = user.get_tags_async()
+        assert isinstance(op, PollingOperation)
+        assert op.result() == {}
     mocked_request.assert_called_once_with(*args, **kwargs)

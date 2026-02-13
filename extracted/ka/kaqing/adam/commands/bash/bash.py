@@ -1,9 +1,7 @@
-from adam.commands import extract_trailing_options
 from adam.commands.bash import bash
 from adam.commands.command import Command
 from adam.commands.devices.devices import device
 from adam.repl_state import ReplState, RequiredState
-from adam.utils_context import Context
 
 class Bash(Command):
     COMMAND = 'bash'
@@ -23,17 +21,20 @@ class Bash(Command):
     def required(self):
         return [RequiredState.CLUSTER_OR_POD, RequiredState.APP_APP, ReplState.P]
 
+    def backgrounable(self):
+        return True
+
     def run(self, cmd: str, s0: ReplState):
         if not(args := self.args(cmd)):
             return super().run(cmd, s0)
 
         with self.validate(args, s0) as (args, s1):
-            with extract_trailing_options(args, '&') as (args, background):
+            with self.context(args) as (args, ctx):
                 with bash(s0, s1) as exec:
-                    return exec(args, Context.new(cmd, background=background))
+                    return exec(args, ctx=ctx)
 
     def completion(self, state: ReplState):
-        return super().completion(state, {c : {'&': None} for c in ['ls', 'cat', 'head']}, pods=device(state).pods(state, '-'))
+        return super().completion(state, {c : None for c in ['ls', 'cat', 'head']}, pods=device(state).pods(state, '-'))
 
     def help(self, state: ReplState):
-        return super().help(state, 'run bash on Cassandra nodes', args='[bash-commands] [&]')
+        return super().help(state, 'run bash on Cassandra nodes', args='[bash-commands]')

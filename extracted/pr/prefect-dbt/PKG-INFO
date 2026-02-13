@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-dbt
-Version: 0.7.16
+Version: 0.7.17
 Summary: Prefect integrations for working with dbt
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License: Apache License 2.0
@@ -19,9 +19,9 @@ Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: prefect>=3.4.9
+Requires-Dist: prefect>=3.6.17
 Requires-Dist: dbt-core>=1.7.0
-Requires-Dist: prefect_shell>=0.3.0
+Requires-Dist: prefect_shell>=0.3.2
 Requires-Dist: sgqlc>=16.0.0
 Provides-Extra: snowflake
 Requires-Dist: prefect-snowflake>=0.28.0; extra == "snowflake"

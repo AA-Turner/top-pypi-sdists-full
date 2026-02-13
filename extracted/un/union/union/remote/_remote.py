@@ -212,6 +212,7 @@ class UnionRemote(FlyteRemote):
         """Return channel from client. This channel already has the org passed in dynamically by the interceptor."""
         return self.client._channel
 
+    @property
     def async_channel(self) -> grpc.aio.Channel:
         from union.filesystems._endpoint import _create_secure_channel_from_config
 

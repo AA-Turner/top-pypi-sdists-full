@@ -3,14 +3,16 @@ from __future__ import annotations
 import inspect
 import json
 from pathlib import Path
-from typing import NoReturn
+from typing import TYPE_CHECKING, Any
 
 from robocop import exceptions
-from robocop.config import Config
-from robocop.linter.rules import RobocopImporter
+from robocop.config import defaults
+from robocop.config.builder import ConfigBuilder
 from robocop.linter.utils.misc import get_robocop_cache_directory
+from robocop.runtime.resolver import LinterImporter
 
-ROBOCOP_CACHE_FILE = ".robocop_cache"
+if TYPE_CHECKING:
+    from robocop.config import Config
 
 
 class Report:
@@ -25,6 +27,8 @@ class Report:
     NO_ALL = True
     ENABLED = False
     INTERNAL = False
+    name: str  # Set by subclasses
+    description: str  # Set by subclasses
 
     def __init__(self, config: Config) -> None:
         self.config = config
@@ -32,7 +36,7 @@ class Report:
     def configure(self, name: str, value: str) -> None:  # noqa: ARG002
         raise exceptions.ConfigurationError(f"Provided param '{name}' for report '{self.name}' does not exist")
 
-    def generate_report(self, **kwargs) -> NoReturn:
+    def generate_report(self, **kwargs: Any) -> None:
         raise NotImplementedError
 
 
@@ -49,7 +53,7 @@ class JsonFileReport(Report):
         else:
             super().configure(name, value)
 
-    def generate_report(self, report: list[dict] | dict, report_type: str) -> None:
+    def generate_report_with_type(self, report: list[dict[str, Any]] | dict[str, Any], report_type: str) -> None:
         output_path = Path(self.output_path)
         try:
             output_path.parent.mkdir(exist_ok=True, parents=True)
@@ -65,22 +69,23 @@ class ComparableReport(Report):
         self.compare_runs = config.linter.compare
         super().__init__(config)
 
-    def generate_report(self, **kwargs) -> NoReturn:
+    def generate_report(self, **kwargs: Any) -> None:
         raise NotImplementedError
 
-    def persist_result(self) -> NoReturn:
+    def persist_result(self) -> Any:
         raise NotImplementedError
 
 
-def load_reports(config: Config) -> dict[str, type[Report]]:
+def load_reports(config: Config) -> dict[str, Report]:
     """
     Load all valid reports.
 
     Report is considered valid if it inherits from the ` Report ` class
     and contains both `name` and `description` attributes.
     """
-    reports = {}
-    robocop_importer = RobocopImporter()
+    loaded_reports: dict[str, Report] = {}
+    # TODO: Move report loading to resolver
+    robocop_importer = LinterImporter()
     for module in robocop_importer.modules_from_paths([Path(__file__).parent]):
         classes = inspect.getmembers(module, inspect.isclass)
         for report_class in classes:
@@ -89,11 +94,11 @@ def load_reports(config: Config) -> dict[str, type[Report]]:
             report = report_class[1](config)
             if not hasattr(report, "name") or not hasattr(report, "description"):
                 continue
-            reports[report.name] = report
-    return reports
+            loaded_reports[report.name] = report
+    return loaded_reports
 
 
-def get_reports(config: Config):
+def get_reports(config: Config) -> dict[str, Report]:
     """
     Return the dictionary with a list of valid, enabled reports (listed in `configured_reports` set of str).
 
@@ -132,7 +137,7 @@ def print_reports(reports: dict[str, Report], only_enabled: bool | None) -> str:
         only_enabled: if set to True/False, it will filter reports by enabled/disabled status
 
     """
-    config = Config()
+    config = ConfigBuilder().from_raw(None, None)
     all_public_reports = [report for report in load_reports(config).values() if not report.INTERNAL]
     all_public_reports = sorted(all_public_reports, key=lambda x: x.name)
     configured_reports = {x.name for x in reports.values()}
@@ -157,19 +162,21 @@ def print_reports(reports: dict[str, Report], only_enabled: bool | None) -> str:
     return available_reports
 
 
-def load_reports_result_from_cache():
+def load_reports_result_from_cache() -> dict[str, Any] | None:
     cache_dir = get_robocop_cache_directory(ensure_exists=False)
-    cache_file = cache_dir / ROBOCOP_CACHE_FILE
+    cache_file = cache_dir / defaults.ROBOCOP_CACHE_FILE
     if not cache_file.is_file():
         return None
     with open(cache_file) as fp:
         try:
-            return json.load(fp)
+            result: dict[str, Any] = json.load(fp)
         except json.JSONDecodeError:
             return None
+        else:
+            return result
 
 
-def save_reports_result_to_cache(working_dir: str, report_results: dict) -> None:
+def save_reports_result_to_cache(working_dir: str, report_results: dict[str, Any]) -> None:
     """
     Save results from Robocop reports to JSON file.
 
@@ -178,7 +185,7 @@ def save_reports_result_to_cache(working_dir: str, report_results: dict) -> None
     the results for the current working directory.
     """
     cache_dir = get_robocop_cache_directory(ensure_exists=True)
-    cache_file = cache_dir / ROBOCOP_CACHE_FILE
+    cache_file = cache_dir / defaults.ROBOCOP_CACHE_FILE
     prev_results = load_reports_result_from_cache()
     if prev_results is None:
         prev_results = {}

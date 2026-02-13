@@ -65,10 +65,26 @@ from .ci_data import (  # noqa: E402
     TRAVIS_CI,
     UNKNOWN_CI,
 )
+from .shell_data import (  # noqa: E402
+    ASH,
+    BASH,
+    CMD,
+    CSH,
+    DASH,
+    FISH,
+    KSH,
+    NUSHELL,
+    POWERSHELL,
+    TCSH,
+    UNKNOWN_SHELL,
+    XONSH,
+    ZSH,
+)
 from .detection import (  # noqa: E402
     current_architecture,
     current_ci,
     current_platform,
+    current_shell,
     current_traits,
     is_aarch64,
     is_aix,
@@ -76,6 +92,7 @@ from .detection import (  # noqa: E402
     is_amzn,
     is_android,
     is_arch,
+    is_ash,
     is_arm,
     is_armv5tel,
     is_armv6l,
@@ -83,6 +100,7 @@ from .detection import (  # noqa: E402
     is_armv8l,
     is_azure_pipelines,
     is_bamboo,
+    is_bash,
     is_buildkite,
     is_buildroot,
     is_cachyos,
@@ -90,12 +108,16 @@ from .detection import (  # noqa: E402
     is_circle_ci,
     is_cirrus_ci,
     is_cloudlinux,
+    is_cmd,
     is_codebuild,
+    is_csh,
     is_cygwin,
+    is_dash,
     is_debian,
     is_dragonfly_bsd,
     is_exherbo,
     is_fedora,
+    is_fish,
     is_freebsd,
     is_gentoo,
     is_github_ci,
@@ -109,6 +131,7 @@ from .detection import (  # noqa: E402
     is_i686,
     is_ibm_powerkvm,
     is_illumos,
+    is_ksh,
     is_kvmibm,
     is_linuxmint,
     is_loongarch64,
@@ -122,11 +145,13 @@ from .detection import (  # noqa: E402
     is_mipsel,
     is_netbsd,
     is_nobara,
+    is_nushell,
     is_openbsd,
     is_opensuse,
     is_oracle,
     is_parallels,
     is_pidora,
+    is_powershell,
     is_ppc,
     is_ppc64,
     is_ppc64le,
@@ -143,6 +168,7 @@ from .detection import (  # noqa: E402
     is_sparc,
     is_sparc64,
     is_sunos,
+    is_tcsh,
     is_teamcity,
     is_travis_ci,
     is_tumbleweed,
@@ -152,6 +178,7 @@ from .detection import (  # noqa: E402
     is_unknown_architecture,
     is_unknown_ci,
     is_unknown_platform,
+    is_unknown_shell,
     is_wasm32,
     is_wasm64,
     is_windows,
@@ -159,6 +186,8 @@ from .detection import (  # noqa: E402
     is_wsl2,
     is_x86_64,
     is_xenserver,
+    is_xonsh,
+    is_zsh,
 )
 from .group import (  # noqa: E402
     Group,
@@ -179,6 +208,8 @@ from .group_data import (  # noqa: E402
     ALL_MIPS,
     ALL_PLATFORM_GROUPS,
     ALL_PLATFORMS,
+    ALL_SHELL_GROUPS,
+    ALL_SHELLS,
     ALL_SPARC,
     ALL_TRAIT_IDS,
     ALL_TRAITS,
@@ -186,8 +217,10 @@ from .group_data import (  # noqa: E402
     ARCH_32_BIT,
     ARCH_64_BIT,
     BIG_ENDIAN,
+    BOURNE_SHELLS,
     BSD,
     BSD_WITHOUT_MACOS,
+    C_SHELLS,
     EXTRA_GROUPS,
     IBM_MAINFRAME,
     LINUX,
@@ -197,6 +230,7 @@ from .group_data import (  # noqa: E402
     LOONGARCH,
     NON_OVERLAPPING_GROUPS,
     OTHER_POSIX,
+    OTHER_SHELLS,
     POWERPC,
     RISCV,
     SYSTEM_V,
@@ -205,6 +239,7 @@ from .group_data import (  # noqa: E402
     UNIX_WITHOUT_MACOS,
     UNKNOWN,
     WEBASSEMBLY,
+    WINDOWS_SHELLS,
     X86,
 )
 from .platform_data import (  # noqa: E402
@@ -264,6 +299,7 @@ from .trait import (  # noqa: E402
     CI,
     Architecture,
     Platform,
+    Shell,
     Trait,
 )
 
@@ -279,7 +315,7 @@ from .trait import (  # noqa: E402
 """
 
 
-__version__ = "8.0.0"
+__version__ = "9.0.0"
 
 
 def _initialize_group_detection_functions() -> list[str]:
@@ -354,6 +390,7 @@ def invalidate_caches():
     # Invalidate package-level cached functions.
     current_architecture.cache_clear()
     current_platform.cache_clear()
+    current_shell.cache_clear()
     current_ci.cache_clear()
     current_traits.cache_clear()
 
@@ -361,30 +398,6 @@ def invalidate_caches():
     for func_id in _group_detection_func_ids:
         globals()[func_id].cache_clear()
 
-
-from ._deprecated import (  # noqa: E402
-    ALL_PLATFORM_IDS,
-    ALL_PLATFORMS_WITHOUT_CI,
-    ANY_ARM,
-    ANY_MIPS,
-    ANY_SPARC,
-    ANY_WINDOWS,
-    OTHER_UNIX,
-    UNKNOWN_LINUX,
-    current_os,
-    current_platforms,
-    is_all_architectures,
-    is_all_ci,
-    is_all_platforms,
-    is_all_platforms_without_ci,
-    is_all_traits,
-    is_bsd_without_macos,
-    is_ci,
-    is_other_unix,
-    is_unix_without_macos,
-    is_unknown_linux,
-    platforms_from_ids,
-)
 
 __all__ = (  # noqa: F405
     "AARCH64",
@@ -399,9 +412,9 @@ __all__ = (  # noqa: F405
     "ALL_IDS",
     "ALL_MIPS",
     "ALL_PLATFORM_GROUPS",
-    "ALL_PLATFORM_IDS",  # Deprecated alias.
     "ALL_PLATFORMS",
-    "ALL_PLATFORMS_WITHOUT_CI",  # Deprecated alias.
+    "ALL_SHELL_GROUPS",
+    "ALL_SHELLS",
     "ALL_SPARC",
     "ALL_TRAIT_IDS",
     "ALL_TRAITS",
@@ -409,10 +422,6 @@ __all__ = (  # noqa: F405
     "ALTLINUX",
     "AMZN",
     "ANDROID",
-    "ANY_ARM",  # Deprecated alias.
-    "ANY_MIPS",  # Deprecated alias.
-    "ANY_SPARC",  # Deprecated alias.
-    "ANY_WINDOWS",  # Deprecated alias.
     "ARCH",
     "ARCH_32_BIT",
     "ARCH_64_BIT",
@@ -422,33 +431,40 @@ __all__ = (  # noqa: F405
     "ARMV6L",
     "ARMV7L",
     "ARMV8L",
+    "ASH",
     "AZURE_PIPELINES",
     "BAMBOO",
+    "BASH",
     "BIG_ENDIAN",
+    "BOURNE_SHELLS",
     "BSD",
     "BSD_WITHOUT_MACOS",
     "BUILDKITE",
     "BUILDROOT",
+    "C_SHELLS",
     "CACHYOS",
     "CENTOS",
     "CI",
     "CIRCLE_CI",
     "CIRRUS_CI",
     "CLOUDLINUX",
+    "CMD",
     "CODEBUILD",
+    "CSH",
     "current_architecture",
     "current_ci",
-    "current_os",  # Deprecated alias.
     "current_platform",
-    "current_platforms",  # Deprecated alias.
+    "current_shell",
     "current_traits",
     "CYGWIN",
+    "DASH",
     "DEBIAN",
     "DRAGONFLY_BSD",
     "EXHERBO",
     "EXTRA_GROUPS",
     "extract_members",
     "FEDORA",
+    "FISH",
     "FREEBSD",
     "GENTOO",
     "GITHUB_CI",
@@ -468,11 +484,6 @@ __all__ = (  # noqa: F405
     "invalidate_caches",
     "is_aarch64",
     "is_aix",
-    "is_all_architectures",  # Deprecated alias.
-    "is_all_ci",  # Deprecated alias.
-    "is_all_platforms",  # Deprecated alias.
-    "is_all_platforms_without_ci",  # Deprecated alias.
-    "is_all_traits",  # Deprecated alias.
     "is_altlinux",
     "is_amzn",
     "is_android",
@@ -481,6 +492,7 @@ __all__ = (  # noqa: F405
     "is_any_ci",  # noqa: F822
     "is_any_mips",  # noqa: F822
     "is_any_platform",  # noqa: F822
+    "is_any_shell",  # noqa: F822
     "is_any_sparc",  # noqa: F822
     "is_any_trait",  # noqa: F822
     "is_any_windows",  # noqa: F822
@@ -492,26 +504,32 @@ __all__ = (  # noqa: F405
     "is_armv6l",
     "is_armv7l",
     "is_armv8l",
+    "is_ash",
     "is_azure_pipelines",
     "is_bamboo",
+    "is_bash",
     "is_big_endian",  # noqa: F822
+    "is_bourne_shells",  # noqa: F822
     "is_bsd",  # noqa: F822
     "is_bsd_not_macos",  # noqa: F822
-    "is_bsd_without_macos",  # Deprecated alias.
     "is_buildkite",
     "is_buildroot",
+    "is_c_shells",  # noqa: F822
     "is_cachyos",
     "is_centos",
-    "is_ci",  # Deprecated alias.
     "is_circle_ci",
     "is_cirrus_ci",
     "is_cloudlinux",
+    "is_cmd",
     "is_codebuild",
+    "is_csh",
     "is_cygwin",
+    "is_dash",
     "is_debian",
     "is_dragonfly_bsd",
     "is_exherbo",
     "is_fedora",
+    "is_fish",
     "is_freebsd",
     "is_gentoo",
     "is_github_ci",
@@ -526,6 +544,7 @@ __all__ = (  # noqa: F405
     "is_ibm_mainframe",  # noqa: F822
     "is_ibm_powerkvm",
     "is_illumos",
+    "is_ksh",
     "is_kvmibm",
     "is_linux",  # noqa: F822
     "is_linux_layers",  # noqa: F822
@@ -544,14 +563,16 @@ __all__ = (  # noqa: F405
     "is_mipsel",
     "is_netbsd",
     "is_nobara",
+    "is_nushell",
     "is_openbsd",
     "is_opensuse",
     "is_oracle",
     "is_other_posix",  # noqa: F822
-    "is_other_unix",  # Deprecated alias.
+    "is_other_shells",  # noqa: F822
     "is_parallels",
     "is_pidora",
     "is_powerpc",  # noqa: F822
+    "is_powershell",
     "is_ppc",
     "is_ppc64",
     "is_ppc64le",
@@ -570,6 +591,7 @@ __all__ = (  # noqa: F405
     "is_sparc64",
     "is_sunos",
     "is_system_v",  # noqa: F822
+    "is_tcsh",
     "is_teamcity",
     "is_travis_ci",
     "is_tumbleweed",  # noqa: F822
@@ -579,21 +601,24 @@ __all__ = (  # noqa: F405
     "is_unix",  # noqa: F822
     "is_unix_layers",  # noqa: F822
     "is_unix_not_macos",  # noqa: F822
-    "is_unix_without_macos",  # Deprecated alias.
     "is_unknown",  # noqa: F822
     "is_unknown_architecture",
     "is_unknown_ci",
-    "is_unknown_linux",  # Deprecated alias.
     "is_unknown_platform",
+    "is_unknown_shell",
     "is_wasm32",
     "is_wasm64",
     "is_webassembly",  # noqa: F822
     "is_windows",
+    "is_windows_shells",  # noqa: F822
     "is_wsl1",
     "is_wsl2",
     "is_x86",  # noqa: F822
     "is_x86_64",
     "is_xenserver",
+    "is_xonsh",
+    "is_zsh",
+    "KSH",
     "KVMIBM",
     "LINUX",
     "LINUX_LAYERS",
@@ -613,16 +638,17 @@ __all__ = (  # noqa: F405
     "NETBSD",
     "NOBARA",
     "NON_OVERLAPPING_GROUPS",
+    "NUSHELL",
     "OPENBSD",
     "OPENSUSE",
     "ORACLE",
     "OTHER_POSIX",
-    "OTHER_UNIX",  # Deprecated alias.
+    "OTHER_SHELLS",
     "PARALLELS",
     "PIDORA",
     "Platform",
-    "platforms_from_ids",  # Deprecated alias.
     "POWERPC",
+    "POWERSHELL",
     "PPC",
     "PPC64",
     "PPC64LE",
@@ -635,6 +661,7 @@ __all__ = (  # noqa: F405
     "ROCKY",
     "S390X",
     "SCIENTIFIC",
+    "Shell",
     "SLACKWARE",
     "SLES",
     "SOLARIS",
@@ -642,6 +669,7 @@ __all__ = (  # noqa: F405
     "SPARC64",
     "SUNOS",
     "SYSTEM_V",
+    "TCSH",
     "TEAMCITY",
     "Trait",
     "traits_from_ids",
@@ -656,17 +684,20 @@ __all__ = (  # noqa: F405
     "UNKNOWN",
     "UNKNOWN_ARCHITECTURE",
     "UNKNOWN_CI",
-    "UNKNOWN_LINUX",  # Deprecated alias.
     "UNKNOWN_PLATFORM",
+    "UNKNOWN_SHELL",
     "WASM32",
     "WASM64",
     "WEBASSEMBLY",
     "WINDOWS",
+    "WINDOWS_SHELLS",
     "WSL1",
     "WSL2",
     "X86",
     "X86_64",
     "XENSERVER",
+    "XONSH",
+    "ZSH",
 )
 """Expose all package-wide elements.
 

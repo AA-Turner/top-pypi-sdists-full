@@ -3,9 +3,16 @@ Steam OpenId backend, docs at:
     https://python-social-auth.readthedocs.io/en/latest/backends/steam.html
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from social_core.exceptions import AuthFailed
 
 from .open_id import OpenIdAuth
+
+if TYPE_CHECKING:
+    from social_core.store import OpenIdStore
 
 USER_INFO = "http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?"
 
@@ -40,11 +47,9 @@ class SteamOpenId(OpenIdAuth):
             details = {}
         return details
 
-    def consumer(self):
+    def get_consumer_store(self) -> OpenIdStore | None:
         # Steam seems to support stateless mode only, ignore store
-        if not hasattr(self, "_consumer"):
-            self._consumer = self.create_consumer()
-        return self._consumer
+        return None
 
     def _user_id(self, response):
         if not response.identity_url.startswith(self.URL):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: luigi
-Version: 3.7.2
+Version: 3.7.3
 Summary: Workflow mgmgt + task scheduling + dependency resolution.
 Project-URL: Homepage, https://github.com/spotify/luigi
 Author: The Luigi Authors

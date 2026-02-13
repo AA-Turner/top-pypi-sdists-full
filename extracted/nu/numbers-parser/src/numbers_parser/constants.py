@@ -5,7 +5,8 @@ from math import ceil
 
 import enum_tools.documentation
 
-# Path to package date varies by Python version
+# Path to package data varies by Python version so we can
+# only ever generate coverage for one
 try:
     from importlib.resources import files
 except ImportError:  # pragma: nocover
@@ -164,6 +165,9 @@ DATETIME_FIELD_MAP = OrderedDict(
         ("w", "%-W"),
     ],
 )
+
+# From TSCEArchives
+COLON_TRACT_NODE = 67
 
 
 class CellType(IntEnum):

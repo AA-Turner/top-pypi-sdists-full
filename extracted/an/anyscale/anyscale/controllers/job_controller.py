@@ -156,6 +156,7 @@ class JobController(BaseController):
         workspace_id: Optional[str] = None,
     ) -> JobConfig:
         config_dict = self._load_config_dict_from_file(job_config_file)
+
         config_dict["workspace_id"] = workspace_id
         validate_job_config_dict(config_dict, self.api_client)
         config_dict = populate_unspecified_cluster_configs_from_current_workspace(

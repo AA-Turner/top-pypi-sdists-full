@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-amazon-sp-api
-Version: 2.1.6
+Version: 2.1.7
 Summary: Python wrapper for the Amazon Selling-Partner API
 Home-page: https://github.com/saleweaver/python-amazon-sp-api
 Author: Michael Primke
@@ -42,6 +42,7 @@ A wrapper to access **Amazon's Selling Partner API** with an easy-to-use interfa
 
 #### Async support!
 
+
 - httpx-based transport for sync clients, enabling connection pooling and consistent streaming behavior.
 - Async client package under `sp_api.asyncio` for non-blocking calls across services.
 
@@ -53,8 +54,6 @@ This tool helps developers and businesses connect seamlessly with Amazon's vast 
 If you appreciate this project and find it useful, please consider supporting its continued development:
 
 - 🙌 [GitHub Sponsors](https://github.com/sponsors/saleweaver)
-- 🌐 BTC Address: `bc1q6uqgczasmnvnc5upumarugw2mksnwneg0f65ws`
-- 🌐 ETH Address: `0xf59534F7a7F5410DBCD0c779Ac3bB6503bd32Ae5`
 
 Your support helps keep the project alive and evolving, and is greatly appreciated!
 

@@ -7,6 +7,7 @@ import platform
 import socket
 import time
 from functools import total_ordering
+from typing import Any, Generator
 
 import pytest
 import redis
@@ -14,15 +15,13 @@ from packaging import version
 from pytest_lazy_fixtures import lf
 
 import coredis
-import coredis.connection
-import coredis.experimental
-import coredis.parser
 import coredis.sentinel
-from coredis import BlockingConnectionPool
 from coredis._utils import EncodingInsensitiveDict, b, hash_slot, nativestr
-from coredis.cache import TrackingCache
+from coredis.client.basic import Redis
 from coredis.credentials import UserPassCredentialProvider
+from coredis.patterns.cache import LRUCache
 from coredis.response._callbacks import NoopCallback
+from coredis.retry import NoRetryPolicy
 from coredis.typing import (
     RUNTIME_TYPECHECKS,
     Callable,
@@ -42,12 +41,13 @@ DOCKER_TAG_MAPPING = {
         "default": "7",
         "sentinel": "7.0.15",
         "stack": "7.0.6-RC9",
-        "redict": "7-alpine",
     },
     "7.2": {"default": "7.2", "stack": "7.2.0-v15"},
     "7.4": {"default": "7.4", "stack": "7.4.0-v3"},
     "8.0": {"default": "8.0", "stack": "latest", "valkey": "8"},
     "8.2": {"default": "8.2", "stack": "latest", "sentinel": "latest"},
+    "8.4": {"default": "8.4", "stack": "latest", "sentinel": "latest"},
+    "8.6": {"default": "8.6-rc1", "stack": "latest", "sentinel": "latest"},
     "latest": {"default": "latest", "stack": "latest"},
     "next": {"default": "latest"},
 }
@@ -58,12 +58,18 @@ SERVER_DEFAULT_ARGS = {
 }
 
 
-@pytest.fixture(scope="session", autouse=True)
-def uvloop():
-    if os.environ.get("COREDIS_UVLOOP") == "True":
-        import uvloop
+def get_backends():
+    backend = os.environ.get("COREDIS_ANYIO_BACKEND", None) or "asyncio"
+    if backend == "all":
+        return "asyncio", "trio"
+    elif backend == "asyncio":
+        return (("asyncio", {"use_uvloop": os.environ.get("COREDIS_UVLOOP", None) == "True"}),)
+    return (backend,)
 
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+
+@pytest.fixture(scope="module", params=get_backends())
+def anyio_backend(request: Any) -> Any:
+    return request.param
 
 
 @total_ordering
@@ -81,7 +87,7 @@ class UnparseableVersion:
         return True
 
 
-async def get_module_versions(client):
+async def get_module_versions(client: Redis):
     if str(client) not in MODULE_VERSIONS:
         MODULE_VERSIONS[str(client)] = {}
         try:
@@ -107,10 +113,10 @@ async def get_version(client):
     if str(client) not in REDIS_VERSIONS:
         try:
             if isinstance(client, coredis.RedisCluster):
-                await client
                 node = list(client.primaries).pop()
-                version_string = (await node.info())["redis_version"]
-                REDIS_VERSIONS[str(client)] = version.parse(version_string)
+                async with node:
+                    version_string = (await node.info())["redis_version"]
+                    REDIS_VERSIONS[str(client)] = version.parse(version_string)
             elif isinstance(client, coredis.sentinel.Sentinel):
                 version_string = (await client.sentinels[0].info())["redis_version"]
                 REDIS_VERSIONS[str(client)] = version.parse(version_string)
@@ -119,8 +125,6 @@ async def get_version(client):
 
                 if "dragonfly_version" in client_info:
                     SERVER_TYPES[str(client)] = "dragonfly"
-                if "redict_version" in client_info:
-                    SERVER_TYPES[str(client)] = "redict"
                 if "valkey" == client_info.get("server_name"):
                     SERVER_TYPES[str(client)] = "valkey"
 
@@ -132,9 +136,10 @@ async def get_version(client):
     return REDIS_VERSIONS[str(client)]
 
 
-async def check_test_constraints(request, client, protocol=3):
-    await get_version(client)
-    await get_module_versions(client)
+async def check_test_constraints(request, client):
+    async with client:
+        await get_version(client)
+        await get_module_versions(client)
     client_version = REDIS_VERSIONS[str(client)]
     for marker in request.node.iter_markers():
         if marker.name == "min_python" and marker.args:
@@ -186,20 +191,11 @@ async def check_test_constraints(request, client, protocol=3):
         if marker.name == "os" and not marker.args[0].lower() == platform.system().lower():
             return pytest.skip(f"Skipped for {platform.system()}")
 
-        if protocol == 3 and client_version < version.parse("6.0.0"):
-            return pytest.skip(f"Skipped RESP3 for {client_version}")
-
-        if marker.name == "noresp3" and protocol == 3:
-            return pytest.skip("Skipped for RESP3")
-
         if marker.name == "nodragonfly" and SERVER_TYPES.get(str(client)) == "dragonfly":
             return pytest.skip("Skipped for Dragonfly")
 
         if marker.name == "novalkey" and SERVER_TYPES.get(str(client)) == "valkey":
             return pytest.skip("Skipped for Valkey")
-
-        if marker.name == "noredict" and SERVER_TYPES.get(str(client)) == "redict":
-            return pytest.skip("Skipped for redict")
 
         if marker.name == "nopypy" and PY_IMPLEMENTATION == "PyPy":
             return pytest.skip("Skipped for PyPy")
@@ -223,11 +219,11 @@ async def set_default_test_config(client, variant=None):
                 await client.acl_log(reset=True)
 
 
-def get_client_test_args(request):
+def get_client_test_args(request) -> dict[str, int]:
+    defaults = {"stream_timeout": 5, "connect_timeout": 1, "retry_policy": NoRetryPolicy()}
     if "client_arguments" in request.fixturenames:
-        return request.getfixturevalue("client_arguments")
-
-    return {"stream_timeout": 5, "connect_timeout": 1}
+        defaults.update(request.getfixturevalue("client_arguments"))
+    return defaults
 
 
 def get_remapped_slots(request):
@@ -255,19 +251,31 @@ async def remapped_slots(client, request):
         moves[slot] = destinations[slot].node_id
     try:
         for slot in moves.keys():
-            [await p.cluster_setslot(slot, node=moves[slot]) for p in client.primaries]
+            for p in client.primaries:
+                async with p:
+                    await p.cluster_setslot(slot, node=moves[slot])
         yield
     finally:
         if originals:
             await client.flushall()
 
             for slot in originals.keys():
-                [await p.cluster_setslot(slot, node=originals[slot]) for p in client.primaries]
+                for p in client.primaries:
+                    async with p:
+                        await p.cluster_setslot(slot, node=originals[slot])
 
 
 def check_redis_cluster_ready(host, port):
     try:
         return redis.Redis(host, port).cluster("info")["cluster_state"] == "ok"
+    except Exception:
+        return False
+
+
+def check_sentinel_ready(host, port):
+    try:
+        info = redis.Redis(host, port).sentinel_slaves("mymaster")
+        return info[0]["flags"] == "slave" and info[0]["master-link-status"] == "ok"
     except Exception:
         return False
 
@@ -317,7 +325,6 @@ def docker_tags():
         "REDIS_STACK_VERSION": "stack",
         "DRAGONFLY_VERSION": "dragonfly",
         "VALKEY_VERSION": "valkey",
-        "REDICT_VERSION": "redict",
     }.items():
         os.environ.setdefault(env, mapping.get(key, mapping.get("default")))
 
@@ -350,18 +357,21 @@ def redis_uds_server(docker_services):
 @pytest.fixture(scope="session")
 def redis_auth_server(docker_services):
     docker_services.start("redis-auth")
+    docker_services.wait_for_service("redis-auth", 6389, ping_socket)
     yield ["localhost", 6389]
 
 
 @pytest.fixture(scope="session")
 def redis_ssl_server(docker_services):
     docker_services.start("redis-ssl")
+    docker_services.wait_for_service("redis-ssl", 8379, ping_socket)
     yield ["localhost", 8379]
 
 
 @pytest.fixture(scope="session")
 def redis_ssl_server_no_client_auth(docker_services):
     docker_services.start("redis-ssl-no-client-auth")
+    docker_services.wait_for_service("redis-ssl-no-client-auth", 7379, ping_socket)
     yield ["localhost", 7379]
 
 
@@ -420,11 +430,10 @@ def redis_stack_cluster_server(docker_services):
 
 
 @pytest.fixture(scope="session")
-def redis_sentinel_server(docker_services):
+def redis_sentinel_server(docker_services) -> Generator[tuple[str, int], Any, None]:
     docker_services.start("redis-sentinel")
-    docker_services.wait_for_service("redis-sentinel", 26379, ping_socket)
-
-    yield ["localhost", 26379]
+    docker_services.wait_for_service("redis-sentinel", 26379, check_sentinel_ready)
+    yield "localhost", 26379
 
 
 @pytest.fixture(scope="session")
@@ -460,66 +469,19 @@ def valkey_server(docker_services):
     yield ["localhost", 12379]
 
 
-@pytest.fixture(scope="session")
-def redict_server(docker_services):
-    docker_services.start("redict")
-    docker_services.wait_for_service("redict", 6379, ping_socket)
-    yield ["localhost", 13379]
-
-
 @pytest.fixture
 async def redis_basic(redis_basic_server, request):
     client = coredis.Redis(
-        "localhost", 6379, decode_responses=True, **get_client_test_args(request)
-    )
-    await check_test_constraints(request, client)
-    await client.flushall()
-    await set_default_test_config(client)
-
-    yield client
-
-    client.connection_pool.disconnect()
-
-
-@pytest.fixture
-async def redis_basic_resp2(redis_basic_server, request):
-    client = coredis.Redis(
         "localhost",
         6379,
         decode_responses=True,
-        protocol_version=2,
         **get_client_test_args(request),
     )
     await check_test_constraints(request, client)
-    await client.flushall()
-    await set_default_test_config(client)
-
-    yield client
-
-    client.connection_pool.disconnect()
-
-
-@pytest.fixture
-async def redis_basic_blocking(redis_basic_server, request):
-    client = coredis.Redis(
-        "localhost",
-        6379,
-        decode_responses=True,
-        connection_pool=BlockingConnectionPool(
-            host="localhost",
-            port=6379,
-            decode_responses=True,
-            **get_client_test_args(request),
-        ),
-        **get_client_test_args(request),
-    )
-    await check_test_constraints(request, client)
-    await client.flushall()
-    await set_default_test_config(client)
-
-    yield client
-
-    client.connection_pool.disconnect()
+    async with client:
+        await client.flushall()
+        await set_default_test_config(client)
+        yield client
 
 
 @pytest.fixture
@@ -528,29 +490,25 @@ async def redis_stack(redis_stack_server, request):
         *redis_stack_server, decode_responses=True, **get_client_test_args(request)
     )
     await check_test_constraints(request, client)
-    await client.flushall()
-    await set_default_test_config(client)
-
-    yield client
-
-    client.connection_pool.disconnect()
+    async with client:
+        await client.flushall()
+        await set_default_test_config(client)
+        yield client
 
 
 @pytest.fixture
 async def redis_stack_raw(redis_stack_server, request):
     client = coredis.Redis(*redis_stack_server, **get_client_test_args(request))
     await check_test_constraints(request, client)
-    await client.flushall()
-    await set_default_test_config(client)
-
-    yield client
-
-    client.connection_pool.disconnect()
+    async with client:
+        await client.flushall()
+        await set_default_test_config(client)
+        yield client
 
 
 @pytest.fixture
 async def redis_stack_cached(redis_stack_server, request):
-    cache = TrackingCache(max_size_bytes=-1)
+    cache = LRUCache()
     client = coredis.Redis(
         *redis_stack_server,
         decode_responses=True,
@@ -558,31 +516,22 @@ async def redis_stack_cached(redis_stack_server, request):
         **get_client_test_args(request),
     )
     await check_test_constraints(request, client)
-    await client.flushall()
-    await set_default_test_config(client)
-
-    yield client
-    client.connection_pool.disconnect()
-    cache.shutdown()
+    async with client:
+        await client.flushall()
+        await set_default_test_config(client)
+        yield client
 
 
 @pytest.fixture
 async def redis_basic_raw(redis_basic_server, request):
     client = coredis.Redis(
-        "localhost",
-        6379,
-        decode_responses=False,
-    )
-    await check_test_constraints(request, client)
-    client = coredis.Redis(
         "localhost", 6379, decode_responses=False, **get_client_test_args(request)
     )
-    await client.flushall()
-    await set_default_test_config(client)
-
-    yield client
-
-    client.connection_pool.disconnect()
+    await check_test_constraints(request, client)
+    async with client:
+        await client.flushall()
+        await set_default_test_config(client)
+        yield client
 
 
 @pytest.fixture
@@ -597,12 +546,10 @@ async def redis_ssl(redis_ssl_server, request):
         storage_url, decode_responses=True, **get_client_test_args(request)
     )
     await check_test_constraints(request, client)
-    await client.flushall()
-    await set_default_test_config(client)
-
-    yield client
-
-    client.connection_pool.disconnect()
+    async with client:
+        await client.flushall()
+        await set_default_test_config(client)
+        yield client
 
 
 @pytest.fixture
@@ -612,12 +559,10 @@ async def redis_ssl_no_client_auth(redis_ssl_server_no_client_auth, request):
         storage_url, decode_responses=True, **get_client_test_args(request)
     )
     await check_test_constraints(request, client)
-    await client.flushall()
-    await set_default_test_config(client)
-
-    yield client
-
-    client.connection_pool.disconnect()
+    async with client:
+        await client.flushall()
+        await set_default_test_config(client)
+        yield client
 
 
 @pytest.fixture
@@ -628,12 +573,10 @@ async def redis_auth(redis_auth_server, request):
         **get_client_test_args(request),
     )
     await check_test_constraints(request, client)
-    await client.flushall()
-    await set_default_test_config(client)
-
-    yield client
-
-    client.connection_pool.disconnect()
+    async with client:
+        await client.flushall()
+        await set_default_test_config(client)
+        yield client
 
 
 @pytest.fixture
@@ -646,12 +589,10 @@ async def redis_auth_cred_provider(redis_auth_server, request):
         **get_client_test_args(request),
     )
     await check_test_constraints(request, client)
-    await client.flushall()
-    await set_default_test_config(client)
-
-    yield client
-
-    client.connection_pool.disconnect()
+    async with client:
+        await client.flushall()
+        await set_default_test_config(client)
+        yield client
 
 
 @pytest.fixture
@@ -662,17 +603,15 @@ async def redis_uds(redis_uds_server, request):
         **get_client_test_args(request),
     )
     await check_test_constraints(request, client)
-    await client.flushall()
-    await set_default_test_config(client)
-
-    yield client
-
-    client.connection_pool.disconnect()
+    async with client:
+        await client.flushall()
+        await set_default_test_config(client)
+        yield client
 
 
 @pytest.fixture
 async def redis_cached(redis_basic_server, request):
-    cache = TrackingCache(max_size_bytes=-1)
+    cache = LRUCache()
     client = coredis.Redis(
         "localhost",
         6379,
@@ -681,13 +620,10 @@ async def redis_cached(redis_basic_server, request):
         **get_client_test_args(request),
     )
     await check_test_constraints(request, client)
-    await client.flushall()
-    await set_default_test_config(client)
-
-    yield client
-
-    client.connection_pool.disconnect()
-    cache.shutdown()
+    async with client:
+        await client.flushall()
+        await set_default_test_config(client)
+        yield client
 
 
 @pytest.fixture
@@ -699,17 +635,16 @@ async def redis_cluster(redis_cluster_server, request):
         **get_client_test_args(request),
     )
     await check_test_constraints(request, cluster)
-    await cluster
-    await cluster.flushall()
-    await cluster.flushdb()
+    async with cluster:
+        await cluster.flushall()
+        await cluster.flushdb()
 
-    for primary in cluster.primaries:
-        await set_default_test_config(primary)
+        for primary in cluster.primaries:
+            async with primary:
+                await set_default_test_config(primary)
 
-    async with remapped_slots(cluster, request):
-        yield cluster
-
-    cluster.connection_pool.disconnect()
+        async with remapped_slots(cluster, request):
+            yield cluster
 
 
 @pytest.fixture
@@ -722,17 +657,16 @@ async def redis_cluster_auth(redis_cluster_auth_server, request):
         **get_client_test_args(request),
     )
     await check_test_constraints(request, cluster)
-    await cluster
-    await cluster.flushall()
-    await cluster.flushdb()
+    async with cluster:
+        await cluster.flushall()
+        await cluster.flushdb()
 
-    for primary in cluster.primaries:
-        await set_default_test_config(primary)
+        for primary in cluster.primaries:
+            async with primary:
+                await set_default_test_config(primary)
 
-    async with remapped_slots(cluster, request):
-        yield cluster
-
-    cluster.connection_pool.disconnect()
+        async with remapped_slots(cluster, request):
+            yield cluster
 
 
 @pytest.fixture
@@ -745,44 +679,16 @@ async def redis_cluster_auth_cred_provider(redis_cluster_auth_server, request):
         **get_client_test_args(request),
     )
     await check_test_constraints(request, cluster)
-    await cluster
-    await cluster.flushall()
-    await cluster.flushdb()
+    async with cluster:
+        await cluster.flushall()
+        await cluster.flushdb()
 
-    for primary in cluster.primaries:
-        await set_default_test_config(primary)
+        for primary in cluster.primaries:
+            async with primary:
+                await set_default_test_config(primary)
 
-    async with remapped_slots(cluster, request):
-        yield cluster
-
-    cluster.connection_pool.disconnect()
-
-
-@pytest.fixture
-async def redis_cluster_blocking(redis_cluster_server, request):
-    pool = coredis.BlockingClusterConnectionPool(
-        startup_nodes=[{"host": "localhost", "port": 7000}],
-        max_connections=32,
-        decode_responses=True,
-        **get_client_test_args(request),
-    )
-    cluster = coredis.RedisCluster(
-        connection_pool=pool,
-        decode_responses=True,
-        **get_client_test_args(request),
-    )
-    await check_test_constraints(request, cluster)
-    await cluster
-    await cluster.flushall()
-    await cluster.flushdb()
-
-    for primary in cluster.primaries:
-        await set_default_test_config(primary)
-
-    async with remapped_slots(cluster, request):
-        yield cluster
-
-    cluster.connection_pool.disconnect()
+        async with remapped_slots(cluster, request):
+            yield cluster
 
 
 @pytest.fixture
@@ -794,17 +700,16 @@ async def redis_cluster_noreplica(redis_cluster_noreplica_server, request):
         **get_client_test_args(request),
     )
     await check_test_constraints(request, cluster)
-    await cluster
-    await cluster.flushall()
-    await cluster.flushdb()
+    async with cluster:
+        await cluster.flushall()
+        await cluster.flushdb()
 
-    for primary in cluster.primaries:
-        await set_default_test_config(primary)
+        for primary in cluster.primaries:
+            async with primary:
+                await set_default_test_config(primary)
 
-    async with remapped_slots(cluster, request):
-        yield cluster
-
-    cluster.connection_pool.disconnect()
+        async with remapped_slots(cluster, request):
+            yield cluster
 
 
 @pytest.fixture
@@ -820,20 +725,19 @@ async def redis_cluster_ssl(redis_ssl_cluster_server, request):
     )
 
     await check_test_constraints(request, cluster)
-    await cluster
-    await cluster.flushall()
-    await cluster.flushdb()
+    async with cluster:
+        await cluster.flushall()
+        await cluster.flushdb()
 
-    for primary in cluster.primaries:
-        await set_default_test_config(primary)
-    yield cluster
-
-    cluster.connection_pool.disconnect()
+        for primary in cluster.primaries:
+            async with primary:
+                await set_default_test_config(primary)
+        yield cluster
 
 
 @pytest.fixture
 async def redis_cluster_cached(redis_cluster_server, request):
-    cache = TrackingCache(max_size_bytes=-1)
+    cache = LRUCache()
     cluster = coredis.RedisCluster(
         "localhost",
         7000,
@@ -842,16 +746,14 @@ async def redis_cluster_cached(redis_cluster_server, request):
         **get_client_test_args(request),
     )
     await check_test_constraints(request, cluster)
-    await cluster
-    await cluster.flushall()
-    await cluster.flushdb()
+    async with cluster:
+        await cluster.flushall()
+        await cluster.flushdb()
 
-    for primary in cluster.primaries:
-        await set_default_test_config(primary)
-    yield cluster
-
-    cluster.connection_pool.disconnect()
-    cache.shutdown()
+        for primary in cluster.primaries:
+            async with primary:
+                await set_default_test_config(primary)
+        yield cluster
 
 
 @pytest.fixture
@@ -862,15 +764,14 @@ async def redis_cluster_raw(redis_cluster_server, request):
         **get_client_test_args(request),
     )
     await check_test_constraints(request, cluster)
-    await cluster
-    await cluster.flushall()
-    await cluster.flushdb()
+    async with cluster:
+        await cluster.flushall()
+        await cluster.flushdb()
 
-    for primary in cluster.primaries:
-        await set_default_test_config(primary)
-    yield cluster
-
-    cluster.connection_pool.disconnect()
+        for primary in cluster.primaries:
+            async with primary:
+                await set_default_test_config(primary)
+        yield cluster
 
 
 @pytest.fixture
@@ -881,33 +782,28 @@ async def redis_stack_cluster(redis_stack_cluster_server, request):
         **get_client_test_args(request),
     )
     await check_test_constraints(request, cluster)
-    await cluster
-    await cluster.flushall()
-    await cluster.flushdb()
+    async with cluster:
+        await cluster.flushall()
+        await cluster.flushdb()
 
-    for primary in cluster.primaries:
-        await set_default_test_config(primary)
+        for primary in cluster.primaries:
+            async with primary:
+                await set_default_test_config(primary)
 
-    async with remapped_slots(cluster, request):
-        yield cluster
-
-    cluster.connection_pool.disconnect()
+        async with remapped_slots(cluster, request):
+            yield cluster
 
 
 @pytest.fixture
-async def redis_sentinel(redis_sentinel_server, request):
-    sentinel = coredis.sentinel.Sentinel(
-        [redis_sentinel_server],
-        sentinel_kwargs={},
+async def redis_sentinel(redis_sentinel_server: tuple[str, int], request):
+    sentinel = coredis.Sentinel(
+        sentinels=[redis_sentinel_server],
+        sentinel_kwargs={"connect_timeout": 1},
         decode_responses=True,
         **get_client_test_args(request),
     )
-    master = sentinel.primary_for("mymaster")
-    await check_test_constraints(request, master)
-    await set_default_test_config(sentinel)
-    await master.flushall()
-
-    return sentinel
+    async with sentinel:
+        yield sentinel
 
 
 @pytest.fixture
@@ -917,29 +813,13 @@ async def redis_sentinel_raw(redis_sentinel_server, request):
         sentinel_kwargs={},
         **get_client_test_args(request),
     )
-    master = sentinel.primary_for("mymaster")
-    await check_test_constraints(request, master)
-    await set_default_test_config(sentinel)
-    await master.flushall()
-
-    return sentinel
-
-
-@pytest.fixture
-async def redis_sentinel_resp2(redis_sentinel_server, request):
-    sentinel = coredis.sentinel.Sentinel(
-        [redis_sentinel_server],
-        sentinel_kwargs={},
-        decode_responses=True,
-        protocol_version=2,
-        **get_client_test_args(request),
-    )
-    master = sentinel.primary_for("mymaster")
-    await check_test_constraints(request, master)
-    await set_default_test_config(sentinel)
-    await master.flushall()
-
-    return sentinel
+    async with sentinel:
+        master = sentinel.primary_for("mymaster")
+        await check_test_constraints(request, master)
+        async with master:
+            await set_default_test_config(sentinel)
+            await master.flushall()
+            yield sentinel
 
 
 @pytest.fixture
@@ -951,13 +831,15 @@ async def redis_sentinel_auth(redis_sentinel_auth_server, request):
         decode_responses=True,
         **get_client_test_args(request),
     )
-    master = sentinel.primary_for("mymaster")
-    await check_test_constraints(request, master)
-    await set_default_test_config(sentinel)
-    await master.flushall()
-    await asyncio.sleep(0.1)
+    async with sentinel:
+        master = sentinel.primary_for("mymaster")
+        await check_test_constraints(request, master)
+        async with master:
+            await set_default_test_config(sentinel)
+            await master.flushall()
+            await asyncio.sleep(0.1)
 
-    return sentinel
+            yield sentinel
 
 
 @pytest.fixture
@@ -969,13 +851,15 @@ async def redis_sentinel_auth_cred_provider(redis_sentinel_auth_server, request)
         decode_responses=True,
         **get_client_test_args(request),
     )
-    master = sentinel.primary_for("mymaster")
-    await check_test_constraints(request, master)
-    await set_default_test_config(sentinel)
-    await master.flushall()
-    await asyncio.sleep(0.1)
+    async with sentinel:
+        master = sentinel.primary_for("mymaster")
+        await check_test_constraints(request, master)
+        async with master:
+            await set_default_test_config(sentinel)
+            await master.flushall()
+            await asyncio.sleep(0.1)
 
-    return sentinel
+            yield sentinel
 
 
 @pytest.fixture
@@ -1041,12 +925,10 @@ async def dragonfly(dragonfly_server, request):
         **get_client_test_args(request),
     )
     await check_test_constraints(request, client)
-    await client.flushall()
-    await set_default_test_config(client, variant="dragonfly")
-
-    yield client
-
-    client.connection_pool.disconnect()
+    async with client:
+        await client.flushall()
+        await set_default_test_config(client, variant="dragonfly")
+        yield client
 
 
 @pytest.fixture
@@ -1057,30 +939,11 @@ async def valkey(valkey_server, request):
         decode_responses=True,
         **get_client_test_args(request),
     )
-    await client.flushall()
     await check_test_constraints(request, client)
-    await set_default_test_config(client, variant="valkey")
-
-    yield client
-
-    client.connection_pool.disconnect()
-
-
-@pytest.fixture
-async def redict(redict_server, request):
-    client = coredis.Redis(
-        "localhost",
-        13379,
-        decode_responses=True,
-        **get_client_test_args(request),
-    )
-    await client.flushall()
-    await check_test_constraints(request, client)
-    await set_default_test_config(client, variant="redict")
-
-    yield client
-
-    client.connection_pool.disconnect()
+    async with client:
+        await client.flushall()
+        await set_default_test_config(client, variant="valkey")
+        yield client
 
 
 @pytest.fixture(scope="session")
@@ -1111,7 +974,6 @@ def module_targets():
     ) >= version.parse("8.0.0"):
         targets = [
             "redis_basic",
-            "redis_basic_resp2",
             "redis_basic_raw",
             "redis_cached",
             "redis_cluster",
@@ -1129,10 +991,10 @@ def module_targets():
 def redis_server_time():
     async def _get_server_time(client):
         if isinstance(client, coredis.RedisCluster):
-            await client
             node = list(client.primaries).pop()
 
-            return await node.time()
+            async with node:
+                return await node.time()
         elif isinstance(client, coredis.Redis):
             return await client.time()
 
@@ -1162,15 +1024,16 @@ def _s(client):
 
 @pytest.fixture
 def cloner():
-    async def _cloner(client, initialize=True, connection_kwargs={}, **kwargs):
+    async def _cloner(client, connection_kwargs={}, **kwargs):
+        cache = kwargs.pop("cache", None)
+        pool = kwargs.pop("connection_pool", None)
         if isinstance(client, coredis.client.Redis):
             c_kwargs = client.connection_pool.connection_kwargs
             c_kwargs.update(connection_kwargs)
             c = client.__class__(
                 decode_responses=client.decode_responses,
-                protocol_version=client.protocol_version,
                 encoding=client.encoding,
-                connection_pool=client.connection_pool.__class__(**c_kwargs),
+                connection_pool=pool or client.connection_pool.__class__(_cache=cache, **c_kwargs),
                 **kwargs,
             )
         else:
@@ -1178,14 +1041,11 @@ def cloner():
                 client.connection_pool.nodes.startup_nodes[0].host,
                 client.connection_pool.nodes.startup_nodes[0].port,
                 decode_responses=client.decode_responses,
-                protocol_version=client.protocol_version,
                 encoding=client.encoding,
+                cache=cache,
+                connection_pool=pool,
                 **kwargs,
             )
-
-        if initialize:
-            await c.ping()
-
         return c
 
     return _cloner
@@ -1237,9 +1097,4 @@ def pytest_collection_modifyitems(items):
 
                 for token in tokens:
                     item.add_marker(getattr(pytest.mark, token))
-            elif client_name.startswith("redict"):
-                item.add_marker(getattr(pytest.mark, "redict"))
-                tokens = client_name.replace("redict_", "").split("_")
-
-                for token in tokens:
                     item.add_marker(getattr(pytest.mark, token))

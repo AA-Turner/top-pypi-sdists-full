@@ -25,11 +25,15 @@ def test_rdate_dosent_become_none_on_invalid_input_issue_464(events):
     """Issue #464 - [BUG] RDATE can become None if value is invalid
     https://github.com/collective/icalendar/issues/464
     """
-    assert (
-        "RDATE",
-        "Expected period format, got: 199709T180000Z/PT5H30M",
-    ) in events.issue_464_invalid_rdate.errors
-    assert b"RDATE:None" not in events.issue_464_invalid_rdate.to_ical()
+    event = events.issue_464_invalid_rdate
+
+    # After VALUE parameter fix, the assertion checks for the full value string
+    # in the error message, making the test more flexible
+    assert len(event.errors) == 1
+    assert event.errors[0][0] == "RDATE"
+    assert "Expected period format" in event.errors[0][1]
+    assert "199709T180000Z/PT5H30M" in event.errors[0][1]
+    assert b"RDATE:None" not in event.to_ical()
 
 
 @pytest.mark.parametrize(

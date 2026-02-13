@@ -731,6 +731,24 @@ class BedrockBase(BaseLanguageModel, ABC):
 
     """
 
+    bedrock_api_key: Optional[SecretStr] = Field(
+        alias="api_key",
+        default_factory=secret_from_env("AWS_BEARER_TOKEN_BEDROCK", default=None),
+    )
+    """Bedrock API key.
+
+    Enables authentication using Bedrock API keys instead of standard AWS
+    credentials. When provided, the key is set as the AWS_BEARER_TOKEN_BEDROCK
+    environment variable.
+
+    See: https://docs.aws.amazon.com/bedrock/latest/userguide/api-keys-use.html
+
+    If not provided, will be read from `AWS_BEARER_TOKEN_BEDROCK` environment variable.
+
+    If both an API key and AWS credentials are present, the API key takes precedence.
+
+    """
+
     config: Any = None
     """An optional `botocore.config.Config` instance to pass to the client."""
 
@@ -858,6 +876,7 @@ class BedrockBase(BaseLanguageModel, ABC):
             "aws_access_key_id": "AWS_ACCESS_KEY_ID",
             "aws_secret_access_key": "AWS_SECRET_ACCESS_KEY",
             "aws_session_token": "AWS_SESSION_TOKEN",
+            "bedrock_api_key": "AWS_BEARER_TOKEN_BEDROCK",
         }
 
     @model_validator(mode="after")
@@ -886,6 +905,7 @@ class BedrockBase(BaseLanguageModel, ABC):
                 endpoint_url=self.endpoint_url,
                 config=self.config,
                 service_name="bedrock-runtime",
+                api_key=self.bedrock_api_key,
             )
 
         # Create bedrock client for control plane API call
@@ -913,6 +933,7 @@ class BedrockBase(BaseLanguageModel, ABC):
                 endpoint_url=self.endpoint_url,
                 config=self.config or bedrock_client_cfg.get("config"),
                 service_name="bedrock",
+                api_key=self.bedrock_api_key,
             )
 
         if (
@@ -1263,17 +1284,22 @@ class BedrockBase(BaseLanguageModel, ABC):
                 run_manager.on_llm_error(e)
             raise e
 
-        for chunk in LLMInputOutputAdapter.prepare_output_stream(
-            provider,
-            response,
-            stop,
-            True if (messages and provider == "anthropic") else False,
-            coerce_content_to_string=coerce_content_to_string,
-        ):
-            yield chunk
-            # verify and raise callback error if any middleware intervened
-            if not isinstance(chunk, AIMessageChunk):
-                self._get_bedrock_services_signal(chunk.generation_info)  # type: ignore[arg-type]
+        try:
+            for chunk in LLMInputOutputAdapter.prepare_output_stream(
+                provider,
+                response,
+                stop,
+                True if (messages and provider == "anthropic") else False,
+                coerce_content_to_string=coerce_content_to_string,
+            ):
+                yield chunk
+                # verify and raise callback error if any middleware intervened
+                if not isinstance(chunk, AIMessageChunk):
+                    self._get_bedrock_services_signal(chunk.generation_info)  # type: ignore[arg-type]
+        finally:
+            stream = response.get("body")
+            if stream and hasattr(stream, "close"):
+                stream.close()
 
     async def _aprepare_input_and_invoke_stream(
         self,
@@ -1332,13 +1358,18 @@ class BedrockBase(BaseLanguageModel, ABC):
             ),
         )
 
-        async for chunk in LLMInputOutputAdapter.aprepare_output_stream(
-            provider,
-            response,
-            stop,
-            True if (messages and provider == "anthropic") else False,
-        ):
-            yield chunk
+        try:
+            async for chunk in LLMInputOutputAdapter.aprepare_output_stream(
+                provider,
+                response,
+                stop,
+                True if (messages and provider == "anthropic") else False,
+            ):
+                yield chunk
+        finally:
+            stream = response.get("body")
+            if stream and hasattr(stream, "close"):
+                stream.close()
 
 
 class BedrockLLM(LLM, BedrockBase):

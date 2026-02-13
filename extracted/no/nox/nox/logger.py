@@ -27,7 +27,7 @@ def __dir__() -> list[str]:
 
 
 SESSION_INFO = logging.WARNING - 1
-SUCCESS = 25
+SUCCESS = logging.INFO + 5
 OUTPUT = logging.DEBUG - 1
 
 
@@ -82,7 +82,7 @@ class NoxColoredFormatter(ColoredFormatter):
 
 
 class LoggerWithSuccessAndOutput(logging.getLoggerClass()):  # type: ignore[misc]
-    def __init__(self, name: str, level: int = logging.NOTSET):
+    def __init__(self, name: str, level: int = logging.NOTSET) -> None:
         super().__init__(name, level)
         logging.addLevelName(SESSION_INFO, "SESSION_INFO")
         logging.addLevelName(SUCCESS, "SUCCESS")

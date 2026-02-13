@@ -1,7 +1,5 @@
 """Class defining Linked argument Event."""
 
-import time
-
 
 class ArgLinkedEventArgs(object):
 	"""Contains event data for suppressed argument."""

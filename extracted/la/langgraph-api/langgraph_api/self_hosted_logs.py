@@ -61,7 +61,7 @@ def initialize_self_hosted_logs() -> None:
 
         if config.LANGGRAPH_CLOUD_LICENSE_KEY:
             try:
-                from langgraph_license.validation import (
+                from langgraph_license.validation import (  # noqa: PLC0415
                     CUSTOMER_ID,  # type: ignore[unresolved-import]
                     CUSTOMER_NAME,  # type: ignore[unresolved-import]
                 )

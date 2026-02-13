@@ -40,6 +40,26 @@ class SchedulerServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.CancelScheduledResolverRunRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.CancelScheduledResolverRunResponse.FromString,
         )
+        self.GetActiveScheduledResolvers = channel.unary_unary(
+            "/chalk.server.v1.SchedulerService/GetActiveScheduledResolvers",
+            request_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.GetActiveScheduledResolversRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.GetActiveScheduledResolversResponse.FromString,
+        )
+        self.GetScheduledResolverControl = channel.unary_unary(
+            "/chalk.server.v1.SchedulerService/GetScheduledResolverControl",
+            request_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.GetScheduledResolverControlRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.GetScheduledResolverControlResponse.FromString,
+        )
+        self.UpdateScheduledResolverControl = channel.unary_unary(
+            "/chalk.server.v1.SchedulerService/UpdateScheduledResolverControl",
+            request_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.UpdateScheduledResolverControlRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.UpdateScheduledResolverControlResponse.FromString,
+        )
+        self.GetLatestHighWaterMark = channel.unary_unary(
+            "/chalk.server.v1.SchedulerService/GetLatestHighWaterMark",
+            request_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.GetLatestHighWaterMarkRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.GetLatestHighWaterMarkResponse.FromString,
+        )
 
 
 class SchedulerServiceServicer(object):
@@ -75,6 +95,30 @@ class SchedulerServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetActiveScheduledResolvers(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetScheduledResolverControl(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpdateScheduledResolverControl(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetLatestHighWaterMark(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_SchedulerServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -102,6 +146,26 @@ def add_SchedulerServiceServicer_to_server(servicer, server):
             servicer.CancelScheduledResolverRun,
             request_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.CancelScheduledResolverRunRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.CancelScheduledResolverRunResponse.SerializeToString,
+        ),
+        "GetActiveScheduledResolvers": grpc.unary_unary_rpc_method_handler(
+            servicer.GetActiveScheduledResolvers,
+            request_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.GetActiveScheduledResolversRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.GetActiveScheduledResolversResponse.SerializeToString,
+        ),
+        "GetScheduledResolverControl": grpc.unary_unary_rpc_method_handler(
+            servicer.GetScheduledResolverControl,
+            request_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.GetScheduledResolverControlRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.GetScheduledResolverControlResponse.SerializeToString,
+        ),
+        "UpdateScheduledResolverControl": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateScheduledResolverControl,
+            request_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.UpdateScheduledResolverControlRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.UpdateScheduledResolverControlResponse.SerializeToString,
+        ),
+        "GetLatestHighWaterMark": grpc.unary_unary_rpc_method_handler(
+            servicer.GetLatestHighWaterMark,
+            request_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.GetLatestHighWaterMarkRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.GetLatestHighWaterMarkResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.SchedulerService", rpc_method_handlers)
@@ -247,6 +311,122 @@ class SchedulerService(object):
             "/chalk.server.v1.SchedulerService/CancelScheduledResolverRun",
             chalk_dot_server_dot_v1_dot_scheduler__pb2.CancelScheduledResolverRunRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_scheduler__pb2.CancelScheduledResolverRunResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetActiveScheduledResolvers(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.SchedulerService/GetActiveScheduledResolvers",
+            chalk_dot_server_dot_v1_dot_scheduler__pb2.GetActiveScheduledResolversRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_scheduler__pb2.GetActiveScheduledResolversResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetScheduledResolverControl(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.SchedulerService/GetScheduledResolverControl",
+            chalk_dot_server_dot_v1_dot_scheduler__pb2.GetScheduledResolverControlRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_scheduler__pb2.GetScheduledResolverControlResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpdateScheduledResolverControl(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.SchedulerService/UpdateScheduledResolverControl",
+            chalk_dot_server_dot_v1_dot_scheduler__pb2.UpdateScheduledResolverControlRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_scheduler__pb2.UpdateScheduledResolverControlResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetLatestHighWaterMark(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.SchedulerService/GetLatestHighWaterMark",
+            chalk_dot_server_dot_v1_dot_scheduler__pb2.GetLatestHighWaterMarkRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_scheduler__pb2.GetLatestHighWaterMarkResponse.FromString,
             options,
             channel_credentials,
             insecure,

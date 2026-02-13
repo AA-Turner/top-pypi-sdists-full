@@ -52,7 +52,7 @@ for more info.
 
 --------------------
 
-```../examples/bpy.app.translations.py```
+```../examples/bpy.app.translations.0.py```
 
 """
 
@@ -61,14 +61,16 @@ import collections.abc
 import typing_extensions
 import numpy.typing as npt
 
-def locale_explode(locale) -> None:
+def locale_explode(
+    locale: str | None,
+) -> tuple[str | None, str | None, str | None, str | None, str | None]:
     """Return all components and their combinations of the given ISO locale string.For non-complete locales, missing elements will be None.
 
     :param locale: The ISO locale string to explode.
     :return: A tuple (language, country, variant, language_country, language@variant).
     """
 
-def pgettext(msgid: str | None, msgctxt: None | str | None = None) -> None:
+def pgettext(msgid: str | None, msgctxt: None | str | None = None) -> str:
     """Try to translate the given msgid (with optional msgctxt).
 
     :param msgid: The string to translate.
@@ -76,7 +78,7 @@ def pgettext(msgid: str | None, msgctxt: None | str | None = None) -> None:
     :return: The translated string (or msgid if no translation was found).
     """
 
-def pgettext_data(msgid: str | None, msgctxt: None | str | None = None) -> None:
+def pgettext_data(msgid: str | None, msgctxt: None | str | None = None) -> str:
     """Try to translate the given msgid (with optional msgctxt), if new data names translation is enabled.
 
     :param msgid: The string to translate.
@@ -84,7 +86,7 @@ def pgettext_data(msgid: str | None, msgctxt: None | str | None = None) -> None:
     :return: The translated string (or msgid if no translation was found).
     """
 
-def pgettext_iface(msgid: str | None, msgctxt: None | str | None = None) -> None:
+def pgettext_iface(msgid: str | None, msgctxt: None | str | None = None) -> str:
     """Try to translate the given msgid (with optional msgctxt), if labels translation is enabled.
 
     :param msgid: The string to translate.
@@ -92,7 +94,7 @@ def pgettext_iface(msgid: str | None, msgctxt: None | str | None = None) -> None
     :return: The translated string (or msgid if no translation was found).
     """
 
-def pgettext_n(msgid: str | None, msgctxt: None | str | None = None) -> None:
+def pgettext_n(msgid: str | None, msgctxt: None | str | None = None) -> str:
     """Extract the given msgid to translation files. This is a no-op function that will only mark the string to extract, but not perform the actual translation.
 
     :param msgid: The string to extract.
@@ -100,7 +102,7 @@ def pgettext_n(msgid: str | None, msgctxt: None | str | None = None) -> None:
     :return: The original string.
     """
 
-def pgettext_rpt(msgid: str | None, msgctxt: None | str | None = None) -> None:
+def pgettext_rpt(msgid: str | None, msgctxt: None | str | None = None) -> str:
     """Try to translate the given msgid (with optional msgctxt), if reports translation is enabled.
 
     :param msgid: The string to translate.
@@ -108,7 +110,7 @@ def pgettext_rpt(msgid: str | None, msgctxt: None | str | None = None) -> None:
     :return: The translated string (or msgid if no translation was found).
     """
 
-def pgettext_tip(msgid: str | None, msgctxt: None | str | None = None) -> None:
+def pgettext_tip(msgid: str | None, msgctxt: None | str | None = None) -> str:
     """Try to translate the given msgid (with optional msgctxt), if tooltips translation is enabled.
 
     :param msgid: The string to translate.
@@ -117,7 +119,8 @@ def pgettext_tip(msgid: str | None, msgctxt: None | str | None = None) -> None:
     """
 
 def register(
-    module_name: str | None, translations_dict: dict[str, dict[str, str]] | None
+    module_name: str | None,
+    translations_dict: dict[str, dict[tuple[str, str], str]] | None,
 ) -> None:
     """Registers an addons UI translations.
 
@@ -141,7 +144,7 @@ contexts_C_to_py: typing.Any
 """
 
 locale: typing.Any
-""" The actual locale currently in use (will always return a void string when Blender is built without internationalization support).
+""" The actual locale currently in use (will always return an empty string when Blender is built without internationalization support).
 """
 
 locales: typing.Any

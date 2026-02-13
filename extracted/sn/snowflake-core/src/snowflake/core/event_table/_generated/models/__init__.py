@@ -21,6 +21,8 @@ from snowflake.core.event_table._generated.models.event_table import EventTable
 from snowflake.core.event_table._generated.models.event_table_column import EventTableColumn
 from snowflake.core.event_table._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.event_table._generated.models.success_response import SuccessResponse
+from snowflake.core.event_table._generated.models.tag_assignment import TagAssignment
+from snowflake.core.event_table._generated.models.tag_reference import TagReference
 
 __all__ = [
     "ErrorResponse",
@@ -28,4 +30,6 @@ __all__ = [
     "EventTableColumn",
     "SuccessAcceptedResponse",
     "SuccessResponse",
+    "TagAssignment",
+    "TagReference",
 ]

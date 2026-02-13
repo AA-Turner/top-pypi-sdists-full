@@ -2136,7 +2136,7 @@ class Axis:
 
     def getDisplayUnitLabel(self) -> DisplayUnitLabel:
         '''Represents a unit label on an axis in the specified chart.
-        Unit labels are useful for charting large values鈥?for example, in the millions or billions.'''
+        Unit labels are useful for charting large values - for example, in the millions or billions.'''
         raise NotImplementedError()
 
     def getTickLabelPosition(self) -> int:
@@ -4822,9 +4822,9 @@ class Cells:
         raise NotImplementedError()
 
     @overload
-    def copyRows(self, sourceCells0 : Cells, sourceRowIndex : int, destinationRowIndex : int, rowNumber : int, copyOptions : CopyOptions) -> None:
+    def copyRows(self, sourceCells : Cells, sourceRowIndex : int, destinationRowIndex : int, rowNumber : int, copyOptions : CopyOptions) -> None:
         '''Copies data and formats of some whole rows.
-        :param sourceCells0: Source Cells object contains data and formats to copy.
+        :param sourceCells: Source Cells object contains data and formats to copy.
         :param sourceRowIndex: Source row index.
         :param destinationRowIndex: Destination row index.
         :param rowNumber: The copied row number.
@@ -5429,9 +5429,9 @@ class Cells:
         raise NotImplementedError()
 
     @overload
-    def copyColumns(self, sourceCells0 : Cells, sourceColumnIndex : int, destinationColumnIndex : int, columnNumber : int, pasteOptions : PasteOptions) -> None:
+    def copyColumns(self, sourceCells : Cells, sourceColumnIndex : int, destinationColumnIndex : int, columnNumber : int, pasteOptions : PasteOptions) -> None:
         '''Copies data and formats of a whole column.
-        :param sourceCells0: Source Cells object contains data and formats to copy.
+        :param sourceCells: Source Cells object contains data and formats to copy.
         :param sourceColumnIndex: Source column index.
         :param destinationColumnIndex: Destination column index.
         :param columnNumber: The copied column number.
@@ -5439,9 +5439,9 @@ class Cells:
         raise NotImplementedError()
 
     @overload
-    def copyColumns(self, sourceCells0 : Cells, sourceColumnIndex : int, destinationColumnIndex : int, columnNumber : int) -> None:
-        '''Copies data and formats of a whole column.
-        :param sourceCells0: Source Cells object contains data and formats to copy.
+    def copyColumns(self, sourceCells : Cells, sourceColumnIndex : int, destinationColumnIndex : int, columnNumber : int) -> None:
+        '''Copies data and formats of whole columns.
+        :param sourceCells: Source Cells object contains data and formats to copy.
         :param sourceColumnIndex: Source column index.
         :param destinationColumnIndex: Destination column index.
         :param columnNumber: The copied column number.'''
@@ -10294,7 +10294,7 @@ class ControlMousePointerType:
     '''Hourglass.'''
 
     NO_DROP : ControlMousePointerType
-    '''"Not鈥?symbol (circle with a diagonal line) on top of the object being dragged.'''
+    '''"Not" symbol (circle with a diagonal line) on top of the object being dragged.'''
 
     APP_STARTING : ControlMousePointerType
     '''Arrow with an hourglass.'''
@@ -10303,7 +10303,7 @@ class ControlMousePointerType:
     '''Arrow with a question mark.'''
 
     SIZE_ALL : ControlMousePointerType
-    '''"Size-all鈥?cursor (arrows pointing north, south, east, and west).'''
+    '''"Size-all" cursor (arrows pointing north, south, east, and west).'''
 
     CUSTOM : ControlMousePointerType
     '''Uses the icon specified by the MouseIcon property.'''
@@ -16385,8 +16385,8 @@ class FormatCondition:
         raise NotImplementedError()
 
     def getTimePeriod(self) -> int:
-        '''The applicable time period in a "date occurring鈥? conditional formatting rule.
-        Valid only for type = timePeriod.
+        '''The applicable time period in a "date occurrin" conditional formatting rule.
+        Valid only for type is timePeriod.
         The default value is TimePeriodType.Today.
         See :class:`TimePeriodType`'''
         raise NotImplementedError()
@@ -16411,8 +16411,8 @@ class FormatCondition:
         raise NotImplementedError()
 
     def setTimePeriod(self, value : int) -> None:
-        '''The applicable time period in a "date occurring鈥? conditional formatting rule.
-        Valid only for type = timePeriod.
+        '''The applicable time period in a "date occurrin" conditional formatting rule.
+        Valid only for type is timePeriod.
         The default value is TimePeriodType.Today.
         See :class:`TimePeriodType`
         :param value: '''
@@ -24898,6 +24898,15 @@ class NumberCategoryType:
 class NumbersLoadOptions:
     '''Represents the options of loading Apple Numbers files.'''
 
+    def getPreserveTableName(self) -> bool:
+        '''Indicates whether to preserve table names when exporting from Numbers.'''
+        raise NotImplementedError()
+
+    def setPreserveTableName(self, value : bool) -> None:
+        '''Indicates whether to preserve table names when exporting from Numbers.
+        :param value: '''
+        raise NotImplementedError()
+
     def getLoadTableType(self) -> int:
         '''Gets the type of loading multiple tables in one worksheet.
         See :class:`LoadNumbersTableType`'''
@@ -25585,6 +25594,9 @@ class OpenDocumentFormatVersionType:
 
     ODF_13 : OpenDocumentFormatVersionType
     '''ODF Version 1.3'''
+
+    ODF_14 : OpenDocumentFormatVersionType
+    '''ODF Version 1.4'''
 
 
 class OperatorType:
@@ -27670,8 +27682,13 @@ class Picture:
         '''Gets the signature line'''
         raise NotImplementedError()
 
+    def isAutoSize(self) -> bool:
+        '''True indicates that the size of the ole object will be auto changed as the size of snapshot of the embedded content
+        when the ole object is activated.'''
+        raise NotImplementedError()
+
     def placeInCell(self) -> None:
-        '''Place this picture in the cell'''
+        ''':deprecated: Use Picture.IsPlacedInCell property, instead.'''
         raise NotImplementedError()
 
     def setData(self, value : list[int]) -> None:
@@ -27681,11 +27698,6 @@ class Picture:
 
     def getOriginalHeight(self) -> int:
         '''Gets the original height of the picture.'''
-        raise NotImplementedError()
-
-    def isAutoSize(self) -> bool:
-        '''True indicates that the size of the ole object will be auto changed as the size of snapshot of the embedded content
-        when the ole object is activated.'''
         raise NotImplementedError()
 
     def getImageType(self) -> int:
@@ -27776,6 +27788,11 @@ class Picture:
         '''Gets the original width of the picture.'''
         raise NotImplementedError()
 
+    def setPlacedInCell(self, value : bool) -> None:
+        '''Indicates whether to place the image in cell or over cells.
+        :param value: '''
+        raise NotImplementedError()
+
     def getDisplayAsIcon(self) -> bool:
         '''True if the specified object is displayed as an icon
         and the image will not be auto changed.'''
@@ -27784,6 +27801,10 @@ class Picture:
     def setSourceFullName(self, value : str) -> None:
         '''Sets the path and name of the source file for the linked image.
         :param value: '''
+        raise NotImplementedError()
+
+    def isPlacedInCell(self) -> bool:
+        '''Indicates whether to place the image in cell or over cells.'''
         raise NotImplementedError()
 
 
@@ -29958,6 +29979,15 @@ class PivotOptions:
         of the source PivotTable appears on the chart when dropZonesVisible is set to true.'''
         raise NotImplementedError()
 
+    def setShowExpandCollapseFieldButtons(self, value : bool) -> None:
+        '''Sets a value indicating whether to show expand/collapse field buttons
+        :param value: '''
+        raise NotImplementedError()
+
+    def getShowExpandCollapseFieldButtons(self) -> bool:
+        '''Gets a value indicating whether to show expand/collapse field buttons'''
+        raise NotImplementedError()
+
     def getDropZoneData(self) -> bool:
         '''Specifies whether a control for each PivotTable field on the PivotTable data axis
         of the source PivotTable appears on the chart when dropZonesVisible is set to true.'''
@@ -29995,15 +30025,15 @@ class PivotOptions:
         '''Specifies whether any pivot controls can appear on the pivot chart.'''
         raise NotImplementedError()
 
+    def getDropZoneSeries(self) -> bool:
+        '''Specifies whether a control for each PivotTable field on the PivotTable column axis
+        of the source PivotTable appears on the chart when dropZonesVisible is set to true.'''
+        raise NotImplementedError()
+
     def setDropZoneFilter(self, value : bool) -> None:
         '''Specifies whether a control for each PivotTable field on the PivotTable page axis
         of the source PivotTable appears on the chart when dropZonesVisible is set to true.
         :param value: '''
-        raise NotImplementedError()
-
-    def getDropZoneSeries(self) -> bool:
-        '''Specifies whether a control for each PivotTable field on the PivotTable column axis
-        of the source PivotTable appears on the chart when dropZonesVisible is set to true.'''
         raise NotImplementedError()
 
 
@@ -30235,6 +30265,10 @@ class PivotTable:
 
     def getShowPivotStyleRowStripes(self) -> bool:
         '''Indicates whether row stripe formatting is applied.'''
+        raise NotImplementedError()
+
+    def getTopRightArea(self) -> CellArea:
+        '''Represents the blank area at the top-right of the PivotTable (top-left for RTL sheets).'''
         raise NotImplementedError()
 
     def showReportFilterPage(self, pageField : PivotField) -> None:
@@ -30624,6 +30658,11 @@ class PivotTable:
         '''Indicates whether to include empty columns in the table'''
         raise NotImplementedError()
 
+    def getButtonArea(self, axisType : int) -> CellArea:
+        '''Gets the area contains field button.
+        :param axisType: :class:`PivotFieldType`. The region type.'''
+        raise NotImplementedError()
+
     def getFieldListSortAscending(self) -> bool:
         '''Indicates whether fields in the PivotTable are sorted in non-default order in the field list.'''
         raise NotImplementedError()
@@ -30653,6 +30692,10 @@ class PivotTable:
 
     def getRowFields(self) -> PivotFieldCollection:
         '''Returns a PivotFields object that are currently shown as row fields.'''
+        raise NotImplementedError()
+
+    def getPivotTableStyle(self) -> TableStyle:
+        '''Gets :class:`TableStyle` settings of this pivot table.'''
         raise NotImplementedError()
 
     def getPageFields(self) -> PivotFieldCollection:
@@ -30984,6 +31027,10 @@ class PivotTable:
         '''Indicates whether Refresh Data when Opening File.'''
         raise NotImplementedError()
 
+    def getFilterArea(self) -> CellArea:
+        '''Gets the region of filter region.'''
+        raise NotImplementedError()
+
     def getRowHeaderCaption(self) -> str:
         '''Gets custom caption of the Row Header in this PivotTable.'''
         raise NotImplementedError()
@@ -31014,6 +31061,11 @@ class PivotTable:
 
     def setPivotTableStyleName(self, value : str) -> None:
         '''Sets the pivottable style name.
+        :param value: '''
+        raise NotImplementedError()
+
+    def setPivotTableStyle(self, value : TableStyle) -> None:
+        '''Gets :class:`TableStyle` settings of this pivot table.
         :param value: '''
         raise NotImplementedError()
 
@@ -35133,7 +35185,7 @@ class Series:
 
     def isColorVaried(self) -> bool:
         '''Represents if the color of points is varied.
-        The chart must contain only one series.'''
+        The chart must contain only one series or this chart is a pie chart.'''
         raise NotImplementedError()
 
     def getPoints(self) -> ChartPointCollection:
@@ -35228,7 +35280,7 @@ class Series:
 
     def setColorVaried(self, value : bool) -> None:
         '''Represents if the color of points is varied.
-        The chart must contain only one series.
+        The chart must contain only one series or this chart is a pie chart.
         :param value: '''
         raise NotImplementedError()
 
@@ -35321,7 +35373,7 @@ class Series:
 
     def getOverlap(self) -> int:
         '''Specifies how bars and columns are positioned.
-        Can be a value between 鈥?100 and 100.
+        Can be a value between -100 and 100.
         Applies only to 2-D bar and 2-D column charts.'''
         raise NotImplementedError()
 
@@ -35478,7 +35530,7 @@ class Series:
 
     def setOverlap(self, value : int) -> None:
         '''Specifies how bars and columns are positioned.
-        Can be a value between 鈥?100 and 100.
+        Can be a value between -100 and 100.
         Applies only to 2-D bar and 2-D column charts.
         :param value: '''
         raise NotImplementedError()
@@ -35594,7 +35646,7 @@ class SeriesCollection:
         '''Sets the range of second category Axis values.
         It can be a range of cells (such as, "d1:e10"),
         or a sequence of values (such as,"{2,6,8,10}").
-        Only effects when some ASerieses plot on the second axis.
+        Only effects when some series were plotted on the second axis.
         :param value: '''
         raise NotImplementedError()
 
@@ -35608,14 +35660,14 @@ class SeriesCollection:
         '''Gets the range of second category Axis values.
         It can be a range of cells (such as, "d1:e10"),
         or a sequence of values (such as,"{2,6,8,10}").
-        Only effects when some ASerieses plot on the second axis.'''
+        Only effects when some series were plotted on the second axis.'''
         raise NotImplementedError()
 
     @overload
-    def add(self, area : str, isVertical : bool) -> int:
+    def add(self, dataArea : str, isVertical : bool) -> int:
         '''Adds the :class:`Series` collection to a chart.
-        :param area: Specifies values from which to plot the data series
-        :param isVertical: Specifies whether to plot the series from a range of cell values by row or by column.
+        :param dataArea: Specifies values from which to plot the data series
+        :param isVertical: 
         :returns: Return the first index of the added ASeries in the NSeries.'''
         raise NotImplementedError()
 
@@ -38507,7 +38559,7 @@ class Slicer:
     '''summary description of Slicer View'''
 
     def getNumberOfColumns(self) -> int:
-        '''Returns or sets the number of columns in the specified slicer.
+        '''Returns or sets the number of columns in the slicer.
         The default value is 1.'''
         raise NotImplementedError()
 
@@ -38581,7 +38633,7 @@ class Slicer:
         raise NotImplementedError()
 
     def setNumberOfColumns(self, value : int) -> None:
-        '''Returns or sets the number of columns in the specified slicer.
+        '''Returns or sets the number of columns in the slicer.
         The default value is 1.
         :param value: '''
         raise NotImplementedError()
@@ -38681,7 +38733,7 @@ class Slicer:
         raise NotImplementedError()
 
     def setLockedAspectRatio(self, value : bool) -> None:
-        ''':deprecated: Use Shape.GetLockedProperty() method instead.'''
+        ''':deprecated: Use Shape.IsLockAspectRatio property instead.'''
         raise NotImplementedError()
 
     def getFirstItemIndex(self) -> int:
@@ -38787,7 +38839,7 @@ class Slicer:
         raise NotImplementedError()
 
     def getLockedAspectRatio(self) -> bool:
-        ''':deprecated: Use Shape.GetLockedProperty() method instead.'''
+        ''':deprecated: Use Shape.IsLockAspectRatio property instead.'''
         raise NotImplementedError()
 
 
@@ -39665,7 +39717,7 @@ class SparklineGroupCollection:
 
     @overload
     def add(self, type : int, dataRange : str, isVertical : bool, locationRange : CellArea) -> int:
-        '''Adds an :class:`SparklineGroup` with :class:`Sparkline` to the collection.
+        '''Adds an :class:`SparklineGroup` with some :class:`Sparkline` to the collection.
         :param type: :class:`SparklineType`. Specifies the type of the Sparkline group.
         :param dataRange: Specifies the data range of the sparkline group.
         :param isVertical: Specifies whether to plot the sparklines from the data range by row or by column.
@@ -42606,7 +42658,7 @@ class TextOptions:
         raise NotImplementedError()
 
     def getCapsType(self) -> int:
-        '''Gets the text caps type.
+        '''Gets the caps type for texts of the shape.
         See :class:`TextCapsType`'''
         raise NotImplementedError()
 
@@ -42626,7 +42678,7 @@ class TextOptions:
         raise NotImplementedError()
 
     def setCapsType(self, value : int) -> None:
-        '''Sets the text caps type.
+        '''Sets the caps type for texts of the shape.
         See :class:`TextCapsType`
         :param value: '''
         raise NotImplementedError()
@@ -43963,8 +44015,8 @@ class Timeline:
 
 
 class TimelineCollection:
-    '''Specifies the collection of all the Timeline objects on the specified worksheet.
-    Due to MS Excel, Excel 2003 does not support Timeline.'''
+    '''Specifies the collection of all the :class:`Timeline` objects on the worksheet.
+    It was supported since Excel 2013.'''
 
     @overload
     def get(self, index : int) -> Timeline:
@@ -48234,6 +48286,10 @@ class Worksheet:
 
     def getName(self) -> str:
         '''Gets the name of the worksheet.'''
+        raise NotImplementedError()
+
+    def getAllPictures(self) -> list[Picture]:
+        '''Gets all pictures includes images are embedded in the cell and over the cells.'''
         raise NotImplementedError()
 
     def setDisplayZeros(self, value : bool) -> None:

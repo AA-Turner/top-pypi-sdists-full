@@ -710,7 +710,7 @@ class Cluster(object):
     def system_workload_names(self):
         """Gets the system_workload_names of this Cluster.  # noqa: E501
 
-        List of system workloads on this cluster.  # noqa: E501
+        Deprecated: Read-only, server-determined from cloud type (e.g. K8s vs VM). Do not set when creating/updating clusters.  # noqa: E501
 
         :return: The system_workload_names of this Cluster.  # noqa: E501
         :rtype: list[SystemWorkloadName]
@@ -721,7 +721,7 @@ class Cluster(object):
     def system_workload_names(self, system_workload_names):
         """Sets the system_workload_names of this Cluster.
 
-        List of system workloads on this cluster.  # noqa: E501
+        Deprecated: Read-only, server-determined from cloud type (e.g. K8s vs VM). Do not set when creating/updating clusters.  # noqa: E501
 
         :param system_workload_names: The system_workload_names of this Cluster.  # noqa: E501
         :type: list[SystemWorkloadName]

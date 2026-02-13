@@ -78,7 +78,7 @@ setup(
         "packaging>=24.0",
         "pyathena >= 3.18.0",
         "sqlalchemy>=2.0.43",
-        "pandas>=2.3.2",
+        "pandas>=2.3.2,<3.0.0",
         "duckdb>=1.4.0",
         "pymysql>=1.1.2",
         "snowflake-sqlalchemy>=1.7.7",

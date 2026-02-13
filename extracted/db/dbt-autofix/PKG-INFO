@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dbt-autofix
-Version: 0.18.7
+Version: 0.19.0
 Summary: CLI to autofix deprecations in dbt projects
 Requires-Python: <3.14,>=3.10
 Requires-Dist: pyyaml>=6.0.2; python_version >= "3.13"
@@ -11,9 +11,9 @@ Requires-Dist: rich>=13.7.0
 Requires-Dist: click<9.0.0,>=8.2.0
 Requires-Dist: ruamel-yaml<0.18.15,>=0.18.10
 Requires-Dist: httpx>=0.27.0
-Requires-Dist: dbt-common<2,>=1.27
+Requires-Dist: jinja2<4,>=3.1.3
 Requires-Dist: dbt-extractor<=0.6,>=0.5.0
-Requires-Dist: dbt-fusion-package-tools==0.18.7
+Requires-Dist: dbt-fusion-package-tools==0.19.0
 Provides-Extra: test
 Requires-Dist: pytest>=7.2.0; extra == "test"
 Requires-Dist: pytest-cov>=4.1.0; extra == "test"

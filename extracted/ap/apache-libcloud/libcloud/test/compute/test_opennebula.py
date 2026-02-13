@@ -42,7 +42,6 @@ libcloud.compute.drivers.opennebula.API_HOST = "dummy"
 
 
 class OpenNebula_1_4_Tests(unittest.TestCase):
-
     """
     OpenNebula.org test suite for OpenNebula v1.4.
     """
@@ -252,7 +251,6 @@ class OpenNebula_1_4_Tests(unittest.TestCase):
 
 
 class OpenNebula_2_0_Tests(unittest.TestCase):
-
     """
     OpenNebula.org test suite for OpenNebula v2.0 through v2.2.
     """
@@ -537,7 +535,6 @@ class OpenNebula_2_0_Tests(unittest.TestCase):
 
 
 class OpenNebula_3_0_Tests(unittest.TestCase):
-
     """
     OpenNebula.org test suite for OpenNebula v3.0.
     """
@@ -580,7 +577,6 @@ class OpenNebula_3_0_Tests(unittest.TestCase):
 
 
 class OpenNebula_3_2_Tests(unittest.TestCase):
-
     """
     OpenNebula.org test suite for OpenNebula v3.2.
     """
@@ -644,7 +640,6 @@ class OpenNebula_3_2_Tests(unittest.TestCase):
 
 
 class OpenNebula_3_6_Tests(unittest.TestCase):
-
     """
     OpenNebula.org test suite for OpenNebula v3.6.
     """
@@ -713,7 +708,6 @@ class OpenNebula_3_6_Tests(unittest.TestCase):
 
 
 class OpenNebula_3_8_Tests(unittest.TestCase):
-
     """
     OpenNebula.org test suite for OpenNebula v3.8.
     """
@@ -764,7 +758,6 @@ class OpenNebula_3_8_Tests(unittest.TestCase):
 
 
 class OpenNebula_1_4_MockHttp(MockHttp):
-
     """
     Mock HTTP server for testing v1.4 of the OpenNebula.org compute driver.
     """
@@ -905,7 +898,6 @@ class OpenNebula_1_4_MockHttp(MockHttp):
 
 
 class OpenNebula_2_0_MockHttp(MockHttp):
-
     """
     Mock HTTP server for testing v2.0 through v3.2 of the OpenNebula.org
     compute driver.
@@ -1047,7 +1039,6 @@ class OpenNebula_2_0_MockHttp(MockHttp):
 
 
 class OpenNebula_3_0_MockHttp(OpenNebula_2_0_MockHttp):
-
     """
     Mock HTTP server for testing v3.0 of the OpenNebula.org compute driver.
     """
@@ -1092,7 +1083,6 @@ class OpenNebula_3_0_MockHttp(OpenNebula_2_0_MockHttp):
 
 
 class OpenNebula_3_2_MockHttp(OpenNebula_3_0_MockHttp):
-
     """
     Mock HTTP server for testing v3.2 of the OpenNebula.org compute driver.
     """
@@ -1125,7 +1115,6 @@ class OpenNebula_3_2_MockHttp(OpenNebula_3_0_MockHttp):
 
 
 class OpenNebula_3_6_MockHttp(OpenNebula_3_2_MockHttp):
-
     """
     Mock HTTP server for testing v3.6 of the OpenNebula.org compute driver.
     """
@@ -1193,7 +1182,6 @@ class OpenNebula_3_6_MockHttp(OpenNebula_3_2_MockHttp):
 
 
 class OpenNebula_3_8_MockHttp(OpenNebula_3_2_MockHttp):
-
     """
     Mock HTTP server for testing v3.8 of the OpenNebula.org compute driver.
     """

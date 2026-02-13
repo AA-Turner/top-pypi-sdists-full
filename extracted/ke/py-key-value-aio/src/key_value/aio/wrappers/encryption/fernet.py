@@ -1,9 +1,9 @@
 from cryptography.fernet import Fernet, MultiFernet
-from key_value.shared.errors.wrappers.encryption import EncryptionVersionError
 from typing_extensions import overload
 
 from key_value.aio.protocols.key_value import AsyncKeyValue
 from key_value.aio.wrappers.encryption.base import BaseEncryptionWrapper
+from key_value.shared.errors import EncryptionVersionError
 
 ENCRYPTION_VERSION = 1
 

@@ -4,25 +4,28 @@
 #ifndef XGBOOST_COMMON_ALGORITHM_CUH_
 #define XGBOOST_COMMON_ALGORITHM_CUH_
 
-#include <thrust/copy.h>                         // for copy
-#include <thrust/iterator/counting_iterator.h>   // for make_counting_iterator
-#include <thrust/sort.h>                         // for stable_sort_by_key
-#include <thrust/tuple.h>                        // for tuple, get
+#include <thrust/copy.h>                        // for copy
+#include <thrust/iterator/counting_iterator.h>  // for make_counting_iterator
+#include <thrust/sort.h>                        // for stable_sort_by_key
 
-#include <cstddef>      // size_t
-#include <cstdint>      // int32_t
-#include <cub/cub.cuh>  // DispatchSegmentedRadixSort,NullType,DoubleBuffer
-#include <iterator>     // distance
-#include <limits>       // numeric_limits
-#include <type_traits>  // conditional_t,remove_const_t
+#include <cstddef>                                      // size_t
+#include <cstdint>                                      // int32_t
+#include <cub/device/device_run_length_encode.cuh>      // for DeviceRunLengthEncode
+#include <cub/device/dispatch/dispatch_radix_sort.cuh>  // for DispatchSegmentedRadixSort
+#include <cub/util_type.cuh>                            // for NullType, DoubleBuffer
+#include <cuda/std/tuple>                               // for tuple
+#include <functional>                                   // for plus, logical_and
+#include <iterator>                                     // for distance
+#include <limits>                                       // for numeric_limits
+#include <type_traits>                                  // for conditional_t,remove_const_t
 
 #include "common.h"            // safe_cuda
 #include "cuda_context.cuh"    // CUDAContext
+#include "cuda_stream.h"       // for StreamRef
 #include "device_helpers.cuh"  // TemporaryArray,SegmentId,LaunchN,Iota
 #include "device_vector.cuh"   // for device_vector
 #include "xgboost/base.h"      // XGBOOST_DEVICE
 #include "xgboost/context.h"   // Context
-#include "xgboost/linalg.h"    // for VectorView
 #include "xgboost/logging.h"   // CHECK
 #include "xgboost/span.h"      // Span,byte
 
@@ -30,11 +33,11 @@ namespace xgboost::common {
 namespace detail {
 
 #if CUB_VERSION >= 300000
-  constexpr auto kCubSortOrderAscending = cub::SortOrder::Ascending;
-  constexpr auto kCubSortOrderDescending = cub::SortOrder::Descending;
+constexpr auto kCubSortOrderAscending = cub::SortOrder::Ascending;
+constexpr auto kCubSortOrderDescending = cub::SortOrder::Descending;
 #else
-  constexpr bool kCubSortOrderAscending = false;
-  constexpr bool kCubSortOrderDescending = true;
+constexpr bool kCubSortOrderAscending = false;
+constexpr bool kCubSortOrderDescending = true;
 #endif
 
 // Wrapper around cub sort to define is_decending
@@ -70,7 +73,7 @@ void DeviceSegmentedRadixSortPair(void *d_temp_storage,
                                   const ValueT *d_values_in, ValueT *d_values_out,
                                   std::size_t num_items, std::size_t num_segments,
                                   BeginOffsetIteratorT d_begin_offsets,
-                                  EndOffsetIteratorT d_end_offsets, dh::CUDAStreamView stream,
+                                  EndOffsetIteratorT d_end_offsets, curt::StreamRef stream,
                                   int begin_bit = 0, int end_bit = sizeof(KeyT) * 8) {
   cub::DoubleBuffer<KeyT> d_keys(const_cast<KeyT *>(d_keys_in), d_keys_out);
   cub::DoubleBuffer<ValueT> d_values(const_cast<ValueT *>(d_values_in), d_values_out);
@@ -175,30 +178,30 @@ template <typename SegIt, typename ValIt>
 void SegmentedArgMergeSort(Context const *ctx, SegIt seg_begin, SegIt seg_end, ValIt val_begin,
                            ValIt val_end, dh::device_vector<std::size_t> *p_sorted_idx) {
   auto cuctx = ctx->CUDACtx();
-  using Tup = thrust::tuple<std::int32_t, float>;
+  using Tup = cuda::std::tuple<std::int32_t, float>;
   auto &sorted_idx = *p_sorted_idx;
   std::size_t n = std::distance(val_begin, val_end);
   sorted_idx.resize(n);
   dh::Iota(dh::ToSpan(sorted_idx), cuctx->Stream());
   dh::device_vector<Tup> keys(sorted_idx.size());
-  auto key_it = dh::MakeTransformIterator<Tup>(thrust::make_counting_iterator(0ul),
-                                               [=] XGBOOST_DEVICE(std::size_t i) -> Tup {
-                                                 std::int32_t seg_idx;
-                                                 if (i < *seg_begin) {
-                                                   seg_idx = -1;
-                                                 } else {
-                                                   seg_idx = dh::SegmentId(seg_begin, seg_end, i);
-                                                 }
-                                                 auto residue = val_begin[i];
-                                                 return thrust::make_tuple(seg_idx, residue);
-                                               });
+  auto key_it = dh::MakeIndexTransformIter([=] XGBOOST_DEVICE(std::size_t i) -> Tup {
+    std::int32_t seg_idx;
+    if (i < *seg_begin) {
+      seg_idx = -1;
+    } else {
+      seg_idx = dh::SegmentId(seg_begin, seg_end, i);
+    }
+    auto residue = val_begin[i];
+    return cuda::std::make_tuple(seg_idx, residue);
+  });
   thrust::copy(ctx->CUDACtx()->CTP(), key_it, key_it + keys.size(), keys.begin());
   thrust::stable_sort_by_key(cuctx->TP(), keys.begin(), keys.end(), sorted_idx.begin(),
                              [=] XGBOOST_DEVICE(Tup const &l, Tup const &r) {
-                               if (thrust::get<0>(l) != thrust::get<0>(r)) {
-                                 return thrust::get<0>(l) < thrust::get<0>(r);  // segment index
+                               if (cuda::std::get<0>(l) != cuda::std::get<0>(r)) {
+                                 // segment index
+                                 return cuda::std::get<0>(l) < cuda::std::get<0>(r);
                                }
-                               return thrust::get<1>(l) < thrust::get<1>(r);    // residue
+                               return cuda::std::get<1>(l) < cuda::std::get<1>(r);  // residue
                              });
 }
 
@@ -224,46 +227,54 @@ void ArgSort(Context const *ctx, Span<U> keys, Span<IdxT> sorted_idx) {
   if (accending) {
     void *d_temp_storage = nullptr;
 #if THRUST_MAJOR_VERSION >= 2
-    dh::safe_cuda((cub::DispatchRadixSort<detail::kCubSortOrderAscending, KeyT, ValueT, OffsetT>::Dispatch(
-        d_temp_storage, bytes, d_keys, d_values, sorted_idx.size(), 0, sizeof(KeyT) * 8, false,
-        cuctx->Stream())));
+    dh::safe_cuda(
+        (cub::DispatchRadixSort<detail::kCubSortOrderAscending, KeyT, ValueT, OffsetT>::Dispatch(
+            d_temp_storage, bytes, d_keys, d_values, sorted_idx.size(), 0, sizeof(KeyT) * 8, false,
+            cuctx->Stream())));
 #else
-    dh::safe_cuda((cub::DispatchRadixSort<detail::kCubSortOrderAscending, KeyT, ValueT, OffsetT>::Dispatch(
-        d_temp_storage, bytes, d_keys, d_values, sorted_idx.size(), 0, sizeof(KeyT) * 8, false,
-        nullptr, false)));
+    dh::safe_cuda(
+        (cub::DispatchRadixSort<detail::kCubSortOrderAscending, KeyT, ValueT, OffsetT>::Dispatch(
+            d_temp_storage, bytes, d_keys, d_values, sorted_idx.size(), 0, sizeof(KeyT) * 8, false,
+            nullptr, false)));
 #endif
     dh::TemporaryArray<char> storage(bytes);
     d_temp_storage = storage.data().get();
 #if THRUST_MAJOR_VERSION >= 2
-    dh::safe_cuda((cub::DispatchRadixSort<detail::kCubSortOrderAscending, KeyT, ValueT, OffsetT>::Dispatch(
-        d_temp_storage, bytes, d_keys, d_values, sorted_idx.size(), 0, sizeof(KeyT) * 8, false,
-        cuctx->Stream())));
+    dh::safe_cuda(
+        (cub::DispatchRadixSort<detail::kCubSortOrderAscending, KeyT, ValueT, OffsetT>::Dispatch(
+            d_temp_storage, bytes, d_keys, d_values, sorted_idx.size(), 0, sizeof(KeyT) * 8, false,
+            cuctx->Stream())));
 #else
-    dh::safe_cuda((cub::DispatchRadixSort<detail::kCubSortOrderAscending, KeyT, ValueT, OffsetT>::Dispatch(
-        d_temp_storage, bytes, d_keys, d_values, sorted_idx.size(), 0, sizeof(KeyT) * 8, false,
-        nullptr, false)));
+    dh::safe_cuda(
+        (cub::DispatchRadixSort<detail::kCubSortOrderAscending, KeyT, ValueT, OffsetT>::Dispatch(
+            d_temp_storage, bytes, d_keys, d_values, sorted_idx.size(), 0, sizeof(KeyT) * 8, false,
+            nullptr, false)));
 #endif
   } else {
     void *d_temp_storage = nullptr;
 #if THRUST_MAJOR_VERSION >= 2
-    dh::safe_cuda((cub::DispatchRadixSort<detail::kCubSortOrderDescending, KeyT, ValueT, OffsetT>::Dispatch(
-        d_temp_storage, bytes, d_keys, d_values, sorted_idx.size(), 0, sizeof(KeyT) * 8, false,
-        cuctx->Stream())));
+    dh::safe_cuda(
+        (cub::DispatchRadixSort<detail::kCubSortOrderDescending, KeyT, ValueT, OffsetT>::Dispatch(
+            d_temp_storage, bytes, d_keys, d_values, sorted_idx.size(), 0, sizeof(KeyT) * 8, false,
+            cuctx->Stream())));
 #else
-    dh::safe_cuda((cub::DispatchRadixSort<detail::kCubSortOrderDescending, KeyT, ValueT, OffsetT>::Dispatch(
-        d_temp_storage, bytes, d_keys, d_values, sorted_idx.size(), 0, sizeof(KeyT) * 8, false,
-        nullptr, false)));
+    dh::safe_cuda(
+        (cub::DispatchRadixSort<detail::kCubSortOrderDescending, KeyT, ValueT, OffsetT>::Dispatch(
+            d_temp_storage, bytes, d_keys, d_values, sorted_idx.size(), 0, sizeof(KeyT) * 8, false,
+            nullptr, false)));
 #endif
     dh::TemporaryArray<char> storage(bytes);
     d_temp_storage = storage.data().get();
 #if THRUST_MAJOR_VERSION >= 2
-    dh::safe_cuda((cub::DispatchRadixSort<detail::kCubSortOrderDescending, KeyT, ValueT, OffsetT>::Dispatch(
-        d_temp_storage, bytes, d_keys, d_values, sorted_idx.size(), 0, sizeof(KeyT) * 8, false,
-        cuctx->Stream())));
+    dh::safe_cuda(
+        (cub::DispatchRadixSort<detail::kCubSortOrderDescending, KeyT, ValueT, OffsetT>::Dispatch(
+            d_temp_storage, bytes, d_keys, d_values, sorted_idx.size(), 0, sizeof(KeyT) * 8, false,
+            cuctx->Stream())));
 #else
-    dh::safe_cuda((cub::DispatchRadixSort<detail::kCubSortOrderDescending, KeyT, ValueT, OffsetT>::Dispatch(
-        d_temp_storage, bytes, d_keys, d_values, sorted_idx.size(), 0, sizeof(KeyT) * 8, false,
-        nullptr, false)));
+    dh::safe_cuda(
+        (cub::DispatchRadixSort<detail::kCubSortOrderDescending, KeyT, ValueT, OffsetT>::Dispatch(
+            d_temp_storage, bytes, d_keys, d_values, sorted_idx.size(), 0, sizeof(KeyT) * 8, false,
+            nullptr, false)));
 #endif
   }
 
@@ -322,15 +333,15 @@ void InclusiveScan(xgboost::Context const *ctx, InputIteratorT d_in, OutputItera
 template <typename InputIteratorT, typename OutputIteratorT, typename OffsetT>
 void InclusiveSum(Context const *ctx, InputIteratorT d_in, OutputIteratorT d_out,
                   OffsetT num_items) {
-#if CUB_VERSION >= 300000
-  InclusiveScan(ctx, d_in, d_out, cuda::std::plus{}, num_items);
+#if CUB_VERSION >= 200800
+  InclusiveScan(ctx, d_in, d_out, std::plus{}, num_items);
 #else
   InclusiveScan(ctx, d_in, d_out, cub::Sum{}, num_items);
 #endif
 }
 
 template <typename... Args>
-void RunLengthEncode(dh::CUDAStreamView stream, Args &&...args) {
+void RunLengthEncode(curt::StreamRef stream, Args &&...args) {
   std::size_t n_bytes = 0;
   dh::safe_cuda(cub::DeviceRunLengthEncode::Encode(nullptr, n_bytes, args..., stream));
   dh::CachingDeviceUVector<char> tmp(n_bytes);
@@ -338,7 +349,7 @@ void RunLengthEncode(dh::CUDAStreamView stream, Args &&...args) {
 }
 
 template <typename... Args>
-void SegmentedSum(dh::CUDAStreamView stream, Args &&...args) {
+void SegmentedSum(curt::StreamRef stream, Args &&...args) {
   std::size_t n_bytes = 0;
   dh::safe_cuda(cub::DeviceSegmentedReduce::Sum(nullptr, n_bytes, args..., stream));
   dh::CachingDeviceUVector<char> tmp(n_bytes);
@@ -362,7 +373,7 @@ AllOf(Policy policy, InputIt first, InputIt second, Chk &&check) {
   auto n = std::distance(first, second);
   auto it =
       dh::MakeIndexTransformIter([=] XGBOOST_DEVICE(std::size_t i) { return check(first[i]); });
-  return dh::Reduce(policy, it, it + n, true, thrust::logical_and<>{});
+  return dh::Reduce(policy, it, it + n, true, std::logical_and<>{});
 }
 }  // namespace xgboost::common
 #endif  // XGBOOST_COMMON_ALGORITHM_CUH_

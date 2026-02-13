@@ -9,7 +9,7 @@ import typing_extensions
 import numpy.typing as npt
 
 def backend_type_get() -> str:
-    """Get actuve GPU backend.
+    """Get active GPU backend.
 
     :return: Backend type (OPENGL, VULKAN, METAL, NONE, UNKNOWN).
     """

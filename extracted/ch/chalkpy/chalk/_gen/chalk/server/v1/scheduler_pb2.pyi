@@ -1,6 +1,7 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.server.v1 import batch_pb2 as _batch_pb2
 from chalk._gen.chalk.server.v1 import scheduled_query_run_pb2 as _scheduled_query_run_pb2
+from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -250,3 +251,150 @@ class CancelScheduledResolverRunResponse(_message.Message):
     CRON_RUN_FIELD_NUMBER: _ClassVar[int]
     cron_run: CronResolverRun
     def __init__(self, cron_run: _Optional[_Union[CronResolverRun, _Mapping]] = ...) -> None: ...
+
+class GetActiveScheduledResolversRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ScheduledResolverRunInfo(_message.Message):
+    __slots__ = ("id", "status", "resolvers")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    RESOLVERS_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    status: _batch_pb2.OperationStatus
+    resolvers: _containers.RepeatedCompositeFieldContainer[_batch_pb2.ResolverOperation]
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        status: _Optional[_Union[_batch_pb2.OperationStatus, str]] = ...,
+        resolvers: _Optional[_Iterable[_Union[_batch_pb2.ResolverOperation, _Mapping]]] = ...,
+    ) -> None: ...
+
+class ScheduledResolverInfo(_message.Message):
+    __slots__ = ("resolver_fqn", "cron", "control", "latest_run")
+    RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
+    CRON_FIELD_NUMBER: _ClassVar[int]
+    CONTROL_FIELD_NUMBER: _ClassVar[int]
+    LATEST_RUN_FIELD_NUMBER: _ClassVar[int]
+    resolver_fqn: str
+    cron: str
+    control: ScheduledResolverControl
+    latest_run: ScheduledResolverRunInfo
+    def __init__(
+        self,
+        resolver_fqn: _Optional[str] = ...,
+        cron: _Optional[str] = ...,
+        control: _Optional[_Union[ScheduledResolverControl, _Mapping]] = ...,
+        latest_run: _Optional[_Union[ScheduledResolverRunInfo, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetActiveScheduledResolversResponse(_message.Message):
+    __slots__ = ("scheduled_resolvers",)
+    SCHEDULED_RESOLVERS_FIELD_NUMBER: _ClassVar[int]
+    scheduled_resolvers: _containers.RepeatedCompositeFieldContainer[ScheduledResolverInfo]
+    def __init__(
+        self, scheduled_resolvers: _Optional[_Iterable[_Union[ScheduledResolverInfo, _Mapping]]] = ...
+    ) -> None: ...
+
+class GetScheduledResolverControlRequest(_message.Message):
+    __slots__ = ("resolver_fqn",)
+    RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
+    resolver_fqn: str
+    def __init__(self, resolver_fqn: _Optional[str] = ...) -> None: ...
+
+class ScheduledResolverControl(_message.Message):
+    __slots__ = ("resolver_fqn", "status", "agent_id", "created_at", "updated_at", "job_config")
+    RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    AGENT_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    JOB_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    resolver_fqn: str
+    status: _scheduled_query_run_pb2.CronControlStatus
+    agent_id: str
+    created_at: _timestamp_pb2.Timestamp
+    updated_at: _timestamp_pb2.Timestamp
+    job_config: str
+    def __init__(
+        self,
+        resolver_fqn: _Optional[str] = ...,
+        status: _Optional[_Union[_scheduled_query_run_pb2.CronControlStatus, str]] = ...,
+        agent_id: _Optional[str] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        job_config: _Optional[str] = ...,
+    ) -> None: ...
+
+class GetScheduledResolverControlResponse(_message.Message):
+    __slots__ = ("control",)
+    CONTROL_FIELD_NUMBER: _ClassVar[int]
+    control: ScheduledResolverControl
+    def __init__(self, control: _Optional[_Union[ScheduledResolverControl, _Mapping]] = ...) -> None: ...
+
+class UpdateScheduledResolverControlOperation(_message.Message):
+    __slots__ = ("status", "job_config")
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    JOB_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    status: _scheduled_query_run_pb2.CronControlStatus
+    job_config: str
+    def __init__(
+        self,
+        status: _Optional[_Union[_scheduled_query_run_pb2.CronControlStatus, str]] = ...,
+        job_config: _Optional[str] = ...,
+    ) -> None: ...
+
+class UpdateScheduledResolverControlRequest(_message.Message):
+    __slots__ = ("resolver_fqn", "update", "update_mask")
+    RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_MASK_FIELD_NUMBER: _ClassVar[int]
+    resolver_fqn: str
+    update: UpdateScheduledResolverControlOperation
+    update_mask: _field_mask_pb2.FieldMask
+    def __init__(
+        self,
+        resolver_fqn: _Optional[str] = ...,
+        update: _Optional[_Union[UpdateScheduledResolverControlOperation, _Mapping]] = ...,
+        update_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
+    ) -> None: ...
+
+class UpdateScheduledResolverControlResponse(_message.Message):
+    __slots__ = ("control",)
+    CONTROL_FIELD_NUMBER: _ClassVar[int]
+    control: ScheduledResolverControl
+    def __init__(self, control: _Optional[_Union[ScheduledResolverControl, _Mapping]] = ...) -> None: ...
+
+class GetLatestHighWaterMarkRequest(_message.Message):
+    __slots__ = ("resolver_fqn",)
+    RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
+    resolver_fqn: str
+    def __init__(self, resolver_fqn: _Optional[str] = ...) -> None: ...
+
+class HighWaterMark(_message.Message):
+    __slots__ = ("id", "resolver_fqn", "max_ingested_timestamp", "last_execution_timestamp", "created_at")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
+    MAX_INGESTED_TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
+    LAST_EXECUTION_TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    id: int
+    resolver_fqn: str
+    max_ingested_timestamp: _timestamp_pb2.Timestamp
+    last_execution_timestamp: _timestamp_pb2.Timestamp
+    created_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        id: _Optional[int] = ...,
+        resolver_fqn: _Optional[str] = ...,
+        max_ingested_timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        last_execution_timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetLatestHighWaterMarkResponse(_message.Message):
+    __slots__ = ("high_water_mark",)
+    HIGH_WATER_MARK_FIELD_NUMBER: _ClassVar[int]
+    high_water_mark: HighWaterMark
+    def __init__(self, high_water_mark: _Optional[_Union[HighWaterMark, _Mapping]] = ...) -> None: ...

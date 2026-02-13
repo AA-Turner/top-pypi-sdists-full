@@ -4,7 +4,8 @@ import re
 import threading
 from typing import Callable, TextIO
 
-from adam.utils_log import log_dir, log_exc
+from adam.directories import local_log_dir
+from adam.utils_log import log_exc
 
 class Job:
     _last_job: 'Job' = None
@@ -59,11 +60,11 @@ class Job:
 
         job = Job(command=command, job_id=job_id, extra=extra)
         if command:
-            if Job.write_last_command(job, replace=replace_last_file):
+            if Job.write_last_job(job, replace=replace_last_file):
                 Job._last_job = job
                 Job._jobs[job_id] = job
 
-            if (tks := command.split(' ')) and tks[0] == 'restart' and tks[1] == 'nodes':
+            if (tks := command.split(' ')) and tks[0] == 'restart' and tks[1] in ['cassandra']:
                 Job._show_restarts_command = job
 
         return job
@@ -77,29 +78,36 @@ class Job:
 
         return id
 
-    def last_command(job_id: str = None):
+    def last_job(job_id: str = None):
         if job_id:
             if job_id in Job._jobs:
                 return Job._jobs[job_id]
 
             return None
         else:
-            if cmd := Job._last_job:
-                return cmd
+            if job := Job._last_job:
+                return job
 
-            cmd = Job.read_last_command()
-            Job._last_job = cmd
+            job = Job.read_last_job()
+            Job._last_job = job
 
-            return cmd
+            return job
 
-    def commands():
+    def jobs():
         return Job._jobs
+
+    def job(job_id):
+        with Job.lock:
+            if job_id in Job._jobs:
+                return Job._jobs[job_id]
+
+            return None
 
     def show_restarts_command():
         return Job._show_restarts_command
 
-    def write_last_command(cmd: 'Job', replace = True):
-        file = f'{log_dir()}/last'
+    def write_last_job(cmd: 'Job', replace = True):
+        file = f'{local_log_dir()}/last'
 
         if not replace and os.path.exists(file):
             return False
@@ -109,8 +117,8 @@ class Job:
 
         return True
 
-    def read_last_command() -> 'Job':
-        path = f'{log_dir()}/last'
+    def read_last_job() -> 'Job':
+        path = f'{local_log_dir()}/last'
         with open(path, 'rt') as f:
             return Job.read(f)
 
@@ -143,13 +151,13 @@ class Job:
 
     def _local_log_file(self, dir: str = None, err = False):
         if not dir:
-            dir = log_dir()
+            dir = local_log_dir()
 
         return f'{dir}/{self.job_id}{self.command_suffix()}.{"err" if err else "log"}'
 
     def _pod_log_file(self, dir: str, pod_suffix: str = None, suffix: str = None, err = False):
         if not dir:
-            dir = log_dir()
+            dir = local_log_dir()
 
         if suffix:
             return f'{dir}/{self.job_id}{self.command_suffix()}{pod_suffix}{suffix}'

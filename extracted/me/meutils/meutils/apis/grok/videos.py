@@ -13,7 +13,7 @@ from meutils.pipe import *
 """
 curl -X 'POST' https://api.x.ai/v1/videos/generations \
   -H 'accept: application/json' \
-  -H 'Authorization: Bearer xai-qOVFqcxzwi91nPYJSusiaWP6U2OPi4jvRZIHR1SAUexqm92yCTGCYa3pTtX8fUry3PfPiDTfREiwcpeF' \
+  -H 'Authorization: Bearer xai-' \
   -H 'Content-Type: application/json' \
   -d '{
       "prompt": "A cat playing with a ball",
@@ -44,7 +44,7 @@ curl -X 'POST' https://api.x.ai/v1/videos/edits \
   
 curl -X 'GET' https://api.x.ai/v1/videos/5945e180-c2df-d23a-38ef-3554893b3edb \
   -H 'accept: application/json' \
-  -H 'Authorization: Bearer xai-qOVFqcxzwi91nPYJSusiaWP6U2OPi4jvRZIHR1SAUexqm92yCTGCYa3pTtX8fUry3PfPiDTfREiwcpeF' \
+  -H 'Authorization: Bearer xai-' \
 
 {"video":{"url":"https://vidgen.x.ai/xai-vidgen-bucket/xai-video-a29603e6-d101-4217-a6ba-c29c6334ec88.mp4","duration":8,"respect_moderation":true},"model":"grok-imagine-video"}root@instance-IZBri9Ev:~# 
   
@@ -113,6 +113,7 @@ class Tasks(object):
             payload['video_url'] = {"video": {"url": request.video}}
 
         logany(bjson(payload))
+
         try:
             response = await self.client.post(
                 "/videos/generations",

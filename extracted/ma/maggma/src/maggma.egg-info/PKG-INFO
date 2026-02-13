@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: maggma
-Version: 0.72.0
+Version: 0.72.1
 Summary: Framework to develop datapipelines from files on disk to full dissemenation API
 Author-email: The Materials Project <feedback@materialsproject.org>
 License: maggma Copyright (c) 2017, The Regents of the University of
@@ -68,7 +68,6 @@ Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: setuptools
 Requires-Dist: ruamel.yaml>=0.17
 Requires-Dist: pydantic>=2.0
 Requires-Dist: pydantic-settings>=2.0.3
@@ -85,6 +84,7 @@ Requires-Dist: numpy>=1.26
 Requires-Dist: pyzmq>=25.1.1
 Requires-Dist: dnspython>=1.16.0
 Requires-Dist: sshtunnel>=0.1.5
+Requires-Dist: paramiko<4
 Requires-Dist: msgpack>=0.5.6
 Requires-Dist: orjson>=3.9.0
 Requires-Dist: boto3>=1.20.41
@@ -104,7 +104,7 @@ Requires-Dist: IPython>=8.11; extra == "notebook-runner"
 Requires-Dist: nbformat>=5.0; extra == "notebook-runner"
 Requires-Dist: regex>=2020.6; extra == "notebook-runner"
 Provides-Extra: azure
-Requires-Dist: azure-storage-blob>=12.16.0; extra == "azure"
+Requires-Dist: azure-storage-blob<12.28,>=12.16.0; extra == "azure"
 Requires-Dist: azure-identity>=1.12.0; extra == "azure"
 Provides-Extra: api
 Requires-Dist: fastapi>=0.42.0; extra == "api"
@@ -120,7 +120,6 @@ Requires-Dist: moto>=5.0; extra == "testing"
 Requires-Dist: ruff; extra == "testing"
 Requires-Dist: responses<0.22.0; extra == "testing"
 Requires-Dist: types-pyYAML; extra == "testing"
-Requires-Dist: types-setuptools; extra == "testing"
 Requires-Dist: types-python-dateutil; extra == "testing"
 Requires-Dist: starlette[full]; extra == "testing"
 Provides-Extra: docs

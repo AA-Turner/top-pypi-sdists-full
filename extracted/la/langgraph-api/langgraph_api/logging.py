@@ -70,7 +70,7 @@ class AddApiVersion:
         self, logger: logging.Logger, method_name: str, event_dict: EventDict
     ) -> EventDict:
         try:
-            from langgraph_api import __version__
+            from langgraph_api import __version__  # noqa: PLC0415
 
             event_dict["langgraph_api_version"] = __version__
         except ImportError:
@@ -81,7 +81,7 @@ class AddApiVersion:
 class AddLoggingContext:
     def __init__(self):
         try:
-            from langchain_core.runnables.config import (
+            from langchain_core.runnables.config import (  # noqa: PLC0415
                 RunnableConfig,
                 var_child_runnable_config,
             )
@@ -115,7 +115,7 @@ class JSONRenderer:
         """
         The return type of this depends on the return type of self._dumps.
         """
-        from langgraph_api.serde import json_dumpb
+        from langgraph_api.serde import json_dumpb  # noqa: PLC0415
 
         return json_dumpb(event_dict).decode()
 

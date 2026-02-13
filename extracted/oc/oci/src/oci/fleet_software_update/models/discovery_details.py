@@ -39,6 +39,10 @@ class DiscoveryDetails(object):
     #: This constant has a value of "EXACC"
     SERVICE_TYPE_EXACC = "EXACC"
 
+    #: A constant which can be used with the service_type property of a DiscoveryDetails.
+    #: This constant has a value of "EXADBXS"
+    SERVICE_TYPE_EXADBXS = "EXADBXS"
+
     def __init__(self, **kwargs):
         """
         Initializes a new DiscoveryDetails object with values from keyword arguments. This class has the following subclasses and if you are using this class as input
@@ -59,7 +63,7 @@ class DiscoveryDetails(object):
 
         :param service_type:
             The value to assign to the service_type property of this DiscoveryDetails.
-            Allowed values for this property are: "EXACS", "EXACC", 'UNKNOWN_ENUM_VALUE'.
+            Allowed values for this property are: "EXACS", "EXACC", "EXADBXS", 'UNKNOWN_ENUM_VALUE'.
             Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type service_type: str
 
@@ -133,7 +137,7 @@ class DiscoveryDetails(object):
         **[Required]** Gets the service_type of this DiscoveryDetails.
         Exadata service type for the target resource members.
 
-        Allowed values for this property are: "EXACS", "EXACC", 'UNKNOWN_ENUM_VALUE'.
+        Allowed values for this property are: "EXACS", "EXACC", "EXADBXS", 'UNKNOWN_ENUM_VALUE'.
         Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
 
 
@@ -152,7 +156,7 @@ class DiscoveryDetails(object):
         :param service_type: The service_type of this DiscoveryDetails.
         :type: str
         """
-        allowed_values = ["EXACS", "EXACC"]
+        allowed_values = ["EXACS", "EXACC", "EXADBXS"]
         if not value_allowed_none_or_none_sentinel(service_type, allowed_values):
             service_type = 'UNKNOWN_ENUM_VALUE'
         self._service_type = service_type

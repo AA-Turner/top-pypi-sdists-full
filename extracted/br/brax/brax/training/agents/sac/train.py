@@ -1,4 +1,4 @@
-# Copyright 2025 The Brax Authors.
+# Copyright 2026 The Brax Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -67,6 +67,11 @@ class TrainingState:
 
 
 def _unpmap(v):
+  # Avoid degraded performance under the new jax.pmap. See
+  # https://docs.jax.dev/en/latest/migrate_pmap.html#int-indexing-into-sharded-arrays.
+  if jax.config.jax_pmap_shmap_merge:
+    return jax.tree_util.tree_map(
+        lambda x: x.addressable_shards[0].data.squeeze(0), v)
   return jax.tree_util.tree_map(lambda x: x[0], v)
 
 

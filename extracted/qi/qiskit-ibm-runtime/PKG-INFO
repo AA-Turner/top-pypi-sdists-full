@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qiskit-ibm-runtime
-Version: 0.45.0
+Version: 0.45.1
 Summary: IBM Quantum client for Qiskit Runtime.
 Author-email: Qiskit Development Team <qiskit@us.ibm.com>
 License: Apache 2.0

@@ -1,6 +1,7 @@
 from adam.commands import extract_options, validate_args
 from adam.commands.command import Command
-from adam.utils_job.utils_fs import ProcessInfo, find_pids_for_cluster
+from adam.commands.devices.devices import device
+from adam.utils_job.utils_ps import ProcessInfo, find_pids_for_cluster
 from adam.repl_state import ReplState, RequiredState
 from adam.utils_log import log2
 
@@ -27,32 +28,30 @@ class FindProcesses(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with extract_options(args, '-kill') as (args, kill):
-                with validate_args(args, state, name='words to look for', separator=' ') as keywords:
-                    processes, pids = self._find_processes(state, keywords, kill=kill)
-
-                    if kill:
-                        log2(f'{len(pids)} processes were terminated with keywords: {",".join(keywords)}.')
+            with self.context(args) as (args, ctx):
+                with extract_options(args, '-kill') as (args, kill):
+                    with validate_args(args, state, name='words to look for', separator=' ') as keywords:
                         processes, pids = self._find_processes(state, keywords, kill=kill)
 
-                    ctx = ctx=self.context()
-                    ProcessInfo.tabulize(processes, ctx)
-                    ctx.log2()
-                    if pids:
-                        ctx.log2(f'PIDS with {",".join(keywords)}: {",".join(pids)}')
-                    else:
-                        ctx.log2(f'No processes were found with keywords: {",".join(keywords)}.')
+                        if kill:
+                            log2(f'{len(pids)} processes were terminated with keywords: {",".join(keywords)}.')
+                            processes, pids = self._find_processes(state, keywords, kill=kill)
 
-                    return state
+                        ProcessInfo.tabulize(processes, ctx)
+                        ctx.log2()
+                        if not pids:
+                            ctx.log2(f'No processes were found with keywords: {",".join(keywords)}.')
+
+                        return state
 
     def completion(self, state: ReplState):
-        return super().completion(state)
+        return super().completion(state, pods=device(state).pods(state, '-'))
 
     def help(self, state: ReplState):
         return super().help(state, 'find processes with words  --kill kill matching processes', args='word... [-kill]')
 
     def _find_processes(self, state: ReplState, keywords: list[str], kill=False):
-        processes = find_pids_for_cluster(state, keywords, kill=kill)
+        processes = find_pids_for_cluster(state, keywords, pod=state.pod if state.pod else None, kill=kill)
 
         pids = []
         for p in processes:

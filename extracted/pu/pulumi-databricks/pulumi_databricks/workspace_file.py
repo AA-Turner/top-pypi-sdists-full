@@ -13,6 +13,8 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import NotRequired, TypedDict, TypeAlias
 from . import _utilities
+from . import outputs
+from ._inputs import *
 
 __all__ = ['WorkspaceFileArgs', 'WorkspaceFile']
 
@@ -23,12 +25,14 @@ class WorkspaceFileArgs:
                  content_base64: Optional[pulumi.Input[_builtins.str]] = None,
                  md5: Optional[pulumi.Input[_builtins.str]] = None,
                  object_id: Optional[pulumi.Input[_builtins.int]] = None,
+                 provider_config: Optional[pulumi.Input['WorkspaceFileProviderConfigArgs']] = None,
                  source: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a WorkspaceFile resource.
         :param pulumi.Input[_builtins.str] path: The absolute path of the workspace file, beginning with "/", e.g. "/Demo".
         :param pulumi.Input[_builtins.str] content_base64: The base64-encoded file content. Conflicts with `source`. Use of `content_base64` is discouraged, as it's increasing memory footprint of Pulumi state and should only be used in exceptional circumstances, like creating a workspace file with configuration properties for a data pipeline.
         :param pulumi.Input[_builtins.int] object_id: Unique identifier for a workspace file
+        :param pulumi.Input['WorkspaceFileProviderConfigArgs'] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] source: Path to file on local filesystem. Conflicts with `content_base64`.
         """
         pulumi.set(__self__, "path", path)
@@ -38,6 +42,8 @@ class WorkspaceFileArgs:
             pulumi.set(__self__, "md5", md5)
         if object_id is not None:
             pulumi.set(__self__, "object_id", object_id)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
         if source is not None:
             pulumi.set(__self__, "source", source)
 
@@ -87,6 +93,18 @@ class WorkspaceFileArgs:
         pulumi.set(self, "object_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional[pulumi.Input['WorkspaceFileProviderConfigArgs']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
+
+    @provider_config.setter
+    def provider_config(self, value: Optional[pulumi.Input['WorkspaceFileProviderConfigArgs']]):
+        pulumi.set(self, "provider_config", value)
+
+    @_builtins.property
     @pulumi.getter
     def source(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -106,6 +124,7 @@ class _WorkspaceFileState:
                  md5: Optional[pulumi.Input[_builtins.str]] = None,
                  object_id: Optional[pulumi.Input[_builtins.int]] = None,
                  path: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input['WorkspaceFileProviderConfigArgs']] = None,
                  source: Optional[pulumi.Input[_builtins.str]] = None,
                  url: Optional[pulumi.Input[_builtins.str]] = None,
                  workspace_path: Optional[pulumi.Input[_builtins.str]] = None):
@@ -114,6 +133,7 @@ class _WorkspaceFileState:
         :param pulumi.Input[_builtins.str] content_base64: The base64-encoded file content. Conflicts with `source`. Use of `content_base64` is discouraged, as it's increasing memory footprint of Pulumi state and should only be used in exceptional circumstances, like creating a workspace file with configuration properties for a data pipeline.
         :param pulumi.Input[_builtins.int] object_id: Unique identifier for a workspace file
         :param pulumi.Input[_builtins.str] path: The absolute path of the workspace file, beginning with "/", e.g. "/Demo".
+        :param pulumi.Input['WorkspaceFileProviderConfigArgs'] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] source: Path to file on local filesystem. Conflicts with `content_base64`.
         :param pulumi.Input[_builtins.str] url: Routable URL of the workspace file
         :param pulumi.Input[_builtins.str] workspace_path: path on Workspace File System (WSFS) in form of `/Workspace` + `path`
@@ -126,6 +146,8 @@ class _WorkspaceFileState:
             pulumi.set(__self__, "object_id", object_id)
         if path is not None:
             pulumi.set(__self__, "path", path)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
         if source is not None:
             pulumi.set(__self__, "source", source)
         if url is not None:
@@ -179,6 +201,18 @@ class _WorkspaceFileState:
         pulumi.set(self, "path", value)
 
     @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional[pulumi.Input['WorkspaceFileProviderConfigArgs']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
+
+    @provider_config.setter
+    def provider_config(self, value: Optional[pulumi.Input['WorkspaceFileProviderConfigArgs']]):
+        pulumi.set(self, "provider_config", value)
+
+    @_builtins.property
     @pulumi.getter
     def source(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -225,6 +259,7 @@ class WorkspaceFile(pulumi.CustomResource):
                  md5: Optional[pulumi.Input[_builtins.str]] = None,
                  object_id: Optional[pulumi.Input[_builtins.int]] = None,
                  path: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input[Union['WorkspaceFileProviderConfigArgs', 'WorkspaceFileProviderConfigArgsDict']]] = None,
                  source: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
@@ -232,33 +267,12 @@ class WorkspaceFile(pulumi.CustomResource):
 
         > This resource can only be used with a workspace-level provider!
 
-        ## Import
-
-        The workspace file resource can be imported using workspace file path
-
-        hcl
-
-        import {
-
-          to = databricks_workspace_file.this
-
-          id = "/path/to/file"
-
-        }
-
-        Alternatively, when using `terraform` version 1.4 or earlier, import using the `pulumi import` command:
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/workspaceFile:WorkspaceFile this /path/to/file
-        ```
-
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] content_base64: The base64-encoded file content. Conflicts with `source`. Use of `content_base64` is discouraged, as it's increasing memory footprint of Pulumi state and should only be used in exceptional circumstances, like creating a workspace file with configuration properties for a data pipeline.
         :param pulumi.Input[_builtins.int] object_id: Unique identifier for a workspace file
         :param pulumi.Input[_builtins.str] path: The absolute path of the workspace file, beginning with "/", e.g. "/Demo".
+        :param pulumi.Input[Union['WorkspaceFileProviderConfigArgs', 'WorkspaceFileProviderConfigArgsDict']] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] source: Path to file on local filesystem. Conflicts with `content_base64`.
         """
         ...
@@ -271,28 +285,6 @@ class WorkspaceFile(pulumi.CustomResource):
         This resource allows you to manage [Databricks Workspace Files](https://docs.databricks.com/files/workspace.html).
 
         > This resource can only be used with a workspace-level provider!
-
-        ## Import
-
-        The workspace file resource can be imported using workspace file path
-
-        hcl
-
-        import {
-
-          to = databricks_workspace_file.this
-
-          id = "/path/to/file"
-
-        }
-
-        Alternatively, when using `terraform` version 1.4 or earlier, import using the `pulumi import` command:
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/workspaceFile:WorkspaceFile this /path/to/file
-        ```
 
         :param str resource_name: The name of the resource.
         :param WorkspaceFileArgs args: The arguments to use to populate this resource's properties.
@@ -313,6 +305,7 @@ class WorkspaceFile(pulumi.CustomResource):
                  md5: Optional[pulumi.Input[_builtins.str]] = None,
                  object_id: Optional[pulumi.Input[_builtins.int]] = None,
                  path: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input[Union['WorkspaceFileProviderConfigArgs', 'WorkspaceFileProviderConfigArgsDict']]] = None,
                  source: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
@@ -329,6 +322,7 @@ class WorkspaceFile(pulumi.CustomResource):
             if path is None and not opts.urn:
                 raise TypeError("Missing required property 'path'")
             __props__.__dict__["path"] = path
+            __props__.__dict__["provider_config"] = provider_config
             __props__.__dict__["source"] = source
             __props__.__dict__["url"] = None
             __props__.__dict__["workspace_path"] = None
@@ -346,6 +340,7 @@ class WorkspaceFile(pulumi.CustomResource):
             md5: Optional[pulumi.Input[_builtins.str]] = None,
             object_id: Optional[pulumi.Input[_builtins.int]] = None,
             path: Optional[pulumi.Input[_builtins.str]] = None,
+            provider_config: Optional[pulumi.Input[Union['WorkspaceFileProviderConfigArgs', 'WorkspaceFileProviderConfigArgsDict']]] = None,
             source: Optional[pulumi.Input[_builtins.str]] = None,
             url: Optional[pulumi.Input[_builtins.str]] = None,
             workspace_path: Optional[pulumi.Input[_builtins.str]] = None) -> 'WorkspaceFile':
@@ -359,6 +354,7 @@ class WorkspaceFile(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] content_base64: The base64-encoded file content. Conflicts with `source`. Use of `content_base64` is discouraged, as it's increasing memory footprint of Pulumi state and should only be used in exceptional circumstances, like creating a workspace file with configuration properties for a data pipeline.
         :param pulumi.Input[_builtins.int] object_id: Unique identifier for a workspace file
         :param pulumi.Input[_builtins.str] path: The absolute path of the workspace file, beginning with "/", e.g. "/Demo".
+        :param pulumi.Input[Union['WorkspaceFileProviderConfigArgs', 'WorkspaceFileProviderConfigArgsDict']] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] source: Path to file on local filesystem. Conflicts with `content_base64`.
         :param pulumi.Input[_builtins.str] url: Routable URL of the workspace file
         :param pulumi.Input[_builtins.str] workspace_path: path on Workspace File System (WSFS) in form of `/Workspace` + `path`
@@ -371,6 +367,7 @@ class WorkspaceFile(pulumi.CustomResource):
         __props__.__dict__["md5"] = md5
         __props__.__dict__["object_id"] = object_id
         __props__.__dict__["path"] = path
+        __props__.__dict__["provider_config"] = provider_config
         __props__.__dict__["source"] = source
         __props__.__dict__["url"] = url
         __props__.__dict__["workspace_path"] = workspace_path
@@ -404,6 +401,14 @@ class WorkspaceFile(pulumi.CustomResource):
         The absolute path of the workspace file, beginning with "/", e.g. "/Demo".
         """
         return pulumi.get(self, "path")
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> pulumi.Output[Optional['outputs.WorkspaceFileProviderConfig']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
 
     @_builtins.property
     @pulumi.getter

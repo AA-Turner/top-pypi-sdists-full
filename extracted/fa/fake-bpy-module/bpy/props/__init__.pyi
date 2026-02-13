@@ -19,122 +19,7 @@ This has to be carefully considered when using accessors or update callbacks.
 Typically, these callbacks should not affect any other data that the one owned by their data-block.
 When accessing external non-Blender data, thread safety mechanisms should be considered.
 
-```../examples/bpy.props.py```
-
-
---------------------
-
-A common use of custom properties is for Python based Operator
-classes. Test this code by running it in the text editor, or by clicking the
-button in the 3D View-port's Tools panel. The latter will show the properties
-in the Redo panel and allow you to change them.
-
-```../examples/bpy.props.1.py```
-
-
---------------------
-
-PropertyGroups can be used for collecting custom settings into one value
-to avoid many individual settings mixed in together.
-
-```../examples/bpy.props.2.py```
-
-
---------------------
-
-Custom properties can be added to any subclass of an ID,
-Bone and PoseBone.
-
-```../examples/bpy.props.3.py```
-
-
---------------------
-
-It can be useful to perform an action when a property is changed and can be
-used to update other properties or synchronize with external data.
-
-All properties define update functions except for CollectionProperty.
-
-[WARNING]
-Remember that these callbacks may be executed in threaded context.
-
-[WARNING]
-If the property belongs to an Operator, the update callback's first
-parameter will be an OperatorProperties instance, rather than an instance
-of the operator itself. This means you can't access other internal functions
-of the operator, only its other properties.
-
-```../examples/bpy.props.4.py```
-
-
---------------------
-
-Accessor functions can be used for boolean, int, float, string and enum properties.
-
-If get
-
- or set
-
- callbacks are defined, the property will not be stored in the ID properties
-automatically. Instead, the get
-
- and set
-
- functions will be called when the property
-is respectively read or written from the API, and are responsible to handle the data storage.
-
-Note that:
-
-* It is illegal to define a set
-
- callback without a matching get
-
- one.
-* When a get
-
- callback is defined but no set
-
- one, the property is read-only.
-
-get_transform
-
- and set_transform
-
- can be used when the returned value needs to be modified,
-but the default internal storage is still used. They can only transform the value before it is
-set or returned, but do not control how/where that data is stored.
-
-[NOTE]
-It is possible to define both get
-
-/set
-
- and get_transform
-
-/set_transform
-
- callbacks
-for a same property. In practice however, this should rarely be needed, as most 'transform'
-operation can also happen within a get
-
-/set
-
- callback.
-
-[WARNING]
-Remember that these callbacks may be executed in threaded context.
-
-[WARNING]
-Take care when accessing other properties in these callbacks, as it can easily trigger
-complex issues, such as infinite loops (if e.g. two properties try to also set the other
-property's value in their own set
-
- callback), or unexpected side effects due to changes
-in data, caused e.g. by an update
-
- callback.
-
-```../examples/bpy.props.5.py```
+```../examples/bpy.props.0.py```
 
 [NOTE]
 Pointer properties do not support storing references to embedded IDs (e.g. bpy.types.Scene.collection, bpy.types.Material.node_tree).
@@ -154,7 +39,7 @@ def BoolProperty[_GenericType1: bpy.types.bpy_struct](
     name: str | None = "",
     description: str | None = "",
     translation_context: str | None = "*",
-    default=False,
+    default: bool | None = False,
     options: set[bpy.stub_internal.rna_enums.PropertyFlagItems] = {"ANIMATABLE"},
     override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems] = set(),
     tags: set[str] | None = set(),
@@ -163,11 +48,11 @@ def BoolProperty[_GenericType1: bpy.types.bpy_struct](
     | None = None,
     get: collections.abc.Callable[[_GenericType1], bool] | None = None,
     set: collections.abc.Callable[[_GenericType1, bool], None] | None = None,
-    get_transform: collections.abc.Callable[[bpy.types.bpy_struct, bool, bool], bool]
+    get_transform: None
+    | collections.abc.Callable[[bpy.types.bpy_struct, bool, bool], bool]
     | None = None,
-    set_transform: collections.abc.Callable[
-        [bpy.types.bpy_struct, bool, bool, bool], bool
-    ]
+    set_transform: None
+    | collections.abc.Callable[[bpy.types.bpy_struct, bool, bool, bool], bool]
     | None = None,
 ) -> None:
     """Returns a new boolean property definition.
@@ -175,6 +60,7 @@ def BoolProperty[_GenericType1: bpy.types.bpy_struct](
         :param name: Name used in the user interface.
         :param description: Text used for the tooltip and api documentation.
         :param translation_context: Text used as context to disambiguate translations.
+        :param default: The default value for this property.
         :param options: Enumerator in `rna_enum_property_flag_items`.
         :param override: Enumerator in `rna_enum_property_override_flag_items`.
         :param tags: Enumerator of tags that are defined by parent class.
@@ -226,12 +112,14 @@ def BoolVectorProperty[_GenericType1: bpy.types.bpy_struct](
     | None = None,
     set: collections.abc.Callable[[_GenericType1, collections.abc.Sequence[bool]], None]
     | None = None,
-    get_transform: collections.abc.Callable[
+    get_transform: None
+    | collections.abc.Callable[
         [bpy.types.bpy_struct, collections.abc.Sequence[bool], bool],
         collections.abc.Sequence[bool],
     ]
     | None = None,
-    set_transform: collections.abc.Callable[
+    set_transform: None
+    | collections.abc.Callable[
         [
             bpy.types.bpy_struct,
             collections.abc.Sequence[bool],
@@ -326,7 +214,7 @@ def EnumProperty[_GenericType1: bpy.types.bpy_struct](
     name: str | None = "",
     description: str | None = "",
     translation_context: str | None = "*",
-    default: int | set[str] | str | None = None,
+    default: None | int | set[str] | str | None = None,
     options: set[bpy.stub_internal.rna_enums.PropertyFlagEnumItems] = {"ANIMATABLE"},
     override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems] = set(),
     tags: set[str] | None = set(),
@@ -334,9 +222,11 @@ def EnumProperty[_GenericType1: bpy.types.bpy_struct](
     | None = None,
     get: collections.abc.Callable[[_GenericType1], int] | None = None,
     set: collections.abc.Callable[[_GenericType1, int], None] | None = None,
-    get_transform: collections.abc.Callable[[bpy.types.bpy_struct, int, bool], int]
+    get_transform: None
+    | collections.abc.Callable[[bpy.types.bpy_struct, int, bool], int]
     | None = None,
-    set_transform: collections.abc.Callable[[bpy.types.bpy_struct, int, int, bool], int]
+    set_transform: None
+    | collections.abc.Callable[[bpy.types.bpy_struct, int, int, bool], int]
     | None = None,
 ) -> None:
     """Returns a new enumerator property definition.
@@ -427,7 +317,7 @@ def FloatProperty[_GenericType1: bpy.types.bpy_struct](
     name: str | None = "",
     description: str | None = "",
     translation_context: str | None = "*",
-    default=0.0,
+    default: float | None = 0.0,
     min: float | None = -3.402823e38,
     max: float | None = 3.402823e38,
     soft_min: float | None = -3.402823e38,
@@ -443,11 +333,11 @@ def FloatProperty[_GenericType1: bpy.types.bpy_struct](
     | None = None,
     get: collections.abc.Callable[[_GenericType1], float] | None = None,
     set: collections.abc.Callable[[_GenericType1, float], None] | None = None,
-    get_transform: collections.abc.Callable[[bpy.types.bpy_struct, float, bool], float]
+    get_transform: None
+    | collections.abc.Callable[[bpy.types.bpy_struct, float, bool], float]
     | None = None,
-    set_transform: collections.abc.Callable[
-        [bpy.types.bpy_struct, float, float, bool], float
-    ]
+    set_transform: None
+    | collections.abc.Callable[[bpy.types.bpy_struct, float, float, bool], float]
     | None = None,
 ) -> None:
     """Returns a new float (single precision) property definition.
@@ -455,6 +345,7 @@ def FloatProperty[_GenericType1: bpy.types.bpy_struct](
         :param name: Name used in the user interface.
         :param description: Text used for the tooltip and api documentation.
         :param translation_context: Text used as context to disambiguate translations.
+        :param default: The default value for this property.
         :param min: Hard minimum, trying to assign a value below will silently assign this minimum instead.
         :param max: Hard maximum, trying to assign a value above will silently assign this maximum instead.
         :param soft_min: Soft minimum (>= min), user wont be able to drag the widget below this value in the UI.
@@ -502,9 +393,9 @@ def FloatVectorProperty[_GenericType1: bpy.types.bpy_struct](
     description: str | None = "",
     translation_context: str | None = "*",
     default: collections.abc.Sequence[float] | None = (0.0, 0.0, 0.0),
-    min: float | None = sys.float_info.min,
+    min: float | None = None,
     max: float | None = sys.float_info.max,
-    soft_min: float | None = sys.float_info.min,
+    soft_min: float | None = None,
     soft_max: float | None = sys.float_info.max,
     step: float | None = 3,
     precision: int | None = 2,
@@ -520,6 +411,23 @@ def FloatVectorProperty[_GenericType1: bpy.types.bpy_struct](
     | None = None,
     set: collections.abc.Callable[
         [_GenericType1, collections.abc.Sequence[float]], None
+    ]
+    | None = None,
+    get_transform: None
+    | collections.abc.Callable[
+        [bpy.types.bpy_struct, collections.abc.Sequence[float], bool],
+        collections.abc.Sequence[float],
+    ]
+    | None = None,
+    set_transform: None
+    | collections.abc.Callable[
+        [
+            bpy.types.bpy_struct,
+            collections.abc.Sequence[float],
+            collections.abc.Sequence[float],
+            bool,
+        ],
+        collections.abc.Sequence[float],
     ]
     | None = None,
 ) -> None:
@@ -554,6 +462,21 @@ def FloatVectorProperty[_GenericType1: bpy.types.bpy_struct](
     This function must take 2 values (self, value) and return None.
 
     Defining this callback without a matching get one is invalid.
+        :param get_transform: Function to be called when this value is read,
+    if some additional processing must be performed on the stored value.
+    This function must take three arguments (self, the stored value,
+    and a boolean indicating if the property is currently set),
+    and return the final, transformed value of the property.
+
+    The callback is responsible to ensure that value limits of the property (min/max, length...) are respected. Otherwise a ValueError exception is raised.
+        :param set_transform: Function to be called when this value is written,
+    if some additional processing must be performed on the given value before storing it.
+    This function must take four arguments (self, the given value to store,
+    the currently stored value (raw value, without any get_transform applied to it),
+    and a boolean indicating if the property is currently set),
+    and return the final, transformed value of the property.
+
+    The callback is responsible to ensure that value limits (min/max, length...) are respected. Otherwise a ValueError exception is raised.
     """
 
 def IntProperty[_GenericType1: bpy.types.bpy_struct](
@@ -561,7 +484,7 @@ def IntProperty[_GenericType1: bpy.types.bpy_struct](
     name: str | None = "",
     description: str | None = "",
     translation_context: str | None = "*",
-    default=0,
+    default: int | None = 0,
     min: int | None = None,
     max: int | None = None,
     soft_min: int | None = None,
@@ -575,9 +498,11 @@ def IntProperty[_GenericType1: bpy.types.bpy_struct](
     | None = None,
     get: collections.abc.Callable[[_GenericType1], int] | None = None,
     set: collections.abc.Callable[[_GenericType1, int], None] | None = None,
-    get_transform: collections.abc.Callable[[bpy.types.bpy_struct, int, bool], int]
+    get_transform: None
+    | collections.abc.Callable[[bpy.types.bpy_struct, int, bool], int]
     | None = None,
-    set_transform: collections.abc.Callable[[bpy.types.bpy_struct, int, int, bool], int]
+    set_transform: None
+    | collections.abc.Callable[[bpy.types.bpy_struct, int, int, bool], int]
     | None = None,
 ) -> None:
     """Returns a new int property definition.
@@ -585,6 +510,7 @@ def IntProperty[_GenericType1: bpy.types.bpy_struct](
         :param name: Name used in the user interface.
         :param description: Text used for the tooltip and api documentation.
         :param translation_context: Text used as context to disambiguate translations.
+        :param default: The default value for this property.
         :param min: Hard minimum, trying to assign a value below will silently assign this minimum instead.
         :param max: Hard maximum, trying to assign a value above will silently assign this maximum instead.
         :param soft_min: Soft minimum (>= min), user wont be able to drag the widget below this value in the UI.
@@ -646,12 +572,14 @@ def IntVectorProperty[_GenericType1: bpy.types.bpy_struct](
     | None = None,
     set: collections.abc.Callable[[_GenericType1, collections.abc.Sequence[int]], None]
     | None = None,
-    get_transform: collections.abc.Callable[
+    get_transform: None
+    | collections.abc.Callable[
         [bpy.types.bpy_struct, collections.abc.Sequence[int], bool],
         collections.abc.Sequence[int],
     ]
     | None = None,
-    set_transform: collections.abc.Callable[
+    set_transform: None
+    | collections.abc.Callable[
         [
             bpy.types.bpy_struct,
             collections.abc.Sequence[int],
@@ -739,7 +667,7 @@ def PointerProperty[_GenericType1: bpy.types.bpy_struct, _GenericType2: bpy.type
     Warning there are no safety checks to avoid infinite recursion.
     """
 
-def RemoveProperty(*, cls: typing.Any | None, attr: str | None) -> None:
+def RemoveProperty(*, cls: type[bpy.types.bpy_struct] | None, attr: str | None) -> None:
     """Removes a dynamically defined property.
 
     :param cls: The class containing the property (must be a positional argument).
@@ -761,9 +689,11 @@ def StringProperty[_GenericType1: bpy.types.bpy_struct](
     | None = None,
     get: collections.abc.Callable[[_GenericType1], str] | None = None,
     set: collections.abc.Callable[[_GenericType1, str], None] | None = None,
-    get_transform: collections.abc.Callable[[bpy.types.bpy_struct, str, bool], str]
+    get_transform: None
+    | collections.abc.Callable[[bpy.types.bpy_struct, str, bool], str]
     | None = None,
-    set_transform: collections.abc.Callable[[bpy.types.bpy_struct, str, str, bool], str]
+    set_transform: None
+    | collections.abc.Callable[[bpy.types.bpy_struct, str, str, bool], str]
     | None = None,
     search: collections.abc.Callable[
         [_GenericType1, bpy.types.Context, str],

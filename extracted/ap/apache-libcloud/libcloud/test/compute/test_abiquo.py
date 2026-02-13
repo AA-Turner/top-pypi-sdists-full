@@ -290,7 +290,6 @@ class AbiquoNodeDriverTest(TestCaseMixin, unittest.TestCase):
 
 
 class AbiquoMockHttp(MockHttp):
-
     """
     Mock the functionality of the remote Abiquo API.
     """

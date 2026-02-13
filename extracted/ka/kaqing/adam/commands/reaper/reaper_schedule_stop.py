@@ -26,12 +26,13 @@ class ReaperScheduleStop(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with validate_args(args, state, name='schedule') as schedule_id:
-                with reaper(state) as http:
-                    http.put(f'repair_schedule/{schedule_id}?state=PAUSED')
-                    Reapers.show_schedule(state, schedule_id, ctx=self.context())
+            with self.context(args) as (args, ctx):
+                with validate_args(args, state, name='schedule') as schedule_id:
+                    with reaper(state) as http:
+                        http.put(f'repair_schedule/{schedule_id}?state=PAUSED')
+                        Reapers.show_schedule(state, schedule_id, ctx=ctx)
 
-                return schedule_id
+                    return schedule_id
 
     def completion(self, state: ReplState):
         return super().completion(state, lambda: {id: None for id in Reapers.cached_schedule_ids(state)}, auto_key='reaper.schedules')

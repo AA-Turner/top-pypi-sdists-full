@@ -4,63 +4,66 @@ from typing import ClassVar, Dict
 from anyscale._private.models.model_base import ModelBase, ModelEnum
 
 
-class IntegrationType(ModelEnum):
-    """Type of third-party integration for connections."""
+class ConnectionType(ModelEnum):
+    """Type of third-party connection."""
 
     DATABRICKS = "DATABRICKS"
 
     __docstrings__: ClassVar[Dict[str, str]] = {
-        DATABRICKS: "Databricks integration for Unity Catalog access",
+        DATABRICKS: "Databricks connection for Unity Catalog access",
     }
 
 
-class ConnectionType:
-    """Backend connection type strings."""
+class _ConnectionMethodType:
+    """Internal connection method type strings (not user-facing)."""
 
     DATABRICKS_U2M = "databricks_U2M"
 
 
-CONNECTION_TYPE_TO_INTEGRATION_TYPE: Dict[str, IntegrationType] = {
-    ConnectionType.DATABRICKS_U2M: IntegrationType.DATABRICKS,  # type: ignore[dict-item]
+_CONNECTION_METHOD_TO_CONNECTION_TYPE: Dict[str, ConnectionType] = {
+    _ConnectionMethodType.DATABRICKS_U2M: ConnectionType.DATABRICKS,  # type: ignore[dict-item]
 }
 
 
 @dataclass(frozen=True)
 class ConnectionConfig(ModelBase):
-    """Configuration for a third-party integration connection.
+    """Configuration for a third-party connection.
 
     Connections allow workloads (jobs, workspaces, etc.) to access external services
-    like Databricks Unity Catalog. Each connection is identified by its integration
+    like Databricks Unity Catalog. Each connection is identified by its connection
     type and name.
+
+    This feature is in beta preview. Contact [Anyscale support](mailto:support@anyscale.com)
+    to request enablement.
     """
 
     __doc_py_example__ = """\
-from anyscale._private.models.integrations import ConnectionConfig, IntegrationType
+from anyscale._private.models.integrations import ConnectionConfig, ConnectionType
 
 connection = ConnectionConfig(
-    integration_type=IntegrationType.DATABRICKS,
+    connection_type=ConnectionType.DATABRICKS,
     connection_name="my-databricks-connection",
 )
 """
 
     __doc_yaml_example__ = """\
 connections:
-  - integration_type: DATABRICKS
+  - connection_type: databricks
     connection_name: my-databricks-connection
 """
 
-    integration_type: IntegrationType = field(
-        metadata={"docstring": "The type of integration (e.g., DATABRICKS)."},
+    connection_type: ConnectionType = field(
+        metadata={"docstring": "The type of connection (e.g., DATABRICKS)."},
     )
 
-    def _validate_integration_type(
-        self, integration_type: IntegrationType
-    ) -> IntegrationType:
-        if not isinstance(integration_type, IntegrationType):
+    def _validate_connection_type(
+        self, connection_type: ConnectionType
+    ) -> ConnectionType:
+        if not isinstance(connection_type, ConnectionType):
             raise TypeError(
-                f"'integration_type' must be an 'IntegrationType' (it is {type(integration_type)})."
+                f"'connection_type' must be a 'ConnectionType' (it is {type(connection_type)})."
             )
-        return integration_type
+        return connection_type
 
     connection_name: str = field(
         metadata={

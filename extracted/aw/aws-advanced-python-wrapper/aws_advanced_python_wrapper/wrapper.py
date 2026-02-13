@@ -22,8 +22,7 @@ if TYPE_CHECKING:
 
 from aws_advanced_python_wrapper.driver_dialect_manager import \
     DriverDialectManager
-from aws_advanced_python_wrapper.errors import (AwsWrapperError,
-                                                FailoverSuccessError)
+from aws_advanced_python_wrapper.errors import AwsWrapperError
 from aws_advanced_python_wrapper.pep249 import Connection, Cursor, Error
 from aws_advanced_python_wrapper.pep249_methods import DbApiMethod
 from aws_advanced_python_wrapper.plugin import CanReleaseResources
@@ -56,7 +55,7 @@ class AwsWrapperConnection(Connection, CanReleaseResources):
         self._plugin_service = plugin_service
         self._plugin_manager = plugin_manager
 
-        host_list_provider_init = plugin_service.database_dialect.get_host_list_provider_supplier()
+        host_list_provider_init = plugin_service.database_dialect.get_host_list_provider_supplier(plugin_service)
         plugin_service.host_list_provider = host_list_provider_init(host_list_provider_service, plugin_service.props)
 
         plugin_manager.init_host_provider(plugin_service.props, host_list_provider_service)
@@ -178,6 +177,7 @@ class AwsWrapperConnection(Connection, CanReleaseResources):
     def close(self) -> None:
         self._plugin_manager.execute(self.target_connection, DbApiMethod.CONNECTION_CLOSE,
                                      lambda: self.target_connection.close())
+        self.release_resources()
 
     def cursor(self, *args: Any, **kwargs: Any) -> AwsWrapperCursor:
         _cursor = self._plugin_manager.execute(self.target_connection, DbApiMethod.CONNECTION_CURSOR,
@@ -222,15 +222,13 @@ class AwsWrapperConnection(Connection, CanReleaseResources):
     def _unwrap(self, unwrap_class: Type[UnwrapType]) -> Optional[UnwrapType]:
         return self._plugin_manager._unwrap(unwrap_class)
 
-    def __del__(self):
-        self.release_resources()
-
     def __enter__(self: AwsWrapperConnection) -> AwsWrapperConnection:
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._plugin_manager.execute(self.target_connection, DbApiMethod.CONNECTION_CLOSE,
                                      lambda: self.target_connection.close(), exc_type, exc_val, exc_tb)
+        self.release_resources()
 
 
 class AwsWrapperCursor(Cursor):
@@ -268,6 +266,11 @@ class AwsWrapperCursor(Cursor):
     def arraysize(self) -> int:
         return self.target_cursor.arraysize
 
+    # Optional for PEP249
+    @property
+    def lastrowid(self) -> int:
+        return self.target_cursor.lastrowid  # type: ignore[attr-defined]
+
     def close(self) -> None:
         self._plugin_manager.execute(self.target_cursor, DbApiMethod.CURSOR_CLOSE,
                                      lambda: self.target_cursor.close())
@@ -281,12 +284,8 @@ class AwsWrapperCursor(Cursor):
             *args: Any,
             **kwargs: Any
     ) -> AwsWrapperCursor:
-        try:
-            return self._plugin_manager.execute(self.target_cursor, DbApiMethod.CURSOR_EXECUTE,
-                                                lambda: self.target_cursor.execute(*args, **kwargs), *args, **kwargs)
-        except FailoverSuccessError as e:
-            self._target_cursor = self.connection.target_connection.cursor()
-            raise e
+        return self._plugin_manager.execute(self.target_cursor, DbApiMethod.CURSOR_EXECUTE,
+                                            lambda: self.target_cursor.execute(*args, **kwargs), *args, **kwargs)
 
     def executemany(
             self,

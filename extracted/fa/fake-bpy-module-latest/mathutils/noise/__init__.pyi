@@ -33,10 +33,21 @@ def fractal(
     position: collections.abc.Sequence[float] | mathutils.Vector,
     H: float,
     lacunarity: float,
-    octaves: int,
+    octaves: float,
     /,
     *,
-    noise_basis="PERLIN_ORIGINAL",
+    noise_basis: typing.Literal[
+        "BLENDER",
+        "PERLIN_ORIGINAL",
+        "PERLIN_NEW",
+        "VORONOI_F1",
+        "VORONOI_F2",
+        "VORONOI_F3",
+        "VORONOI_F4",
+        "VORONOI_F2F1",
+        "VORONOI_CRACKLE",
+        "CELLNOISE",
+    ] = "PERLIN_ORIGINAL",
 ) -> float:
     """Returns the fractal Brownian motion (fBm) noise value from the noise basis at the specified position.
 
@@ -52,11 +63,22 @@ def hetero_terrain(
     position: collections.abc.Sequence[float] | mathutils.Vector,
     H: float,
     lacunarity: float,
-    octaves: int,
+    octaves: float,
     offset: float,
     /,
     *,
-    noise_basis="PERLIN_ORIGINAL",
+    noise_basis: typing.Literal[
+        "BLENDER",
+        "PERLIN_ORIGINAL",
+        "PERLIN_NEW",
+        "VORONOI_F1",
+        "VORONOI_F2",
+        "VORONOI_F3",
+        "VORONOI_F4",
+        "VORONOI_F2F1",
+        "VORONOI_CRACKLE",
+        "CELLNOISE",
+    ] = "PERLIN_ORIGINAL",
 ) -> float:
     """Returns the heterogeneous terrain value from the noise basis at the specified position.
 
@@ -73,12 +95,23 @@ def hybrid_multi_fractal(
     position: collections.abc.Sequence[float] | mathutils.Vector,
     H: float,
     lacunarity: float,
-    octaves: int,
+    octaves: float,
     offset: float,
     gain: float,
     /,
     *,
-    noise_basis="PERLIN_ORIGINAL",
+    noise_basis: typing.Literal[
+        "BLENDER",
+        "PERLIN_ORIGINAL",
+        "PERLIN_NEW",
+        "VORONOI_F1",
+        "VORONOI_F2",
+        "VORONOI_F3",
+        "VORONOI_F4",
+        "VORONOI_F2F1",
+        "VORONOI_CRACKLE",
+        "CELLNOISE",
+    ] = "PERLIN_ORIGINAL",
 ) -> float:
     """Returns hybrid multifractal value from the noise basis at the specified position.
 
@@ -96,10 +129,21 @@ def multi_fractal(
     position: collections.abc.Sequence[float] | mathutils.Vector,
     H: float,
     lacunarity: float,
-    octaves: int,
+    octaves: float,
     /,
     *,
-    noise_basis="PERLIN_ORIGINAL",
+    noise_basis: typing.Literal[
+        "BLENDER",
+        "PERLIN_ORIGINAL",
+        "PERLIN_NEW",
+        "VORONOI_F1",
+        "VORONOI_F2",
+        "VORONOI_F3",
+        "VORONOI_F4",
+        "VORONOI_F2F1",
+        "VORONOI_CRACKLE",
+        "CELLNOISE",
+    ] = "PERLIN_ORIGINAL",
 ) -> float:
     """Returns multifractal noise value from the noise basis at the specified position.
 
@@ -115,7 +159,18 @@ def noise(
     position: collections.abc.Sequence[float] | mathutils.Vector,
     /,
     *,
-    noise_basis="PERLIN_ORIGINAL",
+    noise_basis: typing.Literal[
+        "BLENDER",
+        "PERLIN_ORIGINAL",
+        "PERLIN_NEW",
+        "VORONOI_F1",
+        "VORONOI_F2",
+        "VORONOI_F3",
+        "VORONOI_F4",
+        "VORONOI_F2F1",
+        "VORONOI_CRACKLE",
+        "CELLNOISE",
+    ] = "PERLIN_ORIGINAL",
 ) -> float:
     """Returns noise value from the noise basis at the position specified.
 
@@ -128,7 +183,18 @@ def noise_vector(
     position: collections.abc.Sequence[float] | mathutils.Vector,
     /,
     *,
-    noise_basis="PERLIN_ORIGINAL",
+    noise_basis: typing.Literal[
+        "BLENDER",
+        "PERLIN_ORIGINAL",
+        "PERLIN_NEW",
+        "VORONOI_F1",
+        "VORONOI_F2",
+        "VORONOI_F3",
+        "VORONOI_F4",
+        "VORONOI_F2F1",
+        "VORONOI_CRACKLE",
+        "CELLNOISE",
+    ] = "PERLIN_ORIGINAL",
 ) -> mathutils.Vector:
     """Returns the noise vector from the noise basis at the specified position.
 
@@ -161,12 +227,23 @@ def ridged_multi_fractal(
     position: collections.abc.Sequence[float] | mathutils.Vector,
     H: float,
     lacunarity: float,
-    octaves: int,
+    octaves: float,
     offset: float,
     gain: float,
     /,
     *,
-    noise_basis="PERLIN_ORIGINAL",
+    noise_basis: typing.Literal[
+        "BLENDER",
+        "PERLIN_ORIGINAL",
+        "PERLIN_NEW",
+        "VORONOI_F1",
+        "VORONOI_F2",
+        "VORONOI_F3",
+        "VORONOI_F4",
+        "VORONOI_F2F1",
+        "VORONOI_CRACKLE",
+        "CELLNOISE",
+    ] = "PERLIN_ORIGINAL",
 ) -> float:
     """Returns ridged multifractal value from the noise basis at the specified position.
 
@@ -184,7 +261,7 @@ def seed_set(
     seed: int,
     /,
 ) -> None:
-    """Sets the random seed used for random_unit_vector, and random.
+    """Sets the random seed used for random_unit_vector, random_vector, and random.
 
         :param seed: Seed used for the random generator.
     When seed is zero, the current time will be used instead.
@@ -196,7 +273,18 @@ def turbulence(
     hard: bool,
     /,
     *,
-    noise_basis="PERLIN_ORIGINAL",
+    noise_basis: typing.Literal[
+        "BLENDER",
+        "PERLIN_ORIGINAL",
+        "PERLIN_NEW",
+        "VORONOI_F1",
+        "VORONOI_F2",
+        "VORONOI_F3",
+        "VORONOI_F4",
+        "VORONOI_F2F1",
+        "VORONOI_CRACKLE",
+        "CELLNOISE",
+    ] = "PERLIN_ORIGINAL",
     amplitude_scale: float = 0.5,
     frequency_scale: float = 2.0,
 ) -> float:
@@ -217,7 +305,18 @@ def turbulence_vector(
     hard: bool,
     /,
     *,
-    noise_basis="PERLIN_ORIGINAL",
+    noise_basis: typing.Literal[
+        "BLENDER",
+        "PERLIN_ORIGINAL",
+        "PERLIN_NEW",
+        "VORONOI_F1",
+        "VORONOI_F2",
+        "VORONOI_F3",
+        "VORONOI_F4",
+        "VORONOI_F2F1",
+        "VORONOI_CRACKLE",
+        "CELLNOISE",
+    ] = "PERLIN_ORIGINAL",
     amplitude_scale: float = 0.5,
     frequency_scale: float = 2.0,
 ) -> mathutils.Vector:
@@ -237,8 +336,30 @@ def variable_lacunarity(
     distortion: float,
     /,
     *,
-    noise_type1="PERLIN_ORIGINAL",
-    noise_type2="PERLIN_ORIGINAL",
+    noise_type1: typing.Literal[
+        "BLENDER",
+        "PERLIN_ORIGINAL",
+        "PERLIN_NEW",
+        "VORONOI_F1",
+        "VORONOI_F2",
+        "VORONOI_F3",
+        "VORONOI_F4",
+        "VORONOI_F2F1",
+        "VORONOI_CRACKLE",
+        "CELLNOISE",
+    ] = "PERLIN_ORIGINAL",
+    noise_type2: typing.Literal[
+        "BLENDER",
+        "PERLIN_ORIGINAL",
+        "PERLIN_NEW",
+        "VORONOI_F1",
+        "VORONOI_F2",
+        "VORONOI_F3",
+        "VORONOI_F4",
+        "VORONOI_F2F1",
+        "VORONOI_CRACKLE",
+        "CELLNOISE",
+    ] = "PERLIN_ORIGINAL",
 ) -> float:
     """Returns variable lacunarity noise value, a distorted variety of noise, from noise type 1 distorted by noise type 2 at the specified position.
 
@@ -253,7 +374,15 @@ def voronoi(
     position: collections.abc.Sequence[float] | mathutils.Vector,
     /,
     *,
-    distance_metric="DISTANCE",
+    distance_metric: typing.Literal[
+        "DISTANCE",
+        "DISTANCE_SQUARED",
+        "MANHATTAN",
+        "CHEBYCHEV",
+        "MINKOVSKY",
+        "MINKOVSKY_HALF",
+        "MINKOVSKY_FOUR",
+    ] = "DISTANCE",
     exponent: float = 2.5,
 ) -> list[list[float] | list[mathutils.Vector]]:
     """Returns a list of distances to the four closest features and their locations.

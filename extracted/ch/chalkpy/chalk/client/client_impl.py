@@ -57,6 +57,17 @@ from chalk._upload_features.utils import to_multi_upload_inputs
 from chalk._version import __version__ as chalkpy_version
 from chalk.client._internal_models.models import INDEX_COL_NAME, TS_COL_NAME, OfflineQueryGivensVersion
 from chalk.client.client import ChalkClient
+from chalk.client.client_headers import (
+    CHALK_BRANCH_ID_HEADER,
+    CHALK_CLIENT_ID_HEADER,
+    CHALK_DEPLOYMENT_TAG_HEADER,
+    CHALK_DEPLOYMENT_TYPE_HEADER,
+    CHALK_ENV_ID_HEADER,
+    CHALK_FEATURES_VERSIONED_HEADER,
+    CHALK_PREVIEW_DEPLOYMENT_HEADER,
+    CHALK_QUERY_NAME_HEADER,
+    CHALK_SERVER_HEADER,
+)
 from chalk.client.dataset import (
     DatasetImpl,
     DatasetRevisionImpl,
@@ -1026,17 +1037,21 @@ class ChalkAPIClientImpl(ChalkClient):
         self._branch: str | None = branch
         self._skip_token_cache: bool = _skip_cache
         self._api_server: str | None = api_server
+        self._env_id_to_engine_url_map: Mapping[str, str] | None = None
+        self._env_id_to_env_name_map: Mapping[str, str] | None = None
+        self._env_name_to_env_id_map: Mapping[str, str] | None = None
+        self._access_token: str | None = None
 
         self._default_headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
             "User-Agent": f"chalkpy-{chalkpy_version}",
-            "X-Chalk-Features-Versioned": "true",
+            CHALK_FEATURES_VERSIONED_HEADER: "true",
         }
         if additional_headers:
             self._default_headers.update(additional_headers)
 
-        self._primary_environment = environment
+        self._primary_environment: EnvironmentId | None = environment
 
         self.__class__.latest_client = self
         if notebook.is_notebook():
@@ -1109,35 +1124,49 @@ class ChalkAPIClientImpl(ChalkClient):
             creds = ExchangeCredentialsResponse(**response_json)
         except ValidationError:
             raise HTTPError(response=resp)
-        self._default_headers["Authorization"] = f"Bearer {creds.access_token}"
+
+        self._save_credentials_response(creds)
+
         # FIXME: We should NOT be using the X-Chalk-Client-Id for anything, as it is NOT authenticated
-        self._default_headers["X-Chalk-Client-Id"] = self._client_id
+        self._default_headers[CHALK_CLIENT_ID_HEADER] = self._client_id
+
+    def _save_credentials_response(self, creds: ExchangeCredentialsResponse):
+        self._access_token = creds.access_token
+        self._default_headers["Authorization"] = f"Bearer {creds.access_token}"
         if self._primary_environment is None:
             self._primary_environment = creds.primary_environment
+        self._env_id_to_engine_url_map = creds.engines
+        self._env_id_to_env_name_map = creds.environment_id_to_name
+        if self._env_id_to_env_name_map is not None:
+            self._env_name_to_env_id_map = {v: k for k, v in self._env_id_to_env_name_map.items()}
 
     def _get_headers(
         self,
         environment_override: Optional[str],
         preview_deployment_id: str | None | ellipsis,
         branch: str | None | ellipsis,
+        metadata_request: bool,
     ) -> MutableMapping[str, str]:
         x_chalk_env_id = environment_override or self._primary_environment
         headers: MutableMapping[str, str] = requests.structures.CaseInsensitiveDict()
         headers.update(self._default_headers)  # shallow copy
         if x_chalk_env_id is not None:
-            headers["X-Chalk-Env-Id"] = x_chalk_env_id
+            headers[CHALK_ENV_ID_HEADER] = x_chalk_env_id
         if self._deployment_tag is not None:
-            headers["X-Chalk-Deployment-Tag"] = self._deployment_tag
+            headers[CHALK_DEPLOYMENT_TAG_HEADER] = self._deployment_tag
         if preview_deployment_id is ...:
             if self._preview_deployment_id is not None:
-                headers["X-Chalk-Preview-Deployment"] = self._preview_deployment_id
+                headers[CHALK_PREVIEW_DEPLOYMENT_HEADER] = self._preview_deployment_id
         elif preview_deployment_id is not None:
-            headers["X-Chalk-Preview-Deployment"] = preview_deployment_id
-        if branch is ...:
-            if self._branch is not None:
-                headers["X-Chalk-Branch-Id"] = self._branch
-        elif branch is not None:
-            headers["X-Chalk-Branch-Id"] = branch
+            headers[CHALK_PREVIEW_DEPLOYMENT_HEADER] = preview_deployment_id
+
+        branch = self._resolve_branch(branch)
+        if branch is not None:
+            headers[CHALK_BRANCH_ID_HEADER] = branch
+
+        if not metadata_request and CHALK_DEPLOYMENT_TYPE_HEADER not in headers and branch is None:
+            headers[CHALK_DEPLOYMENT_TYPE_HEADER] = "engine"
+
         return headers
 
     @staticmethod
@@ -1279,26 +1308,27 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
             environment_override=environment_override,
             preview_deployment_id=preview_deployment_id,
             branch=branch,
+            metadata_request=metadata_request,
         )
         if extra_headers:
             headers.update(extra_headers)
         if (
-            "X-Chalk-Branch-Id" in headers
+            CHALK_BRANCH_ID_HEADER in headers
             and isinstance(json, CreateOfflineQueryJobRequest)
             and json.use_multiple_computers
         ):
-            del headers["X-Chalk-Branch-Id"]
+            del headers[CHALK_BRANCH_ID_HEADER]
 
         url = urljoin(host, uri)
         if (
             not env_var_bool("CHALK_SKIP_BRANCH_SERVER_STATUS_CHECK")
-            and headers.get("X-Chalk-Branch-Id")
-            and headers.get("X-Chalk-Env-Id")
+            and headers.get(CHALK_BRANCH_ID_HEADER)
+            and headers.get(CHALK_ENV_ID_HEADER)
             and self._api_server is not None
         ):
             status_url = urljoin(self._api_server, "/v1/branches/start")
             status_headers = dict(self._default_headers)
-            status_headers["X-Chalk-Env-Id"] = headers["X-Chalk-Env-Id"]
+            status_headers[CHALK_ENV_ID_HEADER] = headers[CHALK_ENV_ID_HEADER]
             # Use the same timeout logic for branch server checks
             if timeout is ...:
                 branch_timeout = self.default_request_timeout
@@ -1376,6 +1406,69 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
             method=method, headers=headers, url=url, json=json_body, data=data, timeout=timeout_value
         )
 
+    def _get_engine_host(self, environment_override: Optional[str]) -> str | None:
+        """
+        Returns the host to use for data-plane requests to the engine. May fall back to
+        the metadata plane api server host if no engine host can be determined.
+        :param environment_override: Optional user-provided environment name or id.
+        :return: Host for direct engine (data-plane) requests
+        """
+
+        # always respect user-provided query_server override
+        if self._query_server is not None:
+            return self._query_server
+
+        # if we have no environment information, we likely have not done creds exchange yet.
+        # there's no way to determine an engine host here, so just fall back to api server
+        env_id_or_name: str | None = environment_override or self._primary_environment
+        if env_id_or_name is None:
+            return self._api_server
+
+        # get the correct engine url given a valid env id or env name
+        if self._env_id_to_engine_url_map is not None:
+            if env_id_or_name in self._env_id_to_engine_url_map:
+                return self._env_id_to_engine_url_map[env_id_or_name]
+            elif self._env_name_to_env_id_map is not None and env_id_or_name in self._env_name_to_env_id_map:
+                env_id = self._env_name_to_env_id_map[env_id_or_name]
+                return self._env_id_to_engine_url_map.get(env_id, self._api_server)
+
+        # env name or id is invalid, or we failed to auth, so fall back to api server
+        return self._api_server
+
+    def _resolve_branch(self, branch: str | None | ellipsis) -> str | None:
+        if branch is None:
+            return None
+        elif branch is ...:
+            return self._branch
+        else:
+            return branch
+
+    def _get_request_host(
+        self, metadata_request: bool, environment_override: Optional[str], branch: str | None | ellipsis
+    ) -> str:
+        """
+        Returns the hostname to use for any requests made by the Chalk Client, whether they are
+        metadata-plane-only requests or data-plane requests (to the engine).
+        :param metadata_request: Is this a metadata-plane-only request? If so, we always use the API server.
+        :param environment_override: Optional user-provided environment name or id.
+        :param branch: Optional user-provided branch name or id, or ellipsis to indicate "use the branch if we have one configured".
+        If a branch name is available, then we must always use the api server, which is responsible for
+        resolving the correct branch deployment.
+        :return: Host to use for any request made by the Chalk Client
+        """
+        branch = self._resolve_branch(branch)
+        if branch is not None:
+            host = self._api_server
+        elif metadata_request:
+            host = self._api_server
+        else:
+            host = self._get_engine_host(environment_override)
+
+        return host or "https://api.chalk.ai"
+
+    def _has_authorization_header(self) -> bool:
+        return "Authorization" in self._default_headers or "authorization" in self._default_headers
+
     def _request(
         self,
         method: str,
@@ -1392,25 +1485,22 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
         timeout: float | None | ellipsis = ...,
         connect_timeout: float | None | ellipsis = ...,
     ) -> T | requests.Response:
+        # If we don't have an access token, we cannot make a request.
+        # Always fetch an access token if we do not have one before making a request.
+        # If we fetched an access token during this call and we get 401/403 on this request,
+        # then do not retry the credential exchange again.
+        # Additional Note: if the user has explicitly provided an Authorization header, we should
+        # not attempt to exchange credentials, as they are explicitly managing auth themselves.
         allow_credential_exchange: bool = True
-
-        if metadata_request or self._query_server is None:
-            host = self._api_server
-        else:
-            host = self._query_server
-
-        if host is None:
-            # We definitively need to exchange credentials to get a host
+        if self._access_token is None and not self._has_authorization_header():
             self._exchange_credentials()
             allow_credential_exchange = False
 
-            # After exchanging credentials, the api server is never none
-            assert self._api_server is not None
-
-            if metadata_request or self._query_server is None:
-                host = self._api_server
-            else:
-                host = self._query_server
+        host = self._get_request_host(
+            metadata_request=metadata_request,
+            environment_override=environment_override,
+            branch=branch,
+        )
 
         r = self._do_request_inner(
             method=method,
@@ -1431,14 +1521,11 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
             # It is possible that credentials expired, or that we changed permissions since we last
             # got a token. Exchange them and try again
             self._exchange_credentials()
-
-            # After exchanging credentials, the api server is never null
-            assert self._api_server is not None
-
-            if metadata_request or self._query_server is None:
-                host = self._api_server
-            else:
-                host = self._query_server
+            host = self._get_request_host(
+                metadata_request=metadata_request,
+                environment_override=environment_override,
+                branch=branch,
+            )
 
             r = self._do_request_inner(
                 method=method,
@@ -1616,9 +1703,9 @@ https://docs.chalk.ai/cli/apply
             meta=meta,
         )
 
-        extra_headers = {}
+        extra_headers: dict[str, str] = {}
         if query_name is not None:
-            extra_headers["X-Chalk-Query-Name"] = query_name
+            extra_headers[CHALK_QUERY_NAME_HEADER] = query_name
 
         resp = self._request(
             method="POST",
@@ -1877,9 +1964,9 @@ https://docs.chalk.ai/cli/apply
         with safe_trace("query"):
             if branch is ...:
                 branch = self._branch
-            extra_headers = {"X-Chalk-Deployment-Type": "branch" if branch else "engine"}
+            extra_headers: dict[str, str] = {}
             if query_name is not None:
-                extra_headers["X-Chalk-Query-Name"] = query_name
+                extra_headers[CHALK_QUERY_NAME_HEADER] = query_name
             if trace:
                 extra_headers = add_trace_headers(extra_headers)
             if headers:
@@ -1967,9 +2054,9 @@ https://docs.chalk.ai/cli/apply
     ) -> BulkOnlineQueryResponse:
         if branch is ...:
             branch = self._branch
-        extra_headers = {"X-Chalk-Deployment-Type": "branch" if branch else "engine"}
+        extra_headers: dict[str, str] = {}
         if query_name is not None:
-            extra_headers["X-Chalk-Query-Name"] = query_name
+            extra_headers[CHALK_QUERY_NAME_HEADER] = query_name
 
         buffer = BytesIO()
         buffer.write(MULTI_QUERY_MAGIC_STR)
@@ -2078,9 +2165,9 @@ https://docs.chalk.ai/cli/apply
     ) -> BulkOnlineQueryResponse:
         if branch is ...:
             branch = self._branch
-        extra_headers = {"X-Chalk-Deployment-Type": "branch" if branch else "engine"}
+        extra_headers: dict[str, str] = {}
         if query_name is not None:
-            extra_headers["X-Chalk-Query-Name"] = query_name
+            extra_headers[CHALK_QUERY_NAME_HEADER] = query_name
         if headers:
             extra_headers.update(headers)
 
@@ -4007,9 +4094,8 @@ https://docs.chalk.ai/cli/apply
             environment_override=context.environment,
             preview_deployment_id=preview_deployment_id,
             branch=branch,
-            # If using multiple computers, then we must route through the metadata server
-            # So we can actually spin up multiple pods
-            metadata_request=request.use_multiple_computers,
+            # all offline query requests should be routed through api server
+            metadata_request=True,
         )
         return response
 
@@ -4083,19 +4169,6 @@ https://docs.chalk.ai/cli/apply
             json=None,
             preview_deployment_id=None,
             branch=None,
-        )
-
-    def _get_query_inputs(
-        self, job_id: uuid.UUID, environment: Optional[EnvironmentId], branch: Optional[BranchId]
-    ) -> GetOfflineQueryJobResponse:
-        return self._request(
-            method="GET",
-            uri=f"/v2/offline_query_inputs/{job_id}",
-            response=GetOfflineQueryJobResponse,
-            environment_override=environment,
-            json=None,
-            preview_deployment_id=None,
-            branch=branch,
         )
 
     def _get_dataset_from_name_or_id(
@@ -4551,7 +4624,7 @@ https://docs.chalk.ai/cli/apply
 
         extra_headers: dict[str, str] = {}
         if query_name is not None:
-            extra_headers["X-Chalk-Query-Name"] = query_name
+            extra_headers[CHALK_QUERY_NAME_HEADER] = query_name
         if headers:
             extra_headers.update(headers)
 
@@ -5242,7 +5315,7 @@ https://docs.chalk.ai/cli/apply
             preview_deployment_id=None,
             environment_override=None,
             metadata_request=False,
-            extra_headers={"x-chalk-server": "go-api"},
+            extra_headers={CHALK_SERVER_HEADER: "go-api"},
         ).num
 
     def get_model(

@@ -27,6 +27,10 @@ class TargetEntry(object):
     #: This constant has a value of "CLOUDVMCLUSTER"
     ENTITY_TYPE_CLOUDVMCLUSTER = "CLOUDVMCLUSTER"
 
+    #: A constant which can be used with the entity_type property of a TargetEntry.
+    #: This constant has a value of "EXADBVMCLUSTER"
+    ENTITY_TYPE_EXADBVMCLUSTER = "EXADBVMCLUSTER"
+
     def __init__(self, **kwargs):
         """
         Initializes a new TargetEntry object with values from keyword arguments.
@@ -34,7 +38,7 @@ class TargetEntry(object):
 
         :param entity_type:
             The value to assign to the entity_type property of this TargetEntry.
-            Allowed values for this property are: "DATABASE", "VMCLUSTER", "CLOUDVMCLUSTER"
+            Allowed values for this property are: "DATABASE", "VMCLUSTER", "CLOUDVMCLUSTER", "EXADBVMCLUSTER"
         :type entity_type: str
 
         :param identifier:
@@ -59,7 +63,7 @@ class TargetEntry(object):
         **[Required]** Gets the entity_type of this TargetEntry.
         Resource entity type
 
-        Allowed values for this property are: "DATABASE", "VMCLUSTER", "CLOUDVMCLUSTER"
+        Allowed values for this property are: "DATABASE", "VMCLUSTER", "CLOUDVMCLUSTER", "EXADBVMCLUSTER"
 
 
         :return: The entity_type of this TargetEntry.
@@ -77,7 +81,7 @@ class TargetEntry(object):
         :param entity_type: The entity_type of this TargetEntry.
         :type: str
         """
-        allowed_values = ["DATABASE", "VMCLUSTER", "CLOUDVMCLUSTER"]
+        allowed_values = ["DATABASE", "VMCLUSTER", "CLOUDVMCLUSTER", "EXADBVMCLUSTER"]
         if not value_allowed_none_or_none_sentinel(entity_type, allowed_values):
             raise ValueError(
                 f"Invalid value for `entity_type`, must be None or one of {allowed_values}"

@@ -5,6 +5,7 @@ MediaWiki OAuth1 backend, docs at:
 
 import re
 import time
+from typing import cast
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import jwt
@@ -46,7 +47,7 @@ class MediaWiki(BaseOAuth1):
         params["title"] = "Special:OAuth/initiate"
         key, secret = self.get_key_and_secret()
         response = self.request(
-            self.setting("MEDIAWIKI_URL"),
+            cast("str", self.setting("MEDIAWIKI_URL")),
             params=params,
             auth=OAuth1(key, secret, callback_uri=self.setting("CALLBACK")),
             method=self.REQUEST_TOKEN_METHOD,
@@ -66,17 +67,15 @@ class MediaWiki(BaseOAuth1):
         oauth_token = token.get(self.OAUTH_TOKEN_PARAMETER_NAME)[0]  # type: ignore[reportOptionalSubscript]
         state = self.get_or_create_state()
         base_url = self.setting("MEDIAWIKI_URL")
-
-        return "{}?{}".format(
-            base_url,
-            urlencode(
-                {
-                    "title": "Special:Oauth/authenticate",
-                    self.OAUTH_TOKEN_PARAMETER_NAME: oauth_token,
-                    self.REDIRECT_URI_PARAMETER_NAME: self.get_redirect_uri(state),
-                }
-            ),
+        params = urlencode(
+            {
+                "title": "Special:Oauth/authenticate",
+                self.OAUTH_TOKEN_PARAMETER_NAME: oauth_token,
+                self.REDIRECT_URI_PARAMETER_NAME: self.get_redirect_uri(state),
+            }
         )
+
+        return f"{base_url}?{params}"
 
     def access_token(self, token):
         """
@@ -85,7 +84,7 @@ class MediaWiki(BaseOAuth1):
         auth_token = self.oauth_auth(token)
 
         response = self.request(
-            self.setting("MEDIAWIKI_URL"),
+            cast("str", self.setting("MEDIAWIKI_URL")),
             method="POST",
             params={"title": "Special:Oauth/token"},
             auth=auth_token,
@@ -118,7 +117,7 @@ class MediaWiki(BaseOAuth1):
         )
 
         req_resp = self.request(
-            self.setting("MEDIAWIKI_URL"),
+            cast("str", self.setting("MEDIAWIKI_URL")),
             method="POST",
             params={"title": "Special:OAuth/identify"},
             auth=auth,
@@ -135,9 +134,8 @@ class MediaWiki(BaseOAuth1):
         except jwt.InvalidTokenError as exception:
             raise AuthException(
                 self,
-                "An error occurred while trying to read json "
-                + f"content: {exception}",
-            )
+                f"An error occurred while trying to read json content: {exception}",
+            ) from exception
 
         issuer = urlparse(identity["iss"]).netloc
         expected_domain = urlparse(self.setting("MEDIAWIKI_URL")).netloc
@@ -164,9 +162,7 @@ class MediaWiki(BaseOAuth1):
         if identity["nonce"] != request_nonce:
             raise AuthException(
                 self,
-                "Replay attack detected: {} != {}".format(
-                    identity["nonce"], request_nonce
-                ),
+                f"Replay attack detected: {identity['nonce']} != {request_nonce}",
             )
 
         return {

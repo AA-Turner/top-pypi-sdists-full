@@ -50,7 +50,6 @@ from snowflake.snowpark_connect.config import (
     route_config_proto,
     set_java_udf_creator_initialized_state,
 )
-from snowflake.snowpark_connect.constants import SERVER_SIDE_SESSION_ID
 from snowflake.snowpark_connect.control_server import ControlServicer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import (
@@ -132,6 +131,7 @@ from snowflake.snowpark_connect.utils.open_telemetry import (
     otel_start_span_as_current,
 )
 from snowflake.snowpark_connect.utils.profiling import PROFILING_ENABLED, profile_method
+from snowflake.snowpark_connect.utils.request_utils import get_or_generate_operation_id
 from snowflake.snowpark_connect.utils.session import (
     configure_snowpark_session,
     get_or_create_snowpark_session,
@@ -406,7 +406,7 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
             yield from result_iter
             yield proto_base.ExecutePlanResponse(
                 session_id=request.session_id,
-                operation_id=SERVER_SIDE_SESSION_ID,
+                operation_id=get_or_generate_operation_id(request),
                 result_complete=proto_base.ExecutePlanResponse.ResultComplete(),
             )
         except Exception as e:
@@ -948,7 +948,7 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
         """Interrupts running executions"""
         logger.debug("Interrupt")
         telemetry.initialize_request_summary(request)
-        # SAS doesn't support operation ids yet (we use a constant SERVER_SIDE_SESSION_ID mock), so
+        # SAS doesn't support operation ids in the same way as spark, so
         # instead of using operation ids, we're relying on Snowflake query ids here, meaning that:
         # - The list of returned interrupted_ids contains query ids of interrupted jobs, instead of their operation ids
         # - INTERRUPT_TYPE_OPERATION_ID interrupt type expects a Snowflake query id instead of an operation id
@@ -1003,7 +1003,8 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
             logger.debug("ReleaseExecute")
             return proto_base.ReleaseExecuteResponse(
                 session_id=request.session_id,
-                operation_id=SERVER_SIDE_SESSION_ID,
+                # ReleaseExecuteResponse expects either operation_id or None
+                operation_id=request.operation_id,
             )
         except Exception as e:
             _handle_exception(context, e)

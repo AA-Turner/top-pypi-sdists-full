@@ -25,24 +25,14 @@ class CommandNotSupportedError(RedisError):
         super().__init__(f"{cmd} is not supported on server version {current_version}")
 
 
-class ModuleCommandNotSupportedError(CommandNotSupportedError):
-    """
-    Raised when the target server doesn't support a module command due to
-    version mismatch of the module
-    """
-
-    def __init__(self, cmd: str, module: str, current_version: str) -> None:
-        RedisError.__init__(
-            self,
-            (
-                f"{cmd} is not supported on {module} version {current_version}"
-                if current_version
-                else f"{cmd} is not supported since Module: {module} is not available"
-            ),
-        )
-
-
 class ConnectionError(RedisError):
+    """
+    Raised when a connection to Redis cannot be established or is lost.
+
+    This exception indicates a failure in the underlying network connection,
+    protocol handshake, or connection configuration
+    """
+
     pass
 
 
@@ -50,10 +40,6 @@ class ProtocolError(ConnectionError):
     """
     Raised on errors related to ser/deser protocol parsing
     """
-
-
-class TimeoutError(RedisError):
-    pass
 
 
 class BusyLoadingError(ConnectionError):

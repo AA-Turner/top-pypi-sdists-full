@@ -9,6 +9,7 @@ if sys.version_info[:2] >= (3, 15):
 from modal_version import __version__
 
 try:
+    from . import billing
     from ._runtime.execution_context import current_function_call_id, current_input_id, interact, is_local
     from ._tunnel import Tunnel, forward
     from .app import App
@@ -41,7 +42,6 @@ try:
     from .schedule import Cron, Period
     from .scheduler_placement import SchedulerPlacement
     from .secret import Secret
-    from .server import Server
     from .snapshot import SandboxSnapshot
     from .volume import Volume
 except Exception:
@@ -76,11 +76,11 @@ __all__ = [
     "SandboxSnapshot",
     "SchedulerPlacement",
     "Secret",
-    "Server",
     "Tunnel",
     "Volume",
     "asgi_app",
     "batched",
+    "billing",
     "concurrent",
     "current_function_call_id",
     "current_input_id",

@@ -32,16 +32,20 @@ from langgraph_grpc_common.sanitize import encoded_str
 logger = logging.getLogger(__name__)
 
 
-def _content(txt: str) -> engine_common_pb2.Content:
+def _safe_text(txt: str) -> str:
+    """Return UTF-8-safe string for proto string fields."""
     try:
-        return engine_common_pb2.Content(text=txt)
+        txt.encode("utf-8")
+        return txt
     except UnicodeEncodeError:
         logger.info(
             "Removing invalid unicode from message content.",
         )
-        return engine_common_pb2.Content(
-            text=cast("str", txt.encode("utf-8", "replace"))
-        )
+        return txt.encode("utf-8", "replace").decode("utf-8")
+
+
+def _content(txt: str) -> engine_common_pb2.Content:
+    return engine_common_pb2.Content(text=_safe_text(txt))
 
 
 def _content_to_proto(content: str | list | None) -> engine_common_pb2.Content:
@@ -59,7 +63,7 @@ def _content_to_proto(content: str | list | None) -> engine_common_pb2.Content:
         blocks = []
         for item in content:
             if isinstance(item, str):
-                blocks.append(_content(item))
+                blocks.append(engine_common_pb2.ContentBlock(text=_safe_text(item)))
             else:
                 # omit index and type
                 data_for_json = {

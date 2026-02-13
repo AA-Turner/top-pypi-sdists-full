@@ -23,23 +23,24 @@ class ShowOffloadedCompletes(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            pending, processed, first, last = AsyncExecutor.entries_in_queue()
-            lines = []
-            for k, v in processed.items():
-                lines.append(f'{k}\t{v:2.2f}')
-            for k in pending:
-                lines.append(f'{k}\tpending')
-            lines += [
-                f'---------------------------',
-                f'duration\t{last-first:2.2f}'
-            ]
+            with self.context(args) as (args, ctx):
+                pending, processed, first, last = AsyncExecutor.entries_in_queue()
+                lines = []
+                for k, v in processed.items():
+                    lines.append(f'{k}\t{v:2.2f}')
+                for k in pending:
+                    lines.append(f'{k}\tpending')
+                lines += [
+                    f'---------------------------',
+                    f'duration\t{last-first:2.2f}'
+                ]
 
-            tabulize(lines,
-                     header='key\tduration(in sec)',
-                     separator='\t',
-                     ctx=self.context())
+                tabulize(lines,
+                        header='key\tduration(in sec)',
+                        separator='\t',
+                        ctx=ctx)
 
-            return state
+                return state
 
     def completion(self, state: ReplState):
         return super().completion(state)

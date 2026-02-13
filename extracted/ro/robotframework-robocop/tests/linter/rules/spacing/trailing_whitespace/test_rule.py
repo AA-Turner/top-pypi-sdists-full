@@ -7,3 +7,12 @@ class TestRuleAcceptance(RuleAcceptance):
 
     def test_extended(self):
         self.check_rule(src_files=["test.robot"], expected_file="expected_extended.txt", output_format="extended")
+
+    def test_fix(self):
+        """Test that fixes are applied correctly."""
+        self.check_rule_fix(src_files=["test.robot"], expected_dir="expected_fixed")
+
+    def test_fix_unfixable(self):
+        """Test that fixes are ignored for unfixable - e2e test for --fixable and --unfixable."""
+        self.check_rule_fix(src_files=["test.robot"], expected_dir="expected_unfixed", unfixable=[self.rule_name])
+        self.check_rule_fix(src_files=["test.robot"], expected_dir="expected_unfixed", fixable=["unknown"])

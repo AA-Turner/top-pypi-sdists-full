@@ -4,6 +4,7 @@ import os
 import random
 import string
 import tempfile
+import warnings
 from unittest import mock
 
 import azure.storage.blob.aio
@@ -1440,6 +1441,38 @@ def test_put_file(storage, tmp_path):
     assert f3 == f4
 
 
+@pytest.mark.parametrize("put_method", ["put", "put_file"])
+def test_put_methods_with_content_settings(storage, put_method, tmp_path):
+    from azure.storage.blob import ContentSettings
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+
+    src = tmp_path / "sample"
+    src.write_bytes(b"data")
+
+    content_settings = {"content_type": "application/json", "content_encoding": "UTF-8"}
+
+    container = "putdir-with-kwargs"
+    fs.mkdir(container)
+    getattr(fs, put_method)(
+        str(src),
+        f"{container}/sample.json",
+        content_settings=ContentSettings(**content_settings),
+    )
+
+    blob_info = fs.info(f"{container}/sample.json")
+    assert (
+        blob_info["content_settings"]["content_type"]
+        == content_settings["content_type"]
+    )
+    assert (
+        blob_info["content_settings"]["content_encoding"]
+        == content_settings["content_encoding"]
+    )
+
+
 def test_isdir(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -1776,7 +1809,7 @@ def test_find_with_prefix(storage):
     ]
 
 
-@pytest.mark.parametrize("proto", [None, "abfs://", "az://"])
+@pytest.mark.parametrize("proto", [None, "abfs://", "az://", "abfss://"])
 @pytest.mark.parametrize("path", ["container/file", "container/file?versionid=1234"])
 def test_strip_protocol(proto, path):
     assert (
@@ -1784,7 +1817,7 @@ def test_strip_protocol(proto, path):
     )
 
 
-@pytest.mark.parametrize("proto", ["", "abfs://", "az://"])
+@pytest.mark.parametrize("proto", ["", "abfs://", "az://", "abfss://"])
 @pytest.mark.parametrize("key", ["file", "dir/file"])
 @pytest.mark.parametrize("version_aware", [True, False])
 @pytest.mark.parametrize("version_id", [None, "1970-01-01T00:00:00.0000000Z"])
@@ -1803,6 +1836,41 @@ def test_split_path(storage, proto, key, version_aware, version_id):
         key,
         version_id if version_aware else None,
     )
+
+
+@pytest.mark.parametrize("unsupported_proto", ["unsupported", "wasb", "wasbs"])
+def test_can_update_default_supported_protocols(storage, mocker, unsupported_proto):
+    mocker.patch.object(
+        AzureBlobFileSystem,
+        "protocol",
+        AzureBlobFileSystem.protocol + (unsupported_proto,),
+    )
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        skip_instance_cache=True,
+    )
+    assert unsupported_proto in fs.protocol
+    assert (
+        fs._strip_protocol(f"{unsupported_proto}://container/file") == "container/file"
+    )
+    assert fs.split_path(f"{unsupported_proto}://container/file") == (
+        "container",
+        "file",
+        None,
+    )
+
+
+def test_can_restrict_protocol_to_single_string(storage, mocker):
+    mocker.patch.object(AzureBlobFileSystem, "protocol", "abfs")
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        skip_instance_cache=True,
+    )
+    assert fs.protocol == "abfs"
+    assert fs._strip_protocol("abfs://container/file") == "container/file"
+    assert fs.split_path("abfs://container/file") == ("container", "file", None)
 
 
 async def test_details_versioned(storage):
@@ -2175,3 +2243,187 @@ def test_write_max_concurrency(storage, max_concurrency, blob_size, blocksize):
     with fs.open(path, "rb") as f:
         assert f.read() == data
     fs.rm(container_name, recursive=True)
+
+
+def test_rm_file(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+    path = "data/test_file.txt"
+    with fs.open(path, "wb") as f:
+        f.write(b"test content")
+
+    assert fs.exists(path)
+    fs.rm_file(path)
+    with pytest.raises(FileNotFoundError):
+        fs.ls(path)
+    assert not fs.exists(path)
+    assert path not in fs.dircache
+
+
+def test_rm_file_versioned_blob(storage, mocker):
+    from azure.storage.blob.aio import ContainerClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        version_aware=True,
+    )
+    mock_delete_blob = mocker.patch.object(
+        ContainerClient, "delete_blob", return_value=None
+    )
+    path = f"data/test_file.txt?versionid={DEFAULT_VERSION_ID}"
+    fs.rm_file(path)
+    mock_delete_blob.assert_called_once_with(
+        "test_file.txt", version_id=DEFAULT_VERSION_ID
+    )
+
+
+def test_rm_file_does_not_exist(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+    path = "data/non_existent_file.txt"
+    with pytest.raises(FileNotFoundError):
+        fs.rm_file(path)
+
+
+@pytest.mark.parametrize(
+    "input_metadata,expected_metadata",
+    [
+        (None, {"is_directory": "false"}),
+        ({"custom": "value"}, {"custom": "value"}),
+    ],
+    ids=["none-uses-default", "custom-metadata"],
+)
+def test_lazy_metadata_write_mode(storage, input_metadata, expected_metadata):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+
+    with fs.open(
+        "data/test_metadata_write.txt", mode="wb", metadata=input_metadata
+    ) as f:
+        assert f.metadata == expected_metadata
+
+
+def test_lazy_metadata_not_fetched_on_init(storage, mocker):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+
+    mock_get_metadata = mocker.patch(
+        "adlfs.spec.get_blob_metadata", return_value={"test": "metadata"}
+    )
+
+    with fs.open("data/root/a/file.txt", mode="rb"):
+        mock_get_metadata.assert_not_called()
+
+
+def test_lazy_metadata_fetched_on_access(storage, mocker):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+
+    mock_get_metadata = mocker.patch(
+        "adlfs.spec.get_blob_metadata", return_value={"fetched": "metadata"}
+    )
+
+    with fs.open("data/root/a/file.txt", mode="rb") as f:
+        result = f.metadata
+
+        mock_get_metadata.assert_called_once()
+        assert result == {"fetched": "metadata"}
+
+
+def test_lazy_metadata_cached(storage, mocker):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+
+    mock_get_metadata = mocker.patch(
+        "adlfs.spec.get_blob_metadata", return_value={"cached": "metadata"}
+    )
+
+    with fs.open("data/root/a/file.txt", mode="rb") as f:
+        for _ in range(3):
+            assert f.metadata == {"cached": "metadata"}
+
+        assert mock_get_metadata.call_count == 1
+
+
+def test_metadata_setter(storage, mocker):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+
+    mock_get_metadata = mocker.patch(
+        "adlfs.spec.get_blob_metadata", return_value={"should": "not be called"}
+    )
+
+    with fs.open("data/root/a/file.txt", mode="rb") as f:
+        f.metadata = {"custom": "value"}
+
+        assert f.metadata == {"custom": "value"}
+        mock_get_metadata.assert_not_called()
+
+
+def test_anon_default_warning(storage):
+    with pytest.warns(
+        DeprecationWarning, match="AzureBlobFileSystem will no longer be defaulting"
+    ):
+        AzureBlobFileSystem(
+            account_name=storage.account_name,
+        )
+
+
+@pytest.mark.parametrize(
+    "env_vars,storage_options",
+    [
+        (None, {"credential": "credential"}),
+        (None, {"sas_token": "sas_token"}),
+        (None, {"account_key": KEY}),
+        (None, {"connection_string": CONN_STR}),
+        (
+            None,
+            {
+                "client_id": "client_id",
+                "tenant_id": "00000000-0000-0000-0000-000000000000",
+                "client_secret": "client_secret",
+            },
+        ),
+        (None, {"anon": True}),
+        (None, {"anon": False}),
+        (None, {"anon": True, "credential": "credential"}),
+        ({"AZURE_STORAGE_ANON": "true"}, {}),
+        ({"AZURE_STORAGE_ANON": "false"}, {}),
+        ({"AZURE_STORAGE_ANON": "true"}, {"credential": "credential"}),
+        ({"AZURE_STORAGE_CONNECTION_STRING": CONN_STR}, {}),
+        (
+            {
+                "AZURE_STORAGE_CLIENT_ID": "client_id",
+                "AZURE_STORAGE_TENANT_ID": "00000000-0000-0000-0000-000000000000",
+                "AZURE_STORAGE_CLIENT_SECRET": "client_secret",
+            },
+            {},
+        ),
+        ({"AZURE_STORAGE_ACCOUNT_KEY": KEY}, {}),
+        ({"AZURE_STORAGE_SAS_TOKEN": "sas_token"}, {}),
+    ],
+)
+def test_no_anon_warning(storage, env_vars, storage_options):
+    env_var = {} if env_vars is None else env_vars
+    with mock.patch.dict(os.environ, env_var):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            AzureBlobFileSystem(
+                account_name=storage.account_name,
+                **storage_options,
+            )

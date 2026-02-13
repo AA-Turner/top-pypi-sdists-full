@@ -34,7 +34,7 @@ fn get_value_text(element: &SyntaxElement) -> String {
         .unwrap_or_default()
 }
 
-use crate::create::{make_empty_newline, make_key, make_newline, make_table_entry};
+use crate::create::{make_empty_inline_table, make_empty_newline, make_key, make_newline, make_table_entry};
 
 fn ensure_table_exists(tables: &mut Tables, name: &str) {
     if !tables.header_to_pos.contains_key(name) {
@@ -225,6 +225,14 @@ impl Tables {
         }
 
         root_ast.splice_children(0..root_ast.children_with_tokens().count(), to_insert);
+
+        // Re-parse to rebuild proper TABLE wrapper nodes and parent chain. from_ast decomposes
+        // TABLE nodes into flat children for manipulation, but splice_children puts them back
+        // without TABLE wrappers. Re-parsing reconstructs the correct tree structure so parent
+        // traversal works.
+        let reparsed = parse(&root_ast.to_string());
+        let new_children: Vec<SyntaxElement> = reparsed.children_with_tokens().collect();
+        root_ast.splice_children(0..root_ast.children_with_tokens().count(), new_children);
     }
 }
 
@@ -311,7 +319,7 @@ pub fn reorder_table_keys(table: &mut RefMut<Vec<SyntaxElement>>, order: &[&str]
             .map(|(key, _)| key)
             .clone()
             .collect::<Vec<&String>>();
-        matching_keys.sort_by_key(|key| key.to_lowercase().replace('"', ""));
+        matching_keys.sort_by_key(|key| key.to_lowercase());
         for key in matching_keys {
             let position = key_to_position[key];
             if !to_insert.is_empty() && to_insert.last().map(|e| e.kind()) != Some(LINE_BREAK) {
@@ -458,6 +466,17 @@ pub fn collapse_sub_tables(tables: &mut Tables, name: &str) {
         }
 
         let sub_name = key.strip_prefix(sub_name_prefix.as_str()).unwrap();
+
+        let is_empty_table = !sub.iter().any(|child| child.kind() == KEY_VALUE);
+        if is_empty_table {
+            if main.last().is_some_and(|e| e.kind() != LINE_BREAK) {
+                main.push(make_newline());
+            }
+            main.push(make_empty_inline_table(sub_name));
+            sub.clear();
+            continue;
+        }
+
         let mut in_header = false;
         let mut skip_next_line_break = false;
         for child in sub.iter() {
@@ -593,6 +612,16 @@ pub fn collapse_sub_table(tables: &mut Tables, parent_name: &str, sub_name: &str
     let mut main = tables.table_set[*main_positions.first().unwrap()].borrow_mut();
     let mut sub = tables.table_set[*sub_positions.first().unwrap()].borrow_mut();
 
+    let is_empty_table = !sub.iter().any(|child| child.kind() == KEY_VALUE);
+    if is_empty_table {
+        if main.last().is_some_and(|e| e.kind() != LINE_BREAK) {
+            main.push(make_newline());
+        }
+        main.push(make_empty_inline_table(sub_name));
+        sub.clear();
+        return;
+    }
+
     let mut in_header = false;
     let mut skip_next_line_break = false;
     for child in sub.iter() {
@@ -641,6 +670,24 @@ pub fn collapse_sub_table(tables: &mut Tables, parent_name: &str, sub_name: &str
     sub.clear();
 }
 
+struct KeyValueWithComments {
+    comments: Vec<String>,
+    key: String,
+    value: String,
+}
+
+fn extract_comments_from_key_value(element: &SyntaxElement) -> Vec<String> {
+    element
+        .as_node()
+        .map(|node| {
+            node.children_with_tokens()
+                .filter(|c| c.kind() == COMMENT)
+                .map(|c| c.to_string().trim().to_string())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 fn collapse_array_of_tables(
     tables: &mut Tables,
     parent_name: &str,
@@ -648,37 +695,98 @@ fn collapse_array_of_tables(
     sub_positions: &[usize],
     column_width: usize,
 ) {
-    let mut inline_tables: Vec<String> = Vec::new();
+    let mut all_entries: Vec<Vec<KeyValueWithComments>> = Vec::new();
 
     for pos in sub_positions {
         let sub = tables.table_set[*pos].borrow();
-        let mut entries: Vec<String> = Vec::new();
+        let mut pending_comments: Vec<String> = Vec::new();
+        let mut entries_for_this_aot: Vec<KeyValueWithComments> = Vec::new();
 
         for child in sub.iter() {
-            if child.kind() != KEY_VALUE {
-                continue;
-            }
-            let key = get_key_text(child);
-            let value = get_value_text(child).trim().to_string();
-            if !key.is_empty() && !value.is_empty() {
-                entries.push(format!("{key} = {value}"));
+            match child.kind() {
+                KEY_VALUE => {
+                    let mut comments = std::mem::take(&mut pending_comments);
+                    comments.extend(extract_comments_from_key_value(child));
+                    let key = get_key_text(child);
+                    let value = get_value_text(child).trim().to_string();
+                    if !key.is_empty() && !value.is_empty() {
+                        entries_for_this_aot.push(KeyValueWithComments { comments, key, value });
+                    }
+                }
+                COMMENT => {
+                    pending_comments.push(child.to_string().trim().to_string());
+                }
+                _ => {}
             }
         }
 
-        if !entries.is_empty() {
-            let inline_table = format!("{{ {} }}", entries.join(", "));
-            if inline_table.len() > column_width {
-                return;
-            }
-            inline_tables.push(inline_table);
+        if !pending_comments.is_empty()
+            && let Some(last) = entries_for_this_aot.last_mut()
+        {
+            last.comments.extend(pending_comments);
+        }
+
+        if !entries_for_this_aot.is_empty() {
+            all_entries.push(entries_for_this_aot);
         }
     }
 
-    if inline_tables.is_empty() {
+    if all_entries.is_empty() {
         return;
     }
 
-    let array_value = format!("[{}]", inline_tables.join(", "));
+    let has_comments_between_keys = all_entries
+        .iter()
+        .any(|aot_entries| aot_entries.iter().skip(1).any(|entry| !entry.comments.is_empty()));
+
+    let array_value = if has_comments_between_keys {
+        let mut parts: Vec<String> = Vec::new();
+        for aot_entries in &all_entries {
+            for entry in aot_entries {
+                for comment in &entry.comments {
+                    parts.push(format!("  {comment}"));
+                }
+                let inline_table = format!("{{ {} = {} }}", entry.key, entry.value);
+                if inline_table.len() > column_width {
+                    return;
+                }
+                parts.push(format!("  {inline_table},"));
+            }
+        }
+        format!("[\n{}\n]", parts.join("\n"))
+    } else {
+        let has_leading_comments = all_entries
+            .iter()
+            .any(|aot_entries| aot_entries.first().is_some_and(|e| !e.comments.is_empty()));
+        if has_leading_comments {
+            let mut parts: Vec<String> = Vec::new();
+            for aot_entries in &all_entries {
+                if let Some(first) = aot_entries.first() {
+                    for comment in &first.comments {
+                        parts.push(format!("  {comment}"));
+                    }
+                }
+                let kv_pairs: Vec<String> = aot_entries.iter().map(|e| format!("{} = {}", e.key, e.value)).collect();
+                let inline_table = format!("{{ {} }}", kv_pairs.join(", "));
+                if inline_table.len() > column_width {
+                    return;
+                }
+                parts.push(format!("  {inline_table},"));
+            }
+            format!("[\n{}\n]", parts.join("\n"))
+        } else {
+            let mut inline_tables: Vec<String> = Vec::new();
+            for aot_entries in &all_entries {
+                let kv_pairs: Vec<String> = aot_entries.iter().map(|e| format!("{} = {}", e.key, e.value)).collect();
+                let inline_table = format!("{{ {} }}", kv_pairs.join(", "));
+                if inline_table.len() > column_width {
+                    return;
+                }
+                inline_tables.push(inline_table);
+            }
+            format!("[{}]", inline_tables.join(", "))
+        }
+    };
     let entry_text = format!("{sub_name} = {array_value}\n");
 
     let main_positions = &tables.header_to_pos[parent_name];
@@ -810,7 +918,7 @@ pub fn collect_all_sub_tables(tables: &Tables, parent_name: &str, result: &mut V
     let prefix_dots = count_unquoted_dots(parent_name);
 
     for key in tables.header_to_pos.keys() {
-        if key.starts_with(&prefix) && key != parent_name {
+        if key.starts_with(&prefix) && key != parent_name && !result.contains(key) {
             result.push(key.clone());
             add_intermediate_parents(key, prefix_dots, result);
         }

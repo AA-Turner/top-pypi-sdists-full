@@ -2,7 +2,7 @@
 
 from typing import Callable
 
-from ..Internal import Core
+from ..Internal.Core import Core
 
 
 class Events:
@@ -81,7 +81,7 @@ class Events:
 		self._core.io.before_query_handler = handler
 
 	def sync_from(self, source: 'Events') -> None:
-		"""Synchronises these Events with the source."""
+		"""Synchronizes these Events with the source."""
 		self.before_query_handler = source.before_query_handler
 		self.before_write_handler = source.before_write_handler
 		self.io_events_include_data = source.io_events_include_data

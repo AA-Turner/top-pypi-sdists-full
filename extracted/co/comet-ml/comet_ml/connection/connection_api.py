@@ -31,7 +31,7 @@ from typing import (
     Type,
     Union,
 )
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import requests
 import requests.utils
@@ -161,6 +161,7 @@ from ..logging_messages import (
     CONNECTION_REGISTER_MODEL_SUCCESS_INFO,
     CONNECTION_REGISTER_MODEL_TAGS_IGNORED_WARNING,
     CONNECTION_SET_EXPERIMENT_STATE_UNSUPPORTED_EXCEPTION,
+    CONNECTION_SET_PROJECT_OWNER_MISSING_REQUIRED_EXCEPTION,
     CONNECTION_UPDATE_PROJECT_BY_ID_MISSING_REQUIRED_EXCEPTION,
     CONNECTION_UPDATE_PROJECT_MISSING_REQUIRED_EXCEPTION,
     CONNECTION_VIEW_ONLY_CREATE_EXPERIMENT_EXCEPTION,
@@ -2384,6 +2385,26 @@ class RestApiClient(BaseApiClient):
         response = self.post_from_endpoint("write/project/update", payload)
         return response
 
+    def set_project_owner(self, project_id, user_name):
+        """
+        Update the owner of a project by project_id.
+
+        Args:
+            project_id: project id
+            user_name: username of the new owner
+
+        Note:
+            This operation requires workspace admin privileges.
+        """
+        if project_id is None or user_name is None:
+            raise ValueError(CONNECTION_SET_PROJECT_OWNER_MISSING_REQUIRED_EXCEPTION)
+        payload = {
+            "projectId": project_id,
+            "userName": user_name,
+        }
+        response = self.post_from_endpoint("write/project/update-owner", payload)
+        return response
+
     def create_project_share_key(self, project_id):
         """
         Create a sharable key for a private project.
@@ -3504,7 +3525,7 @@ class RestApiClient(BaseApiClient):
         params = {
             "artifact_id": artifact_id,
             "workspace": workspace,
-            "artifactName": name,
+            "artifactName": quote(name, safe="") if name is not None else None,
         }
 
         return self.get_from_endpoint("artifacts/get", params)
@@ -3524,7 +3545,7 @@ class RestApiClient(BaseApiClient):
         params = {
             "alias": alias,
             "artifactId": artifact_id,
-            "artifactName": name,
+            "artifactName": quote(name, safe="") if name is not None else None,
             PAYLOAD_EXPERIMENT_KEY: experiment_key,
             "consumerExperimentKey": consumer_experiment_key,
             "version": version,
@@ -3547,7 +3568,7 @@ class RestApiClient(BaseApiClient):
         params = {
             "artifact_id": artifact_id,
             "workspace": workspace,
-            "artifactName": name,
+            "artifactName": quote(name, safe="") if name is not None else None,
             "version": version,
             "alias": alias,
         }

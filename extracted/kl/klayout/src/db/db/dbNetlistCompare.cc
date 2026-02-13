@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -1862,34 +1862,37 @@ NetlistComparer::do_subcircuit_assignment (const db::Circuit *c1, const db::NetG
         }
 
         if (i == unmatched_a.end () || j == unmatched_b.end ()) {
+
           break;
-        }
 
-        unmatched_list::iterator ii = i, jj = j;
-        ++i, ++j;
-        size_t n = ii->first.size ();
-        tl_assert (n == jj->first.size ());
+        } else if (i->first.size () == j->first.size ()) {
 
-        while (i != unmatched_a.end () && i->first.size () == n) {
-          ++i;
-        }
+          unmatched_list::iterator ii = i, jj = j;
+          ++i, ++j;
+          size_t n = ii->first.size ();
 
-        while (j != unmatched_b.end () && j->first.size () == n) {
-          ++j;
-        }
+          while (i != unmatched_a.end () && i->first.size () == n) {
+            ++i;
+          }
 
-        align (ii, i, jj, j, KeyDistance ());
+          while (j != unmatched_b.end () && j->first.size () == n) {
+            ++j;
+          }
 
-        for ( ; ii != i && jj != j; ++ii, ++jj) {
-          mp_logger->subcircuit_mismatch (ii->second, jj->second);
-        }
+          align (ii, i, jj, j, KeyDistance ());
 
-        for ( ; jj != j; ++jj) {
-          mp_logger->subcircuit_mismatch (0, jj->second);
-        }
+          for ( ; ii != i && jj != j; ++ii, ++jj) {
+            mp_logger->subcircuit_mismatch (ii->second, jj->second);
+          }
 
-        for ( ; ii != i; ++ii) {
-          mp_logger->subcircuit_mismatch (ii->second, 0);
+          for ( ; jj != j; ++jj) {
+            mp_logger->subcircuit_mismatch (0, jj->second);
+          }
+
+          for ( ; ii != i; ++ii) {
+            mp_logger->subcircuit_mismatch (ii->second, 0);
+          }
+
         }
 
       }

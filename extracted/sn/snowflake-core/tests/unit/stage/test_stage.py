@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 
 from snowflake.core import PollingOperation
-from snowflake.core.stage import Stage, StageResource
+from snowflake.core.stage import FileTransferMaterial, PresignedUrlRequest, Stage, StageResource
 
 from ...utils import BASE_URL, extra_params, mock_http_response
 
@@ -108,4 +108,28 @@ def test_list_files(fake_root, stage):
         assert isinstance(op, PollingOperation)
         it = op.result()
         assert list(it) == []
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+
+def test_get_presigned_url(fake_root, stage):
+    args = (
+        fake_root,
+        "POST",
+        BASE_URL + "/databases/my_db/schemas/my_schema/stages/my_stage/files/my_file:presigned-url",
+    )
+    kwargs = extra_params(body={})
+    mocked_response = FileTransferMaterial(presigned_url="localhost:40000/my_file").to_json()
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        mocked_request.return_value = mock_http_response(mocked_response)
+        presigned_url = stage.get_presigned_url("my_file", PresignedUrlRequest()).presigned_url
+        assert presigned_url == "localhost:40000/my_file"
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        mocked_request.return_value = mock_http_response(mocked_response)
+        op = stage.get_presigned_url_async("my_file", PresignedUrlRequest())
+        assert isinstance(op, PollingOperation)
+        presigned_url = op.result().presigned_url
+        assert presigned_url == "localhost:40000/my_file"
     mocked_request.assert_called_once_with(*args, **kwargs)

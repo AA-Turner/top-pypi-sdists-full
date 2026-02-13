@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from coredis import PureToken, Redis
+from coredis._concurrency import gather
 from coredis.exceptions import ResponseError
 from tests.conftest import module_targets
 
@@ -119,33 +120,46 @@ class TestJson:
             "c": [1, 2, 3],
         }
 
-    @pytest.mark.xfail
-    async def test_type(self, client: Redis):
+    async def test_type(self, client: Redis, _s):
         await client.json.set("1", LEGACY_ROOT_PATH, 1)
-        assert ["integer"] == await client.json.type("1", LEGACY_ROOT_PATH)
-        jdata, jtypes = self.load_types_data("a")
-        await client.json.set("doc1", LEGACY_ROOT_PATH, jdata)
-        # Test multi
-        assert await client.json.type("doc1", "$..a") == jtypes
+        assert await client.json.type("1", LEGACY_ROOT_PATH) == [_s("integer")]
+        nested_data = {
+            "a": {
+                "object": {},
+                "array": [],
+                "string": "str",
+                "integer": 42,
+                "number": 1.2,
+                "boolean": False,
+                "null": None,
+            }
+        }
+        await client.json.set("doc", LEGACY_ROOT_PATH, nested_data)
+        assert await client.json.type("doc", "$..a.*") == [
+            [
+                _s("object"),
+                _s("array"),
+                _s("string"),
+                _s("integer"),
+                _s("number"),
+                _s("boolean"),
+                _s("null"),
+            ]
+        ]
 
-        # Test single
-        assert await client.json.type("doc1", "$.nested2.a") == [jtypes[1]]
+        assert await client.json.type("doc", "$.a.array") == [[_s("array")]]
+        assert await client.json.type("non_existing_doc", "..a") == [None]
 
-        # Test missing key
-        assert await client.json.type("non_existing_doc", "..a") is None
-
-    @pytest.mark.xfail
     async def test_numincrby(self, client: Redis, seed):
-        assert 2 == await client.json.numincrby("seed", ".int", 1)
-        assert 2.5 == await client.json.numincrby("seed", ".int", 0.5)
-        assert 1.25 == await client.json.numincrby("seed", ".int", -1.25)
+        assert [2] == await client.json.numincrby("seed", ".int", 1)
+        assert [2.5] == await client.json.numincrby("seed", ".int", 0.5)
+        assert [1.25] == await client.json.numincrby("seed", ".int", -1.25)
         assert [10001.25, 10002] == await client.json.numincrby("seed", "$..int", 10000)
 
-    @pytest.mark.xfail
     async def test_nummultby(self, client: Redis, seed):
-        assert 2 == await client.json.nummultby("seed", ".int", 2)
-        assert 5 == await client.json.nummultby("seed", ".int", 2.5)
-        assert 2.5 == await client.json.nummultby("seed", ".int", 0.5)
+        assert [2] == await client.json.nummultby("seed", ".int", 2)
+        assert [5] == await client.json.nummultby("seed", ".int", 2.5)
+        assert [2.5] == await client.json.nummultby("seed", ".int", 0.5)
         assert [5.0, 4] == await client.json.nummultby("seed", "$..int", 2)
 
     async def test_arrindex(self, client: Redis):
@@ -721,24 +735,6 @@ class TestJson:
         # with pytest.raises(ResponseError):
         await client.json.objlen("doc1", ".nowhere")
 
-    def load_types_data(self, nested_key_name):
-        td = {
-            "object": {},
-            "array": [],
-            "string": "str",
-            "integer": 42,
-            "number": 1.2,
-            "boolean": False,
-            "null": None,
-        }
-        jdata = {}
-        types = []
-        for i, (k, v) in zip(range(1, len(td) + 1), iter(td.items())):
-            jdata["nested" + str(i)] = {nested_key_name: v}
-            types.append(k)
-
-        return jdata, types
-
     async def test_clear(self, client: Redis):
         await client.json.set("arr", LEGACY_ROOT_PATH, [0, 1, 2, 3, 4])
         assert 1 == await client.json.clear("arr", LEGACY_ROOT_PATH)
@@ -831,25 +827,27 @@ class TestJson:
 
     @pytest.mark.parametrize("transaction", [True, False])
     async def test_pipeline(self, client: Redis, transaction: bool):
-        p = await client.pipeline(transaction=transaction)
-        p.json.set(
-            "key",
-            LEGACY_ROOT_PATH,
-            {"a": 1, "b": [2], "c": {"d": "3"}, "e": {"f": [{"g": 4, "h": True}]}},
-        )
-        p.json.numincrby("key", "$.a", 1)
-        p.json.arrappend("key", [1], "..*")
-        p.json.strappend("key", "bar", "..*")
-        p.json.toggle("key", "..*")
-        p.json.toggle("key", "..*")
-        assert (
+        async with client.pipeline(transaction=transaction) as p:
+            results = [
+                p.json.set(
+                    "key",
+                    LEGACY_ROOT_PATH,
+                    {"a": 1, "b": [2], "c": {"d": "3"}, "e": {"f": [{"g": 4, "h": True}]}},
+                ),
+                p.json.numincrby("key", "$.a", 1),
+                p.json.arrappend("key", [1], "..*"),
+                p.json.strappend("key", "bar", "..*"),
+                p.json.toggle("key", "..*"),
+                p.json.toggle("key", "..*"),
+            ]
+        assert await gather(*results) == (
             True,
             [2],
             2,
             4,
             False,
             True,
-        ) == await p.execute()
+        )
         assert {
             "a": 2,
             "b": [2, 1],

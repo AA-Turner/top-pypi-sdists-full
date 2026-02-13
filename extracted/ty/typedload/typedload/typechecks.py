@@ -15,7 +15,7 @@ protects the user from the ever changing internal representation used in
 different versions of Python.
 """
 
-# Copyright (C) 2019-2024 Salvo "LtWorf" Tomaselli
+# Copyright (C) 2019-2026 Salvo "LtWorf" Tomaselli
 #
 # typedload is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -34,7 +34,8 @@ different versions of Python.
 import sys
 from enum import Enum
 from re import Pattern
-from typing import Any, Tuple, Union, Set, List, Dict, Type, FrozenSet, NewType
+from typing import Any, Tuple, Set, List, Dict, Type, FrozenSet, NewType
+from typing import Union #TODO useless after python 3.13
 
 
 __all__ = [
@@ -119,7 +120,7 @@ def is_optional(type_: Any) -> bool:
     Note that Optional is just a Union, so if is_optional is True then
     also is_union will be True
     '''
-    return is_union(type_) and (len(type_.__args__) == 2) and NONETYPE in type_.__args__
+    return is_union(type_) and NONETYPE in type_.__args__
 
 
 def is_nonetype(type_: Any) -> bool:
@@ -211,13 +212,8 @@ def is_attrs(type_: Any) -> bool:
     return hasattr(type_, '__attrs_attrs__')
 
 
-if sys.version_info > (3, 10, 0):
-    def is_newtype(type_: Any) -> bool:
-        return type(type_) == NewType
-
-else:
-    def is_newtype(type_: Any) -> bool:
-        return hasattr(type_, '__supertype__')
+def is_newtype(type_: Any) -> bool:
+    return type(type_) == NewType
 
 
 def uniontypes(type_: Any) -> Tuple[Type[Any], ...]:

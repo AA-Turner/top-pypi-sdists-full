@@ -203,6 +203,10 @@ class ModalClientStub:
         modal_proto.api_pb2.DictGetRequest,
         modal_proto.api_pb2.DictGetResponse,
     ]
+    DictGetById: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.DictGetByIdRequest,
+        modal_proto.api_pb2.DictGetByIdResponse,
+    ]
     DictGetOrCreate: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.DictGetOrCreateRequest,
         modal_proto.api_pb2.DictGetOrCreateResponse,
@@ -464,6 +468,10 @@ class ModalClientStub:
     QueueGet: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.QueueGetRequest,
         modal_proto.api_pb2.QueueGetResponse,
+    ]
+    QueueGetById: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.QueueGetByIdRequest,
+        modal_proto.api_pb2.QueueGetByIdResponse,
     ]
     QueueGetOrCreate: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.QueueGetOrCreateRequest,
@@ -1034,6 +1042,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.DictGetResponse: ...
     @abc.abstractmethod
+    def DictGetById(
+        self,
+        request: modal_proto.api_pb2.DictGetByIdRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.DictGetByIdResponse: ...
+    @abc.abstractmethod
     def DictGetOrCreate(
         self,
         request: modal_proto.api_pb2.DictGetOrCreateRequest,
@@ -1419,6 +1433,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.QueueGetRequest,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.QueueGetResponse: ...
+    @abc.abstractmethod
+    def QueueGetById(
+        self,
+        request: modal_proto.api_pb2.QueueGetByIdRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.QueueGetByIdResponse: ...
     @abc.abstractmethod
     def QueueGetOrCreate(
         self,

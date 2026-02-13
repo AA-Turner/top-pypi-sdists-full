@@ -1,11 +1,13 @@
 import collections
 import re
 import warnings
-from collections.abc import Iterable
+from collections.abc import (
+    Callable,
+    Iterable
+)
 from functools import cached_property
 from typing import (
     Any,
-    Callable,
     Literal,
     Optional,
     Union
@@ -16,7 +18,10 @@ import pandas as pd
 
 import fastf1
 from fastf1 import _api as api
-from fastf1 import ergast
+from fastf1 import (
+    ergast,
+    exceptions
+)
 from fastf1.internals.pandas_base import (
     BaseDataFrame,
     BaseSeries
@@ -31,6 +36,20 @@ from fastf1.mvapi import (
     get_circuit_info
 )
 from fastf1.utils import to_timedelta
+
+
+# TODO: remove in v3.10
+def __getattr__(name):
+    if name in ("NoLapDataError",
+                "DataNotLoadedError",
+                "InvalidSessionError"):
+
+        warnings.warn(f"Accessing `{name}` via `{__name__}` is deprecated. "
+                      f"Use `fastf1.exceptions` instead.")
+
+        return getattr(exceptions, name)
+
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 _logger = get_logger(__name__)
@@ -51,7 +70,10 @@ class Telemetry(BaseDataFrame):
             - `Speed` (float): Car speed [km/h]
             - `RPM` (float): Car RPM
             - `nGear` (int): Car gear number
-            - `Throttle` (float): 0-100 Throttle pedal pressure [%]
+            - `Throttle` (float): 0-100 Throttle pedal pressure [%] (The value
+              104 is sometimes observed to indicate an error or unavailable
+              data. Usually, this only happens outside actual running when the
+              car is stationary in the pits or on the grid.)
             - `Brake` (bool): Brakes are applied or not.
             - `DRS` (int): DRS indicator (See :func:`fastf1.api.car_data`
               for more info)
@@ -181,7 +203,7 @@ class Telemetry(BaseDataFrame):
                  drop_unknown_channels: bool = False,
                  **kwargs):
         super().__init__(*args, **kwargs)
-        self.session: Optional[Session] = session
+        self.session: Session | None = session
         self.driver = driver
 
         if drop_unknown_channels:
@@ -234,7 +256,7 @@ class Telemetry(BaseDataFrame):
 
     def slice_by_mask(
             self,
-            mask: Union[list, pd.Series, np.ndarray],
+            mask: list | pd.Series | np.ndarray,
             pad: int = 0,
             pad_side: str = 'both'
     ) -> "Telemetry":
@@ -297,7 +319,7 @@ class Telemetry(BaseDataFrame):
             end_time = ref_laps['Time'].max()
             start_time = ref_laps['LapStartTime'].min()
 
-        elif isinstance(ref_laps, (Lap, Laps)):
+        elif isinstance(ref_laps, Lap | Laps):
             if isinstance(ref_laps, Laps):  # one lap in Laps
                 ref_laps = ref_laps.iloc[0]  # handle as a single lap
             if 'DriverNumber' not in ref_laps.index:
@@ -365,7 +387,7 @@ class Telemetry(BaseDataFrame):
     def merge_channels(
             self,
             other: Union["Telemetry", pd.DataFrame],
-            frequency: Union[int, Literal['original'], None] = None
+            frequency: int | Literal['original'] | None = None
     ):
         """Merge telemetry objects containing different telemetry channels.
 
@@ -544,9 +566,9 @@ class Telemetry(BaseDataFrame):
 
     def resample_channels(
             self,
-            rule: Optional[str] = None,
-            new_date_ref: Optional[pd.Series] = None,
-            **kwargs: Optional[Any]
+            rule: str | None = None,
+            new_date_ref: pd.Series | None = None,
+            **kwargs: Any | None
     ):
         """Resample telemetry data.
 
@@ -671,7 +693,7 @@ class Telemetry(BaseDataFrame):
             cls,
             name: str,
             signal_type: str,
-            interpolation_method: Optional[str] = None
+            interpolation_method: str | None = None
     ):
         """Register a custom telemetry channel.
 
@@ -1186,11 +1208,11 @@ class Session:
 
         self._track_status: pd.DataFrame
 
-        self._total_laps: Optional[int]
+        self._total_laps: int | None
         self._laps: Laps
 
-        self._t0_date: Optional[pd.Timestamp]
-        self._session_start_time: Optional[pd.Timedelta]
+        self._t0_date: pd.Timestamp | None
+        self._session_start_time: pd.Timedelta | None
 
         self._car_data: dict
         self._pos_data: dict
@@ -1198,7 +1220,7 @@ class Session:
         self._weather_data: pd.DataFrame
         self._results: SessionResults
 
-        self._session_split_times: Optional[list] = None
+        self._session_split_times: list | None = None
 
     def __repr__(self):
         return (f"{self.event.year} Season Round {self.event.RoundNumber}: "
@@ -1206,7 +1228,7 @@ class Session:
 
     def _get_property_warn_not_loaded(self, name):
         if not hasattr(self, name):
-            raise DataNotLoadedError(
+            raise exceptions.DataNotLoadedError(
                 "The data you are trying to access has not been loaded yet. "
                 "See `Session.load`"
             )
@@ -1572,7 +1594,7 @@ class Session:
             df = pd.concat([df, result], sort=False)
 
         if df is None:
-            raise NoLapDataError
+            raise exceptions.NoLapDataError
 
         laps = df.reset_index(drop=True)  # noqa: F821
 
@@ -1616,6 +1638,32 @@ class Session:
         laps.loc[dnf_and_generated, 'Position'] = np.nan
 
         self._add_track_status_to_laps(laps)
+
+        # fix missing speed trap values, caused by the API data skipping
+        # over consecutive equivalent values (#775)
+        for drv in drivers:
+            drv_mask = laps["DriverNumber"] == drv
+            # drv_laps = laps[drv_mask]
+
+            # forward fill sector 1, sector 2 and the "ST" speed trap for all
+            # original laps that didn't take place under a red flag
+            appl_mask = (
+                    ~laps.loc[drv_mask, "FastF1Generated"]
+                    & ~laps.loc[drv_mask, "TrackStatus"].str.contains("5")
+            )
+            fill_12st = laps.loc[
+                drv_mask, ("SpeedI1", "SpeedI2", "SpeedST")
+            ].ffill().loc[appl_mask]
+            laps.loc[
+                appl_mask & drv_mask,
+                ("SpeedI1", "SpeedI2", "SpeedST")
+            ] = fill_12st
+
+            # forward fill finish line speed trap like sector 1 speed trap,
+            # additionally excluding laps where the driver entered the pits
+            appl_mask &= pd.isnull(laps.loc[drv_mask, "PitInTime"])
+            fill_fl = laps.loc[drv_mask, "SpeedFL"].ffill().loc[appl_mask]
+            laps.loc[appl_mask & drv_mask, "SpeedFL"] = fill_fl
 
         self._laps = Laps(laps, session=self, _force_default_cols=True)
         self._check_lap_accuracy()
@@ -2405,7 +2453,7 @@ class Session:
 
     def _drivers_results_from_ergast(
             self, *, load_drivers=False, load_results=False
-    ) -> Optional[pd.DataFrame]:
+    ) -> pd.DataFrame | None:
         if self.name in self._RACE_LIKE_SESSIONS + self._QUALI_LIKE_SESSIONS:
             session_name = self.name
         else:
@@ -2620,7 +2668,7 @@ class Session:
             raise ValueError(f"Invalid driver identifier '{identifier}'")
         return self.results[mask].iloc[0]
 
-    def get_circuit_info(self) -> Optional[CircuitInfo]:
+    def get_circuit_info(self) -> CircuitInfo | None:
         """Returns additional information about the circuit that hosts this
         event.
 
@@ -2740,7 +2788,7 @@ class Laps(BaseDataFrame):
         'LapStartDate': 'datetime64[ns]',
         'TrackStatus': str,
         'Position': 'float64',  # need to support NaN
-        'Deleted': Optional[bool],
+        'Deleted': bool | None,
         'DeletedReason': str,
         'FastF1Generated': bool,
         'IsAccurate': bool
@@ -2755,7 +2803,7 @@ class Laps(BaseDataFrame):
 
     def __init__(self,
                  *args,
-                 session: Optional[Session] = None,
+                 session: Session | None = None,
                  **kwargs):
 
         super().__init__(*args, **kwargs)
@@ -2815,7 +2863,7 @@ class Laps(BaseDataFrame):
 
     def get_telemetry(self,
                       *,
-                      frequency: Union[int, Literal['original'], None] = None
+                      frequency: int | Literal['original'] | None = None
                       ) -> Telemetry:
         """Telemetry data for all laps in `self`
 
@@ -3037,7 +3085,7 @@ class Laps(BaseDataFrame):
                       FutureWarning)
         return self[self['LapNumber'] == lap_number]
 
-    def pick_laps(self, lap_numbers: Union[int, Iterable[int]]) -> "Laps":
+    def pick_laps(self, lap_numbers: int | Iterable[int]) -> "Laps":
         """Return all laps of a specific LapNumber or a list of LapNumbers
         in self. ::
 
@@ -3051,7 +3099,7 @@ class Laps(BaseDataFrame):
         Returns:
             instance of :class:`Laps`
         """
-        if isinstance(lap_numbers, (int, float)):
+        if isinstance(lap_numbers, int | float):
             lap_numbers = [lap_numbers, ]
 
         for i in lap_numbers:
@@ -3060,7 +3108,7 @@ class Laps(BaseDataFrame):
 
         return self[self["LapNumber"].isin(lap_numbers)]
 
-    def pick_driver(self, identifier: Union[int, str]) -> "Laps":
+    def pick_driver(self, identifier: int | str) -> "Laps":
         """Return all laps of a specific driver in self based on the driver's
         three letters identifier or based on the driver number.
 
@@ -3088,7 +3136,7 @@ class Laps(BaseDataFrame):
             return self[self['Driver'] == identifier]
 
     def pick_drivers(self,
-                     identifiers: Union[int, str, Iterable[Union[int, str]]]
+                     identifiers: int | str | Iterable[int | str]
                      ) -> "Laps":
         """Return all laps of the specified driver or drivers in self based
         on the drivers' three letters identifier or the driver number. ::
@@ -3103,7 +3151,7 @@ class Laps(BaseDataFrame):
         Returns:
             instance of :class:`Laps`
         """
-        if isinstance(identifiers, (int, str)):
+        if isinstance(identifiers, int | str):
             identifiers = [identifiers, ]
 
         names = [n.upper() for n in identifiers if not str(n).isdigit()]
@@ -3134,7 +3182,7 @@ class Laps(BaseDataFrame):
                       FutureWarning)
         return self[self['Team'] == name]
 
-    def pick_teams(self, names: Union[str, Iterable[str]]) -> "Laps":
+    def pick_teams(self, names: str | Iterable[str]) -> "Laps":
         """Return all laps of the specified team or teams in self based
         on the team names. ::
 
@@ -3192,7 +3240,7 @@ class Laps(BaseDataFrame):
 
         return lap
 
-    def pick_quicklaps(self, threshold: Optional[float] = None) -> "Laps":
+    def pick_quicklaps(self, threshold: float | None = None) -> "Laps":
         """Return all laps with `LapTime` faster than a certain limit. By
         default, the threshold is 107% of the best `LapTime` of all laps
         in self.
@@ -3229,7 +3277,7 @@ class Laps(BaseDataFrame):
                       FutureWarning)
         return self[self['Compound'] == compound.upper()]
 
-    def pick_compounds(self, compounds: Union[str, Iterable[str]]) -> "Laps":
+    def pick_compounds(self, compounds: str | Iterable[str]) -> "Laps":
         """Return all laps in self which were done on some specific compounds.
         ::
 
@@ -3326,9 +3374,10 @@ class Laps(BaseDataFrame):
         if 'Deleted' in self.columns:
             return self[~self['Deleted']]
         else:
-            raise DataNotLoadedError("The Deleted column is only available "
-                                     "when race control messages are loaded. "
-                                     "See `Session.load`")
+            raise exceptions.DataNotLoadedError(
+                "The Deleted column is only available when race control "
+                "messages are loaded. See `Session.load`"
+            )
 
     def pick_accurate(self) -> "Laps":
         """Return all laps which pass the accuracy validation check
@@ -3416,7 +3465,7 @@ class Laps(BaseDataFrame):
                 laps[i] = None
         return laps
 
-    def iterlaps(self, require: Optional[Iterable] = None) \
+    def iterlaps(self, require: Iterable | None = None) \
             -> Iterable[tuple[int, "Lap"]]:
         """Iterator for iterating over all laps in self.
 
@@ -3481,7 +3530,7 @@ class Lap(BaseSeries):
 
     def get_telemetry(self,
                       *,
-                      frequency: Union[int, Literal['original'], None] = None
+                      frequency: int | Literal['original'] | None = None
                       ) -> Telemetry:
         """Telemetry data for this lap
 
@@ -3800,27 +3849,3 @@ class DriverResult(BaseSeries):
     def dnf(self) -> bool:
         """True if driver did not finish"""
         return not (self.Status[3:6] == 'Lap' or self.Status == 'Finished')
-
-
-class DataNotLoadedError(Exception):
-    """Raised if an attempt is made to access data that has not been loaded
-    yet."""
-    pass
-
-
-class NoLapDataError(Exception):
-    """
-    Raised if the API request does not fail but there is no usable data
-    after processing the result.
-    """
-    def __init__(self, *args):
-        super().__init__("Failed to load session because the API did not "
-                         "provide any usable data.")
-
-
-class InvalidSessionError(Exception):
-    """Raised if no session for the specified event name, type and year
-    can be found."""
-
-    def __init__(self, *args):
-        super().__init__("No matching session can be found.")

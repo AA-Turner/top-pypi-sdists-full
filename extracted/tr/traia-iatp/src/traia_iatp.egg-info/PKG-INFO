@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: traia-iatp
-Version: 0.1.87
+Version: 0.1.92
 Summary: Inter-Agent Transfer Protocol (IATP) - Enable AI Agents to utilize other AI Agents as tools
 Project-URL: Documentation, https://docs.d402.net
 Project-URL: Source, https://github.com/Traia-IO/IATP
@@ -32,7 +32,6 @@ Requires-Dist: starlette>=0.45.0
 Requires-Dist: tomli>=2.0.0
 Requires-Dist: typer>=0.19.2
 Requires-Dist: uvicorn>=0.37.0
-Requires-Dist: agentops>=0.4.21
 Requires-Dist: dnspython==2.6.1
 Requires-Dist: eth-account>=0.11.0
 Requires-Dist: web3>=6.15.0

@@ -46,6 +46,7 @@ if TYPE_CHECKING:
 __all__ = [
     'EarningsRelease',
     'FinancialTable',
+    'RowType',
     'Scale',
     'StatementType',
     'get_earnings_tables',
@@ -94,21 +95,36 @@ class StatementType(Enum):
     UNKNOWN = "unknown"
 
 
+class RowType(Enum):
+    """Classification of individual rows in a financial table."""
+    AMOUNT = "amount"           # Dollar amounts (revenue, expenses, income)
+    PER_SHARE = "per_share"     # Per-share values (EPS, dividends per share)
+    SHARES = "shares"           # Share counts (outstanding, weighted average)
+    PERCENTAGE = "percentage"   # Ratios and percentages (margins, rates)
+    OTHER = "other"             # Labels, headers, or unclassifiable rows
+
+
 # Keywords for statement classification
 _STATEMENT_KEYWORDS = {
     StatementType.INCOME_STATEMENT: [
         'net revenue', 'gross profit', 'operating income', 'cost of sales',
-        'operating expenses', 'income before taxes', 'provision for taxes'
+        'operating expenses', 'income before taxes', 'provision for taxes',
+        'net sales', 'total revenues', 'total revenue', 'cost of revenue',
+        'cost of goods sold', 'income from operations', 'net income',
+        'net interest income', 'total interest income', 'income tax expense',
+        'selling, general',
     ],
     StatementType.BALANCE_SHEET: [
         'total assets', 'total liabilities', 'stockholders', 'current assets',
         'current liabilities', 'property, plant', 'accounts receivable',
-        'accounts payable', 'long-term debt'
+        'accounts payable', 'long-term debt', 'total equity',
+        "shareholders' equity",
     ],
     StatementType.CASH_FLOW: [
         'cash flows', 'operating activities', 'investing activities',
         'financing activities', 'cash and cash equivalents, beginning',
-        'cash and cash equivalents, end', 'depreciation and amortization'
+        'cash and cash equivalents, end', 'depreciation and amortization',
+        'capital expenditures',
     ],
     StatementType.SEGMENT_DATA: [
         'client computing', 'data center', 'foundry', 'segment revenue',
@@ -129,6 +145,48 @@ _STATEMENT_KEYWORDS = {
         'definition', 'usefulness to management', 'non-gaap adjustment or measure'
     ],
 }
+
+# Title/header patterns for high-confidence classification
+_TITLE_PATTERNS = {
+    StatementType.INCOME_STATEMENT: [
+        'statement of operations', 'statement of income', 'statement of earnings',
+        'results of operations', 'statements of operations', 'statements of income',
+        'statements of earnings', 'income statement', 'profit and loss',
+    ],
+    StatementType.BALANCE_SHEET: [
+        'balance sheet', 'financial position', 'financial condition',
+    ],
+    StatementType.CASH_FLOW: [
+        'cash flow', 'cash flows',
+    ],
+}
+
+_ROW_TYPE_PATTERNS = {
+    RowType.PER_SHARE: [
+        'per share', 'per common share', 'per diluted share', 'per basic share',
+        'earnings per share', 'loss per share', 'income per share',
+        'per ads', 'per ordinary share', 'per adr',
+    ],
+    RowType.SHARES: [
+        'shares outstanding', 'shares used', 'weighted average',
+        'weighted-average', 'share count', 'number of shares',
+        'diluted shares', 'basic shares', 'common shares',
+    ],
+    RowType.PERCENTAGE: [
+        'margin', 'as a percentage', 'as a % of', 'effective tax rate',
+        'growth rate', 'yield',
+    ],
+}
+
+
+def _classify_row_type(label: str) -> RowType:
+    """Classify a row's type based on its label text."""
+    label_lower = label.lower()
+    for row_type, patterns in _ROW_TYPE_PATTERNS.items():
+        for pattern in patterns:
+            if pattern in label_lower:
+                return row_type
+    return RowType.AMOUNT
 
 
 @dataclass
@@ -153,20 +211,47 @@ class FinancialTable:
     raw_index: int = 0
     """Original index in document (for debugging)."""
 
+    row_types: dict = field(default_factory=dict)
+    """Mapping of row label → RowType for each row."""
+
     def __bool__(self) -> bool:
         """FinancialTable is truthy if it has data."""
         return not self.dataframe.empty
 
+    def get_row_type(self, label: str) -> RowType:
+        """Get the RowType for a given row label."""
+        return self.row_types.get(label, RowType.AMOUNT)
+
+    @property
+    def per_share_rows(self) -> pd.DataFrame:
+        """Return only per-share rows (EPS, dividends per share, etc.)."""
+        mask = [self.get_row_type(str(idx)) == RowType.PER_SHARE for idx in self.dataframe.index]
+        return self.dataframe.loc[mask]
+
     @property
     def scaled_dataframe(self) -> pd.DataFrame:
-        """Return DataFrame with numeric values scaled by the detected scale factor."""
+        """Return DataFrame with numeric values scaled by the detected scale factor.
+
+        Only AMOUNT rows are scaled. PER_SHARE, SHARES, and PERCENTAGE rows
+        are left unchanged since they should not be multiplied by the table's
+        scale factor.
+        """
         if self.scale == Scale.UNITS:
             return self.dataframe.copy()
 
         df = self.dataframe.copy()
+        # Only scale AMOUNT rows — skip PER_SHARE, SHARES, PERCENTAGE
+        skip_labels = {str(idx) for idx in df.index
+                       if self.get_row_type(str(idx)) != RowType.AMOUNT}
+
         for col in df.columns:
-            if df[col].dtype in ['float64', 'int64']:
-                df[col] = df[col] * self.scale.value
+            numeric = pd.to_numeric(df[col], errors='coerce')
+            mask = numeric.notna()
+            # Zero out mask for non-amount rows
+            for label in skip_labels:
+                if label in df.index:
+                    mask[label] = False
+            df.loc[mask, col] = numeric[mask] * self.scale.value
         return df
 
     def __repr__(self) -> str:
@@ -651,7 +736,7 @@ class EarningsRelease:
     def _extract_tables(self) -> List[FinancialTable]:
         """Extract and classify all tables from the document."""
         tables = []
-        doc_scale = self.detected_scale
+        doc_scale = Scale.UNITS  # Safe default — per-table detection is primary
 
         for idx, table_node in enumerate(self.document.tables):
             df = _extract_clean_dataframe(table_node)
@@ -668,13 +753,17 @@ class EarningsRelease:
             periods = [c for c in df.columns
                       if c and str(c).strip() and _YEAR_PATTERN.search(str(c))]
 
+            row_types = {str(idx_label): _classify_row_type(str(idx_label))
+                         for idx_label in df.index}
+
             table = FinancialTable(
                 dataframe=df,
                 scale=scale,
                 title=title,
                 statement_type=statement_type,
                 periods=periods,
-                raw_index=idx
+                raw_index=idx,
+                row_types=row_types,
             )
             tables.append(table)
 
@@ -826,9 +915,24 @@ def find_earnings_exhibit(attachments: 'Attachments') -> Optional['Attachment']:
 # =============================================================================
 
 def _classify_statement(table_node, df: pd.DataFrame) -> StatementType:
-    """Classify the statement type based on row labels and content."""
+    """Classify the statement type based on title, row labels, and content."""
+    # 1. Check table title/headers for explicit statement names
+    header_text = ''
+    if table_node.caption:
+        header_text += table_node.caption.lower() + ' '
+    if table_node.headers:
+        for header_row in table_node.headers:
+            for cell in header_row:
+                header_text += (cell.content or '').lower() + ' '
+
+    for stmt_type, patterns in _TITLE_PATTERNS.items():
+        for pattern in patterns:
+            if pattern in header_text:
+                return stmt_type
+
+    # 2. Keyword matching on row labels (expanded range)
     labels = []
-    for row in table_node.rows[:10]:
+    for row in table_node.rows[:15]:
         for cell in row.cells:
             content = (cell.content or "").strip()
             if content and len(content) > 3:
@@ -836,7 +940,7 @@ def _classify_statement(table_node, df: pd.DataFrame) -> StatementType:
                 break
 
     if hasattr(df, 'index'):
-        labels.extend([str(x).lower() for x in df.index[:10]])
+        labels.extend([str(x).lower() for x in df.index[:15]])
 
     labels_text = ' '.join(labels)
 
@@ -853,7 +957,14 @@ def _classify_statement(table_node, df: pd.DataFrame) -> StatementType:
 
 
 def _detect_table_scale(table_node, df: pd.DataFrame, default_scale: Scale) -> Scale:
-    """Detect scale from table headers or content."""
+    """Detect scale from table caption, headers, early content, footer, or index labels."""
+    # 1. Check caption
+    if table_node.caption:
+        scale = Scale.detect(table_node.caption)
+        if scale != Scale.UNITS:
+            return scale
+
+    # 2. Check headers
     if table_node.headers:
         for header_row in table_node.headers:
             for cell in header_row:
@@ -865,6 +976,7 @@ def _detect_table_scale(table_node, df: pd.DataFrame, default_scale: Scale) -> S
                 elif 'billion' in content:
                     return Scale.BILLIONS
 
+    # 3. Check first 3 data rows
     for row in table_node.rows[:3]:
         for cell in row.cells:
             content = cell.content.lower()
@@ -873,6 +985,29 @@ def _detect_table_scale(table_node, df: pd.DataFrame, default_scale: Scale) -> S
             elif 'in thousands' in content or '(thousands)' in content:
                 return Scale.THOUSANDS
             elif 'in billions' in content or '(billions)' in content:
+                return Scale.BILLIONS
+
+    # 4. Check footer rows
+    if table_node.footer:
+        for row in table_node.footer:
+            for cell in row.cells:
+                content = cell.content.lower()
+                if 'million' in content:
+                    return Scale.MILLIONS
+                elif 'thousand' in content:
+                    return Scale.THOUSANDS
+                elif 'billion' in content:
+                    return Scale.BILLIONS
+
+    # 5. Check DataFrame index labels (e.g. "(In millions, except per share data)")
+    if hasattr(df, 'index'):
+        for label in df.index[:5]:
+            label_lower = str(label).lower()
+            if 'in millions' in label_lower or '(millions)' in label_lower:
+                return Scale.MILLIONS
+            elif 'in thousands' in label_lower or '(thousands)' in label_lower:
+                return Scale.THOUSANDS
+            elif 'in billions' in label_lower or '(billions)' in label_lower:
                 return Scale.BILLIONS
 
     return default_scale
@@ -1186,9 +1321,9 @@ def _parse_numeric(val) -> Union[float, str, None]:
     if s in ('—', '-', '–', '', '*'):
         return None
 
-    s_no_currency = s.lstrip('$€£¥')
-    negative = s_no_currency.startswith('(') and s_no_currency.endswith(')')
-    cleaned = s.replace(',', '').replace('$', '').replace('(', '').replace(')', '').replace('%', '').replace('*', '')
+    s_for_sign_check = s.replace('$', '').replace('€', '').replace('£', '').replace('¥', '').strip()
+    negative = s_for_sign_check.startswith('(') and s_for_sign_check.endswith(')')
+    cleaned = s.replace(',', '').replace('$', '').replace('€', '').replace('£', '').replace('¥', '').replace('(', '').replace(')', '').replace('%', '').replace('*', '').strip()
 
     try:
         num = float(cleaned)

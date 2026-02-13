@@ -1,0 +1,62 @@
+line-length = 79
+target-version = "py310"
+
+include = [
+    "src/**.py",
+    "tests/**.py",
+    "examples/**.py",
+]
+exclude = [
+    "src/dishka/_adaptix/**",
+]
+
+lint.select = [
+    "ALL"
+]
+lint.ignore = [
+    "ARG",
+    "ANN",
+    "D",
+    "EM101",
+    "EM102",
+    "PT001",
+    "PT023",
+    "SIM108",
+    "RET505",
+    "PLR0913",
+    "SIM103",
+    "ISC003",
+    "PERF401",
+    "FBT003",
+    "PLW0108",
+
+    # identical by code != identical by meaning
+    "SIM114",
+
+    # awful things, never use.
+    # It makes runtime work differently from typechecker
+    "TC001",
+    "TC002",
+    "TC003",
+    "TC006",
+]
+
+[lint.per-file-ignores]
+"tests/**" = [
+    "TID252",
+    "PLR2004",
+    "S101",
+    "TRY003",
+    "PLW1641",
+    "PYI059"
+]
+
+[per-file-target-version]
+"tests/unit/container/pep695_new_syntax.py" = "py312"
+"tests/unit/container/type_alias_type_provider.py" = "py312"
+
+[lint.isort]
+no-lines-before = ["local-folder"]
+
+[lint.flake8-tidy-imports]
+ban-relative-imports = "parents"

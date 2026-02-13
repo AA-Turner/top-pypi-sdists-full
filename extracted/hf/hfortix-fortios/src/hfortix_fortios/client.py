@@ -110,6 +110,17 @@ class FortiOS:
         audit_callback: Optional[Any] = None,
         user_context: Optional[dict[str, Any]] = None,
         trace_id: Optional[str] = None,
+        # Rate limiting (NEW)
+        rate_limit: bool = False,
+        rate_limit_strategy: str = "queue",
+        rate_limit_max_requests: int = 100,
+        rate_limit_window_seconds: float = 60.0,
+        rate_limit_queue_size: int = 100,
+        rate_limit_queue_timeout: float = 30.0,
+        rate_limit_queue_overflow: str = "block",
+        # Circuit breaker (NEW)
+        circuit_breaker: bool = False,
+        circuit_breaker_half_open_calls: int = 3,
     ) -> None:
         """Synchronous FortiOS client (default)"""
         ...
@@ -152,6 +163,17 @@ class FortiOS:
         audit_callback: Optional[Any] = None,
         user_context: Optional[dict[str, Any]] = None,
         trace_id: Optional[str] = None,
+        # Rate limiting (NEW)
+        rate_limit: bool = False,
+        rate_limit_strategy: str = "queue",
+        rate_limit_max_requests: int = 100,
+        rate_limit_window_seconds: float = 60.0,
+        rate_limit_queue_size: int = 100,
+        rate_limit_queue_timeout: float = 30.0,
+        rate_limit_queue_overflow: str = "block",
+        # Circuit breaker (NEW)
+        circuit_breaker: bool = False,
+        circuit_breaker_half_open_calls: int = 3,
     ) -> None:
         """Asynchronous FortiOS client"""
         ...
@@ -193,6 +215,17 @@ class FortiOS:
         audit_callback: Optional[Any] = None,
         user_context: Optional[dict[str, Any]] = None,
         trace_id: Optional[str] = None,
+        # Rate limiting (NEW)
+        rate_limit: bool = False,
+        rate_limit_strategy: str = "queue",
+        rate_limit_max_requests: int = 100,
+        rate_limit_window_seconds: float = 60.0,
+        rate_limit_queue_size: int = 100,
+        rate_limit_queue_timeout: float = 30.0,
+        rate_limit_queue_overflow: str = "block",
+        # Circuit breaker (NEW)
+        circuit_breaker: bool = False,
+        circuit_breaker_half_open_calls: int = 3,
     ) -> None:
         """
         Initialize FortiOS API client (sync or async mode)
@@ -645,6 +678,17 @@ class FortiOS:
                     audit_handler=audit_handler,  # type: ignore[call-arg]
                     audit_callback=audit_callback,  # type: ignore[call-arg]
                     user_context=user_context,  # type: ignore[call-arg]
+                    # Rate limiting (NEW)
+                    rate_limit=rate_limit,
+                    rate_limit_strategy=rate_limit_strategy,
+                    rate_limit_max_requests=rate_limit_max_requests,
+                    rate_limit_window_seconds=rate_limit_window_seconds,
+                    rate_limit_queue_size=rate_limit_queue_size,
+                    rate_limit_queue_timeout=rate_limit_queue_timeout,
+                    rate_limit_queue_overflow=rate_limit_queue_overflow,
+                    # Circuit breaker (NEW)
+                    circuit_breaker=circuit_breaker,
+                    circuit_breaker_half_open_calls=circuit_breaker_half_open_calls,
                 )
             else:
                 self._client = HTTPClient(
@@ -674,6 +718,17 @@ class FortiOS:
                     audit_handler=audit_handler,  # type: ignore[call-arg]
                     audit_callback=audit_callback,  # type: ignore[call-arg]
                     user_context=user_context,  # type: ignore[call-arg]
+                    # Rate limiting (NEW)
+                    rate_limit=rate_limit,
+                    rate_limit_strategy=rate_limit_strategy,
+                    rate_limit_max_requests=rate_limit_max_requests,
+                    rate_limit_window_seconds=rate_limit_window_seconds,
+                    rate_limit_queue_size=rate_limit_queue_size,
+                    rate_limit_queue_timeout=rate_limit_queue_timeout,
+                    rate_limit_queue_overflow=rate_limit_queue_overflow,
+                    # Circuit breaker (NEW)
+                    circuit_breaker=circuit_breaker,
+                    circuit_breaker_half_open_calls=circuit_breaker_half_open_calls,
                 )
 
         # Wrap the client to enable response processing (object mode)
@@ -1512,6 +1567,66 @@ class FortiOS:
                 "last_failure_time": None,
             }
         return self._client.get_circuit_breaker_state()  # type: ignore
+
+    def get_rate_limit_stats(self) -> dict[str, Any]:
+        """
+        Get rate limiter statistics
+
+        Returns statistics from the rate limiter including:
+        - Total requests processed
+        - Requests queued/dropped/allowed
+        - Average/max queue wait times
+        - Current queue size and token availability
+
+        Returns:
+            Dictionary containing:
+
+            - total_requests: Total requests processed
+            - allowed_requests: Requests allowed immediately
+            - queued_requests: Requests that waited in queue
+            - dropped_requests: Requests dropped due to queue overflow
+            - current_queue_size: Current number of requests waiting
+            - max_queue_size: Maximum queue capacity
+            - queue_utilization: Queue usage percentage (0.0-1.0)
+            - avg_queue_wait_ms: Average time spent in queue (milliseconds)
+            - max_queue_wait_ms: Maximum time spent in queue (milliseconds)
+            - rate_limit_efficiency: Percentage of requests allowed immediately
+            - tokens_available: Current token count
+            - tokens_capacity: Maximum token capacity
+            - refill_rate_per_sec: Token refill rate per second
+            - window_seconds: Time window for rate limiting
+            - uptime_seconds: Rate limiter uptime
+            - strategy: Rate limiting strategy ('queue' or 'reject')
+            - queue_overflow: Overflow handling ('block' or 'drop')
+
+        Example:
+            >>> stats = fgt.get_rate_limit_stats()
+            >>> print(f"Total: {stats['total_requests']}")
+            >>> print(f"Queued: {stats['queued_requests']}")
+            >>> print(f"Avg wait: {stats['avg_queue_wait_ms']:.1f}ms")
+            >>> print(f"Efficiency: {stats['rate_limit_efficiency']:.1f}%")
+        """
+        if not hasattr(self._client, "_rate_limiter") or self._client._rate_limiter is None:
+            return {
+                "total_requests": 0,
+                "allowed_requests": 0,
+                "queued_requests": 0,
+                "dropped_requests": 0,
+                "current_queue_size": 0,
+                "max_queue_size": 0,
+                "queue_utilization": 0.0,
+                "avg_queue_wait_ms": 0.0,
+                "max_queue_wait_ms": 0.0,
+                "rate_limit_efficiency": 0.0,
+                "tokens_available": 0.0,
+                "tokens_capacity": 0.0,
+                "refill_rate_per_sec": 0.0,
+                "window_seconds": 0.0,
+                "uptime_seconds": 0.0,
+                "strategy": "queue",
+                "queue_overflow": "block",
+            }
+        return self._client._rate_limiter.get_stats()  # type: ignore
 
     def get_health_metrics(self) -> dict[str, Any]:
         """

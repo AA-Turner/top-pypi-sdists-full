@@ -42,6 +42,10 @@ class GetFeatureFlagTestEndpointRequest(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class GetTeamPermissionOnlyTestEndpointRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class GetUnauthedTestEndpointResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
@@ -79,3 +83,7 @@ class GetFeatureFlagTestEndpointResponse(_message.Message):
     MESSAGE_FIELD_NUMBER: _ClassVar[int]
     message: str
     def __init__(self, message: _Optional[str] = ...) -> None: ...
+
+class GetTeamPermissionOnlyTestEndpointResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...

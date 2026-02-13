@@ -1,6 +1,7 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.server.v1 import topic_pb2 as _topic_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import (
@@ -12,6 +13,16 @@ from typing import (
 )
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class TopicPushQueue(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    TOPIC_PUSH_QUEUE_UNSPECIFIED: _ClassVar[TopicPushQueue]
+    TOPIC_PUSH_QUEUE_DEFAULT: _ClassVar[TopicPushQueue]
+    TOPIC_PUSH_QUEUE_METRICS: _ClassVar[TopicPushQueue]
+
+TOPIC_PUSH_QUEUE_UNSPECIFIED: TopicPushQueue
+TOPIC_PUSH_QUEUE_DEFAULT: TopicPushQueue
+TOPIC_PUSH_QUEUE_METRICS: TopicPushQueue
 
 class ScheduledJob(_message.Message):
     __slots__ = ("id", "name", "payload", "schedule", "topic", "attributes", "environment", "tags")
@@ -52,7 +63,7 @@ class ScheduledJob(_message.Message):
     ) -> None: ...
 
 class UpdateJobRequest(_message.Message):
-    __slots__ = ("id", "name", "payload", "schedule", "topic", "attributes", "environment", "tags")
+    __slots__ = ("id", "name", "payload", "schedule", "topic", "attributes", "environment", "tags", "queue")
     class AttributesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -69,6 +80,7 @@ class UpdateJobRequest(_message.Message):
     ATTRIBUTES_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
     TAGS_FIELD_NUMBER: _ClassVar[int]
+    QUEUE_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     payload: str
@@ -77,6 +89,7 @@ class UpdateJobRequest(_message.Message):
     attributes: _containers.ScalarMap[str, str]
     environment: str
     tags: _containers.RepeatedScalarFieldContainer[str]
+    queue: TopicPushQueue
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -87,6 +100,7 @@ class UpdateJobRequest(_message.Message):
         attributes: _Optional[_Mapping[str, str]] = ...,
         environment: _Optional[str] = ...,
         tags: _Optional[_Iterable[str]] = ...,
+        queue: _Optional[_Union[TopicPushQueue, str]] = ...,
     ) -> None: ...
 
 class UpdateJobResponse(_message.Message):
@@ -96,8 +110,10 @@ class UpdateJobResponse(_message.Message):
     def __init__(self, job: _Optional[_Union[ScheduledJob, _Mapping]] = ...) -> None: ...
 
 class ListJobsRequest(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("queue",)
+    QUEUE_FIELD_NUMBER: _ClassVar[int]
+    queue: TopicPushQueue
+    def __init__(self, queue: _Optional[_Union[TopicPushQueue, str]] = ...) -> None: ...
 
 class ListJobsResponse(_message.Message):
     __slots__ = ("jobs",)
@@ -106,7 +122,7 @@ class ListJobsResponse(_message.Message):
     def __init__(self, jobs: _Optional[_Iterable[_Union[ScheduledJob, _Mapping]]] = ...) -> None: ...
 
 class CreateJobRequest(_message.Message):
-    __slots__ = ("name", "payload", "schedule", "topic", "attributes", "environment", "tags")
+    __slots__ = ("name", "payload", "schedule", "topic", "attributes", "environment", "tags", "queue")
     class AttributesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -122,6 +138,7 @@ class CreateJobRequest(_message.Message):
     ATTRIBUTES_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
     TAGS_FIELD_NUMBER: _ClassVar[int]
+    QUEUE_FIELD_NUMBER: _ClassVar[int]
     name: str
     payload: str
     schedule: str
@@ -129,6 +146,7 @@ class CreateJobRequest(_message.Message):
     attributes: _containers.ScalarMap[str, str]
     environment: str
     tags: _containers.RepeatedScalarFieldContainer[str]
+    queue: TopicPushQueue
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -138,6 +156,7 @@ class CreateJobRequest(_message.Message):
         attributes: _Optional[_Mapping[str, str]] = ...,
         environment: _Optional[str] = ...,
         tags: _Optional[_Iterable[str]] = ...,
+        queue: _Optional[_Union[TopicPushQueue, str]] = ...,
     ) -> None: ...
 
 class CreateJobResponse(_message.Message):
@@ -147,20 +166,24 @@ class CreateJobResponse(_message.Message):
     def __init__(self, job: _Optional[_Union[ScheduledJob, _Mapping]] = ...) -> None: ...
 
 class DeleteJobRequest(_message.Message):
-    __slots__ = ("id",)
+    __slots__ = ("id", "queue")
     ID_FIELD_NUMBER: _ClassVar[int]
+    QUEUE_FIELD_NUMBER: _ClassVar[int]
     id: str
-    def __init__(self, id: _Optional[str] = ...) -> None: ...
+    queue: TopicPushQueue
+    def __init__(self, id: _Optional[str] = ..., queue: _Optional[_Union[TopicPushQueue, str]] = ...) -> None: ...
 
 class DeleteJobResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
 class GetJobByNameRequest(_message.Message):
-    __slots__ = ("name",)
+    __slots__ = ("name", "queue")
     NAME_FIELD_NUMBER: _ClassVar[int]
+    QUEUE_FIELD_NUMBER: _ClassVar[int]
     name: str
-    def __init__(self, name: _Optional[str] = ...) -> None: ...
+    queue: TopicPushQueue
+    def __init__(self, name: _Optional[str] = ..., queue: _Optional[_Union[TopicPushQueue, str]] = ...) -> None: ...
 
 class GetJobByNameResponse(_message.Message):
     __slots__ = ("job",)

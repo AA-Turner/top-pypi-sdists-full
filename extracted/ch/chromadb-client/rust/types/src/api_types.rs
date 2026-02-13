@@ -24,6 +24,7 @@ use crate::Collection;
 use crate::CollectionConfigurationToInternalConfigurationError;
 use crate::CollectionConversionError;
 use crate::CollectionUuid;
+use crate::DatabaseName;
 use crate::DistributedSpannParametersFromSegmentError;
 use crate::EmbeddingsPayload;
 use crate::HnswParametersFromSegmentError;
@@ -352,14 +353,13 @@ impl ChromaError for UpdateTenantError {
 pub struct CreateDatabaseRequest {
     pub database_id: Uuid,
     pub tenant_id: String,
-    #[validate(length(min = 3))]
-    pub database_name: String,
+    pub database_name: DatabaseName,
 }
 
 impl CreateDatabaseRequest {
     pub fn try_new(
         tenant_id: String,
-        database_name: String,
+        database_name: DatabaseName,
     ) -> Result<Self, ChromaValidationError> {
         let database_id = Uuid::new_v4();
         let request = Self {
@@ -503,13 +503,13 @@ impl ChromaError for ListDatabasesError {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct GetDatabaseRequest {
     pub tenant_id: String,
-    pub database_name: String,
+    pub database_name: DatabaseName,
 }
 
 impl GetDatabaseRequest {
     pub fn try_new(
         tenant_id: String,
-        database_name: String,
+        database_name: DatabaseName,
     ) -> Result<Self, ChromaValidationError> {
         let request = Self {
             tenant_id,
@@ -610,7 +610,7 @@ impl ChromaError for FinishDatabaseDeletionError {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct ListCollectionsRequest {
     pub tenant_id: String,
-    pub database_name: String,
+    pub database_name: DatabaseName,
     pub limit: Option<u32>,
     pub offset: u32,
 }
@@ -618,7 +618,7 @@ pub struct ListCollectionsRequest {
 impl ListCollectionsRequest {
     pub fn try_new(
         tenant_id: String,
-        database_name: String,
+        database_name: DatabaseName,
         limit: Option<u32>,
         offset: u32,
     ) -> Result<Self, ChromaValidationError> {
@@ -640,13 +640,13 @@ pub type ListCollectionsResponse = Vec<Collection>;
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct CountCollectionsRequest {
     pub tenant_id: String,
-    pub database_name: String,
+    pub database_name: DatabaseName,
 }
 
 impl CountCollectionsRequest {
     pub fn try_new(
         tenant_id: String,
-        database_name: String,
+        database_name: DatabaseName,
     ) -> Result<Self, ChromaValidationError> {
         let request = Self {
             tenant_id,
@@ -664,14 +664,14 @@ pub type CountCollectionsResponse = u32;
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct GetCollectionRequest {
     pub tenant_id: String,
-    pub database_name: String,
+    pub database_name: DatabaseName,
     pub collection_name: String,
 }
 
 impl GetCollectionRequest {
     pub fn try_new(
         tenant_id: String,
-        database_name: String,
+        database_name: DatabaseName,
         collection_name: String,
     ) -> Result<Self, ChromaValidationError> {
         let request = Self {
@@ -711,7 +711,7 @@ impl ChromaError for GetCollectionError {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct CreateCollectionRequest {
     pub tenant_id: String,
-    pub database_name: String,
+    pub database_name: DatabaseName,
     #[validate(custom(function = "validate_name"))]
     pub name: String,
     #[validate(custom(function = "validate_optional_metadata"))]
@@ -725,7 +725,7 @@ pub struct CreateCollectionRequest {
 impl CreateCollectionRequest {
     pub fn try_new(
         tenant_id: String,
-        database_name: String,
+        database_name: DatabaseName,
         name: String,
         metadata: Option<Metadata>,
         configuration: Option<InternalCollectionConfiguration>,
@@ -919,6 +919,7 @@ pub enum CollectionMetadataUpdate {
 #[derive(Clone, Validate, Debug, Serialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct UpdateCollectionRequest {
+    pub database_name: Option<DatabaseName>,
     pub collection_id: CollectionUuid,
     #[validate(custom(function = "validate_name"))]
     pub new_name: Option<String>,
@@ -929,12 +930,14 @@ pub struct UpdateCollectionRequest {
 
 impl UpdateCollectionRequest {
     pub fn try_new(
+        database_name: Option<DatabaseName>,
         collection_id: CollectionUuid,
         new_name: Option<String>,
         new_metadata: Option<CollectionMetadataUpdate>,
         new_configuration: Option<InternalUpdateCollectionConfiguration>,
     ) -> Result<Self, ChromaValidationError> {
         let request = Self {
+            database_name,
             collection_id,
             new_name,
             new_metadata,
@@ -1114,6 +1117,8 @@ pub enum ForkCollectionError {
     DuplicateSegment,
     #[error("Missing field: [{0}]")]
     Field(String),
+    #[error("Invalid argument: {0}")]
+    InvalidArgument(String),
     #[error("Collection forking is unsupported for local chroma")]
     Local,
     #[error(transparent)]
@@ -1134,6 +1139,7 @@ impl ChromaError for ForkCollectionError {
             ForkCollectionError::CollectionConversionError(e) => e.code(),
             ForkCollectionError::DuplicateSegment => ErrorCodes::Internal,
             ForkCollectionError::Field(_) => ErrorCodes::FailedPrecondition,
+            ForkCollectionError::InvalidArgument(_) => ErrorCodes::InvalidArgument,
             ForkCollectionError::Local => ErrorCodes::Unimplemented,
             ForkCollectionError::Internal(e) => e.code(),
             ForkCollectionError::SegmentConversionError(e) => e.code(),
@@ -1224,10 +1230,17 @@ pub const CHROMA_URI_KEY: &str = "chroma:uri";
 
 ////////////////////////// AddCollectionRecords //////////////////////////
 
+/// Payload for adding records to a collection.
+///
+/// Records are added in batches. All arrays must have the same length, with each index
+/// representing a single record. For example, `ids[0]`, `embeddings[0]`, `documents[0]`, etc.
+/// all belong to the same record.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct AddCollectionRecordsPayload {
+    /// Unique identifiers for each record.
     pub ids: Vec<String>,
+    /// Embeddings for each record. Can contain the raw f32 arrays or base64 encoded strings.
     pub embeddings: EmbeddingsPayload,
     pub documents: Option<Vec<Option<String>>>,
     pub uris: Option<Vec<Option<String>>>,
@@ -1323,6 +1336,8 @@ pub enum AddCollectionRecordsError {
     Collection(#[from] GetCollectionError),
     #[error("Backoff and retry")]
     Backoff,
+    #[error("Invalid database name")]
+    InvalidDatabaseName,
     #[error(transparent)]
     Other(#[from] Box<dyn ChromaError>),
 }
@@ -1332,6 +1347,7 @@ impl ChromaError for AddCollectionRecordsError {
         match self {
             AddCollectionRecordsError::Collection(err) => err.code(),
             AddCollectionRecordsError::Backoff => ErrorCodes::ResourceExhausted,
+            AddCollectionRecordsError::InvalidDatabaseName => ErrorCodes::InvalidArgument,
             AddCollectionRecordsError::Other(err) => err.code(),
         }
     }
@@ -1339,10 +1355,16 @@ impl ChromaError for AddCollectionRecordsError {
 
 ////////////////////////// UpdateCollectionRecords //////////////////////////
 
+/// Payload for updating existing records in a collection.
+///
+/// Records are added in batches. All arrays must have the same length, with each index
+/// representing a single record. For example, `ids[0]`, `embeddings[0]`, `documents[0]`, etc.
+/// all belong to the same record.
 #[derive(Deserialize, Debug, Clone, Serialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct UpdateCollectionRecordsPayload {
     pub ids: Vec<String>,
+    /// Updated embeddings for each record. Can contain the raw f32 arrays or base64 encoded strings.
     pub embeddings: Option<UpdateEmbeddingsPayload>,
     pub documents: Option<Vec<Option<String>>>,
     pub uris: Option<Vec<Option<String>>>,
@@ -1409,6 +1431,8 @@ pub struct UpdateCollectionRecordsResponse {}
 pub enum UpdateCollectionRecordsError {
     #[error("Backoff and retry")]
     Backoff,
+    #[error("Invalid database name")]
+    InvalidDatabaseName,
     #[error(transparent)]
     Other(#[from] Box<dyn ChromaError>),
 }
@@ -1417,6 +1441,7 @@ impl ChromaError for UpdateCollectionRecordsError {
     fn code(&self) -> ErrorCodes {
         match self {
             UpdateCollectionRecordsError::Backoff => ErrorCodes::ResourceExhausted,
+            UpdateCollectionRecordsError::InvalidDatabaseName => ErrorCodes::InvalidArgument,
             UpdateCollectionRecordsError::Other(err) => err.code(),
         }
     }
@@ -1424,10 +1449,17 @@ impl ChromaError for UpdateCollectionRecordsError {
 
 ////////////////////////// UpsertCollectionRecords //////////////////////////
 
+/// Payload for upserting records in a collection.
+///
+/// Upsert creates records if they don't exist, or updates them if they do.
+/// Records are added in batches. All arrays must have the same length, with each index
+/// representing a single record. For example, `ids[0]`, `embeddings[0]`, `documents[0]`, etc.
+/// all belong to the same record.
 #[derive(Deserialize, Debug, Clone, Serialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct UpsertCollectionRecordsPayload {
     pub ids: Vec<String>,
+    /// Embeddings for each record. Can contain the raw f32 arrays or base64 encoded strings.
     pub embeddings: EmbeddingsPayload,
     pub documents: Option<Vec<Option<String>>>,
     pub uris: Option<Vec<Option<String>>>,
@@ -1495,6 +1527,8 @@ pub struct UpsertCollectionRecordsResponse {}
 pub enum UpsertCollectionRecordsError {
     #[error("Backoff and retry")]
     Backoff,
+    #[error("Invalid database name")]
+    InvalidDatabaseName,
     #[error(transparent)]
     Other(#[from] Box<dyn ChromaError>),
 }
@@ -1503,6 +1537,7 @@ impl ChromaError for UpsertCollectionRecordsError {
     fn code(&self) -> ErrorCodes {
         match self {
             UpsertCollectionRecordsError::Backoff => ErrorCodes::ResourceExhausted,
+            UpsertCollectionRecordsError::InvalidDatabaseName => ErrorCodes::InvalidArgument,
             UpsertCollectionRecordsError::Other(err) => err.code(),
         }
     }
@@ -1510,6 +1545,10 @@ impl ChromaError for UpsertCollectionRecordsError {
 
 ////////////////////////// DeleteCollectionRecords //////////////////////////
 
+/// Payload for deleting records from a collection.
+///
+/// Records can be deleted by their IDs or by a metadata filter. At least one of `ids` or `where`
+/// must be provided.
 #[derive(Deserialize, Debug, Clone, Serialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct DeleteCollectionRecordsPayload {
@@ -1579,6 +1618,8 @@ pub enum DeleteCollectionRecordsError {
     Get(#[from] ExecutorError),
     #[error("Backoff and retry")]
     Backoff,
+    #[error("Invalid database name")]
+    InvalidDatabaseName,
     #[error(transparent)]
     Internal(#[from] Box<dyn ChromaError>),
 }
@@ -1588,6 +1629,7 @@ impl ChromaError for DeleteCollectionRecordsError {
         match self {
             DeleteCollectionRecordsError::Get(err) => err.code(),
             DeleteCollectionRecordsError::Backoff => ErrorCodes::ResourceExhausted,
+            DeleteCollectionRecordsError::InvalidDatabaseName => ErrorCodes::InvalidArgument,
             DeleteCollectionRecordsError::Internal(err) => err.code(),
         }
     }
@@ -1605,6 +1647,7 @@ impl ChromaError for IncludeParsingError {
     }
 }
 
+/// Use this enum to specify which fields should be returned when retrieving records.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub enum Include {
@@ -1724,6 +1767,8 @@ pub enum WhereError {
 
 ////////////////////////// Get //////////////////////////
 
+/// Records can be retrieved by their IDs or by a metadata filter. At least one of `ids` or `where`
+/// must be provided. Use `include` to specify which fields to return in the response.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct GetRequestPayload {
@@ -1792,6 +1837,8 @@ impl GetRequest {
     }
 }
 
+/// All arrays have the same length, with each index representing a single record.
+/// Only fields specified in the request's `include` parameter are populated.
 #[derive(Clone, Deserialize, Serialize, Debug, Default)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "pyo3", pyo3::pyclass)]
@@ -1800,8 +1847,8 @@ pub struct GetResponse {
     pub embeddings: Option<Vec<Vec<f32>>>,
     pub documents: Option<Vec<Option<String>>>,
     pub uris: Option<Vec<Option<String>>>,
-    // TODO(hammadb): Add metadata & include to the response
     pub metadatas: Option<Vec<Option<Metadata>>>,
+    /// List of fields that were included in this response.
     pub include: Vec<Include>,
 }
 
@@ -2163,8 +2210,7 @@ impl From<(KnnBatchResult, IncludeList)> for QueryResponse {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct SearchRequestPayload {
     pub searches: Vec<SearchPayload>,
-    /// Specifies the read level for consistency vs performance tradeoffs.
-    /// Defaults to IndexAndWal (full consistency).
+    /// Specifies whether to include unindexed data in the search results.
     #[serde(default)]
     pub read_level: ReadLevel,
 }
@@ -2400,8 +2446,11 @@ impl AttachFunctionRequest {
 #[derive(Clone, Debug, Serialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct AttachedFunctionInfo {
+    /// Unique identifier for the attached function.
     pub id: String,
+    /// Human-readable name for the attached function instance.
     pub name: String,
+    /// Name of the function (e.g., "record_counter", "statistics").
     pub function_name: String,
 }
 
@@ -2409,7 +2458,7 @@ pub struct AttachedFunctionInfo {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct AttachFunctionResponse {
     pub attached_function: AttachedFunctionInfo,
-    /// True if newly created, false if already existed (idempotent request)
+    /// True if newly created, false if already existed (idempotent request).
     pub created: bool,
 }
 
@@ -2540,7 +2589,7 @@ impl ChromaError for GetAttachedFunctionError {
 #[derive(Clone, Debug, Deserialize, Validate, Serialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct DetachFunctionRequest {
-    /// Whether to delete the output collection as well
+    /// Whether to delete the output collection as well when detaching the function.
     #[serde(default)]
     pub delete_output: bool,
 }
@@ -2587,8 +2636,10 @@ mod test {
 
     #[test]
     fn test_create_database_min_length() {
-        let request = CreateDatabaseRequest::try_new("default_tenant".to_string(), "a".to_string());
-        assert!(request.is_err());
+        // DatabaseName requires at least 3 characters
+        assert!(DatabaseName::new("a").is_none());
+        assert!(DatabaseName::new("ab").is_none());
+        assert!(DatabaseName::new("abc").is_some());
     }
 
     #[test]

@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -100,6 +100,14 @@ Dispatcher::config_finalize ()
 {
   if (mp_delegate) {
     return mp_delegate->config_finalize ();
+  }
+}
+
+void
+Dispatcher::function (const std::string &symbol, const std::string &args)
+{
+  if (mp_delegate) {
+    mp_delegate->function (symbol, args);
   }
 }
 

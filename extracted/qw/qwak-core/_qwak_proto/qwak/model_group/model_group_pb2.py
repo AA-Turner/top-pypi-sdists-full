@@ -15,7 +15,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 from _qwak_proto.qwak.model_group import model_group_repository_details_pb2 as qwak_dot_model__group_dot_model__group__repository__details__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\"qwak/model_group/model_group.proto\x12\x1cqwak.model_groups.management\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x35qwak/model_group/model_group_repository_details.proto\"\xa3\x01\n)GetModelGroupSystemPullImageSecretRequest\x12v\n*model_group_system_pull_secret_identifiers\x18\x01 \x03(\x0b\x32\x42.qwak.model_groups.management.ModelGroupSystemPullSecretIdentifier\"p\n$ModelGroupSystemPullSecretIdentifier\x12\x1a\n\x10model_group_name\x18\x01 \x01(\tH\x00\x12\x12\n\naccount_id\x18\x02 \x01(\tB\x18\n\x16model_group_identifier\"m\n!SystemPullSecretInfoNamesResponse\x12H\n\x0csecret_infos\x18\x01 \x03(\x0b\x32\x32.qwak.model_groups.management.SystemPullSecretInfo\"_\n\x14SystemPullSecretInfo\x12\x18\n\x10model_group_name\x18\x01 \x01(\t\x12\x19\n\x11secret_pull_image\x18\x02 \x01(\t\x12\x12\n\naccount_id\x18\x03 \x01(\t\"Y\n\"CreateIfNotExistsModelGroupRequest\x12\x18\n\x10model_group_name\x18\x01 \x01(\t\x12\x19\n\x11jfrog_project_key\x18\x02 \x01(\t\"\xdf\x01\n\x1bModelGroupBriefInfoResponse\x12\x16\n\x0emodel_group_id\x18\x01 \x01(\t\x12\x1f\n\x17model_group_description\x18\x02 \x01(\t\x12:\n\x16model_group_created_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12K\n\x12repository_details\x18\x04 \x03(\x0b\x32/.qwak.model_groups.management.RepositoryDetails\"\x95\x01\n&CreateRepositoriesForModelGroupRequest\x12\x18\n\x10model_group_uuid\x18\x01 \x01(\t\x12Q\n\x12repository_details\x18\x02 \x03(\x0b\x32\x35.qwak.model_groups.management.RemoteRepositoryDetails\"\x82\x01\n\'CreateRepositoriesForModelGroupResponse\x12W\n\x1e\x61rtifactory_repository_details\x18\x01 \x03(\x0b\x32/.qwak.model_groups.management.RepositoryDetails\"O\n\x18GetModelGroupInfoRequest\x12\x18\n\x10model_group_name\x18\x01 \x01(\t\x12\x19\n\x11jfrog_project_key\x18\x02 \x01(\t2\xa5\x05\n\x1bModelGroupManagementService\x12\x9a\x01\n\x1b\x43reateIfNotExistsModelGroup\x12@.qwak.model_groups.management.CreateIfNotExistsModelGroupRequest\x1a\x39.qwak.model_groups.management.ModelGroupBriefInfoResponse\x12\xae\x01\n\x1f\x43reateRepositoriesForModelGroup\x12\x44.qwak.model_groups.management.CreateRepositoriesForModelGroupRequest\x1a\x45.qwak.model_groups.management.CreateRepositoriesForModelGroupResponse\x12\x86\x01\n\x11GetModelGroupInfo\x12\x36.qwak.model_groups.management.GetModelGroupInfoRequest\x1a\x39.qwak.model_groups.management.ModelGroupBriefInfoResponse\x12\xae\x01\n\"GetModelGroupSystemPullImageSecret\x12G.qwak.model_groups.management.GetModelGroupSystemPullImageSecretRequest\x1a?.qwak.model_groups.management.SystemPullSecretInfoNamesResponseBL\n&com.qwak.ai.management.model.group.apiB ModelGroupManagementServiceProtoP\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\"qwak/model_group/model_group.proto\x12\x1cqwak.model_groups.management\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x35qwak/model_group/model_group_repository_details.proto\"<\n\"MigrateAccountSystemSecretsRequest\x12\x16\n\x0emodel_group_id\x18\x01 \x01(\t\"7\n#MigrateAccountSystemSecretsResponse\x12\x10\n\x08migrated\x18\x01 \x01(\x08\"\xa3\x01\n)GetModelGroupSystemPullImageSecretRequest\x12v\n*model_group_system_pull_secret_identifiers\x18\x01 \x03(\x0b\x32\x42.qwak.model_groups.management.ModelGroupSystemPullSecretIdentifier\"p\n$ModelGroupSystemPullSecretIdentifier\x12\x1a\n\x10model_group_name\x18\x01 \x01(\tH\x00\x12\x12\n\naccount_id\x18\x02 \x01(\tB\x18\n\x16model_group_identifier\"m\n!SystemPullSecretInfoNamesResponse\x12H\n\x0csecret_infos\x18\x01 \x03(\x0b\x32\x32.qwak.model_groups.management.SystemPullSecretInfo\"_\n\x14SystemPullSecretInfo\x12\x18\n\x10model_group_name\x18\x01 \x01(\t\x12\x19\n\x11secret_pull_image\x18\x02 \x01(\t\x12\x12\n\naccount_id\x18\x03 \x01(\t\"Y\n\"CreateIfNotExistsModelGroupRequest\x12\x18\n\x10model_group_name\x18\x01 \x01(\t\x12\x19\n\x11jfrog_project_key\x18\x02 \x01(\t\"\xdf\x01\n\x1bModelGroupBriefInfoResponse\x12\x16\n\x0emodel_group_id\x18\x01 \x01(\t\x12\x1f\n\x17model_group_description\x18\x02 \x01(\t\x12:\n\x16model_group_created_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12K\n\x12repository_details\x18\x04 \x03(\x0b\x32/.qwak.model_groups.management.RepositoryDetails\"\x95\x01\n&CreateRepositoriesForModelGroupRequest\x12\x18\n\x10model_group_uuid\x18\x01 \x01(\t\x12Q\n\x12repository_details\x18\x02 \x03(\x0b\x32\x35.qwak.model_groups.management.RemoteRepositoryDetails\"\x82\x01\n\'CreateRepositoriesForModelGroupResponse\x12W\n\x1e\x61rtifactory_repository_details\x18\x01 \x03(\x0b\x32/.qwak.model_groups.management.RepositoryDetails\"O\n\x18GetModelGroupInfoRequest\x12\x18\n\x10model_group_name\x18\x01 \x01(\t\x12\x19\n\x11jfrog_project_key\x18\x02 \x01(\t2\xca\x06\n\x1bModelGroupManagementService\x12\x9a\x01\n\x1b\x43reateIfNotExistsModelGroup\x12@.qwak.model_groups.management.CreateIfNotExistsModelGroupRequest\x1a\x39.qwak.model_groups.management.ModelGroupBriefInfoResponse\x12\xae\x01\n\x1f\x43reateRepositoriesForModelGroup\x12\x44.qwak.model_groups.management.CreateRepositoriesForModelGroupRequest\x1a\x45.qwak.model_groups.management.CreateRepositoriesForModelGroupResponse\x12\x86\x01\n\x11GetModelGroupInfo\x12\x36.qwak.model_groups.management.GetModelGroupInfoRequest\x1a\x39.qwak.model_groups.management.ModelGroupBriefInfoResponse\x12\xae\x01\n\"GetModelGroupSystemPullImageSecret\x12G.qwak.model_groups.management.GetModelGroupSystemPullImageSecretRequest\x1a?.qwak.model_groups.management.SystemPullSecretInfoNamesResponse\x12\xa2\x01\n\x1bMigrateAccountSystemSecrets\x12@.qwak.model_groups.management.MigrateAccountSystemSecretsRequest\x1a\x41.qwak.model_groups.management.MigrateAccountSystemSecretsResponseBL\n&com.qwak.ai.management.model.group.apiB ModelGroupManagementServiceProtoP\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -24,24 +24,28 @@ if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n&com.qwak.ai.management.model.group.apiB ModelGroupManagementServiceProtoP\001'
-  _globals['_GETMODELGROUPSYSTEMPULLIMAGESECRETREQUEST']._serialized_start=157
-  _globals['_GETMODELGROUPSYSTEMPULLIMAGESECRETREQUEST']._serialized_end=320
-  _globals['_MODELGROUPSYSTEMPULLSECRETIDENTIFIER']._serialized_start=322
-  _globals['_MODELGROUPSYSTEMPULLSECRETIDENTIFIER']._serialized_end=434
-  _globals['_SYSTEMPULLSECRETINFONAMESRESPONSE']._serialized_start=436
-  _globals['_SYSTEMPULLSECRETINFONAMESRESPONSE']._serialized_end=545
-  _globals['_SYSTEMPULLSECRETINFO']._serialized_start=547
-  _globals['_SYSTEMPULLSECRETINFO']._serialized_end=642
-  _globals['_CREATEIFNOTEXISTSMODELGROUPREQUEST']._serialized_start=644
-  _globals['_CREATEIFNOTEXISTSMODELGROUPREQUEST']._serialized_end=733
-  _globals['_MODELGROUPBRIEFINFORESPONSE']._serialized_start=736
-  _globals['_MODELGROUPBRIEFINFORESPONSE']._serialized_end=959
-  _globals['_CREATEREPOSITORIESFORMODELGROUPREQUEST']._serialized_start=962
-  _globals['_CREATEREPOSITORIESFORMODELGROUPREQUEST']._serialized_end=1111
-  _globals['_CREATEREPOSITORIESFORMODELGROUPRESPONSE']._serialized_start=1114
-  _globals['_CREATEREPOSITORIESFORMODELGROUPRESPONSE']._serialized_end=1244
-  _globals['_GETMODELGROUPINFOREQUEST']._serialized_start=1246
-  _globals['_GETMODELGROUPINFOREQUEST']._serialized_end=1325
-  _globals['_MODELGROUPMANAGEMENTSERVICE']._serialized_start=1328
-  _globals['_MODELGROUPMANAGEMENTSERVICE']._serialized_end=2005
+  _globals['_MIGRATEACCOUNTSYSTEMSECRETSREQUEST']._serialized_start=156
+  _globals['_MIGRATEACCOUNTSYSTEMSECRETSREQUEST']._serialized_end=216
+  _globals['_MIGRATEACCOUNTSYSTEMSECRETSRESPONSE']._serialized_start=218
+  _globals['_MIGRATEACCOUNTSYSTEMSECRETSRESPONSE']._serialized_end=273
+  _globals['_GETMODELGROUPSYSTEMPULLIMAGESECRETREQUEST']._serialized_start=276
+  _globals['_GETMODELGROUPSYSTEMPULLIMAGESECRETREQUEST']._serialized_end=439
+  _globals['_MODELGROUPSYSTEMPULLSECRETIDENTIFIER']._serialized_start=441
+  _globals['_MODELGROUPSYSTEMPULLSECRETIDENTIFIER']._serialized_end=553
+  _globals['_SYSTEMPULLSECRETINFONAMESRESPONSE']._serialized_start=555
+  _globals['_SYSTEMPULLSECRETINFONAMESRESPONSE']._serialized_end=664
+  _globals['_SYSTEMPULLSECRETINFO']._serialized_start=666
+  _globals['_SYSTEMPULLSECRETINFO']._serialized_end=761
+  _globals['_CREATEIFNOTEXISTSMODELGROUPREQUEST']._serialized_start=763
+  _globals['_CREATEIFNOTEXISTSMODELGROUPREQUEST']._serialized_end=852
+  _globals['_MODELGROUPBRIEFINFORESPONSE']._serialized_start=855
+  _globals['_MODELGROUPBRIEFINFORESPONSE']._serialized_end=1078
+  _globals['_CREATEREPOSITORIESFORMODELGROUPREQUEST']._serialized_start=1081
+  _globals['_CREATEREPOSITORIESFORMODELGROUPREQUEST']._serialized_end=1230
+  _globals['_CREATEREPOSITORIESFORMODELGROUPRESPONSE']._serialized_start=1233
+  _globals['_CREATEREPOSITORIESFORMODELGROUPRESPONSE']._serialized_end=1363
+  _globals['_GETMODELGROUPINFOREQUEST']._serialized_start=1365
+  _globals['_GETMODELGROUPINFOREQUEST']._serialized_end=1444
+  _globals['_MODELGROUPMANAGEMENTSERVICE']._serialized_start=1447
+  _globals['_MODELGROUPMANAGEMENTSERVICE']._serialized_end=2289
 # @@protoc_insertion_point(module_scope)

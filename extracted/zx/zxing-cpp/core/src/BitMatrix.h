@@ -18,7 +18,6 @@
 namespace ZXing {
 
 class BitArray;
-class ByteMatrix;
 
 /**
  * @brief A simple, fast 2D array of bits.
@@ -33,7 +32,6 @@ class BitMatrix
 	// There is nothing wrong to support this but disable to make it explicit since we may copy something very big here.
 	// Use copy() below.
 	BitMatrix(const BitMatrix&) = default;
-	BitMatrix& operator=(const BitMatrix&) = delete;
 
 	const data_t& get(int i) const
 	{
@@ -69,6 +67,7 @@ public:
 
 	BitMatrix(BitMatrix&& other) noexcept = default;
 	BitMatrix& operator=(BitMatrix&& other) noexcept = default;
+	BitMatrix& operator=(const BitMatrix&) = delete;
 
 	BitMatrix copy() const { return *this; }
 
@@ -161,7 +160,7 @@ BitMatrix Inflate(BitMatrix&& input, int width, int height, int quietZone);
 
 /**
  * @brief Deflate (crop + subsample) a bit matrix
- * @param input matrix to be shrinked
+ * @param input matrix to be shrunk
  * @param width new width
  * @param height new height
  * @param top cropping starts at top row

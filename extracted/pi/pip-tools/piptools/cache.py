@@ -4,7 +4,8 @@ import json
 import os
 import platform
 import sys
-from typing import Dict, Iterable, List, Tuple, cast
+import typing as _t
+from collections.abc import Iterable
 
 from pip._internal.req import InstallRequirement
 from pip._vendor.packaging.requirements import Requirement
@@ -12,9 +13,9 @@ from pip._vendor.packaging.requirements import Requirement
 from .exceptions import PipToolsError
 from .utils import as_tuple, key_from_req, lookup_table_from_tuples
 
-CacheKey = Tuple[str, str]
-CacheLookup = Dict[str, List[str]]
-CacheDict = Dict[str, CacheLookup]
+CacheKey = tuple[str, str]
+CacheLookup = dict[str, list[str]]
+CacheDict = dict[str, CacheLookup]
 
 _PEP425_PY_TAGS = {"cpython": "cp", "pypy": "pp", "ironpython": "ip", "jython": "jy"}
 
@@ -54,7 +55,7 @@ def read_cache_file(cache_file_path: str) -> CacheDict:
         # Check version and load the contents
         if doc["__format__"] != 1:
             raise ValueError("Unknown cache file format")
-        return cast(CacheDict, doc["dependencies"])
+        return _t.cast(CacheDict, doc["dependencies"])
 
 
 class DependencyCache:

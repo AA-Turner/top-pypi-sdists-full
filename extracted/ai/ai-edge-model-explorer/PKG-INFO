@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-edge-model-explorer
-Version: 0.1.31
+Version: 0.1.32
 Summary: A modern model graph visualizer and debugger
 Author-email: Google LLC <opensource@google.com>
 Classifier: Programming Language :: Python :: 3.9

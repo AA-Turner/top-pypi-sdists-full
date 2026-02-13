@@ -1,2 +1,0 @@
-import{r as e}from"./rolldown-runtime-DCMCV6zW.js";import{n as t}from"./types-BW--Ya-K.js";function electronAPI(){return window.electronAPI}function showNativeSystemMenu(){electronAPI()?.showContextMenu()}function isNativeWindow(){return t&&!!window.navigator.windowControlsOverlay?.visible}export{isNativeWindow as n,showNativeSystemMenu as r,electronAPI as t};
-//# sourceMappingURL=envUtil-DSZYuNaL.js.map

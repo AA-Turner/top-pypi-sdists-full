@@ -34,6 +34,7 @@ class SqlTableArgs:
                  owner: Optional[pulumi.Input[_builtins.str]] = None,
                  partitions: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  properties: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 provider_config: Optional[pulumi.Input['SqlTableProviderConfigArgs']] = None,
                  storage_credential_name: Optional[pulumi.Input[_builtins.str]] = None,
                  storage_location: Optional[pulumi.Input[_builtins.str]] = None,
                  view_definition: Optional[pulumi.Input[_builtins.str]] = None,
@@ -43,6 +44,7 @@ class SqlTableArgs:
         :param pulumi.Input[_builtins.str] catalog_name: Name of parent catalog. Change forces the creation of a new resource.
         :param pulumi.Input[_builtins.str] schema_name: Name of parent Schema relative to parent Catalog. Change forces the creation of a new resource.
         :param pulumi.Input[_builtins.str] table_type: Distinguishes a view vs. managed/external Table. `MANAGED`, `EXTERNAL` or `VIEW`. Change forces the creation of a new resource.
+        :param pulumi.Input[_builtins.str] cluster_id: All table CRUD operations must be executed on a running cluster or SQL warehouse. If a cluster_id is specified, it will be used to execute SQL commands to manage this table. If empty, a cluster will be created automatically with the name `terraform-sql-table`. Conflicts with `warehouse_id`.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] cluster_keys: a subset of columns to liquid cluster the table by. For automatic clustering, set `cluster_keys` to `["AUTO"]`. To turn off clustering, set it to `["NONE"]`. Conflicts with `partitions`.
         :param pulumi.Input[_builtins.str] comment: User-supplied free-form text. Changing the comment is not currently supported on the `VIEW` table type.
         :param pulumi.Input[_builtins.str] data_source_format: External tables are supported in multiple data source formats. The string constants identifying these formats are `DELTA`, `CSV`, `JSON`, `AVRO`, `PARQUET`, `ORC`, and `TEXT`. Change forces the creation of a new resource. Not supported for `MANAGED` tables or `VIEW`.
@@ -51,6 +53,7 @@ class SqlTableArgs:
         :param pulumi.Input[_builtins.str] owner: User name/group name/sp application_id of the table owner.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] partitions: a subset of columns to partition the table by. Change forces the creation of a new resource. Conflicts with `cluster_keys`.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] properties: A map of table properties.
+        :param pulumi.Input['SqlTableProviderConfigArgs'] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] storage_credential_name: For EXTERNAL Tables only: the name of storage credential to use. Change forces the creation of a new resource.
         :param pulumi.Input[_builtins.str] storage_location: URL of storage location for Table data (required for EXTERNAL Tables).  If the URL contains special characters, such as space, `&`, etc., they should be percent-encoded (space > `%20`, etc.).  Not supported for `VIEW` or `MANAGED` table_type.
         :param pulumi.Input[_builtins.str] view_definition: SQL text defining the view (for `table_type == "VIEW"`). Not supported for `MANAGED` or `EXTERNAL` table_type.
@@ -79,6 +82,8 @@ class SqlTableArgs:
             pulumi.set(__self__, "partitions", partitions)
         if properties is not None:
             pulumi.set(__self__, "properties", properties)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
         if storage_credential_name is not None:
             pulumi.set(__self__, "storage_credential_name", storage_credential_name)
         if storage_location is not None:
@@ -127,6 +132,9 @@ class SqlTableArgs:
     @_builtins.property
     @pulumi.getter(name="clusterId")
     def cluster_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        All table CRUD operations must be executed on a running cluster or SQL warehouse. If a cluster_id is specified, it will be used to execute SQL commands to manage this table. If empty, a cluster will be created automatically with the name `terraform-sql-table`. Conflicts with `warehouse_id`.
+        """
         return pulumi.get(self, "cluster_id")
 
     @cluster_id.setter
@@ -239,6 +247,18 @@ class SqlTableArgs:
         pulumi.set(self, "properties", value)
 
     @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional[pulumi.Input['SqlTableProviderConfigArgs']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
+
+    @provider_config.setter
+    def provider_config(self, value: Optional[pulumi.Input['SqlTableProviderConfigArgs']]):
+        pulumi.set(self, "provider_config", value)
+
+    @_builtins.property
     @pulumi.getter(name="storageCredentialName")
     def storage_credential_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -302,6 +322,7 @@ class _SqlTableState:
                  owner: Optional[pulumi.Input[_builtins.str]] = None,
                  partitions: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  properties: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 provider_config: Optional[pulumi.Input['SqlTableProviderConfigArgs']] = None,
                  schema_name: Optional[pulumi.Input[_builtins.str]] = None,
                  storage_credential_name: Optional[pulumi.Input[_builtins.str]] = None,
                  storage_location: Optional[pulumi.Input[_builtins.str]] = None,
@@ -312,6 +333,7 @@ class _SqlTableState:
         """
         Input properties used for looking up and filtering SqlTable resources.
         :param pulumi.Input[_builtins.str] catalog_name: Name of parent catalog. Change forces the creation of a new resource.
+        :param pulumi.Input[_builtins.str] cluster_id: All table CRUD operations must be executed on a running cluster or SQL warehouse. If a cluster_id is specified, it will be used to execute SQL commands to manage this table. If empty, a cluster will be created automatically with the name `terraform-sql-table`. Conflicts with `warehouse_id`.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] cluster_keys: a subset of columns to liquid cluster the table by. For automatic clustering, set `cluster_keys` to `["AUTO"]`. To turn off clustering, set it to `["NONE"]`. Conflicts with `partitions`.
         :param pulumi.Input[_builtins.str] comment: User-supplied free-form text. Changing the comment is not currently supported on the `VIEW` table type.
         :param pulumi.Input[_builtins.str] data_source_format: External tables are supported in multiple data source formats. The string constants identifying these formats are `DELTA`, `CSV`, `JSON`, `AVRO`, `PARQUET`, `ORC`, and `TEXT`. Change forces the creation of a new resource. Not supported for `MANAGED` tables or `VIEW`.
@@ -320,6 +342,7 @@ class _SqlTableState:
         :param pulumi.Input[_builtins.str] owner: User name/group name/sp application_id of the table owner.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] partitions: a subset of columns to partition the table by. Change forces the creation of a new resource. Conflicts with `cluster_keys`.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] properties: A map of table properties.
+        :param pulumi.Input['SqlTableProviderConfigArgs'] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] schema_name: Name of parent Schema relative to parent Catalog. Change forces the creation of a new resource.
         :param pulumi.Input[_builtins.str] storage_credential_name: For EXTERNAL Tables only: the name of storage credential to use. Change forces the creation of a new resource.
         :param pulumi.Input[_builtins.str] storage_location: URL of storage location for Table data (required for EXTERNAL Tables).  If the URL contains special characters, such as space, `&`, etc., they should be percent-encoded (space > `%20`, etc.).  Not supported for `VIEW` or `MANAGED` table_type.
@@ -352,6 +375,8 @@ class _SqlTableState:
             pulumi.set(__self__, "partitions", partitions)
         if properties is not None:
             pulumi.set(__self__, "properties", properties)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
         if schema_name is not None:
             pulumi.set(__self__, "schema_name", schema_name)
         if storage_credential_name is not None:
@@ -382,6 +407,9 @@ class _SqlTableState:
     @_builtins.property
     @pulumi.getter(name="clusterId")
     def cluster_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        All table CRUD operations must be executed on a running cluster or SQL warehouse. If a cluster_id is specified, it will be used to execute SQL commands to manage this table. If empty, a cluster will be created automatically with the name `terraform-sql-table`. Conflicts with `warehouse_id`.
+        """
         return pulumi.get(self, "cluster_id")
 
     @cluster_id.setter
@@ -503,6 +531,18 @@ class _SqlTableState:
         pulumi.set(self, "properties", value)
 
     @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional[pulumi.Input['SqlTableProviderConfigArgs']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
+
+    @provider_config.setter
+    def provider_config(self, value: Optional[pulumi.Input['SqlTableProviderConfigArgs']]):
+        pulumi.set(self, "provider_config", value)
+
+    @_builtins.property
     @pulumi.getter(name="schemaName")
     def schema_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -604,6 +644,7 @@ class SqlTable(pulumi.CustomResource):
                  owner: Optional[pulumi.Input[_builtins.str]] = None,
                  partitions: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  properties: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 provider_config: Optional[pulumi.Input[Union['SqlTableProviderConfigArgs', 'SqlTableProviderConfigArgsDict']]] = None,
                  schema_name: Optional[pulumi.Input[_builtins.str]] = None,
                  storage_credential_name: Optional[pulumi.Input[_builtins.str]] = None,
                  storage_location: Optional[pulumi.Input[_builtins.str]] = None,
@@ -612,31 +653,202 @@ class SqlTable(pulumi.CustomResource):
                  warehouse_id: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
-        ## Import
+        Within a metastore, Unity Catalog provides a 3-level namespace for organizing data: Catalogs, databases (also called schemas), and tables/views.
 
-        This resource can be imported by its full name:
+        A `SqlTable` is contained within databricks_schema, and can represent either a managed table, an external table, or a view.
 
-        hcl
+        This resource creates and updates the Unity Catalog table/view by executing the necessary SQL queries on a special auto-terminating cluster it would create for this operation. You could also specify a SQL warehouse or cluster for the queries to be executed on.
 
-        import {
+        > This resource can only be used with a workspace-level provider!
 
-          to = databricks_sql_table.this
+        > This resource doesn't handle complex cases of schema evolution due to the limitations of Pulumi itself.  If you need to implement schema evolution it's recommended to use specialized tools, such as, [Liquibase](https://medium.com/dbsql-sme-engineering/advanced-schema-management-on-databricks-with-liquibase-1900e9f7b9c0) and [Flyway](https://medium.com/dbsql-sme-engineering/databricks-schema-management-with-flyway-527c4a9f5d67).
 
-          id = "<catalog_name>.<schema_name>.<name>"
+        ## Example Usage
 
-        }
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+        import pulumi_std as std
 
-        Alternatively, when using `terraform` version 1.4 or earlier, import using the `pulumi import` command:
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/sqlTable:SqlTable this "<catalog_name>.<schema_name>.<name>"
+        sandbox = databricks.Catalog("sandbox",
+            name="sandbox",
+            comment="this catalog is managed by terraform",
+            properties={
+                "purpose": "testing",
+            })
+        things = databricks.Schema("things",
+            catalog_name=sandbox.id,
+            name="things",
+            comment="this database is managed by terraform",
+            properties={
+                "kind": "various",
+            })
+        thing = databricks.SqlTable("thing",
+            name="quickstart_table",
+            catalog_name=sandbox.name,
+            schema_name=things.name,
+            table_type="MANAGED",
+            columns=[
+                {
+                    "name": "id",
+                    "type": "int",
+                },
+                {
+                    "name": "name",
+                    "type": "string",
+                    "comment": "name of thing",
+                },
+            ],
+            comment="this table is managed by terraform")
+        thing_view = databricks.SqlTable("thing_view",
+            name="quickstart_table_view",
+            catalog_name=sandbox.name,
+            schema_name=things.name,
+            table_type="VIEW",
+            cluster_id="0423-201305-xsrt82qn",
+            view_definition=std.format(input="SELECT name FROM %s WHERE id == 1",
+                args=[thing.id]).result,
+            comment="this view is managed by terraform")
         ```
+
+        ### Use an existing warehouse to create a table
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+        import pulumi_std as std
+
+        this = databricks.SqlEndpoint("this",
+            name="endpoint",
+            cluster_size="2X-Small",
+            max_num_clusters=1)
+        thing = databricks.SqlTable("thing",
+            name="quickstart_table",
+            catalog_name=sandbox["name"],
+            schema_name=things["name"],
+            table_type="MANAGED",
+            warehouse_id=this.id,
+            columns=[
+                {
+                    "name": "id",
+                    "type": "int",
+                },
+                {
+                    "name": "name",
+                    "type": "string",
+                    "comment": "name of thing",
+                },
+            ],
+            comment="this table is managed by terraform")
+        thing_view = databricks.SqlTable("thing_view",
+            name="quickstart_table_view",
+            catalog_name=sandbox["name"],
+            schema_name=things["name"],
+            table_type="VIEW",
+            warehouse_id=this.id,
+            view_definition=std.format(input="SELECT name FROM %s WHERE id == 1",
+                args=[thing.id]).result,
+            comment="this view is managed by terraform")
+        ```
+
+        ## Use an Identity Column
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        sandbox = databricks.Catalog("sandbox",
+            name="sandbox",
+            comment="this catalog is managed by terraform",
+            properties={
+                "purpose": "testing",
+            })
+        things = databricks.Schema("things",
+            catalog_name=sandbox.id,
+            name="things",
+            comment="this database is managed by terraform",
+            properties={
+                "kind": "various",
+            })
+        thing = databricks.SqlTable("thing",
+            name="identity_table",
+            catalog_name=sandbox.name,
+            schema_name=things.name,
+            table_type="MANAGED",
+            columns=[
+                {
+                    "name": "id",
+                    "type": "bigint",
+                    "identity": "default",
+                },
+                {
+                    "name": "name",
+                    "type": "string",
+                    "comment": "name of thing",
+                },
+            ],
+            comment="this table is managed by terraform")
+        ```
+
+        ## Enable automatic clustering
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        thing = databricks.SqlTable("thing",
+            name="auto_cluster_table",
+            catalog_name=sandbox["name"],
+            schema_name=things["name"],
+            table_type="MANAGED",
+            cluster_keys=["AUTO"],
+            columns=[{
+                "name": "name",
+                "type": "string",
+                "comment": "name of thing",
+            }],
+            comment="this table is managed by terraform")
+        ```
+
+        ## Migration from `Table`
+
+        The `Table` resource has been deprecated in favor of `SqlTable`. To migrate from `Table` to `SqlTable`:
+
+        1. Define a `SqlTable` resource with arguments corresponding to `Table`.
+        2. Add a `removed` block to remove the `Table` resource without deleting the existing table by using the `lifecycle` block. If you're using Pulumi version below v1.7.0, you will need to use the `terraform state rm` command instead.
+        3. Add an `import` block to add the `SqlTable` resource, corresponding to the existing table. If you're using Pulumi version below v1.5.0, you will need to use `pulumi import` command instead.
+
+        For example, suppose we have the following `Table` resource:
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        this = databricks.Table("this",
+            catalog_name="catalog",
+            schema_name="schema",
+            name="table",
+            table_type="MANAGED",
+            data_source_format="DELTA",
+            columns=[{
+                "name": "col1",
+                "type_name": "STRING",
+                "type_json": "{\\"type\\":\\"STRING\\"}",
+                "comment": "comment",
+                "nullable": True,
+            }],
+            comment="comment",
+            properties={
+                "key": "value",
+            })
+        ```
+
+        The migration would look like this:
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] catalog_name: Name of parent catalog. Change forces the creation of a new resource.
+        :param pulumi.Input[_builtins.str] cluster_id: All table CRUD operations must be executed on a running cluster or SQL warehouse. If a cluster_id is specified, it will be used to execute SQL commands to manage this table. If empty, a cluster will be created automatically with the name `terraform-sql-table`. Conflicts with `warehouse_id`.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] cluster_keys: a subset of columns to liquid cluster the table by. For automatic clustering, set `cluster_keys` to `["AUTO"]`. To turn off clustering, set it to `["NONE"]`. Conflicts with `partitions`.
         :param pulumi.Input[_builtins.str] comment: User-supplied free-form text. Changing the comment is not currently supported on the `VIEW` table type.
         :param pulumi.Input[_builtins.str] data_source_format: External tables are supported in multiple data source formats. The string constants identifying these formats are `DELTA`, `CSV`, `JSON`, `AVRO`, `PARQUET`, `ORC`, and `TEXT`. Change forces the creation of a new resource. Not supported for `MANAGED` tables or `VIEW`.
@@ -645,6 +857,7 @@ class SqlTable(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] owner: User name/group name/sp application_id of the table owner.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] partitions: a subset of columns to partition the table by. Change forces the creation of a new resource. Conflicts with `cluster_keys`.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] properties: A map of table properties.
+        :param pulumi.Input[Union['SqlTableProviderConfigArgs', 'SqlTableProviderConfigArgsDict']] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] schema_name: Name of parent Schema relative to parent Catalog. Change forces the creation of a new resource.
         :param pulumi.Input[_builtins.str] storage_credential_name: For EXTERNAL Tables only: the name of storage credential to use. Change forces the creation of a new resource.
         :param pulumi.Input[_builtins.str] storage_location: URL of storage location for Table data (required for EXTERNAL Tables).  If the URL contains special characters, such as space, `&`, etc., they should be percent-encoded (space > `%20`, etc.).  Not supported for `VIEW` or `MANAGED` table_type.
@@ -659,27 +872,197 @@ class SqlTable(pulumi.CustomResource):
                  args: SqlTableArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        ## Import
+        Within a metastore, Unity Catalog provides a 3-level namespace for organizing data: Catalogs, databases (also called schemas), and tables/views.
 
-        This resource can be imported by its full name:
+        A `SqlTable` is contained within databricks_schema, and can represent either a managed table, an external table, or a view.
 
-        hcl
+        This resource creates and updates the Unity Catalog table/view by executing the necessary SQL queries on a special auto-terminating cluster it would create for this operation. You could also specify a SQL warehouse or cluster for the queries to be executed on.
 
-        import {
+        > This resource can only be used with a workspace-level provider!
 
-          to = databricks_sql_table.this
+        > This resource doesn't handle complex cases of schema evolution due to the limitations of Pulumi itself.  If you need to implement schema evolution it's recommended to use specialized tools, such as, [Liquibase](https://medium.com/dbsql-sme-engineering/advanced-schema-management-on-databricks-with-liquibase-1900e9f7b9c0) and [Flyway](https://medium.com/dbsql-sme-engineering/databricks-schema-management-with-flyway-527c4a9f5d67).
 
-          id = "<catalog_name>.<schema_name>.<name>"
+        ## Example Usage
 
-        }
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+        import pulumi_std as std
 
-        Alternatively, when using `terraform` version 1.4 or earlier, import using the `pulumi import` command:
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/sqlTable:SqlTable this "<catalog_name>.<schema_name>.<name>"
+        sandbox = databricks.Catalog("sandbox",
+            name="sandbox",
+            comment="this catalog is managed by terraform",
+            properties={
+                "purpose": "testing",
+            })
+        things = databricks.Schema("things",
+            catalog_name=sandbox.id,
+            name="things",
+            comment="this database is managed by terraform",
+            properties={
+                "kind": "various",
+            })
+        thing = databricks.SqlTable("thing",
+            name="quickstart_table",
+            catalog_name=sandbox.name,
+            schema_name=things.name,
+            table_type="MANAGED",
+            columns=[
+                {
+                    "name": "id",
+                    "type": "int",
+                },
+                {
+                    "name": "name",
+                    "type": "string",
+                    "comment": "name of thing",
+                },
+            ],
+            comment="this table is managed by terraform")
+        thing_view = databricks.SqlTable("thing_view",
+            name="quickstart_table_view",
+            catalog_name=sandbox.name,
+            schema_name=things.name,
+            table_type="VIEW",
+            cluster_id="0423-201305-xsrt82qn",
+            view_definition=std.format(input="SELECT name FROM %s WHERE id == 1",
+                args=[thing.id]).result,
+            comment="this view is managed by terraform")
         ```
+
+        ### Use an existing warehouse to create a table
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+        import pulumi_std as std
+
+        this = databricks.SqlEndpoint("this",
+            name="endpoint",
+            cluster_size="2X-Small",
+            max_num_clusters=1)
+        thing = databricks.SqlTable("thing",
+            name="quickstart_table",
+            catalog_name=sandbox["name"],
+            schema_name=things["name"],
+            table_type="MANAGED",
+            warehouse_id=this.id,
+            columns=[
+                {
+                    "name": "id",
+                    "type": "int",
+                },
+                {
+                    "name": "name",
+                    "type": "string",
+                    "comment": "name of thing",
+                },
+            ],
+            comment="this table is managed by terraform")
+        thing_view = databricks.SqlTable("thing_view",
+            name="quickstart_table_view",
+            catalog_name=sandbox["name"],
+            schema_name=things["name"],
+            table_type="VIEW",
+            warehouse_id=this.id,
+            view_definition=std.format(input="SELECT name FROM %s WHERE id == 1",
+                args=[thing.id]).result,
+            comment="this view is managed by terraform")
+        ```
+
+        ## Use an Identity Column
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        sandbox = databricks.Catalog("sandbox",
+            name="sandbox",
+            comment="this catalog is managed by terraform",
+            properties={
+                "purpose": "testing",
+            })
+        things = databricks.Schema("things",
+            catalog_name=sandbox.id,
+            name="things",
+            comment="this database is managed by terraform",
+            properties={
+                "kind": "various",
+            })
+        thing = databricks.SqlTable("thing",
+            name="identity_table",
+            catalog_name=sandbox.name,
+            schema_name=things.name,
+            table_type="MANAGED",
+            columns=[
+                {
+                    "name": "id",
+                    "type": "bigint",
+                    "identity": "default",
+                },
+                {
+                    "name": "name",
+                    "type": "string",
+                    "comment": "name of thing",
+                },
+            ],
+            comment="this table is managed by terraform")
+        ```
+
+        ## Enable automatic clustering
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        thing = databricks.SqlTable("thing",
+            name="auto_cluster_table",
+            catalog_name=sandbox["name"],
+            schema_name=things["name"],
+            table_type="MANAGED",
+            cluster_keys=["AUTO"],
+            columns=[{
+                "name": "name",
+                "type": "string",
+                "comment": "name of thing",
+            }],
+            comment="this table is managed by terraform")
+        ```
+
+        ## Migration from `Table`
+
+        The `Table` resource has been deprecated in favor of `SqlTable`. To migrate from `Table` to `SqlTable`:
+
+        1. Define a `SqlTable` resource with arguments corresponding to `Table`.
+        2. Add a `removed` block to remove the `Table` resource without deleting the existing table by using the `lifecycle` block. If you're using Pulumi version below v1.7.0, you will need to use the `terraform state rm` command instead.
+        3. Add an `import` block to add the `SqlTable` resource, corresponding to the existing table. If you're using Pulumi version below v1.5.0, you will need to use `pulumi import` command instead.
+
+        For example, suppose we have the following `Table` resource:
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        this = databricks.Table("this",
+            catalog_name="catalog",
+            schema_name="schema",
+            name="table",
+            table_type="MANAGED",
+            data_source_format="DELTA",
+            columns=[{
+                "name": "col1",
+                "type_name": "STRING",
+                "type_json": "{\\"type\\":\\"STRING\\"}",
+                "comment": "comment",
+                "nullable": True,
+            }],
+            comment="comment",
+            properties={
+                "key": "value",
+            })
+        ```
+
+        The migration would look like this:
 
         :param str resource_name: The name of the resource.
         :param SqlTableArgs args: The arguments to use to populate this resource's properties.
@@ -707,6 +1090,7 @@ class SqlTable(pulumi.CustomResource):
                  owner: Optional[pulumi.Input[_builtins.str]] = None,
                  partitions: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  properties: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 provider_config: Optional[pulumi.Input[Union['SqlTableProviderConfigArgs', 'SqlTableProviderConfigArgsDict']]] = None,
                  schema_name: Optional[pulumi.Input[_builtins.str]] = None,
                  storage_credential_name: Optional[pulumi.Input[_builtins.str]] = None,
                  storage_location: Optional[pulumi.Input[_builtins.str]] = None,
@@ -735,6 +1119,7 @@ class SqlTable(pulumi.CustomResource):
             __props__.__dict__["owner"] = owner
             __props__.__dict__["partitions"] = partitions
             __props__.__dict__["properties"] = properties
+            __props__.__dict__["provider_config"] = provider_config
             if schema_name is None and not opts.urn:
                 raise TypeError("Missing required property 'schema_name'")
             __props__.__dict__["schema_name"] = schema_name
@@ -769,6 +1154,7 @@ class SqlTable(pulumi.CustomResource):
             owner: Optional[pulumi.Input[_builtins.str]] = None,
             partitions: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
             properties: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            provider_config: Optional[pulumi.Input[Union['SqlTableProviderConfigArgs', 'SqlTableProviderConfigArgsDict']]] = None,
             schema_name: Optional[pulumi.Input[_builtins.str]] = None,
             storage_credential_name: Optional[pulumi.Input[_builtins.str]] = None,
             storage_location: Optional[pulumi.Input[_builtins.str]] = None,
@@ -784,6 +1170,7 @@ class SqlTable(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] catalog_name: Name of parent catalog. Change forces the creation of a new resource.
+        :param pulumi.Input[_builtins.str] cluster_id: All table CRUD operations must be executed on a running cluster or SQL warehouse. If a cluster_id is specified, it will be used to execute SQL commands to manage this table. If empty, a cluster will be created automatically with the name `terraform-sql-table`. Conflicts with `warehouse_id`.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] cluster_keys: a subset of columns to liquid cluster the table by. For automatic clustering, set `cluster_keys` to `["AUTO"]`. To turn off clustering, set it to `["NONE"]`. Conflicts with `partitions`.
         :param pulumi.Input[_builtins.str] comment: User-supplied free-form text. Changing the comment is not currently supported on the `VIEW` table type.
         :param pulumi.Input[_builtins.str] data_source_format: External tables are supported in multiple data source formats. The string constants identifying these formats are `DELTA`, `CSV`, `JSON`, `AVRO`, `PARQUET`, `ORC`, and `TEXT`. Change forces the creation of a new resource. Not supported for `MANAGED` tables or `VIEW`.
@@ -792,6 +1179,7 @@ class SqlTable(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] owner: User name/group name/sp application_id of the table owner.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] partitions: a subset of columns to partition the table by. Change forces the creation of a new resource. Conflicts with `cluster_keys`.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] properties: A map of table properties.
+        :param pulumi.Input[Union['SqlTableProviderConfigArgs', 'SqlTableProviderConfigArgsDict']] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] schema_name: Name of parent Schema relative to parent Catalog. Change forces the creation of a new resource.
         :param pulumi.Input[_builtins.str] storage_credential_name: For EXTERNAL Tables only: the name of storage credential to use. Change forces the creation of a new resource.
         :param pulumi.Input[_builtins.str] storage_location: URL of storage location for Table data (required for EXTERNAL Tables).  If the URL contains special characters, such as space, `&`, etc., they should be percent-encoded (space > `%20`, etc.).  Not supported for `VIEW` or `MANAGED` table_type.
@@ -816,6 +1204,7 @@ class SqlTable(pulumi.CustomResource):
         __props__.__dict__["owner"] = owner
         __props__.__dict__["partitions"] = partitions
         __props__.__dict__["properties"] = properties
+        __props__.__dict__["provider_config"] = provider_config
         __props__.__dict__["schema_name"] = schema_name
         __props__.__dict__["storage_credential_name"] = storage_credential_name
         __props__.__dict__["storage_location"] = storage_location
@@ -836,6 +1225,9 @@ class SqlTable(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter(name="clusterId")
     def cluster_id(self) -> pulumi.Output[_builtins.str]:
+        """
+        All table CRUD operations must be executed on a running cluster or SQL warehouse. If a cluster_id is specified, it will be used to execute SQL commands to manage this table. If empty, a cluster will be created automatically with the name `terraform-sql-table`. Conflicts with `warehouse_id`.
+        """
         return pulumi.get(self, "cluster_id")
 
     @_builtins.property
@@ -911,6 +1303,14 @@ class SqlTable(pulumi.CustomResource):
         A map of table properties.
         """
         return pulumi.get(self, "properties")
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> pulumi.Output[Optional['outputs.SqlTableProviderConfig']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
 
     @_builtins.property
     @pulumi.getter(name="schemaName")

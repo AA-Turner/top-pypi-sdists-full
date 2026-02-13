@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import optparse
 import pathlib
+import typing as _t
 import urllib.parse
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Iterable, Iterator, Set, cast
 
 from pip._internal.cache import WheelCache
 from pip._internal.index.package_finder import PackageFinder
@@ -24,10 +25,18 @@ from .path_compat import relative_to_walk_up
 # importlib.metadata, so this compat layer allows for a consistent access
 # pattern. In pip 22.1, importlib.metadata became the default on Python 3.11
 # (and later), but is overridable. `select_backend` returns what's being used.
-if TYPE_CHECKING:
+# Secondly, the canonicalize_name function received typing improvements
+# in pip 21.2, since mypy runs on an older version, this compat layer ensures correct
+# typing regardless of the pip version used. NormalizedName and str are interchangeable.
+if _t.TYPE_CHECKING:
     from pip._internal.metadata.importlib import Distribution as _ImportLibDist
 
-from ..utils import PIP_VERSION, copy_install_requirement
+    def canonicalize_name(name: str) -> str: ...
+
+else:
+    from pip._vendor.packaging.utils import canonicalize_name  # noqa: F401
+
+from .._internal import _pip_api
 
 
 @dataclass(frozen=True)
@@ -91,7 +100,7 @@ def parse_requirements(
 ) -> Iterator[InstallRequirement]:
     # the `comes_from` data will be rewritten in different ways in different conditions
     # each rewrite rule is expressible as a str->str function
-    rewrite_comes_from: Callable[[str], str]
+    rewrite_comes_from: _t.Callable[[str], str]
 
     if comes_from_stdin:
         # if data is coming from stdin, then `comes_from="-r -"`
@@ -114,7 +123,7 @@ def parse_requirements(
             file_link = FileLink(install_req.link.url)
             file_link._url = parsed_req.requirement
             install_req.link = file_link
-        install_req = copy_install_requirement(install_req)
+        install_req = _pip_api.copy_install_requirement(install_req)
 
         install_req.comes_from = rewrite_comes_from(install_req.comes_from)
 
@@ -198,17 +207,17 @@ def _is_remote_pip_uri(value: str) -> bool:
 
 def create_wheel_cache(cache_dir: str, format_control: str | None = None) -> WheelCache:
     kwargs: dict[str, str | None] = {"cache_dir": cache_dir}
-    if PIP_VERSION[:2] <= (23, 0):
+    if _pip_api.PIP_VERSION_MAJOR_MINOR <= (23, 0):
         kwargs["format_control"] = format_control
     return WheelCache(**kwargs)
 
 
 def get_dev_pkgs() -> set[str]:
-    if PIP_VERSION[:2] <= (23, 1):
+    if _pip_api.PIP_VERSION_MAJOR_MINOR <= (23, 1):
         from pip._internal.commands.freeze import DEV_PKGS
 
-        return cast(Set[str], DEV_PKGS)
+        return _t.cast(set[str], DEV_PKGS)
 
     from pip._internal.commands.freeze import _dev_pkgs
 
-    return cast(Set[str], _dev_pkgs())
+    return _t.cast(set[str], _dev_pkgs())

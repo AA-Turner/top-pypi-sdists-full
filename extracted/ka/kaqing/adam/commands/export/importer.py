@@ -1,10 +1,10 @@
 from abc import abstractmethod
 
-from adam.commands.export.utils_export import csv_dir, fs_exec, table_log_dir
-from adam.config import Config
+from adam.commands.export.utils_export import fs_exec, remote_export_table_log_dir
 from adam.repl_state import ReplState
+from adam.directories import Directories
 from adam.utils_log import ing
-from adam.utils_context import Context
+from adam.utils_context import NULL
 
 class Importer:
     @abstractmethod
@@ -27,8 +27,8 @@ class Importer:
                               create_db = False):
         pass
 
-    def move_to_done(self, state: ReplState, from_session: str, keyspace: str, target_table: str, ctx: Context = Context.NULL):
-        dir = table_log_dir(state.pod, state.namespace)
+    def move_to_done(self, state: ReplState, from_session: str, keyspace: str, target_table: str, ctx = NULL):
+        dir = remote_export_table_log_dir(state.pod, state.namespace)
         to_session = state.export_session
         log_file = f'{dir}/{from_session}_{keyspace}.{target_table}.log.pending_import'
 
@@ -45,7 +45,7 @@ class Importer:
 
         return session
 
-    def remove_csv(self, state: ReplState, from_session: str, table: str, target_table: str, multi_tables = True, ctx: Context = Context.NULL):
+    def remove_csv(self, state: ReplState, from_session: str, table: str, target_table: str, multi_tables = True, ctx = NULL):
         with ing(f'[{from_session}] Cleaning up temporary files', suppress_log=multi_tables, job_log=ctx.log_file):
             cmd = f'rm -rf {self.csv_file(from_session, table, target_table)}'
             fs_exec(state.pod, state.namespace, cmd, ctx=ctx)
@@ -54,7 +54,7 @@ class Importer:
         return f'{session}_{keyspace}'
 
     def csv_file(self, session: str, table: str, target_table: str):
-        return f'{csv_dir()}/{session}_{target_table}/{table}.csv'
+        return f'{Directories.export_csv_dir()}/{session}_{target_table}/{table}.csv'
 
     def prefix_from_importer(importer: str = ''):
         if not importer:

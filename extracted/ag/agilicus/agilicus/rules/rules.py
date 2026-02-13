@@ -32,6 +32,7 @@ ConditionTypes = Enum(
         "compound_rule_condition",
         "always_match_condition",
         "timeframe_condition",
+        "timeperiod_condition",
     ],
 )
 
@@ -550,7 +551,7 @@ def list_rulesets(ctx, standalone_rule_policy_id, **kwargs):
 
 
 def _add_object_conditions(spec, scopes):
-    if scopes is None:
+    if not scopes:
         return
     standalone_scopes = [agilicus.StandaloneRuleScope(scope) for scope in scopes]
     spec.object_conditions = agilicus.StandaloneObjectConditions(
@@ -1068,6 +1069,7 @@ def add_timeframe_condition_rule(
     end_time,
     purpose=None,
     standalone_rule_policy_id=None,
+    negated=False,
     **kwargs,
 ):
     token = context.get_token(ctx)
@@ -1079,7 +1081,7 @@ def add_timeframe_condition_rule(
         start_time=start_time,
         end_time=end_time,
     )
-    extended_cond = agilicus.RuleCondition(condition=cond, negated=False)
+    extended_cond = agilicus.RuleCondition(condition=cond, negated=negated)
 
     rule = agilicus.RuleConfig(
         name=name,
@@ -1158,3 +1160,67 @@ def add_agilicus_default_policy(
 ):
     add_agilicus_default_expose_allow(ctx)
     add_agilicus_default_database_allow(ctx)
+
+
+def add_timeperiod_condition_rule(
+    ctx,
+    name,
+    actions,
+    days,
+    start_hour,
+    end_hour,
+    start_minute,
+    end_minute,
+    timezone,
+    negated,
+    purpose=None,
+    standalone_rule_policy_id=None,
+    **kwargs,
+):
+    token = context.get_token(ctx)
+    apiclient = context.get_apiclient(ctx, token)
+    kwargs = strip_none(kwargs)
+
+    cond = agilicus.TimePeriodCondition(
+        condition_type=ConditionTypes.timeperiod_condition.name,
+        timezone=timezone,
+        days=days,
+    )
+    if start_hour:
+        start = agilicus.TimeOfDayCondition(hour=start_hour)
+        if start_minute:
+            start.minute = start_minute
+        cond.start_time_of_day = start
+
+    if end_hour:
+        end = agilicus.TimeOfDayCondition(hour=end_hour)
+        if end_minute:
+            end.minute = end_minute
+        cond.end_time_of_day = end
+
+    extended_cond = agilicus.RuleCondition(condition=cond, negated=negated)
+
+    rule = agilicus.RuleConfig(
+        name=name,
+        extended_condition=extended_cond,
+        actions=[agilicus.RuleAction(action=action) for action in actions],
+    )
+
+    org_id = get_org_from_input_or_ctx(ctx, **kwargs)
+    kwargs["org_id"] = org_id
+    spec = agilicus.StandaloneRuleSpec(org_id=org_id, rule=rule)
+    if purpose is not None:
+        spec.purpose = purpose
+
+    if standalone_rule_policy_id is not None:
+        spec.standalone_rule_policy_id = standalone_rule_policy_id
+
+    req = agilicus.StandaloneRule(spec=spec)
+    result, _ = create_or_update(
+        req,
+        lambda obj: apiclient.rules_api.create_standalone_rule(obj),
+        lambda guid, obj: apiclient.rules_api.replace_standalone_rule(
+            guid, standalone_rule=obj
+        ),
+    )
+    return result

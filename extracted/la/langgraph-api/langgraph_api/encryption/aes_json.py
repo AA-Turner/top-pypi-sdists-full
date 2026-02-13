@@ -143,7 +143,10 @@ def get_aes_encryption_instance() -> AesEncryptionInstance | None:
         - None if LANGGRAPH_AES_KEY is not configured
     """
     # Import here to avoid circular imports
-    from langgraph_api.config import LANGGRAPH_AES_JSON_KEYS, LANGGRAPH_AES_KEY
+    from langgraph_api.config import (  # noqa: PLC0415
+        LANGGRAPH_AES_JSON_KEYS,
+        LANGGRAPH_AES_KEY,
+    )
 
     if not LANGGRAPH_AES_KEY:
         return None

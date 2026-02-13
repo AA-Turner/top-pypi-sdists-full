@@ -1,10 +1,8 @@
-from adam.commands import extract_trailing_options, validate_args
+from adam.commands import validate_args
 from adam.commands.command import Command
 from adam.commands.export.export_databases import ExportDatabases, export_db
 from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
-from adam.utils_job.job import Job
-from adam.utils_context import Context
 
 class ShowColumnCounts(Command):
     COMMAND = 'show column counts on'
@@ -29,12 +27,12 @@ class ShowColumnCounts(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with extract_trailing_options(args, '&') as (args, background):
+            with self.context(args) as (args, ctx):
                 with validate_args(args, state, name='SQL statement') as table:
                     with export_db(state) as dbs:
                         query = Config().get(f'export.column_counts_query', 'select id, count(id) as columns from {table} group by id')
                         query = query.replace('{table}', table)
-                        dbs.sql(query, state.export_session, Context.new(background=background))
+                        dbs.sql(query, state.export_session, ctx=ctx)
 
             return state
 

@@ -18,6 +18,34 @@ else:
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
+class MigrateAccountSystemSecretsRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    MODEL_GROUP_ID_FIELD_NUMBER: builtins.int
+    model_group_id: builtins.str
+    def __init__(
+        self,
+        *,
+        model_group_id: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["model_group_id", b"model_group_id"]) -> None: ...
+
+global___MigrateAccountSystemSecretsRequest = MigrateAccountSystemSecretsRequest
+
+class MigrateAccountSystemSecretsResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    MIGRATED_FIELD_NUMBER: builtins.int
+    migrated: builtins.bool
+    def __init__(
+        self,
+        *,
+        migrated: builtins.bool = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["migrated", b"migrated"]) -> None: ...
+
+global___MigrateAccountSystemSecretsResponse = MigrateAccountSystemSecretsResponse
+
 class GetModelGroupSystemPullImageSecretRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 

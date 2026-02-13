@@ -51,29 +51,25 @@ def get_dist(obj) -> Optional[importlib_metadata.Distribution]:
 
 
 def get_version(plugin) -> str:
-    version = ''
     dist = get_dist(plugin)
-    if dist:
-        version = dist.metadata.get('version')
+    version = dist.metadata.get('version') if dist else ''
     if not version and inspect.ismodule(plugin):
-        version = getattr(plugin, '__version__', None)
+        version = getattr(plugin, '__version__', '')
     if not version:
         top_module = _object_to_top_level_module(plugin)
         if top_module in sys.modules:
-            version = getattr(sys.modules[top_module], '__version__', None)
+            version = getattr(sys.modules[top_module], '__version__', '')
     return str(version) if version else ''
 
 
 @overload
-def get_metadata(plugin, arg: str, *args: None) -> Optional[str]:
-    ...
+def get_metadata(plugin, arg: str, *args: None) -> Optional[str]: ...
 
 
 @overload  # noqa: F811
 def get_metadata(  # noqa: F811
     plugin, arg: str, *args: str
-) -> Dict[str, Optional[str]]:
-    ...
+) -> Dict[str, Optional[str]]: ...
 
 
 def get_metadata(plugin, *args):  # noqa: F811

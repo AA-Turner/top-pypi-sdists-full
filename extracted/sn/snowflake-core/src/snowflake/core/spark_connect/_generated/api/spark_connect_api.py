@@ -339,7 +339,7 @@ class SparkConnectApi:
             _header_params["Content-Type"] = _content_types_list
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "bytearray",
@@ -517,7 +517,7 @@ class SparkConnectApi:
             _header_params["Content-Type"] = _content_types_list
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "bytearray",
@@ -695,7 +695,7 @@ class SparkConnectApi:
             _header_params["Content-Type"] = _content_types_list
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "bytearray",
@@ -871,7 +871,7 @@ class SparkConnectApi:
             _header_params["Content-Type"] = _content_types_list
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "bytearray",
@@ -1049,7 +1049,7 @@ class SparkConnectApi:
             _header_params["Content-Type"] = _content_types_list
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "bytearray",
@@ -1227,7 +1227,7 @@ class SparkConnectApi:
             _header_params["Content-Type"] = _content_types_list
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "bytearray",
@@ -1397,7 +1397,7 @@ class SparkConnectApi:
             _header_params["Content-Type"] = _content_types_list
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "str",
@@ -1567,7 +1567,7 @@ class SparkConnectApi:
             _header_params["Content-Type"] = _content_types_list
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "str",
@@ -1745,7 +1745,7 @@ class SparkConnectApi:
             _header_params["Content-Type"] = _content_types_list
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "bytearray",
@@ -1923,7 +1923,7 @@ class SparkConnectApi:
             _header_params["Content-Type"] = _content_types_list
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "bytearray",

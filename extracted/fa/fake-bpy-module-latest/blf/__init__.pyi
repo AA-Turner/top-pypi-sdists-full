@@ -7,15 +7,7 @@ This module provides access to Blender's text drawing functions.
 Example of using the blf module. For this module to work we
 need to use the GPU module gpu as well.
 
-```../examples/blf.py```
-
-
---------------------
-
-Example showing how text can be draw into an image.
-This can be done by binding an image buffer (imbuf) to the font's ID.
-
-```../examples/blf.1.py```
+```../examples/blf.0.py```
 
 """
 
@@ -72,7 +64,7 @@ def disable(fontid: int, option: int) -> None:
     """Disable option.
 
     :param fontid: The id of the typeface as returned by `blf.load`, for default font use 0.
-    :param option: One of ROTATION, CLIPPING, SHADOW or KERNING_DEFAULT.
+    :param option: One of ROTATION, CLIPPING, SHADOW, MONOCHROME or WORD_WRAP.
     """
 
 def draw(fontid: int, text: str) -> None:
@@ -93,7 +85,7 @@ def enable(fontid: int, option: int) -> None:
     """Enable option.
 
     :param fontid: The id of the typeface as returned by `blf.load`, for default font use 0.
-    :param option: One of ROTATION, CLIPPING, SHADOW or KERNING_DEFAULT.
+    :param option: One of ROTATION, CLIPPING, SHADOW, MONOCHROME or WORD_WRAP.
     """
 
 def load(filepath: bytes | str) -> int:
@@ -120,7 +112,7 @@ def rotation(fontid: int, angle: float) -> None:
     """
 
 def shadow(fontid: int, level: int, r: float, g: float, b: float, a: float) -> None:
-    """Shadow options, enable/disable using SHADOW .
+    """Shadow options, enable/disable using SHADOW.
 
     :param fontid: The id of the typeface as returned by `blf.load`, for default font use 0.
     :param level: The blur level (0, 3, 5) or outline (6).

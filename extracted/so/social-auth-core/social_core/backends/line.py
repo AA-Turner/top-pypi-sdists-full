@@ -19,7 +19,7 @@ class LineOAuth2(BaseOAuth2):
     AUTHORIZATION_URL = "https://access.line.me/oauth2/v2.1/authorize"
     ACCESS_TOKEN_URL = "https://api.line.me/oauth2/v2.1/token"
     BASE_API_URL = "https://api.line.me"
-    USER_INFO_URL = BASE_API_URL + "/v2/profile"
+    USER_INFO_URL = f"{BASE_API_URL}/v2/profile"
     STATE_PARAMETER = True
     DEFAULT_SCOPE = ["profile"]
     REDIRECT_STATE = True
@@ -62,13 +62,14 @@ class LineOAuth2(BaseOAuth2):
                 headers=self.auth_headers(),
                 data=self.auth_complete_params(),
             )
-            self.process_error(response)
-
-            return self.do_auth(
-                response["access_token"], *args, response=response, **kwargs
-            )
         except requests.HTTPError as err:
             self.process_error(json.loads(err.response.content))
+            return None
+        self.process_error(response)
+
+        return self.do_auth(
+            response["access_token"], *args, response=response, **kwargs
+        )
 
     def get_user_details(self, response):
         fullname, first_name, last_name = self.get_user_names(

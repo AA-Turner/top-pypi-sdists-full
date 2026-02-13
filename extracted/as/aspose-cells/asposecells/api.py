@@ -1935,6 +1935,7 @@ class OpenDocumentFormatVersionType(IntEnum):
     ODF_11 = 1,
     ODF_12 = 2,
     ODF_13 = 3,
+    ODF_14 = 4,
 class OperatorType(IntEnum):
     BETWEEN = 0,
     EQUAL = 1,

@@ -344,18 +344,25 @@ def test_register_markdown_anchors() -> None:
     )
     assert plugin._primary_url_map == {
         "foo": ["page#heading-foo"],
+        "heading-foo": ["page#heading-foo"],
         "bar": ["page#bar"],
+        "heading-bar": ["page#heading-bar"],
         "alias1": ["page#heading-bar"],
         "alias2": ["page#heading-bar"],
         "alias3": ["page#alias3"],
         "alias4": ["page#heading-baz"],
+        "heading-baz": ["page#heading-baz"],
         "alias5": ["page#alias5"],
         "alias6": ["page#alias6"],
+        "heading-more1": ["page#heading-more1"],
         "alias7": ["page#alias7"],
         "alias8": ["page#alias8"],
         "alias9": ["page#heading-custom2"],
+        "heading-custom2": ["page#heading-custom2"],
         "alias10": ["page#alias10"],
         "aliasSame": ["page#same-heading-1", "page#same-heading-2"],
+        "same-heading-1": ["page#same-heading-1"],
+        "same-heading-2": ["page#same-heading-2"],
     }
 
 
@@ -380,6 +387,9 @@ def test_register_markdown_anchors_with_admonition() -> None:
         ),
     )
     assert plugin._primary_url_map == {
+        "heading-foo": ["page#heading-foo"],
+        "heading-bar": ["page#heading-bar"],
+        "heading-baz": ["page#heading-baz"],
         "alias1": ["page#alias1"],
         "alias2": ["page#heading-bar"],
         "alias3": ["page#alias3"],

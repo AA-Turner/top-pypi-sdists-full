@@ -43,14 +43,16 @@ classifiers = [
     "Operating System :: Unix",
     "Operating System :: MacOS",
 ]
-dependencies = [ "numpy >= 1.22", "scipy >= 1.8" ]
-# We pin this two versions behind the latest security release.
-# Testing is performed only on currently maintained Python versions.
-requires-python = ">=3.8"
+dependencies = [
+    "numpy>=2.2.6",
+    "scipy>=1.15.3",
+]
+requires-python = ">=3.10"
 
 [project.urls]
+homepage = "https://pydoe.github.io/pydoe/"
+documentation = "https://pydoe.github.io/pydoe/"
 source = "https://github.com/pydoe/pydoe"
-# TODO: add documentation URL
 # TODO: provide changelog URL from docs
 releasenotes = "https://github.com/pydoe/pydoe/releases/latest"
 issues = "https://github.com/pydoe/pydoe/issues"
@@ -68,10 +70,11 @@ docs = [
     "pymdown-extensions>=10.15",
 ]
 lint = [
-    "ruff==0.14.*",
+    "ruff==0.15.*",
 ]
 test = [
     "pytest>=8.3.5",
+    "pytest-cov>=7.0.0",
     "pytest-xdist>=3.6.1",
 ]
 
@@ -141,3 +144,6 @@ ignore = [
 [tool.ruff.format]
 docstring-code-format = true
 skip-magic-trailing-comma = true
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules"

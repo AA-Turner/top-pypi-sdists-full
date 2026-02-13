@@ -7,13 +7,23 @@ import numpy
 import pytest
 
 from coredis import PureToken, Redis
+from coredis._concurrency import gather
+from coredis.commands._validators import MutuallyExclusiveParametersError
 from coredis.exceptions import ResponseError
 from coredis.modules.response.types import (
     SearchAggregationResult,
     SearchDocument,
     SearchResult,
 )
-from coredis.modules.search import Apply, Field, Filter, Group, Reduce
+from coredis.modules.search import (
+    Apply,
+    Field,
+    Filter,
+    Group,
+    LinearCombine,
+    Reduce,
+    RRFCombine,
+)
 from coredis.retry import ConstantRetryPolicy, retryable
 from tests.conftest import module_targets
 
@@ -25,7 +35,7 @@ def query_vectors():
 
 
 @pytest.fixture
-async def city_index(client: Redis):
+async def city_index(client: Redis, _s):
     data = json.loads(open("tests/modules/data/city_index.json").read())
     with client.ignore_replies():
         await client.search.create(
@@ -111,10 +121,12 @@ async def city_index(client: Redis):
                     "last_updated": "2012-12-12",
                 },
             )
+    await wait_for_index("{city}idx", client, _s)
+    await wait_for_index("{jcity}idx", client, _s)
     return data
 
 
-@retryable(ConstantRetryPolicy((ValueError,), 5, 0.1))
+@retryable(ConstantRetryPolicy((ValueError,), retries=5, delay=0.1))
 async def wait_for_index(index_name, client: Redis, _s):
     info = await client.search.info(index_name)
     if int(info[_s("indexing")]):
@@ -216,6 +228,21 @@ class TestSchema:
         ids=lambda val: str(val),
     )
     async def test_index_options(self, client: Redis, on, schema_args):
+        fields = [
+            Field("field", PureToken.TEXT),
+        ]
+        assert await client.search.create("idx", fields, on=on, **schema_args)
+
+    @pytest.mark.min_module_version("search", "8.0.0")
+    @pytest.mark.parametrize("on", [PureToken.HASH, PureToken.JSON])
+    @pytest.mark.parametrize(
+        "schema_args",
+        [
+            {"indexall": True},
+        ],
+        ids=lambda val: str(val),
+    )
+    async def test_index_options_extended(self, client: Redis, on, schema_args):
         fields = [
             Field("field", PureToken.TEXT),
         ]
@@ -579,6 +606,101 @@ class TestSearch:
         )
         assert results.documents[0].properties[_s("name")] == _s("chennai")
 
+    @pytest.mark.min_module_version("search", "8.4.0")
+    @pytest.mark.parametrize("index_name", ["{city}idx", "{jcity}idx"])
+    @pytest.mark.parametrize(
+        "combine",
+        [
+            RRFCombine(score_alias="rrf_score"),
+            LinearCombine(score_alias="linear_score"),
+        ],
+        ids=["rrf", "linear"],
+    )
+    async def test_hybrid_search_scores(
+        self, client: Redis, city_index, index_name, query_vectors, combine, _s
+    ):
+        vector_data = query_vectors["historical landmark"].astype(numpy.float32).tobytes()
+        results = await client.search.hybrid(
+            index_name,
+            "@summary_text:landmark",
+            "@summary_vector",
+            vector_data,
+            scorer="BM25",
+            search_score_alias="query_score",
+            load=["@country", "@name", "@population"],
+            combine=combine,
+            vector_score_alias="vector_score",
+            vector_filter=Filter("@population > 5000000"),
+            sortby={f"@{combine.score_alias}": PureToken.DESC},
+            limit=2,
+        )
+        assert results.total_results > 2
+        assert len(results.results) == 2
+        top_result = results.results[0]
+        assert {
+            _s("query_score"),
+            _s("vector_score"),
+            _s(combine.score_alias),
+        } < top_result.keys()
+        assert {_s("country"), _s("name"), _s("population")} < top_result.keys()
+
+    @pytest.mark.min_module_version("search", "8.4.0")
+    @pytest.mark.parametrize("index_name", ["{city}idx", "{jcity}idx"])
+    @pytest.mark.parametrize(
+        "vsim_options",
+        [
+            {"k": 10},
+            {"radius": 50},
+        ],
+        ids=["knn", "range"],
+    )
+    async def test_hybrid_search_vsim_options(
+        self, client: Redis, city_index, index_name, query_vectors, vsim_options, _s
+    ):
+        vector_data = query_vectors["historical landmark"].astype(numpy.float32).tobytes()
+        results = await client.search.hybrid(
+            index_name, "@summary_text:landmark", "@summary_vector", vector_data, **vsim_options
+        )
+        assert results.total_results > 1
+
+    @pytest.mark.min_module_version("search", "8.4.0")
+    @pytest.mark.parametrize("index_name", ["{city}idx", "{jcity}idx"])
+    @pytest.mark.parametrize(
+        "extra_args",
+        [
+            {"k": 10, "radius": 50},
+        ],
+        ids=["knn+range"],
+    )
+    async def test_hybrid_search_exclusive_arguments(
+        self, client: Redis, city_index, index_name, query_vectors, extra_args, _s
+    ):
+        vector_data = query_vectors["historical landmark"].astype(numpy.float32).tobytes()
+        with pytest.raises(MutuallyExclusiveParametersError):
+            await client.search.hybrid(
+                index_name, "@summary_text:landmark", "@summary_vector", vector_data, **extra_args
+            )
+
+    @pytest.mark.min_module_version("search", "8.4.0")
+    @pytest.mark.parametrize("index_name", ["{city}idx", "{jcity}idx"])
+    async def test_hybrid_search_with_aggregate(
+        self, client: Redis, city_index, index_name, query_vectors, _s
+    ):
+        results = await client.search.hybrid(
+            index_name,
+            "olympics",
+            "@summary_vector",
+            query_vectors["historical landmark"].astype(numpy.float32).tobytes(),
+            load=["@population", "@name"],
+            transforms=[
+                Apply("floor(log(@population))", "population_log"),
+            ],
+        )
+
+        assert results.total_results > 1
+        top_result = results.results[0]
+        assert {_s("population"), _s("name"), _s("population_log")} <= top_result.keys()
+
     @pytest.mark.parametrize("index_name", ["{city}idx", "{jcity}idx"])
     async def test_synonyms(self, client: Redis, city_index, index_name, _s):
         assert not (await client.search.search(index_name, "@name:kolachi", nocontent=True)).total
@@ -608,14 +730,16 @@ class TestSearch:
             on=PureToken.HASH,
             prefixes=["{search}:"],
         )
-        p = await client.pipeline()
-        p.hset("{search}:doc:1", {"name": "hello"})
-        p.hset("{search}:doc:2", {"name": "world"})
-        p.search.search(
-            "{search}:idx",
-            "@name:hello",
-        )
-        assert (
+        async with client.pipeline() as p:
+            results = [
+                p.hset("{search}:doc:1", {"name": "hello"}),
+                p.hset("{search}:doc:2", {"name": "world"}),
+                p.search.search(
+                    "{search}:idx",
+                    "@name:hello",
+                ),
+            ]
+        assert await gather(*results) == (
             1,
             1,
             SearchResult(
@@ -626,7 +750,7 @@ class TestSearch:
                     ),
                 ),
             ),
-        ) == await p.execute()
+        )
 
 
 @pytest.mark.min_module_version("search", "2.6.1")
@@ -853,15 +977,18 @@ class TestAggregation:
             on=PureToken.HASH,
             prefixes=["{search}:"],
         )
-        p = await client.pipeline()
-        p.hset("{search}:doc:1", {"name": "hello"})
-        p.hset("{search}:doc:2", {"name": "world"})
-        p.search.aggregate(
-            "{search}:idx",
-            "*",
-            transforms=[Group("@name", [Reduce("count", [0], "count")])],
-        )
-        assert (
+        async with client.pipeline() as p:
+            results = [
+                p.hset("{search}:doc:1", {"name": "hello"}),
+                p.hset("{search}:doc:2", {"name": "world"}),
+                p.search.aggregate(
+                    "{search}:idx",
+                    "*",
+                    transforms=[Group("@name", [Reduce("count", [0], "count")])],
+                ),
+            ]
+
+        assert await gather(*results) == (
             1,
             1,
             SearchAggregationResult(
@@ -871,4 +998,4 @@ class TestAggregation:
                 ],
                 None,
             ),
-        ) == await p.execute()
+        )

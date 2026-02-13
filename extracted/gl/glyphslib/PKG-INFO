@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: glyphsLib
-Version: 6.12.6
+Version: 6.12.7
 Summary: A bridge from Glyphs source files (.glyphs) to UFOs
 Home-page: https://github.com/googlefonts/glyphsLib
 Author: James Godfrey-Kittle
@@ -20,12 +20,11 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
 Classifier: Topic :: Multimedia :: Graphics :: Editors :: Vector-Based
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: ufoLib2>=0.6.2
 Requires-Dist: fonttools[ufo,unicode]>=4.38.0
 Requires-Dist: openstep-plist>=0.3.0
-Requires-Dist: importlib_resources>=1.3; python_version < "3.9"
 Provides-Extra: ufo-normalization
 Requires-Dist: ufonormalizer; extra == "ufo-normalization"
 Provides-Extra: defcon

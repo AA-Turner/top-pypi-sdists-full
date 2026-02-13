@@ -2,6 +2,7 @@
 # Source: exponent/core/graphql/operations
 
 from typing import Any, Literal
+from uuid import UUID
 
 from pydantic import Field
 
@@ -20,7 +21,7 @@ class GithubRepositoriesGithubRepositories(BaseModel):
 
 
 class GithubRepositoriesGithubRepositoriesRepositories(BaseModel):
-    uuid: str
+    uuid: UUID
     github_org_name: str = Field(alias="githubOrgName")
     github_repo_name: str = Field(alias="githubRepoName")
     created_at: Any = Field(alias="createdAt")

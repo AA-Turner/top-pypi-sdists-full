@@ -5,11 +5,12 @@ from typing import Optional
 import typer
 from rich.rule import Rule
 
-from modal._output import make_console
 from modal._utils.async_utils import synchronizer
+from modal.output import OutputManager
 
 from . import run, shell as shell_module
 from .app import app_cli
+from .billing import billing_cli
 from .cluster import cluster_cli
 from .config import config_cli
 from .container import container_cli
@@ -56,8 +57,7 @@ def modal(
     # - set invoke_without_command=False in the callback decorator
     # - set no_args_is_help=True in entrypoint_cli_typer
     if ctx.invoked_subcommand is None:
-        console = make_console()
-        console.print(ctx.get_help())
+        OutputManager.get().print(ctx.get_help())
         raise typer.Exit()
 
 
@@ -79,9 +79,9 @@ def check_path():
             "You may need to give it permissions or use `[white]python -m modal[/white]` as a workaround.[/red]\n"
         )
     text += f"See more information here:\n\n[link={url}]{url}[/link]\n"
-    console = make_console()
-    console.print(text)
-    console.print(Rule(style="white"))
+    output = OutputManager.get()
+    output.print(text)
+    output.print(Rule(style="white"))
 
 
 @synchronizer.create_blocking
@@ -108,8 +108,7 @@ async def setup(profile: Optional[str] = None):
      #############                    #############
 """
 
-    console = make_console()
-    console.print(art, style="green")
+    OutputManager.get().print(art, highlight=False, style="green")
 
     # Fetch a new token (same as `modal token new` but redirect to /home once finishes)
     await _new_token(profile=profile, next_url="/home")
@@ -119,7 +118,6 @@ async def setup(profile: Optional[str] = None):
 entrypoint_cli_typer.command("deploy", no_args_is_help=True)(run.deploy)
 entrypoint_cli_typer.command("serve", no_args_is_help=True)(run.serve)
 entrypoint_cli_typer.command("shell")(shell_module.shell)
-entrypoint_cli_typer.command("dashboard")(dashboard)
 entrypoint_cli_typer.add_typer(launch_cli)
 
 # Deployments
@@ -130,7 +128,7 @@ entrypoint_cli_typer.add_typer(cluster_cli, rich_help_panel="Deployments", hidde
 
 # Storage
 entrypoint_cli_typer.add_typer(dict_cli, rich_help_panel="Storage")
-entrypoint_cli_typer.add_typer(nfs_cli, rich_help_panel="Storage")
+entrypoint_cli_typer.add_typer(nfs_cli, rich_help_panel="Storage", hidden=True)
 entrypoint_cli_typer.add_typer(secret_cli, rich_help_panel="Storage")
 entrypoint_cli_typer.add_typer(queue_cli, rich_help_panel="Storage")
 entrypoint_cli_typer.add_typer(volume_cli, rich_help_panel="Storage")
@@ -140,6 +138,10 @@ entrypoint_cli_typer.add_typer(config_cli, rich_help_panel="Configuration")
 entrypoint_cli_typer.add_typer(environment_cli, rich_help_panel="Configuration")
 entrypoint_cli_typer.add_typer(profile_cli, rich_help_panel="Configuration")
 entrypoint_cli_typer.add_typer(token_cli, rich_help_panel="Configuration")
+
+# Observability
+entrypoint_cli_typer.add_typer(billing_cli, rich_help_panel="Observability")
+entrypoint_cli_typer.command("dashboard", rich_help_panel="Observability")(dashboard)
 
 # Hide setup from help as it's redundant with modal token new, but nicer for onboarding
 entrypoint_cli_typer.command("setup", help="Bootstrap Modal's configuration.", rich_help_panel="Onboarding")(setup)
@@ -151,4 +153,7 @@ entrypoint_cli.list_commands(None)  # type: ignore
 
 if __name__ == "__main__":
     # this module is only called from tests, otherwise the parent package __main__.py is used as the entrypoint
-    entrypoint_cli()
+    from modal.output import enable_output
+
+    with enable_output():
+        entrypoint_cli()

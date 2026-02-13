@@ -4,8 +4,15 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from snowflake.core import CreateMode
+from snowflake.core import CreateMode, PollingOperation
 from snowflake.core.api_integration import ApiIntegration, ApiIntegrationCollection, ApiIntegrationResource, AwsHook
+from snowflake.core.api_integration._generated import TagAssignment, TagReference
+from snowflake.core.tag import TagValue
+
+from ..utils import BASE_URL, extra_params, mock_http_response
+
+
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 
 
 @pytest.fixture
@@ -16,6 +23,16 @@ def _mock_collection():
 @pytest.fixture
 def _mock_api_integrations_collection(fake_root):
     return ApiIntegrationCollection(fake_root)
+
+
+@pytest.fixture()
+def api_integrations(fake_root):
+    return ApiIntegrationCollection(fake_root)
+
+
+@pytest.fixture()
+def api_integration(api_integrations):
+    return api_integrations["my_integration"]
 
 
 @pytest.fixture
@@ -100,3 +117,66 @@ class TestApiIntegrationCollection:
         _mock_api.create_api_integration.assert_called_once_with(
             api_integration=api_integration, create_mode=mode, async_req=is_async
         )
+
+
+def test_set_tags(fake_root, api_integration, tag):
+    args = (fake_root, "POST", BASE_URL + "/api-integrations/my_integration:set-tags")
+    tags = {tag: TagValue(value="value")}
+    kwargs = extra_params(
+        body=[
+            TagAssignment(
+                tag_value=v.value, tag_name=k.name, tag_schema=k.schema.name, tag_database=k.database.name
+            ).to_dict()
+            for k, v in tags.items()
+        ]
+    )
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        api_integration.set_tags(tags)
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        op = api_integration.set_tags_async(tags)
+        assert isinstance(op, PollingOperation)
+        op.result()
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+
+def test_unset_tags(fake_root, api_integration, tag):
+    args = (fake_root, "POST", BASE_URL + "/api-integrations/my_integration:unset-tags")
+    tag_resources = {tag}
+    kwargs = extra_params(
+        body=[
+            TagReference(
+                tag_name=tag_res.name, tag_schema=tag_res.schema.name, tag_database=tag_res.database.name
+            ).to_dict()
+            for tag_res in tag_resources
+        ]
+    )
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        api_integration.unset_tags(tag_resources)
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        op = api_integration.unset_tags_async(tag_resources)
+        assert isinstance(op, PollingOperation)
+        op.result()
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+
+def test_get_tags(fake_root, api_integration):
+    args = (fake_root, "GET", BASE_URL + "/api-integrations/my_integration:get-tags")
+    kwargs = extra_params()
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        mocked_request.return_value = mock_http_response()
+        assert api_integration.get_tags() == {}
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        mocked_request.return_value = mock_http_response()
+        op = api_integration.get_tags_async()
+        assert isinstance(op, PollingOperation)
+        assert op.result() == {}
+    mocked_request.assert_called_once_with(*args, **kwargs)

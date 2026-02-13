@@ -136,10 +136,14 @@ components:
             - v2.canvas.created
             nullable: false
             type: string
+          userId:
+            nullable: false
+            type: string
         required:
         - type
         - canvasId
         - featureId
+        - userId
         type: object
       description: Sent when a new canvas is created
     CanvasCreatedWebhookV2Beta:

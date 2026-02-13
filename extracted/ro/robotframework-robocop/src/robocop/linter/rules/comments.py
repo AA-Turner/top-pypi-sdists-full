@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, ClassVar
 
 from robot.api import Token, get_tokens
 from robot.parsing.model.statements import Documentation
-from robot.utils import FileReader
 
 from robocop.linter import sonar_qube
 from robocop.linter.rules import (
@@ -18,15 +17,17 @@ from robocop.linter.rules import (
     RuleSeverity,
     VisitorChecker,
 )
-from robocop.linter.utils.misc import ROBOT_VERSION
+from robocop.version_handling import ROBOT_VERSION
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from robot.parsing.model import Keyword, Statement, TestCase
     from robot.parsing.model.blocks import CommentSection
     from robot.parsing.model.statements import Comment
 
 
-def regex(value: str) -> re.Pattern:
+def regex(value: str) -> re.Pattern[str]:
     try:
         return re.compile(value)
     except re.error as regex_err:
@@ -39,7 +40,7 @@ def lower_csv(value: str) -> list[str]:
 
 def get_line_tokens(robot_code: str, lineno: int) -> list[Token] | None:
     """
-    Tokenize RF code and return tokens from specified line, excluding structural tokens.
+    Tokenize RF code and return tokens from the specified line, excluding structural tokens.
 
     Args:
         robot_code: Robot Framework code to tokenize.
@@ -63,6 +64,7 @@ class ToDoInCommentRule(Rule):
     By default, it reports ``TODO`` and ``FIXME`` markers.
 
     Example:
+
         # TODO: Refactor this code
         # fixme
 
@@ -97,7 +99,7 @@ class MissingSpaceAfterCommentRule(Rule):
     """
     No space after the ``#`` character and comment body.
 
-    Comments usually starts from the new line, or after 2 spaces in the same line. '#' characters denotes start of the
+    Comments usually start from the new line, or after 2 spaces in the same line. '#' characters denote the start of the
     comment, followed by the space and comment body:
 
         # stand-alone comment
@@ -110,6 +112,7 @@ class MissingSpaceAfterCommentRule(Rule):
     Configured regex for block comment should take into account the first character is ``#``.
 
     Example:
+
         #bad
         # good
         ### good block
@@ -160,6 +163,7 @@ class InvalidCommentRule(Rule):
     as a comment.
 
     Example:
+
     ```text
     # good
      # bad
@@ -179,15 +183,15 @@ class InvalidCommentRule(Rule):
         issue_type=sonar_qube.SonarQubeIssueType.BUG,
     )
     deprecated_names = ("0703",)
+    # TODO: deprecate (<4)
 
 
 class IgnoredDataRule(Rule):
     """
-    Ignored data found in file.
+    Ignored data found in the file.
 
-    All lines before first test data section
-    (`ref <https://robotframework.org/robotframework/latest/RobotFrameworkUserGuide.html#test-data-sections>`_)
-    are ignored. It's recommended to add ``*** Comments ***`` section header for lines that should be ignored.
+    All lines before the first test data section ([ref](https://robotframework.org/robotframework/latest/RobotFrameworkUserGuide.html#test-data-sections))
+    are ignored. It's recommended to add a `` *** Comments *** `` section header for lines that should be ignored.
 
     Missing section header:
 
@@ -223,8 +227,11 @@ class BomEncodingRule(Rule):
     """
     BOM (Byte Order Mark) found in the file.
 
-    Some code editors can save Robot file using BOM encoding. It is not supported by the Robot Framework.
-    Ensure that file is saved in UTF-8 encoding.
+    Some code editors can save Robot file using BOM encoding.
+    It is not supported by older versions of the Robot Framework.
+    Ensure that the file is saved in UTF-8 encoding.
+
+    Changes in 8.0.0: Rule is now optional since Robot Framework now supports BOM encoding.
 
     """
 
@@ -234,6 +241,7 @@ class BomEncodingRule(Rule):
     file_wide_rule = True
     severity = RuleSeverity.WARNING
     added_in_version = "1.7.0"
+    enabled = False
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.CLEAR,
         issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL,
@@ -267,7 +275,7 @@ class CommentedOutCodeRule(Rule):
     This rule is disabled by default. Enable it to detect forgotten or accidentally
     commented-out code.
 
-    Example of violations::
+    Example of violations:
 
         Keyword
             # ${result}=    Get Value
@@ -275,15 +283,11 @@ class CommentedOutCodeRule(Rule):
             # IF    ${condition}
             Other Keyword
 
-    Example of valid comments::
+    Example of valid comments:
 
         # This is a normal comment
         # TODO: implement this feature
         # If you need help, ask
-
-    Configuration example::
-
-        robocop check --configure commented-out-code.markers=todo,fixme,note
 
     """
 
@@ -587,26 +591,22 @@ class IgnoredDataChecker(RawFileChecker):
     IGNORE_DIRECTIVES = ("# robocop:", "# fmt:")
     LANGUAGE_HEADER = "language:"
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.is_bom = False
-        self.ignore_empty_lines = False  # ignore empty lines if language header or robocop disabler is present
+        self.ignore_empty_lines = False  # ignore empty lines if the language header or robocop disabler is present
         super().__init__()
 
     def parse_file(self) -> None:
         self.is_bom = False
         self.ignore_empty_lines = False
-        if self.lines is not None:
-            for lineno, line in enumerate(self.lines, start=1):
-                if self.check_line(line, lineno):
-                    break
-        else:
-            self.detect_bom(self.source)
-            with FileReader(self.source) as file_reader:
-                for lineno, line in enumerate(file_reader.readlines(), start=1):
-                    if self.check_line(line, lineno):
-                        break
+        self.detect_bom(self.source_file.path)
+        if not self.ignored_data.enabled:
+            return
+        for lineno, line in enumerate(self.source_file.source_lines, start=1):
+            if self.check_line(line, lineno):
+                break
 
-    def check_line(self, line: str, lineno: int) -> bool:
+    def check_line(self, line: str, lineno: int) -> bool:  # type: ignore[override]
         if line.startswith(self.SECTION_HEADER):
             return True
         if line.startswith(self.IGNORE_DIRECTIVES):
@@ -621,10 +621,10 @@ class IgnoredDataChecker(RawFileChecker):
                 return "***" in line
         if self.ignore_empty_lines and not line.strip():
             return False
-        self.report(self.ignored_data, lineno=lineno, col=1, end_col=len(line))
+        self.report(self.ignored_data, lineno=lineno, col=1, end_col=len(line.rstrip()) + 1)
         return True
 
-    def detect_bom(self, source: str):
+    def detect_bom(self, source: Path) -> None:
         with open(source, "rb") as raw_file:
             first_four = raw_file.read(4)
             self.is_bom = any(first_four.startswith(bom_marker) for bom_marker in IgnoredDataChecker.BOM)

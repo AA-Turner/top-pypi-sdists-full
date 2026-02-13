@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unicodedata2
-Version: 17.0.0
+Version: 17.0.1
 Summary: Unicodedata backport updated to the latest Unicode version.
 Home-page: http://github.com/fonttools/unicodedata2
 Download-URL: http://github.com/fonttools/unicodedata2
@@ -57,6 +57,12 @@ For more info, check `tox`'s [documentation](https://tox.readthedocs.io/en/lates
 
 Changelog
 =========
+## 17.0.0
+ - Upgrade to Unicode 17.0.0
+
+## 16.0.0
+ - Upgrade to Unicode 16.0.0
+
 ## 15.0.0
  - Upgrade to Unicode 15.0.0
 

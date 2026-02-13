@@ -59,6 +59,17 @@ class IndexActionsResourceType(AWSProperty):
     }
 
 
+class ScanActionResourceType(AWSProperty):
+    """
+    `ScanActionResourceType <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-scanactionresourcetype.html>`__
+    """
+
+    props: PropsDictType = {
+        "MalwareScanner": (str, False),
+        "ScanMode": (str, False),
+    }
+
+
 class BackupRuleResourceType(AWSProperty):
     """
     `BackupRuleResourceType <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-backupruleresourcetype.html>`__
@@ -72,10 +83,24 @@ class BackupRuleResourceType(AWSProperty):
         "Lifecycle": (LifecycleResourceType, False),
         "RecoveryPointTags": (dict, False),
         "RuleName": (str, True),
+        "ScanActions": ([ScanActionResourceType], False),
         "ScheduleExpression": (str, False),
         "ScheduleExpressionTimezone": (str, False),
         "StartWindowMinutes": (double, False),
         "TargetBackupVault": (str, True),
+        "TargetLogicallyAirGappedBackupVaultArn": (str, False),
+    }
+
+
+class ScanSettingResourceType(AWSProperty):
+    """
+    `ScanSettingResourceType <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-backupplan-scansettingresourcetype.html>`__
+    """
+
+    props: PropsDictType = {
+        "MalwareScanner": (str, False),
+        "ResourceTypes": ([str], False),
+        "ScannerRoleArn": (str, False),
     }
 
 
@@ -88,6 +113,7 @@ class BackupPlanResourceType(AWSProperty):
         "AdvancedBackupSettings": ([AdvancedBackupSettingResourceType], False),
         "BackupPlanName": (str, True),
         "BackupPlanRule": ([BackupRuleResourceType], True),
+        "ScanSettings": ([ScanSettingResourceType], False),
     }
 
 
@@ -391,4 +417,31 @@ class RestoreTestingSelection(AWSObject):
         "RestoreTestingPlanName": (str, True),
         "RestoreTestingSelectionName": (str, True),
         "ValidationWindowHours": (integer, False),
+    }
+
+
+class ResourceSelection(AWSProperty):
+    """
+    `ResourceSelection <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-tieringconfiguration-resourceselection.html>`__
+    """
+
+    props: PropsDictType = {
+        "ResourceType": (str, True),
+        "Resources": ([str], True),
+        "TieringDownSettingsInDays": (integer, True),
+    }
+
+
+class TieringConfiguration(AWSObject):
+    """
+    `TieringConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-tieringconfiguration.html>`__
+    """
+
+    resource_type = "AWS::Backup::TieringConfiguration"
+
+    props: PropsDictType = {
+        "BackupVaultName": (str, True),
+        "ResourceSelection": ([ResourceSelection], True),
+        "TieringConfigurationName": (str, True),
+        "TieringConfigurationTags": (dict, False),
     }

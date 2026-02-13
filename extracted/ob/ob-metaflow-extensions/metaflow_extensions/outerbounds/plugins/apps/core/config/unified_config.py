@@ -888,7 +888,7 @@ How to read this schema:
     commands = ConfigField(
         cli_meta=None,  # We dont expose commands as an options. We rather expose it like `--` with click.
         field_type=list,
-        required=True,  # Either from CLI or from config file.
+        required=False,  # Not required when use_base_image_command=True or no_deps is used in CLI
         help="A list of commands to run the app with.",  # TODO: Fix me: make me configurable via the -- stuff in click.
         example=["python app.py", "python app.py --foo bar"],
         behavior=FieldBehavior.NOT_ALLOWED,
@@ -961,6 +961,37 @@ How to read this schema:
         field_type=bool,
         default=False,
         help="Force upgrade the app even if it is currently being upgraded.",
+    )
+
+    use_base_image_command = ConfigField(
+        cli_meta=None,
+        available_in=ConfigFieldContext.PROGRAMMATIC,
+        field_type=bool,
+        default=False,
+        help=(
+            "When True, skip providing startup commands and rely on the container's "
+            "entrypoint/CMD. Only available in the programmatic API. "
+            "In CLI mode, use `--no-deps` along side passing no command "
+            "to enable this behavior."
+        ),
+    )
+
+    skip_code_package = ConfigField(
+        cli_meta=CLIOption(
+            name="skip_code_package",
+            cli_option_str="--skip-code-package",
+            help=(
+                "When True, skip code packaging and rely on the container's embedded source code. "
+                "This option will ONLY work in conjunction with --no-deps on the CLI since images baked with fast-bakery require a code package."
+            ),
+            is_flag=True,
+        ),
+        field_type=bool,
+        default=False,
+        help=(
+            "When True, skip code packaging and rely on the container's embedded source code. "
+            "When running the deployer programmatically, If this field is set, then the user cannot pass `package-code`"
+        ),
     )
 
     # ------- Experimental -------------

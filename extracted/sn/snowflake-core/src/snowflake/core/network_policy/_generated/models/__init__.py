@@ -20,10 +20,14 @@ from snowflake.core.network_policy._generated.models.error_response import Error
 from snowflake.core.network_policy._generated.models.network_policy import NetworkPolicy
 from snowflake.core.network_policy._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.network_policy._generated.models.success_response import SuccessResponse
+from snowflake.core.network_policy._generated.models.tag_assignment import TagAssignment
+from snowflake.core.network_policy._generated.models.tag_reference import TagReference
 
 __all__ = [
     "ErrorResponse",
     "NetworkPolicy",
     "SuccessAcceptedResponse",
     "SuccessResponse",
+    "TagAssignment",
+    "TagReference",
 ]

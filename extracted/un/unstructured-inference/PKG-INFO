@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: unstructured_inference
-Version: 1.2.0
+Version: 1.5.2
 Summary: A library for performing inference using trained models.
-Home-page: https://github.com/Unstructured-IO/unstructured-inference
-Author: Unstructured Technologies
-Author-email: devops@unstructuredai.io
-License: Apache-2.0
-Keywords: NLP PDF HTML CV XML parsing preprocessing
+Project-URL: Homepage, https://github.com/Unstructured-IO/unstructured-inference
+Author-email: Unstructured Technologies <devops@unstructuredai.io>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Keywords: CV,HTML,NLP,PDF,XML,parsing,preprocessing
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
@@ -14,38 +14,24 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >=3.7.0
-Description-Content-Type: text/markdown
-Requires-Dist: python-multipart
-Requires-Dist: huggingface-hub
-Requires-Dist: numpy
-Requires-Dist: opencv-python>=4.13.0.90
-Requires-Dist: onnx
+Requires-Python: <3.13,>=3.12
+Requires-Dist: accelerate>=1.12.0
+Requires-Dist: huggingface-hub>=1.4.1
+Requires-Dist: matplotlib>=3.10.8
+Requires-Dist: numpy>=2.4.2
+Requires-Dist: onnx>=1.20.1
 Requires-Dist: onnxruntime>=1.18.0
-Requires-Dist: matplotlib
-Requires-Dist: torch
-Requires-Dist: timm
-Requires-Dist: transformers>=4.25.1
-Requires-Dist: accelerate
-Requires-Dist: rapidfuzz
-Requires-Dist: pandas
-Requires-Dist: scipy
+Requires-Dist: opencv-python>=4.13.0.90
+Requires-Dist: pandas>=3.0.0
 Requires-Dist: pypdfium2>=5.0.0
-Requires-Dist: pdfminer-six
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Requires-Dist: rapidfuzz>=3.14.3
+Requires-Dist: scipy>=1.17.0
+Requires-Dist: timm>=1.0.24
+Requires-Dist: torch>=2.10.0
+Requires-Dist: transformers>=4.25.1
+Description-Content-Type: text/markdown
 
 <h3 align="center">
   <img
@@ -62,11 +48,15 @@ Dynamic: summary
 The `unstructured-inference` repo contains hosted model inference code for layout parsing models. 
 These models are invoked via API as part of the partitioning bricks in the `unstructured` package.
 
+**Requires Python 3.12+.**
+
 ## Installation
 
 ### Package
 
-Run `pip install unstructured-inference`.
+```shell
+pip install unstructured-inference
+```
 
 ### Detectron2
 
@@ -83,10 +73,18 @@ Windows is not officially supported by Detectron2, but some users are able to in
 See discussion [here](https://layout-parser.github.io/tutorials/installation#for-windows-users) for 
 tips on installing Detectron2 on Windows.
 
-### Repository
+### Development Setup
 
-To install the repository for development, clone the repo and run `make install` to install dependencies.
-Run `make help` for a full list of install options.
+This project uses [uv](https://docs.astral.sh/uv/) for dependency management.
+
+```shell
+# Clone and install all dependencies (including dev/test/lint groups)
+git clone https://github.com/Unstructured-IO/unstructured-inference.git
+cd unstructured-inference
+make install
+```
+
+Run `make help` for a full list of available targets.
 
 ## Getting Started
 

@@ -68,9 +68,10 @@ async def handle_ui(request: ApiRequest) -> Response:
                 f'<link rel="stylesheet" href="{protocol}//{host}/ui/{graph_id}/{basename}" />'
             )
         elif ext == ".js":
+            safe_name = json.dumps(message["name"]).replace("'", "&#39;")
             result.append(
                 f'<script src="{protocol}//{host}/ui/{graph_id}/{basename}" '
-                f"onload='__LGUI_{valid_js_name}.render({json.dumps(message['name'])}, \"{{{{shadowRootId}}}}\")'>"
+                f"onload='__LGUI_{valid_js_name}.render({safe_name}, \"{{{{shadowRootId}}}}\")'>"
                 "</script>"
             )
 

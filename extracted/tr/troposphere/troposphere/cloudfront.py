@@ -29,6 +29,17 @@ from .validators.cloudfront import (
 )
 
 
+class IpamCidrConfig(AWSProperty):
+    """
+    `IpamCidrConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-anycastiplist-ipamcidrconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "Cidr": (str, True),
+        "IpamPoolArn": (str, True),
+    }
+
+
 class AnycastIpList(AWSObject):
     """
     `AnycastIpList <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-anycastiplist.html>`__
@@ -39,6 +50,7 @@ class AnycastIpList(AWSObject):
     props: PropsDictType = {
         "IpAddressType": (str, False),
         "IpCount": (integer, True),
+        "IpamCidrConfigs": ([IpamCidrConfig], False),
         "Name": (str, True),
         "Tags": (validate_tags_items_array, False),
     }
@@ -381,6 +393,16 @@ class CacheBehavior(AWSProperty):
     }
 
 
+class ConnectionFunctionAssociation(AWSProperty):
+    """
+    `ConnectionFunctionAssociation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-connectionfunctionassociation.html>`__
+    """
+
+    props: PropsDictType = {
+        "Id": (str, True),
+    }
+
+
 class CustomErrorResponse(AWSProperty):
     """
     `CustomErrorResponse <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-customerrorresponse.html>`__
@@ -460,6 +482,16 @@ class Logging(AWSProperty):
     }
 
 
+class OriginMtlsConfig(AWSProperty):
+    """
+    `OriginMtlsConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-originmtlsconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "ClientCertificateArn": (str, True),
+    }
+
+
 class CustomOriginConfig(AWSProperty):
     """
     `CustomOriginConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-customoriginconfig.html>`__
@@ -470,6 +502,7 @@ class CustomOriginConfig(AWSProperty):
         "HTTPSPort": (validate_network_port, False),
         "IpAddressType": (str, False),
         "OriginKeepaliveTimeout": (integer, False),
+        "OriginMtlsConfig": (OriginMtlsConfig, False),
         "OriginProtocolPolicy": (str, True),
         "OriginReadTimeout": (integer, False),
         "OriginSSLProtocols": ([str], False),
@@ -687,6 +720,29 @@ class ViewerCertificate(AWSProperty):
     }
 
 
+class TrustStoreConfig(AWSProperty):
+    """
+    `TrustStoreConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-truststoreconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "AdvertiseTrustStoreCaNames": (boolean, False),
+        "IgnoreCertificateExpiry": (boolean, False),
+        "TrustStoreId": (str, True),
+    }
+
+
+class ViewerMtlsConfig(AWSProperty):
+    """
+    `ViewerMtlsConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-viewermtlsconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "Mode": (str, False),
+        "TrustStoreConfig": (TrustStoreConfig, False),
+    }
+
+
 class DistributionConfig(AWSProperty):
     """
     `DistributionConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-distributionconfig.html>`__
@@ -698,6 +754,7 @@ class DistributionConfig(AWSProperty):
         "CNAMEs": ([str], False),
         "CacheBehaviors": ([CacheBehavior], False),
         "Comment": (str, False),
+        "ConnectionFunctionAssociation": (ConnectionFunctionAssociation, False),
         "ConnectionMode": (str, False),
         "ContinuousDeploymentPolicyId": (str, False),
         "CustomErrorResponses": ([CustomErrorResponse], False),
@@ -716,6 +773,7 @@ class DistributionConfig(AWSProperty):
         "Staging": (boolean, False),
         "TenantConfig": (TenantConfig, False),
         "ViewerCertificate": (ViewerCertificate, False),
+        "ViewerMtlsConfig": (ViewerMtlsConfig, False),
         "WebACLId": (str, False),
     }
 
@@ -904,6 +962,7 @@ class KeyValueStore(AWSObject):
         "Comment": (str, False),
         "ImportSource": (ImportSource, False),
         "Name": (str, True),
+        "Tags": (Tags, False),
     }
 
 
@@ -1371,6 +1430,43 @@ class StreamingDistribution(AWSObject):
     }
 
 
+class CaCertificatesBundleS3Location(AWSProperty):
+    """
+    `CaCertificatesBundleS3Location <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-truststore-cacertificatesbundles3location.html>`__
+    """
+
+    props: PropsDictType = {
+        "Bucket": (str, True),
+        "Key": (str, True),
+        "Region": (str, True),
+        "Version": (str, False),
+    }
+
+
+class CaCertificatesBundleSource(AWSProperty):
+    """
+    `CaCertificatesBundleSource <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-truststore-cacertificatesbundlesource.html>`__
+    """
+
+    props: PropsDictType = {
+        "CaCertificatesBundleS3Location": (CaCertificatesBundleS3Location, True),
+    }
+
+
+class TrustStore(AWSObject):
+    """
+    `TrustStore <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-truststore.html>`__
+    """
+
+    resource_type = "AWS::CloudFront::TrustStore"
+
+    props: PropsDictType = {
+        "CaCertificatesBundleSource": (CaCertificatesBundleSource, False),
+        "Name": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
 class VpcOriginEndpointConfig(AWSProperty):
     """
     `VpcOriginEndpointConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-vpcorigin-vpcoriginendpointconfig.html>`__
@@ -1399,23 +1495,6 @@ class VpcOrigin(AWSObject):
     }
 
 
-class AnycastIpListProperty(AWSProperty):
-    """
-    `AnycastIpListProperty <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-anycastiplist-anycastiplist.html>`__
-    """
-
-    props: PropsDictType = {
-        "AnycastIps": ([str], True),
-        "Arn": (str, True),
-        "Id": (str, True),
-        "IpAddressType": (str, False),
-        "IpCount": (integer, True),
-        "LastModifiedTime": (str, True),
-        "Name": (str, True),
-        "Status": (str, True),
-    }
-
-
 class DomainResult(AWSProperty):
     """
     `DomainResult <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-domainresult.html>`__
@@ -1423,5 +1502,18 @@ class DomainResult(AWSProperty):
 
     props: PropsDictType = {
         "Domain": (str, False),
+        "Status": (str, False),
+    }
+
+
+class IpamCidrConfigResult(AWSProperty):
+    """
+    `IpamCidrConfigResult <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-anycastiplist-ipamcidrconfigresult.html>`__
+    """
+
+    props: PropsDictType = {
+        "AnycastIp": (str, False),
+        "Cidr": (str, False),
+        "IpamPoolArn": (str, False),
         "Status": (str, False),
     }

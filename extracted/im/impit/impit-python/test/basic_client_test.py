@@ -3,6 +3,7 @@ import socket
 import threading
 import time
 from http.cookiejar import CookieJar
+from typing import Literal
 
 import pytest
 
@@ -27,6 +28,26 @@ def thread_server(port_holder: list[int]) -> None:
     conn.send(response)
     conn.close()
     server.close()
+
+
+@pytest.mark.parametrize(
+    ('browser', 'ja4'),
+    [
+        ('chrome', 't13d1516h2_8daaf6152771_02713d6af862'),
+        ('firefox', 't13d1715h2_5b57614c22b0_5c2c66f702b0'),
+    ],
+)
+def test_ja4_fingerprint(browser: Literal['chrome', 'firefox'] | None, ja4: str) -> None:
+    impit = Client(browser=browser)
+    response = impit.get('https://headers.superuser.one/')
+    assert response.status_code == 200
+    found_ja4 = False
+    for line in response.text.split('\n'):
+        if line.startswith('cf-ja4 => '):
+            assert line == f'cf-ja4 => {ja4}'
+            found_ja4 = True
+            break
+    assert found_ja4, "Expected 'cf-ja4' header line not found in response"
 
 
 @pytest.mark.parametrize(
@@ -163,7 +184,7 @@ class TestBasicRequests:
         )
 
         response = impit.get(
-            get_httpbin_url('/cookies/'),
+            get_httpbin_url('/cookies'),
         ).json()
 
         assert response['cookies'] == {'preset-cookie': '123'}
@@ -173,7 +194,7 @@ class TestBasicRequests:
         )
 
         response = impit.get(
-            get_httpbin_url('/cookies/'),
+            get_httpbin_url('/cookies'),
         ).json()
 
         assert response['cookies'] == {
@@ -192,7 +213,7 @@ class TestBasicRequests:
         )
 
         response = impit.get(
-            get_httpbin_url('/cookies/'),
+            get_httpbin_url('/cookies'),
         ).json()
 
         assert response['cookies'] == {'preset-cookie': '123'}
@@ -202,7 +223,7 @@ class TestBasicRequests:
         )
 
         response = impit.get(
-            get_httpbin_url('/cookies/'),
+            get_httpbin_url('/cookies'),
         ).json()
 
         assert response['cookies'] == {
@@ -214,12 +235,53 @@ class TestBasicRequests:
         assert cookies.get('preset-cookie') == '123'
         assert cookies.get('set-by-server') == '321'
 
+    def test_client_headers_override_impersonation_headers(self, browser: Browser) -> None:
+        if browser is None:
+            pytest.skip('No browser impersonation')
+
+        impit = Client(browser=browser, headers={'user-agent': 'custom-client-ua'})
+
+        response = impit.get(get_httpbin_url('/headers'))
+        assert response.status_code == 200
+        assert response.json()['headers']['User-Agent'] == 'custom-client-ua'
+
+    def test_request_headers_override_all_case_insensitive(self, browser: Browser) -> None:
+        if browser is None:
+            pytest.skip('No browser impersonation')
+
+        impit = Client(browser=browser, headers={'User-Agent': 'client-ua'})
+
+        response = impit.get(get_httpbin_url('/headers'), headers={'user-agent': 'request-ua'})
+        assert response.status_code == 200
+        assert response.json()['headers']['User-Agent'] == 'request-ua'
+
+    def test_impersonation_headers_present_without_overrides(self, browser: Browser) -> None:
+        if browser is None:
+            pytest.skip('No browser impersonation')
+
+        impit = Client(browser=browser)
+
+        response = impit.get(get_httpbin_url('/headers'))
+        assert response.status_code == 200
+        ua = response.json()['headers']['User-Agent']
+        if browser == 'chrome':
+            assert 'Chrome' in ua
+        elif browser == 'firefox':
+            assert 'Firefox' in ua
+
     def test_overwriting_headers_work(self, browser: Browser) -> None:
         impit = Client(browser=browser)
 
         response = impit.get(get_httpbin_url('/headers'), headers={'User-Agent': 'this is impit!'})
         assert response.status_code == 200
         assert response.json()['headers']['User-Agent'] == 'this is impit!'
+
+    def test_removing_impersonated_headers_with_empty_string(self, browser: Browser) -> None:
+        impit = Client(browser=browser)
+
+        response = impit.get(get_httpbin_url('/headers'), headers={'Sec-Fetch-User': ''})
+        assert response.status_code == 200
+        assert 'Sec-Fetch-User' not in response.json()['headers']
 
     @pytest.mark.skip(reason='Flaky under the CI environment')
     def test_http3_works(self, browser: Browser) -> None:

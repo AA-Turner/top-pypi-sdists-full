@@ -156,7 +156,7 @@ async def connect(
 
 async def start_pool() -> None:
     if store._STORE_CONFIG is None:
-        from langgraph_api import config as langgraph_config
+        from langgraph_api import config as langgraph_config  # noqa: PLC0415
 
         if langgraph_config.STORE_CONFIG:
             config_ = langgraph_config.STORE_CONFIG
@@ -201,8 +201,8 @@ async def start_pool() -> None:
 async def stop_pool() -> None:
     await asyncio.to_thread(GLOBAL_STORE.close)
     await asyncio.to_thread(GLOBAL_RETRY_COUNTER.close)
-    from langgraph_runtime_inmem.checkpoint import Checkpointer
-    from langgraph_runtime_inmem.store import STORE
+    from langgraph_runtime_inmem.checkpoint import Checkpointer  # noqa: PLC0415
+    from langgraph_runtime_inmem.store import STORE  # noqa: PLC0415
 
     await asyncio.to_thread(STORE.close)
 

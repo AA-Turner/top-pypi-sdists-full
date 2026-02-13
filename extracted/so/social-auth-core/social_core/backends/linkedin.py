@@ -75,7 +75,12 @@ class LinkedinOAuth2(BaseOAuth2):
     def user_details_url(self):
         # use set() since LinkedIn fails when values are duplicated
         fields_selectors = list(
-            {"id", "firstName", "lastName", *self.setting("FIELD_SELECTORS", [])}
+            {
+                "id",
+                "firstName",
+                "lastName",
+                *cast("list[str]", self.setting("FIELD_SELECTORS", [])),
+            }
         )
         # user sort to ease the tests URL mocking
         fields_selectors.sort()
@@ -90,7 +95,9 @@ class LinkedinOAuth2(BaseOAuth2):
             self.user_details_url(), headers=self.user_data_headers(access_token)
         )
 
-        if "emailAddress" in set(self.setting("FIELD_SELECTORS", [])):
+        if "emailAddress" in set(
+            cast("list[str]", self.setting("FIELD_SELECTORS", []))
+        ):
             emails = self.email_data(access_token, *args, **kwargs)
             if emails:
                 response["emailAddress"] = emails[0]
@@ -124,9 +131,7 @@ class LinkedinOAuth2(BaseOAuth2):
             }
             :return the localizedName from the lastName object
             """
-            locale = "{}_{}".format(
-                name["preferredLocale"]["language"], name["preferredLocale"]["country"]
-            )
+            locale = f"{name['preferredLocale']['language']}_{name['preferredLocale']['country']}"
             return name["localized"].get(locale, "")
 
         fullname, first_name, last_name = self.get_user_names(
@@ -157,14 +162,21 @@ class LinkedinOAuth2(BaseOAuth2):
         url: str,
         method: Literal["GET", "POST", "DELETE"] = "GET",
         headers: Mapping[str, str | bytes] | None = None,
-        data: dict | bytes | str | None = None,
+        data: dict | None = None,
+        json: dict | None = None,
         auth: tuple[str, str] | AuthBase | None = None,
         params: dict | None = None,
     ) -> dict[Any, Any]:
         # LinkedIn expects a POST request with querystring parameters, despite
         # the spec http://tools.ietf.org/html/rfc6749#section-4.1.3
         return super().request_access_token(
-            url, method, headers, data, auth, cast("dict", data)
+            url,
+            method=method,
+            headers=headers,
+            data=data,
+            json=json,
+            auth=auth,
+            params=data,
         )
 
     def process_error(self, data) -> None:

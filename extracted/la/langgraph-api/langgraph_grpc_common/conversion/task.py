@@ -296,7 +296,7 @@ def _coerce_context(graph: Pregel, context: Any) -> Any:
     if context is None:
         return None
 
-    context_schema = graph.context_schema  # type: ignore[unresolved-attribute]
+    context_schema = graph.context_schema
     if context_schema is None:
         return context
 
@@ -309,7 +309,7 @@ def _coerce_context(graph: Pregel, context: Any) -> Any:
         except Exception as e:
             # Context coercion errors (missing fields, type mismatches, validation errors)
             # are user errors - they're caused by invalid input to the graph
-            from langgraph_grpc_common.conversion.exception import (
+            from langgraph_grpc_common.conversion.exception import (  # noqa: PLC0415
                 UserCodeExecutionErrorException,
             )
 
@@ -319,7 +319,7 @@ def _coerce_context(graph: Pregel, context: Any) -> Any:
 
 
 def _filter_context_by_schema(context: dict[str, Any], graph: Pregel) -> dict[str, Any]:
-    json_schema = graph.get_context_jsonschema()  # type: ignore[unresolved-attribute]
+    json_schema = graph.get_context_jsonschema()
     if not json_schema or not context:
         return context
 

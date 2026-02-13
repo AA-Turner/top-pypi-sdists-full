@@ -898,13 +898,16 @@ class AwsCloudFormationStackProperties:
         stack_name: typing.Optional[builtins.str] = None,
         termination_protection: typing.Optional[builtins.bool] = None,
     ) -> None:
-        '''Artifact properties for CloudFormation stacks.
+        '''(deprecated) Artifact properties for CloudFormation stacks.
 
-        :param template_file: A file relative to the assembly root which contains the CloudFormation template for this stack.
-        :param parameters: Values for CloudFormation stack parameters that should be passed when the stack is deployed.
-        :param stack_name: The name to use for the CloudFormation stack. Default: - name derived from artifact ID
-        :param termination_protection: Whether to enable termination protection for this stack. Default: false
+        :param template_file: (deprecated) A file relative to the assembly root which contains the CloudFormation template for this stack.
+        :param parameters: (deprecated) Values for CloudFormation stack parameters that should be passed when the stack is deployed.
+        :param stack_name: (deprecated) The name to use for the CloudFormation stack. Default: - name derived from artifact ID
+        :param termination_protection: (deprecated) Whether to enable termination protection for this stack. Default: false
 
+        :deprecated: The definition of this type has moved to ``@aws-cdk/cloud-assembly-api``.
+
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -942,31 +945,41 @@ class AwsCloudFormationStackProperties:
 
     @builtins.property
     def template_file(self) -> builtins.str:
-        '''A file relative to the assembly root which contains the CloudFormation template for this stack.'''
+        '''(deprecated) A file relative to the assembly root which contains the CloudFormation template for this stack.
+
+        :stability: deprecated
+        '''
         result = self._values.get("template_file")
         assert result is not None, "Required property 'template_file' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Values for CloudFormation stack parameters that should be passed when the stack is deployed.'''
+        '''(deprecated) Values for CloudFormation stack parameters that should be passed when the stack is deployed.
+
+        :stability: deprecated
+        '''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def stack_name(self) -> typing.Optional[builtins.str]:
-        '''The name to use for the CloudFormation stack.
+        '''(deprecated) The name to use for the CloudFormation stack.
 
         :default: - name derived from artifact ID
+
+        :stability: deprecated
         '''
         result = self._values.get("stack_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def termination_protection(self) -> typing.Optional[builtins.bool]:
-        '''Whether to enable termination protection for this stack.
+        '''(deprecated) Whether to enable termination protection for this stack.
 
         :default: false
+
+        :stability: deprecated
         '''
         result = self._values.get("termination_protection")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -1105,8 +1118,8 @@ class CloudArtifact(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudArt
     ) -> typing.Optional["CloudArtifact"]:
         '''Returns a subclass of ``CloudArtifact`` based on the artifact type defined in the artifact manifest.
 
-        :param assembly: The cloud assembly from which to load the artifact.
-        :param id: The artifact ID.
+        :param assembly: - The cloud assembly from which to load the artifact.
+        :param id: - The artifact ID.
         :param type: The type of artifact.
         :param dependencies: IDs of artifacts that must be deployed before this artifact. Default: - no dependencies.
         :param display_name: A string that can be shown to a user to uniquely identify this artifact inside a cloud assembly tree. Is used by the CLI to present a list of stacks to the user in a way that makes sense to them. Even though the property name "display name" doesn't imply it, this field is used to select stacks as well, so all stacks should have a unique display name. Default: - no display name
@@ -1214,7 +1227,7 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
     ) -> None:
         '''Reads a cloud assembly from the specified directory.
 
-        :param directory: The root directory of the assembly.
+        :param directory: - The root directory of the assembly.
         :param skip_enum_check: Skip enum checks. This means you may read enum values you don't know about yet. Make sure to always check the values of enums you encounter in the manifest. Default: false
         :param skip_version_check: Skip the version check. This means you may read a newer cloud assembly than the CX API is designed to support, and your application may not be aware of all features that in use in the Cloud Assembly. Default: false
         :param topo_sort: Topologically sort all artifacts. This parameter is only respected by the constructor of ``CloudAssembly``. The property lives here for backwards compatibility reasons. Default: true
@@ -1287,7 +1300,7 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
     def get_nested_assembly(self, artifact_id: builtins.str) -> "CloudAssembly":
         '''Returns a nested assembly.
 
-        :param artifact_id: The artifact ID of the nested assembly.
+        :param artifact_id: - The artifact ID of the nested assembly.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b18409e446ee0849b8e8bd80b844cb7b7741d0e1ffbece4d0bba5e5384aae08)
@@ -1301,7 +1314,7 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
     ) -> "NestedCloudAssemblyArtifact":
         '''Returns a nested assembly artifact.
 
-        :param artifact_id: The artifact ID of the nested assembly.
+        :param artifact_id: - The artifact ID of the nested assembly.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eae4105194b7e2c98dcfcbef6974da5251f42682a55afedb4ea8ee4c32d2d00a)
@@ -1330,7 +1343,7 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
     ) -> "CloudFormationStackArtifact":
         '''Returns a CloudFormation stack artifact from this assembly.
 
-        :param artifact_id: the artifact id of the stack (can be obtained through ``stack.artifactId``).
+        :param artifact_id: - the artifact id of the stack (can be obtained through ``stack.artifactId``).
 
         :return: a ``CloudFormationStackArtifact`` object.
 
@@ -1350,7 +1363,7 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
 
         Will only search the current assembly.
 
-        :param stack_name: the name of the CloudFormation stack.
+        :param stack_name: - the name of the CloudFormation stack.
 
         :return: a ``CloudFormationStackArtifact`` object.
 
@@ -1378,7 +1391,7 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
     def try_get_artifact(self, id: builtins.str) -> typing.Optional["CloudArtifact"]:
         '''Attempts to find an artifact with a specific identity.
 
-        :param id: The artifact ID.
+        :param id: - The artifact ID.
 
         :return: A ``CloudArtifact`` object or ``undefined`` if the artifact does not exist in this assembly.
         '''
@@ -1469,7 +1482,7 @@ class CloudAssemblyBuilder(
     ) -> None:
         '''Initializes a cloud assembly builder.
 
-        :param outdir: The output directory, uses temporary directory if undefined.
+        :param outdir: - The output directory, uses temporary directory if undefined.
         :param asset_outdir: Use the given asset output directory. Default: - Same as the manifest outdir
         :param parent_builder: If this builder is for a nested assembly, the parent assembly builder. Default: - This is a root assembly
         '''
@@ -1496,7 +1509,7 @@ class CloudAssemblyBuilder(
     ) -> None:
         '''Adds an artifact into the cloud assembly.
 
-        :param id: The ID of the artifact.
+        :param id: - The ID of the artifact.
         :param type: The type of artifact.
         :param dependencies: IDs of artifacts that must be deployed before this artifact. Default: - no dependencies.
         :param display_name: A string that can be shown to a user to uniquely identify this artifact inside a cloud assembly tree. Is used by the CLI to present a list of stacks to the user in a way that makes sense to them. Even though the property name "display name" doesn't imply it, this field is used to select stacks as well, so all stacks should have a unique display name. Default: - no display name
@@ -1994,12 +2007,15 @@ class EndpointServiceAvailabilityZonesContextQuery:
         region: typing.Optional[builtins.str] = None,
         service_name: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''Query to hosted zone context provider.
+        '''(deprecated) Query to hosted zone context provider.
 
-        :param account: Query account.
-        :param region: Query region.
-        :param service_name: Query service name.
+        :param account: (deprecated) Query account.
+        :param region: (deprecated) Query region.
+        :param service_name: (deprecated) Query service name.
 
+        :deprecated: The definition of this type has moved to ``@aws-cdk/cloud-assembly-api``.
+
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -2029,19 +2045,28 @@ class EndpointServiceAvailabilityZonesContextQuery:
 
     @builtins.property
     def account(self) -> typing.Optional[builtins.str]:
-        '''Query account.'''
+        '''(deprecated) Query account.
+
+        :stability: deprecated
+        '''
         result = self._values.get("account")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Query region.'''
+        '''(deprecated) Query region.
+
+        :stability: deprecated
+        '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def service_name(self) -> typing.Optional[builtins.str]:
-        '''Query service name.'''
+        '''(deprecated) Query service name.
+
+        :stability: deprecated
+        '''
         result = self._values.get("service_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2070,12 +2095,15 @@ class Environment:
         name: builtins.str,
         region: builtins.str,
     ) -> None:
-        '''Models an AWS execution environment, for use within the CDK toolkit.
+        '''(deprecated) Models an AWS execution environment, for use within the CDK toolkit.
 
-        :param account: The AWS account this environment deploys into.
-        :param name: The arbitrary name of this environment (user-set, or at least user-meaningful).
-        :param region: The AWS region name where this environment deploys into.
+        :param account: (deprecated) The AWS account this environment deploys into.
+        :param name: (deprecated) The arbitrary name of this environment (user-set, or at least user-meaningful).
+        :param region: (deprecated) The AWS region name where this environment deploys into.
 
+        :deprecated: The official definition of this type has moved to ``@aws-cdk/cloud-assembly-api``.
+
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -2103,21 +2131,30 @@ class Environment:
 
     @builtins.property
     def account(self) -> builtins.str:
-        '''The AWS account this environment deploys into.'''
+        '''(deprecated) The AWS account this environment deploys into.
+
+        :stability: deprecated
+        '''
         result = self._values.get("account")
         assert result is not None, "Required property 'account' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''The arbitrary name of this environment (user-set, or at least user-meaningful).'''
+        '''(deprecated) The arbitrary name of this environment (user-set, or at least user-meaningful).
+
+        :stability: deprecated
+        '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def region(self) -> builtins.str:
-        '''The AWS region name where this environment deploys into.'''
+        '''(deprecated) The AWS region name where this environment deploys into.
+
+        :stability: deprecated
+        '''
         result = self._values.get("region")
         assert result is not None, "Required property 'region' is missing"
         return typing.cast(builtins.str, result)
@@ -2151,12 +2188,15 @@ class EnvironmentPlaceholderValues:
         partition: builtins.str,
         region: builtins.str,
     ) -> None:
-        '''Return the appropriate values for the environment placeholders.
+        '''(deprecated) Return the appropriate values for the environment placeholders.
 
-        :param account_id: Return the account.
-        :param partition: Return the partition.
-        :param region: Return the region.
+        :param account_id: (deprecated) Return the account.
+        :param partition: (deprecated) Return the partition.
+        :param region: (deprecated) Return the region.
 
+        :deprecated: The definition of this type has moved to ``@aws-cdk/cloud-assembly-api``.
+
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -2184,21 +2224,30 @@ class EnvironmentPlaceholderValues:
 
     @builtins.property
     def account_id(self) -> builtins.str:
-        '''Return the account.'''
+        '''(deprecated) Return the account.
+
+        :stability: deprecated
+        '''
         result = self._values.get("account_id")
         assert result is not None, "Required property 'account_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def partition(self) -> builtins.str:
-        '''Return the partition.'''
+        '''(deprecated) Return the partition.
+
+        :stability: deprecated
+        '''
         result = self._values.get("partition")
         assert result is not None, "Required property 'partition' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def region(self) -> builtins.str:
-        '''Return the region.'''
+        '''(deprecated) Return the region.
+
+        :stability: deprecated
+        '''
         result = self._values.get("region")
         assert result is not None, "Required property 'region' is missing"
         return typing.cast(builtins.str, result)
@@ -2219,11 +2268,14 @@ class EnvironmentPlaceholders(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/cx-api.EnvironmentPlaceholders",
 ):
-    '''Placeholders which can be used manifests.
+    '''(deprecated) Placeholders which can be used manifests.
 
     These can occur both in the Asset Manifest as well as the general
     Cloud Assembly manifest.
 
+    :deprecated: The definition of this type has moved to ``@aws-cdk/cloud-assembly-api``.
+
+    :stability: deprecated
     :exampleMetadata: fixture=_generated
 
     Example::
@@ -2248,15 +2300,17 @@ class EnvironmentPlaceholders(
         partition: builtins.str,
         region: builtins.str,
     ) -> typing.Any:
-        '''Replace the environment placeholders in all strings found in a complex object.
+        '''(deprecated) Replace the environment placeholders in all strings found in a complex object.
 
         Duplicated between cdk-assets and aws-cdk CLI because we don't have a good single place to put it
         (they're nominally independent tools).
 
         :param object: -
-        :param account_id: Return the account.
-        :param partition: Return the partition.
-        :param region: Return the region.
+        :param account_id: (deprecated) Return the account.
+        :param partition: (deprecated) Return the partition.
+        :param region: (deprecated) Return the region.
+
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__974e95ef64524df9118eec4c7232d1a7cf643d704ffed09b31569bb74c1025e3)
@@ -2274,10 +2328,12 @@ class EnvironmentPlaceholders(
         object: typing.Any,
         provider: "IEnvironmentPlaceholderProvider",
     ) -> typing.Any:
-        '''Like 'replace', but asynchronous.
+        '''(deprecated) Like 'replace', but asynchronous.
 
         :param object: -
         :param provider: -
+
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__de03889e580fb74fa4267c869df09d728f9377cec619989cc7e1ce5106f15b70)
@@ -2288,19 +2344,28 @@ class EnvironmentPlaceholders(
     @jsii.python.classproperty
     @jsii.member(jsii_name="CURRENT_ACCOUNT")
     def CURRENT_ACCOUNT(cls) -> builtins.str:
-        '''Insert this into the destination fields to be replaced with the current account.'''
+        '''(deprecated) Insert this into the destination fields to be replaced with the current account.
+
+        :stability: deprecated
+        '''
         return typing.cast(builtins.str, jsii.sget(cls, "CURRENT_ACCOUNT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CURRENT_PARTITION")
     def CURRENT_PARTITION(cls) -> builtins.str:
-        '''Insert this into the destination fields to be replaced with the current partition.'''
+        '''(deprecated) Insert this into the destination fields to be replaced with the current partition.
+
+        :stability: deprecated
+        '''
         return typing.cast(builtins.str, jsii.sget(cls, "CURRENT_PARTITION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CURRENT_REGION")
     def CURRENT_REGION(cls) -> builtins.str:
-        '''Insert this into the destination fields to be replaced with the current region.'''
+        '''(deprecated) Insert this into the destination fields to be replaced with the current region.
+
+        :stability: deprecated
+        '''
         return typing.cast(builtins.str, jsii.sget(cls, "CURRENT_REGION"))
 
 
@@ -2309,6 +2374,9 @@ class EnvironmentUtils(
     jsii_type="@aws-cdk/cx-api.EnvironmentUtils",
 ):
     '''
+    :deprecated: The definition of this type has moved to ``@aws-cdk/cloud-assembly-api``.
+
+    :stability: deprecated
     :exampleMetadata: fixture=_generated
 
     Example::
@@ -2326,10 +2394,12 @@ class EnvironmentUtils(
     @jsii.member(jsii_name="format")
     @builtins.classmethod
     def format(cls, account: builtins.str, region: builtins.str) -> builtins.str:
-        '''Format an environment string from an account and region.
+        '''(deprecated) Format an environment string from an account and region.
 
         :param account: -
         :param region: -
+
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__985fd1b8a51c8f31746e4fea4e11de47b0e182515d90486e7bea7c7be8ff003d)
@@ -2340,10 +2410,12 @@ class EnvironmentUtils(
     @jsii.member(jsii_name="make")
     @builtins.classmethod
     def make(cls, account: builtins.str, region: builtins.str) -> "Environment":
-        '''Build an environment object from an account and region.
+        '''(deprecated) Build an environment object from an account and region.
 
         :param account: -
         :param region: -
+
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0cfb55df07761ce610adba5578402205172bce1da7a531dc6bee64c6545f6202)
@@ -2356,6 +2428,8 @@ class EnvironmentUtils(
     def parse(cls, environment: builtins.str) -> "Environment":
         '''
         :param environment: -
+
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a2ed84c3997c13929dd0a6a30eb314cba65838a150b4138c07d5a1ae458e1a45)
@@ -2365,42 +2439,70 @@ class EnvironmentUtils(
 
 @jsii.interface(jsii_type="@aws-cdk/cx-api.IEnvironmentPlaceholderProvider")
 class IEnvironmentPlaceholderProvider(typing_extensions.Protocol):
-    '''Return the appropriate values for the environment placeholders.'''
+    '''(deprecated) Return the appropriate values for the environment placeholders.
+
+    :deprecated: The definition of this type has moved to ``@aws-cdk/cloud-assembly-api``.
+
+    :stability: deprecated
+    '''
 
     @jsii.member(jsii_name="accountId")
     def account_id(self) -> builtins.str:
-        '''Return the account.'''
+        '''(deprecated) Return the account.
+
+        :stability: deprecated
+        '''
         ...
 
     @jsii.member(jsii_name="partition")
     def partition(self) -> builtins.str:
-        '''Return the partition.'''
+        '''(deprecated) Return the partition.
+
+        :stability: deprecated
+        '''
         ...
 
     @jsii.member(jsii_name="region")
     def region(self) -> builtins.str:
-        '''Return the region.'''
+        '''(deprecated) Return the region.
+
+        :stability: deprecated
+        '''
         ...
 
 
 class _IEnvironmentPlaceholderProviderProxy:
-    '''Return the appropriate values for the environment placeholders.'''
+    '''(deprecated) Return the appropriate values for the environment placeholders.
+
+    :deprecated: The definition of this type has moved to ``@aws-cdk/cloud-assembly-api``.
+
+    :stability: deprecated
+    '''
 
     __jsii_type__: typing.ClassVar[str] = "@aws-cdk/cx-api.IEnvironmentPlaceholderProvider"
 
     @jsii.member(jsii_name="accountId")
     def account_id(self) -> builtins.str:
-        '''Return the account.'''
+        '''(deprecated) Return the account.
+
+        :stability: deprecated
+        '''
         return typing.cast(builtins.str, jsii.invoke(self, "accountId", []))
 
     @jsii.member(jsii_name="partition")
     def partition(self) -> builtins.str:
-        '''Return the partition.'''
+        '''(deprecated) Return the partition.
+
+        :stability: deprecated
+        '''
         return typing.cast(builtins.str, jsii.invoke(self, "partition", []))
 
     @jsii.member(jsii_name="region")
     def region(self) -> builtins.str:
-        '''Return the region.'''
+        '''(deprecated) Return the region.
+
+        :stability: deprecated
+        '''
         return typing.cast(builtins.str, jsii.invoke(self, "region", []))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
@@ -2414,10 +2516,13 @@ typing.cast(typing.Any, IEnvironmentPlaceholderProvider).__jsii_proxy_class__ = 
 )
 class KeyContextResponse:
     def __init__(self, *, key_id: builtins.str) -> None:
-        '''Properties of a discovered key.
+        '''(deprecated) Properties of a discovered key.
 
-        :param key_id: Id of the key.
+        :param key_id: (deprecated) Id of the key.
 
+        :deprecated: The definition of this type has moved to ``@aws-cdk/cloud-assembly-api``.
+
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -2439,7 +2544,10 @@ class KeyContextResponse:
 
     @builtins.property
     def key_id(self) -> builtins.str:
-        '''Id of the key.'''
+        '''(deprecated) Id of the key.
+
+        :stability: deprecated
+        '''
         result = self._values.get("key_id")
         assert result is not None, "Required property 'key_id' is missing"
         return typing.cast(builtins.str, result)
@@ -2479,15 +2587,18 @@ class LoadBalancerContextResponse:
         security_group_ids: typing.Sequence[builtins.str],
         vpc_id: builtins.str,
     ) -> None:
-        '''Properties of a discovered load balancer.
+        '''(deprecated) Properties of a discovered load balancer.
 
-        :param ip_address_type: Type of IP address.
-        :param load_balancer_arn: The ARN of the load balancer.
-        :param load_balancer_canonical_hosted_zone_id: The hosted zone ID of the load balancer's name.
-        :param load_balancer_dns_name: Load balancer's DNS name.
-        :param security_group_ids: Load balancer's security groups.
-        :param vpc_id: Load balancer's VPC.
+        :param ip_address_type: (deprecated) Type of IP address.
+        :param load_balancer_arn: (deprecated) The ARN of the load balancer.
+        :param load_balancer_canonical_hosted_zone_id: (deprecated) The hosted zone ID of the load balancer's name.
+        :param load_balancer_dns_name: (deprecated) Load balancer's DNS name.
+        :param security_group_ids: (deprecated) Load balancer's security groups.
+        :param vpc_id: (deprecated) Load balancer's VPC.
 
+        :deprecated: The definition of this type has moved to ``@aws-cdk/cloud-assembly-api``.
+
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -2524,42 +2635,60 @@ class LoadBalancerContextResponse:
 
     @builtins.property
     def ip_address_type(self) -> "LoadBalancerIpAddressType":
-        '''Type of IP address.'''
+        '''(deprecated) Type of IP address.
+
+        :stability: deprecated
+        '''
         result = self._values.get("ip_address_type")
         assert result is not None, "Required property 'ip_address_type' is missing"
         return typing.cast("LoadBalancerIpAddressType", result)
 
     @builtins.property
     def load_balancer_arn(self) -> builtins.str:
-        '''The ARN of the load balancer.'''
+        '''(deprecated) The ARN of the load balancer.
+
+        :stability: deprecated
+        '''
         result = self._values.get("load_balancer_arn")
         assert result is not None, "Required property 'load_balancer_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def load_balancer_canonical_hosted_zone_id(self) -> builtins.str:
-        '''The hosted zone ID of the load balancer's name.'''
+        '''(deprecated) The hosted zone ID of the load balancer's name.
+
+        :stability: deprecated
+        '''
         result = self._values.get("load_balancer_canonical_hosted_zone_id")
         assert result is not None, "Required property 'load_balancer_canonical_hosted_zone_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def load_balancer_dns_name(self) -> builtins.str:
-        '''Load balancer's DNS name.'''
+        '''(deprecated) Load balancer's DNS name.
+
+        :stability: deprecated
+        '''
         result = self._values.get("load_balancer_dns_name")
         assert result is not None, "Required property 'load_balancer_dns_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def security_group_ids(self) -> typing.List[builtins.str]:
-        '''Load balancer's security groups.'''
+        '''(deprecated) Load balancer's security groups.
+
+        :stability: deprecated
+        '''
         result = self._values.get("security_group_ids")
         assert result is not None, "Required property 'security_group_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def vpc_id(self) -> builtins.str:
-        '''Load balancer's VPC.'''
+        '''(deprecated) Load balancer's VPC.
+
+        :stability: deprecated
+        '''
         result = self._values.get("vpc_id")
         assert result is not None, "Required property 'vpc_id' is missing"
         return typing.cast(builtins.str, result)
@@ -2578,14 +2707,28 @@ class LoadBalancerContextResponse:
 
 @jsii.enum(jsii_type="@aws-cdk/cx-api.LoadBalancerIpAddressType")
 class LoadBalancerIpAddressType(enum.Enum):
-    '''Load balancer ip address type.'''
+    '''(deprecated) Load balancer ip address type.
+
+    :deprecated: The definition of this type has moved to ``@aws-cdk/cloud-assembly-api``.
+
+    :stability: deprecated
+    '''
 
     IPV4 = "IPV4"
-    '''IPV4 ip address.'''
+    '''(deprecated) IPV4 ip address.
+
+    :stability: deprecated
+    '''
     DUAL_STACK = "DUAL_STACK"
-    '''Dual stack address.'''
+    '''(deprecated) Dual stack address.
+
+    :stability: deprecated
+    '''
     DUAL_STACK_WITHOUT_PUBLIC_IPV4 = "DUAL_STACK_WITHOUT_PUBLIC_IPV4"
-    '''IPv6 only public addresses, with private IPv4 and IPv6 addresses.'''
+    '''(deprecated) IPv6 only public addresses, with private IPv4 and IPv6 addresses.
+
+    :stability: deprecated
+    '''
 
 
 @jsii.data_type(
@@ -2605,12 +2748,15 @@ class LoadBalancerListenerContextResponse:
         listener_port: jsii.Number,
         security_group_ids: typing.Sequence[builtins.str],
     ) -> None:
-        '''Properties of a discovered load balancer listener.
+        '''(deprecated) Properties of a discovered load balancer listener.
 
-        :param listener_arn: The ARN of the listener.
-        :param listener_port: The port the listener is listening on.
-        :param security_group_ids: The security groups of the load balancer.
+        :param listener_arn: (deprecated) The ARN of the listener.
+        :param listener_port: (deprecated) The port the listener is listening on.
+        :param security_group_ids: (deprecated) The security groups of the load balancer.
 
+        :deprecated: The definition of this type has moved to ``@aws-cdk/cloud-assembly-api``.
+
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -2638,21 +2784,30 @@ class LoadBalancerListenerContextResponse:
 
     @builtins.property
     def listener_arn(self) -> builtins.str:
-        '''The ARN of the listener.'''
+        '''(deprecated) The ARN of the listener.
+
+        :stability: deprecated
+        '''
         result = self._values.get("listener_arn")
         assert result is not None, "Required property 'listener_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def listener_port(self) -> jsii.Number:
-        '''The port the listener is listening on.'''
+        '''(deprecated) The port the listener is listening on.
+
+        :stability: deprecated
+        '''
         result = self._values.get("listener_port")
         assert result is not None, "Required property 'listener_port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def security_group_ids(self) -> typing.List[builtins.str]:
-        '''The security groups of the load balancer.'''
+        '''(deprecated) The security groups of the load balancer.
+
+        :stability: deprecated
+        '''
         result = self._values.get("security_group_ids")
         assert result is not None, "Required property 'security_group_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -2690,7 +2845,7 @@ class MetadataEntry(_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry):
         :param data: The data. Default: - no data.
         :param trace: A stack trace for when the entry was created. Default: - no trace.
 
-        :deprecated: moved to package 'cloud-assembly-schema'
+        :deprecated: The definition of this type has moved to ``@aws-cdk/cloud-assembly-api``.
 
         :see: core.ConstructNode.metadata
         :stability: deprecated
@@ -2781,8 +2936,11 @@ class MetadataEntryResult(_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry)
         :param type: The type of the metadata entry.
         :param data: The data. Default: - no data.
         :param trace: A stack trace for when the entry was created. Default: - no trace.
-        :param path: The path in which this entry was defined.
+        :param path: (deprecated) The path in which this entry was defined.
 
+        :deprecated: The official definition of this type has moved to ``@aws-cdk/cloud-assembly-api``.
+
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -2844,7 +3002,10 @@ class MetadataEntryResult(_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry)
 
     @builtins.property
     def path(self) -> builtins.str:
-        '''The path in which this entry was defined.'''
+        '''(deprecated) The path in which this entry was defined.
+
+        :stability: deprecated
+        '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
         return typing.cast(builtins.str, result)
@@ -2874,19 +3035,15 @@ class MissingContext:
         props: typing.Mapping[builtins.str, typing.Any],
         provider: builtins.str,
     ) -> None:
-        '''(deprecated) Backwards compatibility for when ``MissingContext`` was defined here.
-
-        This is necessary because its used as an input in the stable
+        '''(deprecated) Properties to `stack.reportMissingContext().
 
         :param key: (deprecated) The missing context key.
         :param props: (deprecated) A set of provider-specific options. (This is the old untyped definition, which is necessary for backwards compatibility. See cxschema for a type definition.)
         :param provider: (deprecated) The provider from which we expect this context key to be obtained. (This is the old untyped definition, which is necessary for backwards compatibility. See cxschema for a type definition.)
 
-        :deprecated: moved to package 'cloud-assembly-schema'
+        :deprecated: Use ``stack.reportMissingContextKey()`` instead
 
-        :see: core.Stack.reportMissingContext
         :stability: deprecated
-        :aws-cdk: /core library.
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -3202,11 +3359,14 @@ class SecurityGroupContextResponse:
         allow_all_outbound: builtins.bool,
         security_group_id: builtins.str,
     ) -> None:
-        '''Properties of a discovered SecurityGroup.
+        '''(deprecated) Properties of a discovered SecurityGroup.
 
-        :param allow_all_outbound: Whether the security group allows all outbound traffic. This will be true when the security group has all-protocol egress permissions to access both ``0.0.0.0/0`` and ``::/0``.
-        :param security_group_id: The security group's id.
+        :param allow_all_outbound: (deprecated) Whether the security group allows all outbound traffic. This will be true when the security group has all-protocol egress permissions to access both ``0.0.0.0/0`` and ``::/0``.
+        :param security_group_id: (deprecated) The security group's id.
 
+        :deprecated: The definition of this type has moved to ``@aws-cdk/cloud-assembly-api``.
+
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -3231,11 +3391,13 @@ class SecurityGroupContextResponse:
 
     @builtins.property
     def allow_all_outbound(self) -> builtins.bool:
-        '''Whether the security group allows all outbound traffic.
+        '''(deprecated) Whether the security group allows all outbound traffic.
 
         This will be true
         when the security group has all-protocol egress permissions to access both
         ``0.0.0.0/0`` and ``::/0``.
+
+        :stability: deprecated
         '''
         result = self._values.get("allow_all_outbound")
         assert result is not None, "Required property 'allow_all_outbound' is missing"
@@ -3243,7 +3405,10 @@ class SecurityGroupContextResponse:
 
     @builtins.property
     def security_group_id(self) -> builtins.str:
-        '''The security group's id.'''
+        '''(deprecated) The security group's id.
+
+        :stability: deprecated
+        '''
         result = self._values.get("security_group_id")
         assert result is not None, "Required property 'security_group_id' is missing"
         return typing.cast(builtins.str, result)
@@ -3278,6 +3443,9 @@ class SynthesisMessage:
         :param id: 
         :param level: 
 
+        :deprecated: The official definition of this type has moved to ``@aws-cdk/cloud-assembly-api``.
+
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -3314,18 +3482,27 @@ class SynthesisMessage:
 
     @builtins.property
     def entry(self) -> "_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry":
+        '''
+        :stability: deprecated
+        '''
         result = self._values.get("entry")
         assert result is not None, "Required property 'entry' is missing"
         return typing.cast("_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry", result)
 
     @builtins.property
     def id(self) -> builtins.str:
+        '''
+        :stability: deprecated
+        '''
         result = self._values.get("id")
         assert result is not None, "Required property 'id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def level(self) -> "SynthesisMessageLevel":
+        '''
+        :stability: deprecated
+        '''
         result = self._values.get("level")
         assert result is not None, "Required property 'level' is missing"
         return typing.cast("SynthesisMessageLevel", result)
@@ -3344,9 +3521,24 @@ class SynthesisMessage:
 
 @jsii.enum(jsii_type="@aws-cdk/cx-api.SynthesisMessageLevel")
 class SynthesisMessageLevel(enum.Enum):
+    '''
+    :deprecated: The official definition of this type has moved to ``@aws-cdk/cloud-assembly-api``.
+
+    :stability: deprecated
+    '''
+
     INFO = "INFO"
+    '''
+    :stability: deprecated
+    '''
     WARNING = "WARNING"
+    '''
+    :stability: deprecated
+    '''
     ERROR = "ERROR"
+    '''
+    :stability: deprecated
+    '''
 
 
 class TreeCloudArtifact(
@@ -3533,25 +3725,28 @@ class VpcContextResponse:
         vpc_cidr_block: typing.Optional[builtins.str] = None,
         vpn_gateway_id: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''Properties of a discovered VPC.
+        '''(deprecated) Properties of a discovered VPC.
 
-        :param availability_zones: AZs.
-        :param vpc_id: VPC id.
-        :param isolated_subnet_ids: IDs of all isolated subnets. Element count: #(availabilityZones) · #(isolatedGroups)
-        :param isolated_subnet_names: Name of isolated subnet groups. Element count: #(isolatedGroups)
-        :param isolated_subnet_route_table_ids: Route Table IDs of isolated subnet groups. Element count: #(availabilityZones) · #(isolatedGroups)
-        :param owner_account_id: The ID of the AWS account that owns the VPC. Default: the account id of the parent stack
-        :param private_subnet_ids: IDs of all private subnets. Element count: #(availabilityZones) · #(privateGroups)
-        :param private_subnet_names: Name of private subnet groups. Element count: #(privateGroups)
-        :param private_subnet_route_table_ids: Route Table IDs of private subnet groups. Element count: #(availabilityZones) · #(privateGroups)
-        :param public_subnet_ids: IDs of all public subnets. Element count: #(availabilityZones) · #(publicGroups)
-        :param public_subnet_names: Name of public subnet groups. Element count: #(publicGroups)
-        :param public_subnet_route_table_ids: Route Table IDs of public subnet groups. Element count: #(availabilityZones) · #(publicGroups)
-        :param region: The region in which the VPC is in. Default: - Region of the parent stack
-        :param subnet_groups: The subnet groups discovered for the given VPC. Unlike the above properties, this will include asymmetric subnets, if the VPC has any. This property will only be populated if ``VpcContextQuery.returnAsymmetricSubnets`` is true. Default: - no subnet groups will be returned unless ``VpcContextQuery.returnAsymmetricSubnets`` is true
-        :param vpc_cidr_block: VPC cidr. Default: - CIDR information not available
-        :param vpn_gateway_id: The VPN gateway ID.
+        :param availability_zones: (deprecated) AZs.
+        :param vpc_id: (deprecated) VPC id.
+        :param isolated_subnet_ids: (deprecated) IDs of all isolated subnets. Element count: #(availabilityZones) · #(isolatedGroups)
+        :param isolated_subnet_names: (deprecated) Name of isolated subnet groups. Element count: #(isolatedGroups)
+        :param isolated_subnet_route_table_ids: (deprecated) Route Table IDs of isolated subnet groups. Element count: #(availabilityZones) · #(isolatedGroups)
+        :param owner_account_id: (deprecated) The ID of the AWS account that owns the VPC. Default: the account id of the parent stack
+        :param private_subnet_ids: (deprecated) IDs of all private subnets. Element count: #(availabilityZones) · #(privateGroups)
+        :param private_subnet_names: (deprecated) Name of private subnet groups. Element count: #(privateGroups)
+        :param private_subnet_route_table_ids: (deprecated) Route Table IDs of private subnet groups. Element count: #(availabilityZones) · #(privateGroups)
+        :param public_subnet_ids: (deprecated) IDs of all public subnets. Element count: #(availabilityZones) · #(publicGroups)
+        :param public_subnet_names: (deprecated) Name of public subnet groups. Element count: #(publicGroups)
+        :param public_subnet_route_table_ids: (deprecated) Route Table IDs of public subnet groups. Element count: #(availabilityZones) · #(publicGroups)
+        :param region: (deprecated) The region in which the VPC is in. Default: - Region of the parent stack
+        :param subnet_groups: (deprecated) The subnet groups discovered for the given VPC. Unlike the above properties, this will include asymmetric subnets, if the VPC has any. This property will only be populated if ``VpcContextQuery.returnAsymmetricSubnets`` is true. Default: - no subnet groups will be returned unless ``VpcContextQuery.returnAsymmetricSubnets`` is true
+        :param vpc_cidr_block: (deprecated) VPC cidr. Default: - CIDR information not available
+        :param vpn_gateway_id: (deprecated) The VPN gateway ID.
 
+        :deprecated: The definition of this type has moved to ``@aws-cdk/cloud-assembly-api``.
+
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -3645,32 +3840,42 @@ class VpcContextResponse:
 
     @builtins.property
     def availability_zones(self) -> typing.List[builtins.str]:
-        '''AZs.'''
+        '''(deprecated) AZs.
+
+        :stability: deprecated
+        '''
         result = self._values.get("availability_zones")
         assert result is not None, "Required property 'availability_zones' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def vpc_id(self) -> builtins.str:
-        '''VPC id.'''
+        '''(deprecated) VPC id.
+
+        :stability: deprecated
+        '''
         result = self._values.get("vpc_id")
         assert result is not None, "Required property 'vpc_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def isolated_subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''IDs of all isolated subnets.
+        '''(deprecated) IDs of all isolated subnets.
 
         Element count: #(availabilityZones) · #(isolatedGroups)
+
+        :stability: deprecated
         '''
         result = self._values.get("isolated_subnet_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def isolated_subnet_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Name of isolated subnet groups.
+        '''(deprecated) Name of isolated subnet groups.
 
         Element count: #(isolatedGroups)
+
+        :stability: deprecated
         '''
         result = self._values.get("isolated_subnet_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3679,36 +3884,44 @@ class VpcContextResponse:
     def isolated_subnet_route_table_ids(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Route Table IDs of isolated subnet groups.
+        '''(deprecated) Route Table IDs of isolated subnet groups.
 
         Element count: #(availabilityZones) · #(isolatedGroups)
+
+        :stability: deprecated
         '''
         result = self._values.get("isolated_subnet_route_table_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def owner_account_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the AWS account that owns the VPC.
+        '''(deprecated) The ID of the AWS account that owns the VPC.
 
         :default: the account id of the parent stack
+
+        :stability: deprecated
         '''
         result = self._values.get("owner_account_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def private_subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''IDs of all private subnets.
+        '''(deprecated) IDs of all private subnets.
 
         Element count: #(availabilityZones) · #(privateGroups)
+
+        :stability: deprecated
         '''
         result = self._values.get("private_subnet_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def private_subnet_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Name of private subnet groups.
+        '''(deprecated) Name of private subnet groups.
 
         Element count: #(privateGroups)
+
+        :stability: deprecated
         '''
         result = self._values.get("private_subnet_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3717,27 +3930,33 @@ class VpcContextResponse:
     def private_subnet_route_table_ids(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Route Table IDs of private subnet groups.
+        '''(deprecated) Route Table IDs of private subnet groups.
 
         Element count: #(availabilityZones) · #(privateGroups)
+
+        :stability: deprecated
         '''
         result = self._values.get("private_subnet_route_table_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def public_subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''IDs of all public subnets.
+        '''(deprecated) IDs of all public subnets.
 
         Element count: #(availabilityZones) · #(publicGroups)
+
+        :stability: deprecated
         '''
         result = self._values.get("public_subnet_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def public_subnet_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Name of public subnet groups.
+        '''(deprecated) Name of public subnet groups.
 
         Element count: #(publicGroups)
+
+        :stability: deprecated
         '''
         result = self._values.get("public_subnet_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3746,25 +3965,29 @@ class VpcContextResponse:
     def public_subnet_route_table_ids(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Route Table IDs of public subnet groups.
+        '''(deprecated) Route Table IDs of public subnet groups.
 
         Element count: #(availabilityZones) · #(publicGroups)
+
+        :stability: deprecated
         '''
         result = self._values.get("public_subnet_route_table_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''The region in which the VPC is in.
+        '''(deprecated) The region in which the VPC is in.
 
         :default: - Region of the parent stack
+
+        :stability: deprecated
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subnet_groups(self) -> typing.Optional[typing.List["VpcSubnetGroup"]]:
-        '''The subnet groups discovered for the given VPC.
+        '''(deprecated) The subnet groups discovered for the given VPC.
 
         Unlike the above properties, this will include asymmetric subnets,
         if the VPC has any.
@@ -3772,22 +3995,29 @@ class VpcContextResponse:
         is true.
 
         :default: - no subnet groups will be returned unless ``VpcContextQuery.returnAsymmetricSubnets`` is true
+
+        :stability: deprecated
         '''
         result = self._values.get("subnet_groups")
         return typing.cast(typing.Optional[typing.List["VpcSubnetGroup"]], result)
 
     @builtins.property
     def vpc_cidr_block(self) -> typing.Optional[builtins.str]:
-        '''VPC cidr.
+        '''(deprecated) VPC cidr.
 
         :default: - CIDR information not available
+
+        :stability: deprecated
         '''
         result = self._values.get("vpc_cidr_block")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def vpn_gateway_id(self) -> typing.Optional[builtins.str]:
-        '''The VPN gateway ID.'''
+        '''(deprecated) The VPN gateway ID.
+
+        :stability: deprecated
+        '''
         result = self._values.get("vpn_gateway_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3822,13 +4052,16 @@ class VpcSubnet:
         subnet_id: builtins.str,
         cidr: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''A subnet representation that the VPC provider uses.
+        '''(deprecated) A subnet representation that the VPC provider uses.
 
-        :param availability_zone: The code of the availability zone this subnet is in (for example, 'us-west-2a').
-        :param route_table_id: The identifier of the route table for this subnet.
-        :param subnet_id: The identifier of the subnet.
-        :param cidr: CIDR range of the subnet. Default: - CIDR information not available
+        :param availability_zone: (deprecated) The code of the availability zone this subnet is in (for example, 'us-west-2a').
+        :param route_table_id: (deprecated) The identifier of the route table for this subnet.
+        :param subnet_id: (deprecated) The identifier of the subnet.
+        :param cidr: (deprecated) CIDR range of the subnet. Default: - CIDR information not available
 
+        :deprecated: The definition of this type has moved to ``@aws-cdk/cloud-assembly-api``.
+
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -3862,30 +4095,41 @@ class VpcSubnet:
 
     @builtins.property
     def availability_zone(self) -> builtins.str:
-        '''The code of the availability zone this subnet is in (for example, 'us-west-2a').'''
+        '''(deprecated) The code of the availability zone this subnet is in (for example, 'us-west-2a').
+
+        :stability: deprecated
+        '''
         result = self._values.get("availability_zone")
         assert result is not None, "Required property 'availability_zone' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def route_table_id(self) -> builtins.str:
-        '''The identifier of the route table for this subnet.'''
+        '''(deprecated) The identifier of the route table for this subnet.
+
+        :stability: deprecated
+        '''
         result = self._values.get("route_table_id")
         assert result is not None, "Required property 'route_table_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subnet_id(self) -> builtins.str:
-        '''The identifier of the subnet.'''
+        '''(deprecated) The identifier of the subnet.
+
+        :stability: deprecated
+        '''
         result = self._values.get("subnet_id")
         assert result is not None, "Required property 'subnet_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def cidr(self) -> typing.Optional[builtins.str]:
-        '''CIDR range of the subnet.
+        '''(deprecated) CIDR range of the subnet.
 
         :default: - CIDR information not available
+
+        :stability: deprecated
         '''
         result = self._values.get("cidr")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3915,14 +4159,17 @@ class VpcSubnetGroup:
         subnets: typing.Sequence[typing.Union["VpcSubnet", typing.Dict[builtins.str, typing.Any]]],
         type: "VpcSubnetGroupType",
     ) -> None:
-        '''A group of subnets returned by the VPC provider.
+        '''(deprecated) A group of subnets returned by the VPC provider.
 
         The included subnets do NOT have to be symmetric!
 
-        :param name: The name of the subnet group, determined by looking at the tags of of the subnets that belong to it.
-        :param subnets: The subnets that are part of this group. There is no condition that the subnets have to be symmetric in the group.
-        :param type: The type of the subnet group.
+        :param name: (deprecated) The name of the subnet group, determined by looking at the tags of of the subnets that belong to it.
+        :param subnets: (deprecated) The subnets that are part of this group. There is no condition that the subnets have to be symmetric in the group.
+        :param type: (deprecated) The type of the subnet group.
 
+        :deprecated: The definition of this type has moved to ``@aws-cdk/cloud-assembly-api``.
+
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -3957,17 +4204,22 @@ class VpcSubnetGroup:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''The name of the subnet group, determined by looking at the tags of of the subnets that belong to it.'''
+        '''(deprecated) The name of the subnet group, determined by looking at the tags of of the subnets that belong to it.
+
+        :stability: deprecated
+        '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subnets(self) -> typing.List["VpcSubnet"]:
-        '''The subnets that are part of this group.
+        '''(deprecated) The subnets that are part of this group.
 
         There is no condition that the subnets have to be symmetric
         in the group.
+
+        :stability: deprecated
         '''
         result = self._values.get("subnets")
         assert result is not None, "Required property 'subnets' is missing"
@@ -3975,7 +4227,10 @@ class VpcSubnetGroup:
 
     @builtins.property
     def type(self) -> "VpcSubnetGroupType":
-        '''The type of the subnet group.'''
+        '''(deprecated) The type of the subnet group.
+
+        :stability: deprecated
+        '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast("VpcSubnetGroupType", result)
@@ -3994,18 +4249,31 @@ class VpcSubnetGroup:
 
 @jsii.enum(jsii_type="@aws-cdk/cx-api.VpcSubnetGroupType")
 class VpcSubnetGroupType(enum.Enum):
-    '''The type of subnet group.
+    '''(deprecated) The type of subnet group.
 
     Same as SubnetType in the aws-cdk-lib/aws-ec2 package,
     but we can't use that because of cyclical dependencies.
+
+    :deprecated: The definition of this type has moved to ``@aws-cdk/cloud-assembly-api``.
+
+    :stability: deprecated
     '''
 
     PUBLIC = "PUBLIC"
-    '''Public subnet group type.'''
+    '''(deprecated) Public subnet group type.
+
+    :stability: deprecated
+    '''
     PRIVATE = "PRIVATE"
-    '''Private subnet group type.'''
+    '''(deprecated) Private subnet group type.
+
+    :stability: deprecated
+    '''
     ISOLATED = "ISOLATED"
-    '''Isolated subnet group type.'''
+    '''(deprecated) Isolated subnet group type.
+
+    :stability: deprecated
+    '''
 
 
 class AssetManifestArtifact(

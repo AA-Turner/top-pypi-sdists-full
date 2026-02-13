@@ -3,7 +3,7 @@ ORCID OAuth2 Application backend, docs at:
 https://python-social-auth.readthedocs.io/en/latest/backends/orcid.html
 """
 
-from typing import Any
+from typing import Any, cast
 
 from .oauth import BaseOAuth2
 
@@ -24,8 +24,19 @@ class ORCIDOAuth2(BaseOAuth2):
         ("refresh_token", "refresh_token"),
     ]
 
-    def auth_params(self, state=None):
-        return super().auth_params(state)
+    def get_user_email(self, emails: dict | None) -> str:
+        if not emails:
+            return ""
+        emails_list = emails.get("email")
+        if not emails_list:
+            return ""
+
+        if len(emails_list) > 1:
+            for email_dict in emails_list:
+                if email_dict.get("primary"):
+                    return email_dict["email"]
+
+        return emails_list[0].get("email", "")
 
     def get_user_details(self, response):
         """Return user details from ORCID account"""
@@ -76,22 +87,10 @@ class ORCIDOAuth2(BaseOAuth2):
                 first_name = name.get("given-names", {}).get("value", "")
                 if (family_name := name.get("family-name", None)) is not None:
                     last_name = family_name.get("value", "")
-                fullname = first_name + " " + last_name
+                fullname = f"{first_name} {last_name}"
                 fullname = fullname.strip()
 
-            emails = person.get("emails")
-            if emails:
-                emails_list = emails.get("email")
-                if emails_list and len(emails_list) > 0:
-                    email = emails_list[0].get("email", "")
-
-                    if len(emails_list) > 1:
-                        for email_dict in emails_list:
-                            if email_dict.get("primary"):
-                                email = email_dict["email"]
-                                break
-                    else:
-                        email = emails_list[0].get("email", "")
+            email = self.get_user_email(person.get("emails"))
 
         return {
             "username": username,
@@ -103,7 +102,9 @@ class ORCIDOAuth2(BaseOAuth2):
 
     def user_data(self, access_token: str, *args, **kwargs) -> dict[str, Any] | None:
         """Loads user data from service"""
-        params = self.setting("PROFILE_EXTRA_PARAMS", {})
+        params: dict[str, str] = cast(
+            "dict[str, str]", self.setting("PROFILE_EXTRA_PARAMS", {})
+        )
         params["access_token"] = access_token
 
         # Reference Docs: ORCID Auth Flow:

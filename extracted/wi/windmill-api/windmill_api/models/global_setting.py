@@ -1,11 +1,7 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar
+from typing import Any, Dict, List, Type, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-if TYPE_CHECKING:
-    from ..models.global_setting_value import GlobalSettingValue
-
 
 T = TypeVar("T", bound="GlobalSetting")
 
@@ -15,16 +11,16 @@ class GlobalSetting:
     """
     Attributes:
         name (str):
-        value (GlobalSettingValue):
+        value (Any):
     """
 
     name: str
-    value: "GlobalSettingValue"
+    value: Any
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         name = self.name
-        value = self.value.to_dict()
+        value = self.value
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -39,12 +35,10 @@ class GlobalSetting:
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
-        from ..models.global_setting_value import GlobalSettingValue
-
         d = src_dict.copy()
         name = d.pop("name")
 
-        value = GlobalSettingValue.from_dict(d.pop("value"))
+        value = d.pop("value")
 
         global_setting = cls(
             name=name,

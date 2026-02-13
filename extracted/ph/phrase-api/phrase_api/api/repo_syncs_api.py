@@ -304,6 +304,7 @@ class RepoSyncsApi(object):
         :param str account_id: Account ID (required)
         :param str id: ID (required)
         :param str x_phrase_app_otp: Two-Factor-Authentication token (optional)
+        :param RepoSyncExportParameters repo_sync_export_parameters:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -331,6 +332,7 @@ class RepoSyncsApi(object):
         :param str account_id: Account ID (required)
         :param str id: ID (required)
         :param str x_phrase_app_otp: Two-Factor-Authentication token (optional)
+        :param RepoSyncExportParameters repo_sync_export_parameters:
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -350,7 +352,8 @@ class RepoSyncsApi(object):
         all_params = [
             'account_id',
             'id',
-            'x_phrase_app_otp'
+            'x_phrase_app_otp',
+            'repo_sync_export_parameters'
         ]
         all_params.extend(
             [
@@ -396,8 +399,14 @@ class RepoSyncsApi(object):
         local_var_files = {}
 
         body_params = None
+        if 'repo_sync_export_parameters' in local_var_params:
+            body_params = local_var_params['repo_sync_export_parameters']
         # HTTP header `Accept`
         header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
             ['application/json'])  # noqa: E501
 
         # Authentication setting
@@ -432,6 +441,8 @@ class RepoSyncsApi(object):
         :param str account_id: Account ID (required)
         :param str id: ID (required)
         :param str x_phrase_app_otp: Two-Factor-Authentication token (optional)
+        :param str branch: Branch to use
+        :param RepoSyncImportParameters repo_sync_import_parameters:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -459,6 +470,8 @@ class RepoSyncsApi(object):
         :param str account_id: Account ID (required)
         :param str id: ID (required)
         :param str x_phrase_app_otp: Two-Factor-Authentication token (optional)
+        :param str branch: Branch to use
+        :param RepoSyncImportParameters repo_sync_import_parameters:
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -478,7 +491,9 @@ class RepoSyncsApi(object):
         all_params = [
             'account_id',
             'id',
-            'x_phrase_app_otp'
+            'x_phrase_app_otp',
+            'branch',
+            'repo_sync_import_parameters'
         ]
         all_params.extend(
             [
@@ -515,6 +530,8 @@ class RepoSyncsApi(object):
             path_params['id'] = local_var_params['id']  # noqa: E501
 
         query_params = []
+        if 'branch' in local_var_params and local_var_params['branch'] is not None:  # noqa: E501
+            query_params.append(('branch', local_var_params['branch']))  # noqa: E501
 
         header_params = {}
         if 'x_phrase_app_otp' in local_var_params:
@@ -524,8 +541,14 @@ class RepoSyncsApi(object):
         local_var_files = {}
 
         body_params = None
+        if 'repo_sync_import_parameters' in local_var_params:
+            body_params = local_var_params['repo_sync_import_parameters']
         # HTTP header `Accept`
         header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
             ['application/json'])  # noqa: E501
 
         # Authentication setting

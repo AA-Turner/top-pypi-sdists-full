@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyaedt
-Version: 0.24.1
+Version: 0.25.0
 Summary: High-level Python API for Ansys Electronics Desktop Framework
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: "ANSYS, Inc." <pyansys.core@ansys.com>
@@ -40,24 +40,27 @@ Requires-Dist: pydantic<2.13,>=2.6.4
 Provides-Extra: unit-tests
 Requires-Dist: pytest<9.1,>=7.4.0; extra == "unit-tests"
 Requires-Dist: pytest-cov<7.1,>=4.0.0; extra == "unit-tests"
+Requires-Dist: pytest-testmon<3.0,>=2.0.0; extra == "unit-tests"
 Requires-Dist: mock<5.3,>=5.1.0; extra == "unit-tests"
 Requires-Dist: fpdf2; extra == "unit-tests"
 Requires-Dist: requests; extra == "unit-tests"
 Requires-Dist: rpyc<6.1,>=6.0.0; extra == "unit-tests"
 Requires-Dist: typer>=0.20.0; extra == "unit-tests"
+Requires-Dist: openpyxl<3.3,>=3.1.0; extra == "unit-tests"
 Provides-Extra: integration-tests
 Requires-Dist: matplotlib<3.11,>=3.5.0; extra == "integration-tests"
+Requires-Dist: pytest-testmon<3.0,>=2.0.0; extra == "integration-tests"
 Requires-Dist: pandas<2.4,>=1.1.0; extra == "integration-tests"
 Requires-Dist: pyaedt[unit-tests]; extra == "integration-tests"
 Provides-Extra: tests
 Requires-Dist: ansys-tools-visualization-interface; extra == "tests"
-Requires-Dist: openpyxl<3.3,>=3.1.0; extra == "tests"
 Requires-Dist: osmnx<2.1,>=1.1.0; extra == "tests"
 Requires-Dist: pyaedt[integration-tests]; extra == "tests"
 Requires-Dist: pytest-timeout<2.5,>=2.3.0; extra == "tests"
 Requires-Dist: pytest-xdist<3.9,>=3.5.0; extra == "tests"
+Requires-Dist: pytest-testmon<3.0,>=2.0.0; extra == "tests"
 Requires-Dist: pyvista[io]<0.47,>=0.38.0; extra == "tests"
-Requires-Dist: scikit-rf<1.10,>=0.30.0; extra == "tests"
+Requires-Dist: scikit-rf<1.11,>=0.30.0; extra == "tests"
 Requires-Dist: tables; extra == "tests"
 Requires-Dist: cryptography; extra == "tests"
 Provides-Extra: dotnet
@@ -66,7 +69,7 @@ Requires-Dist: cffi<2.1,>=1.16.0; platform_system == "Linux" and extra == "dotne
 Requires-Dist: dotnetcore2==3.1.23; platform_system == "Linux" and extra == "dotnet"
 Requires-Dist: pywin32>=303; platform_system == "Windows" and extra == "dotnet"
 Provides-Extra: doc
-Requires-Dist: ansys-sphinx-theme<1.7,>=1.0.0; extra == "doc"
+Requires-Dist: ansys-sphinx-theme<1.8,>=1.0.0; extra == "doc"
 Requires-Dist: jupyter; extra == "doc"
 Requires-Dist: numpydoc==1.10.0; extra == "doc"
 Requires-Dist: recommonmark; extra == "doc"
@@ -97,7 +100,7 @@ Requires-Dist: pyvista[io]<0.47,>=0.38.0; extra == "all"
 Requires-Dist: fast-simplification>=0.1.7; extra == "all"
 Requires-Dist: ansys-tools-visualization-interface; extra == "all"
 Requires-Dist: tables; python_version >= "3.10" and extra == "all"
-Requires-Dist: scikit-rf<1.10,>=0.30.0; extra == "all"
+Requires-Dist: scikit-rf<1.11,>=0.30.0; extra == "all"
 Requires-Dist: pyaedt[jupyter]; extra == "all"
 Requires-Dist: requests; extra == "all"
 Requires-Dist: typer>=0.20.0; extra == "all"
@@ -114,7 +117,7 @@ Requires-Dist: pyvista<0.47,>=0.38.0; extra == "examples"
 Requires-Dist: fast-simplification>=0.1.7; extra == "examples"
 Requires-Dist: joblib<1.6,>=1.4.0; extra == "examples"
 Requires-Dist: plotly<6.6,>=6.0; extra == "examples"
-Requires-Dist: scikit-rf<1.10,>=0.30.0; extra == "examples"
+Requires-Dist: scikit-rf<1.11,>=0.30.0; extra == "examples"
 Requires-Dist: fpdf2; extra == "examples"
 Requires-Dist: rpyc<6.1,>=6.0.0; extra == "examples"
 Dynamic: license-file
@@ -197,7 +200,7 @@ PyAEDT has different compatibility requirements based on its version. Below is a
     - Compatible with Python 3.7 and versions up to Python 3.11.
   - AEDT Compatibility:
     - All tests were conducted using AEDT 2024 R1.
--  0.9.0 <= PyAEDT Version < 0.18.0:
+- 0.9.0 <= PyAEDT Version < 0.18.0:
   - Python Compatibility:
     - Dropped support for python 3.7 and below.
     - Compatible with Python 3.8 and versions up to Python 3.12.
@@ -297,7 +300,7 @@ Note that PyAEDT uses semantic naming for pull requests (PR). This convention
 greatly simplifies the review process by providing meaningful
 information in the PR title. The
 following
-[prefixes](https://github.com/ansys/actions/blob/main/commit-style/action.yml)
+[prefixes](https://github.com/ansys/actions/blob/main/check-pr-title/action.yml)
 should be used for pull request name:
 
 - "BUILD"
@@ -459,3 +462,4 @@ page on the Ansys website.
 -  [Index](https://aedt.docs.pyansys.com/version/stable/genindex.html)
 -  [Module Index](https://aedt.docs.pyansys.com/version/stable/py-modindex.html)
 -  [Search Page](https://aedt.docs.pyansys.com/version/stable/search.html)
+

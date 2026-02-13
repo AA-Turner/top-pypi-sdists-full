@@ -1,11 +1,11 @@
 """
-    sphinxcontrib.openapi.openapi31
-    -------------------------------
+sphinxcontrib.openapi.openapi31
+-------------------------------
 
-    The OpenAPI 3.1 spec renderer. Based on ``sphinxcontrib-httpdomain``.
+The OpenAPI 3.1 spec renderer. Based on ``sphinxcontrib-httpdomain``.
 
-    :copyright: (c) 2016, Ihor Kalnytskyi.
-    :license: BSD, see LICENSE for details.
+:copyright: (c) 2016, Ihor Kalnytskyi.
+:license: BSD, see LICENSE for details.
 """
 
 import copy
@@ -23,7 +23,6 @@ from http.client import responses as http_status_codes
 from sphinx.util import logging
 
 from sphinxcontrib.openapi import utils
-
 
 LOG = logging.getLogger(__name__)
 
@@ -279,7 +278,7 @@ def _httpresource(
 ):
     # https://github.com/OAI/OpenAPI-Specification/blob/3.1.0/versions/3.1.0.md#operation-object
     parameters = properties.get("parameters", [])
-    responses = properties["responses"]
+    responses = properties.get("responses", {})
     query_param_examples = []
     indent = "   "
 
@@ -302,7 +301,7 @@ def _httpresource(
             dtype = schema["type"]
         else:
             dtype = set()
-            for t in schema["anyOf"]:
+            for t in schema.get("anyOf", schema.get("allOf", [])):
                 if "format" in t.keys():
                     dtype.add(t["format"])
                 else:
@@ -341,13 +340,21 @@ def _httpresource(
         request_content = properties.get("requestBody", {}).get("content", {})
         if request_content and "application/json" in request_content:
             schema = request_content["application/json"]["schema"]
-            req_properties = json.dumps(
-                schema["properties"], indent=2, separators=(",", ":")
-            )
+
             yield "{indent}**Request body:**".format(**locals())
             yield ""
             yield "{indent}.. sourcecode:: json".format(**locals())
             yield ""
+
+            if schema["type"] == "object":
+                # if it's an object, focus on the properties of that object
+                req_properties = json.dumps(
+                    schema["properties"], indent=2, separators=(",", ":")
+                )
+            else:
+                # if it's another type, dump the whole thing
+                req_properties = json.dumps(schema, indent=2, separators=(",", ":"))
+
             for line in req_properties.splitlines():
                 # yield indent + line
                 yield "{indent}{indent}{line}".format(**locals())

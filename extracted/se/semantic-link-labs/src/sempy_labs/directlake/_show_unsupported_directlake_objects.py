@@ -1,6 +1,6 @@
 import sempy.fabric as fabric
 import pandas as pd
-from .._helper_functions import (
+from sempy_labs._helper_functions import (
     format_dax_object_name,
     resolve_dataset_name_and_id,
     resolve_workspace_name_and_id,
@@ -29,7 +29,7 @@ def show_unsupported_direct_lake_objects(
 
     Returns
     -------
-    pandas.DataFrame, pandas.DataFrame, pandas.DataFrame
+    typing.Tuple[pandas.DataFrame, pandas.DataFrame, pandas.DataFrame]
         3 pandas dataframes showing objects in a semantic model which are not supported by Direct Lake.
     """
 

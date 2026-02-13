@@ -3,7 +3,7 @@ Type annotations for s3tables service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3tables/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -24,6 +24,8 @@ else:
 
 __all__ = (
     "IcebergCompactionStrategyType",
+    "IcebergNullOrderType",
+    "IcebergSortDirectionType",
     "JobStatusType",
     "ListNamespacesPaginatorName",
     "ListTableBucketsPaginatorName",
@@ -48,6 +50,8 @@ __all__ = (
 
 
 IcebergCompactionStrategyType = Literal["auto", "binpack", "sort", "z-order"]
+IcebergNullOrderType = Literal["nulls-first", "nulls-last"]
+IcebergSortDirectionType = Literal["asc", "desc"]
 JobStatusType = Literal["Disabled", "Failed", "Not_Yet_Run", "Successful"]
 ListNamespacesPaginatorName = Literal["list_namespaces"]
 ListTableBucketsPaginatorName = Literal["list_table_buckets"]
@@ -208,7 +212,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -473,6 +476,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

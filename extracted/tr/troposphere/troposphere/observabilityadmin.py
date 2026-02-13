@@ -7,7 +7,7 @@
 
 
 from . import AWSObject, AWSProperty, PropsDictType, Tags
-from .validators import integer
+from .validators import double, integer
 
 
 class LogsBackupConfiguration(AWSProperty):
@@ -104,6 +104,64 @@ class OrganizationCentralizationRule(AWSObject):
     }
 
 
+class AdvancedFieldSelector(AWSProperty):
+    """
+    `AdvancedFieldSelector <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-advancedfieldselector.html>`__
+    """
+
+    props: PropsDictType = {
+        "EndsWith": ([str], False),
+        "Equals": ([str], False),
+        "Field": (str, False),
+        "NotEndsWith": ([str], False),
+        "NotEquals": ([str], False),
+        "NotStartsWith": ([str], False),
+        "StartsWith": ([str], False),
+    }
+
+
+class AdvancedEventSelector(AWSProperty):
+    """
+    `AdvancedEventSelector <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-advancedeventselector.html>`__
+    """
+
+    props: PropsDictType = {
+        "FieldSelectors": ([AdvancedFieldSelector], True),
+        "Name": (str, False),
+    }
+
+
+class CloudtrailParameters(AWSProperty):
+    """
+    `CloudtrailParameters <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-cloudtrailparameters.html>`__
+    """
+
+    props: PropsDictType = {
+        "AdvancedEventSelectors": ([AdvancedEventSelector], True),
+    }
+
+
+class ELBLoadBalancerLoggingParameters(AWSProperty):
+    """
+    `ELBLoadBalancerLoggingParameters <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-elbloadbalancerloggingparameters.html>`__
+    """
+
+    props: PropsDictType = {
+        "FieldDelimiter": (str, False),
+        "OutputFormat": (str, False),
+    }
+
+
+class LogDeliveryParameters(AWSProperty):
+    """
+    `LogDeliveryParameters <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-logdeliveryparameters.html>`__
+    """
+
+    props: PropsDictType = {
+        "LogTypes": ([str], False),
+    }
+
+
 class VPCFlowLogParameters(AWSProperty):
     """
     `VPCFlowLogParameters <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-vpcflowlogparameters.html>`__
@@ -116,16 +174,109 @@ class VPCFlowLogParameters(AWSProperty):
     }
 
 
+class SingleHeader(AWSProperty):
+    """
+    `SingleHeader <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-singleheader.html>`__
+    """
+
+    props: PropsDictType = {
+        "Name": (str, True),
+    }
+
+
+class FieldToMatch(AWSProperty):
+    """
+    `FieldToMatch <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-fieldtomatch.html>`__
+    """
+
+    props: PropsDictType = {
+        "Method": (str, False),
+        "QueryString": (str, False),
+        "SingleHeader": (SingleHeader, False),
+        "UriPath": (str, False),
+    }
+
+
+class ActionCondition(AWSProperty):
+    """
+    `ActionCondition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-actioncondition.html>`__
+    """
+
+    props: PropsDictType = {
+        "Action": (str, False),
+    }
+
+
+class LabelNameCondition(AWSProperty):
+    """
+    `LabelNameCondition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-labelnamecondition.html>`__
+    """
+
+    props: PropsDictType = {
+        "LabelName": (str, False),
+    }
+
+
+class Condition(AWSProperty):
+    """
+    `Condition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-condition.html>`__
+    """
+
+    props: PropsDictType = {
+        "ActionCondition": (ActionCondition, False),
+        "LabelNameCondition": (LabelNameCondition, False),
+    }
+
+
+class Filter(AWSProperty):
+    """
+    `Filter <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-filter.html>`__
+    """
+
+    props: PropsDictType = {
+        "Behavior": (str, False),
+        "Conditions": ([Condition], False),
+        "Requirement": (str, False),
+    }
+
+
+class LoggingFilter(AWSProperty):
+    """
+    `LoggingFilter <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-loggingfilter.html>`__
+    """
+
+    props: PropsDictType = {
+        "DefaultBehavior": (str, False),
+        "Filters": ([Filter], False),
+    }
+
+
+class WAFLoggingParameters(AWSProperty):
+    """
+    `WAFLoggingParameters <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-wafloggingparameters.html>`__
+    """
+
+    props: PropsDictType = {
+        "LogType": (str, False),
+        "LoggingFilter": (LoggingFilter, False),
+        "RedactedFields": ([FieldToMatch], False),
+    }
+
+
 class TelemetryDestinationConfiguration(AWSProperty):
     """
     `TelemetryDestinationConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-telemetrydestinationconfiguration.html>`__
     """
 
     props: PropsDictType = {
+        "CloudtrailParameters": (CloudtrailParameters, False),
         "DestinationPattern": (str, False),
         "DestinationType": (str, False),
+        "ELBLoadBalancerLoggingParameters": (ELBLoadBalancerLoggingParameters, False),
+        "LogDeliveryParameters": (LogDeliveryParameters, False),
         "RetentionInDays": (integer, False),
         "VPCFlowLogParameters": (VPCFlowLogParameters, False),
+        "WAFLoggingParameters": (WAFLoggingParameters, False),
     }
 
 
@@ -138,6 +289,7 @@ class TelemetryRuleProperty(AWSProperty):
         "DestinationConfiguration": (TelemetryDestinationConfiguration, False),
         "ResourceType": (str, True),
         "SelectionCriteria": (str, False),
+        "TelemetrySourceTypes": ([str], False),
         "TelemetryType": (str, True),
     }
 
@@ -156,6 +308,68 @@ class OrganizationTelemetryRule(AWSObject):
     }
 
 
+class EncryptionConfig(AWSProperty):
+    """
+    `EncryptionConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-s3tableintegration-encryptionconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "KmsKeyArn": (str, False),
+        "SseAlgorithm": (str, True),
+    }
+
+
+class LogSource(AWSProperty):
+    """
+    `LogSource <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-s3tableintegration-logsource.html>`__
+    """
+
+    props: PropsDictType = {
+        "Identifier": (str, False),
+        "Name": (str, True),
+        "Type": (str, True),
+    }
+
+
+class S3TableIntegration(AWSObject):
+    """
+    `S3TableIntegration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-observabilityadmin-s3tableintegration.html>`__
+    """
+
+    resource_type = "AWS::ObservabilityAdmin::S3TableIntegration"
+
+    props: PropsDictType = {
+        "Encryption": (EncryptionConfig, True),
+        "LogSources": ([LogSource], False),
+        "RoleArn": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
+class TelemetryPipelineConfiguration(AWSProperty):
+    """
+    `TelemetryPipelineConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetrypipelines-telemetrypipelineconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Body": (str, True),
+    }
+
+
+class TelemetryPipelines(AWSObject):
+    """
+    `TelemetryPipelines <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-observabilityadmin-telemetrypipelines.html>`__
+    """
+
+    resource_type = "AWS::ObservabilityAdmin::TelemetryPipelines"
+
+    props: PropsDictType = {
+        "Configuration": (TelemetryPipelineConfiguration, True),
+        "Name": (str, False),
+        "Tags": (Tags, False),
+    }
+
+
 class TelemetryRule(AWSObject):
     """
     `TelemetryRule <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-observabilityadmin-telemetryrule.html>`__
@@ -166,5 +380,32 @@ class TelemetryRule(AWSObject):
     props: PropsDictType = {
         "Rule": (TelemetryRuleProperty, True),
         "RuleName": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
+class TelemetryPipelineStatusReason(AWSProperty):
+    """
+    `TelemetryPipelineStatusReason <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetrypipelines-telemetrypipelinestatusreason.html>`__
+    """
+
+    props: PropsDictType = {
+        "Description": (str, False),
+    }
+
+
+class TelemetryPipeline(AWSProperty):
+    """
+    `TelemetryPipeline <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetrypipelines-telemetrypipeline.html>`__
+    """
+
+    props: PropsDictType = {
+        "Arn": (str, False),
+        "Configuration": (TelemetryPipelineConfiguration, False),
+        "CreatedTimeStamp": (double, False),
+        "LastUpdateTimeStamp": (double, False),
+        "Name": (str, False),
+        "Status": (str, False),
+        "StatusReason": (TelemetryPipelineStatusReason, False),
         "Tags": (Tags, False),
     }

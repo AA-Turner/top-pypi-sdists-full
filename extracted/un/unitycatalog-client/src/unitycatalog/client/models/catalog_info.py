@@ -35,7 +35,9 @@ class CatalogInfo(BaseModel):
     updated_at: Optional[StrictInt] = Field(default=None, description="Time at which this catalog was last modified, in epoch milliseconds.")
     updated_by: Optional[StrictStr] = Field(default=None, description="Username of user who last modified catalog.")
     id: Optional[StrictStr] = Field(default=None, description="Unique identifier for the catalog.")
-    __properties: ClassVar[List[str]] = ["name", "comment", "properties", "owner", "created_at", "created_by", "updated_at", "updated_by", "id"]
+    storage_root: Optional[StrictStr] = Field(default=None, description="Storage root URL for managed storage location of catalog. This can be set when creating a catalog. Example: s3://bucket/ucroot ")
+    storage_location: Optional[StrictStr] = Field(default=None, description="Storage Location URL (full path) for managed storage location of catalog. This is an automatically generated unique path under storage_root. Example: s3://bucket/ucroot/__unitystorage/catalogs/{catalog_id} ")
+    __properties: ClassVar[List[str]] = ["name", "comment", "properties", "owner", "created_at", "created_by", "updated_at", "updated_by", "id", "storage_root", "storage_location"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -96,7 +98,9 @@ class CatalogInfo(BaseModel):
             "created_by": obj.get("created_by"),
             "updated_at": obj.get("updated_at"),
             "updated_by": obj.get("updated_by"),
-            "id": obj.get("id")
+            "id": obj.get("id"),
+            "storage_root": obj.get("storage_root"),
+            "storage_location": obj.get("storage_location")
         })
         return _obj
 

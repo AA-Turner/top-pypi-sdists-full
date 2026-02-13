@@ -26,4 +26,6 @@ from snowflake.core.notebook._generated.models.error_response import ErrorRespon
 from snowflake.core.notebook._generated.models.notebook import Notebook
 from snowflake.core.notebook._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.notebook._generated.models.success_response import SuccessResponse
+from snowflake.core.notebook._generated.models.tag_assignment import TagAssignment
+from snowflake.core.notebook._generated.models.tag_reference import TagReference
 from snowflake.core.notebook._generated.models.version_details import VersionDetails

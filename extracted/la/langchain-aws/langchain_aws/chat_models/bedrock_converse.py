@@ -84,6 +84,20 @@ def _get_default_model_profile(model_name: str) -> ModelProfile:
     return default.copy()
 
 
+def _infer_region_name_from_client(client: Optional[Any]) -> Optional[str]:
+    try:
+        if (
+            client is not None
+            and hasattr(client, "meta")
+            and hasattr(client.meta, "region_name")
+        ):
+            return client.meta.region_name
+        else:
+            return None
+    except (AttributeError, TypeError):
+        return None
+
+
 _BM = TypeVar("_BM", bound=BaseModel)
 
 EMPTY_CONTENT = "."
@@ -488,6 +502,23 @@ class ChatBedrockConverse(BaseChatModel):
     If not provided, will be read from 'AWS_SESSION_TOKEN' environment variable.
     """
 
+    bedrock_api_key: Optional[SecretStr] = Field(
+        alias="api_key",
+        default_factory=secret_from_env("AWS_BEARER_TOKEN_BEDROCK", default=None),
+    )
+    """Bedrock API key.
+
+    Enables authentication using Bedrock API keys instead of standard AWS
+    credentials. When provided, the key is set as the AWS_BEARER_TOKEN_BEDROCK
+    environment variable.
+
+    See: https://docs.aws.amazon.com/bedrock/latest/userguide/api-keys-use.html
+
+    If not provided, will be read from `AWS_BEARER_TOKEN_BEDROCK` environment variable.
+
+    If both an API key and AWS credentials are present, the API key takes precedence.
+    """
+
     provider: str = ""
     """The model provider, e.g., amazon, cohere, ai21, etc.
 
@@ -782,19 +813,14 @@ class ChatBedrockConverse(BaseChatModel):
                 endpoint_url=self.endpoint_url,
                 config=self.config,
                 service_name="bedrock-runtime",
+                api_key=self.bedrock_api_key,
             )
 
         # Create bedrock client for control plane API call
         if self.bedrock_client is None:
             bedrock_client_cfg = {}
-            if self.client:
-                try:
-                    if hasattr(self.client, "meta") and hasattr(
-                        self.client.meta, "region_name"
-                    ):
-                        bedrock_client_cfg["region_name"] = self.client.meta.region_name
-                except (AttributeError, TypeError):
-                    pass
+            if inferred_region_name := _infer_region_name_from_client(self.client):
+                bedrock_client_cfg["region_name"] = inferred_region_name
 
             self.bedrock_client = create_aws_client(
                 region_name=self.region_name or bedrock_client_cfg.get("region_name"),
@@ -805,6 +831,7 @@ class ChatBedrockConverse(BaseChatModel):
                 endpoint_url=self.endpoint_url,
                 config=self.config,
                 service_name="bedrock",
+                api_key=self.bedrock_api_key,
             )
 
         if self.default_headers is not None:
@@ -1113,24 +1140,33 @@ class ChatBedrockConverse(BaseChatModel):
         except ClientError as e:
             _handle_bedrock_error(e)
         added_model_name = False
-        for event in response["stream"]:
-            if message_chunk := _parse_stream_event(event):
-                if (
-                    hasattr(message_chunk, "usage_metadata")
-                    and message_chunk.usage_metadata
-                    and not added_model_name
-                ):
-                    message_chunk.response_metadata["model_name"] = self.model_id
-                    if metadata := response.get("ResponseMetadata"):
-                        message_chunk.response_metadata["ResponseMetadata"] = metadata
-                    added_model_name = True
-                message_chunk.response_metadata["model_provider"] = "bedrock_converse"
-                generation_chunk = ChatGenerationChunk(message=message_chunk)
-                if run_manager:
-                    run_manager.on_llm_new_token(
-                        generation_chunk.text, chunk=generation_chunk
+        stream = response["stream"]
+        try:
+            for event in stream:
+                if message_chunk := _parse_stream_event(event):
+                    if (
+                        hasattr(message_chunk, "usage_metadata")
+                        and message_chunk.usage_metadata
+                        and not added_model_name
+                    ):
+                        message_chunk.response_metadata["model_name"] = self.model_id
+                        if metadata := response.get("ResponseMetadata"):
+                            message_chunk.response_metadata["ResponseMetadata"] = (
+                                metadata
+                            )
+                        added_model_name = True
+                    message_chunk.response_metadata["model_provider"] = (
+                        "bedrock_converse"
                     )
-                yield generation_chunk
+                    generation_chunk = ChatGenerationChunk(message=message_chunk)
+                    if run_manager:
+                        run_manager.on_llm_new_token(
+                            generation_chunk.text, chunk=generation_chunk
+                        )
+                    yield generation_chunk
+        finally:
+            if hasattr(stream, "close"):
+                stream.close()
 
     def _get_llm_for_structured_output_no_tool_choice(
         self,
@@ -1208,20 +1244,17 @@ class ChatBedrockConverse(BaseChatModel):
         if system_tools:
             kwargs["disable_streaming"] = True
 
-        # If we have system tools, we need to use toolConfig format
-        # Otherwise, use the old format for backward compatibility
-        if system_tools:
-            # Format custom tools using existing logic
-            formatted_custom_tools: List[Any] = []
-            for tool in custom_tools:
-                if _is_cache_point(tool):
-                    formatted_custom_tools.append(tool)
-                else:
-                    try:
-                        formatted_custom_tools.append(convert_to_openai_tool(tool))
-                    except Exception:
-                        formatted_custom_tools.append(_format_tools([tool])[0])
+        formatted_custom_tools: List[Any] = []
+        for tool in custom_tools:
+            if _is_cache_point(tool):
+                formatted_custom_tools.append(tool)
+            else:
+                try:
+                    formatted_custom_tools.append(convert_to_openai_tool(tool))
+                except Exception:
+                    formatted_custom_tools.append(_format_tools([tool])[0])
 
+        if system_tools:
             # Merge system and custom tools
             all_tools = formatted_custom_tools + system_tools
 
@@ -1258,7 +1291,6 @@ class ChatBedrockConverse(BaseChatModel):
 
             return self.bind(toolConfig=tool_config, **kwargs)
         else:
-            # No system tools - use old format for backward compatibility
             # Format tool_choice if provided
             formatted_tool_choice = None
             if tool_choice:
@@ -1289,7 +1321,9 @@ class ChatBedrockConverse(BaseChatModel):
                 formatted_tool_choice = _format_tool_choice("any")
 
             return self.bind(
-                tools=custom_tools, tool_choice=formatted_tool_choice, **kwargs
+                tools=formatted_custom_tools,
+                tool_choice=formatted_tool_choice,
+                **kwargs,
             )
 
     def with_structured_output(
@@ -1449,7 +1483,9 @@ class ChatBedrockConverse(BaseChatModel):
                     additionalModelResponseFieldPaths
                     or self.additional_model_response_field_paths
                 ),
-                "guardrailConfig": guardrailConfig or self.guardrail_config,
+                "guardrailConfig": _snake_to_camel_keys(
+                    guardrailConfig or self.guardrail_config
+                ),
                 "performanceConfig": performanceConfig or self.performance_config,
                 "serviceTier": {"type": tier} if tier else None,
                 "requestMetadata": requestMetadata or self.request_metadata,
@@ -1471,6 +1507,15 @@ class ChatBedrockConverse(BaseChatModel):
             ls_params["ls_max_tokens"] = ls_max_tokens
         if ls_stop := stop or params.get("stop", None):
             ls_params["ls_stop"] = ls_stop
+        ls_params["ls_invocation_params"] = {}  # type: ignore
+        if self.provider is not None:
+            ls_params["ls_invocation_params"]["provider"] = self.provider  # type: ignore
+        if self.region_name is not None:
+            ls_params["ls_invocation_params"]["region_name"] = self.region_name  # type: ignore
+        elif inferred_region_name := _infer_region_name_from_client(self.client):
+            ls_params["ls_invocation_params"]["region_name"] = (  # type: ignore
+                inferred_region_name
+            )
         return ls_params
 
     @property
@@ -1492,6 +1537,7 @@ class ChatBedrockConverse(BaseChatModel):
             "aws_access_key_id": "AWS_ACCESS_KEY_ID",
             "aws_secret_access_key": "AWS_SECRET_ACCESS_KEY",
             "aws_session_token": "AWS_SESSION_TOKEN",
+            "bedrock_api_key": "AWS_BEARER_TOKEN_BEDROCK",
         }
 
     def get_num_tokens_from_messages(
@@ -2047,6 +2093,13 @@ def _lc_content_to_bedrock(
                         }
                     }
                 )
+        elif block["type"] == "non_standard" and "value" in block:
+            # langchain-core's content_blocks property wraps provider-specific
+            # blocks (e.g. cachePoint, guardContent) that lack a recognized
+            # "type" key as {"type": "non_standard", "value": <original>}.
+            # Unwrap to restore the original block — it was valid in .content before
+            # content_blocks wrapped it.
+            bedrock_content.append(block["value"])
         else:
             raise ValueError(f"Unsupported content block type:\n{block}")
     # drop empty text blocks

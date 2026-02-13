@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: x-transformers
-Version: 2.16.0
+Version: 2.16.1
 Summary: X-Transformers
 Project-URL: Homepage, https://pypi.org/project/x-transformers/
 Project-URL: Repository, https://github.com/lucidrains/x-transformers
@@ -43,6 +43,8 @@ Provides-Extra: examples
 Requires-Dist: adam-atan2-pytorch>=0.2.2; extra == 'examples'
 Requires-Dist: lion-pytorch; extra == 'examples'
 Requires-Dist: tqdm; extra == 'examples'
+Provides-Extra: flash-pack-seq
+Requires-Dist: flash-attn>=2.0; extra == 'flash-pack-seq'
 Provides-Extra: test
 Requires-Dist: pytest; extra == 'test'
 Description-Content-Type: text/markdown

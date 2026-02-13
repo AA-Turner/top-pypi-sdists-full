@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from difflib import unified_diff
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn
@@ -11,13 +12,12 @@ from rich.text import Text
 
 import robocop.linter.reports
 from robocop.files import get_relative_path
-from robocop.formatter.utils.misc import StatementLinesCollector
+from robocop.formatter.utils.misc import decorate_diff_with_color
 
 if TYPE_CHECKING:
-    from robot.parsing import File
-
     from robocop.config import Config
-    from robocop.linter.diagnostics import Diagnostic, Diagnostics
+    from robocop.linter.diagnostics import Diagnostic, Diagnostics, RunStatistic
+    from robocop.source_file import SourceFile
 
 
 class OutputFormat(Enum):
@@ -26,7 +26,7 @@ class OutputFormat(Enum):
     GROUPED = "grouped"
 
     @classmethod
-    def _missing_(cls, value) -> NoReturn:
+    def _missing_(cls, value: object) -> NoReturn:
         choices = [choice.value for choice in cls.__members__.values()]
         raise ValueError(f"{value} is not a valid {cls.__name__}, please choose from {choices}") from None
 
@@ -36,7 +36,8 @@ class PrintIssuesReport(robocop.linter.reports.Report):
     **Report name**: ``print_issues``
 
     This report is always enabled.
-    Report that collect diagnostic messages and print them at the end of the execution.
+
+    Report that prints diagnostic messages.
 
     There are available three different types of output:
 
@@ -82,12 +83,11 @@ class PrintIssuesReport(robocop.linter.reports.Report):
     NO_ALL = False
     ENABLED = True
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config) -> None:
         self.name = "print_issues"
         self.description = "Collect and print rules messages"
-        self.diagn_by_source: dict[str, list[Diagnostic]] = {}
         self.output_format = OutputFormat.EXTENDED
-        self.issue_format = None
+        self.issue_format: str | None = None
         self.console = Console(highlight=False, soft_wrap=True, emoji=False)
         super().__init__(config)
 
@@ -100,22 +100,11 @@ class PrintIssuesReport(robocop.linter.reports.Report):
             super().configure(name, value)
 
     def print_diagnostics_simple(self, diagnostics: Diagnostics) -> None:
-        cwd = Path.cwd()
-        for source, diag_by_source in diagnostics.diag_by_source.items():
-            source_rel = get_relative_path(source, cwd)
+        for diag_by_source in diagnostics.diag_by_source.values():
             for diagnostic in diag_by_source:
                 print(
-                    self.config.linter.issue_format.format(
-                        source=source_rel,
-                        source_abs=str(Path(source).resolve()),
-                        line=diagnostic.range.start.line,
-                        col=diagnostic.range.start.character,
-                        end_line=diagnostic.range.end.line,
-                        end_col=diagnostic.range.end.character,
-                        severity=diagnostic.severity.value,
-                        rule_id=diagnostic.rule.rule_id,
-                        desc=diagnostic.message,
-                        name=diagnostic.rule.name,
+                    self._get_formated_issue_message(
+                        diagnostic.source.config.linter.issue_format, diagnostic, diagnostic.message
                     )
                 )
 
@@ -147,22 +136,26 @@ class PrintIssuesReport(robocop.linter.reports.Report):
             print()
 
     @staticmethod
-    def _get_source_lines(model: File | None, source: str | None = None) -> list[str]:
-        if model is not None:
-            return StatementLinesCollector(model).text.splitlines()
-        if source is not None:
-            try:
-                return Path(source).read_text(encoding="utf-8").splitlines()
-            except OSError:
-                return []
-        return []
-
-    @staticmethod
     def _code_string(line: str, prefix: str) -> str:
         line = line.rstrip()
         if line:
             return prefix + line.expandtabs(4) + "\n"
         return "\n"
+
+    @staticmethod
+    def _get_formated_issue_message(issue_format: str, diagnostic: Diagnostic, message: str) -> str:
+        return issue_format.format(
+            source=diagnostic.source.relative_path,
+            source_abs=diagnostic.source.path,
+            line=diagnostic.range.start.line,
+            col=diagnostic.range.start.character,
+            end_line=diagnostic.range.end.line,
+            end_col=diagnostic.range.end.character,
+            severity=diagnostic.severity.value,
+            rule_id=diagnostic.rule.rule_id,
+            desc=message,
+            name=diagnostic.rule.name,
+        )
 
     def _print_issue_with_lines(self, lines: list[str], source_rel_path: Path, diagnostic: Diagnostic) -> Text:
         """
@@ -183,13 +176,7 @@ class PrintIssuesReport(robocop.linter.reports.Report):
         start_col, end_col = diagnostic.range.start.character, diagnostic.range.end.character
         if self.issue_format is not None:
             text = Text.from_markup(
-                self.issue_format.format(
-                    source=str(source_rel_path),
-                    line=start_line,
-                    col=start_col,
-                    rule_id=diagnostic.rule.rule_id,
-                    desc=escape(diagnostic.message),
-                )
+                self._get_formated_issue_message(self.issue_format, diagnostic, message=escape(diagnostic.message))
             )
             text.append("\n")
         else:
@@ -253,28 +240,83 @@ class PrintIssuesReport(robocop.linter.reports.Report):
 
         Messages are aggregated by source file and sent to printing to rich console.
         """
-        cwd = Path.cwd()
-        for source, diag_by_source in diagnostics.diag_by_source.items():
-            source_rel = get_relative_path(source, cwd)
-            source_lines = None
-            text: list[Text] = []
-            for diagnostic in diag_by_source:
-                if not source_lines:  # TODO: model should be coming from source, not diagnostics
-                    source_lines = self._get_source_lines(diagnostic.model, source)
-                text.append(self._print_issue_with_lines(source_lines, source_rel, diagnostic))
+        for diag_by_source in diagnostics.diag_by_source.values():
+            text: list[Text] = [
+                self._print_issue_with_lines(
+                    diagnostic.source.source_lines, diagnostic.source.relative_path, diagnostic
+                )
+                for diagnostic in diag_by_source
+            ]
             self.console.print(*text, sep="", end="")
 
-    def generate_report(self, diagnostics: Diagnostics, **kwargs) -> None:  # noqa: ARG002
+    def generate_report(self, diagnostics: Diagnostics, **kwargs: object) -> None:  # type: ignore[override]
         if self.config.silent:
             return
-        if hasattr(sys.stdout, "reconfigure"):
+        run_stats: RunStatistic = kwargs["run_stats"]  # type: ignore[assignment]
+        if run_stats and run_stats.files_count == 0:
+            return
+        if hasattr(sys.stdout, "reconfigure") and hasattr(sys.stderr, "reconfigure"):
+            # Even if recent Python has it, it doesn't work for all the encoding without it
             sys.stdout.reconfigure(encoding="utf-8")
             sys.stderr.reconfigure(encoding="utf-8")
-        if self.output_format == OutputFormat.SIMPLE:
-            self.print_diagnostics_simple(diagnostics)
-        elif self.output_format == OutputFormat.GROUPED:
-            self.print_diagnostics_grouped(diagnostics)
-        elif self.output_format == OutputFormat.EXTENDED:
-            self.print_diagnostics_extended(diagnostics)
+        if not self.config.linter.diff:
+            if self.output_format == OutputFormat.SIMPLE:
+                self.print_diagnostics_simple(diagnostics)
+                self.console.print()
+            elif self.output_format == OutputFormat.GROUPED:
+                self.print_diagnostics_grouped(diagnostics)
+            elif self.output_format == OutputFormat.EXTENDED:
+                self.print_diagnostics_extended(diagnostics)
+            else:
+                raise NotImplementedError(f"Output format {self.output_format} is not implemented")
+
+        self.print_run_summary(diagnostics, run_stats)
+        if self.config.linter.diff:
+            self.console.print("Diff mode enabled. No files were modified. Run without --diff to apply fixes.")
+
+    def print_run_summary(self, diagnostics: Diagnostics, run_stats: RunStatistic) -> None:
+        """Print summary of applied fixes."""
+        if run_stats and run_stats.fix_stats and run_stats.fix_stats.total_fixes != 0:
+            self._print_diffs(run_stats.modified_files)
+            summary = run_stats.fix_stats.format_summary()
+            fixed = run_stats.fix_stats.total_fixes
+            remaining = len(diagnostics.diagnostics)
+            total = fixed + remaining
+            suffix = "s" if total != 1 else ""
+            summary += f"\nFound {total} issue{suffix} ({fixed} fixed, {remaining} remaining)."
+        elif len(diagnostics.diagnostics) == 0:
+            summary = "No issues found."
         else:
-            raise NotImplementedError(f"Output format {self.output_format} is not implemented")
+            suffix = "s" if len(diagnostics.diagnostics) != 1 else ""
+            summary = f"Found {len(diagnostics.diagnostics)} issue{suffix}."
+            could_fix = len(diagnostics.fixable_diagnostics())
+            if could_fix > 0:
+                summary += f"\n{could_fix} fixable with the ``--fix`` option."
+        self.console.print(summary)
+
+    def _print_diffs(self, modified_files: list[SourceFile]) -> None:
+        """
+        Print unified diffs for all modified files.
+
+        Args:
+            modified_files: List of source files that have been modified.
+
+        """
+        for source_file in modified_files:
+            if not source_file.config.linter.diff:
+                continue
+            original = source_file.original_source_lines
+            modified = source_file.source_lines
+
+            diff = list(
+                unified_diff(
+                    original,
+                    modified,
+                    fromfile=f"before: {source_file.relative_path}",
+                    tofile=f"after: {source_file.relative_path}",
+                )
+            )
+            decorated_diff = decorate_diff_with_color(diff)
+            for line in decorated_diff:
+                self.console.print(line, end="")
+            self.console.print()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wandb
-Version: 0.24.2
+Version: 0.25.0
 Summary: A CLI and library for interacting with the Weights & Biases API.
 Project-URL: Source, https://github.com/wandb/wandb
 Project-URL: Bug Reports, https://github.com/wandb/wandb/issues
@@ -36,7 +36,6 @@ Classifier: Natural Language :: English
 Classifier: Programming Language :: Go
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -47,13 +46,12 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Logging
 Classifier: Topic :: System :: Monitoring
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: click>=8.0.1
 Requires-Dist: eval-type-backport; python_version < '3.10'
 Requires-Dist: gitpython!=3.1.29,>=1.0.0
 Requires-Dist: packaging
 Requires-Dist: platformdirs
-Requires-Dist: protobuf!=4.21.0,!=5.28.0,<7,>=3.12.0; python_version < '3.9' and sys_platform == 'linux'
 Requires-Dist: protobuf!=4.21.0,!=5.28.0,<7,>=3.15.0; python_version == '3.9' and sys_platform == 'linux'
 Requires-Dist: protobuf!=4.21.0,!=5.28.0,<7,>=3.19.0; python_version > '3.9' and sys_platform == 'linux'
 Requires-Dist: protobuf!=4.21.0,!=5.28.0,<7,>=3.19.0; sys_platform != 'linux'

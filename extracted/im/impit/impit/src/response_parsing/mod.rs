@@ -45,8 +45,9 @@ fn prescan_bytestream(bytes: &[u8]) -> Option<encoding::EncodingRef> {
         .next();
 
     if let Some(meta) = meta {
-        let charset = meta.value().attr("charset").unwrap();
-        return encoding::label::encoding_from_whatwg_label(charset);
+        if let Some(charset) = meta.value().attr("charset") {
+            return encoding::label::encoding_from_whatwg_label(charset);
+        }
     }
 
     let meta = dom
@@ -54,13 +55,14 @@ fn prescan_bytestream(bytes: &[u8]) -> Option<encoding::EncodingRef> {
         .next();
 
     if let Some(meta) = meta {
-        let content = meta.value().attr("content").unwrap();
-        let content_type = ContentType::from(content);
+        if let Some(content) = meta.value().attr("content") {
+            let content_type = ContentType::from(content);
 
-        return match content_type {
-            Ok(content_type) => content_type.into(),
-            Err(_) => None,
-        };
+            return match content_type {
+                Ok(content_type) => content_type.into(),
+                Err(_) => None,
+            };
+        }
     }
 
     None
@@ -74,6 +76,8 @@ fn prescan_bytestream(bytes: &[u8]) -> Option<encoding::EncodingRef> {
 /// ### Example
 ///
 /// ```rust
+/// use impit::utils::decode;
+///
 /// let bytes = vec![0x48, 0x65, 0x6C, 0x6C, 0x6F];
 /// let string = decode(&bytes, None);
 ///
@@ -82,10 +86,10 @@ fn prescan_bytestream(bytes: &[u8]) -> Option<encoding::EncodingRef> {
 /// let bytes = vec![0xFE, 0xFF, 0x00, 0x48, 0x00, 0x65, 0x00, 0x6C, 0x00, 0x6C, 0x00, 0x6F];
 /// let string = decode(&bytes, None);
 ///
-/// assert_eq!(string, "Hello"); // The function detects the UTF-16BE encoding using the BOM sniffing algorithm.
+/// assert_eq!(string, "\u{feff}Hello"); // The function detects the UTF-16BE encoding using the BOM sniffing algorithm.
 ///
 /// let bytes = vec![0x9e, 0x6c, 0x75, 0x9d, 0x6f, 0x75, 0xe8, 0x6b, 0xfd, 0x20, 0x6b, 0xf9, 0xf2];
-/// let string = decode(&bytes, Some(encoding::all::WINDOWS_1250));
+/// let string = decode(&bytes, Some(impit::utils::encodings::WINDOWS_1250));
 ///
 /// assert_eq!(string, "žluťoučký kůň"); // The function uses the Windows-1250 encoding.
 /// ```
@@ -119,9 +123,12 @@ pub fn determine_encoding(bytes: &[u8]) -> Option<encoding::EncodingRef> {
 ///
 /// ### Example
 /// ```rust
-/// let content_type = ContentType::from("text/html; charset=cp1250").unwrap();
+/// use impit::utils::{ContentType, decode};
 ///
-/// decode(&bytes, content_type.into());
+/// let bytes = vec![0x9e, 0x6c, 0x75, 0x9d, 0x6f, 0x75, 0xe8, 0x6b, 0xfd];
+/// let content_type = ContentType::from("text/html; charset=cp1250").ok().unwrap();
+///
+/// let decoded = decode(&bytes, content_type.into());
 /// ```
 pub struct ContentType {
     pub charset: String,

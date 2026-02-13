@@ -33,81 +33,64 @@ class InlineResponse20044(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'id': 'str',
         'user_id': 'str',
-        'business_id': 'str',
-        'type': 'str',
-        'exchange_type': 'str',
-        'coin': 'str',
-        'change': 'str',
-        'balance': 'str',
-        'create_time': 'str'
+        'symbol': 'str',
+        'interest_id': 'str',
+        'liability_id': 'str',
+        'liability': 'str',
+        'liability_coin': 'str',
+        'interest': 'str',
+        'interest_rate': 'str',
+        'interest_type': 'str',
+        'create_time': 'str',
+        'exchange_type': 'str'
     }
 
     attribute_map = {
-        'id': 'id',
-        'user_id': 'user_id',
-        'business_id': 'business_id',
-        'type': 'type',
-        'exchange_type': 'exchange_type',
-        'coin': 'coin',
-        'change': 'change',
-        'balance': 'balance',
-        'create_time': 'create_time'
+        'user_id': 'userId',
+        'symbol': 'symbol',
+        'interest_id': 'interest_id',
+        'liability_id': 'liability_id',
+        'liability': 'liability',
+        'liability_coin': 'liability_coin',
+        'interest': 'interest',
+        'interest_rate': 'interest_rate',
+        'interest_type': 'interest_type',
+        'create_time': 'create_time',
+        'exchange_type': 'exchange_type'
     }
 
-    def __init__(self, id=None, user_id=None, business_id=None, type=None, exchange_type=None, coin=None, change=None, balance=None, create_time=None, local_vars_configuration=None):  # noqa: E501
-        # type: (str, str, str, str, str, str, str, str, str, Configuration) -> None
+    def __init__(self, user_id=None, symbol=None, interest_id=None, liability_id=None, liability=None, liability_coin=None, interest=None, interest_rate=None, interest_type=None, create_time=None, exchange_type=None, local_vars_configuration=None):  # noqa: E501
+        # type: (str, str, str, str, str, str, str, str, str, str, str, Configuration) -> None
         """InlineResponse20044 - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._id = None
         self._user_id = None
-        self._business_id = None
-        self._type = None
-        self._exchange_type = None
-        self._coin = None
-        self._change = None
-        self._balance = None
+        self._symbol = None
+        self._interest_id = None
+        self._liability_id = None
+        self._liability = None
+        self._liability_coin = None
+        self._interest = None
+        self._interest_rate = None
+        self._interest_type = None
         self._create_time = None
+        self._exchange_type = None
         self.discriminator = None
 
-        self.id = id
         self.user_id = user_id
-        self.business_id = business_id
-        self.type = type
-        self.exchange_type = exchange_type
-        self.coin = coin
-        self.change = change
-        self.balance = balance
+        self.symbol = symbol
+        self.interest_id = interest_id
+        self.liability_id = liability_id
+        self.liability = liability
+        self.liability_coin = liability_coin
+        self.interest = interest
+        self.interest_rate = interest_rate
+        self.interest_type = interest_type
         self.create_time = create_time
-
-    @property
-    def id(self):
-        """Gets the id of this InlineResponse20044.  # noqa: E501
-
-        Account Change Record ID  # noqa: E501
-
-        :return: The id of this InlineResponse20044.  # noqa: E501
-        :rtype: str
-        """
-        return self._id
-
-    @id.setter
-    def id(self, id):
-        """Sets the id of this InlineResponse20044.
-
-        Account Change Record ID  # noqa: E501
-
-        :param id: The id of this InlineResponse20044.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and id is None:  # noqa: E501
-            raise ValueError("Invalid value for `id`, must not be `None`")  # noqa: E501
-
-        self._id = id
+        self.exchange_type = exchange_type
 
     @property
     def user_id(self):
@@ -135,154 +118,204 @@ class InlineResponse20044(object):
         self._user_id = user_id
 
     @property
-    def business_id(self):
-        """Gets the business_id of this InlineResponse20044.  # noqa: E501
+    def symbol(self):
+        """Gets the symbol of this InlineResponse20044.  # noqa: E501
 
-        Business ID  # noqa: E501
+        Trading Pair  # noqa: E501
 
-        :return: The business_id of this InlineResponse20044.  # noqa: E501
+        :return: The symbol of this InlineResponse20044.  # noqa: E501
         :rtype: str
         """
-        return self._business_id
+        return self._symbol
 
-    @business_id.setter
-    def business_id(self, business_id):
-        """Sets the business_id of this InlineResponse20044.
+    @symbol.setter
+    def symbol(self, symbol):
+        """Sets the symbol of this InlineResponse20044.
 
-        Business ID  # noqa: E501
+        Trading Pair  # noqa: E501
 
-        :param business_id: The business_id of this InlineResponse20044.  # noqa: E501
+        :param symbol: The symbol of this InlineResponse20044.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and business_id is None:  # noqa: E501
-            raise ValueError("Invalid value for `business_id`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and symbol is None:  # noqa: E501
+            raise ValueError("Invalid value for `symbol`, must not be `None`")  # noqa: E501
 
-        self._business_id = business_id
+        self._symbol = symbol
 
     @property
-    def type(self):
-        """Gets the type of this InlineResponse20044.  # noqa: E501
+    def interest_id(self):
+        """Gets the interest_id of this InlineResponse20044.  # noqa: E501
 
-        变更类型| `TRANSACTION` 成交 `TRADING_FEE` 手续费 `FUNDING_FEE` 合约资金费 `LIQUIDATION_FEE` 强平费 `TRANSFER_IN` 资金转入 `TRANSFER_OUT` 资金转出 `BANKRUPT_COMPENSATION` 穿仓补贴 `AUTO_REPAY` 杠杆仓位自动还负债  # noqa: E501
+        Interest Deduction ID  # noqa: E501
 
-        :return: The type of this InlineResponse20044.  # noqa: E501
+        :return: The interest_id of this InlineResponse20044.  # noqa: E501
         :rtype: str
         """
-        return self._type
+        return self._interest_id
 
-    @type.setter
-    def type(self, type):
-        """Sets the type of this InlineResponse20044.
+    @interest_id.setter
+    def interest_id(self, interest_id):
+        """Sets the interest_id of this InlineResponse20044.
 
-        变更类型| `TRANSACTION` 成交 `TRADING_FEE` 手续费 `FUNDING_FEE` 合约资金费 `LIQUIDATION_FEE` 强平费 `TRANSFER_IN` 资金转入 `TRANSFER_OUT` 资金转出 `BANKRUPT_COMPENSATION` 穿仓补贴 `AUTO_REPAY` 杠杆仓位自动还负债  # noqa: E501
+        Interest Deduction ID  # noqa: E501
 
-        :param type: The type of this InlineResponse20044.  # noqa: E501
+        :param interest_id: The interest_id of this InlineResponse20044.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and type is None:  # noqa: E501
-            raise ValueError("Invalid value for `type`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and interest_id is None:  # noqa: E501
+            raise ValueError("Invalid value for `interest_id`, must not be `None`")  # noqa: E501
 
-        self._type = type
+        self._interest_id = interest_id
 
     @property
-    def exchange_type(self):
-        """Gets the exchange_type of this InlineResponse20044.  # noqa: E501
+    def liability_id(self):
+        """Gets the liability_id of this InlineResponse20044.  # noqa: E501
 
-        Exchange  # noqa: E501
+        Debt Source ID, can be Order ID or Position ID  # noqa: E501
 
-        :return: The exchange_type of this InlineResponse20044.  # noqa: E501
+        :return: The liability_id of this InlineResponse20044.  # noqa: E501
         :rtype: str
         """
-        return self._exchange_type
+        return self._liability_id
 
-    @exchange_type.setter
-    def exchange_type(self, exchange_type):
-        """Sets the exchange_type of this InlineResponse20044.
+    @liability_id.setter
+    def liability_id(self, liability_id):
+        """Sets the liability_id of this InlineResponse20044.
 
-        Exchange  # noqa: E501
+        Debt Source ID, can be Order ID or Position ID  # noqa: E501
 
-        :param exchange_type: The exchange_type of this InlineResponse20044.  # noqa: E501
+        :param liability_id: The liability_id of this InlineResponse20044.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and exchange_type is None:  # noqa: E501
-            raise ValueError("Invalid value for `exchange_type`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and liability_id is None:  # noqa: E501
+            raise ValueError("Invalid value for `liability_id`, must not be `None`")  # noqa: E501
 
-        self._exchange_type = exchange_type
+        self._liability_id = liability_id
 
     @property
-    def coin(self):
-        """Gets the coin of this InlineResponse20044.  # noqa: E501
+    def liability(self):
+        """Gets the liability of this InlineResponse20044.  # noqa: E501
 
-        Currency  # noqa: E501
+        Debt Quantity  # noqa: E501
 
-        :return: The coin of this InlineResponse20044.  # noqa: E501
+        :return: The liability of this InlineResponse20044.  # noqa: E501
         :rtype: str
         """
-        return self._coin
+        return self._liability
 
-    @coin.setter
-    def coin(self, coin):
-        """Sets the coin of this InlineResponse20044.
+    @liability.setter
+    def liability(self, liability):
+        """Sets the liability of this InlineResponse20044.
 
-        Currency  # noqa: E501
+        Debt Quantity  # noqa: E501
 
-        :param coin: The coin of this InlineResponse20044.  # noqa: E501
+        :param liability: The liability of this InlineResponse20044.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and coin is None:  # noqa: E501
-            raise ValueError("Invalid value for `coin`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and liability is None:  # noqa: E501
+            raise ValueError("Invalid value for `liability`, must not be `None`")  # noqa: E501
 
-        self._coin = coin
+        self._liability = liability
 
     @property
-    def change(self):
-        """Gets the change of this InlineResponse20044.  # noqa: E501
+    def liability_coin(self):
+        """Gets the liability_coin of this InlineResponse20044.  # noqa: E501
 
-        Change amount (positive indicates transfer in; negative indicates transfer out)  # noqa: E501
+        Debt Currency  # noqa: E501
 
-        :return: The change of this InlineResponse20044.  # noqa: E501
+        :return: The liability_coin of this InlineResponse20044.  # noqa: E501
         :rtype: str
         """
-        return self._change
+        return self._liability_coin
 
-    @change.setter
-    def change(self, change):
-        """Sets the change of this InlineResponse20044.
+    @liability_coin.setter
+    def liability_coin(self, liability_coin):
+        """Sets the liability_coin of this InlineResponse20044.
 
-        Change amount (positive indicates transfer in; negative indicates transfer out)  # noqa: E501
+        Debt Currency  # noqa: E501
 
-        :param change: The change of this InlineResponse20044.  # noqa: E501
+        :param liability_coin: The liability_coin of this InlineResponse20044.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and change is None:  # noqa: E501
-            raise ValueError("Invalid value for `change`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and liability_coin is None:  # noqa: E501
+            raise ValueError("Invalid value for `liability_coin`, must not be `None`")  # noqa: E501
 
-        self._change = change
+        self._liability_coin = liability_coin
 
     @property
-    def balance(self):
-        """Gets the balance of this InlineResponse20044.  # noqa: E501
+    def interest(self):
+        """Gets the interest of this InlineResponse20044.  # noqa: E501
 
-        Balance after change  # noqa: E501
+        Interest  # noqa: E501
 
-        :return: The balance of this InlineResponse20044.  # noqa: E501
+        :return: The interest of this InlineResponse20044.  # noqa: E501
         :rtype: str
         """
-        return self._balance
+        return self._interest
 
-    @balance.setter
-    def balance(self, balance):
-        """Sets the balance of this InlineResponse20044.
+    @interest.setter
+    def interest(self, interest):
+        """Sets the interest of this InlineResponse20044.
 
-        Balance after change  # noqa: E501
+        Interest  # noqa: E501
 
-        :param balance: The balance of this InlineResponse20044.  # noqa: E501
+        :param interest: The interest of this InlineResponse20044.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and balance is None:  # noqa: E501
-            raise ValueError("Invalid value for `balance`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and interest is None:  # noqa: E501
+            raise ValueError("Invalid value for `interest`, must not be `None`")  # noqa: E501
 
-        self._balance = balance
+        self._interest = interest
+
+    @property
+    def interest_rate(self):
+        """Gets the interest_rate of this InlineResponse20044.  # noqa: E501
+
+        interest rate  # noqa: E501
+
+        :return: The interest_rate of this InlineResponse20044.  # noqa: E501
+        :rtype: str
+        """
+        return self._interest_rate
+
+    @interest_rate.setter
+    def interest_rate(self, interest_rate):
+        """Sets the interest_rate of this InlineResponse20044.
+
+        interest rate  # noqa: E501
+
+        :param interest_rate: The interest_rate of this InlineResponse20044.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and interest_rate is None:  # noqa: E501
+            raise ValueError("Invalid value for `interest_rate`, must not be `None`")  # noqa: E501
+
+        self._interest_rate = interest_rate
+
+    @property
+    def interest_type(self):
+        """Gets the interest_type of this InlineResponse20044.  # noqa: E501
+
+        Interest deduction type (`PERIODIC_POSITION`: periodic position interest; `PERIODIC_OPEN_ORDER`: periodic open-order interest; `IMMEDIATE_OPEN_ORDER`: interest charged on order opening)  # noqa: E501
+
+        :return: The interest_type of this InlineResponse20044.  # noqa: E501
+        :rtype: str
+        """
+        return self._interest_type
+
+    @interest_type.setter
+    def interest_type(self, interest_type):
+        """Sets the interest_type of this InlineResponse20044.
+
+        Interest deduction type (`PERIODIC_POSITION`: periodic position interest; `PERIODIC_OPEN_ORDER`: periodic open-order interest; `IMMEDIATE_OPEN_ORDER`: interest charged on order opening)  # noqa: E501
+
+        :param interest_type: The interest_type of this InlineResponse20044.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and interest_type is None:  # noqa: E501
+            raise ValueError("Invalid value for `interest_type`, must not be `None`")  # noqa: E501
+
+        self._interest_type = interest_type
 
     @property
     def create_time(self):
@@ -308,6 +341,31 @@ class InlineResponse20044(object):
             raise ValueError("Invalid value for `create_time`, must not be `None`")  # noqa: E501
 
         self._create_time = create_time
+
+    @property
+    def exchange_type(self):
+        """Gets the exchange_type of this InlineResponse20044.  # noqa: E501
+
+        Exchange  # noqa: E501
+
+        :return: The exchange_type of this InlineResponse20044.  # noqa: E501
+        :rtype: str
+        """
+        return self._exchange_type
+
+    @exchange_type.setter
+    def exchange_type(self, exchange_type):
+        """Sets the exchange_type of this InlineResponse20044.
+
+        Exchange  # noqa: E501
+
+        :param exchange_type: The exchange_type of this InlineResponse20044.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and exchange_type is None:  # noqa: E501
+            raise ValueError("Invalid value for `exchange_type`, must not be `None`")  # noqa: E501
+
+        self._exchange_type = exchange_type
 
     def to_dict(self):
         """Returns the model properties as a dict"""

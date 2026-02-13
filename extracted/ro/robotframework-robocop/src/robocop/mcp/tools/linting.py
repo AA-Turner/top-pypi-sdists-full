@@ -7,7 +7,8 @@ from pathlib import Path
 from fastmcp.exceptions import ToolError
 from robot.errors import DataError
 
-from robocop.config import Config, ConfigManager, LinterConfig
+from robocop.config.manager import ConfigManager
+from robocop.config.schema import RawConfig, RawLinterConfig
 from robocop.mcp.tools.models import DiagnosticResult
 from robocop.mcp.tools.utils.constants import VALID_EXTENSIONS
 from robocop.mcp.tools.utils.helpers import (
@@ -16,6 +17,7 @@ from robocop.mcp.tools.utils.helpers import (
     _parse_threshold,
     _temp_robot_file,
 )
+from robocop.source_file import SourceFile
 
 
 def _create_linter_config(
@@ -23,15 +25,14 @@ def _create_linter_config(
     ignore: list[str] | None = None,
     threshold: str = "I",
     configure: list[str] | None = None,
-) -> LinterConfig:
-    """Create a LinterConfig with the given options."""
-    return LinterConfig(
-        select=select or [],
-        ignore=ignore or [],
-        configure=configure or [],
+) -> RawLinterConfig:
+    """Create a RawConfig with the given options."""
+    return RawLinterConfig(
+        select=select,
+        ignore=ignore,
+        configure=configure,
         threshold=_parse_threshold(threshold),
         return_result=True,
-        silent=True,
     )
 
 
@@ -70,16 +71,16 @@ def _lint_content_impl(
     with _temp_robot_file(content, suffix) as tmp_path:
         try:
             linter_config = _create_linter_config(select, ignore, threshold, configure)
-            config = Config(sources=[str(tmp_path)], linter=linter_config, silent=True)
+            config = RawConfig(sources=[str(tmp_path)], linter=linter_config, silent=True)
             config_manager = ConfigManager(
                 sources=[str(tmp_path)],
-                ignore_file_config=True,
                 overwrite_config=config,
             )
 
             linter = RobocopLinter(config_manager)
-            model = linter.get_model_for_file_type(tmp_path, language=None)
-            diagnostics = linter.run_check(model, tmp_path, config, in_memory_content=content)
+            # Since it's content, not file - we are using the default project configuration instead of a specific one.
+            source_file = SourceFile(path=tmp_path, config=config_manager.default_config)
+            diagnostics = linter.run_check(source_file)
 
             result = [_diagnostic_to_dict(d) for d in diagnostics]
             return result[:limit] if limit else result
@@ -128,16 +129,16 @@ def _lint_file_impl(
 
     try:
         linter_config = _create_linter_config(select, ignore, threshold, configure)
-        config = Config(sources=[str(path)], linter=linter_config, silent=True)
+        config = RawConfig(sources=[str(path)], linter=linter_config, silent=True)
         config_manager = ConfigManager(
             sources=[str(path)],
-            ignore_file_config=True,
             overwrite_config=config,
         )
 
         linter = RobocopLinter(config_manager)
-        model = linter.get_model_for_file_type(path, language=None)
-        diagnostics = linter.run_check(model, path, config)
+        # FIXME, and what's the diff from _lint_content_impl -> could be merged
+        source_file = SourceFile(path=path, config=config_manager.default_config)
+        diagnostics = linter.run_check(source_file)
 
         file_str = str(path) if include_file_in_result else None
         result = [_diagnostic_to_dict(d, file_str) for d in diagnostics]

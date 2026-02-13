@@ -1,5 +1,5 @@
 """
-This module provides access to blenders bmesh data structures.
+This module provides access to Blender's bmesh data structures.
 
 """
 
@@ -9,7 +9,9 @@ import typing_extensions
 import numpy.typing as npt
 import bmesh.types
 
-def edge_rotate(edge: bmesh.types.BMEdge, ccw: bool = False) -> bmesh.types.BMEdge:
+def edge_rotate(
+    edge: bmesh.types.BMEdge, ccw: bool = False
+) -> None | bmesh.types.BMEdge:
     """Rotate the edge and return the newly created edge.
     If rotating the edge fails, None will be returned.
 
@@ -29,12 +31,15 @@ def edge_split(
     :return: The newly created (edge, vert) pair.
     """
 
-def face_flip(faces) -> None:
-    """Flip the faces direction."""
+def face_flip(face: bmesh.types.BMFace) -> None:
+    """Flip the faces direction.
+
+    :param face: Face to flip.
+    """
 
 def face_join(
     faces: collections.abc.Sequence[bmesh.types.BMFace], remove: bool = True
-) -> bmesh.types.BMFace:
+) -> None | bmesh.types.BMFace:
     """Joins a sequence of faces.
 
     :param faces: Sequence of faces.
@@ -49,7 +54,7 @@ def face_split(
     *,
     coords: collections.abc.Sequence[collections.abc.Sequence[float]] = (),
     use_exist: bool = True,
-    example: bmesh.types.BMEdge | None = None,
+    source: None | bmesh.types.BMEdge | None = None,
 ) -> tuple[bmesh.types.BMFace, bmesh.types.BMLoop]:
     """Face split with optional intermediate points.
 
@@ -57,8 +62,8 @@ def face_split(
     :param vert_a: First vertex to cut in the face (face must contain the vert).
     :param vert_b: Second vertex to cut in the face (face must contain the vert).
     :param coords: Optional sequence of 3D points in between vert_a and vert_b.
-    :param use_exist: .Use an existing edge if it exists (Only used when coords argument is empty or omitted)
-    :param example: Newly created edge will copy settings from this one.
+    :param use_exist: Use an existing edge if it exists (only used when coords argument is empty or omitted)
+    :param source: Newly created edge will copy settings from this one.
     :return: The newly created face or None on failure.
     """
 
@@ -74,7 +79,7 @@ def face_split_edgenet(
 
 def face_vert_separate(
     face: bmesh.types.BMFace, vert: bmesh.types.BMVert
-) -> bmesh.types.BMVert:
+) -> None | bmesh.types.BMVert:
     """Rip a vertex in a face away and add a new vertex.
 
     :param face: The face to separate.
@@ -82,7 +87,7 @@ def face_vert_separate(
     :return: The newly created vertex or None on failure.
     """
 
-def loop_separate(loop: bmesh.types.BMLoop) -> bmesh.types.BMVert:
+def loop_separate(loop: bmesh.types.BMLoop) -> None | bmesh.types.BMVert:
     """Rip a vertex in a face away and add a new vertex.
 
     :param loop: The loop to separate.
@@ -90,10 +95,16 @@ def loop_separate(loop: bmesh.types.BMLoop) -> bmesh.types.BMVert:
     """
 
 def uv_select_check(
-    bm, /, *, sync: bool = True, flush: bool = False, contiguous: bool = False
+    bm: bmesh.types.BMesh,
+    /,
+    *,
+    sync: bool = True,
+    flush: bool = False,
+    contiguous: bool = False,
 ) -> None | dict[str, int]:
     """Check UV selection state for consistency issues.
 
+    :param bm: The BMesh to check.
     :param sync: Check the data is properly synchronized between UVs and the underlying mesh. Failure to synchronize with the mesh selection may cause tools not to behave properly.
     :param flush: Check the selection has been properly flushed between elements (based on the current `BMesh.select_mode`).
     :param contiguous: Check connected UVs and edges have a matching selection state.
@@ -135,7 +146,7 @@ def vert_separate(
     """Separate this vertex at every edge.
 
     :param vert: The vert to be separated.
-    :param edges: The edges to separated.
+    :param edges: The edges to separate.
     :return: The newly separated verts (including the vertex passed).
     """
 

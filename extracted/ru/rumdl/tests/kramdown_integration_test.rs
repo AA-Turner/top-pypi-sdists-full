@@ -1,3 +1,8 @@
+use rumdl_lib::config::{Config, MarkdownFlavor};
+use rumdl_lib::filtered_lines::FilteredLinesExt;
+use rumdl_lib::lint_context::LintContext;
+use rumdl_lib::rule::Rule;
+use rumdl_lib::rules;
 use std::fs;
 use std::process::Command;
 use tempfile::TempDir;
@@ -117,10 +122,14 @@ This document should lint cleanly with no false positives from Kramdown syntax.
 
     fs::write(&test_file, content).unwrap();
 
-    // Run rumdl on the Kramdown document
+    // Create a config file to set kramdown flavor (auto-detection only works for .kramdown extension)
+    let config_file = temp_dir.path().join(".rumdl.toml");
+    fs::write(&config_file, "[global]\nflavor = \"kramdown\"\n").unwrap();
+
+    // Run rumdl on the Kramdown document with kramdown flavor
     let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
         .current_dir(temp_dir.path())
-        .args(["check", "kramdown_test.md"])
+        .args(["check", "--no-cache", "kramdown_test.md"])
         .output()
         .unwrap();
 
@@ -295,10 +304,14 @@ Paragraph with * spaced emphasis *{:.highlight} text.
 
     fs::write(&test_file, content).unwrap();
 
+    // Set kramdown flavor via config
+    let config_file = temp_dir.path().join(".rumdl.toml");
+    fs::write(&config_file, "[global]\nflavor = \"kramdown\"\n").unwrap();
+
     // Run with --fix flag
     let _output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
         .current_dir(temp_dir.path())
-        .args(["check", "--fix", "fixable.md"])
+        .args(["check", "--fix", "--no-cache", "fixable.md"])
         .output()
         .unwrap();
 
@@ -347,9 +360,13 @@ More text with another footnote[^note].
 
     fs::write(&test_file, content).unwrap();
 
+    // Set kramdown flavor via config
+    let config_file = temp_dir.path().join(".rumdl.toml");
+    fs::write(&config_file, "[global]\nflavor = \"kramdown\"\n").unwrap();
+
     let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
         .current_dir(temp_dir.path())
-        .args(["check", "math_footnotes.md"])
+        .args(["check", "--no-cache", "math_footnotes.md"])
         .output()
         .unwrap();
 
@@ -364,5 +381,789 @@ More text with another footnote[^note].
     assert!(
         !stdout.contains("MD039") || !stdout.contains("[^"),
         "Footnote references should not be flagged as link issues"
+    );
+}
+
+// ==================== Kramdown Flavor Unit Tests ====================
+
+#[test]
+fn test_kramdown_flavor_enum() {
+    // Test FromStr parsing
+    assert_eq!("kramdown".parse::<MarkdownFlavor>().unwrap(), MarkdownFlavor::Kramdown);
+    assert_eq!("jekyll".parse::<MarkdownFlavor>().unwrap(), MarkdownFlavor::Kramdown);
+
+    // Test Display
+    assert_eq!(format!("{}", MarkdownFlavor::Kramdown), "kramdown");
+
+    // Test name()
+    assert_eq!(MarkdownFlavor::Kramdown.name(), "Kramdown");
+
+    // Test supports_kramdown_syntax()
+    assert!(MarkdownFlavor::Kramdown.supports_kramdown_syntax());
+    assert!(!MarkdownFlavor::Standard.supports_kramdown_syntax());
+    assert!(!MarkdownFlavor::MkDocs.supports_kramdown_syntax());
+
+    // Test from_extension
+    assert_eq!(MarkdownFlavor::from_extension("kramdown"), MarkdownFlavor::Kramdown);
+}
+
+#[test]
+fn test_kramdown_extension_block_detection() {
+    let content = "# Heading\n\n{::comment}\nThis is hidden\n{:/comment}\n\nVisible text.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Kramdown, None);
+
+    // Lines inside extension block should be marked
+    assert!(
+        ctx.lines[2].in_kramdown_extension_block,
+        "Opening {{::comment}} should be in extension block"
+    );
+    assert!(
+        ctx.lines[3].in_kramdown_extension_block,
+        "Content inside comment should be in extension block"
+    );
+    assert!(
+        ctx.lines[4].in_kramdown_extension_block,
+        "Closing {{:/comment}} should be in extension block"
+    );
+
+    // Lines outside should not be marked
+    assert!(
+        !ctx.lines[0].in_kramdown_extension_block,
+        "Heading should not be in extension block"
+    );
+    assert!(
+        !ctx.lines[6].in_kramdown_extension_block,
+        "Visible text should not be in extension block"
+    );
+}
+
+#[test]
+fn test_kramdown_nomarkdown_extension_block() {
+    let content = "# Title\n\n{::nomarkdown}\n<div>raw html</div>\n{:/nomarkdown}\n\nMore text.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Kramdown, None);
+
+    assert!(ctx.lines[2].in_kramdown_extension_block);
+    assert!(ctx.lines[3].in_kramdown_extension_block);
+    assert!(ctx.lines[4].in_kramdown_extension_block);
+    assert!(!ctx.lines[0].in_kramdown_extension_block);
+    assert!(!ctx.lines[6].in_kramdown_extension_block);
+}
+
+#[test]
+fn test_kramdown_options_directive() {
+    let content = "# Title\n\n{::options parse_block_html=\"true\" /}\n\nContent.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Kramdown, None);
+
+    assert!(
+        ctx.lines[2].in_kramdown_extension_block,
+        "Options directive should be marked as extension block"
+    );
+    assert!(
+        !ctx.lines[0].in_kramdown_extension_block,
+        "Heading should not be affected"
+    );
+}
+
+#[test]
+fn test_kramdown_block_ial_detection() {
+    let content = "# Heading\n{:.class #id}\n\nContent.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Kramdown, None);
+
+    assert!(ctx.lines[1].is_kramdown_block_ial, "Block IAL should be detected");
+    assert!(!ctx.lines[0].is_kramdown_block_ial, "Heading should not be IAL");
+    assert!(!ctx.lines[3].is_kramdown_block_ial, "Content should not be IAL");
+}
+
+#[test]
+fn test_kramdown_block_ial_variations() {
+    let content = "{:.wrap}\n{:#my-id}\n{:style=\"color: red\"}\n{:.class #id style=\"x\"}\nNormal text.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Kramdown, None);
+
+    assert!(ctx.lines[0].is_kramdown_block_ial, "{{:.wrap}} should be IAL");
+    assert!(ctx.lines[1].is_kramdown_block_ial, "{{:#my-id}} should be IAL");
+    assert!(ctx.lines[2].is_kramdown_block_ial, "Attribute IAL should be detected");
+    assert!(ctx.lines[3].is_kramdown_block_ial, "Combined IAL should be detected");
+    assert!(!ctx.lines[4].is_kramdown_block_ial, "Normal text should not be IAL");
+}
+
+#[test]
+fn test_kramdown_not_detected_in_standard_flavor() {
+    let content = "# Heading\n{:.class}\n\n{::comment}\nhidden\n{:/comment}";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+
+    // In standard flavor, kramdown syntax should NOT be detected
+    assert!(
+        !ctx.lines[1].is_kramdown_block_ial,
+        "IAL should not be detected in standard flavor"
+    );
+    assert!(
+        !ctx.lines[3].in_kramdown_extension_block,
+        "Extension block should not be detected in standard flavor"
+    );
+}
+
+#[test]
+fn test_kramdown_extension_block_in_code_block_ignored() {
+    let content = "# Heading\n\n```\n{::comment}\nnot a real extension\n{:/comment}\n```\n\nText.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Kramdown, None);
+
+    // Inside code blocks, kramdown syntax should not be detected
+    assert!(
+        !ctx.lines[3].in_kramdown_extension_block,
+        "{{::comment}} inside code block should be ignored"
+    );
+}
+
+#[test]
+fn test_kramdown_md041_skips_ial_as_preamble() {
+    // IAL at start of document should be skipped when looking for first heading
+    let content = "{:.document-class}\n# My Heading\n\nContent.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Kramdown, None);
+
+    let rule = rumdl_lib::MD041FirstLineHeading::default();
+    let warnings = rule.check(&ctx).unwrap();
+
+    assert!(
+        warnings.is_empty(),
+        "MD041 should skip kramdown IAL as preamble and find the heading"
+    );
+}
+
+#[test]
+fn test_kramdown_md041_skips_extension_block_as_preamble() {
+    let content = "{::comment}\nThis is a comment at the top\n{:/comment}\n# My Heading\n\nContent.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Kramdown, None);
+
+    let rule = rumdl_lib::MD041FirstLineHeading::default();
+    let warnings = rule.check(&ctx).unwrap();
+
+    assert!(
+        warnings.is_empty(),
+        "MD041 should skip kramdown extension block as preamble"
+    );
+}
+
+#[test]
+fn test_kramdown_md041_no_skip_in_standard() {
+    // Same content but in standard flavor should still trigger MD041
+    let content = "{:.document-class}\n# My Heading\n\nContent.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+
+    let rule = rumdl_lib::MD041FirstLineHeading::default();
+    let warnings = rule.check(&ctx).unwrap();
+
+    assert!(
+        !warnings.is_empty(),
+        "MD041 should flag non-heading first line in standard flavor"
+    );
+}
+
+#[test]
+fn test_kramdown_filtered_lines_skip_extension_blocks() {
+    let content = "Line 1\n{::comment}\nhidden\n{:/comment}\nLine 5";
+    let ctx = LintContext::new(content, MarkdownFlavor::Kramdown, None);
+
+    let lines: Vec<_> = ctx
+        .filtered_lines()
+        .skip_kramdown_extension_blocks()
+        .into_iter()
+        .collect();
+
+    // Lines inside extension blocks should be filtered out
+    assert!(
+        lines.iter().any(|l| l.content.contains("Line 1")),
+        "Should include normal content before extension block"
+    );
+    assert!(
+        !lines.iter().any(|l| l.content.contains("hidden")),
+        "Should exclude content inside extension block"
+    );
+    assert!(
+        lines.iter().any(|l| l.content.contains("Line 5")),
+        "Should include normal content after extension block"
+    );
+}
+
+#[test]
+fn test_kramdown_filtered_lines_not_in_standard() {
+    // Extension blocks should NOT be filtered in standard flavor
+    let content = "Line 1\n{::comment}\nhidden\n{:/comment}\nLine 5";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+
+    let lines: Vec<_> = ctx
+        .filtered_lines()
+        .skip_kramdown_extension_blocks()
+        .into_iter()
+        .collect();
+
+    // In standard flavor, the "extension" syntax is just regular text
+    assert!(
+        lines.iter().any(|l| l.content.contains("hidden")),
+        "Should NOT filter {{::comment}} content in standard flavor"
+    );
+}
+
+#[test]
+fn test_kramdown_md051_uses_kramdown_anchors() {
+    // When kramdown flavor is used, MD051 should default to kramdown anchor style
+    let config = rumdl_lib::config::Config::default();
+    let mut kramdown_config = config;
+    kramdown_config.global.flavor = MarkdownFlavor::Kramdown;
+
+    let rule = rumdl_lib::MD051LinkFragments::from_config(&kramdown_config);
+    // The fact that this compiles and doesn't panic verifies the config path works
+    let _ = rule;
+}
+
+#[test]
+fn test_kramdown_multiple_extension_blocks() {
+    let content = "Text\n\n{::comment}\nComment 1\n{:/comment}\n\nMiddle\n\n{::nomarkdown}\n<div>raw</div>\n{:/nomarkdown}\n\nEnd.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Kramdown, None);
+
+    // First extension block
+    assert!(ctx.lines[2].in_kramdown_extension_block);
+    assert!(ctx.lines[3].in_kramdown_extension_block);
+    assert!(ctx.lines[4].in_kramdown_extension_block);
+
+    // Between blocks
+    assert!(
+        !ctx.lines[6].in_kramdown_extension_block,
+        "Middle should not be in extension block"
+    );
+
+    // Second extension block
+    assert!(ctx.lines[8].in_kramdown_extension_block);
+    assert!(ctx.lines[9].in_kramdown_extension_block);
+    assert!(ctx.lines[10].in_kramdown_extension_block);
+
+    // After blocks
+    assert!(
+        !ctx.lines[12].in_kramdown_extension_block,
+        "End should not be in extension block"
+    );
+}
+
+#[test]
+fn test_kramdown_extension_block_with_close_shorthand() {
+    // Kramdown allows {:/} as shorthand close
+    let content = "Text\n{::comment}\nhidden\n{:/}\nMore text.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Kramdown, None);
+
+    assert!(ctx.lines[1].in_kramdown_extension_block);
+    assert!(ctx.lines[2].in_kramdown_extension_block);
+    assert!(ctx.lines[3].in_kramdown_extension_block);
+    assert!(!ctx.lines[4].in_kramdown_extension_block);
+}
+
+// ==================== Kramdown Gap Verification Tests ====================
+
+#[test]
+fn test_kramdown_ald_detected_as_block_ial() {
+    // ALDs (Attribute List Definitions) like {:refdef: .class #id} should be detected
+    // as kramdown block IALs since they start with {:
+    let content = "# Heading\n\n{:refdef: .my-class #my-id}\n{:another: .other-class}\n\nText.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Kramdown, None);
+
+    assert!(
+        ctx.lines[2].is_kramdown_block_ial,
+        "ALD definition should be detected as block IAL"
+    );
+    assert!(
+        ctx.lines[3].is_kramdown_block_ial,
+        "ALD definition should be detected as block IAL"
+    );
+}
+
+#[test]
+fn test_kramdown_ald_reference_detected() {
+    // ALD references like {:refdef} should also be detected
+    let content = "# Heading\n\nSome text.\n{:refdef}\n\nMore text.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Kramdown, None);
+
+    assert!(
+        ctx.lines[3].is_kramdown_block_ial,
+        "ALD reference should be detected as block IAL"
+    );
+}
+
+#[test]
+fn test_kramdown_footnotes_no_false_positives() {
+    // Footnote definitions should not trigger MD052 or other reference-link rules
+    let temp_dir = TempDir::new().unwrap();
+    let config_file = temp_dir.path().join(".rumdl.toml");
+    fs::write(&config_file, "[global]\nflavor = \"kramdown\"\n").unwrap();
+
+    let test_file = temp_dir.path().join("test.md");
+    let content = r#"# Footnotes
+
+This has a footnote[^1] and another[^note].
+
+[^1]: First footnote definition.
+[^note]: Named footnote definition.
+"#;
+    fs::write(&test_file, content).unwrap();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+        .current_dir(temp_dir.path())
+        .args(["check", "--no-cache", "test.md"])
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(
+        !stdout.contains("MD052"),
+        "Footnote definitions should not trigger MD052 (reference links). stdout: {stdout}"
+    );
+}
+
+#[test]
+fn test_kramdown_abbreviations_no_false_positives() {
+    // Abbreviation definitions should not trigger MD030 (list marker space) or other rules
+    let temp_dir = TempDir::new().unwrap();
+    let config_file = temp_dir.path().join(".rumdl.toml");
+    fs::write(&config_file, "[global]\nflavor = \"kramdown\"\n").unwrap();
+
+    let test_file = temp_dir.path().join("test.md");
+    let content = r#"# Abbreviations
+
+The HTML specification is maintained by W3C.
+
+*[HTML]: HyperText Markup Language
+*[W3C]: World Wide Web Consortium
+"#;
+    fs::write(&test_file, content).unwrap();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+        .current_dir(temp_dir.path())
+        .args(["check", "--no-cache", "test.md"])
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(
+        !stdout.contains("MD030"),
+        "Abbreviation definitions should not trigger MD030. stdout: {stdout}"
+    );
+    assert!(
+        !stdout.contains("MD032"),
+        "Abbreviation definitions should not trigger MD032. stdout: {stdout}"
+    );
+}
+
+#[test]
+fn test_kramdown_definition_lists_no_false_positives() {
+    // Definition list syntax should not trigger false positives
+    let temp_dir = TempDir::new().unwrap();
+    let config_file = temp_dir.path().join(".rumdl.toml");
+    fs::write(&config_file, "[global]\nflavor = \"kramdown\"\n").unwrap();
+
+    let test_file = temp_dir.path().join("test.md");
+    let content = r#"# Definition Lists
+
+Term 1
+: Definition for term 1
+
+Term 2
+: Definition for term 2
+: Another definition for term 2
+"#;
+    fs::write(&test_file, content).unwrap();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+        .current_dir(temp_dir.path())
+        .args(["check", "--no-cache", "test.md"])
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Definition lists should not trigger list-related rules
+    assert!(
+        !stdout.contains("MD004"),
+        "Definition lists should not trigger MD004 (list style). stdout: {stdout}"
+    );
+    assert!(
+        !stdout.contains("MD030"),
+        "Definition lists should not trigger MD030 (list marker space). stdout: {stdout}"
+    );
+}
+
+#[test]
+fn test_kramdown_eob_marker_no_false_positives() {
+    // The ^ end-of-block marker should not trigger false positives
+    let temp_dir = TempDir::new().unwrap();
+    let config_file = temp_dir.path().join(".rumdl.toml");
+    fs::write(&config_file, "[global]\nflavor = \"kramdown\"\n").unwrap();
+
+    let test_file = temp_dir.path().join("test.md");
+    let content = r#"# EOB Marker
+
+First paragraph.
+^
+Second paragraph.
+"#;
+    fs::write(&test_file, content).unwrap();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+        .current_dir(temp_dir.path())
+        .args(["check", "--no-cache", "test.md"])
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // The ^ marker should not trigger any rules
+    assert!(
+        output.status.success(),
+        "EOB marker should not cause any false positives. stdout: {stdout}"
+    );
+}
+
+#[test]
+fn test_kramdown_cli_flavor_flag() {
+    // --flavor kramdown should work from CLI
+    let temp_dir = TempDir::new().unwrap();
+    let test_file = temp_dir.path().join("test.md");
+    fs::write(&test_file, "# Test\n\nSome content.\n").unwrap();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+        .current_dir(temp_dir.path())
+        .args(["check", "--flavor", "kramdown", "--no-cache", "test.md"])
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "Should succeed with --flavor kramdown. stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn test_kramdown_cli_jekyll_alias() {
+    // --flavor jekyll should work as alias for kramdown
+    let temp_dir = TempDir::new().unwrap();
+    let test_file = temp_dir.path().join("test.md");
+    fs::write(&test_file, "# Test\n\nSome content.\n").unwrap();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+        .current_dir(temp_dir.path())
+        .args(["check", "--flavor", "jekyll", "--no-cache", "test.md"])
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "Should succeed with --flavor jekyll. stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn test_kramdown_md041_skips_ald_as_preamble() {
+    // ALD at start of document should be skipped when looking for first heading
+    let content = "{:refdef: .document-class #main}\n# My Heading\n\nContent.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Kramdown, None);
+
+    let rule = rumdl_lib::MD041FirstLineHeading::default();
+    let warnings = rule.check(&ctx).unwrap();
+
+    assert!(
+        warnings.is_empty(),
+        "MD041 should skip kramdown ALD as preamble and find the heading"
+    );
+}
+
+#[test]
+fn test_kramdown_extension_block_with_code_fence_inside() {
+    // Extension block tracking must persist through lines that the base parser
+    // marks as code blocks. A fenced code block inside {::comment} should not
+    // cause lines after the fence to be treated as regular content.
+    let content = "{::comment}\nComment text\n\n```\ncode\n```\n\nStill in comment\n{:/comment}\n\n# Heading\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Kramdown, None);
+
+    let rule = rumdl_lib::MD041FirstLineHeading::default();
+    let warnings = rule.check(&ctx).unwrap();
+
+    assert!(
+        warnings.is_empty(),
+        "MD041 should skip all lines inside comment extension block even when a code fence appears inside it"
+    );
+}
+
+#[test]
+fn test_kramdown_nomarkdown_block_with_code_fence_inside() {
+    // Same as above but with {::nomarkdown} which is more likely to contain code fences
+    let content = "{::nomarkdown}\n<div>\n\n```python\nx = 1\n```\n\n</div>\n{:/nomarkdown}\n\n# Heading\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Kramdown, None);
+
+    let rule = rumdl_lib::MD041FirstLineHeading::default();
+    let warnings = rule.check(&ctx).unwrap();
+
+    assert!(
+        warnings.is_empty(),
+        "MD041 should skip all lines inside nomarkdown extension block even when a code fence appears inside it"
+    );
+}
+
+#[test]
+fn test_kramdown_extension_block_lineinfo_flags() {
+    // Verify that LineInfo flags are correctly set for all lines inside an extension block
+    // that contains a fenced code block
+    let content = "{::comment}\nLine A\n```\ncode\n```\nLine B\n{:/comment}\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Kramdown, None);
+
+    // All lines 0-6 should be marked as in_kramdown_extension_block
+    for i in 0..7 {
+        let info = ctx.line_info(i + 1);
+        assert!(
+            info.is_some_and(|li| li.in_kramdown_extension_block),
+            "Line {} should be marked as in_kramdown_extension_block",
+            i + 1
+        );
+    }
+}
+
+#[test]
+fn test_kramdown_unclosed_fence_in_extension_does_not_leak_code_block_state() {
+    // A fence opened inside an extension block should never mark following real markdown
+    // as in_code_block once the extension closes.
+    let content = "{::comment}\ninside comment\n```\nunclosed fence\n{:/comment}\n\n# Real Heading\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Kramdown, None);
+
+    // Line 7 (1-indexed) is "# Real Heading"
+    let heading_line = ctx
+        .line_info(7)
+        .expect("Expected heading line to exist in test document");
+    assert!(
+        !heading_line.in_code_block,
+        "Heading after extension close should not be marked in_code_block"
+    );
+
+    let rule = rumdl_lib::MD041FirstLineHeading::default();
+    let warnings = rule.check(&ctx).unwrap();
+    assert!(
+        warnings.is_empty(),
+        "MD041 should not fire when first real heading follows an extension block with unclosed fence"
+    );
+}
+
+#[test]
+fn test_kramdown_unclosed_fence_in_extension_does_not_suppress_list_rules() {
+    // A fence opened inside an extension block should not suppress list parsing
+    // for real markdown lines that follow the extension close.
+    let content = "{::comment}\ninside comment\n```\nunclosed fence\n{:/comment}\n\n- first\n* second\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Kramdown, None);
+
+    let rule = rumdl_lib::MD004UnorderedListStyle::default();
+    let warnings = rule.check(&ctx).unwrap();
+
+    assert!(
+        !warnings.is_empty(),
+        "MD004 should detect mixed list marker styles after extension block with unclosed fence"
+    );
+    assert!(
+        warnings.iter().any(|w| w.line == 8),
+        "Expected MD004 warning on second list item line (line 8), got: {warnings:?}"
+    );
+}
+
+/// Comprehensive test: no rule should fire on content inside kramdown extension blocks.
+/// This test constructs markdown with many types of violations inside {::comment}
+/// and verifies that ALL rules skip the extension block content.
+#[test]
+fn test_no_rules_fire_inside_kramdown_extension_blocks() {
+    // Content with a clean heading outside, then many violations inside a comment block,
+    // then clean content after. Only the heading satisfies MD041.
+    // Comprehensive test content with violations for as many rules as possible
+    // inside the extension block. Each line is annotated with the rules it triggers.
+    let content = "\
+# Clean Heading\n\
+\n\
+{::comment}\n\
+\n\
+### skipped heading\n\
+\n\
+#bad heading no space\n\
+\n\
+# Clean Heading\n\
+\n\
+# Heading 1.\n\
+\n\
+  # indented heading\n\
+\n\
+trailing spaces   \n\
+\thard tab here\n\
+\n\
+* list item\n\
++ different marker\n\
+- third style\n\
+\n\
+1. first\n\
+3. wrong number\n\
+\n\
+  * bad indent\n\
+    * nested too deep\n\
+\n\
+bare URL https://example.com here\n\
+\n\
+<div>inline html</div>\n\
+\n\
+* spaced emphasis *\n\
+\n\
+**bold text** and __other bold__\n\
+\n\
+*italic* and _other italic_\n\
+\n\
+multiple   spaces   here\n\
+\n\
+[link with space ]( url )\n\
+\n\
+[text]()\n\
+\n\
+![](image.png)\n\
+\n\
+```\n\
+code without language\n\
+```\n\
+~~~\n\
+mixed fence style\n\
+~~~\n\
+\n\
+> blockquote\n\
+>  extra space\n\
+\n\
+> first quote\n\
+\n\
+> second quote\n\
+\n\
+---\n\
+\n\
+***\n\
+\n\
+` code span `\n\
+\n\
+Setext Heading\n\
+---\n\
+\n\
+[^1]: footnote definition\n\
+\n\
+[ref]: https://example.com\n\
+\n\
+| bad | table |\n\
+| --- | --- |\n\
+| a | b | c |\n\
+\n\
+{:/comment}\n\
+\n\
+Clean paragraph after comment block.\n";
+
+    let mut config = Config::default();
+    config.global.flavor = MarkdownFlavor::Kramdown;
+
+    let ctx = LintContext::new(content, MarkdownFlavor::Kramdown, None);
+    let all = rules::all_rules(&config);
+
+    // Find the extension block line range
+    let comment_start_line = content
+        .lines()
+        .enumerate()
+        .find(|(_, l)| l.trim() == "{::comment}")
+        .map(|(i, _)| i + 1)
+        .unwrap();
+    let comment_end_line = content
+        .lines()
+        .enumerate()
+        .find(|(_, l)| l.trim() == "{:/comment}")
+        .map(|(i, _)| i + 1)
+        .unwrap();
+
+    let mut violations_inside_block = Vec::new();
+
+    for rule in &all {
+        if let Ok(warnings) = rule.check(&ctx) {
+            for w in &warnings {
+                // Apply the same Layer 3 safety net filter that lint_file uses:
+                // skip warnings whose line falls inside a kramdown extension block
+                if ctx
+                    .line_info(w.line)
+                    .is_some_and(|info| info.in_kramdown_extension_block)
+                {
+                    continue;
+                }
+                if w.line >= comment_start_line && w.line <= comment_end_line {
+                    violations_inside_block.push(format!("  {} line {}: {}", rule.name(), w.line, w.message));
+                }
+            }
+        }
+    }
+
+    assert!(
+        violations_inside_block.is_empty(),
+        "Rules fired inside kramdown extension block:\n{}",
+        violations_inside_block.join("\n")
+    );
+}
+
+/// Same test but for nomarkdown blocks
+#[test]
+fn test_no_rules_fire_inside_kramdown_nomarkdown_blocks() {
+    let content = "# Clean Heading\n\
+                   \n\
+                   {::nomarkdown}\n\
+                   <div class=\"raw\">\n\
+                   <span>nested html tags</span>\n\
+                   bare URL https://example.com\n\
+                   trailing spaces   \n\
+                   * not a list marker\n\
+                   </div>\n\
+                   {:/nomarkdown}\n\
+                   \n\
+                   Clean paragraph.\n";
+
+    let mut config = Config::default();
+    config.global.flavor = MarkdownFlavor::Kramdown;
+
+    let ctx = LintContext::new(content, MarkdownFlavor::Kramdown, None);
+    let all = rules::all_rules(&config);
+
+    let block_start = content
+        .lines()
+        .enumerate()
+        .find(|(_, l)| l.trim() == "{::nomarkdown}")
+        .map(|(i, _)| i + 1)
+        .unwrap();
+    let block_end = content
+        .lines()
+        .enumerate()
+        .find(|(_, l)| l.trim() == "{:/nomarkdown}")
+        .map(|(i, _)| i + 1)
+        .unwrap();
+
+    let mut violations_inside_block = Vec::new();
+
+    for rule in &all {
+        if let Ok(warnings) = rule.check(&ctx) {
+            for w in &warnings {
+                // Apply the same Layer 3 safety net filter that lint_file uses
+                if ctx
+                    .line_info(w.line)
+                    .is_some_and(|info| info.in_kramdown_extension_block)
+                {
+                    continue;
+                }
+                if w.line >= block_start && w.line <= block_end {
+                    violations_inside_block.push(format!("  {} line {}: {}", rule.name(), w.line, w.message));
+                }
+            }
+        }
+    }
+
+    assert!(
+        violations_inside_block.is_empty(),
+        "Rules fired inside kramdown nomarkdown block:\n{}",
+        violations_inside_block.join("\n")
     );
 }

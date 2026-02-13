@@ -82,6 +82,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 write_key = None
+_wizard_session = None
 api_url = "https://api.raindrop.ai/v1/"
 max_queue_size = 10_000
 upload_size = 10
@@ -259,6 +260,8 @@ def track_ai(
     if payload.properties is None:
         payload.properties = {}
     payload.properties["$context"] = _get_context()
+    if _wizard_session is not None:
+        payload.properties["raindrop.wizardSession"] = _wizard_session
 
     data = payload.model_dump(mode="json")
 
@@ -576,6 +579,7 @@ def _temp_env(key: str, value: str):
 
 def init(
     api_key: str,
+    wizard_session: str | None = None,
     tracing_enabled: bool = False,
     auto_instrument: bool = True,
     **traceloop_kwargs,
@@ -595,6 +599,9 @@ def init(
     """
     global write_key
     write_key = api_key
+
+    global _wizard_session
+    _wizard_session = wizard_session
 
     global _tracing_enabled
     _tracing_enabled = tracing_enabled
@@ -977,6 +984,12 @@ def _flush_partial_event(event_id: str) -> None:
 
     # convert to ordinary TrackAIEvent-ish dict before send
     data = evt.model_dump(mode="json", exclude_none=True)
+
+    # Inject wizard session if set
+    if _wizard_session is not None:
+        if "properties" not in data or data["properties"] is None:
+            data["properties"] = {}
+        data["properties"]["raindrop.wizardSession"] = _wizard_session
 
     # Apply PII redaction if enabled
     if redact_pii:

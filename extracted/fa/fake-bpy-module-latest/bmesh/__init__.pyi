@@ -1,5 +1,5 @@
 """
-This module provides access to blenders bmesh data structures.
+This module provides access to Blender's bmesh data structures.
 
 bmesh.ops.rst
 bmesh.types.rst

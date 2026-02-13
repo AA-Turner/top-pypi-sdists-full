@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, StrictFloat, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictBool, StrictFloat, StrictInt, StrictStr
 
 
 class VectorBoost(BaseModel):
@@ -32,13 +32,17 @@ class VectorBoost(BaseModel):
         Column to apply this function to.
     weight : float, optional
         Weight to apply for boosting this vector column.
+    disable_vector_embedding_query_prefix : bool,  default False
+        Whether to disable the embedding query prefix
     """
 
     column: Optional[StrictStr] = None
 
     weight: Optional[Union[StrictFloat, StrictInt]] = None
 
-    __properties = ["column", "weight"]
+    disable_vector_embedding_query_prefix: Optional[StrictBool] = False
+
+    __properties = ["column", "weight", "disable_vector_embedding_query_prefix"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -89,6 +93,9 @@ class VectorBoost(BaseModel):
             {
                 "column": obj.get("column"),
                 "weight": obj.get("weight"),
+                "disable_vector_embedding_query_prefix": obj.get("disable_vector_embedding_query_prefix")
+                if obj.get("disable_vector_embedding_query_prefix") is not None
+                else False,
             }
         )
 
@@ -100,6 +107,7 @@ class VectorBoostModel:
         self,  # optional properties
         column: Optional[str] = None,
         weight: Optional[float] = None,
+        disable_vector_embedding_query_prefix: Optional[bool] = False,
     ):
         """A model object representing the VectorBoost resource.
 
@@ -111,11 +119,14 @@ class VectorBoostModel:
             Column to apply this function to.
         weight : float, optional
             Weight to apply for boosting this vector column.
+        disable_vector_embedding_query_prefix : bool,  default False
+            Whether to disable the embedding query prefix
         """
         self.column = column
         self.weight = weight
+        self.disable_vector_embedding_query_prefix = disable_vector_embedding_query_prefix
 
-    __properties = ["column", "weight"]
+    __properties = ["column", "weight", "disable_vector_embedding_query_prefix"]
 
     def __repr__(self) -> str:
         return repr(self._to_model())
@@ -124,6 +135,7 @@ class VectorBoostModel:
         return VectorBoost(
             column=self.column,
             weight=self.weight,
+            disable_vector_embedding_query_prefix=self.disable_vector_embedding_query_prefix,
         )
 
     @classmethod
@@ -131,6 +143,7 @@ class VectorBoostModel:
         return VectorBoostModel(
             column=model.column,
             weight=model.weight,
+            disable_vector_embedding_query_prefix=model.disable_vector_embedding_query_prefix,
         )
 
     def to_dict(self):

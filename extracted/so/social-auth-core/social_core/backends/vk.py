@@ -64,13 +64,15 @@ class VKontakteOpenAPI(BaseAuth):
     def auth_complete(self, *args, **kwargs):
         """Performs check of authentication in VKontakte, returns User if
         succeeded"""
-        session_value = self.strategy.session_get("vk_app_" + self.setting("APP_ID"))
+        session_value = self.strategy.session_get(
+            f"vk_app_{cast('str', self.setting('APP_ID'))}"
+        )
         if "id" not in self.data or not session_value:
             raise ValueError("VK.com authentication is not completed")
 
         mapping = parse_qs(session_value)
         check_str = "".join(
-            item + "=" + mapping[item] for item in ["expire", "mid", "secret", "sid"]
+            f"{item}={mapping[item]}" for item in ["expire", "mid", "secret", "sid"]
         )
 
         _key, secret = self.get_key_and_secret()
@@ -118,7 +120,7 @@ class VKOAuth2(BaseOAuth2):
             "screen_name",
             "nickname",
             "photo",
-            *self.setting("EXTRA_DATA", []),
+            *cast("list[str]", self.setting("EXTRA_DATA", [])),
         ]
 
         fields = ",".join(set(request_data))
@@ -150,7 +152,7 @@ class VKOAuth2(BaseOAuth2):
             http://goo.gl/yLcaa
         """
         # We need to perform server-side call if no access_token
-        data["v"] = self.setting("API_VERSION", "5.131")
+        data["v"] = cast("str", self.setting("API_VERSION", "5.131"))
         if "access_token" not in data:
             key, secret = self.get_key_and_secret()
             if "api_id" not in data:
@@ -159,10 +161,10 @@ class VKOAuth2(BaseOAuth2):
             data["method"] = method
             data["format"] = "json"
             url = "https://api.vk.ru/api.php"
-            param_list = sorted(item + "=" + data[item] for item in data)
+            param_list = sorted(f"{item}={data[item]}" for item in data)
             data["sig"] = vk_sig("".join(param_list) + secret)
         else:
-            url = "https://api.vk.ru/method/" + method
+            url = f"https://api.vk.ru/method/{method}"
 
         try:
             return self.get_json(url, params=data)
@@ -185,7 +187,7 @@ class VKAppOAuth2(VKOAuth2):
         # Verify signature, if present
         key, secret = self.get_key_and_secret()
         if auth_key:
-            check_key = vk_sig("_".join([key, self.data.get("viewer_id"), secret]))
+            check_key = vk_sig(f"{key}_{self.data.get('viewer_id')}_{secret}")
             if check_key != auth_key:
                 raise ValueError("VK.com authentication failed: invalid auth key")
 
@@ -193,8 +195,9 @@ class VKAppOAuth2(VKOAuth2):
         user_id = self.data.get("viewer_id")
         if user_check is not None:
             user_check = int(user_check)
+            is_user = 0
             if user_check == 1:
-                is_user = self.data.get("is_app_user")
+                is_user = self.data.get("is_app_user", 0)
             elif user_check == 2:
                 response = self.vk_api("isAppUser", {"user_id": user_id})
                 if response is None:
@@ -207,7 +210,6 @@ class VKAppOAuth2(VKOAuth2):
         response = {self.id_key(): user_id}
         response.update(json.loads(request["api_result"])["response"][0])
         return self.strategy.authenticate(
-            *args,
             auth=self,
             backend=self,
             request=request,

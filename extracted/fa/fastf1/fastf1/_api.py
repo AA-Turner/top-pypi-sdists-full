@@ -1,12 +1,7 @@
 import base64
-import collections
 import datetime
 import json
 import zlib
-from typing import (
-    Optional,
-    Union
-)
 
 import numpy as np
 import pandas as pd
@@ -85,7 +80,13 @@ def make_path(wname, wdate, sname, sdate):
         .replace("2024-11-03_Qualifying", "2024-11-02_Qualifying") \
         .replace("2025-02-26_Practice_1", "2025-02-26_Day_1") \
         .replace("2025-02-27_Practice_2", "2025-02-27_Day_2") \
-        .replace("2025-02-28_Practice_3", "2025-02-28_Day_3")
+        .replace("2025-02-28_Practice_3", "2025-02-28_Day_3") \
+        .replace("2026-02-11_Practice_1", "2026-02-11_Day_1") \
+        .replace("2026-02-12_Practice_2", "2026-02-12_Day_2") \
+        .replace("2026-02-13_Practice_3", "2026-02-13_Day_3") \
+        .replace("2026-02-18_Practice_1", "2026-02-18_Day_1") \
+        .replace("2026-02-19_Practice_2", "2026-02-19_Day_2") \
+        .replace("2026-02-20_Practice_3", "2026-02-20_Day_3")
 
     return path
 
@@ -105,7 +106,7 @@ EMPTY_STREAM = {'Time': pd.NaT, 'Driver': '', 'Position': np.nan,
 
 
 def timing_data(path: str,
-                response: Optional[str] = None,
+                response: str | None = None,
                 livedata=None
                 ) -> (pd.DataFrame, pd.DataFrame):
     """
@@ -1018,7 +1019,8 @@ def car_data(path, response=None, livedata=None):
                         ngear = entry['Cars'][drv]['Channels']['3']
                         throttle = entry['Cars'][drv]['Channels']['4']
                         brake = entry['Cars'][drv]['Channels']['5']
-                        drs = entry['Cars'][drv]['Channels']['45']
+                        drs = entry['Cars'][drv]['Channels'].get('45', 0)
+                        # drs is no longer included in 2026
 
                     except KeyError:
                         continue
@@ -1564,13 +1566,16 @@ def driver_info(path, response=None, livedata=None):
                 "recently, please try again in a few minutes."
             )
 
-    drivers = collections.defaultdict(dict)
+    drivers = {}
 
     default_keys = [
         'RacingNumber', 'BroadcastName', 'FullName', 'Tla', 'Line',
         'TeamName', 'TeamColour', 'FirstName', 'LastName', 'Reference',
         'HeadshotUrl', 'CountryCode'
     ]
+
+    new_driver_cutoff = datetime.timedelta(minutes=60)
+    delayed_drivers = set()
 
     for line in response:
         try:
@@ -1583,10 +1588,22 @@ def driver_info(path, response=None, livedata=None):
         for drv_num, patch in content.items():
             if not isinstance(patch, dict):
                 continue  # unexpected data format
+
+            if drv_num not in drivers:
+                if to_timedelta(ts) < new_driver_cutoff:
+                    drivers[drv_num] = {}
+                else:
+                    delayed_drivers.add(drv_num)
+                    continue
+
             for key, val in patch.items():
                 if key not in default_keys:
                     continue
                 drivers[drv_num][key] = val
+
+    if delayed_drivers:
+        _logger.warning(f"Skipping delayed declaration of drivers "
+                        f"{delayed_drivers}")
 
     return drivers
 
@@ -1784,7 +1801,7 @@ def fetch_page(path, name):
         return None
 
 
-def parse(text: str, zipped: bool = False) -> Union[str, dict]:
+def parse(text: str, zipped: bool = False) -> str | dict:
     """
     .. warning::
         :mod:`fastf1.api` will be considered private in future releases and
@@ -1818,7 +1835,13 @@ def parse(text: str, zipped: bool = False) -> Union[str, dict]:
 
 class SessionNotAvailableError(Exception):
     """Raised if an api request returned no data for the requested session.
-    A likely cause is that the session does not exist because it was cancelled."""
+    A likely cause is that the session does not exist because it was cancelled.
+
+    .. warning::
+        This exception is provided by the :mod:`fastf1.api` submodule. It will
+        be considered private in future releases and potentially be removed
+        or changed.
+    """
 
     def __init__(self, *args):
         super().__init__(*args)

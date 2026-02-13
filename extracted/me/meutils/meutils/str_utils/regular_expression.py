@@ -115,7 +115,7 @@ def parse_url_from_json():
     pass
 
 
-def parse_command_string(command_str: str) -> dict:
+def parse_command_string(command_str: str) -> dict: # parse cmd
     """
     解析一个类似 "prompt --key1 value1 --key2 value2" 格式的字符串。
 
@@ -281,4 +281,6 @@ https://i.miji.bid/2025/06/10/d018000aed9b872c7b248dccf14c4450.pngA
     text = "这是一个示例文本，包含一个图片：![image](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABAAAAAQACAIAAADwf7zUAAAgAElEQ) 这张图片很棒。"
     # text = "这是一个示例文本，。"
 
-    print(parse_base64(text * 2))
+    # print(parse_base64(text * 2))
+
+    print(parse_command_string("画条狗 --size 1:1 --n 10"))

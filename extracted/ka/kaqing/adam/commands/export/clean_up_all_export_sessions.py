@@ -1,7 +1,6 @@
 from adam.commands.command import Command
 from adam.commands.export.export_sessions import export_session
 from adam.repl_state import ReplState, RequiredState
-from adam.utils_context import Context
 
 class CleanUpAllExportSessions(Command):
     COMMAND = 'clean up all export sessions'
@@ -26,8 +25,9 @@ class CleanUpAllExportSessions(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with export_session(state) as sessions:
-                sessions.clean_up_all(Context.new(show_out=True))
+            with self.context() as (_, ctx):
+                with export_session(state) as sessions:
+                    sessions.clean_up_all(ctx=ctx)
 
             return state
 

@@ -1,15 +1,15 @@
 from __future__ import annotations
 
+import logging
 import re
 from array import array
 from collections import defaultdict
-from datetime import timedelta
+from datetime import datetime, timedelta
 from hashlib import sha1
 from itertools import chain
 from math import floor
 from pathlib import Path
 from struct import pack
-from typing import TYPE_CHECKING
 from warnings import warn
 
 from numbers_parser.bullets import (
@@ -37,6 +37,7 @@ from numbers_parser.cell import (
 )
 from numbers_parser.constants import (
     ALLOWED_FORMATTING_PARAMETERS,
+    COLON_TRACT_NODE,
     CUSTOM_FORMAT_TYPE_MAP,
     CUSTOM_TEXT_PLACEHOLDER,
     DEFAULT_COLUMN_WIDTH,
@@ -83,8 +84,8 @@ from numbers_parser.numbers_cache import Cacheable, cache
 from numbers_parser.numbers_uuid import NumbersUUID, uuid_to_hex
 from numbers_parser.xrefs import CellRange, ScopedNameRefCache
 
-if TYPE_CHECKING:
-    from datetime import datetime
+logger = logging.getLogger(__name__)
+debug = logger.debug
 
 
 def create_font_name_map(font_map: dict) -> dict:
@@ -829,6 +830,14 @@ class _NumbersModel(Cacheable):
         return self.objects[ce_id]
 
     def add_merge_range(self, table_id, row_start, row_end, col_start, col_end) -> None:
+        debug(
+            "Add merge: table_id=%d, [%d,%d]->[%d,%d]",
+            table_id,
+            row_start,
+            row_end,
+            col_start,
+            col_end,
+        )
         size = (row_end - row_start + 1, col_end - col_start + 1)
         for row in range(row_start, row_end + 1):
             for col in range(col_start, col_end + 1):
@@ -840,33 +849,42 @@ class _NumbersModel(Cacheable):
         self._merge_cells[table_id].add_anchor(row_start, col_start, size)
 
     @cache()
-    def calculate_merges_using_formula_stores(self, table_id) -> None:
+    def calculate_merges_using_formula_stores(self, table_id) -> int:
+        def range_end(archive: object) -> int:
+            # range_end is optional
+            return archive.range_end if archive.HasField("range_end") else archive.range_begin
+
         table_model = self.objects[table_id]
         formulas = table_model.merge_owner.formula_store.formulas
         if len(formulas) == 0:
-            return
+            debug("table=%s: no formula store merges", self.table_name(table_id))
+            return 0
 
+        merge_count = 0
         for formula in formulas:
             node = formula.formula.AST_node_array.AST_node[0]
-            # COLON_TRACT_NODE=67
-            if node.AST_node_type != 67:
+            if node.AST_node_type != COLON_TRACT_NODE:
                 continue
+            merge_count += 1
             self.add_merge_range(
                 table_id,
                 node.AST_colon_tract.absolute_row[0].range_begin,
-                node.AST_colon_tract.absolute_row[0].range_end,
+                range_end(node.AST_colon_tract.absolute_row[0]),
                 node.AST_colon_tract.absolute_column[0].range_begin,
-                node.AST_colon_tract.absolute_column[0].range_end,
+                range_end(node.AST_colon_tract.absolute_column[0]),
             )
+        debug("table=%s: %d formula store merges found", self.table_name(table_id), merge_count)
+        return merge_count
 
     @cache()
-    def calculate_merges_using_dependency_archives(self, table_id) -> None:
+    def calculate_merges_using_dependency_archives(self, table_id) -> int:
         """Extract all the merge cell ranges for the Table."""
         # See details in Numbers.md#merge-ranges.
         owner_id_map = self.owner_id_map()
         table_base_id = self.table_base_id(table_id)
 
         formula_table_ids = self.find_refs("FormulaOwnerDependenciesArchive")
+        merge_count = 0
         for formula_id in formula_table_ids:
             dependencies = self.objects[formula_id]
             if dependencies.owner_kind != OwnerKind.MERGE_OWNER:
@@ -875,6 +893,7 @@ class _NumbersModel(Cacheable):
                 to_owner_id = record.internal_range_reference.owner_id
                 if owner_id_map[to_owner_id] == table_base_id:
                     record_range = record.internal_range_reference.range
+                    merge_count += 1
                     self.add_merge_range(
                         table_id,
                         record_range.top_left_row,
@@ -882,13 +901,21 @@ class _NumbersModel(Cacheable):
                         record_range.top_left_column,
                         record_range.bottom_right_column,
                     )
+        debug(
+            "table=%s: %d dependency archive merges found",
+            self.table_name(table_id),
+            merge_count,
+        )
+        return merge_count
 
     @cache()
     def calculate_merges_using_region_map(self, table_id) -> None:
         base_data_store = self.objects[table_id].base_data_store
         if base_data_store.merge_region_map.identifier == 0:
+            debug("table=%s: no merge_region_map", self.table_name(table_id))
             return
 
+        merge_count = 0
         cell_ranges = self.objects[base_data_store.merge_region_map.identifier]
         for cell_range in cell_ranges.cell_range:
             (col_start, row_start) = (
@@ -901,26 +928,39 @@ class _NumbersModel(Cacheable):
             )
             row_end = row_start + num_rows - 1
             col_end = col_start + num_columns - 1
+            merge_count += 1
             self.add_merge_range(table_id, row_start, row_end, col_start, col_end)
+        debug(
+            "table=%s: %d merge_region_map merges found",
+            self.table_name(table_id),
+            merge_count,
+        )
 
     def merge_cells(self, table_id):
-        self.calculate_merges_using_formula_stores(table_id)
-        self.calculate_merges_using_dependency_archives(table_id)
+        if self.calculate_merges_using_formula_stores(table_id) > 0:
+            return self._merge_cells[table_id]
+        if self.calculate_merges_using_dependency_archives(table_id) > 0:
+            return self._merge_cells[table_id]
         self.calculate_merges_using_region_map(table_id)
         return self._merge_cells[table_id]
 
     def table_id_to_sheet_id(self, table_id: int) -> int:
-        for sheet_id in self.sheet_ids():  # pragma: no branch
-            if table_id in self.table_ids(sheet_id):
-                return sheet_id
-        return None
+        return next(
+            (sheet_id for sheet_id in self.sheet_ids() if table_id in self.table_ids(sheet_id)),
+            None,
+        )
 
     @cache()
     def table_uuids_to_id(self, table_uuid) -> int | None:
-        for sheet_id in self.sheet_ids():  # pragma: no branch  # noqa: RET503
-            for table_id in self.table_ids(sheet_id):
-                if table_uuid == self.table_base_id(table_id):
-                    return table_id
+        return next(
+            (
+                table_id
+                for sheet_id in self.sheet_ids()
+                for table_id in self.table_ids(sheet_id)
+                if table_uuid == self.table_base_id(table_id)
+            ),
+            None,
+        )
 
     def node_to_ref(self, table_id: int, row: int, col: int, node):
         def resolve_range(is_absolute, absolute_list, relative_list, offset, max_val):
@@ -2553,36 +2593,28 @@ class _NumbersModel(Cacheable):
         # datas never appears to be an empty list (default themes include images)
         return max(image_ids) + 1
 
-    @classmethod
-    def cell_value_to_key(
-        cls,
-        cell_value: TSCEArchives.CellValueArchive,
-    ) -> str | int | bool | datetime:
-        """Convert a CellValueArchive to a key."""
-        cell_value_type = cell_value.cell_value_type
-        if cell_value_type == CellValueType.STRING_TYPE:
-            return cell_value.string_value.value
-        if cell_value_type == CellValueType.NUMBER_TYPE:
-            return cell_value.number_value.value
-        if cell_value_type == CellValueType.BOOLEAN_TYPE:
-            return cell_value.boolean_value.value
-        if cell_value_type == CellValueType.DATE_TYPE:
-            # "yyyy"
-            # "yyyy-QQQ"
-            # "LLLL yyyy"
-            # "yyyy'-W'w"
-            # "d/M/yyyy"
-            # "EEEE"
-            return _decode_date_format(
-                cell_value.date_value.format.date_time_format,
-                EPOCH + timedelta(seconds=cell_value.date_value.value),
-            )
-        return None
-
     @cache(num_args=0)
     def group_uuid_values(self):
+        def cell_value_to_key(
+            cell_value: TSCEArchives.CellValueArchive,
+        ) -> str | int | bool | datetime:
+            """Convert a CellValueArchive to a key."""
+            cell_value_type = cell_value.cell_value_type
+            if cell_value_type == CellValueType.STRING_TYPE:
+                return cell_value.string_value.value
+            if cell_value_type == CellValueType.NUMBER_TYPE:
+                return cell_value.number_value.value
+            if cell_value_type == CellValueType.BOOLEAN_TYPE:
+                return cell_value.boolean_value.value
+            if cell_value_type == CellValueType.DATE_TYPE:
+                return _decode_date_format(
+                    cell_value.date_value.format.date_time_format,
+                    EPOCH + timedelta(seconds=cell_value.date_value.value),
+                )
+            return None
+
         return {
-            NumbersUUID(self.objects[_id].group_uid): _NumbersModel.cell_value_to_key(
+            NumbersUUID(self.objects[_id].group_uid): cell_value_to_key(
                 self.objects[_id].group_cell_value,
             )
             for _id in self.find_refs("GroupNodeArchive")
@@ -2626,81 +2658,47 @@ class _NumbersModel(Cacheable):
         parent_relationships(None, category_archive.group_node_root.child, group_parents)
 
         row = 0
-        row_mapper = {}
-        header = []
-        in_header = True
-
+        row_mapper: dict[int, int] = {}
         nodes: dict[NumbersUUID, dict] = {}
         root_children: dict = {}
         stack: list[NumbersUUID | None] = []
-        # rows that are not in any group (rare) kept here
-        root_rows: list = []
 
         for uuid in row_uid_for_index:
             if uuid in group_uuids:
-                # this UUID is a group heading
-                in_header = False
                 parent = group_parents.get(uuid)
+                nodes[uuid] = {"key": group_uuids[uuid], "children": {}, "rows": []}
 
-                # ensure node exists
-                if uuid not in nodes:
-                    nodes[uuid] = {
-                        "key": group_uuids[uuid],
-                        "children": {},
-                        "rows": [],
-                    }
-
-                # attach node to its parent (or root)
                 if parent is None:
-                    if nodes[uuid]["key"] not in root_children:
-                        root_children[nodes[uuid]["key"]] = nodes[uuid]
+                    root_children[nodes[uuid]["key"]] = nodes[uuid]
                 else:
                     if parent not in nodes:
-                        nodes[parent] = {
-                            "key": group_uuids[parent],
-                            "children": {},
-                            "rows": [],
-                        }
+                        nodes[parent] = {"key": group_uuids[parent], "children": {}, "rows": []}
                     parent_node = nodes[parent]
-                    if nodes[uuid]["key"] not in parent_node["children"]:
-                        parent_node["children"][nodes[uuid]["key"]] = nodes[uuid]
+                    parent_node["children"][nodes[uuid]["key"]] = nodes[uuid]
 
-                # update stack to current nesting (pop until parent is on top)
                 while stack and stack[-1] != parent:
                     stack.pop()
                 stack.append(uuid)
             else:
                 mapped_row = row_uuid_to_offset[uuid]
-                if in_header:
-                    header.append(self._table_data[table_id][mapped_row])
-                # assign this row to the deepest open group, or root
-                elif stack:
+                if stack:
                     nodes[stack[-1]]["rows"].append(self._table_data[table_id][mapped_row])
-                else:
-                    root_rows.append(self._table_data[table_id][mapped_row])
 
                 row_mapper[row] = mapped_row
                 row += 1
 
-        # helper to convert node dicts to nested mapping (keys -> children or rows)
         def node_to_structure(node: dict):
             if not node["children"]:
                 return node["rows"]
             out = {}
             for child_key, child_node in node["children"].items():
                 out[child_key] = node_to_structure(child_node)
-            # if this node also has rows in addition to children, include them under a special key
-            if node["rows"]:
-                out["_rows"] = node["rows"]
             return out
 
-        maximally_nested = {}
+        self._table_categories_data[table_id] = {}
         for key, node in root_children.items():
-            maximally_nested[key] = node_to_structure(node)
-        if root_rows:
-            maximally_nested["_rows"] = root_rows
+            self._table_categories_data[table_id][key] = node_to_structure(node)
 
-        self._table_categories_data[table_id] = maximally_nested
         self._table_categories_row_mapper[table_id] = {
             row: row_uuid_to_offset[uuid]
             for row, uuid in enumerate(

@@ -14,6 +14,12 @@ from snowflake.core._common import (
 )
 from snowflake.core._generated.api_client import StoredProcApiClient
 from snowflake.core._operation import PollingOperations
+from snowflake.core._utils import (
+    tag_assignment_to_tag_tuple,
+    tag_resource_to_tag_reference,
+    tag_tuple_to_tag_assignment,
+)
+from snowflake.core.tag import TagResource, TagValue
 
 from .._internal.telemetry import api_telemetry
 from ._generated import ConvertToManagedIcebergTableRequest, RefreshIcebergTableRequest, SuccessResponse
@@ -27,6 +33,8 @@ from ._generated.models.iceberg_table_from_iceberg_files import IcebergTableFrom
 from ._generated.models.iceberg_table_from_iceberg_rest import IcebergTableFromIcebergRest
 from ._generated.models.iceberg_table_like import IcebergTableLike
 from ._generated.models.point_of_time import PointOfTime as IcebergTablePointOfTime
+from ._generated.models.tag_assignment import TagAssignment
+from ._generated.models.tag_reference import TagReference
 
 
 if TYPE_CHECKING:
@@ -820,3 +828,144 @@ class IcebergTableResource(SchemaObjectReferenceMixin[IcebergTableCollection]):
             self.database.name, self.schema.name, self.name, async_req=True
         )
         return PollingOperations.empty(future)
+
+    @api_telemetry
+    def set_tags(self, tags: dict[TagResource, TagValue], if_exists: Optional[bool] = None) -> None:
+        """Set tags on this Iceberg table.
+
+        Parameters
+        __________
+        if_exists: bool, optional
+            Check the existence of this Iceberg table before setting the tags.
+            Default is ``None``, which is equivalent to ``False``.
+
+        Examples
+        ________
+        Set tags on an Iceberg table:
+
+        >>> tag = root.databases["your-database"].schemas["your-schema"].tags["your-tag"]
+        ... other_tag = root.databases["your-database"].schemas["your-schema"].tags["your-other-tag"]
+        ... iceberg_table_reference.set_tags({tag: TagValue("your-value"), other_tag: TagValue("your-value")})
+        """
+        self.collection._api.set_tags(
+            database=self.database.name,
+            var_schema=self.schema.name,
+            name=self.name,
+            tag_assignment=[
+                tag_tuple_to_tag_assignment(TagAssignment, tag_resource, tag_value)
+                for [tag_resource, tag_value] in tags.items()
+            ],
+            if_exists=if_exists,
+        )
+
+    @api_telemetry
+    def set_tags_async(
+        self, tags: dict[TagResource, TagValue], if_exists: Optional[bool] = None
+    ) -> PollingOperation[None]:
+        """An asynchronous version of :func:`set_tags`.
+
+        Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
+        the return type.
+        """  # noqa: D401
+        future = self.collection._api.set_tags(
+            database=self.database.name,
+            var_schema=self.schema.name,
+            name=self.name,
+            tag_assignment=[
+                tag_tuple_to_tag_assignment(TagAssignment, tag_resource, tag_value)
+                for [tag_resource, tag_value] in tags.items()
+            ],
+            if_exists=if_exists,
+            async_req=True,
+        )
+        return PollingOperations.empty(future)
+
+    @api_telemetry
+    def unset_tags(self, tag_resources: set[TagResource], if_exists: Optional[bool] = None) -> None:
+        """Unset tags from this Iceberg table.
+
+        Parameters
+        __________
+        if_exists: bool, optional
+            Check the existence of this Iceberg table before unsetting the tags.
+            Default is ``None``, which is equivalent to ``False``.
+
+        Examples
+        ________
+        Unset tags from an Iceberg table:
+
+        >>> tag = root.databases["your-database"].schemas["your-schema"].tags["your-tag"]
+        ... other_tag = root.databases["your-database"].schemas["your-schema"].tags["your-other-tag"]
+        ... iceberg_table_reference.unset_tags({tag, other_tag})
+        """
+        self.collection._api.unset_tags(
+            database=self.database.name,
+            var_schema=self.schema.name,
+            name=self.name,
+            tag_reference=[tag_resource_to_tag_reference(TagReference, tag_resource) for tag_resource in tag_resources],
+            if_exists=if_exists,
+        )
+
+    @api_telemetry
+    def unset_tags_async(
+        self, tag_resources: set[TagResource], if_exists: Optional[bool] = None
+    ) -> PollingOperation[None]:
+        """An asynchronous version of :func:`unset_tags`.
+
+        Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
+        the return type.
+        """  # noqa: D401
+        future = self.collection._api.unset_tags(
+            database=self.database.name,
+            var_schema=self.schema.name,
+            name=self.name,
+            tag_reference=[tag_resource_to_tag_reference(TagReference, tag_resource) for tag_resource in tag_resources],
+            if_exists=if_exists,
+            async_req=True,
+        )
+        return PollingOperations.empty(future)
+
+    @api_telemetry
+    def get_tags(self, with_lineage: Optional[bool] = None) -> dict[TagResource, TagValue]:
+        """Fetch all tags assigned to this Iceberg table.
+
+        This operation requires an active warehouse.
+
+        Parameters
+        __________
+        with_lineage: bool, optional
+            Controls whether returned tag assignments include only tags directly set on the object (False)
+            or also those inherited through Snowflake’s object hierarchy (True).
+            Default is ``None``, which is equivalent to ``False``.
+
+        Examples
+        ________
+        Get tags set on an Iceberg table:
+
+        >>> iceberg_table_reference.get_tags()
+        """
+        tag_assignments = self.collection._api.get_tags(
+            database=self.database.name,
+            var_schema=self.schema.name,
+            name=self.name,
+            with_lineage=with_lineage,
+        )
+        return dict(tag_assignment_to_tag_tuple(ta, self.root) for ta in tag_assignments)
+
+    @api_telemetry
+    def get_tags_async(self, with_lineage: Optional[bool] = None) -> PollingOperation[dict[TagResource, TagValue]]:
+        """An asynchronous version of :func:`get_tags`.
+
+        Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
+        the return type.
+        """  # noqa: D401
+        future = self.collection._api.get_tags(
+            database=self.database.name,
+            var_schema=self.schema.name,
+            name=self.name,
+            with_lineage=with_lineage,
+            async_req=True,
+        )
+        return PollingOperation(
+            future, lambda tag_assignments: dict(tag_assignment_to_tag_tuple(ta, self.root) for ta in tag_assignments)
+        )

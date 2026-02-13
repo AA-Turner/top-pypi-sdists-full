@@ -15,6 +15,7 @@ import QuantConnect.Orders.Fees
 import QuantConnect.Orders.Fills
 import QuantConnect.Orders.OptionExercise
 import QuantConnect.Orders.Slippage
+import QuantConnect.Python
 import QuantConnect.Securities
 import QuantConnect.Securities.Future
 import QuantConnect.Securities.Interfaces
@@ -38,14 +39,42 @@ class OptionPriceModelResult(System.Object):
         """Gets the theoretical price as computed by the IOptionPriceModel"""
         ...
 
+    @theoretical_price.setter
+    def theoretical_price(self, value: float) -> None:
+        ...
+
     @property
     def implied_volatility(self) -> float:
         """Gets the implied volatility of the option contract"""
         ...
 
+    @implied_volatility.setter
+    def implied_volatility(self, value: float) -> None:
+        ...
+
     @property
     def greeks(self) -> QuantConnect.Data.Market.Greeks:
         """Gets the various sensitivities as computed by the IOptionPriceModel"""
+        ...
+
+    @greeks.setter
+    def greeks(self, value: QuantConnect.Data.Market.Greeks) -> None:
+        ...
+
+    @overload
+    def __init__(self, theoretical_price: float, implied_volatility: typing.Any, greeks: typing.Any) -> None:
+        """
+        Initializes a new instance of the OptionPriceModelResult class with lazy calculations of implied volatility and greeks
+        
+        :param theoretical_price: The theoretical price computed by the price model
+        :param implied_volatility: The calculated implied volatility
+        :param greeks: The sensitivities (greeks) computed by the price model
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the OptionPriceModelResult class"""
         ...
 
     @overload
@@ -54,6 +83,17 @@ class OptionPriceModelResult(System.Object):
         Initializes a new instance of the OptionPriceModelResult class
         
         :param theoretical_price: The theoretical price computed by the price model
+        :param greeks: The sensitivities (greeks) computed by the price model
+        """
+        ...
+
+    @overload
+    def __init__(self, theoretical_price: float, implied_volatility: float, greeks: QuantConnect.Data.Market.Greeks) -> None:
+        """
+        Initializes a new instance of the OptionPriceModelResult class
+        
+        :param theoretical_price: The theoretical price computed by the price model
+        :param implied_volatility: The calculated implied volatility
         :param greeks: The sensitivities (greeks) computed by the price model
         """
         ...
@@ -70,17 +110,79 @@ class OptionPriceModelResult(System.Object):
         ...
 
 
+class OptionPriceModelParameters(System.Object):
+    """Defines the parameters for IOptionPriceModel.evaluate"""
+
+    @property
+    def security(self) -> QuantConnect.Securities.Security:
+        """Gets the option security object"""
+        ...
+
+    @security.setter
+    def security(self, value: QuantConnect.Securities.Security) -> None:
+        ...
+
+    @property
+    def slice(self) -> QuantConnect.Data.Slice:
+        """Gets the current data slice"""
+        ...
+
+    @slice.setter
+    def slice(self, value: QuantConnect.Data.Slice) -> None:
+        ...
+
+    @property
+    def contract(self) -> QuantConnect.Data.Market.OptionContract:
+        """Gets the option contract to evaluate"""
+        ...
+
+    @contract.setter
+    def contract(self, value: QuantConnect.Data.Market.OptionContract) -> None:
+        ...
+
+    def __init__(self, security: QuantConnect.Securities.Security = None, slice: QuantConnect.Data.Slice = None, contract: QuantConnect.Data.Market.OptionContract = None) -> None:
+        """
+        Initializes a new instance of the OptionPriceModelParameters class
+        
+        :param security: The option security object
+        :param slice: The current data slice
+        :param contract: The option contract to evaluate
+        """
+        ...
+
+
 class IOptionPriceModel(metaclass=abc.ABCMeta):
     """Defines a model used to calculate the theoretical price of an option contract."""
 
-    def evaluate(self, security: QuantConnect.Securities.Security, slice: QuantConnect.Data.Slice, contract: QuantConnect.Data.Market.OptionContract) -> QuantConnect.Securities.Option.OptionPriceModelResult:
+    def evaluate(self, parameters: QuantConnect.Securities.Option.OptionPriceModelParameters) -> QuantConnect.Securities.Option.OptionPriceModelResult:
         """
         Evaluates the specified option contract to compute a theoretical price, IV and greeks
         
-        :param security: The option security object
-        :param slice: The current data slice. This can be used to access other information
-        available to the algorithm
-        :param contract: The option contract to evaluate
+        :param parameters: A OptionPriceModelParameters object
+        containing the security, slice and contract
+        :returns: An instance of OptionPriceModelResult containing the theoretical
+        price of the specified option contract.
+        """
+        ...
+
+
+class OptionPriceModelPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.Securities.Option.IOptionPriceModel], QuantConnect.Securities.Option.IOptionPriceModel):
+    """Provides an implementation of IOptionPriceModel that wraps a PyObject object"""
+
+    def __init__(self, model: typing.Any) -> None:
+        """
+        Creates a new instance
+        
+        :param model: The python model to wrap
+        """
+        ...
+
+    def evaluate(self, parameters: QuantConnect.Securities.Option.OptionPriceModelParameters) -> QuantConnect.Securities.Option.OptionPriceModelResult:
+        """
+        Evaluates the specified option contract to compute a theoretical price, IV and greeks
+        
+        :param parameters: A OptionPriceModelParameters object
+        containing the security, slice and contract
         :returns: An instance of OptionPriceModelResult containing the theoretical
         price of the specified option contract.
         """
@@ -535,6 +637,24 @@ class Option(QuantConnect.Securities.Security, QuantConnect.Securities.IDerivati
         Sets the option exercise model
         
         :param option_exercise_model: The option exercise model to use
+        """
+        ...
+
+    @overload
+    def set_price_model(self, py_object: typing.Any) -> None:
+        """
+        Sets the option price model
+        
+        :param py_object: The option price model to use
+        """
+        ...
+
+    @overload
+    def set_price_model(self, price_model: QuantConnect.Securities.Option.IOptionPriceModel) -> None:
+        """
+        Sets the option price model
+        
+        :param price_model: The option price model to use
         """
         ...
 
@@ -1659,6 +1779,39 @@ class ConstantQLDividendYieldEstimator(System.Object, QuantConnect.Securities.Op
         ...
 
 
+class OptionPriceModel(System.Object, QuantConnect.Securities.Option.IOptionPriceModel, metaclass=abc.ABCMeta):
+    """Base class for option price models, computing theoretical price, IV, and Greeks."""
+
+    @overload
+    def evaluate(self, parameters: QuantConnect.Securities.Option.OptionPriceModelParameters) -> QuantConnect.Securities.Option.OptionPriceModelResult:
+        """
+        Evaluates the specified option contract to compute a theoretical price, IV and greeks
+        
+        :param parameters: A OptionPriceModelParameters object
+        containing the security, slice and contract
+        :returns: An instance of OptionPriceModelResult containing the theoretical
+        price of the specified option contract.
+        """
+        ...
+
+    @overload
+    def evaluate(self, security: QuantConnect.Securities.Security, slice: QuantConnect.Data.Slice, contract: QuantConnect.Data.Market.OptionContract) -> QuantConnect.Securities.Option.OptionPriceModelResult:
+        """
+        Evaluates the specified option contract to compute a theoretical price, IV and greeks
+        
+        
+        This method is deprecated. Use Evaluate(OptionPriceModelParameters parameters) instead.
+        
+        :param security: The option security object
+        :param slice: The current data slice. This can be used to access other information
+        available to the algorithm
+        :param contract: The option contract to evaluate
+        :returns: An instance of OptionPriceModelResult containing the theoretical
+        price of the specified option contract.
+        """
+        ...
+
+
 class OptionAssignmentParameters(System.Object):
     """The option assignment parameters data transfer class"""
 
@@ -1725,13 +1878,14 @@ class OptionExchange(QuantConnect.Securities.SecurityExchange):
         ...
 
 
-class CurrentPriceOptionPriceModel(System.Object, QuantConnect.Securities.Option.IOptionPriceModel):
+class CurrentPriceOptionPriceModel(QuantConnect.Securities.Option.OptionPriceModel):
     """
     Provides a default implementation of IOptionPriceModel that does not compute any
     greeks and uses the current price for the theoretical price.
     This is a stub implementation until the real models are implemented
     """
 
+    @overload
     def evaluate(self, security: QuantConnect.Securities.Security, slice: QuantConnect.Data.Slice, contract: QuantConnect.Data.Market.OptionContract) -> QuantConnect.Securities.Option.OptionPriceModelResult:
         """
         Creates a new OptionPriceModelResult containing the current Security.price
@@ -1741,6 +1895,18 @@ class CurrentPriceOptionPriceModel(System.Object, QuantConnect.Securities.Option
         :param slice: The current data slice. This can be used to access other information
         available to the algorithm
         :param contract: The option contract to evaluate
+        :returns: An instance of OptionPriceModelResult containing the theoretical
+        price of the specified option contract.
+        """
+        ...
+
+    @overload
+    def evaluate(self, parameters: QuantConnect.Securities.Option.OptionPriceModelParameters) -> QuantConnect.Securities.Option.OptionPriceModelResult:
+        """
+        Evaluates the specified option contract to compute a theoretical price, IV and greeks
+        
+        :param parameters: A OptionPriceModelParameters object
+        containing the security, slice and contract
         :returns: An instance of OptionPriceModelResult containing the theoretical
         price of the specified option contract.
         """
@@ -1785,7 +1951,7 @@ class EmptyOptionChainProvider(System.Object, QuantConnect.Interfaces.IOptionCha
         ...
 
 
-class QLOptionPriceModel(System.Object, QuantConnect.Securities.Option.IOptionPriceModel):
+class QLOptionPriceModel(QuantConnect.Securities.Option.OptionPriceModel):
     """Provides QuantLib(QL) implementation of IOptionPriceModel to support major option pricing models, available in QL."""
 
     @property
@@ -1839,6 +2005,7 @@ class QLOptionPriceModel(System.Object, QuantConnect.Securities.Option.IOptionPr
         """
         ...
 
+    @overload
     def evaluate(self, security: QuantConnect.Securities.Security, slice: QuantConnect.Data.Slice, contract: QuantConnect.Data.Market.OptionContract) -> QuantConnect.Securities.Option.OptionPriceModelResult:
         """
         Evaluates the specified option contract to compute a theoretical price, IV and greeks
@@ -1847,6 +2014,18 @@ class QLOptionPriceModel(System.Object, QuantConnect.Securities.Option.IOptionPr
         :param slice: The current data slice. This can be used to access other information
         available to the algorithm
         :param contract: The option contract to evaluate
+        :returns: An instance of OptionPriceModelResult containing the theoretical
+        price of the specified option contract.
+        """
+        ...
+
+    @overload
+    def evaluate(self, parameters: QuantConnect.Securities.Option.OptionPriceModelParameters) -> QuantConnect.Securities.Option.OptionPriceModelResult:
+        """
+        Evaluates the specified option contract to compute a theoretical price, IV and greeks
+        
+        :param parameters: A OptionPriceModelParameters object
+        containing the security, slice and contract
         :returns: An instance of OptionPriceModelResult containing the theoretical
         price of the specified option contract.
         """

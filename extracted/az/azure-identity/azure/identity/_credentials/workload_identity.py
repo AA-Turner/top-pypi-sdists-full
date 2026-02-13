@@ -99,6 +99,7 @@ class WorkloadIdentityCredential(ClientAssertionCredential, TokenFileMixin):
         assert token_file_path is not None
 
         self._token_file_path = token_file_path
+
         super(WorkloadIdentityCredential, self).__init__(
             tenant_id=tenant_id,
             client_id=client_id,

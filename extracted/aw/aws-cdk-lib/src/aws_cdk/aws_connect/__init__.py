@@ -10255,6 +10255,7 @@ class CfnInstance(
                 enhanced_chat_monitoring=False,
                 enhanced_contact_monitoring=False,
                 high_volume_out_bound=False,
+                message_streaming=False,
                 multi_party_chat_conference=False,
                 multi_party_conference=False,
                 use_custom_tts_voices=False
@@ -10506,6 +10507,7 @@ class CfnInstance(
             "enhanced_chat_monitoring": "enhancedChatMonitoring",
             "enhanced_contact_monitoring": "enhancedContactMonitoring",
             "high_volume_out_bound": "highVolumeOutBound",
+            "message_streaming": "messageStreaming",
             "multi_party_chat_conference": "multiPartyChatConference",
             "multi_party_conference": "multiPartyConference",
             "use_custom_tts_voices": "useCustomTtsVoices",
@@ -10524,6 +10526,7 @@ class CfnInstance(
             enhanced_chat_monitoring: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             enhanced_contact_monitoring: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             high_volume_out_bound: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            message_streaming: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             multi_party_chat_conference: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             multi_party_conference: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             use_custom_tts_voices: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
@@ -10541,6 +10544,7 @@ class CfnInstance(
             :param enhanced_chat_monitoring: Boolean flag which enables ENHANCED_CHAT_MONITORING on an instance.
             :param enhanced_contact_monitoring: Boolean flag which enables ENHANCED_CONTACT_MONITORING on an instance.
             :param high_volume_out_bound: Boolean flag which enables HIGH_VOLUME_OUTBOUND on an instance.
+            :param message_streaming: Boolean flag which enables MESSAGE_STREAMING on an instance.
             :param multi_party_chat_conference: Boolean flag which enables MULTI_PARTY_CHAT_CONFERENCE on an instance.
             :param multi_party_conference: Boolean flag which enables MULTI_PARTY_CONFERENCE on an instance.
             :param use_custom_tts_voices: Boolean flag which enables USE_CUSTOM_TTS_VOICES on an instance.
@@ -10566,6 +10570,7 @@ class CfnInstance(
                     enhanced_chat_monitoring=False,
                     enhanced_contact_monitoring=False,
                     high_volume_out_bound=False,
+                    message_streaming=False,
                     multi_party_chat_conference=False,
                     multi_party_conference=False,
                     use_custom_tts_voices=False
@@ -10582,6 +10587,7 @@ class CfnInstance(
                 check_type(argname="argument enhanced_chat_monitoring", value=enhanced_chat_monitoring, expected_type=type_hints["enhanced_chat_monitoring"])
                 check_type(argname="argument enhanced_contact_monitoring", value=enhanced_contact_monitoring, expected_type=type_hints["enhanced_contact_monitoring"])
                 check_type(argname="argument high_volume_out_bound", value=high_volume_out_bound, expected_type=type_hints["high_volume_out_bound"])
+                check_type(argname="argument message_streaming", value=message_streaming, expected_type=type_hints["message_streaming"])
                 check_type(argname="argument multi_party_chat_conference", value=multi_party_chat_conference, expected_type=type_hints["multi_party_chat_conference"])
                 check_type(argname="argument multi_party_conference", value=multi_party_conference, expected_type=type_hints["multi_party_conference"])
                 check_type(argname="argument use_custom_tts_voices", value=use_custom_tts_voices, expected_type=type_hints["use_custom_tts_voices"])
@@ -10603,6 +10609,8 @@ class CfnInstance(
                 self._values["enhanced_contact_monitoring"] = enhanced_contact_monitoring
             if high_volume_out_bound is not None:
                 self._values["high_volume_out_bound"] = high_volume_out_bound
+            if message_streaming is not None:
+                self._values["message_streaming"] = message_streaming
             if multi_party_chat_conference is not None:
                 self._values["multi_party_chat_conference"] = multi_party_chat_conference
             if multi_party_conference is not None:
@@ -10710,6 +10718,17 @@ class CfnInstance(
             return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
+        def message_streaming(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''Boolean flag which enables MESSAGE_STREAMING on an instance.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-instance-attributes.html#cfn-connect-instance-attributes-messagestreaming
+            '''
+            result = self._values.get("message_streaming")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
         def multi_party_chat_conference(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
@@ -10806,6 +10825,7 @@ class CfnInstanceProps:
                     enhanced_chat_monitoring=False,
                     enhanced_contact_monitoring=False,
                     high_volume_out_bound=False,
+                    message_streaming=False,
                     multi_party_chat_conference=False,
                     multi_party_conference=False,
                     use_custom_tts_voices=False
@@ -26259,6 +26279,7 @@ def _typecheckingstub__c40aedafdc4ea4fb2b717cc5c6ef0e2db4eb7490be99c35b78dc90f18
     enhanced_chat_monitoring: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     enhanced_contact_monitoring: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     high_volume_out_bound: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    message_streaming: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     multi_party_chat_conference: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     multi_party_conference: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     use_custom_tts_voices: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,

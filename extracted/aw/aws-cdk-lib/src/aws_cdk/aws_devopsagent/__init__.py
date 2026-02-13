@@ -142,6 +142,48 @@ class CfnAgentSpace(
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAgentSpace", [resource]))
 
+    @jsii.member(jsii_name="fromAgentSpaceArn")
+    @builtins.classmethod
+    def from_agent_space_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_IAgentSpaceRef_2ffb48ed":
+        '''Creates a new IAgentSpaceRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5dc004d63d73274933efa9e02989941984735e5426f7c063d97b0b415406d8d4)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_IAgentSpaceRef_2ffb48ed", jsii.sinvoke(cls, "fromAgentSpaceArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromAgentSpaceId")
+    @builtins.classmethod
+    def from_agent_space_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        agent_space_id: builtins.str,
+    ) -> "_IAgentSpaceRef_2ffb48ed":
+        '''Creates a new IAgentSpaceRef from a agentSpaceId.
+
+        :param scope: -
+        :param id: -
+        :param agent_space_id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8c0f8fde84620afc53f90b3672d7f693a2e66909624772cab6d4c2337a64aa65)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument agent_space_id", value=agent_space_id, expected_type=type_hints["agent_space_id"])
+        return typing.cast("_IAgentSpaceRef_2ffb48ed", jsii.sinvoke(cls, "fromAgentSpaceId", [scope, id, agent_space_id]))
+
     @jsii.member(jsii_name="isCfnAgentSpace")
     @builtins.classmethod
     def is_cfn_agent_space(cls, x: typing.Any) -> builtins.bool:
@@ -2818,6 +2860,22 @@ def _typecheckingstub__3897cdc52c2bc2a74bdd32702e32905947b3c0fc36798edcdac7875cc
 
 def _typecheckingstub__c3fd19a72161f0ef8cc6732b6e9205e1c9f41b50d57a659a84461dcdde223423(
     resource: _IAgentSpaceRef_2ffb48ed,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5dc004d63d73274933efa9e02989941984735e5426f7c063d97b0b415406d8d4(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8c0f8fde84620afc53f90b3672d7f693a2e66909624772cab6d4c2337a64aa65(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    agent_space_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

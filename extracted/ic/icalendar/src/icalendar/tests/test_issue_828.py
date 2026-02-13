@@ -1,16 +1,15 @@
-"""Events differ although their times are equal."""
+"""Events differ although their times are equal.
+
+See https://github.com/collective/icalendar/issues/828
+"""
 
 import contextlib
 from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import pytest
 
 from icalendar import Event, Journal, vDate, vDatetime, vDDDLists, vDDDTypes
-
-try:
-    from zoneinfo import ZoneInfo
-except ImportError:
-    from backports.zoneinfo import ZoneInfo  # type: ignore PGH003
 
 
 def to_dt(a: date) -> date:

@@ -11,11 +11,15 @@ import numpy.typing as npt
 import bpy.types
 
 def abspath(
-    path, *, start: bytes | str | None = None, library: bpy.types.Library | None = None
+    path: bytes | str,
+    *,
+    start: None | bytes | str | None = None,
+    library: None | bpy.types.Library | None = None,
 ) -> str:
     """Returns the absolute path relative to the current blend file
     using the "//" prefix.
 
+        :param path: The path to convert to absolute.
         :param start: Relative to this path,
     when not set the current filename is used.
         :param library: The library this path is from. This is only included for
@@ -23,9 +27,10 @@ def abspath(
         :return: The absolute path.
     """
 
-def basename(path) -> str:
+def basename(path: bytes | str) -> str:
     """Equivalent to os.path.basename, but skips a "//" prefix.Use for Windows compatibility.
 
+    :param path: The path to get the base name of.
     :return: The base name of the given path.
     """
 
@@ -41,7 +46,7 @@ def clean_name(name: bytes | str, *, replace: str = "_") -> str:
     """
 
 def display_name(name: str, *, has_ext: bool = True, title_case: bool = True) -> str:
-    """Creates a display string from name to be used menus and the user interface.
+    """Creates a display string from name to be used in menus and the user interface.
     Intended for use with filenames and module names.
 
         :param name: The name to be used for displaying the user interface.
@@ -52,7 +57,7 @@ def display_name(name: str, *, has_ext: bool = True, title_case: bool = True) ->
 
 def display_name_from_filepath(name: str) -> str:
     """Returns the path stripped of directory and extension,
-    ensured to be utf8 compatible.
+    ensured to be UTF-8 compatible.
 
         :param name: The file path to convert.
         :return: The display name.
@@ -76,11 +81,12 @@ def ensure_ext(filepath: str, ext: str, *, case_sensitive: bool = False) -> str:
         :return: The file path with the given extension.
     """
 
-def is_subdir(path: bytes | str, directory) -> bool:
-    """Returns true if path in a subdirectory of directory.
+def is_subdir(path: bytes | str, directory: bytes | str) -> bool:
+    """Returns true if path is in a subdirectory of directory.
     Both paths must be absolute.
 
         :param path: An absolute path.
+        :param directory: The parent directory to check against.
         :return: Whether or not the path is a subdirectory.
     """
 
@@ -111,7 +117,7 @@ def reduce_dirs(dirs: collections.abc.Sequence[str]) -> list[str]:
         :return: A unique list of paths.
     """
 
-def relpath(path: bytes | str, *, start: bytes | str | None = None) -> str:
+def relpath(path: bytes | str, *, start: None | bytes | str | None = None) -> str:
     """Returns the path relative to the current blend file using the "//" prefix.
 
         :param path: An absolute path.

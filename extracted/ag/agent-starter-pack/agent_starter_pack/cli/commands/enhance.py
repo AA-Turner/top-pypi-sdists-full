@@ -121,6 +121,19 @@ def get_project_asp_config(project_dir: pathlib.Path) -> dict[str, Any] | None:
             },
         }
 
+    # For TypeScript projects, normalize the config structure (same as Go)
+    if language == "typescript":
+        return {
+            "base_template": config.get("base_template"),
+            "asp_version": config.get("version"),
+            "agent_directory": config.get("agent_directory", "app"),
+            "language": config.get("language", "typescript"),
+            "create_params": {
+                "deployment_target": config.get("deployment_target"),
+                "cicd_runner": config.get("cicd_runner"),
+            },
+        }
+
     # For Python, add language key and return as-is
     config["language"] = language
     return config
@@ -606,6 +619,7 @@ def enhance(
     agent_directory: str | None,
     skip_welcome: bool = False,
     google_api_key: str | None = None,
+    bq_analytics: bool = False,
 ) -> None:
     """Enhance your existing project with AI agent capabilities.
 
@@ -664,12 +678,13 @@ def enhance(
         console.print("> Debug mode enabled")
         logging.debug("Starting enhance command in debug mode")
 
-    # Validate required options for programmatic invocation
+    # Default cicd_runner to "skip" for programmatic invocation
     if auto_approve and not cicd_runner:
-        raise click.ClickException(
-            "When using --auto-approve (-y), you must specify --cicd-runner.\n"
-            "Example: uvx agent-starter-pack enhance . -y --cicd-runner github_actions"
+        console.print(
+            "[yellow]Warning: --cicd-runner not specified with --auto-approve. "
+            "Defaulting to 'skip'. Use --cicd-runner to configure CI/CD.[/yellow]"
         )
+        cicd_runner = "skip"
 
     # Handle --adk shortcut
     if adk:
@@ -800,15 +815,18 @@ def enhance(
     if template_path == pathlib.Path("."):
         current_dir = pathlib.Path.cwd()
 
-        # Detect if this is a Go or Java project from base_template or config
+        # Detect if this is a Go, Java, or TypeScript project from base_template or config
         is_go_project = base_template and base_template.endswith("_go")
         is_java_project = base_template and base_template.endswith("_java")
+        is_ts_project = base_template and base_template.endswith("_ts")
         asp_config = get_project_asp_config(current_dir)
         if asp_config:
             if asp_config.get("language") == "go":
                 is_go_project = True
             elif asp_config.get("language") == "java":
                 is_java_project = True
+            elif asp_config.get("language") == "typescript":
+                is_ts_project = True
 
         # Determine agent directory: CLI param > config detection > language default
         if is_go_project:
@@ -928,6 +946,8 @@ def enhance(
                 language = "go"
             elif is_java_project:
                 language = "java"
+            elif is_ts_project:
+                language = "typescript"
 
             lang_config = get_language_config(language)
             is_adk = base_template and "adk" in base_template.lower()
@@ -1040,4 +1060,5 @@ def enhance(
         skip_welcome=True,  # Skip welcome message since enhance shows its own
         cli_overrides=final_cli_overrides if final_cli_overrides else None,
         google_api_key=google_api_key,
+        bq_analytics=bq_analytics,
     )

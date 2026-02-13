@@ -23,6 +23,11 @@ from termcolor import colored
 
 from lumibot.constants import LUMIBOT_DEFAULT_PYTZ
 from lumibot.tools.lumibot_logger import get_logger, get_strategy_logger
+from lumibot.tools.parquet_utils import (
+    coerce_object_columns_to_json_strings,
+    is_parquet_required,
+    write_parquet_with_logging,
+)
 
 from ..backtesting import (
     AlpacaBacktesting,
@@ -1347,6 +1352,20 @@ class _Strategy:
                     os.makedirs(stats_directory)
 
                 self._stats.to_csv(self._stats_file)
+                stats_parquet_file = (
+                    self._stats_file[:-4] + ".parquet" if self._stats_file.lower().endswith(".csv") else self._stats_file + ".parquet"
+                )
+                required = bool(self.is_backtesting) and is_parquet_required()
+                write_parquet_with_logging(
+                    df=self._stats,
+                    path=stats_parquet_file,
+                    artifact="stats",
+                    logger=self.logger,
+                    index=True,
+                    required=required,
+                    compression="zstd",
+                    sanitizer=coerce_object_columns_to_json_strings,
+                )
 
             self._strategy_returns_df = day_deduplicate(self._stats)
 

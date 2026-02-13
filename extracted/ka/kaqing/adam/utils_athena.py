@@ -6,7 +6,7 @@ import botocore
 from adam.config import Config
 from adam.utils_log import log2, log_exc, wait_log
 from adam.utils_tabulize import tabulize
-from adam.utils_context import Context
+from adam.utils_context import NULL
 
 # no state utility class
 class Athena:
@@ -83,10 +83,9 @@ class Athena:
 
       return []
 
-   def run_query(sql: str, database: str = None, ctx: Context = Context.NULL):
+   def run_query(sql: str, database: str = None, ctx = NULL):
       state, reason, rs = Athena.query(sql, database)
 
-      # log_file = None
       if state == 'SUCCEEDED':
          if rs:
             column_info = rs[0]['Data']

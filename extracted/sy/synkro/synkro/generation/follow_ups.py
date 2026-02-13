@@ -1,5 +1,6 @@
 """Follow-up question generation for multi-turn conversations."""
 
+import random
 from typing import Literal
 
 from synkro.llm.client import LLM
@@ -10,14 +11,13 @@ from synkro.types.core import Message
 
 QuestionType = Literal["clarification", "edge_case", "what_if", "specificity", "challenge"]
 
-# Question type progression for multi-turn conversations
-# Earlier turns focus on clarification, later turns probe deeper
-QUESTION_TYPE_BY_TURN = {
-    1: "clarification",
-    2: "specificity",
-    3: "edge_case",
-    4: "what_if",
-    5: "challenge",
+# Weighted pool — any type can appear on any turn
+QUESTION_TYPE_WEIGHTS: dict[QuestionType, float] = {
+    "what_if": 0.25,
+    "edge_case": 0.25,
+    "challenge": 0.20,
+    "specificity": 0.15,
+    "clarification": 0.15,
 }
 
 
@@ -25,12 +25,12 @@ class FollowUpGenerator:
     """
     Generates follow-up questions for multi-turn conversations.
 
-    Uses different question types based on turn index:
-    - Turn 1: clarification - Ask for more details
-    - Turn 2: specificity - Drill into specifics
-    - Turn 3: edge_case - Probe boundary conditions
-    - Turn 4: what_if - Explore hypotheticals
-    - Turn 5+: challenge - Question reasoning
+    Uses weighted random selection for question types:
+    - what_if (25%): Explore hypothetical variations
+    - edge_case (25%): Probe boundary conditions
+    - challenge (20%): Question reasoning or push back
+    - specificity (15%): Drill into specific details
+    - clarification (15%): Ask about ambiguous points
 
     Examples:
         >>> gen = FollowUpGenerator()
@@ -49,19 +49,10 @@ class FollowUpGenerator:
         self.llm = llm or LLM(model=model)
 
     def _select_question_type(self, turn_index: int) -> QuestionType:
-        """
-        Select question type based on turn index.
-
-        Args:
-            turn_index: Which turn this is (1-based, counting user-assistant exchanges)
-
-        Returns:
-            Appropriate question type for this turn
-        """
-        if turn_index in QUESTION_TYPE_BY_TURN:
-            return QUESTION_TYPE_BY_TURN[turn_index]
-        # For turns beyond 5, cycle through challenging questions
-        return "challenge"
+        """Select a random question type weighted by usefulness."""
+        types = list(QUESTION_TYPE_WEIGHTS.keys())
+        weights = list(QUESTION_TYPE_WEIGHTS.values())
+        return random.choices(types, weights=weights, k=1)[0]
 
     def _format_conversation(self, messages: list[Message]) -> str:
         """Format conversation messages for prompt inclusion."""

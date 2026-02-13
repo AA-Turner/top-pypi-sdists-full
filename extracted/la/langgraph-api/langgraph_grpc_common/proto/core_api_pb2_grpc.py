@@ -6,7 +6,7 @@ import warnings
 from . import core_api_pb2 as core__api__pb2
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 
-GRPC_GENERATED_VERSION = '1.76.0'
+GRPC_GENERATED_VERSION = '1.78.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -1613,6 +1613,460 @@ class Runs(object):
             '/coreApi.Runs/Sweep',
             google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             core__api__pb2.SweepRunsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+
+class CronsStub(object):
+    """Missing associated documentation comment in .proto file."""
+
+    def __init__(self, channel):
+        """Constructor.
+
+        Args:
+            channel: A grpc.Channel.
+        """
+        self.Create = channel.unary_unary(
+                '/coreApi.Crons/Create',
+                request_serializer=core__api__pb2.CreateCronRequest.SerializeToString,
+                response_deserializer=core__api__pb2.Cron.FromString,
+                _registered_method=True)
+        self.Patch = channel.unary_unary(
+                '/coreApi.Crons/Patch',
+                request_serializer=core__api__pb2.PatchCronRequest.SerializeToString,
+                response_deserializer=core__api__pb2.Cron.FromString,
+                _registered_method=True)
+        self.Delete = channel.unary_unary(
+                '/coreApi.Crons/Delete',
+                request_serializer=core__api__pb2.DeleteCronRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                _registered_method=True)
+        self.Search = channel.unary_unary(
+                '/coreApi.Crons/Search',
+                request_serializer=core__api__pb2.SearchCronsRequest.SerializeToString,
+                response_deserializer=core__api__pb2.SearchCronsResponse.FromString,
+                _registered_method=True)
+        self.Count = channel.unary_unary(
+                '/coreApi.Crons/Count',
+                request_serializer=core__api__pb2.CountCronsRequest.SerializeToString,
+                response_deserializer=core__api__pb2.CountResponse.FromString,
+                _registered_method=True)
+        self.Next = channel.unary_unary(
+                '/coreApi.Crons/Next',
+                request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+                response_deserializer=core__api__pb2.NextCronsResponse.FromString,
+                _registered_method=True)
+        self.SetNextRunDate = channel.unary_unary(
+                '/coreApi.Crons/SetNextRunDate',
+                request_serializer=core__api__pb2.SetNextRunDateRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                _registered_method=True)
+
+
+class CronsServicer(object):
+    """Missing associated documentation comment in .proto file."""
+
+    def Create(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Patch(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Delete(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Search(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Count(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Next(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetNextRunDate(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+
+def add_CronsServicer_to_server(servicer, server):
+    rpc_method_handlers = {
+            'Create': grpc.unary_unary_rpc_method_handler(
+                    servicer.Create,
+                    request_deserializer=core__api__pb2.CreateCronRequest.FromString,
+                    response_serializer=core__api__pb2.Cron.SerializeToString,
+            ),
+            'Patch': grpc.unary_unary_rpc_method_handler(
+                    servicer.Patch,
+                    request_deserializer=core__api__pb2.PatchCronRequest.FromString,
+                    response_serializer=core__api__pb2.Cron.SerializeToString,
+            ),
+            'Delete': grpc.unary_unary_rpc_method_handler(
+                    servicer.Delete,
+                    request_deserializer=core__api__pb2.DeleteCronRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'Search': grpc.unary_unary_rpc_method_handler(
+                    servicer.Search,
+                    request_deserializer=core__api__pb2.SearchCronsRequest.FromString,
+                    response_serializer=core__api__pb2.SearchCronsResponse.SerializeToString,
+            ),
+            'Count': grpc.unary_unary_rpc_method_handler(
+                    servicer.Count,
+                    request_deserializer=core__api__pb2.CountCronsRequest.FromString,
+                    response_serializer=core__api__pb2.CountResponse.SerializeToString,
+            ),
+            'Next': grpc.unary_unary_rpc_method_handler(
+                    servicer.Next,
+                    request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                    response_serializer=core__api__pb2.NextCronsResponse.SerializeToString,
+            ),
+            'SetNextRunDate': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetNextRunDate,
+                    request_deserializer=core__api__pb2.SetNextRunDateRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+    }
+    generic_handler = grpc.method_handlers_generic_handler(
+            'coreApi.Crons', rpc_method_handlers)
+    server.add_generic_rpc_handlers((generic_handler,))
+    server.add_registered_method_handlers('coreApi.Crons', rpc_method_handlers)
+
+
+ # This class is part of an EXPERIMENTAL API.
+class Crons(object):
+    """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def Create(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/coreApi.Crons/Create',
+            core__api__pb2.CreateCronRequest.SerializeToString,
+            core__api__pb2.Cron.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Patch(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/coreApi.Crons/Patch',
+            core__api__pb2.PatchCronRequest.SerializeToString,
+            core__api__pb2.Cron.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Delete(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/coreApi.Crons/Delete',
+            core__api__pb2.DeleteCronRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Search(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/coreApi.Crons/Search',
+            core__api__pb2.SearchCronsRequest.SerializeToString,
+            core__api__pb2.SearchCronsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Count(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/coreApi.Crons/Count',
+            core__api__pb2.CountCronsRequest.SerializeToString,
+            core__api__pb2.CountResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Next(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/coreApi.Crons/Next',
+            google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            core__api__pb2.NextCronsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetNextRunDate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/coreApi.Crons/SetNextRunDate',
+            core__api__pb2.SetNextRunDateRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+
+class CacheStub(object):
+    """A generic ephemeral key/value cache backed by Redis (or in-memory for local dev).
+    Keys are arbitrary non-empty strings (Redis keys are binary-safe).
+    Values must be valid serialized JSON.
+    """
+
+    def __init__(self, channel):
+        """Constructor.
+
+        Args:
+            channel: A grpc.Channel.
+        """
+        self.Set = channel.unary_unary(
+                '/coreApi.Cache/Set',
+                request_serializer=core__api__pb2.CacheSetRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                _registered_method=True)
+        self.Get = channel.unary_unary(
+                '/coreApi.Cache/Get',
+                request_serializer=core__api__pb2.CacheGetRequest.SerializeToString,
+                response_deserializer=core__api__pb2.CacheGetResponse.FromString,
+                _registered_method=True)
+
+
+class CacheServicer(object):
+    """A generic ephemeral key/value cache backed by Redis (or in-memory for local dev).
+    Keys are arbitrary non-empty strings (Redis keys are binary-safe).
+    Values must be valid serialized JSON.
+    """
+
+    def Set(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Get(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+
+def add_CacheServicer_to_server(servicer, server):
+    rpc_method_handlers = {
+            'Set': grpc.unary_unary_rpc_method_handler(
+                    servicer.Set,
+                    request_deserializer=core__api__pb2.CacheSetRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'Get': grpc.unary_unary_rpc_method_handler(
+                    servicer.Get,
+                    request_deserializer=core__api__pb2.CacheGetRequest.FromString,
+                    response_serializer=core__api__pb2.CacheGetResponse.SerializeToString,
+            ),
+    }
+    generic_handler = grpc.method_handlers_generic_handler(
+            'coreApi.Cache', rpc_method_handlers)
+    server.add_generic_rpc_handlers((generic_handler,))
+    server.add_registered_method_handlers('coreApi.Cache', rpc_method_handlers)
+
+
+ # This class is part of an EXPERIMENTAL API.
+class Cache(object):
+    """A generic ephemeral key/value cache backed by Redis (or in-memory for local dev).
+    Keys are arbitrary non-empty strings (Redis keys are binary-safe).
+    Values must be valid serialized JSON.
+    """
+
+    @staticmethod
+    def Set(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/coreApi.Cache/Set',
+            core__api__pb2.CacheSetRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Get(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/coreApi.Cache/Get',
+            core__api__pb2.CacheGetRequest.SerializeToString,
+            core__api__pb2.CacheGetResponse.FromString,
             options,
             channel_credentials,
             insecure,

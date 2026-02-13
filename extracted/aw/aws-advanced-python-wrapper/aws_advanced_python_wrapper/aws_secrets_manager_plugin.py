@@ -19,9 +19,10 @@ from re import search
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Callable, Optional, Set, Tuple
 
-import boto3
 from botocore.exceptions import ClientError, EndpointConnectionError
 
+from aws_advanced_python_wrapper.aws_credentials_manager import \
+    AwsCredentialsManager
 from aws_advanced_python_wrapper.utils.cache_map import CacheMap
 
 if TYPE_CHECKING:
@@ -31,7 +32,7 @@ if TYPE_CHECKING:
     from aws_advanced_python_wrapper.pep249 import Connection
     from aws_advanced_python_wrapper.plugin_service import PluginService
 
-from aws_advanced_python_wrapper.errors import AwsWrapperError
+from aws_advanced_python_wrapper.errors import AwsConnectError, AwsWrapperError
 from aws_advanced_python_wrapper.pep249_methods import DbApiMethod
 from aws_advanced_python_wrapper.plugin import Plugin, PluginFactory
 from aws_advanced_python_wrapper.utils.log import Logger
@@ -86,7 +87,7 @@ class AwsSecretsManagerPlugin(Plugin):
             props: Properties,
             is_initial_connection: bool,
             connect_func: Callable) -> Connection:
-        return self._connect(props, connect_func)
+        return self._connect(host_info, props, connect_func)
 
     def force_connect(
             self,
@@ -96,27 +97,30 @@ class AwsSecretsManagerPlugin(Plugin):
             props: Properties,
             is_initial_connection: bool,
             force_connect_func: Callable) -> Connection:
-        return self._connect(props, force_connect_func)
+        return self._connect(host_info, props, force_connect_func)
 
-    def _connect(self, props: Properties, connect_func: Callable) -> Connection:
+    def _connect(self, host_info: HostInfo, props: Properties, connect_func: Callable) -> Connection:
         token_expiration_sec: int = WrapperProperties.SECRETS_MANAGER_EXPIRATION.get_int(props)
         # if value is less than 0, default to one year
         if token_expiration_sec < 0:
             token_expiration_sec = AwsSecretsManagerPlugin._ONE_YEAR_IN_SECONDS
         token_expiration_ns = token_expiration_sec * 1_000_000_000
 
-        secret_fetched: bool = self._update_secret(token_expiration_ns=token_expiration_ns)
+        secret_fetched: bool = self._update_secret(host_info, props, token_expiration_ns=token_expiration_ns)
 
         try:
             self._apply_secret_to_properties(props)
             return connect_func()
 
         except Exception as e:
+            if self._plugin_service.is_network_exception(error=e):
+                raise AwsConnectError(Messages.get_formatted("AwsSecretsManagerPlugin.ConnectException", e)) from e
+
             if not self._plugin_service.is_login_exception(error=e) or secret_fetched:
                 raise AwsWrapperError(
-                    Messages.get_formatted("AwsSecretsManagerPlugin.ConnectException", e)) from e
+                    Messages.get_formatted("AwsSecretsManagerPlugin.ConnectException", e), e) from e
 
-            secret_fetched = self._update_secret(token_expiration_ns=token_expiration_ns, force_refetch=True)
+            secret_fetched = self._update_secret(host_info, props, token_expiration_ns=token_expiration_ns, force_refetch=True)
 
             if secret_fetched:
                 try:
@@ -125,10 +129,10 @@ class AwsSecretsManagerPlugin(Plugin):
                 except Exception as unhandled_error:
                     raise AwsWrapperError(
                         Messages.get_formatted("AwsSecretsManagerPlugin.UnhandledException",
-                                               unhandled_error)) from unhandled_error
-            raise AwsWrapperError(Messages.get_formatted("AwsSecretsManagerPlugin.FailedLogin", e)) from e
+                                               unhandled_error), unhandled_error) from unhandled_error
+            raise AwsWrapperError(Messages.get_formatted("AwsSecretsManagerPlugin.FailedLogin", e), e) from e
 
-    def _update_secret(self, token_expiration_ns: int, force_refetch: bool = False) -> bool:
+    def _update_secret(self, host_info: HostInfo, props: Properties, token_expiration_ns: int, force_refetch: bool = False) -> bool:
         """
         Called to update credentials from the cache, or from the AWS Secrets Manager service.
         :param token_expiration_ns: Expiration time in nanoseconds for secret stored in cache.
@@ -146,26 +150,26 @@ class AwsSecretsManagerPlugin(Plugin):
             endpoint = self._secret_key[2]
             if not self._secret or force_refetch:
                 try:
-                    self._secret = self._fetch_latest_credentials()
+                    self._secret = self._fetch_latest_credentials(host_info, props)
                     if self._secret:
                         AwsSecretsManagerPlugin._secrets_cache.put(self._secret_key, self._secret, token_expiration_ns)
                         fetched = True
                 except (ClientError, AttributeError) as e:
                     logger.debug("AwsSecretsManagerPlugin.FailedToFetchDbCredentials", e)
                     raise AwsWrapperError(
-                        Messages.get_formatted("AwsSecretsManagerPlugin.FailedToFetchDbCredentials", e)) from e
+                        Messages.get_formatted("AwsSecretsManagerPlugin.FailedToFetchDbCredentials", e), e) from e
                 except JSONDecodeError as e:
                     logger.debug("AwsSecretsManagerPlugin.JsonDecodeError", e)
                     raise AwsWrapperError(
-                        Messages.get_formatted("AwsSecretsManagerPlugin.JsonDecodeError", e))
-                except EndpointConnectionError:
+                        Messages.get_formatted("AwsSecretsManagerPlugin.JsonDecodeError", e), e) from e
+                except EndpointConnectionError as e:
                     logger.debug("AwsSecretsManagerPlugin.EndpointOverrideInvalidConnection", endpoint)
                     raise AwsWrapperError(
-                        Messages.get_formatted("AwsSecretsManagerPlugin.EndpointOverrideInvalidConnection", endpoint))
-                except ValueError:
+                        Messages.get_formatted("AwsSecretsManagerPlugin.EndpointOverrideInvalidConnection", endpoint), e) from e
+                except ValueError as e:
                     logger.debug("AwsSecretsManagerPlugin.EndpointOverrideMisconfigured", endpoint)
                     raise AwsWrapperError(
-                        Messages.get_formatted("AwsSecretsManagerPlugin.EndpointOverrideMisconfigured", endpoint))
+                        Messages.get_formatted("AwsSecretsManagerPlugin.EndpointOverrideMisconfigured", endpoint), e) from e
 
             return fetched
         except Exception as ex:
@@ -177,25 +181,18 @@ class AwsSecretsManagerPlugin(Plugin):
             if context is not None:
                 context.close_context()
 
-    def _fetch_latest_credentials(self):
+    def _fetch_latest_credentials(self, host_info: HostInfo, props: Properties):
         """
         Fetches the current credentials from AWS Secrets Manager service.
 
         :return: a Secret object containing the credentials fetched from the AWS Secrets Manager service.
         """
-        session = self._session if self._session else boto3.Session()
-
-        client = session.client(
-            'secretsmanager',
-            region_name=self._secret_key[1],
-            endpoint_url=self._secret_key[2],
-        )
+        session = AwsCredentialsManager.get_session(host_info, props, self._secret_key[1])
+        client = AwsCredentialsManager.get_client("secretsmanager", session, host_info.host, self._secret_key[1], self._secret_key[2])
 
         secret = client.get_secret_value(
             SecretId=self._secret_key[0],
         )
-
-        client.close()
 
         return loads(secret.get("SecretString"), object_hook=lambda d: SimpleNamespace(**d))
 

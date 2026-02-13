@@ -178,7 +178,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/change_network_load_balancer_compartment.py.html>`__ to see an example of how to use change_network_load_balancer_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/change_network_load_balancer_compartment.py.html>`__ to see an example of how to use change_network_load_balancer_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId']
@@ -313,7 +313,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/create_backend.py.html>`__ to see an example of how to use create_backend API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/create_backend.py.html>`__ to see an example of how to use create_backend API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName']
@@ -444,7 +444,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/create_backend_set.py.html>`__ to see an example of how to use create_backend_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/create_backend_set.py.html>`__ to see an example of how to use create_backend_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId']
@@ -574,7 +574,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/create_listener.py.html>`__ to see an example of how to use create_listener API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/create_listener.py.html>`__ to see an example of how to use create_listener API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId']
@@ -692,7 +692,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/create_network_load_balancer.py.html>`__ to see an example of how to use create_network_load_balancer API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/create_network_load_balancer.py.html>`__ to see an example of how to use create_network_load_balancer API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -813,7 +813,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/delete_backend.py.html>`__ to see an example of how to use delete_backend API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/delete_backend.py.html>`__ to see an example of how to use delete_backend API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName', 'backendName']
@@ -937,7 +937,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/delete_backend_set.py.html>`__ to see an example of how to use delete_backend_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/delete_backend_set.py.html>`__ to see an example of how to use delete_backend_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName']
@@ -1058,7 +1058,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/delete_listener.py.html>`__ to see an example of how to use delete_listener API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/delete_listener.py.html>`__ to see an example of how to use delete_listener API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'listenerName']
@@ -1174,7 +1174,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/delete_network_load_balancer.py.html>`__ to see an example of how to use delete_network_load_balancer API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/delete_network_load_balancer.py.html>`__ to see an example of how to use delete_network_load_balancer API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId']
@@ -1302,7 +1302,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/get_backend.py.html>`__ to see an example of how to use get_backend API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/get_backend.py.html>`__ to see an example of how to use get_backend API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName', 'backendName']
@@ -1427,7 +1427,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/get_backend_health.py.html>`__ to see an example of how to use get_backend_health API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/get_backend_health.py.html>`__ to see an example of how to use get_backend_health API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName', 'backendName']
@@ -1550,7 +1550,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/get_backend_operational_status.py.html>`__ to see an example of how to use get_backend_operational_status API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/get_backend_operational_status.py.html>`__ to see an example of how to use get_backend_operational_status API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName', 'backendName']
@@ -1672,7 +1672,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/get_backend_set.py.html>`__ to see an example of how to use get_backend_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/get_backend_set.py.html>`__ to see an example of how to use get_backend_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName']
@@ -1788,7 +1788,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/get_backend_set_health.py.html>`__ to see an example of how to use get_backend_set_health API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/get_backend_set_health.py.html>`__ to see an example of how to use get_backend_set_health API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName']
@@ -1916,7 +1916,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/get_health_checker.py.html>`__ to see an example of how to use get_health_checker API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/get_health_checker.py.html>`__ to see an example of how to use get_health_checker API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName']
@@ -2042,7 +2042,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/get_listener.py.html>`__ to see an example of how to use get_listener API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/get_listener.py.html>`__ to see an example of how to use get_listener API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'listenerName']
@@ -2160,7 +2160,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/get_network_load_balancer.py.html>`__ to see an example of how to use get_network_load_balancer API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/get_network_load_balancer.py.html>`__ to see an example of how to use get_network_load_balancer API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId']
@@ -2270,7 +2270,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/get_network_load_balancer_health.py.html>`__ to see an example of how to use get_network_load_balancer_health API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/get_network_load_balancer_health.py.html>`__ to see an example of how to use get_network_load_balancer_health API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId']
@@ -2376,7 +2376,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2515,7 +2515,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/list_backend_sets.py.html>`__ to see an example of how to use list_backend_sets API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/list_backend_sets.py.html>`__ to see an example of how to use list_backend_sets API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId']
@@ -2689,7 +2689,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/list_backends.py.html>`__ to see an example of how to use list_backends API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/list_backends.py.html>`__ to see an example of how to use list_backends API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName']
@@ -2859,7 +2859,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/list_listeners.py.html>`__ to see an example of how to use list_listeners API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/list_listeners.py.html>`__ to see an example of how to use list_listeners API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId']
@@ -3021,7 +3021,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/list_network_load_balancer_healths.py.html>`__ to see an example of how to use list_network_load_balancer_healths API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/list_network_load_balancer_healths.py.html>`__ to see an example of how to use list_network_load_balancer_healths API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -3178,7 +3178,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/list_network_load_balancers.py.html>`__ to see an example of how to use list_network_load_balancers API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/list_network_load_balancers.py.html>`__ to see an example of how to use list_network_load_balancers API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -3333,7 +3333,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/list_network_load_balancers_policies.py.html>`__ to see an example of how to use list_network_load_balancers_policies API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/list_network_load_balancers_policies.py.html>`__ to see an example of how to use list_network_load_balancers_policies API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3477,7 +3477,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/list_network_load_balancers_protocols.py.html>`__ to see an example of how to use list_network_load_balancers_protocols API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/list_network_load_balancers_protocols.py.html>`__ to see an example of how to use list_network_load_balancers_protocols API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3617,7 +3617,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId', 'compartmentId']
@@ -3752,7 +3752,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId', 'compartmentId']
@@ -3884,7 +3884,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -4021,7 +4021,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/update_backend.py.html>`__ to see an example of how to use update_backend API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/update_backend.py.html>`__ to see an example of how to use update_backend API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName', 'backendName']
@@ -4158,7 +4158,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/update_backend_set.py.html>`__ to see an example of how to use update_backend_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/update_backend_set.py.html>`__ to see an example of how to use update_backend_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName']
@@ -4294,7 +4294,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/update_health_checker.py.html>`__ to see an example of how to use update_health_checker API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/update_health_checker.py.html>`__ to see an example of how to use update_health_checker API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'backendSetName']
@@ -4430,7 +4430,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/update_listener.py.html>`__ to see an example of how to use update_listener API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/update_listener.py.html>`__ to see an example of how to use update_listener API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId', 'listenerName']
@@ -4554,7 +4554,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/update_network_load_balancer.py.html>`__ to see an example of how to use update_network_load_balancer API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/update_network_load_balancer.py.html>`__ to see an example of how to use update_network_load_balancer API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId']
@@ -4681,7 +4681,7 @@ class NetworkLoadBalancerClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/networkloadbalancer/update_network_security_groups.py.html>`__ to see an example of how to use update_network_security_groups API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/networkloadbalancer/update_network_security_groups.py.html>`__ to see an example of how to use update_network_security_groups API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkLoadBalancerId']

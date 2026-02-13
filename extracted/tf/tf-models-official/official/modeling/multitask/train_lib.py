@@ -1,4 +1,4 @@
-# Copyright 2024 The TensorFlow Authors. All Rights Reserved.
+# Copyright 2025 The TensorFlow Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 """Multitask training driver library."""
 # pytype: disable=attribute-error
 import os
-from typing import Any, List, Mapping, Optional, Tuple, Union
+from typing import Any, List, Mapping, Optional, Tuple, Union, Callable
 from absl import logging
 import orbit
 import tensorflow as tf, tf_keras
@@ -78,15 +78,8 @@ def run_experiment(
   is_training = 'train' in mode
   is_eval = 'eval' in mode
   with distribution_strategy.scope():
-    optimizer = train_utils.create_optimizer(task, params)
-    kwargs = dict(multi_task=task, multi_task_model=model, optimizer=optimizer)
-    if params.trainer.trainer_type == 'interleaving':
-      sampler = task_sampler.get_task_sampler(params.trainer.task_sampler,
-                                              task.task_weights)
-      kwargs.update(dict(task_sampler=sampler))
-    if trainer is None:
-      trainer = TRAINERS[params.trainer.trainer_type](
-          **kwargs) if is_training else None
+    if is_training and trainer is None:
+      trainer = get_trainer(distribution_strategy, params, task, model)
     if is_eval:
       eval_steps = task.task_eval_steps
       evaluator = evaluator_lib.MultiTaskEvaluator(
@@ -157,6 +150,57 @@ def run_experiment(
       return model
 
 
+def get_trainer(
+    distribution_strategy: tf.distribute.Strategy,
+    params: configs.MultiEvalExperimentConfig,
+    task: multitask.MultiTask,
+    model: base_model.MultiTaskBaseModel | tf_keras.Model,
+) -> orbit.StandardTrainer:
+  """Creates a multi-task trainer for the given task.
+
+  Args:
+    distribution_strategy: A distribution strategy.
+    params: ExperimentConfig instance.
+    task: A MultiTaskTask instance.
+    model: A MultiTaskBaseModel instance.
+
+  Returns:
+      An Orbit trainer instance.
+  """
+  with distribution_strategy.scope():
+    kwargs = dict(
+        multi_task=task,
+        multi_task_model=model,
+        optimizer=train_utils.create_optimizer(task, params),
+    )
+    if params.trainer.trainer_type == 'interleaving':
+      kwargs.update(
+          task_sampler=task_sampler.get_task_sampler(
+              params.trainer.task_sampler, task.task_weights
+          )
+      )
+    return TRAINERS[params.trainer.trainer_type](**kwargs)
+
+
+TrainActionsFactoryType = Callable[
+    [
+        configs.MultiEvalExperimentConfig,
+        orbit.StandardTrainer,
+        str,
+        tf.train.CheckpointManager,
+    ],
+    List[orbit.Action],
+]
+EvalActionsFactoryType = Callable[
+    [
+        configs.MultiEvalExperimentConfig,
+        orbit.AbstractEvaluator,
+        str,
+    ],
+    List[orbit.Action],
+]
+
+
 def run_experiment_with_multitask_eval(
     *,
     distribution_strategy: tf.distribute.Strategy,
@@ -171,6 +215,8 @@ def run_experiment_with_multitask_eval(
     eval_summary_manager: Optional[orbit.utils.SummaryManagerInterface] = None,
     best_ckpt_exporter_creator: Optional[Any] = train_utils
     .maybe_create_best_ckpt_exporter,
+    train_actions_factory: Optional[TrainActionsFactoryType] = None,
+    eval_actions_factory: Optional[EvalActionsFactoryType] = None,
 ) -> Tuple[Any, Any]:
   """Runs train/eval configured by the experiment params.
 
@@ -193,6 +239,8 @@ def run_experiment_with_multitask_eval(
       will be created internally for TensorBoard summaries by default from the
       `eval_summary_dir`.
     best_ckpt_exporter_creator: A functor for creating best checkpoint exporter.
+    train_actions_factory: Optional factory function to create train actions.
+    eval_actions_factory: Optional factory function to create eval actions.
 
   Returns:
       model: `tf_keras.Model` instance.
@@ -214,7 +262,6 @@ def run_experiment_with_multitask_eval(
 
     # Build the model or fetch the pre-cached one (which could be either
     # multi-task model or single task model).
-    model = None
     if trainer is None:
       if isinstance(train_task, multitask.MultiTask):
         model = train_task.build_multitask_model()
@@ -254,6 +301,23 @@ def run_experiment_with_multitask_eval(
       checkpoint_interval=params.trainer.checkpoint_interval,
       init_fn=trainer.initialize if trainer else None)
 
+  if trainer and train_actions_factory:
+    # pytype: disable=wrong-keyword-args
+    train_actions = train_actions_factory(
+        params=params,
+        trainer=trainer,
+        model_dir=model_dir,
+        checkpoint_manager=checkpoint_manager,
+    )
+    # pytype: enable=wrong-keyword-args
+  else:
+    train_actions = None
+
+  if evaluator and eval_actions_factory:
+    eval_actions = eval_actions_factory(params, evaluator, model_dir)
+  else:
+    eval_actions = None
+
   controller = orbit.Controller(
       strategy=distribution_strategy,
       trainer=trainer,
@@ -266,7 +330,10 @@ def run_experiment_with_multitask_eval(
       (save_summary) else None,
       eval_summary_manager=eval_summary_manager,
       summary_interval=params.trainer.summary_interval if
-      (save_summary) else None)
+      (save_summary) else None,
+      train_actions=train_actions,
+      eval_actions=eval_actions,
+      )
 
   logging.info('Starts to execute mode: %s', mode)
   with distribution_strategy.scope():

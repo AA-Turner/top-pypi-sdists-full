@@ -1,0 +1,153 @@
+"""Configuration management for .gitignore files.
+
+Manages .gitignore by combining GitHub's standard Python patterns with
+pyrig-specific patterns (.scratch.py, .env, tool caches, build artifacts).
+Intelligently merges with existing patterns, avoiding duplicates.
+
+See Also:
+    GitHub gitignore templates: https://github.com/github/gitignore
+    Git documentation: https://git-scm.com/docs/gitignore
+"""
+
+from functools import cache
+from pathlib import Path
+
+import requests
+
+import pyrig
+from pyrig.rig.configs.base.string_ import StringConfigFile
+from pyrig.rig.configs.dot_env import DotEnvConfigFile
+from pyrig.rig.configs.python.dot_scratch import DotScratchConfigFile
+from pyrig.rig.tools.version_controller import VersionController
+from pyrig.rig.utils.resources import return_resource_content_on_fetch_error
+
+
+class GitignoreConfigFile(StringConfigFile):
+    """Gitignore configuration manager.
+
+    Combines GitHub's standard Python patterns with pyrig-specific patterns
+    (.scratch.py, .env, tool caches, build artifacts). Preserves existing
+    patterns and only adds missing ones.
+
+    Examples:
+        Initialize .gitignore::
+
+            GitignoreConfigFile()
+
+        Load patterns::
+
+            patterns = GitignoreConfigFile.load()
+
+    Note:
+        Makes HTTP request to GitHub for Python.gitignore. Uses fallback on failure.
+
+    See Also:
+        pyrig.rig.tools.version_controller.VersionController.loaded_ignore
+        pyrig.rig.configs.dot_env.DotEnvConfigFile
+    """
+
+    @classmethod
+    def filename(cls) -> str:
+        """Get the filename for .gitignore.
+
+        Returns:
+            str: The filename for .gitignore.
+        """
+        return VersionController.L.ignore_filename()
+
+    @classmethod
+    def parent_path(cls) -> Path:
+        """Get the parent directory for .gitignore.
+
+        Returns:
+            Path: Project root.
+        """
+        return Path()
+
+    @classmethod
+    def extension_separator(cls) -> str:
+        """Get the file extension for .gitignore.
+
+        Returns:
+            str: empty string (no extension or separator).
+        """
+        return ""
+
+    @classmethod
+    def extension(cls) -> str:
+        """Get the file extension for .gitignore.
+
+        Returns:
+            str: empty string (no extension).
+        """
+        return ""
+
+    @classmethod
+    def lines(cls) -> list[str]:
+        """Get complete .gitignore patterns with intelligent merging.
+
+        Combines GitHub's Python patterns with pyrig-specific patterns
+        (.scratch.py, .env, tool caches, build artifacts). Preserves existing
+        patterns and avoids duplicates.
+
+        Returns:
+            list[str]: Complete gitignore patterns (existing + missing standard).
+
+        Note:
+            Makes HTTP request to GitHub. Uses fallback on failure.
+        """
+        # fetch the standard github gitignore via https://github.com/github/gitignore/blob/main/Python.gitignore
+        needed = [
+            *cls.github_python_gitignore_lines(),
+            "",
+            f"# {pyrig.__name__} stuff",
+            DotScratchConfigFile.L.path().as_posix(),
+            DotEnvConfigFile.L.path().as_posix(),
+            ".coverage",  # bc of pytest-cov
+            "coverage.xml",  # bc of pytest-cov
+            ".pytest_cache/",  # bc of pytest cache
+            ".ruff_cache/",  # bc of ruff cache
+            ".rumdl_cache/",  # bc of rumdl cache
+            ".venv/",  # bc of uv venv
+            "dist/",  # bc of uv publish
+            "/site/",  # bc of mkdocs
+        ]
+
+        existing = cls.load()
+        needed = [p for p in needed if p not in set(existing)]
+        return existing + needed
+
+    @classmethod
+    @cache
+    @return_resource_content_on_fetch_error(resource_name="GITIGNORE")
+    def github_python_gitignore(cls) -> str:
+        """Fetch GitHub's standard Python gitignore patterns.
+
+        Returns:
+            str: Python.gitignore content from GitHub.
+
+        Raises:
+            requests.HTTPError: If HTTP request fails (caught by decorator).
+            RuntimeError: If fetch fails and no fallback exists.
+
+        Note:
+            Makes HTTP request with 10s timeout. Decorator provides fallback.
+        """
+        url = "https://raw.githubusercontent.com/github/gitignore/main/Python.gitignore"
+        res = requests.get(url, timeout=10)
+        res.raise_for_status()
+        return res.text
+
+    @classmethod
+    def github_python_gitignore_lines(cls) -> list[str]:
+        """Fetch GitHub's standard Python gitignore patterns as a list.
+
+        Returns:
+            list[str]: Python.gitignore patterns (one per line).
+
+        Raises:
+            requests.HTTPError: If HTTP request fails.
+            RuntimeError: If fetch fails and no fallback exists.
+        """
+        gitignore_str = cls.github_python_gitignore()
+        return gitignore_str.splitlines()

@@ -38,7 +38,7 @@ use tokio::{
 #[derive(Clone)]
 pub enum ACStorageProvider {
     S3(Box<S3Storage>),
-    Object(ObjectStorage),
+    Object(Box<ObjectStorage>),
 }
 
 impl ACStorageProvider {
@@ -314,6 +314,13 @@ impl ACStorageProvider {
             ACStorageProvider::Object(object_storage) => object_storage.delete_many(keys).await,
         }
     }
+
+    pub fn bucket(&self) -> Option<&str> {
+        match self {
+            ACStorageProvider::S3(s3_storage) => s3_storage.bucket(),
+            ACStorageProvider::Object(object_storage) => object_storage.bucket(),
+        }
+    }
 }
 
 /// Wrapper over s3 storage that provides proxy features such as
@@ -328,6 +335,11 @@ pub struct AdmissionControlledS3Storage {
     outstanding_read_requests: Arc<tokio::sync::Mutex<HashMap<String, InflightRequest>>>,
     rate_limiter: Arc<RateLimitPolicy>,
     metrics: AdmissionControlledS3StorageMetrics,
+    /// Controls whether fetch futures are spawned as separate tasks or awaited directly.
+    /// When `true`, fetches are spawned allowing them to continue even if the upstream
+    /// request is cancelled. When `false`, fetches are awaited directly which may result
+    /// in cancellation if the caller drops the future.
+    spawn_fetches: bool,
 }
 
 ////// Metrics //////
@@ -592,36 +604,44 @@ impl AdmissionControlledS3Storage {
                 &vec![1.0],
             ))),
             metrics: AdmissionControlledS3StorageMetrics::default(),
+            spawn_fetches: false,
         }
     }
 
-    pub fn new_s3(storage: S3Storage, policy: RateLimitPolicy) -> Self {
+    pub fn new_s3(storage: S3Storage, policy: RateLimitPolicy, spawn_fetches: bool) -> Self {
         Self {
             storage: ACStorageProvider::S3(storage.into()),
             outstanding_read_requests: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             rate_limiter: Arc::new(policy),
             metrics: AdmissionControlledS3StorageMetrics::default(),
+            spawn_fetches,
         }
     }
 
     pub fn new_object_with_default_policy(storage: ObjectStorage) -> Self {
         Self {
-            storage: ACStorageProvider::Object(storage),
+            storage: ACStorageProvider::Object(Box::new(storage)),
             outstanding_read_requests: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             rate_limiter: Arc::new(RateLimitPolicy::CountBasedPolicy(CountBasedPolicy::new(
                 2,
                 &vec![1.0],
             ))),
             metrics: AdmissionControlledS3StorageMetrics::default(),
+            spawn_fetches: false,
         }
     }
 
-    pub fn new_object(storage: ObjectStorage, policy: RateLimitPolicy) -> Self {
+    pub fn new_object(
+        storage: ObjectStorage,
+        policy: RateLimitPolicy,
+        spawn_fetches: bool,
+    ) -> Self {
         Self {
-            storage: ACStorageProvider::Object(storage),
+            storage: ACStorageProvider::Object(Box::new(storage)),
             outstanding_read_requests: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             rate_limiter: Arc::new(policy),
             metrics: AdmissionControlledS3StorageMetrics::default(),
+            spawn_fetches,
         }
     }
 
@@ -919,7 +939,13 @@ impl AdmissionControlledS3Storage {
                     // NOTE(hammadb): If the upstream request gets cancelled, we still
                     // finish the request once it has been spawned, if its cancelled
                     // before it has been spawned, then the task will never run.
-                    tokio::spawn(async move {
+                    // NOTE(sicheng): The following block used to be executed with tokio::spawn.
+                    // It could lead to unbounded growth in tokio task queue, and could cause
+                    // performance degration in tokio runtime. As a temporary solution, since
+                    // we do not cancel tasks right now, this block of logic is moved out
+                    // of tokio::spawn. If we introduce the cancellation logic in the future
+                    // we need to address the issue in the comment above.
+                    let fetching_future = async move {
                         // Fetch all keys in parallel
                         let fetch_futures: Vec<_> = keys_clone
                             .iter()
@@ -990,7 +1016,12 @@ impl AdmissionControlledS3Storage {
                                 }
                             }
                         }
-                    });
+                    };
+                    if self.spawn_fetches {
+                        tokio::task::spawn(fetching_future);
+                    } else {
+                        fetching_future.await;
+                    }
                     output_rx.await.map_err(|e| {
                         tracing::error!("Unexpected channel closure: {}", e);
                         StorageError::Generic {
@@ -1131,14 +1162,18 @@ impl Configurable<StorageConfig> for AdmissionControlledS3Storage {
                         .await?;
                 if nacconfig.use_object_store_client {
                     let object_storage = ObjectStorage::new(&nacconfig.object_store_config).await?;
-                    return Ok(Self::new_object(object_storage, policy));
+                    return Ok(Self::new_object(
+                        object_storage,
+                        policy,
+                        nacconfig.spawn_fetches,
+                    ));
                 }
                 let s3_storage = S3Storage::try_from_config(
                     &StorageConfig::S3(nacconfig.s3_config.clone()),
                     registry,
                 )
                 .await?;
-                return Ok(Self::new_s3(s3_storage, policy));
+                return Ok(Self::new_s3(s3_storage, policy, nacconfig.spawn_fetches));
             }
             _ => {
                 return Err(Box::new(StorageConfigError::InvalidStorageConfig));

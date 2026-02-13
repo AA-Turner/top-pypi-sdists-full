@@ -58,7 +58,8 @@ class DecoratedProductionJob(object):
         'last_job_run': 'MiniJobRun',
         'schedule': 'MiniSchedule',
         'integration_details': 'IntegrationDetails',
-        'connections': 'list[DecoratedJobConnectionInfo]'
+        'connections': 'list[DecoratedJobConnectionInfo]',
+        'position_in_job_queue': 'int'
     }
 
     attribute_map = {
@@ -87,10 +88,11 @@ class DecoratedProductionJob(object):
         'last_job_run': 'last_job_run',
         'schedule': 'schedule',
         'integration_details': 'integration_details',
-        'connections': 'connections'
+        'connections': 'connections',
+        'position_in_job_queue': 'position_in_job_queue'
     }
 
-    def __init__(self, id=None, name=None, description=None, created_at=None, creator_id=None, config=None, job_queue_config=None, state=None, project_id=None, last_job_run_id=None, schedule_id=None, job_queue_id=None, overview_url=None, is_service=None, url=None, token=None, access=None, healthcheck_url=None, archived_at=None, cloud_id=None, project=None, creator=None, last_job_run=None, schedule=None, integration_details=None, connections=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, description=None, created_at=None, creator_id=None, config=None, job_queue_config=None, state=None, project_id=None, last_job_run_id=None, schedule_id=None, job_queue_id=None, overview_url=None, is_service=None, url=None, token=None, access=None, healthcheck_url=None, archived_at=None, cloud_id=None, project=None, creator=None, last_job_run=None, schedule=None, integration_details=None, connections=None, position_in_job_queue=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedProductionJob - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -122,6 +124,7 @@ class DecoratedProductionJob(object):
         self._schedule = None
         self._integration_details = None
         self._connections = None
+        self._position_in_job_queue = None
         self.discriminator = None
 
         self.id = id
@@ -164,6 +167,8 @@ class DecoratedProductionJob(object):
             self.integration_details = integration_details
         if connections is not None:
             self.connections = connections
+        if position_in_job_queue is not None:
+            self.position_in_job_queue = position_in_job_queue
 
     @property
     def id(self):
@@ -786,6 +791,29 @@ class DecoratedProductionJob(object):
         """
 
         self._connections = connections
+
+    @property
+    def position_in_job_queue(self):
+        """Gets the position_in_job_queue of this DecoratedProductionJob.  # noqa: E501
+
+        The position of the job in the job queue. Only populated when filtering by job_queue_id and job is in PENDING state.  # noqa: E501
+
+        :return: The position_in_job_queue of this DecoratedProductionJob.  # noqa: E501
+        :rtype: int
+        """
+        return self._position_in_job_queue
+
+    @position_in_job_queue.setter
+    def position_in_job_queue(self, position_in_job_queue):
+        """Sets the position_in_job_queue of this DecoratedProductionJob.
+
+        The position of the job in the job queue. Only populated when filtering by job_queue_id and job is in PENDING state.  # noqa: E501
+
+        :param position_in_job_queue: The position_in_job_queue of this DecoratedProductionJob.  # noqa: E501
+        :type: int
+        """
+
+        self._position_in_job_queue = position_in_job_queue
 
     def to_dict(self):
         """Returns the model properties as a dict"""

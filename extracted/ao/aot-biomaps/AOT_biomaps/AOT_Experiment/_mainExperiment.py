@@ -104,26 +104,26 @@ class Experiment(ABC):
         pass
 
     def cutAcousticFields(self, max_t, min_t=0):
+        """
+        Cut the acoustic fields to a specified time range.
+        Args:
+            max_t: Maximum time in SAMPLE to keep in the fields.
+            min_t: Minimum time in SAMPLE to keep in the fields (default is 0).
+        """
 
-        max_t = float(max_t)
-        min_t = float(min_t)
-
-        min_sample = int(np.floor(min_t * float(self.params.acoustic['f_saving'])))
-        max_sample = int(np.floor(max_t * float(self.params.acoustic['f_saving'])))
-
-        if min_sample < 0 or max_sample < 0:
-            raise ValueError("min_sample and max_sample must be non-negative integers.")
-        if min_sample >= max_sample:
-            raise ValueError("min_sample must be less than max_sample.")
+        if min_t < 0 or max_t < 0:
+            raise ValueError("min_t and max_t must be non-negative integers.")
+        if min_t >= max_t:
+            raise ValueError("min_t must be less than max_t.")
 
         if not self.AcousticFields:
             raise ValueError("AcousticFields is empty. Cannot cut fields.")
 
-        for i in trange(len(self.AcousticFields), desc=f"Cutting Acoustic Fields ({min_sample} to {max_sample} samples)"):
+        for i in trange(len(self.AcousticFields), desc=f"Cutting Acoustic Fields ({min_t} to {max_t} samples)"):
             field = self.AcousticFields[i]
-            if field.field.shape[0] < max_sample:
-                raise ValueError(f"Field {field.getName_field()} has an invalid shape: {field.field.shape}. Expected shape to be at least ({max_sample},).")
-            self.AcousticFields[i].field = field.field[min_sample:max_sample, :, :]
+            if field.field.shape[0] < max_t:
+                raise ValueError(f"Field {field.getName_field()} has an invalid shape: {field.field.shape}. Expected shape to be at least ({max_t},).")
+            self.AcousticFields[i].field = field.field[min_t:max_t, :, :]
 
 
     def addNoise(self, noiseType='gaussian', noiseLvl=0.1, withTumor=True):

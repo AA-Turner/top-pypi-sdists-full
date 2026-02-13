@@ -34,121 +34,101 @@ class InlineResponse20039(object):
     """
     openapi_types = {
         'user_id': 'str',
-        'order_id': 'str',
-        'text': 'str',
-        'state': 'str',
+        'position_id': 'str',
         'symbol': 'str',
-        'attribute': 'str',
-        'exchange_type': 'str',
-        'business_type': 'str',
-        'qty': 'str',
-        'quote_qty': 'str',
-        'price': 'str',
-        'time_in_force': 'str',
-        'executed_qty': 'str',
-        'executed_amount': 'str',
-        'executed_avg_price': 'str',
-        'fee_coin': 'str',
-        'fee': 'str',
-        'reduce_only': 'str',
-        'leverage': 'str',
-        'reason': 'str',
-        'last_executed_qty': 'str',
-        'last_executed_price': 'str',
-        'last_executed_amount': 'str',
         'position_side': 'str',
+        'initial_margin': 'str',
+        'maintenance_margin': 'str',
+        'asset_qty': 'str',
+        'asset_coin': 'str',
+        'position_value': 'str',
+        'liability': 'str',
+        'liability_coin': 'str',
+        'interest': 'str',
+        'max_position_qty': 'str',
+        'entry_price': 'str',
+        'index_price': 'str',
+        'upnl': 'str',
+        'upnl_rate': 'str',
+        'leverage': 'str',
+        'max_leverage': 'str',
         'create_time': 'str',
         'update_time': 'str'
     }
 
     attribute_map = {
         'user_id': 'user_id',
-        'order_id': 'order_id',
-        'text': 'text',
-        'state': 'state',
+        'position_id': 'position_id',
         'symbol': 'symbol',
-        'attribute': 'attribute',
-        'exchange_type': 'exchange_type',
-        'business_type': 'business_type',
-        'qty': 'qty',
-        'quote_qty': 'quote_qty',
-        'price': 'price',
-        'time_in_force': 'time_in_force',
-        'executed_qty': 'executed_qty',
-        'executed_amount': 'executed_amount',
-        'executed_avg_price': 'executed_avg_price',
-        'fee_coin': 'fee_coin',
-        'fee': 'fee',
-        'reduce_only': 'reduce_only',
-        'leverage': 'leverage',
-        'reason': 'reason',
-        'last_executed_qty': 'last_executed_qty',
-        'last_executed_price': 'last_executed_price',
-        'last_executed_amount': 'last_executed_amount',
         'position_side': 'position_side',
+        'initial_margin': 'initial_margin',
+        'maintenance_margin': 'maintenance_margin',
+        'asset_qty': 'asset_qty',
+        'asset_coin': 'asset_coin',
+        'position_value': 'position_value',
+        'liability': 'liability',
+        'liability_coin': 'liability_coin',
+        'interest': 'interest',
+        'max_position_qty': 'max_position_qty',
+        'entry_price': 'entry_price',
+        'index_price': 'index_price',
+        'upnl': 'upnl',
+        'upnl_rate': 'upnl_rate',
+        'leverage': 'leverage',
+        'max_leverage': 'max_leverage',
         'create_time': 'create_time',
         'update_time': 'update_time'
     }
 
-    def __init__(self, user_id=None, order_id=None, text=None, state=None, symbol=None, attribute=None, exchange_type=None, business_type=None, qty=None, quote_qty=None, price=None, time_in_force=None, executed_qty=None, executed_amount=None, executed_avg_price=None, fee_coin=None, fee=None, reduce_only=None, leverage=None, reason=None, last_executed_qty=None, last_executed_price=None, last_executed_amount=None, position_side=None, create_time=None, update_time=None, local_vars_configuration=None):  # noqa: E501
-        # type: (str, str, str, str, str, str, str, str, str, str, str, str, str, str, str, str, str, str, str, str, str, str, str, str, str, str, Configuration) -> None
+    def __init__(self, user_id=None, position_id=None, symbol=None, position_side=None, initial_margin=None, maintenance_margin=None, asset_qty=None, asset_coin=None, position_value=None, liability=None, liability_coin=None, interest=None, max_position_qty=None, entry_price=None, index_price=None, upnl=None, upnl_rate=None, leverage=None, max_leverage=None, create_time=None, update_time=None, local_vars_configuration=None):  # noqa: E501
+        # type: (str, str, str, str, str, str, str, str, str, str, str, str, str, str, str, str, str, str, str, str, str, Configuration) -> None
         """InlineResponse20039 - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._user_id = None
-        self._order_id = None
-        self._text = None
-        self._state = None
+        self._position_id = None
         self._symbol = None
-        self._attribute = None
-        self._exchange_type = None
-        self._business_type = None
-        self._qty = None
-        self._quote_qty = None
-        self._price = None
-        self._time_in_force = None
-        self._executed_qty = None
-        self._executed_amount = None
-        self._executed_avg_price = None
-        self._fee_coin = None
-        self._fee = None
-        self._reduce_only = None
-        self._leverage = None
-        self._reason = None
-        self._last_executed_qty = None
-        self._last_executed_price = None
-        self._last_executed_amount = None
         self._position_side = None
+        self._initial_margin = None
+        self._maintenance_margin = None
+        self._asset_qty = None
+        self._asset_coin = None
+        self._position_value = None
+        self._liability = None
+        self._liability_coin = None
+        self._interest = None
+        self._max_position_qty = None
+        self._entry_price = None
+        self._index_price = None
+        self._upnl = None
+        self._upnl_rate = None
+        self._leverage = None
+        self._max_leverage = None
         self._create_time = None
         self._update_time = None
         self.discriminator = None
 
         self.user_id = user_id
-        self.order_id = order_id
-        self.text = text
-        self.state = state
+        self.position_id = position_id
         self.symbol = symbol
-        self.attribute = attribute
-        self.exchange_type = exchange_type
-        self.business_type = business_type
-        self.qty = qty
-        self.quote_qty = quote_qty
-        self.price = price
-        self.time_in_force = time_in_force
-        self.executed_qty = executed_qty
-        self.executed_amount = executed_amount
-        self.executed_avg_price = executed_avg_price
-        self.fee_coin = fee_coin
-        self.fee = fee
-        self.reduce_only = reduce_only
-        self.leverage = leverage
-        self.reason = reason
-        self.last_executed_qty = last_executed_qty
-        self.last_executed_price = last_executed_price
-        self.last_executed_amount = last_executed_amount
         self.position_side = position_side
+        self.initial_margin = initial_margin
+        self.maintenance_margin = maintenance_margin
+        self.asset_qty = asset_qty
+        self.asset_coin = asset_coin
+        self.position_value = position_value
+        self.liability = liability
+        self.liability_coin = liability_coin
+        self.interest = interest
+        self.max_position_qty = max_position_qty
+        self.entry_price = entry_price
+        self.index_price = index_price
+        self.upnl = upnl
+        self.upnl_rate = upnl_rate
+        self.leverage = leverage
+        self.max_leverage = max_leverage
         self.create_time = create_time
         self.update_time = update_time
 
@@ -178,85 +158,35 @@ class InlineResponse20039(object):
         self._user_id = user_id
 
     @property
-    def order_id(self):
-        """Gets the order_id of this InlineResponse20039.  # noqa: E501
+    def position_id(self):
+        """Gets the position_id of this InlineResponse20039.  # noqa: E501
 
-        Order ID  # noqa: E501
+        Leveraged Position ID  # noqa: E501
 
-        :return: The order_id of this InlineResponse20039.  # noqa: E501
+        :return: The position_id of this InlineResponse20039.  # noqa: E501
         :rtype: str
         """
-        return self._order_id
+        return self._position_id
 
-    @order_id.setter
-    def order_id(self, order_id):
-        """Sets the order_id of this InlineResponse20039.
+    @position_id.setter
+    def position_id(self, position_id):
+        """Sets the position_id of this InlineResponse20039.
 
-        Order ID  # noqa: E501
+        Leveraged Position ID  # noqa: E501
 
-        :param order_id: The order_id of this InlineResponse20039.  # noqa: E501
+        :param position_id: The position_id of this InlineResponse20039.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and order_id is None:  # noqa: E501
-            raise ValueError("Invalid value for `order_id`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and position_id is None:  # noqa: E501
+            raise ValueError("Invalid value for `position_id`, must not be `None`")  # noqa: E501
 
-        self._order_id = order_id
-
-    @property
-    def text(self):
-        """Gets the text of this InlineResponse20039.  # noqa: E501
-
-        Client Order ID  # noqa: E501
-
-        :return: The text of this InlineResponse20039.  # noqa: E501
-        :rtype: str
-        """
-        return self._text
-
-    @text.setter
-    def text(self, text):
-        """Sets the text of this InlineResponse20039.
-
-        Client Order ID  # noqa: E501
-
-        :param text: The text of this InlineResponse20039.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and text is None:  # noqa: E501
-            raise ValueError("Invalid value for `text`, must not be `None`")  # noqa: E501
-
-        self._text = text
-
-    @property
-    def state(self):
-        """Gets the state of this InlineResponse20039.  # noqa: E501
-
-        Order Status  # noqa: E501
-
-        :return: The state of this InlineResponse20039.  # noqa: E501
-        :rtype: str
-        """
-        return self._state
-
-    @state.setter
-    def state(self, state):
-        """Sets the state of this InlineResponse20039.
-
-        Order Status  # noqa: E501
-
-        :param state: The state of this InlineResponse20039.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and state is None:  # noqa: E501
-            raise ValueError("Invalid value for `state`, must not be `None`")  # noqa: E501
-
-        self._state = state
+        self._position_id = position_id
 
     @property
     def symbol(self):
         """Gets the symbol of this InlineResponse20039.  # noqa: E501
 
-        Currency pair  # noqa: E501
+        Trading Pair  # noqa: E501
 
         :return: The symbol of this InlineResponse20039.  # noqa: E501
         :rtype: str
@@ -267,7 +197,7 @@ class InlineResponse20039(object):
     def symbol(self, symbol):
         """Sets the symbol of this InlineResponse20039.
 
-        Currency pair  # noqa: E501
+        Trading Pair  # noqa: E501
 
         :param symbol: The symbol of this InlineResponse20039.  # noqa: E501
         :type: str
@@ -276,456 +206,6 @@ class InlineResponse20039(object):
             raise ValueError("Invalid value for `symbol`, must not be `None`")  # noqa: E501
 
         self._symbol = symbol
-
-    @property
-    def attribute(self):
-        """Gets the attribute of this InlineResponse20039.  # noqa: E501
-
-        Attribute COMMON: Normal Order, LIQ: Liquidation Takeover Order, REDUCE: Liquidation Reduce Order, ADL: Auto-Reduce  # noqa: E501
-
-        :return: The attribute of this InlineResponse20039.  # noqa: E501
-        :rtype: str
-        """
-        return self._attribute
-
-    @attribute.setter
-    def attribute(self, attribute):
-        """Sets the attribute of this InlineResponse20039.
-
-        Attribute COMMON: Normal Order, LIQ: Liquidation Takeover Order, REDUCE: Liquidation Reduce Order, ADL: Auto-Reduce  # noqa: E501
-
-        :param attribute: The attribute of this InlineResponse20039.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and attribute is None:  # noqa: E501
-            raise ValueError("Invalid value for `attribute`, must not be `None`")  # noqa: E501
-
-        self._attribute = attribute
-
-    @property
-    def exchange_type(self):
-        """Gets the exchange_type of this InlineResponse20039.  # noqa: E501
-
-        Exchange  # noqa: E501
-
-        :return: The exchange_type of this InlineResponse20039.  # noqa: E501
-        :rtype: str
-        """
-        return self._exchange_type
-
-    @exchange_type.setter
-    def exchange_type(self, exchange_type):
-        """Sets the exchange_type of this InlineResponse20039.
-
-        Exchange  # noqa: E501
-
-        :param exchange_type: The exchange_type of this InlineResponse20039.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and exchange_type is None:  # noqa: E501
-            raise ValueError("Invalid value for `exchange_type`, must not be `None`")  # noqa: E501
-
-        self._exchange_type = exchange_type
-
-    @property
-    def business_type(self):
-        """Gets the business_type of this InlineResponse20039.  # noqa: E501
-
-        Business Type  # noqa: E501
-
-        :return: The business_type of this InlineResponse20039.  # noqa: E501
-        :rtype: str
-        """
-        return self._business_type
-
-    @business_type.setter
-    def business_type(self, business_type):
-        """Sets the business_type of this InlineResponse20039.
-
-        Business Type  # noqa: E501
-
-        :param business_type: The business_type of this InlineResponse20039.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and business_type is None:  # noqa: E501
-            raise ValueError("Invalid value for `business_type`, must not be `None`")  # noqa: E501
-
-        self._business_type = business_type
-
-    @property
-    def qty(self):
-        """Gets the qty of this InlineResponse20039.  # noqa: E501
-
-        Base Currency Quantity  # noqa: E501
-
-        :return: The qty of this InlineResponse20039.  # noqa: E501
-        :rtype: str
-        """
-        return self._qty
-
-    @qty.setter
-    def qty(self, qty):
-        """Sets the qty of this InlineResponse20039.
-
-        Base Currency Quantity  # noqa: E501
-
-        :param qty: The qty of this InlineResponse20039.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and qty is None:  # noqa: E501
-            raise ValueError("Invalid value for `qty`, must not be `None`")  # noqa: E501
-
-        self._qty = qty
-
-    @property
-    def quote_qty(self):
-        """Gets the quote_qty of this InlineResponse20039.  # noqa: E501
-
-        Quote Currency Quantity  # noqa: E501
-
-        :return: The quote_qty of this InlineResponse20039.  # noqa: E501
-        :rtype: str
-        """
-        return self._quote_qty
-
-    @quote_qty.setter
-    def quote_qty(self, quote_qty):
-        """Sets the quote_qty of this InlineResponse20039.
-
-        Quote Currency Quantity  # noqa: E501
-
-        :param quote_qty: The quote_qty of this InlineResponse20039.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and quote_qty is None:  # noqa: E501
-            raise ValueError("Invalid value for `quote_qty`, must not be `None`")  # noqa: E501
-
-        self._quote_qty = quote_qty
-
-    @property
-    def price(self):
-        """Gets the price of this InlineResponse20039.  # noqa: E501
-
-        Price  # noqa: E501
-
-        :return: The price of this InlineResponse20039.  # noqa: E501
-        :rtype: str
-        """
-        return self._price
-
-    @price.setter
-    def price(self, price):
-        """Sets the price of this InlineResponse20039.
-
-        Price  # noqa: E501
-
-        :param price: The price of this InlineResponse20039.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and price is None:  # noqa: E501
-            raise ValueError("Invalid value for `price`, must not be `None`")  # noqa: E501
-
-        self._price = price
-
-    @property
-    def time_in_force(self):
-        """Gets the time_in_force of this InlineResponse20039.  # noqa: E501
-
-        Time in Force Strategy  # noqa: E501
-
-        :return: The time_in_force of this InlineResponse20039.  # noqa: E501
-        :rtype: str
-        """
-        return self._time_in_force
-
-    @time_in_force.setter
-    def time_in_force(self, time_in_force):
-        """Sets the time_in_force of this InlineResponse20039.
-
-        Time in Force Strategy  # noqa: E501
-
-        :param time_in_force: The time_in_force of this InlineResponse20039.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and time_in_force is None:  # noqa: E501
-            raise ValueError("Invalid value for `time_in_force`, must not be `None`")  # noqa: E501
-
-        self._time_in_force = time_in_force
-
-    @property
-    def executed_qty(self):
-        """Gets the executed_qty of this InlineResponse20039.  # noqa: E501
-
-        Filled Quantity  # noqa: E501
-
-        :return: The executed_qty of this InlineResponse20039.  # noqa: E501
-        :rtype: str
-        """
-        return self._executed_qty
-
-    @executed_qty.setter
-    def executed_qty(self, executed_qty):
-        """Sets the executed_qty of this InlineResponse20039.
-
-        Filled Quantity  # noqa: E501
-
-        :param executed_qty: The executed_qty of this InlineResponse20039.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and executed_qty is None:  # noqa: E501
-            raise ValueError("Invalid value for `executed_qty`, must not be `None`")  # noqa: E501
-
-        self._executed_qty = executed_qty
-
-    @property
-    def executed_amount(self):
-        """Gets the executed_amount of this InlineResponse20039.  # noqa: E501
-
-        Filled Amount  # noqa: E501
-
-        :return: The executed_amount of this InlineResponse20039.  # noqa: E501
-        :rtype: str
-        """
-        return self._executed_amount
-
-    @executed_amount.setter
-    def executed_amount(self, executed_amount):
-        """Sets the executed_amount of this InlineResponse20039.
-
-        Filled Amount  # noqa: E501
-
-        :param executed_amount: The executed_amount of this InlineResponse20039.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and executed_amount is None:  # noqa: E501
-            raise ValueError("Invalid value for `executed_amount`, must not be `None`")  # noqa: E501
-
-        self._executed_amount = executed_amount
-
-    @property
-    def executed_avg_price(self):
-        """Gets the executed_avg_price of this InlineResponse20039.  # noqa: E501
-
-        Average Filled Price  # noqa: E501
-
-        :return: The executed_avg_price of this InlineResponse20039.  # noqa: E501
-        :rtype: str
-        """
-        return self._executed_avg_price
-
-    @executed_avg_price.setter
-    def executed_avg_price(self, executed_avg_price):
-        """Sets the executed_avg_price of this InlineResponse20039.
-
-        Average Filled Price  # noqa: E501
-
-        :param executed_avg_price: The executed_avg_price of this InlineResponse20039.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and executed_avg_price is None:  # noqa: E501
-            raise ValueError("Invalid value for `executed_avg_price`, must not be `None`")  # noqa: E501
-
-        self._executed_avg_price = executed_avg_price
-
-    @property
-    def fee_coin(self):
-        """Gets the fee_coin of this InlineResponse20039.  # noqa: E501
-
-        Fee currency  # noqa: E501
-
-        :return: The fee_coin of this InlineResponse20039.  # noqa: E501
-        :rtype: str
-        """
-        return self._fee_coin
-
-    @fee_coin.setter
-    def fee_coin(self, fee_coin):
-        """Sets the fee_coin of this InlineResponse20039.
-
-        Fee currency  # noqa: E501
-
-        :param fee_coin: The fee_coin of this InlineResponse20039.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and fee_coin is None:  # noqa: E501
-            raise ValueError("Invalid value for `fee_coin`, must not be `None`")  # noqa: E501
-
-        self._fee_coin = fee_coin
-
-    @property
-    def fee(self):
-        """Gets the fee of this InlineResponse20039.  # noqa: E501
-
-        fee  # noqa: E501
-
-        :return: The fee of this InlineResponse20039.  # noqa: E501
-        :rtype: str
-        """
-        return self._fee
-
-    @fee.setter
-    def fee(self, fee):
-        """Sets the fee of this InlineResponse20039.
-
-        fee  # noqa: E501
-
-        :param fee: The fee of this InlineResponse20039.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and fee is None:  # noqa: E501
-            raise ValueError("Invalid value for `fee`, must not be `None`")  # noqa: E501
-
-        self._fee = fee
-
-    @property
-    def reduce_only(self):
-        """Gets the reduce_only of this InlineResponse20039.  # noqa: E501
-
-        Reduce Position Only  # noqa: E501
-
-        :return: The reduce_only of this InlineResponse20039.  # noqa: E501
-        :rtype: str
-        """
-        return self._reduce_only
-
-    @reduce_only.setter
-    def reduce_only(self, reduce_only):
-        """Sets the reduce_only of this InlineResponse20039.
-
-        Reduce Position Only  # noqa: E501
-
-        :param reduce_only: The reduce_only of this InlineResponse20039.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and reduce_only is None:  # noqa: E501
-            raise ValueError("Invalid value for `reduce_only`, must not be `None`")  # noqa: E501
-
-        self._reduce_only = reduce_only
-
-    @property
-    def leverage(self):
-        """Gets the leverage of this InlineResponse20039.  # noqa: E501
-
-        leverage  # noqa: E501
-
-        :return: The leverage of this InlineResponse20039.  # noqa: E501
-        :rtype: str
-        """
-        return self._leverage
-
-    @leverage.setter
-    def leverage(self, leverage):
-        """Sets the leverage of this InlineResponse20039.
-
-        leverage  # noqa: E501
-
-        :param leverage: The leverage of this InlineResponse20039.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and leverage is None:  # noqa: E501
-            raise ValueError("Invalid value for `leverage`, must not be `None`")  # noqa: E501
-
-        self._leverage = leverage
-
-    @property
-    def reason(self):
-        """Gets the reason of this InlineResponse20039.  # noqa: E501
-
-        Reason  # noqa: E501
-
-        :return: The reason of this InlineResponse20039.  # noqa: E501
-        :rtype: str
-        """
-        return self._reason
-
-    @reason.setter
-    def reason(self, reason):
-        """Sets the reason of this InlineResponse20039.
-
-        Reason  # noqa: E501
-
-        :param reason: The reason of this InlineResponse20039.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and reason is None:  # noqa: E501
-            raise ValueError("Invalid value for `reason`, must not be `None`")  # noqa: E501
-
-        self._reason = reason
-
-    @property
-    def last_executed_qty(self):
-        """Gets the last_executed_qty of this InlineResponse20039.  # noqa: E501
-
-        Latest Filled Quantity  # noqa: E501
-
-        :return: The last_executed_qty of this InlineResponse20039.  # noqa: E501
-        :rtype: str
-        """
-        return self._last_executed_qty
-
-    @last_executed_qty.setter
-    def last_executed_qty(self, last_executed_qty):
-        """Sets the last_executed_qty of this InlineResponse20039.
-
-        Latest Filled Quantity  # noqa: E501
-
-        :param last_executed_qty: The last_executed_qty of this InlineResponse20039.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and last_executed_qty is None:  # noqa: E501
-            raise ValueError("Invalid value for `last_executed_qty`, must not be `None`")  # noqa: E501
-
-        self._last_executed_qty = last_executed_qty
-
-    @property
-    def last_executed_price(self):
-        """Gets the last_executed_price of this InlineResponse20039.  # noqa: E501
-
-        Latest Filled Price  # noqa: E501
-
-        :return: The last_executed_price of this InlineResponse20039.  # noqa: E501
-        :rtype: str
-        """
-        return self._last_executed_price
-
-    @last_executed_price.setter
-    def last_executed_price(self, last_executed_price):
-        """Sets the last_executed_price of this InlineResponse20039.
-
-        Latest Filled Price  # noqa: E501
-
-        :param last_executed_price: The last_executed_price of this InlineResponse20039.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and last_executed_price is None:  # noqa: E501
-            raise ValueError("Invalid value for `last_executed_price`, must not be `None`")  # noqa: E501
-
-        self._last_executed_price = last_executed_price
-
-    @property
-    def last_executed_amount(self):
-        """Gets the last_executed_amount of this InlineResponse20039.  # noqa: E501
-
-        Latest Filled Amount  # noqa: E501
-
-        :return: The last_executed_amount of this InlineResponse20039.  # noqa: E501
-        :rtype: str
-        """
-        return self._last_executed_amount
-
-    @last_executed_amount.setter
-    def last_executed_amount(self, last_executed_amount):
-        """Sets the last_executed_amount of this InlineResponse20039.
-
-        Latest Filled Amount  # noqa: E501
-
-        :param last_executed_amount: The last_executed_amount of this InlineResponse20039.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and last_executed_amount is None:  # noqa: E501
-            raise ValueError("Invalid value for `last_executed_amount`, must not be `None`")  # noqa: E501
-
-        self._last_executed_amount = last_executed_amount
 
     @property
     def position_side(self):
@@ -751,6 +231,381 @@ class InlineResponse20039(object):
             raise ValueError("Invalid value for `position_side`, must not be `None`")  # noqa: E501
 
         self._position_side = position_side
+
+    @property
+    def initial_margin(self):
+        """Gets the initial_margin of this InlineResponse20039.  # noqa: E501
+
+        Initial position margin  # noqa: E501
+
+        :return: The initial_margin of this InlineResponse20039.  # noqa: E501
+        :rtype: str
+        """
+        return self._initial_margin
+
+    @initial_margin.setter
+    def initial_margin(self, initial_margin):
+        """Sets the initial_margin of this InlineResponse20039.
+
+        Initial position margin  # noqa: E501
+
+        :param initial_margin: The initial_margin of this InlineResponse20039.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and initial_margin is None:  # noqa: E501
+            raise ValueError("Invalid value for `initial_margin`, must not be `None`")  # noqa: E501
+
+        self._initial_margin = initial_margin
+
+    @property
+    def maintenance_margin(self):
+        """Gets the maintenance_margin of this InlineResponse20039.  # noqa: E501
+
+        Position maintenance margin  # noqa: E501
+
+        :return: The maintenance_margin of this InlineResponse20039.  # noqa: E501
+        :rtype: str
+        """
+        return self._maintenance_margin
+
+    @maintenance_margin.setter
+    def maintenance_margin(self, maintenance_margin):
+        """Sets the maintenance_margin of this InlineResponse20039.
+
+        Position maintenance margin  # noqa: E501
+
+        :param maintenance_margin: The maintenance_margin of this InlineResponse20039.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and maintenance_margin is None:  # noqa: E501
+            raise ValueError("Invalid value for `maintenance_margin`, must not be `None`")  # noqa: E501
+
+        self._maintenance_margin = maintenance_margin
+
+    @property
+    def asset_qty(self):
+        """Gets the asset_qty of this InlineResponse20039.  # noqa: E501
+
+        Position Asset Quantity  # noqa: E501
+
+        :return: The asset_qty of this InlineResponse20039.  # noqa: E501
+        :rtype: str
+        """
+        return self._asset_qty
+
+    @asset_qty.setter
+    def asset_qty(self, asset_qty):
+        """Sets the asset_qty of this InlineResponse20039.
+
+        Position Asset Quantity  # noqa: E501
+
+        :param asset_qty: The asset_qty of this InlineResponse20039.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and asset_qty is None:  # noqa: E501
+            raise ValueError("Invalid value for `asset_qty`, must not be `None`")  # noqa: E501
+
+        self._asset_qty = asset_qty
+
+    @property
+    def asset_coin(self):
+        """Gets the asset_coin of this InlineResponse20039.  # noqa: E501
+
+        Position Asset Currency  # noqa: E501
+
+        :return: The asset_coin of this InlineResponse20039.  # noqa: E501
+        :rtype: str
+        """
+        return self._asset_coin
+
+    @asset_coin.setter
+    def asset_coin(self, asset_coin):
+        """Sets the asset_coin of this InlineResponse20039.
+
+        Position Asset Currency  # noqa: E501
+
+        :param asset_coin: The asset_coin of this InlineResponse20039.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and asset_coin is None:  # noqa: E501
+            raise ValueError("Invalid value for `asset_coin`, must not be `None`")  # noqa: E501
+
+        self._asset_coin = asset_coin
+
+    @property
+    def position_value(self):
+        """Gets the position_value of this InlineResponse20039.  # noqa: E501
+
+        Position Value  # noqa: E501
+
+        :return: The position_value of this InlineResponse20039.  # noqa: E501
+        :rtype: str
+        """
+        return self._position_value
+
+    @position_value.setter
+    def position_value(self, position_value):
+        """Sets the position_value of this InlineResponse20039.
+
+        Position Value  # noqa: E501
+
+        :param position_value: The position_value of this InlineResponse20039.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and position_value is None:  # noqa: E501
+            raise ValueError("Invalid value for `position_value`, must not be `None`")  # noqa: E501
+
+        self._position_value = position_value
+
+    @property
+    def liability(self):
+        """Gets the liability of this InlineResponse20039.  # noqa: E501
+
+        Debt Quantity  # noqa: E501
+
+        :return: The liability of this InlineResponse20039.  # noqa: E501
+        :rtype: str
+        """
+        return self._liability
+
+    @liability.setter
+    def liability(self, liability):
+        """Sets the liability of this InlineResponse20039.
+
+        Debt Quantity  # noqa: E501
+
+        :param liability: The liability of this InlineResponse20039.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and liability is None:  # noqa: E501
+            raise ValueError("Invalid value for `liability`, must not be `None`")  # noqa: E501
+
+        self._liability = liability
+
+    @property
+    def liability_coin(self):
+        """Gets the liability_coin of this InlineResponse20039.  # noqa: E501
+
+        Debt Currency  # noqa: E501
+
+        :return: The liability_coin of this InlineResponse20039.  # noqa: E501
+        :rtype: str
+        """
+        return self._liability_coin
+
+    @liability_coin.setter
+    def liability_coin(self, liability_coin):
+        """Sets the liability_coin of this InlineResponse20039.
+
+        Debt Currency  # noqa: E501
+
+        :param liability_coin: The liability_coin of this InlineResponse20039.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and liability_coin is None:  # noqa: E501
+            raise ValueError("Invalid value for `liability_coin`, must not be `None`")  # noqa: E501
+
+        self._liability_coin = liability_coin
+
+    @property
+    def interest(self):
+        """Gets the interest of this InlineResponse20039.  # noqa: E501
+
+        Deducted Interest  # noqa: E501
+
+        :return: The interest of this InlineResponse20039.  # noqa: E501
+        :rtype: str
+        """
+        return self._interest
+
+    @interest.setter
+    def interest(self, interest):
+        """Sets the interest of this InlineResponse20039.
+
+        Deducted Interest  # noqa: E501
+
+        :param interest: The interest of this InlineResponse20039.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and interest is None:  # noqa: E501
+            raise ValueError("Invalid value for `interest`, must not be `None`")  # noqa: E501
+
+        self._interest = interest
+
+    @property
+    def max_position_qty(self):
+        """Gets the max_position_qty of this InlineResponse20039.  # noqa: E501
+
+        Max Trade Size  # noqa: E501
+
+        :return: The max_position_qty of this InlineResponse20039.  # noqa: E501
+        :rtype: str
+        """
+        return self._max_position_qty
+
+    @max_position_qty.setter
+    def max_position_qty(self, max_position_qty):
+        """Sets the max_position_qty of this InlineResponse20039.
+
+        Max Trade Size  # noqa: E501
+
+        :param max_position_qty: The max_position_qty of this InlineResponse20039.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and max_position_qty is None:  # noqa: E501
+            raise ValueError("Invalid value for `max_position_qty`, must not be `None`")  # noqa: E501
+
+        self._max_position_qty = max_position_qty
+
+    @property
+    def entry_price(self):
+        """Gets the entry_price of this InlineResponse20039.  # noqa: E501
+
+        Position Cost Price (Average Opening Price)  # noqa: E501
+
+        :return: The entry_price of this InlineResponse20039.  # noqa: E501
+        :rtype: str
+        """
+        return self._entry_price
+
+    @entry_price.setter
+    def entry_price(self, entry_price):
+        """Sets the entry_price of this InlineResponse20039.
+
+        Position Cost Price (Average Opening Price)  # noqa: E501
+
+        :param entry_price: The entry_price of this InlineResponse20039.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and entry_price is None:  # noqa: E501
+            raise ValueError("Invalid value for `entry_price`, must not be `None`")  # noqa: E501
+
+        self._entry_price = entry_price
+
+    @property
+    def index_price(self):
+        """Gets the index_price of this InlineResponse20039.  # noqa: E501
+
+        Index price  # noqa: E501
+
+        :return: The index_price of this InlineResponse20039.  # noqa: E501
+        :rtype: str
+        """
+        return self._index_price
+
+    @index_price.setter
+    def index_price(self, index_price):
+        """Sets the index_price of this InlineResponse20039.
+
+        Index price  # noqa: E501
+
+        :param index_price: The index_price of this InlineResponse20039.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and index_price is None:  # noqa: E501
+            raise ValueError("Invalid value for `index_price`, must not be `None`")  # noqa: E501
+
+        self._index_price = index_price
+
+    @property
+    def upnl(self):
+        """Gets the upnl of this InlineResponse20039.  # noqa: E501
+
+        Unrealized P&L  # noqa: E501
+
+        :return: The upnl of this InlineResponse20039.  # noqa: E501
+        :rtype: str
+        """
+        return self._upnl
+
+    @upnl.setter
+    def upnl(self, upnl):
+        """Sets the upnl of this InlineResponse20039.
+
+        Unrealized P&L  # noqa: E501
+
+        :param upnl: The upnl of this InlineResponse20039.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and upnl is None:  # noqa: E501
+            raise ValueError("Invalid value for `upnl`, must not be `None`")  # noqa: E501
+
+        self._upnl = upnl
+
+    @property
+    def upnl_rate(self):
+        """Gets the upnl_rate of this InlineResponse20039.  # noqa: E501
+
+        Unrealized P&L Ratio  # noqa: E501
+
+        :return: The upnl_rate of this InlineResponse20039.  # noqa: E501
+        :rtype: str
+        """
+        return self._upnl_rate
+
+    @upnl_rate.setter
+    def upnl_rate(self, upnl_rate):
+        """Sets the upnl_rate of this InlineResponse20039.
+
+        Unrealized P&L Ratio  # noqa: E501
+
+        :param upnl_rate: The upnl_rate of this InlineResponse20039.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and upnl_rate is None:  # noqa: E501
+            raise ValueError("Invalid value for `upnl_rate`, must not be `None`")  # noqa: E501
+
+        self._upnl_rate = upnl_rate
+
+    @property
+    def leverage(self):
+        """Gets the leverage of this InlineResponse20039.  # noqa: E501
+
+        Opening Leverage  # noqa: E501
+
+        :return: The leverage of this InlineResponse20039.  # noqa: E501
+        :rtype: str
+        """
+        return self._leverage
+
+    @leverage.setter
+    def leverage(self, leverage):
+        """Sets the leverage of this InlineResponse20039.
+
+        Opening Leverage  # noqa: E501
+
+        :param leverage: The leverage of this InlineResponse20039.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and leverage is None:  # noqa: E501
+            raise ValueError("Invalid value for `leverage`, must not be `None`")  # noqa: E501
+
+        self._leverage = leverage
+
+    @property
+    def max_leverage(self):
+        """Gets the max_leverage of this InlineResponse20039.  # noqa: E501
+
+        Maximum leverage  # noqa: E501
+
+        :return: The max_leverage of this InlineResponse20039.  # noqa: E501
+        :rtype: str
+        """
+        return self._max_leverage
+
+    @max_leverage.setter
+    def max_leverage(self, max_leverage):
+        """Sets the max_leverage of this InlineResponse20039.
+
+        Maximum leverage  # noqa: E501
+
+        :param max_leverage: The max_leverage of this InlineResponse20039.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and max_leverage is None:  # noqa: E501
+            raise ValueError("Invalid value for `max_leverage`, must not be `None`")  # noqa: E501
+
+        self._max_leverage = max_leverage
 
     @property
     def create_time(self):

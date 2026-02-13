@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sftpretty
-Version: 1.2.0
+Version: 1.2.1
 Summary: Pretty secure file transfer made easy.
 Project-URL: Documentation, https://docs.sftpretty.com
 Project-URL: Repository, https://github.com/byteskeptical/sftpretty
@@ -8,7 +8,7 @@ Project-URL: Tracker, https://github.com/byteskeptical/sftpretty/issues
 Author: byteskeptical
 License: BSD 3-Clause License
         
-        Copyright (c) 2021, byteskeptical
+        Copyright (c) 2026, byteskeptical
         All rights reserved.
         
         Redistribution and use in source and binary forms, with or without

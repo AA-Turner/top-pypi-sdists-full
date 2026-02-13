@@ -3,8 +3,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from key_value.shared.utils.managed_entry import ManagedEntry
-from key_value.shared.utils.serialization import BasicSerializationAdapter
 from typing_extensions import override
 
 from key_value.aio.stores.base import (
@@ -14,6 +12,8 @@ from key_value.aio.stores.base import (
     BaseEnumerateCollectionsStore,
     BaseEnumerateKeysStore,
 )
+from key_value.shared.managed_entry import ManagedEntry
+from key_value.shared.serialization import BasicSerializationAdapter
 
 try:
     from cachetools import TLRUCache

@@ -1391,6 +1391,21 @@ cluster.grant_access("eksAdminViewRoleAccess", eks_admin_view_role.role_arn, [
 ])
 ```
 
+You can optionally specify an access entry type when granting access:
+
+```python
+# cluster: eks.Cluster
+# node_role: iam.Role
+
+
+# For EKS Auto Mode node roles
+cluster.grant_access("NodeAccess", node_role.role_arn, [], access_entry_type=eks.AccessEntryType.EC2)
+```
+
+Supported types: `STANDARD` (default), `FARGATE_LINUX`, `EC2_LINUX`, `EC2_WINDOWS`, `EC2`, `HYBRID_LINUX`, `HYPERPOD_LINUX`.
+
+**Note**: `EC2`, `HYBRID_LINUX`, and `HYPERPOD_LINUX` types cannot have access policies attached.
+
 ### Migrating from ConfigMap to Access Entry
 
 If the cluster is created with the `authenticationMode` property left undefined,
@@ -2402,6 +2417,7 @@ class AccessEntryAttributes:
         "principal": "principal",
         "access_entry_name": "accessEntryName",
         "access_entry_type": "accessEntryType",
+        "removal_policy": "removalPolicy",
     },
 )
 class AccessEntryProps:
@@ -2413,6 +2429,7 @@ class AccessEntryProps:
         principal: builtins.str,
         access_entry_name: typing.Optional[builtins.str] = None,
         access_entry_type: typing.Optional["AccessEntryType"] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
     ) -> None:
         '''Represents the properties required to create an Amazon EKS access entry.
 
@@ -2421,6 +2438,7 @@ class AccessEntryProps:
         :param principal: The Amazon Resource Name (ARN) of the principal (user or role) to associate the access entry with.
         :param access_entry_name: The name of the AccessEntry. Default: - No access entry name is provided
         :param access_entry_type: The type of the AccessEntry. Default: STANDARD
+        :param removal_policy: The removal policy applied to the access entry. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
 
         :exampleMetadata: fixture=_generated
 
@@ -2428,6 +2446,7 @@ class AccessEntryProps:
 
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
+            import aws_cdk as cdk
             from aws_cdk import aws_eks as eks
             
             # access_policy: eks.AccessPolicy
@@ -2440,7 +2459,8 @@ class AccessEntryProps:
             
                 # the properties below are optional
                 access_entry_name="accessEntryName",
-                access_entry_type=eks.AccessEntryType.STANDARD
+                access_entry_type=eks.AccessEntryType.STANDARD,
+                removal_policy=cdk.RemovalPolicy.DESTROY
             )
         '''
         if __debug__:
@@ -2450,6 +2470,7 @@ class AccessEntryProps:
             check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
             check_type(argname="argument access_entry_name", value=access_entry_name, expected_type=type_hints["access_entry_name"])
             check_type(argname="argument access_entry_type", value=access_entry_type, expected_type=type_hints["access_entry_type"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "access_policies": access_policies,
             "cluster": cluster,
@@ -2459,6 +2480,8 @@ class AccessEntryProps:
             self._values["access_entry_name"] = access_entry_name
         if access_entry_type is not None:
             self._values["access_entry_type"] = access_entry_type
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
 
     @builtins.property
     def access_policies(self) -> typing.List["IAccessPolicy"]:
@@ -2499,6 +2522,22 @@ class AccessEntryProps:
         result = self._values.get("access_entry_type")
         return typing.cast(typing.Optional["AccessEntryType"], result)
 
+    @builtins.property
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+        '''The removal policy applied to the access entry.
+
+        The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
+        This can happen in one of three situations:
+
+        - The resource is removed from the template, so CloudFormation stops managing it
+        - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it
+        - The stack is deleted, so CloudFormation stops managing all resources in it
+
+        :default: RemovalPolicy.DESTROY
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -2516,16 +2555,62 @@ class AccessEntryType(enum.Enum):
     '''Represents the different types of access entries that can be used in an Amazon EKS cluster.
 
     :enum: true
+    :exampleMetadata: infused
+
+    Example::
+
+        # cluster: eks.Cluster
+        # node_role: iam.Role
+        
+        
+        # For EKS Auto Mode node roles
+        cluster.grant_access("NodeAccess", node_role.role_arn, [], access_entry_type=eks.AccessEntryType.EC2)
     '''
 
     STANDARD = "STANDARD"
-    '''Represents a standard access entry.'''
+    '''Represents a standard access entry.
+
+    Use this type for standard IAM principals that need cluster access with policies.
+    '''
     FARGATE_LINUX = "FARGATE_LINUX"
-    '''Represents a Fargate Linux access entry.'''
+    '''Represents a Fargate Linux access entry.
+
+    Use this type for AWS Fargate profiles running Linux containers.
+    '''
     EC2_LINUX = "EC2_LINUX"
-    '''Represents an EC2 Linux access entry.'''
+    '''Represents an EC2 Linux access entry.
+
+    Use this type for self-managed EC2 instances running Linux that join the cluster as worker nodes.
+    '''
     EC2_WINDOWS = "EC2_WINDOWS"
-    '''Represents an EC2 Windows access entry.'''
+    '''Represents an EC2 Windows access entry.
+
+    Use this type for self-managed EC2 instances running Windows that join the cluster as worker nodes.
+    '''
+    EC2 = "EC2"
+    '''Represents an EC2 access entry for EKS Auto Mode.
+
+    Use this type for node roles in EKS Auto Mode clusters where AWS automatically manages
+    the compute infrastructure. This type cannot have access policies attached.
+
+    :see: https://docs.aws.amazon.com/eks/latest/userguide/eks-auto-mode.html
+    '''
+    HYBRID_LINUX = "HYBRID_LINUX"
+    '''Represents a Hybrid Linux access entry for EKS Hybrid Nodes.
+
+    Use this type for on-premises or edge infrastructure running Linux that connects
+    to your EKS cluster. This type cannot have access policies attached.
+
+    :see: https://docs.aws.amazon.com/eks/latest/userguide/hybrid-nodes.html
+    '''
+    HYPERPOD_LINUX = "HYPERPOD_LINUX"
+    '''Represents a HyperPod Linux access entry for Amazon SageMaker HyperPod.
+
+    Use this type for SageMaker HyperPod clusters that need access to your EKS cluster
+    for distributed machine learning workloads. This type cannot have access policies attached.
+
+    :see: https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-hyperpod.html
+    '''
 
 
 class AccessPolicyArn(
@@ -2961,6 +3046,7 @@ class AddonAttributes:
         "addon_version": "addonVersion",
         "configuration_values": "configurationValues",
         "preserve_on_delete": "preserveOnDelete",
+        "removal_policy": "removalPolicy",
     },
 )
 class AddonProps:
@@ -2972,6 +3058,7 @@ class AddonProps:
         addon_version: typing.Optional[builtins.str] = None,
         configuration_values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         preserve_on_delete: typing.Optional[builtins.bool] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
     ) -> None:
         '''Properties for creating an Amazon EKS Add-On.
 
@@ -2980,6 +3067,7 @@ class AddonProps:
         :param addon_version: Version of the Add-On. You can check all available versions with describe-addon-versions. For example, this lists all available versions for the ``eks-pod-identity-agent`` addon: $ aws eks describe-addon-versions --addon-name eks-pod-identity-agent --query 'addons[*].addonVersions[*].addonVersion' Default: the latest version.
         :param configuration_values: The configuration values for the Add-on. Default: - Use default configuration.
         :param preserve_on_delete: Specifying this option preserves the add-on software on your cluster but Amazon EKS stops managing any settings for the add-on. If an IAM account is associated with the add-on, it isn't removed. Default: true
+        :param removal_policy: The removal policy applied to the EKS add-on. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
 
         :exampleMetadata: infused
 
@@ -3006,6 +3094,7 @@ class AddonProps:
             check_type(argname="argument addon_version", value=addon_version, expected_type=type_hints["addon_version"])
             check_type(argname="argument configuration_values", value=configuration_values, expected_type=type_hints["configuration_values"])
             check_type(argname="argument preserve_on_delete", value=preserve_on_delete, expected_type=type_hints["preserve_on_delete"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "addon_name": addon_name,
             "cluster": cluster,
@@ -3016,6 +3105,8 @@ class AddonProps:
             self._values["configuration_values"] = configuration_values
         if preserve_on_delete is not None:
             self._values["preserve_on_delete"] = preserve_on_delete
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
 
     @builtins.property
     def addon_name(self) -> builtins.str:
@@ -3067,6 +3158,22 @@ class AddonProps:
         result = self._values.get("preserve_on_delete")
         return typing.cast(typing.Optional[builtins.bool], result)
 
+    @builtins.property
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+        '''The removal policy applied to the EKS add-on.
+
+        The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
+        This can happen in one of three situations:
+
+        - The resource is removed from the template, so CloudFormation stops managing it
+        - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it
+        - The stack is deleted, so CloudFormation stops managing all resources in it
+
+        :default: RemovalPolicy.DESTROY
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -3095,6 +3202,7 @@ class AlbController(
 
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
+        import aws_cdk as cdk
         from aws_cdk import aws_eks as eks
         
         # alb_controller_version: eks.AlbControllerVersion
@@ -3112,6 +3220,7 @@ class AlbController(
             ),
             overwrite_service_account=False,
             policy=policy,
+            removal_policy=cdk.RemovalPolicy.DESTROY,
             repository="repository"
         )
     '''
@@ -3126,6 +3235,7 @@ class AlbController(
         additional_helm_chart_values: typing.Optional[typing.Union["AlbControllerHelmChartOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         overwrite_service_account: typing.Optional[builtins.bool] = None,
         policy: typing.Any = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         repository: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -3136,6 +3246,7 @@ class AlbController(
         :param additional_helm_chart_values: Additional helm chart values for ALB controller. Default: - no additional helm chart values
         :param overwrite_service_account: Overwrite any existing ALB controller service account. If this is set, we will use ``kubectl apply`` instead of ``kubectl create`` when the ALB controller service account is created. Otherwise, if there is already a service account named 'aws-load-balancer-controller' in the kube-system namespace, the operation will fail. Default: false
         :param policy: The IAM policy to apply to the service account. If you're using one of the built-in versions, this is not required since CDK ships with the appropriate policies for those versions. However, if you are using a custom version, this is required (and validated). Default: - Corresponds to the predefined version.
+        :param removal_policy: The removal policy applied to the ALB controller resources. The removal policy controls what happens to the resources if they stop being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param repository: The repository to pull the controller image from. Note that the default repository works for most regions, but not all. If the repository is not applicable to your region, use a custom repository according to the information here: https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases. Default: '602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller'
         '''
         if __debug__:
@@ -3148,6 +3259,7 @@ class AlbController(
             additional_helm_chart_values=additional_helm_chart_values,
             overwrite_service_account=overwrite_service_account,
             policy=policy,
+            removal_policy=removal_policy,
             repository=repository,
         )
 
@@ -3164,6 +3276,7 @@ class AlbController(
         additional_helm_chart_values: typing.Optional[typing.Union["AlbControllerHelmChartOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         overwrite_service_account: typing.Optional[builtins.bool] = None,
         policy: typing.Any = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         repository: typing.Optional[builtins.str] = None,
     ) -> "AlbController":
         '''Create the controller construct associated with this cluster and scope.
@@ -3176,6 +3289,7 @@ class AlbController(
         :param additional_helm_chart_values: Additional helm chart values for ALB controller. Default: - no additional helm chart values
         :param overwrite_service_account: Overwrite any existing ALB controller service account. If this is set, we will use ``kubectl apply`` instead of ``kubectl create`` when the ALB controller service account is created. Otherwise, if there is already a service account named 'aws-load-balancer-controller' in the kube-system namespace, the operation will fail. Default: false
         :param policy: The IAM policy to apply to the service account. If you're using one of the built-in versions, this is not required since CDK ships with the appropriate policies for those versions. However, if you are using a custom version, this is required (and validated). Default: - Corresponds to the predefined version.
+        :param removal_policy: The removal policy applied to the ALB controller resources. The removal policy controls what happens to the resources if they stop being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param repository: The repository to pull the controller image from. Note that the default repository works for most regions, but not all. If the repository is not applicable to your region, use a custom repository according to the information here: https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases. Default: '602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller'
         '''
         if __debug__:
@@ -3187,6 +3301,7 @@ class AlbController(
             additional_helm_chart_values=additional_helm_chart_values,
             overwrite_service_account=overwrite_service_account,
             policy=policy,
+            removal_policy=removal_policy,
             repository=repository,
         )
 
@@ -3276,6 +3391,7 @@ class AlbControllerHelmChartOptions:
         "additional_helm_chart_values": "additionalHelmChartValues",
         "overwrite_service_account": "overwriteServiceAccount",
         "policy": "policy",
+        "removal_policy": "removalPolicy",
         "repository": "repository",
     },
 )
@@ -3287,6 +3403,7 @@ class AlbControllerOptions:
         additional_helm_chart_values: typing.Optional[typing.Union["AlbControllerHelmChartOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         overwrite_service_account: typing.Optional[builtins.bool] = None,
         policy: typing.Any = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         repository: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Options for ``AlbController``.
@@ -3295,6 +3412,7 @@ class AlbControllerOptions:
         :param additional_helm_chart_values: Additional helm chart values for ALB controller. Default: - no additional helm chart values
         :param overwrite_service_account: Overwrite any existing ALB controller service account. If this is set, we will use ``kubectl apply`` instead of ``kubectl create`` when the ALB controller service account is created. Otherwise, if there is already a service account named 'aws-load-balancer-controller' in the kube-system namespace, the operation will fail. Default: false
         :param policy: The IAM policy to apply to the service account. If you're using one of the built-in versions, this is not required since CDK ships with the appropriate policies for those versions. However, if you are using a custom version, this is required (and validated). Default: - Corresponds to the predefined version.
+        :param removal_policy: The removal policy applied to the ALB controller resources. The removal policy controls what happens to the resources if they stop being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param repository: The repository to pull the controller image from. Note that the default repository works for most regions, but not all. If the repository is not applicable to your region, use a custom repository according to the information here: https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases. Default: '602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller'
 
         :exampleMetadata: infused
@@ -3321,6 +3439,7 @@ class AlbControllerOptions:
             check_type(argname="argument additional_helm_chart_values", value=additional_helm_chart_values, expected_type=type_hints["additional_helm_chart_values"])
             check_type(argname="argument overwrite_service_account", value=overwrite_service_account, expected_type=type_hints["overwrite_service_account"])
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "version": version,
@@ -3331,6 +3450,8 @@ class AlbControllerOptions:
             self._values["overwrite_service_account"] = overwrite_service_account
         if policy is not None:
             self._values["policy"] = policy
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
         if repository is not None:
             self._values["repository"] = repository
 
@@ -3378,6 +3499,22 @@ class AlbControllerOptions:
         '''
         result = self._values.get("policy")
         return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+        '''The removal policy applied to the ALB controller resources.
+
+        The removal policy controls what happens to the resources if they stop being managed by CloudFormation.
+        This can happen in one of three situations:
+
+        - The resource is removed from the template, so CloudFormation stops managing it
+        - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it
+        - The stack is deleted, so CloudFormation stops managing all resources in it
+
+        :default: RemovalPolicy.DESTROY
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
 
     @builtins.property
     def repository(self) -> typing.Optional[builtins.str]:
@@ -3412,6 +3549,7 @@ class AlbControllerOptions:
         "additional_helm_chart_values": "additionalHelmChartValues",
         "overwrite_service_account": "overwriteServiceAccount",
         "policy": "policy",
+        "removal_policy": "removalPolicy",
         "repository": "repository",
         "cluster": "cluster",
     },
@@ -3424,6 +3562,7 @@ class AlbControllerProps(AlbControllerOptions):
         additional_helm_chart_values: typing.Optional[typing.Union["AlbControllerHelmChartOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         overwrite_service_account: typing.Optional[builtins.bool] = None,
         policy: typing.Any = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         repository: typing.Optional[builtins.str] = None,
         cluster: "Cluster",
     ) -> None:
@@ -3433,6 +3572,7 @@ class AlbControllerProps(AlbControllerOptions):
         :param additional_helm_chart_values: Additional helm chart values for ALB controller. Default: - no additional helm chart values
         :param overwrite_service_account: Overwrite any existing ALB controller service account. If this is set, we will use ``kubectl apply`` instead of ``kubectl create`` when the ALB controller service account is created. Otherwise, if there is already a service account named 'aws-load-balancer-controller' in the kube-system namespace, the operation will fail. Default: false
         :param policy: The IAM policy to apply to the service account. If you're using one of the built-in versions, this is not required since CDK ships with the appropriate policies for those versions. However, if you are using a custom version, this is required (and validated). Default: - Corresponds to the predefined version.
+        :param removal_policy: The removal policy applied to the ALB controller resources. The removal policy controls what happens to the resources if they stop being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param repository: The repository to pull the controller image from. Note that the default repository works for most regions, but not all. If the repository is not applicable to your region, use a custom repository according to the information here: https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases. Default: '602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller'
         :param cluster: [disable-awslint:ref-via-interface] Cluster to install the controller onto.
 
@@ -3442,6 +3582,7 @@ class AlbControllerProps(AlbControllerOptions):
 
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
+            import aws_cdk as cdk
             from aws_cdk import aws_eks as eks
             
             # alb_controller_version: eks.AlbControllerVersion
@@ -3459,6 +3600,7 @@ class AlbControllerProps(AlbControllerOptions):
                 ),
                 overwrite_service_account=False,
                 policy=policy,
+                removal_policy=cdk.RemovalPolicy.DESTROY,
                 repository="repository"
             )
         '''
@@ -3470,6 +3612,7 @@ class AlbControllerProps(AlbControllerOptions):
             check_type(argname="argument additional_helm_chart_values", value=additional_helm_chart_values, expected_type=type_hints["additional_helm_chart_values"])
             check_type(argname="argument overwrite_service_account", value=overwrite_service_account, expected_type=type_hints["overwrite_service_account"])
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3482,6 +3625,8 @@ class AlbControllerProps(AlbControllerOptions):
             self._values["overwrite_service_account"] = overwrite_service_account
         if policy is not None:
             self._values["policy"] = policy
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
         if repository is not None:
             self._values["repository"] = repository
 
@@ -3529,6 +3674,22 @@ class AlbControllerProps(AlbControllerOptions):
         '''
         result = self._values.get("policy")
         return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+        '''The removal policy applied to the ALB controller resources.
+
+        The removal policy controls what happens to the resources if they stop being managed by CloudFormation.
+        This can happen in one of three situations:
+
+        - The resource is removed from the template, so CloudFormation stops managing it
+        - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it
+        - The stack is deleted, so CloudFormation stops managing all resources in it
+
+        :default: RemovalPolicy.DESTROY
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
 
     @builtins.property
     def repository(self) -> typing.Optional[builtins.str]:
@@ -14600,6 +14761,7 @@ class FargateProfile(
         selectors: typing.Sequence[typing.Union["Selector", typing.Dict[builtins.str, typing.Any]]],
         fargate_profile_name: typing.Optional[builtins.str] = None,
         pod_execution_role: typing.Optional["_IRole_235f5d8e"] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         subnet_selection: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
         vpc: typing.Optional["_IVpc_f30d5663"] = None,
     ) -> None:
@@ -14610,6 +14772,7 @@ class FargateProfile(
         :param selectors: The selectors to match for pods to use this Fargate profile. Each selector must have an associated namespace. Optionally, you can also specify labels for a namespace. At least one selector is required and you may specify up to five selectors.
         :param fargate_profile_name: The name of the Fargate profile. Default: - generated
         :param pod_execution_role: The pod execution role to use for pods that match the selectors in the Fargate profile. The pod execution role allows Fargate infrastructure to register with your cluster as a node, and it provides read access to Amazon ECR image repositories. Default: - a role will be automatically created
+        :param removal_policy: The removal policy applied to the custom resource that manages the Fargate profile. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param subnet_selection: Select which subnets to launch your pods into. At this time, pods running on Fargate are not assigned public IP addresses, so only private subnets (with no direct route to an Internet Gateway) are allowed. You must specify the VPC to customize the subnet selection Default: - all private subnets of the VPC are selected.
         :param vpc: The VPC from which to select subnets to launch your pods into. By default, all private subnets are selected. You can customize this using ``subnetSelection``. Default: - all private subnets used by the EKS cluster
         '''
@@ -14622,6 +14785,7 @@ class FargateProfile(
             selectors=selectors,
             fargate_profile_name=fargate_profile_name,
             pod_execution_role=pod_execution_role,
+            removal_policy=removal_policy,
             subnet_selection=subnet_selection,
             vpc=vpc,
         )
@@ -14671,6 +14835,7 @@ class FargateProfile(
         "selectors": "selectors",
         "fargate_profile_name": "fargateProfileName",
         "pod_execution_role": "podExecutionRole",
+        "removal_policy": "removalPolicy",
         "subnet_selection": "subnetSelection",
         "vpc": "vpc",
     },
@@ -14682,6 +14847,7 @@ class FargateProfileOptions:
         selectors: typing.Sequence[typing.Union["Selector", typing.Dict[builtins.str, typing.Any]]],
         fargate_profile_name: typing.Optional[builtins.str] = None,
         pod_execution_role: typing.Optional["_IRole_235f5d8e"] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         subnet_selection: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
         vpc: typing.Optional["_IVpc_f30d5663"] = None,
     ) -> None:
@@ -14690,6 +14856,7 @@ class FargateProfileOptions:
         :param selectors: The selectors to match for pods to use this Fargate profile. Each selector must have an associated namespace. Optionally, you can also specify labels for a namespace. At least one selector is required and you may specify up to five selectors.
         :param fargate_profile_name: The name of the Fargate profile. Default: - generated
         :param pod_execution_role: The pod execution role to use for pods that match the selectors in the Fargate profile. The pod execution role allows Fargate infrastructure to register with your cluster as a node, and it provides read access to Amazon ECR image repositories. Default: - a role will be automatically created
+        :param removal_policy: The removal policy applied to the custom resource that manages the Fargate profile. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param subnet_selection: Select which subnets to launch your pods into. At this time, pods running on Fargate are not assigned public IP addresses, so only private subnets (with no direct route to an Internet Gateway) are allowed. You must specify the VPC to customize the subnet selection Default: - all private subnets of the VPC are selected.
         :param vpc: The VPC from which to select subnets to launch your pods into. By default, all private subnets are selected. You can customize this using ``subnetSelection``. Default: - all private subnets used by the EKS cluster
 
@@ -14710,6 +14877,7 @@ class FargateProfileOptions:
             check_type(argname="argument selectors", value=selectors, expected_type=type_hints["selectors"])
             check_type(argname="argument fargate_profile_name", value=fargate_profile_name, expected_type=type_hints["fargate_profile_name"])
             check_type(argname="argument pod_execution_role", value=pod_execution_role, expected_type=type_hints["pod_execution_role"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
             check_type(argname="argument subnet_selection", value=subnet_selection, expected_type=type_hints["subnet_selection"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -14719,6 +14887,8 @@ class FargateProfileOptions:
             self._values["fargate_profile_name"] = fargate_profile_name
         if pod_execution_role is not None:
             self._values["pod_execution_role"] = pod_execution_role
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
         if subnet_selection is not None:
             self._values["subnet_selection"] = subnet_selection
         if vpc is not None:
@@ -14761,6 +14931,22 @@ class FargateProfileOptions:
         '''
         result = self._values.get("pod_execution_role")
         return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+
+    @builtins.property
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+        '''The removal policy applied to the custom resource that manages the Fargate profile.
+
+        The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
+        This can happen in one of three situations:
+
+        - The resource is removed from the template, so CloudFormation stops managing it
+        - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it
+        - The stack is deleted, so CloudFormation stops managing all resources in it
+
+        :default: RemovalPolicy.DESTROY
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
 
     @builtins.property
     def subnet_selection(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
@@ -14808,6 +14994,7 @@ class FargateProfileOptions:
         "selectors": "selectors",
         "fargate_profile_name": "fargateProfileName",
         "pod_execution_role": "podExecutionRole",
+        "removal_policy": "removalPolicy",
         "subnet_selection": "subnetSelection",
         "vpc": "vpc",
         "cluster": "cluster",
@@ -14820,6 +15007,7 @@ class FargateProfileProps(FargateProfileOptions):
         selectors: typing.Sequence[typing.Union["Selector", typing.Dict[builtins.str, typing.Any]]],
         fargate_profile_name: typing.Optional[builtins.str] = None,
         pod_execution_role: typing.Optional["_IRole_235f5d8e"] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         subnet_selection: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
         vpc: typing.Optional["_IVpc_f30d5663"] = None,
         cluster: "Cluster",
@@ -14829,6 +15017,7 @@ class FargateProfileProps(FargateProfileOptions):
         :param selectors: The selectors to match for pods to use this Fargate profile. Each selector must have an associated namespace. Optionally, you can also specify labels for a namespace. At least one selector is required and you may specify up to five selectors.
         :param fargate_profile_name: The name of the Fargate profile. Default: - generated
         :param pod_execution_role: The pod execution role to use for pods that match the selectors in the Fargate profile. The pod execution role allows Fargate infrastructure to register with your cluster as a node, and it provides read access to Amazon ECR image repositories. Default: - a role will be automatically created
+        :param removal_policy: The removal policy applied to the custom resource that manages the Fargate profile. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param subnet_selection: Select which subnets to launch your pods into. At this time, pods running on Fargate are not assigned public IP addresses, so only private subnets (with no direct route to an Internet Gateway) are allowed. You must specify the VPC to customize the subnet selection Default: - all private subnets of the VPC are selected.
         :param vpc: The VPC from which to select subnets to launch your pods into. By default, all private subnets are selected. You can customize this using ``subnetSelection``. Default: - all private subnets used by the EKS cluster
         :param cluster: The EKS cluster to apply the Fargate profile to. [disable-awslint:ref-via-interface]
@@ -14851,6 +15040,7 @@ class FargateProfileProps(FargateProfileOptions):
             check_type(argname="argument selectors", value=selectors, expected_type=type_hints["selectors"])
             check_type(argname="argument fargate_profile_name", value=fargate_profile_name, expected_type=type_hints["fargate_profile_name"])
             check_type(argname="argument pod_execution_role", value=pod_execution_role, expected_type=type_hints["pod_execution_role"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
             check_type(argname="argument subnet_selection", value=subnet_selection, expected_type=type_hints["subnet_selection"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
@@ -14862,6 +15052,8 @@ class FargateProfileProps(FargateProfileOptions):
             self._values["fargate_profile_name"] = fargate_profile_name
         if pod_execution_role is not None:
             self._values["pod_execution_role"] = pod_execution_role
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
         if subnet_selection is not None:
             self._values["subnet_selection"] = subnet_selection
         if vpc is not None:
@@ -14904,6 +15096,22 @@ class FargateProfileProps(FargateProfileOptions):
         '''
         result = self._values.get("pod_execution_role")
         return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+
+    @builtins.property
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+        '''The removal policy applied to the custom resource that manages the Fargate profile.
+
+        The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
+        This can happen in one of three situations:
+
+        - The resource is removed from the template, so CloudFormation stops managing it
+        - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it
+        - The stack is deleted, so CloudFormation stops managing all resources in it
+
+        :default: RemovalPolicy.DESTROY
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
 
     @builtins.property
     def subnet_selection(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
@@ -14954,6 +15162,67 @@ class FargateProfileProps(FargateProfileOptions):
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_eks.GrantAccessOptions",
+    jsii_struct_bases=[],
+    name_mapping={"access_entry_type": "accessEntryType"},
+)
+class GrantAccessOptions:
+    def __init__(
+        self,
+        *,
+        access_entry_type: typing.Optional["AccessEntryType"] = None,
+    ) -> None:
+        '''Options for granting access to a cluster.
+
+        :param access_entry_type: The type of the access entry. Specify ``AccessEntryType.EC2`` for EKS Auto Mode node roles, ``AccessEntryType.HYBRID_LINUX`` for EKS Hybrid Nodes, or ``AccessEntryType.HYPERPOD_LINUX`` for SageMaker HyperPod. Note that EC2, HYBRID_LINUX, and HYPERPOD_LINUX types cannot have access policies attached per AWS EKS API constraints. Default: AccessEntryType.STANDARD - Standard access entry type that supports access policies
+
+        :exampleMetadata: infused
+
+        Example::
+
+            # cluster: eks.Cluster
+            # node_role: iam.Role
+            
+            
+            # For EKS Auto Mode node roles
+            cluster.grant_access("NodeAccess", node_role.role_arn, [], access_entry_type=eks.AccessEntryType.EC2)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__98a3636724b40e6e0a9dfc44c7da30e7d782d88e4b0c5671ed0c21db4db97033)
+            check_type(argname="argument access_entry_type", value=access_entry_type, expected_type=type_hints["access_entry_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if access_entry_type is not None:
+            self._values["access_entry_type"] = access_entry_type
+
+    @builtins.property
+    def access_entry_type(self) -> typing.Optional["AccessEntryType"]:
+        '''The type of the access entry.
+
+        Specify ``AccessEntryType.EC2`` for EKS Auto Mode node roles,
+        ``AccessEntryType.HYBRID_LINUX`` for EKS Hybrid Nodes, or
+        ``AccessEntryType.HYPERPOD_LINUX`` for SageMaker HyperPod.
+
+        Note that EC2, HYBRID_LINUX, and HYPERPOD_LINUX types cannot
+        have access policies attached per AWS EKS API constraints.
+
+        :default: AccessEntryType.STANDARD - Standard access entry type that supports access policies
+        '''
+        result = self._values.get("access_entry_type")
+        return typing.cast(typing.Optional["AccessEntryType"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GrantAccessOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class HelmChart(
     _constructs_77d1e7e8.Construct,
     metaclass=jsii.JSIIMeta,
@@ -14991,6 +15260,7 @@ class HelmChart(
         create_namespace: typing.Optional[builtins.bool] = None,
         namespace: typing.Optional[builtins.str] = None,
         release: typing.Optional[builtins.str] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         repository: typing.Optional[builtins.str] = None,
         skip_crds: typing.Optional[builtins.bool] = None,
         timeout: typing.Optional["_Duration_4839e8c3"] = None,
@@ -15008,6 +15278,7 @@ class HelmChart(
         :param create_namespace: create namespace if not exist. Default: true
         :param namespace: The Kubernetes namespace scope of the requests. Default: default
         :param release: The name of the release. Default: - If no release name is given, it will use the last 53 characters of the node's unique id.
+        :param removal_policy: The removal policy applied to the custom resource that manages the Helm chart. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param repository: The repository which contains the chart. For example: https://charts.helm.sh/stable/ Default: - No repository will be used, which means that the chart needs to be an absolute URL.
         :param skip_crds: if set, no CRDs will be installed. Default: - CRDs are installed if not already present
         :param timeout: Amount of time to wait for any individual Kubernetes operation. Maximum 15 minutes. Default: Duration.minutes(5)
@@ -15027,6 +15298,7 @@ class HelmChart(
             create_namespace=create_namespace,
             namespace=namespace,
             release=release,
+            removal_policy=removal_policy,
             repository=repository,
             skip_crds=skip_crds,
             timeout=timeout,
@@ -15079,6 +15351,7 @@ class HelmChart(
         "create_namespace": "createNamespace",
         "namespace": "namespace",
         "release": "release",
+        "removal_policy": "removalPolicy",
         "repository": "repository",
         "skip_crds": "skipCrds",
         "timeout": "timeout",
@@ -15097,6 +15370,7 @@ class HelmChartOptions:
         create_namespace: typing.Optional[builtins.bool] = None,
         namespace: typing.Optional[builtins.str] = None,
         release: typing.Optional[builtins.str] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         repository: typing.Optional[builtins.str] = None,
         skip_crds: typing.Optional[builtins.bool] = None,
         timeout: typing.Optional["_Duration_4839e8c3"] = None,
@@ -15112,6 +15386,7 @@ class HelmChartOptions:
         :param create_namespace: create namespace if not exist. Default: true
         :param namespace: The Kubernetes namespace scope of the requests. Default: default
         :param release: The name of the release. Default: - If no release name is given, it will use the last 53 characters of the node's unique id.
+        :param removal_policy: The removal policy applied to the custom resource that manages the Helm chart. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param repository: The repository which contains the chart. For example: https://charts.helm.sh/stable/ Default: - No repository will be used, which means that the chart needs to be an absolute URL.
         :param skip_crds: if set, no CRDs will be installed. Default: - CRDs are installed if not already present
         :param timeout: Amount of time to wait for any individual Kubernetes operation. Maximum 15 minutes. Default: Duration.minutes(5)
@@ -15143,6 +15418,7 @@ class HelmChartOptions:
             check_type(argname="argument create_namespace", value=create_namespace, expected_type=type_hints["create_namespace"])
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
             check_type(argname="argument release", value=release, expected_type=type_hints["release"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
             check_type(argname="argument skip_crds", value=skip_crds, expected_type=type_hints["skip_crds"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
@@ -15162,6 +15438,8 @@ class HelmChartOptions:
             self._values["namespace"] = namespace
         if release is not None:
             self._values["release"] = release
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
         if repository is not None:
             self._values["repository"] = repository
         if skip_crds is not None:
@@ -15235,6 +15513,22 @@ class HelmChartOptions:
         '''
         result = self._values.get("release")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+        '''The removal policy applied to the custom resource that manages the Helm chart.
+
+        The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
+        This can happen in one of three situations:
+
+        - The resource is removed from the template, so CloudFormation stops managing it
+        - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it
+        - The stack is deleted, so CloudFormation stops managing all resources in it
+
+        :default: RemovalPolicy.DESTROY
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
 
     @builtins.property
     def repository(self) -> typing.Optional[builtins.str]:
@@ -15322,6 +15616,7 @@ class HelmChartOptions:
         "create_namespace": "createNamespace",
         "namespace": "namespace",
         "release": "release",
+        "removal_policy": "removalPolicy",
         "repository": "repository",
         "skip_crds": "skipCrds",
         "timeout": "timeout",
@@ -15341,6 +15636,7 @@ class HelmChartProps(HelmChartOptions):
         create_namespace: typing.Optional[builtins.bool] = None,
         namespace: typing.Optional[builtins.str] = None,
         release: typing.Optional[builtins.str] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         repository: typing.Optional[builtins.str] = None,
         skip_crds: typing.Optional[builtins.bool] = None,
         timeout: typing.Optional["_Duration_4839e8c3"] = None,
@@ -15357,6 +15653,7 @@ class HelmChartProps(HelmChartOptions):
         :param create_namespace: create namespace if not exist. Default: true
         :param namespace: The Kubernetes namespace scope of the requests. Default: default
         :param release: The name of the release. Default: - If no release name is given, it will use the last 53 characters of the node's unique id.
+        :param removal_policy: The removal policy applied to the custom resource that manages the Helm chart. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param repository: The repository which contains the chart. For example: https://charts.helm.sh/stable/ Default: - No repository will be used, which means that the chart needs to be an absolute URL.
         :param skip_crds: if set, no CRDs will be installed. Default: - CRDs are installed if not already present
         :param timeout: Amount of time to wait for any individual Kubernetes operation. Maximum 15 minutes. Default: Duration.minutes(5)
@@ -15388,6 +15685,7 @@ class HelmChartProps(HelmChartOptions):
             check_type(argname="argument create_namespace", value=create_namespace, expected_type=type_hints["create_namespace"])
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
             check_type(argname="argument release", value=release, expected_type=type_hints["release"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
             check_type(argname="argument skip_crds", value=skip_crds, expected_type=type_hints["skip_crds"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
@@ -15410,6 +15708,8 @@ class HelmChartProps(HelmChartOptions):
             self._values["namespace"] = namespace
         if release is not None:
             self._values["release"] = release
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
         if repository is not None:
             self._values["repository"] = repository
         if skip_crds is not None:
@@ -15483,6 +15783,22 @@ class HelmChartProps(HelmChartOptions):
         '''
         result = self._values.get("release")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+        '''The removal policy applied to the custom resource that manages the Helm chart.
+
+        The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
+        This can happen in one of three situations:
+
+        - The resource is removed from the template, so CloudFormation stops managing it
+        - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it
+        - The stack is deleted, so CloudFormation stops managing all resources in it
+
+        :default: RemovalPolicy.DESTROY
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
 
     @builtins.property
     def repository(self) -> typing.Optional[builtins.str]:
@@ -15984,6 +16300,7 @@ class ICluster(
         ingress_alb: typing.Optional[builtins.bool] = None,
         ingress_alb_scheme: typing.Optional["AlbScheme"] = None,
         prune: typing.Optional[builtins.bool] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         skip_validation: typing.Optional[builtins.bool] = None,
     ) -> "KubernetesManifest":
         '''Defines a CDK8s chart in this cluster.
@@ -15993,6 +16310,7 @@ class ICluster(
         :param ingress_alb: Automatically detect ``Ingress`` resources in the manifest and annotate them so they are picked up by an ALB Ingress Controller. Default: false
         :param ingress_alb_scheme: Specify the ALB scheme that should be applied to ``Ingress`` resources. Only applicable if ``ingressAlb`` is set to ``true``. Default: AlbScheme.INTERNAL
         :param prune: When a resource is removed from a Kubernetes manifest, it no longer appears in the manifest, and there is no way to know that this resource needs to be deleted. To address this, ``kubectl apply`` has a ``--prune`` option which will query the cluster for all resources with a specific label and will remove all the labeld resources that are not part of the applied manifest. If this option is disabled and a resource is removed, it will become "orphaned" and will not be deleted from the cluster. When this option is enabled (default), the construct will inject a label to all Kubernetes resources included in this manifest which will be used to prune resources when the manifest changes via ``kubectl apply --prune``. The label name will be ``aws.cdk.eks/prune-<ADDR>`` where ``<ADDR>`` is the 42-char unique address of this construct in the construct tree. Value is empty. Default: - based on the prune option of the cluster, which is ``true`` unless otherwise specified.
+        :param removal_policy: The removal policy applied to the custom resource that manages the Kubernetes manifest. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param skip_validation: A flag to signify if the manifest validation should be skipped. Default: false
 
         :return: a ``KubernetesManifest`` construct representing the chart.
@@ -16010,6 +16328,7 @@ class ICluster(
         create_namespace: typing.Optional[builtins.bool] = None,
         namespace: typing.Optional[builtins.str] = None,
         release: typing.Optional[builtins.str] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         repository: typing.Optional[builtins.str] = None,
         skip_crds: typing.Optional[builtins.bool] = None,
         timeout: typing.Optional["_Duration_4839e8c3"] = None,
@@ -16026,6 +16345,7 @@ class ICluster(
         :param create_namespace: create namespace if not exist. Default: true
         :param namespace: The Kubernetes namespace scope of the requests. Default: default
         :param release: The name of the release. Default: - If no release name is given, it will use the last 53 characters of the node's unique id.
+        :param removal_policy: The removal policy applied to the custom resource that manages the Helm chart. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param repository: The repository which contains the chart. For example: https://charts.helm.sh/stable/ Default: - No repository will be used, which means that the chart needs to be an absolute URL.
         :param skip_crds: if set, no CRDs will be installed. Default: - CRDs are installed if not already present
         :param timeout: Amount of time to wait for any individual Kubernetes operation. Maximum 15 minutes. Default: Duration.minutes(5)
@@ -16065,6 +16385,7 @@ class ICluster(
         name: typing.Optional[builtins.str] = None,
         namespace: typing.Optional[builtins.str] = None,
         overwrite_service_account: typing.Optional[builtins.bool] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
     ) -> "ServiceAccount":
         '''Creates a new service account with corresponding IAM Role (IRSA).
 
@@ -16075,6 +16396,7 @@ class ICluster(
         :param name: The name of the service account. The name of a ServiceAccount object must be a valid DNS subdomain name. https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/ Default: - If no name is given, it will use the id of the resource.
         :param namespace: The namespace of the service account. All namespace names must be valid RFC 1123 DNS labels. https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/#namespaces-and-dns Default: "default"
         :param overwrite_service_account: Overwrite existing service account. If this is set, we will use ``kubectl apply`` instead of ``kubectl create`` when the service account is created. Otherwise, if there is already a service account in the cluster with the same name, the operation will fail. Default: false
+        :param removal_policy: The removal policy applied to the service account resources. The removal policy controls what happens to the resources if they stop being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         '''
         ...
 
@@ -16362,6 +16684,7 @@ class _IClusterProxy(
         ingress_alb: typing.Optional[builtins.bool] = None,
         ingress_alb_scheme: typing.Optional["AlbScheme"] = None,
         prune: typing.Optional[builtins.bool] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         skip_validation: typing.Optional[builtins.bool] = None,
     ) -> "KubernetesManifest":
         '''Defines a CDK8s chart in this cluster.
@@ -16371,6 +16694,7 @@ class _IClusterProxy(
         :param ingress_alb: Automatically detect ``Ingress`` resources in the manifest and annotate them so they are picked up by an ALB Ingress Controller. Default: false
         :param ingress_alb_scheme: Specify the ALB scheme that should be applied to ``Ingress`` resources. Only applicable if ``ingressAlb`` is set to ``true``. Default: AlbScheme.INTERNAL
         :param prune: When a resource is removed from a Kubernetes manifest, it no longer appears in the manifest, and there is no way to know that this resource needs to be deleted. To address this, ``kubectl apply`` has a ``--prune`` option which will query the cluster for all resources with a specific label and will remove all the labeld resources that are not part of the applied manifest. If this option is disabled and a resource is removed, it will become "orphaned" and will not be deleted from the cluster. When this option is enabled (default), the construct will inject a label to all Kubernetes resources included in this manifest which will be used to prune resources when the manifest changes via ``kubectl apply --prune``. The label name will be ``aws.cdk.eks/prune-<ADDR>`` where ``<ADDR>`` is the 42-char unique address of this construct in the construct tree. Value is empty. Default: - based on the prune option of the cluster, which is ``true`` unless otherwise specified.
+        :param removal_policy: The removal policy applied to the custom resource that manages the Kubernetes manifest. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param skip_validation: A flag to signify if the manifest validation should be skipped. Default: false
 
         :return: a ``KubernetesManifest`` construct representing the chart.
@@ -16383,6 +16707,7 @@ class _IClusterProxy(
             ingress_alb=ingress_alb,
             ingress_alb_scheme=ingress_alb_scheme,
             prune=prune,
+            removal_policy=removal_policy,
             skip_validation=skip_validation,
         )
 
@@ -16399,6 +16724,7 @@ class _IClusterProxy(
         create_namespace: typing.Optional[builtins.bool] = None,
         namespace: typing.Optional[builtins.str] = None,
         release: typing.Optional[builtins.str] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         repository: typing.Optional[builtins.str] = None,
         skip_crds: typing.Optional[builtins.bool] = None,
         timeout: typing.Optional["_Duration_4839e8c3"] = None,
@@ -16415,6 +16741,7 @@ class _IClusterProxy(
         :param create_namespace: create namespace if not exist. Default: true
         :param namespace: The Kubernetes namespace scope of the requests. Default: default
         :param release: The name of the release. Default: - If no release name is given, it will use the last 53 characters of the node's unique id.
+        :param removal_policy: The removal policy applied to the custom resource that manages the Helm chart. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param repository: The repository which contains the chart. For example: https://charts.helm.sh/stable/ Default: - No repository will be used, which means that the chart needs to be an absolute URL.
         :param skip_crds: if set, no CRDs will be installed. Default: - CRDs are installed if not already present
         :param timeout: Amount of time to wait for any individual Kubernetes operation. Maximum 15 minutes. Default: Duration.minutes(5)
@@ -16434,6 +16761,7 @@ class _IClusterProxy(
             create_namespace=create_namespace,
             namespace=namespace,
             release=release,
+            removal_policy=removal_policy,
             repository=repository,
             skip_crds=skip_crds,
             timeout=timeout,
@@ -16476,6 +16804,7 @@ class _IClusterProxy(
         name: typing.Optional[builtins.str] = None,
         namespace: typing.Optional[builtins.str] = None,
         overwrite_service_account: typing.Optional[builtins.bool] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
     ) -> "ServiceAccount":
         '''Creates a new service account with corresponding IAM Role (IRSA).
 
@@ -16486,6 +16815,7 @@ class _IClusterProxy(
         :param name: The name of the service account. The name of a ServiceAccount object must be a valid DNS subdomain name. https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/ Default: - If no name is given, it will use the id of the resource.
         :param namespace: The namespace of the service account. All namespace names must be valid RFC 1123 DNS labels. https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/#namespaces-and-dns Default: "default"
         :param overwrite_service_account: Overwrite existing service account. If this is set, we will use ``kubectl apply`` instead of ``kubectl create`` when the service account is created. Otherwise, if there is already a service account in the cluster with the same name, the operation will fail. Default: false
+        :param removal_policy: The removal policy applied to the service account resources. The removal policy controls what happens to the resources if they stop being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e1ebfaeb10359620b55323126554d3e31b14090625de1618808646a519d578de)
@@ -16497,6 +16827,7 @@ class _IClusterProxy(
             name=name,
             namespace=namespace,
             overwrite_service_account=overwrite_service_account,
+            removal_policy=removal_policy,
         )
 
         return typing.cast("ServiceAccount", jsii.invoke(self, "addServiceAccount", [id, options]))
@@ -16767,17 +17098,19 @@ class KubectlProvider(
         id: builtins.str,
         *,
         cluster: "ICluster",
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
     ) -> None:
         '''
         :param scope: -
         :param id: -
         :param cluster: The cluster to control.
+        :param removal_policy: The removal policy applied to the custom resource that provides kubectl. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__24dada33beb6c104bc8b7b823dcac3b05870723d95a8d91a6a6cf2c6809248e3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = KubectlProviderProps(cluster=cluster)
+        props = KubectlProviderProps(cluster=cluster, removal_policy=removal_policy)
 
         jsii.create(self.__class__, self, [scope, id, props])
 
@@ -16940,13 +17273,19 @@ class KubectlProviderAttributes:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_eks.KubectlProviderProps",
     jsii_struct_bases=[],
-    name_mapping={"cluster": "cluster"},
+    name_mapping={"cluster": "cluster", "removal_policy": "removalPolicy"},
 )
 class KubectlProviderProps:
-    def __init__(self, *, cluster: "ICluster") -> None:
+    def __init__(
+        self,
+        *,
+        cluster: "ICluster",
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+    ) -> None:
         '''Properties for a KubectlProvider.
 
         :param cluster: The cluster to control.
+        :param removal_policy: The removal policy applied to the custom resource that provides kubectl. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
 
         :exampleMetadata: fixture=_generated
 
@@ -16954,20 +17293,27 @@ class KubectlProviderProps:
 
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
+            import aws_cdk as cdk
             from aws_cdk import aws_eks as eks
             
             # cluster: eks.Cluster
             
             kubectl_provider_props = eks.KubectlProviderProps(
-                cluster=cluster
+                cluster=cluster,
+            
+                # the properties below are optional
+                removal_policy=cdk.RemovalPolicy.DESTROY
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eee4a407d1851bcb733f863ecb7adf5b7b6146cfb2b71cd124c91bf6001272ab)
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster": cluster,
         }
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
 
     @builtins.property
     def cluster(self) -> "ICluster":
@@ -16975,6 +17321,22 @@ class KubectlProviderProps:
         result = self._values.get("cluster")
         assert result is not None, "Required property 'cluster' is missing"
         return typing.cast("ICluster", result)
+
+    @builtins.property
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+        '''The removal policy applied to the custom resource that provides kubectl.
+
+        The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
+        This can happen in one of three situations:
+
+        - The resource is removed from the template, so CloudFormation stops managing it
+        - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it
+        - The stack is deleted, so CloudFormation stops managing all resources in it
+
+        :default: RemovalPolicy.DESTROY
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -17034,6 +17396,7 @@ class KubernetesManifest(
         ingress_alb: typing.Optional[builtins.bool] = None,
         ingress_alb_scheme: typing.Optional["AlbScheme"] = None,
         prune: typing.Optional[builtins.bool] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         skip_validation: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
@@ -17045,6 +17408,7 @@ class KubernetesManifest(
         :param ingress_alb: Automatically detect ``Ingress`` resources in the manifest and annotate them so they are picked up by an ALB Ingress Controller. Default: false
         :param ingress_alb_scheme: Specify the ALB scheme that should be applied to ``Ingress`` resources. Only applicable if ``ingressAlb`` is set to ``true``. Default: AlbScheme.INTERNAL
         :param prune: When a resource is removed from a Kubernetes manifest, it no longer appears in the manifest, and there is no way to know that this resource needs to be deleted. To address this, ``kubectl apply`` has a ``--prune`` option which will query the cluster for all resources with a specific label and will remove all the labeld resources that are not part of the applied manifest. If this option is disabled and a resource is removed, it will become "orphaned" and will not be deleted from the cluster. When this option is enabled (default), the construct will inject a label to all Kubernetes resources included in this manifest which will be used to prune resources when the manifest changes via ``kubectl apply --prune``. The label name will be ``aws.cdk.eks/prune-<ADDR>`` where ``<ADDR>`` is the 42-char unique address of this construct in the construct tree. Value is empty. Default: - based on the prune option of the cluster, which is ``true`` unless otherwise specified.
+        :param removal_policy: The removal policy applied to the custom resource that manages the Kubernetes manifest. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param skip_validation: A flag to signify if the manifest validation should be skipped. Default: false
         '''
         if __debug__:
@@ -17058,6 +17422,7 @@ class KubernetesManifest(
             ingress_alb=ingress_alb,
             ingress_alb_scheme=ingress_alb_scheme,
             prune=prune,
+            removal_policy=removal_policy,
             skip_validation=skip_validation,
         )
 
@@ -17083,6 +17448,7 @@ class KubernetesManifest(
         "ingress_alb": "ingressAlb",
         "ingress_alb_scheme": "ingressAlbScheme",
         "prune": "prune",
+        "removal_policy": "removalPolicy",
         "skip_validation": "skipValidation",
     },
 )
@@ -17093,6 +17459,7 @@ class KubernetesManifestOptions:
         ingress_alb: typing.Optional[builtins.bool] = None,
         ingress_alb_scheme: typing.Optional["AlbScheme"] = None,
         prune: typing.Optional[builtins.bool] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         skip_validation: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Options for ``KubernetesManifest``.
@@ -17100,6 +17467,7 @@ class KubernetesManifestOptions:
         :param ingress_alb: Automatically detect ``Ingress`` resources in the manifest and annotate them so they are picked up by an ALB Ingress Controller. Default: false
         :param ingress_alb_scheme: Specify the ALB scheme that should be applied to ``Ingress`` resources. Only applicable if ``ingressAlb`` is set to ``true``. Default: AlbScheme.INTERNAL
         :param prune: When a resource is removed from a Kubernetes manifest, it no longer appears in the manifest, and there is no way to know that this resource needs to be deleted. To address this, ``kubectl apply`` has a ``--prune`` option which will query the cluster for all resources with a specific label and will remove all the labeld resources that are not part of the applied manifest. If this option is disabled and a resource is removed, it will become "orphaned" and will not be deleted from the cluster. When this option is enabled (default), the construct will inject a label to all Kubernetes resources included in this manifest which will be used to prune resources when the manifest changes via ``kubectl apply --prune``. The label name will be ``aws.cdk.eks/prune-<ADDR>`` where ``<ADDR>`` is the 42-char unique address of this construct in the construct tree. Value is empty. Default: - based on the prune option of the cluster, which is ``true`` unless otherwise specified.
+        :param removal_policy: The removal policy applied to the custom resource that manages the Kubernetes manifest. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param skip_validation: A flag to signify if the manifest validation should be skipped. Default: false
 
         :exampleMetadata: fixture=_generated
@@ -17108,12 +17476,14 @@ class KubernetesManifestOptions:
 
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
+            import aws_cdk as cdk
             from aws_cdk import aws_eks as eks
             
             kubernetes_manifest_options = eks.KubernetesManifestOptions(
                 ingress_alb=False,
                 ingress_alb_scheme=eks.AlbScheme.INTERNAL,
                 prune=False,
+                removal_policy=cdk.RemovalPolicy.DESTROY,
                 skip_validation=False
             )
         '''
@@ -17122,6 +17492,7 @@ class KubernetesManifestOptions:
             check_type(argname="argument ingress_alb", value=ingress_alb, expected_type=type_hints["ingress_alb"])
             check_type(argname="argument ingress_alb_scheme", value=ingress_alb_scheme, expected_type=type_hints["ingress_alb_scheme"])
             check_type(argname="argument prune", value=prune, expected_type=type_hints["prune"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
             check_type(argname="argument skip_validation", value=skip_validation, expected_type=type_hints["skip_validation"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if ingress_alb is not None:
@@ -17130,6 +17501,8 @@ class KubernetesManifestOptions:
             self._values["ingress_alb_scheme"] = ingress_alb_scheme
         if prune is not None:
             self._values["prune"] = prune
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
         if skip_validation is not None:
             self._values["skip_validation"] = skip_validation
 
@@ -17182,6 +17555,22 @@ class KubernetesManifestOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+        '''The removal policy applied to the custom resource that manages the Kubernetes manifest.
+
+        The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
+        This can happen in one of three situations:
+
+        - The resource is removed from the template, so CloudFormation stops managing it
+        - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it
+        - The stack is deleted, so CloudFormation stops managing all resources in it
+
+        :default: RemovalPolicy.DESTROY
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+
+    @builtins.property
     def skip_validation(self) -> typing.Optional[builtins.bool]:
         '''A flag to signify if the manifest validation should be skipped.
 
@@ -17209,6 +17598,7 @@ class KubernetesManifestOptions:
         "ingress_alb": "ingressAlb",
         "ingress_alb_scheme": "ingressAlbScheme",
         "prune": "prune",
+        "removal_policy": "removalPolicy",
         "skip_validation": "skipValidation",
         "cluster": "cluster",
         "manifest": "manifest",
@@ -17222,6 +17612,7 @@ class KubernetesManifestProps(KubernetesManifestOptions):
         ingress_alb: typing.Optional[builtins.bool] = None,
         ingress_alb_scheme: typing.Optional["AlbScheme"] = None,
         prune: typing.Optional[builtins.bool] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         skip_validation: typing.Optional[builtins.bool] = None,
         cluster: "ICluster",
         manifest: typing.Sequence[typing.Mapping[builtins.str, typing.Any]],
@@ -17232,6 +17623,7 @@ class KubernetesManifestProps(KubernetesManifestOptions):
         :param ingress_alb: Automatically detect ``Ingress`` resources in the manifest and annotate them so they are picked up by an ALB Ingress Controller. Default: false
         :param ingress_alb_scheme: Specify the ALB scheme that should be applied to ``Ingress`` resources. Only applicable if ``ingressAlb`` is set to ``true``. Default: AlbScheme.INTERNAL
         :param prune: When a resource is removed from a Kubernetes manifest, it no longer appears in the manifest, and there is no way to know that this resource needs to be deleted. To address this, ``kubectl apply`` has a ``--prune`` option which will query the cluster for all resources with a specific label and will remove all the labeld resources that are not part of the applied manifest. If this option is disabled and a resource is removed, it will become "orphaned" and will not be deleted from the cluster. When this option is enabled (default), the construct will inject a label to all Kubernetes resources included in this manifest which will be used to prune resources when the manifest changes via ``kubectl apply --prune``. The label name will be ``aws.cdk.eks/prune-<ADDR>`` where ``<ADDR>`` is the 42-char unique address of this construct in the construct tree. Value is empty. Default: - based on the prune option of the cluster, which is ``true`` unless otherwise specified.
+        :param removal_policy: The removal policy applied to the custom resource that manages the Kubernetes manifest. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param skip_validation: A flag to signify if the manifest validation should be skipped. Default: false
         :param cluster: The EKS cluster to apply this manifest to. [disable-awslint:ref-via-interface]
         :param manifest: The manifest to apply. Consists of any number of child resources. When the resources are created/updated, this manifest will be applied to the cluster through ``kubectl apply`` and when the resources or the stack is deleted, the resources in the manifest will be deleted through ``kubectl delete``.
@@ -17291,6 +17683,7 @@ class KubernetesManifestProps(KubernetesManifestOptions):
             check_type(argname="argument ingress_alb", value=ingress_alb, expected_type=type_hints["ingress_alb"])
             check_type(argname="argument ingress_alb_scheme", value=ingress_alb_scheme, expected_type=type_hints["ingress_alb_scheme"])
             check_type(argname="argument prune", value=prune, expected_type=type_hints["prune"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
             check_type(argname="argument skip_validation", value=skip_validation, expected_type=type_hints["skip_validation"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument manifest", value=manifest, expected_type=type_hints["manifest"])
@@ -17305,6 +17698,8 @@ class KubernetesManifestProps(KubernetesManifestOptions):
             self._values["ingress_alb_scheme"] = ingress_alb_scheme
         if prune is not None:
             self._values["prune"] = prune
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
         if skip_validation is not None:
             self._values["skip_validation"] = skip_validation
         if overwrite is not None:
@@ -17357,6 +17752,22 @@ class KubernetesManifestProps(KubernetesManifestOptions):
         '''
         result = self._values.get("prune")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+        '''The removal policy applied to the custom resource that manages the Kubernetes manifest.
+
+        The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
+        This can happen in one of three situations:
+
+        - The resource is removed from the template, so CloudFormation stops managing it
+        - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it
+        - The stack is deleted, so CloudFormation stops managing all resources in it
+
+        :default: RemovalPolicy.DESTROY
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
 
     @builtins.property
     def skip_validation(self) -> typing.Optional[builtins.bool]:
@@ -17471,6 +17882,7 @@ class KubernetesObjectValue(
         object_name: builtins.str,
         object_type: builtins.str,
         object_namespace: typing.Optional[builtins.str] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         timeout: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''
@@ -17481,6 +17893,7 @@ class KubernetesObjectValue(
         :param object_name: The name of the object to query.
         :param object_type: The object type to query. (e.g 'service', 'pod'...)
         :param object_namespace: The namespace the object belongs to. Default: 'default'
+        :param removal_policy: The removal policy applied to the custom resource that manages the Kubernetes object value. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param timeout: Timeout for waiting on a value. Default: Duration.minutes(5)
         '''
         if __debug__:
@@ -17493,6 +17906,7 @@ class KubernetesObjectValue(
             object_name=object_name,
             object_type=object_type,
             object_namespace=object_namespace,
+            removal_policy=removal_policy,
             timeout=timeout,
         )
 
@@ -17520,6 +17934,7 @@ class KubernetesObjectValue(
         "object_name": "objectName",
         "object_type": "objectType",
         "object_namespace": "objectNamespace",
+        "removal_policy": "removalPolicy",
         "timeout": "timeout",
     },
 )
@@ -17532,6 +17947,7 @@ class KubernetesObjectValueProps:
         object_name: builtins.str,
         object_type: builtins.str,
         object_namespace: typing.Optional[builtins.str] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         timeout: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''Properties for KubernetesObjectValue.
@@ -17541,6 +17957,7 @@ class KubernetesObjectValueProps:
         :param object_name: The name of the object to query.
         :param object_type: The object type to query. (e.g 'service', 'pod'...)
         :param object_namespace: The namespace the object belongs to. Default: 'default'
+        :param removal_policy: The removal policy applied to the custom resource that manages the Kubernetes object value. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param timeout: Timeout for waiting on a value. Default: Duration.minutes(5)
 
         :exampleMetadata: infused
@@ -17574,6 +17991,7 @@ class KubernetesObjectValueProps:
             check_type(argname="argument object_name", value=object_name, expected_type=type_hints["object_name"])
             check_type(argname="argument object_type", value=object_type, expected_type=type_hints["object_type"])
             check_type(argname="argument object_namespace", value=object_namespace, expected_type=type_hints["object_namespace"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster": cluster,
@@ -17583,6 +18001,8 @@ class KubernetesObjectValueProps:
         }
         if object_namespace is not None:
             self._values["object_namespace"] = object_namespace
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
         if timeout is not None:
             self._values["timeout"] = timeout
 
@@ -17631,6 +18051,22 @@ class KubernetesObjectValueProps:
         '''
         result = self._values.get("object_namespace")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+        '''The removal policy applied to the custom resource that manages the Kubernetes object value.
+
+        The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
+        This can happen in one of three situations:
+
+        - The resource is removed from the template, so CloudFormation stops managing it
+        - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it
+        - The stack is deleted, so CloudFormation stops managing all resources in it
+
+        :default: RemovalPolicy.DESTROY
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
@@ -17685,6 +18121,7 @@ class KubernetesPatch(
         resource_name: builtins.str,
         restore_patch: typing.Mapping[builtins.str, typing.Any],
         patch_type: typing.Optional["PatchType"] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         resource_namespace: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -17695,6 +18132,7 @@ class KubernetesPatch(
         :param resource_name: The full name of the resource to patch (e.g. ``deployment/coredns``).
         :param restore_patch: The JSON object to pass to ``kubectl patch`` when the resource is removed.
         :param patch_type: The patch type to pass to ``kubectl patch``. The default type used by ``kubectl patch`` is "strategic". Default: PatchType.STRATEGIC
+        :param removal_policy: The removal policy applied to the custom resource that manages the Kubernetes patch. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param resource_namespace: The kubernetes API namespace. Default: "default"
         '''
         if __debug__:
@@ -17707,6 +18145,7 @@ class KubernetesPatch(
             resource_name=resource_name,
             restore_patch=restore_patch,
             patch_type=patch_type,
+            removal_policy=removal_policy,
             resource_namespace=resource_namespace,
         )
 
@@ -17722,6 +18161,7 @@ class KubernetesPatch(
         "resource_name": "resourceName",
         "restore_patch": "restorePatch",
         "patch_type": "patchType",
+        "removal_policy": "removalPolicy",
         "resource_namespace": "resourceNamespace",
     },
 )
@@ -17734,6 +18174,7 @@ class KubernetesPatchProps:
         resource_name: builtins.str,
         restore_patch: typing.Mapping[builtins.str, typing.Any],
         patch_type: typing.Optional["PatchType"] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         resource_namespace: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for KubernetesPatch.
@@ -17743,6 +18184,7 @@ class KubernetesPatchProps:
         :param resource_name: The full name of the resource to patch (e.g. ``deployment/coredns``).
         :param restore_patch: The JSON object to pass to ``kubectl patch`` when the resource is removed.
         :param patch_type: The patch type to pass to ``kubectl patch``. The default type used by ``kubectl patch`` is "strategic". Default: PatchType.STRATEGIC
+        :param removal_policy: The removal policy applied to the custom resource that manages the Kubernetes patch. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param resource_namespace: The kubernetes API namespace. Default: "default"
 
         :exampleMetadata: infused
@@ -17765,6 +18207,7 @@ class KubernetesPatchProps:
             check_type(argname="argument resource_name", value=resource_name, expected_type=type_hints["resource_name"])
             check_type(argname="argument restore_patch", value=restore_patch, expected_type=type_hints["restore_patch"])
             check_type(argname="argument patch_type", value=patch_type, expected_type=type_hints["patch_type"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
             check_type(argname="argument resource_namespace", value=resource_namespace, expected_type=type_hints["resource_namespace"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "apply_patch": apply_patch,
@@ -17774,6 +18217,8 @@ class KubernetesPatchProps:
         }
         if patch_type is not None:
             self._values["patch_type"] = patch_type
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
         if resource_namespace is not None:
             self._values["resource_namespace"] = resource_namespace
 
@@ -17818,6 +18263,22 @@ class KubernetesPatchProps:
         '''
         result = self._values.get("patch_type")
         return typing.cast(typing.Optional["PatchType"], result)
+
+    @builtins.property
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+        '''The removal policy applied to the custom resource that manages the Kubernetes patch.
+
+        The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
+        This can happen in one of three situations:
+
+        - The resource is removed from the template, so CloudFormation stops managing it
+        - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it
+        - The stack is deleted, so CloudFormation stops managing all resources in it
+
+        :default: RemovalPolicy.DESTROY
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
 
     @builtins.property
     def resource_namespace(self) -> typing.Optional[builtins.str]:
@@ -18255,6 +18716,7 @@ class Nodegroup(
 
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
+        import aws_cdk as cdk
         from aws_cdk import aws_ec2 as ec2
         from aws_cdk import aws_eks as eks
         from aws_cdk import aws_iam as iam
@@ -18299,6 +18761,7 @@ class Nodegroup(
                 # the properties below are optional
                 source_security_groups=[security_group]
             ),
+            removal_policy=cdk.RemovalPolicy.DESTROY,
             subnets=ec2.SubnetSelection(
                 availability_zones=["availabilityZones"],
                 one_per_az=False,
@@ -18341,6 +18804,7 @@ class Nodegroup(
         node_role: typing.Optional["_IRole_235f5d8e"] = None,
         release_version: typing.Optional[builtins.str] = None,
         remote_access: typing.Optional[typing.Union["NodegroupRemoteAccess", typing.Dict[builtins.str, typing.Any]]] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         taints: typing.Optional[typing.Sequence[typing.Union["TaintSpec", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -18366,6 +18830,7 @@ class Nodegroup(
         :param node_role: The IAM role to associate with your node group. The Amazon EKS worker node kubelet daemon makes calls to AWS APIs on your behalf. Worker nodes receive permissions for these API calls through an IAM instance profile and associated policies. Before you can launch worker nodes and register them into a cluster, you must create an IAM role for those worker nodes to use when they are launched. Default: - None. Auto-generated if not specified.
         :param release_version: The AMI version of the Amazon EKS-optimized AMI to use with your node group (for example, ``1.14.7-YYYYMMDD``). Default: - The latest available AMI version for the node group's current Kubernetes version is used.
         :param remote_access: The remote access (SSH) configuration to use with your node group. Disabled by default, however, if you specify an Amazon EC2 SSH key but do not specify a source security group when you create a managed node group, then port 22 on the worker nodes is opened to the internet (0.0.0.0/0) Default: - disabled
+        :param removal_policy: The removal policy applied to the managed node group. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param subnets: The subnets to use for the Auto Scaling group that is created for your node group. By specifying the SubnetSelection, the selected subnets will automatically apply required tags i.e. ``kubernetes.io/cluster/CLUSTER_NAME`` with a value of ``shared``, where ``CLUSTER_NAME`` is replaced with the name of your cluster. Default: - private subnets
         :param tags: The metadata to apply to the node group to assist with categorization and organization. Each tag consists of a key and an optional value, both of which you define. Node group tags do not propagate to any other resources associated with the node group, such as the Amazon EC2 instances or subnets. Default: - None
         :param taints: The Kubernetes taints to be applied to the nodes in the node group when they are created. Default: - None
@@ -18393,6 +18858,7 @@ class Nodegroup(
             node_role=node_role,
             release_version=release_version,
             remote_access=remote_access,
+            removal_policy=removal_policy,
             subnets=subnets,
             tags=tags,
             taints=taints,
@@ -18545,6 +19011,7 @@ class NodegroupAmiType(enum.Enum):
         "node_role": "nodeRole",
         "release_version": "releaseVersion",
         "remote_access": "remoteAccess",
+        "removal_policy": "removalPolicy",
         "subnets": "subnets",
         "tags": "tags",
         "taints": "taints",
@@ -18571,6 +19038,7 @@ class NodegroupOptions:
         node_role: typing.Optional["_IRole_235f5d8e"] = None,
         release_version: typing.Optional[builtins.str] = None,
         remote_access: typing.Optional[typing.Union["NodegroupRemoteAccess", typing.Dict[builtins.str, typing.Any]]] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         taints: typing.Optional[typing.Sequence[typing.Union["TaintSpec", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -18594,6 +19062,7 @@ class NodegroupOptions:
         :param node_role: The IAM role to associate with your node group. The Amazon EKS worker node kubelet daemon makes calls to AWS APIs on your behalf. Worker nodes receive permissions for these API calls through an IAM instance profile and associated policies. Before you can launch worker nodes and register them into a cluster, you must create an IAM role for those worker nodes to use when they are launched. Default: - None. Auto-generated if not specified.
         :param release_version: The AMI version of the Amazon EKS-optimized AMI to use with your node group (for example, ``1.14.7-YYYYMMDD``). Default: - The latest available AMI version for the node group's current Kubernetes version is used.
         :param remote_access: The remote access (SSH) configuration to use with your node group. Disabled by default, however, if you specify an Amazon EC2 SSH key but do not specify a source security group when you create a managed node group, then port 22 on the worker nodes is opened to the internet (0.0.0.0/0) Default: - disabled
+        :param removal_policy: The removal policy applied to the managed node group. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param subnets: The subnets to use for the Auto Scaling group that is created for your node group. By specifying the SubnetSelection, the selected subnets will automatically apply required tags i.e. ``kubernetes.io/cluster/CLUSTER_NAME`` with a value of ``shared``, where ``CLUSTER_NAME`` is replaced with the name of your cluster. Default: - private subnets
         :param tags: The metadata to apply to the node group to assist with categorization and organization. Each tag consists of a key and an optional value, both of which you define. Node group tags do not propagate to any other resources associated with the node group, such as the Amazon EC2 instances or subnets. Default: - None
         :param taints: The Kubernetes taints to be applied to the nodes in the node group when they are created. Default: - None
@@ -18639,6 +19108,7 @@ class NodegroupOptions:
             check_type(argname="argument node_role", value=node_role, expected_type=type_hints["node_role"])
             check_type(argname="argument release_version", value=release_version, expected_type=type_hints["release_version"])
             check_type(argname="argument remote_access", value=remote_access, expected_type=type_hints["remote_access"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
             check_type(argname="argument subnets", value=subnets, expected_type=type_hints["subnets"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument taints", value=taints, expected_type=type_hints["taints"])
@@ -18677,6 +19147,8 @@ class NodegroupOptions:
             self._values["release_version"] = release_version
         if remote_access is not None:
             self._values["remote_access"] = remote_access
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
         if subnets is not None:
             self._values["subnets"] = subnets
         if tags is not None:
@@ -18879,6 +19351,22 @@ class NodegroupOptions:
         '''
         result = self._values.get("remote_access")
         return typing.cast(typing.Optional["NodegroupRemoteAccess"], result)
+
+    @builtins.property
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+        '''The removal policy applied to the managed node group.
+
+        The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
+        This can happen in one of three situations:
+
+        - The resource is removed from the template, so CloudFormation stops managing it
+        - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it
+        - The stack is deleted, so CloudFormation stops managing all resources in it
+
+        :default: RemovalPolicy.DESTROY
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
 
     @builtins.property
     def subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
@@ -18949,6 +19437,7 @@ class NodegroupOptions:
         "node_role": "nodeRole",
         "release_version": "releaseVersion",
         "remote_access": "remoteAccess",
+        "removal_policy": "removalPolicy",
         "subnets": "subnets",
         "tags": "tags",
         "taints": "taints",
@@ -18976,6 +19465,7 @@ class NodegroupProps(NodegroupOptions):
         node_role: typing.Optional["_IRole_235f5d8e"] = None,
         release_version: typing.Optional[builtins.str] = None,
         remote_access: typing.Optional[typing.Union["NodegroupRemoteAccess", typing.Dict[builtins.str, typing.Any]]] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         taints: typing.Optional[typing.Sequence[typing.Union["TaintSpec", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -19000,6 +19490,7 @@ class NodegroupProps(NodegroupOptions):
         :param node_role: The IAM role to associate with your node group. The Amazon EKS worker node kubelet daemon makes calls to AWS APIs on your behalf. Worker nodes receive permissions for these API calls through an IAM instance profile and associated policies. Before you can launch worker nodes and register them into a cluster, you must create an IAM role for those worker nodes to use when they are launched. Default: - None. Auto-generated if not specified.
         :param release_version: The AMI version of the Amazon EKS-optimized AMI to use with your node group (for example, ``1.14.7-YYYYMMDD``). Default: - The latest available AMI version for the node group's current Kubernetes version is used.
         :param remote_access: The remote access (SSH) configuration to use with your node group. Disabled by default, however, if you specify an Amazon EC2 SSH key but do not specify a source security group when you create a managed node group, then port 22 on the worker nodes is opened to the internet (0.0.0.0/0) Default: - disabled
+        :param removal_policy: The removal policy applied to the managed node group. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param subnets: The subnets to use for the Auto Scaling group that is created for your node group. By specifying the SubnetSelection, the selected subnets will automatically apply required tags i.e. ``kubernetes.io/cluster/CLUSTER_NAME`` with a value of ``shared``, where ``CLUSTER_NAME`` is replaced with the name of your cluster. Default: - private subnets
         :param tags: The metadata to apply to the node group to assist with categorization and organization. Each tag consists of a key and an optional value, both of which you define. Node group tags do not propagate to any other resources associated with the node group, such as the Amazon EC2 instances or subnets. Default: - None
         :param taints: The Kubernetes taints to be applied to the nodes in the node group when they are created. Default: - None
@@ -19011,6 +19502,7 @@ class NodegroupProps(NodegroupOptions):
 
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
+            import aws_cdk as cdk
             from aws_cdk import aws_ec2 as ec2
             from aws_cdk import aws_eks as eks
             from aws_cdk import aws_iam as iam
@@ -19055,6 +19547,7 @@ class NodegroupProps(NodegroupOptions):
                     # the properties below are optional
                     source_security_groups=[security_group]
                 ),
+                removal_policy=cdk.RemovalPolicy.DESTROY,
                 subnets=ec2.SubnetSelection(
                     availability_zones=["availabilityZones"],
                     one_per_az=False,
@@ -19098,6 +19591,7 @@ class NodegroupProps(NodegroupOptions):
             check_type(argname="argument node_role", value=node_role, expected_type=type_hints["node_role"])
             check_type(argname="argument release_version", value=release_version, expected_type=type_hints["release_version"])
             check_type(argname="argument remote_access", value=remote_access, expected_type=type_hints["remote_access"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
             check_type(argname="argument subnets", value=subnets, expected_type=type_hints["subnets"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument taints", value=taints, expected_type=type_hints["taints"])
@@ -19139,6 +19633,8 @@ class NodegroupProps(NodegroupOptions):
             self._values["release_version"] = release_version
         if remote_access is not None:
             self._values["remote_access"] = remote_access
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
         if subnets is not None:
             self._values["subnets"] = subnets
         if tags is not None:
@@ -19341,6 +19837,22 @@ class NodegroupProps(NodegroupOptions):
         '''
         result = self._values.get("remote_access")
         return typing.cast(typing.Optional["NodegroupRemoteAccess"], result)
+
+    @builtins.property
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+        '''The removal policy applied to the managed node group.
+
+        The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
+        This can happen in one of three situations:
+
+        - The resource is removed from the template, so CloudFormation stops managing it
+        - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it
+        - The stack is deleted, so CloudFormation stops managing all resources in it
+
+        :default: RemovalPolicy.DESTROY
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
 
     @builtins.property
     def subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
@@ -19922,6 +20434,7 @@ class ServiceAccount(
         name: typing.Optional[builtins.str] = None,
         namespace: typing.Optional[builtins.str] = None,
         overwrite_service_account: typing.Optional[builtins.bool] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -19933,6 +20446,7 @@ class ServiceAccount(
         :param name: The name of the service account. The name of a ServiceAccount object must be a valid DNS subdomain name. https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/ Default: - If no name is given, it will use the id of the resource.
         :param namespace: The namespace of the service account. All namespace names must be valid RFC 1123 DNS labels. https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/#namespaces-and-dns Default: "default"
         :param overwrite_service_account: Overwrite existing service account. If this is set, we will use ``kubectl apply`` instead of ``kubectl create`` when the service account is created. Otherwise, if there is already a service account in the cluster with the same name, the operation will fail. Default: false
+        :param removal_policy: The removal policy applied to the service account resources. The removal policy controls what happens to the resources if they stop being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c59483a03e00366cbc5eed954b787cea3e7b09f1579c5c9badd84776ccd54cc1)
@@ -19946,6 +20460,7 @@ class ServiceAccount(
             name=name,
             namespace=namespace,
             overwrite_service_account=overwrite_service_account,
+            removal_policy=removal_policy,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -20011,6 +20526,7 @@ class ServiceAccount(
         "name": "name",
         "namespace": "namespace",
         "overwrite_service_account": "overwriteServiceAccount",
+        "removal_policy": "removalPolicy",
     },
 )
 class ServiceAccountOptions:
@@ -20023,6 +20539,7 @@ class ServiceAccountOptions:
         name: typing.Optional[builtins.str] = None,
         namespace: typing.Optional[builtins.str] = None,
         overwrite_service_account: typing.Optional[builtins.bool] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
     ) -> None:
         '''Options for ``ServiceAccount``.
 
@@ -20032,6 +20549,7 @@ class ServiceAccountOptions:
         :param name: The name of the service account. The name of a ServiceAccount object must be a valid DNS subdomain name. https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/ Default: - If no name is given, it will use the id of the resource.
         :param namespace: The namespace of the service account. All namespace names must be valid RFC 1123 DNS labels. https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/#namespaces-and-dns Default: "default"
         :param overwrite_service_account: Overwrite existing service account. If this is set, we will use ``kubectl apply`` instead of ``kubectl create`` when the service account is created. Otherwise, if there is already a service account in the cluster with the same name, the operation will fail. Default: false
+        :param removal_policy: The removal policy applied to the service account resources. The removal policy controls what happens to the resources if they stop being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
 
         :exampleMetadata: infused
 
@@ -20057,6 +20575,7 @@ class ServiceAccountOptions:
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
             check_type(argname="argument overwrite_service_account", value=overwrite_service_account, expected_type=type_hints["overwrite_service_account"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if annotations is not None:
             self._values["annotations"] = annotations
@@ -20070,6 +20589,8 @@ class ServiceAccountOptions:
             self._values["namespace"] = namespace
         if overwrite_service_account is not None:
             self._values["overwrite_service_account"] = overwrite_service_account
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
 
     @builtins.property
     def annotations(
@@ -20137,6 +20658,22 @@ class ServiceAccountOptions:
         result = self._values.get("overwrite_service_account")
         return typing.cast(typing.Optional[builtins.bool], result)
 
+    @builtins.property
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+        '''The removal policy applied to the service account resources.
+
+        The removal policy controls what happens to the resources if they stop being managed by CloudFormation.
+        This can happen in one of three situations:
+
+        - The resource is removed from the template, so CloudFormation stops managing it
+        - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it
+        - The stack is deleted, so CloudFormation stops managing all resources in it
+
+        :default: RemovalPolicy.DESTROY
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -20159,6 +20696,7 @@ class ServiceAccountOptions:
         "name": "name",
         "namespace": "namespace",
         "overwrite_service_account": "overwriteServiceAccount",
+        "removal_policy": "removalPolicy",
         "cluster": "cluster",
     },
 )
@@ -20172,6 +20710,7 @@ class ServiceAccountProps(ServiceAccountOptions):
         name: typing.Optional[builtins.str] = None,
         namespace: typing.Optional[builtins.str] = None,
         overwrite_service_account: typing.Optional[builtins.bool] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         cluster: "ICluster",
     ) -> None:
         '''Properties for defining service accounts.
@@ -20182,6 +20721,7 @@ class ServiceAccountProps(ServiceAccountOptions):
         :param name: The name of the service account. The name of a ServiceAccount object must be a valid DNS subdomain name. https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/ Default: - If no name is given, it will use the id of the resource.
         :param namespace: The namespace of the service account. All namespace names must be valid RFC 1123 DNS labels. https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/#namespaces-and-dns Default: "default"
         :param overwrite_service_account: Overwrite existing service account. If this is set, we will use ``kubectl apply`` instead of ``kubectl create`` when the service account is created. Otherwise, if there is already a service account in the cluster with the same name, the operation will fail. Default: false
+        :param removal_policy: The removal policy applied to the service account resources. The removal policy controls what happens to the resources if they stop being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param cluster: The cluster to apply the patch to.
 
         :exampleMetadata: infused
@@ -20206,6 +20746,7 @@ class ServiceAccountProps(ServiceAccountOptions):
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
             check_type(argname="argument overwrite_service_account", value=overwrite_service_account, expected_type=type_hints["overwrite_service_account"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster": cluster,
@@ -20222,6 +20763,8 @@ class ServiceAccountProps(ServiceAccountOptions):
             self._values["namespace"] = namespace
         if overwrite_service_account is not None:
             self._values["overwrite_service_account"] = overwrite_service_account
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
 
     @builtins.property
     def annotations(
@@ -20288,6 +20831,22 @@ class ServiceAccountProps(ServiceAccountOptions):
         '''
         result = self._values.get("overwrite_service_account")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+        '''The removal policy applied to the service account resources.
+
+        The removal policy controls what happens to the resources if they stop being managed by CloudFormation.
+        This can happen in one of three situations:
+
+        - The resource is removed from the template, so CloudFormation stops managing it
+        - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it
+        - The stack is deleted, so CloudFormation stops managing all resources in it
+
+        :default: RemovalPolicy.DESTROY
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
 
     @builtins.property
     def cluster(self) -> "ICluster":
@@ -20521,6 +21080,7 @@ class AccessEntry(
 
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
+        import aws_cdk as cdk
         from aws_cdk import aws_eks as eks
         
         # access_policy: eks.AccessPolicy
@@ -20533,7 +21093,8 @@ class AccessEntry(
         
             # the properties below are optional
             access_entry_name="accessEntryName",
-            access_entry_type=eks.AccessEntryType.STANDARD
+            access_entry_type=eks.AccessEntryType.STANDARD,
+            removal_policy=cdk.RemovalPolicy.DESTROY
         )
     '''
 
@@ -20547,6 +21108,7 @@ class AccessEntry(
         principal: builtins.str,
         access_entry_name: typing.Optional[builtins.str] = None,
         access_entry_type: typing.Optional["AccessEntryType"] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -20556,6 +21118,7 @@ class AccessEntry(
         :param principal: The Amazon Resource Name (ARN) of the principal (user or role) to associate the access entry with.
         :param access_entry_name: The name of the AccessEntry. Default: - No access entry name is provided
         :param access_entry_type: The type of the AccessEntry. Default: STANDARD
+        :param removal_policy: The removal policy applied to the access entry. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__76acfe0dd4f79a87279c3d9cbf3bd8c7327733233aec66908901483da7f17d5b)
@@ -20567,6 +21130,7 @@ class AccessEntry(
             principal=principal,
             access_entry_name=access_entry_name,
             access_entry_type=access_entry_type,
+            removal_policy=removal_policy,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -20751,6 +21315,7 @@ class Addon(
         addon_version: typing.Optional[builtins.str] = None,
         configuration_values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         preserve_on_delete: typing.Optional[builtins.bool] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
     ) -> None:
         '''Creates a new Amazon EKS Add-On.
 
@@ -20761,6 +21326,7 @@ class Addon(
         :param addon_version: Version of the Add-On. You can check all available versions with describe-addon-versions. For example, this lists all available versions for the ``eks-pod-identity-agent`` addon: $ aws eks describe-addon-versions --addon-name eks-pod-identity-agent --query 'addons[*].addonVersions[*].addonVersion' Default: the latest version.
         :param configuration_values: The configuration values for the Add-on. Default: - Use default configuration.
         :param preserve_on_delete: Specifying this option preserves the add-on software on your cluster but Amazon EKS stops managing any settings for the add-on. If an IAM account is associated with the add-on, it isn't removed. Default: true
+        :param removal_policy: The removal policy applied to the EKS add-on. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a8342124e215d4789acf852df764143c4809251dbcaa86f6b4a11860e46f830d)
@@ -20772,6 +21338,7 @@ class Addon(
             addon_version=addon_version,
             configuration_values=configuration_values,
             preserve_on_delete=preserve_on_delete,
+            removal_policy=removal_policy,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -21241,6 +21808,7 @@ class Cluster(
         ingress_alb: typing.Optional[builtins.bool] = None,
         ingress_alb_scheme: typing.Optional["AlbScheme"] = None,
         prune: typing.Optional[builtins.bool] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         skip_validation: typing.Optional[builtins.bool] = None,
     ) -> "KubernetesManifest":
         '''Defines a CDK8s chart in this cluster.
@@ -21250,6 +21818,7 @@ class Cluster(
         :param ingress_alb: Automatically detect ``Ingress`` resources in the manifest and annotate them so they are picked up by an ALB Ingress Controller. Default: false
         :param ingress_alb_scheme: Specify the ALB scheme that should be applied to ``Ingress`` resources. Only applicable if ``ingressAlb`` is set to ``true``. Default: AlbScheme.INTERNAL
         :param prune: When a resource is removed from a Kubernetes manifest, it no longer appears in the manifest, and there is no way to know that this resource needs to be deleted. To address this, ``kubectl apply`` has a ``--prune`` option which will query the cluster for all resources with a specific label and will remove all the labeld resources that are not part of the applied manifest. If this option is disabled and a resource is removed, it will become "orphaned" and will not be deleted from the cluster. When this option is enabled (default), the construct will inject a label to all Kubernetes resources included in this manifest which will be used to prune resources when the manifest changes via ``kubectl apply --prune``. The label name will be ``aws.cdk.eks/prune-<ADDR>`` where ``<ADDR>`` is the 42-char unique address of this construct in the construct tree. Value is empty. Default: - based on the prune option of the cluster, which is ``true`` unless otherwise specified.
+        :param removal_policy: The removal policy applied to the custom resource that manages the Kubernetes manifest. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param skip_validation: A flag to signify if the manifest validation should be skipped. Default: false
 
         :return: a ``KubernetesManifest`` construct representing the chart.
@@ -21262,6 +21831,7 @@ class Cluster(
             ingress_alb=ingress_alb,
             ingress_alb_scheme=ingress_alb_scheme,
             prune=prune,
+            removal_policy=removal_policy,
             skip_validation=skip_validation,
         )
 
@@ -21275,6 +21845,7 @@ class Cluster(
         selectors: typing.Sequence[typing.Union["Selector", typing.Dict[builtins.str, typing.Any]]],
         fargate_profile_name: typing.Optional[builtins.str] = None,
         pod_execution_role: typing.Optional["_IRole_235f5d8e"] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         subnet_selection: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
         vpc: typing.Optional["_IVpc_f30d5663"] = None,
     ) -> "FargateProfile":
@@ -21284,6 +21855,7 @@ class Cluster(
         :param selectors: The selectors to match for pods to use this Fargate profile. Each selector must have an associated namespace. Optionally, you can also specify labels for a namespace. At least one selector is required and you may specify up to five selectors.
         :param fargate_profile_name: The name of the Fargate profile. Default: - generated
         :param pod_execution_role: The pod execution role to use for pods that match the selectors in the Fargate profile. The pod execution role allows Fargate infrastructure to register with your cluster as a node, and it provides read access to Amazon ECR image repositories. Default: - a role will be automatically created
+        :param removal_policy: The removal policy applied to the custom resource that manages the Fargate profile. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param subnet_selection: Select which subnets to launch your pods into. At this time, pods running on Fargate are not assigned public IP addresses, so only private subnets (with no direct route to an Internet Gateway) are allowed. You must specify the VPC to customize the subnet selection Default: - all private subnets of the VPC are selected.
         :param vpc: The VPC from which to select subnets to launch your pods into. By default, all private subnets are selected. You can customize this using ``subnetSelection``. Default: - all private subnets used by the EKS cluster
 
@@ -21296,6 +21868,7 @@ class Cluster(
             selectors=selectors,
             fargate_profile_name=fargate_profile_name,
             pod_execution_role=pod_execution_role,
+            removal_policy=removal_policy,
             subnet_selection=subnet_selection,
             vpc=vpc,
         )
@@ -21313,6 +21886,7 @@ class Cluster(
         create_namespace: typing.Optional[builtins.bool] = None,
         namespace: typing.Optional[builtins.str] = None,
         release: typing.Optional[builtins.str] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         repository: typing.Optional[builtins.str] = None,
         skip_crds: typing.Optional[builtins.bool] = None,
         timeout: typing.Optional["_Duration_4839e8c3"] = None,
@@ -21329,6 +21903,7 @@ class Cluster(
         :param create_namespace: create namespace if not exist. Default: true
         :param namespace: The Kubernetes namespace scope of the requests. Default: default
         :param release: The name of the release. Default: - If no release name is given, it will use the last 53 characters of the node's unique id.
+        :param removal_policy: The removal policy applied to the custom resource that manages the Helm chart. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param repository: The repository which contains the chart. For example: https://charts.helm.sh/stable/ Default: - No repository will be used, which means that the chart needs to be an absolute URL.
         :param skip_crds: if set, no CRDs will be installed. Default: - CRDs are installed if not already present
         :param timeout: Amount of time to wait for any individual Kubernetes operation. Maximum 15 minutes. Default: Duration.minutes(5)
@@ -21348,6 +21923,7 @@ class Cluster(
             create_namespace=create_namespace,
             namespace=namespace,
             release=release,
+            removal_policy=removal_policy,
             repository=repository,
             skip_crds=skip_crds,
             timeout=timeout,
@@ -21401,6 +21977,7 @@ class Cluster(
         node_role: typing.Optional["_IRole_235f5d8e"] = None,
         release_version: typing.Optional[builtins.str] = None,
         remote_access: typing.Optional[typing.Union["NodegroupRemoteAccess", typing.Dict[builtins.str, typing.Any]]] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
         subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         taints: typing.Optional[typing.Sequence[typing.Union["TaintSpec", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -21427,6 +22004,7 @@ class Cluster(
         :param node_role: The IAM role to associate with your node group. The Amazon EKS worker node kubelet daemon makes calls to AWS APIs on your behalf. Worker nodes receive permissions for these API calls through an IAM instance profile and associated policies. Before you can launch worker nodes and register them into a cluster, you must create an IAM role for those worker nodes to use when they are launched. Default: - None. Auto-generated if not specified.
         :param release_version: The AMI version of the Amazon EKS-optimized AMI to use with your node group (for example, ``1.14.7-YYYYMMDD``). Default: - The latest available AMI version for the node group's current Kubernetes version is used.
         :param remote_access: The remote access (SSH) configuration to use with your node group. Disabled by default, however, if you specify an Amazon EC2 SSH key but do not specify a source security group when you create a managed node group, then port 22 on the worker nodes is opened to the internet (0.0.0.0/0) Default: - disabled
+        :param removal_policy: The removal policy applied to the managed node group. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         :param subnets: The subnets to use for the Auto Scaling group that is created for your node group. By specifying the SubnetSelection, the selected subnets will automatically apply required tags i.e. ``kubernetes.io/cluster/CLUSTER_NAME`` with a value of ``shared``, where ``CLUSTER_NAME`` is replaced with the name of your cluster. Default: - private subnets
         :param tags: The metadata to apply to the node group to assist with categorization and organization. Each tag consists of a key and an optional value, both of which you define. Node group tags do not propagate to any other resources associated with the node group, such as the Amazon EC2 instances or subnets. Default: - None
         :param taints: The Kubernetes taints to be applied to the nodes in the node group when they are created. Default: - None
@@ -21454,6 +22032,7 @@ class Cluster(
             node_role=node_role,
             release_version=release_version,
             remote_access=remote_access,
+            removal_policy=removal_policy,
             subnets=subnets,
             tags=tags,
             taints=taints,
@@ -21472,6 +22051,7 @@ class Cluster(
         name: typing.Optional[builtins.str] = None,
         namespace: typing.Optional[builtins.str] = None,
         overwrite_service_account: typing.Optional[builtins.bool] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
     ) -> "ServiceAccount":
         '''Creates a new service account with corresponding IAM Role (IRSA).
 
@@ -21482,6 +22062,7 @@ class Cluster(
         :param name: The name of the service account. The name of a ServiceAccount object must be a valid DNS subdomain name. https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/ Default: - If no name is given, it will use the id of the resource.
         :param namespace: The namespace of the service account. All namespace names must be valid RFC 1123 DNS labels. https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/#namespaces-and-dns Default: "default"
         :param overwrite_service_account: Overwrite existing service account. If this is set, we will use ``kubectl apply`` instead of ``kubectl create`` when the service account is created. Otherwise, if there is already a service account in the cluster with the same name, the operation will fail. Default: false
+        :param removal_policy: The removal policy applied to the service account resources. The removal policy controls what happens to the resources if they stop being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a242c66f1c038c3d983fd703316e9b6709e3aed4c6773ed4ea290f2c0f5749be)
@@ -21493,6 +22074,7 @@ class Cluster(
             name=name,
             namespace=namespace,
             overwrite_service_account=overwrite_service_account,
+            removal_policy=removal_policy,
         )
 
         return typing.cast("ServiceAccount", jsii.invoke(self, "addServiceAccount", [id, options]))
@@ -21597,6 +22179,8 @@ class Cluster(
         id: builtins.str,
         principal: builtins.str,
         access_policies: typing.Sequence["IAccessPolicy"],
+        *,
+        access_entry_type: typing.Optional["AccessEntryType"] = None,
     ) -> None:
         '''Grants the specified IAM principal access to the EKS cluster based on the provided access policies.
 
@@ -21607,13 +22191,16 @@ class Cluster(
         :param id: - The ID of the ``AccessEntry`` construct to be created.
         :param principal: - The IAM principal (role or user) to be granted access to the EKS cluster.
         :param access_policies: - An array of ``IAccessPolicy`` objects that define the access permissions to be granted to the IAM principal.
+        :param access_entry_type: The type of the access entry. Specify ``AccessEntryType.EC2`` for EKS Auto Mode node roles, ``AccessEntryType.HYBRID_LINUX`` for EKS Hybrid Nodes, or ``AccessEntryType.HYPERPOD_LINUX`` for SageMaker HyperPod. Note that EC2, HYBRID_LINUX, and HYPERPOD_LINUX types cannot have access policies attached per AWS EKS API constraints. Default: AccessEntryType.STANDARD - Standard access entry type that supports access policies
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c595337c9bbbcf6eb001ec015e579e32f72cb323ae83c9fa92eef98034ea8936)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
             check_type(argname="argument access_policies", value=access_policies, expected_type=type_hints["access_policies"])
-        return typing.cast(None, jsii.invoke(self, "grantAccess", [id, principal, access_policies]))
+        options = GrantAccessOptions(access_entry_type=access_entry_type)
+
+        return typing.cast(None, jsii.invoke(self, "grantAccess", [id, principal, access_policies, options]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -22068,6 +22655,7 @@ class ClusterOptions(CommonClusterOptions):
                     ),
                     overwrite_service_account=False,
                     policy=policy,
+                    removal_policy=cdk.RemovalPolicy.DESTROY,
                     repository="repository"
                 ),
                 authentication_mode=eks.AuthenticationMode.CONFIG_MAP,
@@ -24232,6 +24820,7 @@ __all__ = [
     "FargateProfile",
     "FargateProfileOptions",
     "FargateProfileProps",
+    "GrantAccessOptions",
     "HelmChart",
     "HelmChartOptions",
     "HelmChartProps",
@@ -24296,6 +24885,7 @@ def _typecheckingstub__0cc467f068aa2e977dd81e9c0227cfe45f7381ea6d31cea9c6f7f80e6
     principal: builtins.str,
     access_entry_name: typing.Optional[builtins.str] = None,
     access_entry_type: typing.Optional[AccessEntryType] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24351,6 +24941,7 @@ def _typecheckingstub__febc9f6cb4243d885b1b1838be38d633e7c5fc6534eaaf731f00a2465
     addon_version: typing.Optional[builtins.str] = None,
     configuration_values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     preserve_on_delete: typing.Optional[builtins.bool] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24364,6 +24955,7 @@ def _typecheckingstub__5e2ca421e3f17c3114d53057ba096ab3f90bd3b8ed6c2e0f75f61c88d
     additional_helm_chart_values: typing.Optional[typing.Union[AlbControllerHelmChartOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     overwrite_service_account: typing.Optional[builtins.bool] = None,
     policy: typing.Any = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     repository: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -24377,6 +24969,7 @@ def _typecheckingstub__1b3813db11381f0166360b7dc6066bdeadc4a52043da6eba56f9a55a4
     additional_helm_chart_values: typing.Optional[typing.Union[AlbControllerHelmChartOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     overwrite_service_account: typing.Optional[builtins.bool] = None,
     policy: typing.Any = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     repository: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -24396,6 +24989,7 @@ def _typecheckingstub__b22ec5f19b5d1b4d655cc304c12c33352da257e2109041355aa01fc99
     additional_helm_chart_values: typing.Optional[typing.Union[AlbControllerHelmChartOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     overwrite_service_account: typing.Optional[builtins.bool] = None,
     policy: typing.Any = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     repository: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -24407,6 +25001,7 @@ def _typecheckingstub__9f52254abb63608be11e6e9e1ec6c94ebb428a9ab274e1bda653dd78d
     additional_helm_chart_values: typing.Optional[typing.Union[AlbControllerHelmChartOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     overwrite_service_account: typing.Optional[builtins.bool] = None,
     policy: typing.Any = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     repository: typing.Optional[builtins.str] = None,
     cluster: Cluster,
 ) -> None:
@@ -25901,6 +26496,7 @@ def _typecheckingstub__715eb0a6f3424ca3c03a6b90c35bd9430b647b9a0c3882fa5276fc51a
     selectors: typing.Sequence[typing.Union[Selector, typing.Dict[builtins.str, typing.Any]]],
     fargate_profile_name: typing.Optional[builtins.str] = None,
     pod_execution_role: typing.Optional[_IRole_235f5d8e] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     subnet_selection: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
     vpc: typing.Optional[_IVpc_f30d5663] = None,
 ) -> None:
@@ -25912,6 +26508,7 @@ def _typecheckingstub__0e8594b197fd7e55b0136bb091bd0b4603a55eaed0b794264a1fce476
     selectors: typing.Sequence[typing.Union[Selector, typing.Dict[builtins.str, typing.Any]]],
     fargate_profile_name: typing.Optional[builtins.str] = None,
     pod_execution_role: typing.Optional[_IRole_235f5d8e] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     subnet_selection: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
     vpc: typing.Optional[_IVpc_f30d5663] = None,
 ) -> None:
@@ -25923,9 +26520,17 @@ def _typecheckingstub__1a8f283cd286303b5ae6cacf59d824959f30c127ab7d08994b28cb93c
     selectors: typing.Sequence[typing.Union[Selector, typing.Dict[builtins.str, typing.Any]]],
     fargate_profile_name: typing.Optional[builtins.str] = None,
     pod_execution_role: typing.Optional[_IRole_235f5d8e] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     subnet_selection: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
     vpc: typing.Optional[_IVpc_f30d5663] = None,
     cluster: Cluster,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__98a3636724b40e6e0a9dfc44c7da30e7d782d88e4b0c5671ed0c21db4db97033(
+    *,
+    access_entry_type: typing.Optional[AccessEntryType] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25941,6 +26546,7 @@ def _typecheckingstub__52726bf866c12e59b4b3f451037674503c3d95da4a298075df121981e
     create_namespace: typing.Optional[builtins.bool] = None,
     namespace: typing.Optional[builtins.str] = None,
     release: typing.Optional[builtins.str] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     repository: typing.Optional[builtins.str] = None,
     skip_crds: typing.Optional[builtins.bool] = None,
     timeout: typing.Optional[_Duration_4839e8c3] = None,
@@ -25959,6 +26565,7 @@ def _typecheckingstub__f6972a55b9cddfcfdae45e3907a04dc773d9fa367223106572ea64bf2
     create_namespace: typing.Optional[builtins.bool] = None,
     namespace: typing.Optional[builtins.str] = None,
     release: typing.Optional[builtins.str] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     repository: typing.Optional[builtins.str] = None,
     skip_crds: typing.Optional[builtins.bool] = None,
     timeout: typing.Optional[_Duration_4839e8c3] = None,
@@ -25977,6 +26584,7 @@ def _typecheckingstub__3cca1be87809b190e4c5e436f984009d3dce2043a4fb17be5ea74ad9b
     create_namespace: typing.Optional[builtins.bool] = None,
     namespace: typing.Optional[builtins.str] = None,
     release: typing.Optional[builtins.str] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     repository: typing.Optional[builtins.str] = None,
     skip_crds: typing.Optional[builtins.bool] = None,
     timeout: typing.Optional[_Duration_4839e8c3] = None,
@@ -25995,6 +26603,7 @@ def _typecheckingstub__027a1f8770d590b40eccba041afe2250c0b1eab8a8d7e20ca1928a01a
     ingress_alb: typing.Optional[builtins.bool] = None,
     ingress_alb_scheme: typing.Optional[AlbScheme] = None,
     prune: typing.Optional[builtins.bool] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     skip_validation: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -26009,6 +26618,7 @@ def _typecheckingstub__08729ac4099dd779679b753fc203b6492daf687a1f8a07194d707cc6e
     create_namespace: typing.Optional[builtins.bool] = None,
     namespace: typing.Optional[builtins.str] = None,
     release: typing.Optional[builtins.str] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     repository: typing.Optional[builtins.str] = None,
     skip_crds: typing.Optional[builtins.bool] = None,
     timeout: typing.Optional[_Duration_4839e8c3] = None,
@@ -26035,6 +26645,7 @@ def _typecheckingstub__e1ebfaeb10359620b55323126554d3e31b14090625de1618808646a51
     name: typing.Optional[builtins.str] = None,
     namespace: typing.Optional[builtins.str] = None,
     overwrite_service_account: typing.Optional[builtins.bool] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26056,6 +26667,7 @@ def _typecheckingstub__24dada33beb6c104bc8b7b823dcac3b05870723d95a8d91a6a6cf2c68
     id: builtins.str,
     *,
     cluster: ICluster,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26090,6 +26702,7 @@ def _typecheckingstub__847baf0df9252f2b3dffe68261a08333d86298da8bcca05e12d417d4d
 def _typecheckingstub__eee4a407d1851bcb733f863ecb7adf5b7b6146cfb2b71cd124c91bf6001272ab(
     *,
     cluster: ICluster,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26104,6 +26717,7 @@ def _typecheckingstub__5ab7ee50af05789a0a98caa55010e1acd1c6a48de4b074e4c0aa31ef4
     ingress_alb: typing.Optional[builtins.bool] = None,
     ingress_alb_scheme: typing.Optional[AlbScheme] = None,
     prune: typing.Optional[builtins.bool] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     skip_validation: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -26114,6 +26728,7 @@ def _typecheckingstub__0108fc2a4c68c3bf78313f8a2848721ac1dffbae3c8a2f17b1cab3111
     ingress_alb: typing.Optional[builtins.bool] = None,
     ingress_alb_scheme: typing.Optional[AlbScheme] = None,
     prune: typing.Optional[builtins.bool] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     skip_validation: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -26124,6 +26739,7 @@ def _typecheckingstub__a5bb00898157a38a0e39d6984245e816d0c01e9016a0d4412db0764b8
     ingress_alb: typing.Optional[builtins.bool] = None,
     ingress_alb_scheme: typing.Optional[AlbScheme] = None,
     prune: typing.Optional[builtins.bool] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     skip_validation: typing.Optional[builtins.bool] = None,
     cluster: ICluster,
     manifest: typing.Sequence[typing.Mapping[builtins.str, typing.Any]],
@@ -26141,6 +26757,7 @@ def _typecheckingstub__b43125517e8558a2f4aa3e5574e0ff3e4db0d48b2397cf0b105b5f1ef
     object_name: builtins.str,
     object_type: builtins.str,
     object_namespace: typing.Optional[builtins.str] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     timeout: typing.Optional[_Duration_4839e8c3] = None,
 ) -> None:
     """Type checking stubs"""
@@ -26153,6 +26770,7 @@ def _typecheckingstub__1c51b5fedde07e77790a96098d170fb8ee0ab33d54b6b958e324191a0
     object_name: builtins.str,
     object_type: builtins.str,
     object_namespace: typing.Optional[builtins.str] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     timeout: typing.Optional[_Duration_4839e8c3] = None,
 ) -> None:
     """Type checking stubs"""
@@ -26167,6 +26785,7 @@ def _typecheckingstub__e534a9f53f33b6a1a523b5f3d458dd93cf0155fa305556b69e031307b
     resource_name: builtins.str,
     restore_patch: typing.Mapping[builtins.str, typing.Any],
     patch_type: typing.Optional[PatchType] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     resource_namespace: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -26179,6 +26798,7 @@ def _typecheckingstub__3902bca2a2f14fd821e806fc36e44b81045b0f22d504ee922f2271fdb
     resource_name: builtins.str,
     restore_patch: typing.Mapping[builtins.str, typing.Any],
     patch_type: typing.Optional[PatchType] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     resource_namespace: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -26220,6 +26840,7 @@ def _typecheckingstub__786fdb6d4c92794281e2a7ea4e6305e651a12884bcdc063cf6fe5a64c
     node_role: typing.Optional[_IRole_235f5d8e] = None,
     release_version: typing.Optional[builtins.str] = None,
     remote_access: typing.Optional[typing.Union[NodegroupRemoteAccess, typing.Dict[builtins.str, typing.Any]]] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     taints: typing.Optional[typing.Sequence[typing.Union[TaintSpec, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -26254,6 +26875,7 @@ def _typecheckingstub__019154b49c40dcdcdd533db7688b958baf443f513473d96721969a0d5
     node_role: typing.Optional[_IRole_235f5d8e] = None,
     release_version: typing.Optional[builtins.str] = None,
     remote_access: typing.Optional[typing.Union[NodegroupRemoteAccess, typing.Dict[builtins.str, typing.Any]]] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     taints: typing.Optional[typing.Sequence[typing.Union[TaintSpec, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -26280,6 +26902,7 @@ def _typecheckingstub__c522b5bc1207d683d19377a7c1fae066520518733e5dc4e1b4952f88c
     node_role: typing.Optional[_IRole_235f5d8e] = None,
     release_version: typing.Optional[builtins.str] = None,
     remote_access: typing.Optional[typing.Union[NodegroupRemoteAccess, typing.Dict[builtins.str, typing.Any]]] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     taints: typing.Optional[typing.Sequence[typing.Union[TaintSpec, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -26357,6 +26980,7 @@ def _typecheckingstub__c59483a03e00366cbc5eed954b787cea3e7b09f1579c5c9badd84776c
     name: typing.Optional[builtins.str] = None,
     namespace: typing.Optional[builtins.str] = None,
     overwrite_service_account: typing.Optional[builtins.bool] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26375,6 +26999,7 @@ def _typecheckingstub__c16813f7f34b0f551b6879a204a04016f3eb45d120b546a7afd47fee0
     name: typing.Optional[builtins.str] = None,
     namespace: typing.Optional[builtins.str] = None,
     overwrite_service_account: typing.Optional[builtins.bool] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26387,6 +27012,7 @@ def _typecheckingstub__f409e147cd54788bf9d9542d66a6b0445436e408deb553426c2dca2bd
     name: typing.Optional[builtins.str] = None,
     namespace: typing.Optional[builtins.str] = None,
     overwrite_service_account: typing.Optional[builtins.bool] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     cluster: ICluster,
 ) -> None:
     """Type checking stubs"""
@@ -26418,6 +27044,7 @@ def _typecheckingstub__76acfe0dd4f79a87279c3d9cbf3bd8c7327733233aec66908901483da
     principal: builtins.str,
     access_entry_name: typing.Optional[builtins.str] = None,
     access_entry_type: typing.Optional[AccessEntryType] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26456,6 +27083,7 @@ def _typecheckingstub__a8342124e215d4789acf852df764143c4809251dbcaa86f6b4a11860e
     addon_version: typing.Optional[builtins.str] = None,
     configuration_values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     preserve_on_delete: typing.Optional[builtins.bool] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26600,6 +27228,7 @@ def _typecheckingstub__c0b87c41553cee5becfcb7d4f0a1e65b0d2f83e2b04c50e5031eef859
     ingress_alb: typing.Optional[builtins.bool] = None,
     ingress_alb_scheme: typing.Optional[AlbScheme] = None,
     prune: typing.Optional[builtins.bool] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     skip_validation: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -26611,6 +27240,7 @@ def _typecheckingstub__a6aa2e382a694744786e7d6854ca13bd607970f73536c975ae7475325
     selectors: typing.Sequence[typing.Union[Selector, typing.Dict[builtins.str, typing.Any]]],
     fargate_profile_name: typing.Optional[builtins.str] = None,
     pod_execution_role: typing.Optional[_IRole_235f5d8e] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     subnet_selection: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
     vpc: typing.Optional[_IVpc_f30d5663] = None,
 ) -> None:
@@ -26626,6 +27256,7 @@ def _typecheckingstub__ff2724c18a4ac2eb51d401c5ea14857dd81b51b7f44f46a894e6cac37
     create_namespace: typing.Optional[builtins.bool] = None,
     namespace: typing.Optional[builtins.str] = None,
     release: typing.Optional[builtins.str] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     repository: typing.Optional[builtins.str] = None,
     skip_crds: typing.Optional[builtins.bool] = None,
     timeout: typing.Optional[_Duration_4839e8c3] = None,
@@ -26663,6 +27294,7 @@ def _typecheckingstub__d3dbc0c0b7cb36fb532d2c452f5cac822b7564b4aa6f4490020610695
     node_role: typing.Optional[_IRole_235f5d8e] = None,
     release_version: typing.Optional[builtins.str] = None,
     remote_access: typing.Optional[typing.Union[NodegroupRemoteAccess, typing.Dict[builtins.str, typing.Any]]] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     taints: typing.Optional[typing.Sequence[typing.Union[TaintSpec, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -26679,6 +27311,7 @@ def _typecheckingstub__a242c66f1c038c3d983fd703316e9b6709e3aed4c6773ed4ea290f2c0
     name: typing.Optional[builtins.str] = None,
     namespace: typing.Optional[builtins.str] = None,
     overwrite_service_account: typing.Optional[builtins.bool] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26717,6 +27350,8 @@ def _typecheckingstub__c595337c9bbbcf6eb001ec015e579e32f72cb323ae83c9fa92eef9803
     id: builtins.str,
     principal: builtins.str,
     access_policies: typing.Sequence[IAccessPolicy],
+    *,
+    access_entry_type: typing.Optional[AccessEntryType] = None,
 ) -> None:
     """Type checking stubs"""
     pass

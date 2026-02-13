@@ -6,7 +6,10 @@
 # @Author       : betterme
 # @WeChat       : meutils
 # @Software     : PyCharm
-# @Description  : 
+# @Description  : todo veo
+# https://replicate.com/google/veo-3.1-fast
+# https://replicate.com/google/imagen-4-fast
+# https://replicate.com/runwayml/gen4-turbo
 
 
 from meutils.pipe import *
@@ -79,6 +82,60 @@ class Tasks(object):
 
             if image_urls := request.input_reference:
                 payload["start_image"] = image_urls[0]
+
+        elif request.model.startswith("xai"):  # xai/grok-imagine-video
+            payload = {
+                # "image": "x",
+                # "video": "x",
+                "prompt": request.prompt,
+                "duration": int(request.seconds or 5),
+                "resolution": "480p",
+                "aspect_ratio": "16:9"
+            }
+            if request.resolution:
+                payload['resolution'] = request.resolution
+
+            if request.aspect_ratio:
+                payload['aspect_ratio'] = request.aspect_ratio
+
+            if image_urls := request.input_reference:
+                payload["image"] = image_urls[0]
+
+            if image := request.image:
+                payload["image"] = image
+
+            if video := request.video:
+                payload["video"] = video
+
+        elif request.model.startswith("google/veo"):
+            payload = {
+                "image": "https://replicate.delivery/pbxt/NtDCMBJNIQTOU0mZtlnlrqrPLgYvTvpCISbFIiweYPsotGY5/replicate-prediction-gn4tnddn5drme0csx1yt3jvy4c.jpeg",
+                "prompt": request.prompt,
+                "duration": int(request.seconds or 8),  # 按次
+                "last_frame": "https://replicate.delivery/pbxt/NtDCLnwTQaPfLhgaNDmLevN8QivDFS8V91M8pCwEpDNIN9uA/replicate-prediction-8m82ekaj7hrma0csx1xrkmqjhm.jpeg",
+                "resolution": "720p",
+                "aspect_ratio": "16:9",
+                "generate_audio": True
+            }
+
+            if request.resolution:
+                payload['resolution'] = request.resolution
+
+            if request.aspect_ratio:
+                payload['aspect_ratio'] = request.aspect_ratio
+
+            if image_urls := request.input_reference:
+                payload["image"] = image_urls[0]
+                if len(image_urls) == 2:
+                    payload["last_frame"] = image_urls[1]
+
+                payload["reference_images"] = image_urls
+
+            if image := request.image:
+                payload["image"] = image
+
+            if request.last_frame_image:
+                payload["last_frame"] = request.last_frame_image
 
         # payload = {
         #     "prompt": request.prompt,

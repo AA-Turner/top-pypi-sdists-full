@@ -108,7 +108,7 @@ class SocketIo:
 		"""Puts the instrument into remote state."""
 		self.write("&GTR")
 
-	# noinspection PyUnusedLocal
+	# noinspection PyUnusedLocal,PyTypeChecker
 	@contextmanager
 	def ignore_warning(self, filter_value: int) -> None:
 		"""Context property with no effect for the socket connection"""

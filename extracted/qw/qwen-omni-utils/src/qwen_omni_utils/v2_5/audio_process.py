@@ -74,9 +74,9 @@ def process_audio_info(conversations: list[dict] | list[list[dict]], use_audio_i
                         if path.startswith("http://") or path.startswith("https://"):
                             data = audioread.ffdec.FFmpegAudioFile(path)
                         elif path.startswith("file://"):
-                            data = path[len("file://") :]
+                            data = audioread.ffdec.FFmpegAudioFile(path[len("file://") :])
                         else:
-                            data = path
+                            data = audioread.ffdec.FFmpegAudioFile(path)
                     else:
                         raise ValueError("Unknown video {}".format(ele))
                 else:

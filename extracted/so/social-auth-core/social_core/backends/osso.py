@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlencode
 
 from .oauth import BaseOAuth2
@@ -14,8 +14,8 @@ class OssoOAuth2(BaseOAuth2):
     ACCESS_TOKEN_URL = "{osso_base_url}/oauth/token"
 
     @property
-    def osso_base_url(self):
-        return self.setting("OSSO_BASE_URL", "https://demo.ossoapp.com")
+    def osso_base_url(self) -> str:
+        return cast("str", self.setting("OSSO_BASE_URL", "https://demo.ossoapp.com"))
 
     def get_authorization_url_format(self) -> dict[str, str]:
         return {"osso_base_url": self.osso_base_url}
@@ -42,7 +42,7 @@ class OssoOAuth2(BaseOAuth2):
 
     def user_data(self, access_token: str, *args, **kwargs) -> dict[str, Any] | None:
         """Loads normalized user profile from Osso"""
-        url = f"{self.osso_base_url}/oauth/me?" + urlencode(
-            {"access_token": access_token}
+        url = (
+            f"{self.osso_base_url}/oauth/me?{urlencode({'access_token': access_token})}"
         )
         return self.get_json(url)

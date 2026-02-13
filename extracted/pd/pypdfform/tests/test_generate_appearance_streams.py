@@ -5,7 +5,8 @@ import os
 
 import pytest
 
-from PyPDFForm import Fields, PdfWrapper
+from PyPDFForm import PdfWrapper
+from tests.test_need_appearances import run_sample_template_library_test
 
 
 def test_fill(template_stream, pdf_samples, data_dict, request):
@@ -55,7 +56,9 @@ def test_dropdown_two(sample_template_with_dropdown, pdf_samples, request):
         request.config.results["skip_regenerate"] = len(obj.read()) == len(expected)
 
 
-def test_fill_sejda_complex(sejda_template_complex, pdf_samples, request):
+def test_fill_sejda_complex(
+    sejda_template_complex, sejda_complex_data, pdf_samples, request
+):
     expected_path = os.path.join(
         pdf_samples,
         "generate_appearance_streams",
@@ -64,28 +67,7 @@ def test_fill_sejda_complex(sejda_template_complex, pdf_samples, request):
     )
     with open(expected_path, "rb+") as f:
         obj = PdfWrapper(sejda_template_complex, generate_appearance_streams=True).fill(
-            {
-                "checkbox": True,
-                "radio": 0,
-                "dropdown_font_auto_left": 0,
-                "dropdown_font_auto_center": 1,
-                "dropdown_font_auto_right": 2,
-                "dropdown_font_ten_left": 0,
-                "dropdown_font_ten_center": 1,
-                "dropdown_font_ten_right": 2,
-                "paragraph_font_auto_left": "paragraph_font_auto_left",
-                "paragraph_font_auto_center": "paragraph_font_auto_center",
-                "paragraph_font_auto_right": "paragraph_font_auto_right",
-                "paragraph_font_ten_left": "paragraph_font_ten_left",
-                "paragraph_font_ten_center": "paragraph_font_ten_center",
-                "paragraph_font_ten_right": "paragraph_font_ten_right",
-                "text__font_auto_left": "test text",
-                "text_font_auto_center": "test text",
-                "text_font_auto_right": "test text",
-                "text_font_ten_left": "text_font_ten_left",
-                "text_font_ten_center": "text_font_ten_center",
-                "text_font_ten_right": "text_font_ten_right",
-            },
+            sejda_complex_data,
         )
 
         request.config.results["expected_path"] = expected_path
@@ -125,96 +107,10 @@ def test_issue_613(pdf_samples, request):
 def test_sample_template_library(
     pdf_samples, image_samples, sample_font_stream, request
 ):
-    expected_path = os.path.join(
-        pdf_samples, "generate_appearance_streams", "test_sample_template_library.pdf"
+    run_sample_template_library_test(
+        pdf_samples,
+        image_samples,
+        sample_font_stream,
+        request,
+        generate_appearance_streams=True,
     )
-
-    with open(expected_path, "rb+") as f:
-        obj = (
-            PdfWrapper(
-                os.path.join(pdf_samples, "dummy.pdf"), generate_appearance_streams=True
-            )
-            .register_font("new_font", sample_font_stream)
-            .create_field(
-                Fields.TextField(
-                    name="new_text_field_widget",
-                    page_number=1,
-                    x=60,
-                    y=710,
-                )
-            )
-            .create_field(
-                Fields.CheckBoxField(
-                    name="new_checkbox_widget",
-                    page_number=1,
-                    x=100,
-                    y=600,
-                )
-            )
-            .create_field(
-                Fields.RadioGroup(
-                    name="new_radio_group",
-                    page_number=1,
-                    x=[50, 100, 150],
-                    y=[50, 100, 150],
-                )
-            )
-            .create_field(
-                Fields.DropdownField(
-                    name="new_dropdown_widget",
-                    page_number=1,
-                    x=300,
-                    y=710,
-                    options=[
-                        "foo",
-                        "bar",
-                        "foobar",
-                    ],
-                    font="new_font",
-                )
-            )
-            .create_field(
-                Fields.ImageField(
-                    name="new_image_widget",
-                    page_number=1,
-                    x=300,
-                    y=200,
-                )
-            )
-            .create_field(
-                Fields.SignatureField(
-                    name="new_signature_wiget",
-                    page_number=1,
-                    x=300,
-                    y=400,
-                )
-            )
-            .fill(
-                {
-                    "new_text_field_widget": "test text",
-                    "new_checkbox_widget": True,
-                    "new_radio_group": 1,
-                    "new_dropdown_widget": "barfoo",
-                    "new_image_widget": os.path.join(image_samples, "sample_image.jpg"),
-                    "new_signature_wiget": os.path.join(
-                        image_samples, "sample_signature.png"
-                    ),
-                },
-            )
-        )
-
-        obj.widgets["new_text_field_widget"].font = "new_font"
-        obj.widgets["new_text_field_widget"].font_color = (1, 0, 0)
-        obj.widgets["new_text_field_widget"].alignment = (
-            2  # TODO: why is alignment not rendered right in the appearance stream?
-        )
-        obj.widgets["new_checkbox_widget"].size = 40
-        obj.widgets["new_radio_group"].size = 50
-
-        request.config.results["expected_path"] = expected_path
-        request.config.results["stream"] = obj.read()
-
-        expected = f.read()
-
-        assert len(obj.read()) == len(expected)
-        request.config.results["skip_regenerate"] = len(obj.read()) == len(expected)

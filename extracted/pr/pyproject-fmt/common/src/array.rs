@@ -104,9 +104,9 @@ fn ensure_array_multiline(array: &SyntaxNode, column_width: usize) {
         return;
     }
 
-    let has_comment = array.descendants_with_tokens().any(|x| x.kind() == COMMENT);
+    let has_comment_inside = has_comment_before_bracket_end(array);
     let exceeds_width = array.text().to_string().len() > column_width;
-    if !has_trailing && !exceeds_width && !has_comment {
+    if !has_trailing && !exceeds_width && !has_comment_inside {
         return;
     }
 
@@ -115,6 +115,25 @@ fn ensure_array_multiline(array: &SyntaxNode, column_width: usize) {
     }
 
     insert_newlines_around_content(array);
+}
+
+fn has_comment_before_bracket_end(array: &SyntaxNode) -> bool {
+    let children: Vec<_> = array.children_with_tokens().collect();
+    let mut seen_bracket_end = false;
+    for child in children.iter().rev() {
+        if child.kind() == BRACKET_END {
+            seen_bracket_end = true;
+        } else if seen_bracket_end && child.kind() == COMMENT {
+            return true;
+        } else if seen_bracket_end
+            && is_array_value(child.kind())
+            && let Some(node) = child.as_node()
+            && node.descendants_with_tokens().any(|x| x.kind() == COMMENT)
+        {
+            return true;
+        }
+    }
+    false
 }
 
 pub fn transform<F>(array: &SyntaxNode, transform: &F)
@@ -184,7 +203,7 @@ where
             BRACKET_END => {
                 match current_set_value.take() {
                     None => {
-                        entries.extend(current_set.borrow_mut().clone());
+                        entries.extend(current_set.borrow_mut().drain(..));
                     }
                     Some(val) => {
                         add_to_order_sets(val);
@@ -227,6 +246,8 @@ where
         }
     }
 
+    let remaining: Vec<SyntaxElement> = current_set.borrow_mut().drain(..).collect();
+
     let trailing_content = entries.split_off(if multiline { 2 } else { 1 });
     let mut order: Vec<T> = key_to_order_set.keys().cloned().collect();
     order.sort_by(&cmp);
@@ -242,6 +263,7 @@ where
         entries.extend(order_sets[key_to_order_set[&key]].clone());
     }
     entries.extend(trailing_content);
+    entries.extend(remaining);
     array.splice_children(0..count, entries);
 
     if !has_trailing_comma {

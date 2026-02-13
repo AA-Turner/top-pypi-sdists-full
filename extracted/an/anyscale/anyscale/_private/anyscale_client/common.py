@@ -1069,6 +1069,8 @@ class AnyscaleClientInterface(ABC):
         creator_id: Optional[str] = None,
         count: Optional[int] = None,
         paging_token: Optional[str] = None,
+        sort_field: Optional[str] = None,
+        sort_order: Optional[str] = None,
     ) -> DecoratedscheduleListResponse:
         """List schedules with filtering and pagination."""
         raise NotImplementedError

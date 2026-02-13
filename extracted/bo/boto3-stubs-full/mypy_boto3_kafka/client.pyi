@@ -55,6 +55,8 @@ from .type_defs import (
     CreateConfigurationResponseTypeDef,
     CreateReplicatorRequestTypeDef,
     CreateReplicatorResponseTypeDef,
+    CreateTopicRequestTypeDef,
+    CreateTopicResponseTypeDef,
     CreateVpcConnectionRequestTypeDef,
     CreateVpcConnectionResponseTypeDef,
     DeleteClusterPolicyRequestTypeDef,
@@ -64,6 +66,8 @@ from .type_defs import (
     DeleteConfigurationResponseTypeDef,
     DeleteReplicatorRequestTypeDef,
     DeleteReplicatorResponseTypeDef,
+    DeleteTopicRequestTypeDef,
+    DeleteTopicResponseTypeDef,
     DeleteVpcConnectionRequestTypeDef,
     DeleteVpcConnectionResponseTypeDef,
     DescribeClusterOperationRequestTypeDef,
@@ -152,6 +156,8 @@ from .type_defs import (
     UpdateSecurityResponseTypeDef,
     UpdateStorageRequestTypeDef,
     UpdateStorageResponseTypeDef,
+    UpdateTopicRequestTypeDef,
+    UpdateTopicResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -164,13 +170,22 @@ __all__ = ("KafkaClient",)
 class Exceptions(BaseClientExceptions):
     BadRequestException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
+    ClusterConnectivityException: type[BotocoreClientError]
     ConflictException: type[BotocoreClientError]
+    ControllerMovedException: type[BotocoreClientError]
     ForbiddenException: type[BotocoreClientError]
+    GroupSubscribedToTopicException: type[BotocoreClientError]
     InternalServerErrorException: type[BotocoreClientError]
+    KafkaRequestException: type[BotocoreClientError]
+    KafkaTimeoutException: type[BotocoreClientError]
+    NotControllerException: type[BotocoreClientError]
     NotFoundException: type[BotocoreClientError]
+    ReassignmentInProgressException: type[BotocoreClientError]
     ServiceUnavailableException: type[BotocoreClientError]
     TooManyRequestsException: type[BotocoreClientError]
+    TopicExistsException: type[BotocoreClientError]
     UnauthorizedException: type[BotocoreClientError]
+    UnknownTopicOrPartitionException: type[BotocoreClientError]
 
 class KafkaClient(BaseClient):
     """
@@ -257,6 +272,16 @@ class KafkaClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/client/#create_replicator)
         """
 
+    def create_topic(
+        self, **kwargs: Unpack[CreateTopicRequestTypeDef]
+    ) -> CreateTopicResponseTypeDef:
+        """
+        Creates a topic in the specified MSK cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/create_topic.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/client/#create_topic)
+        """
+
     def create_vpc_connection(
         self, **kwargs: Unpack[CreateVpcConnectionRequestTypeDef]
     ) -> CreateVpcConnectionResponseTypeDef:
@@ -307,6 +332,16 @@ class KafkaClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/delete_replicator.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/client/#delete_replicator)
+        """
+
+    def delete_topic(
+        self, **kwargs: Unpack[DeleteTopicRequestTypeDef]
+    ) -> DeleteTopicResponseTypeDef:
+        """
+        Deletes a topic in the specified MSK cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/delete_topic.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/client/#delete_topic)
         """
 
     def delete_vpc_connection(
@@ -771,6 +806,16 @@ class KafkaClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/update_storage.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/client/#update_storage)
+        """
+
+    def update_topic(
+        self, **kwargs: Unpack[UpdateTopicRequestTypeDef]
+    ) -> UpdateTopicResponseTypeDef:
+        """
+        Updates the configuration of the specified topic.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/update_topic.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/client/#update_topic)
         """
 
     @overload  # type: ignore[override]

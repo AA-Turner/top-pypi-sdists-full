@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: epicscorelibs
-Version: 7.0.10.99.0.0
+Version: 7.0.10.99.0.1
 Summary: The EPICS Core libraries for use by python modules
 Home-page: https://github.com/mdavidsaver/epicscorelibs
 Author: Michael Davidsaver

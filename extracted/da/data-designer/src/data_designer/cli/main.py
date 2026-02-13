@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import typer
 
-from data_designer.cli.commands import download, models, providers, reset
+from data_designer.cli.commands import create, download, mcp, models, preview, providers, reset, tools, validate
 from data_designer.cli.commands import list as list_cmd
 from data_designer.config.default_model_settings import resolve_seed_default_model_settings
 from data_designer.config.utils.misc import can_run_data_designer_locally
@@ -31,6 +31,8 @@ config_app = typer.Typer(
 )
 config_app.command(name="providers", help="Configure model providers interactively")(providers.providers_command)
 config_app.command(name="models", help="Configure models interactively")(models.models_command)
+config_app.command(name="mcp", help="Configure MCP providers interactively")(mcp.mcp_command)
+config_app.command(name="tools", help="Configure tool configs interactively")(tools.tools_command)
 config_app.command(name="list", help="List current configurations")(list_cmd.list_command)
 config_app.command(name="reset", help="Reset configuration files")(reset.reset_command)
 
@@ -42,9 +44,20 @@ download_app = typer.Typer(
 )
 download_app.command(name="personas", help="Download Nemotron-Persona datasets")(download.personas_command)
 
-# Add command groups to main app
-app.add_typer(config_app, name="config")
-app.add_typer(download_app, name="download")
+# Add generation commands
+app.command(name="preview", help="Generate a preview dataset for fast iteration", rich_help_panel="Generation")(
+    preview.preview_command
+)
+app.command(name="create", help="Create a full dataset and save results to disk", rich_help_panel="Generation")(
+    create.create_command
+)
+app.command(name="validate", help="Validate a Data Designer configuration", rich_help_panel="Generation")(
+    validate.validate_command
+)
+
+# Add setup command groups
+app.add_typer(config_app, name="config", rich_help_panel="Setup")
+app.add_typer(download_app, name="download", rich_help_panel="Setup")
 
 
 def main() -> None:

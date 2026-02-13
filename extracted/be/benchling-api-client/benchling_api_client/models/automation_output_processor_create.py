@@ -17,7 +17,7 @@ class AutomationOutputProcessorCreate:
     _file_id: str
     _complete_with_errors: Union[Unset, bool] = UNSET
     _folder_id: Union[Unset, str] = UNSET
-    _locaton_id: Union[Unset, str] = UNSET
+    _location_id: Union[Unset, str] = UNSET
     _timezone: Union[Unset, str] = UNSET
 
     def __repr__(self):
@@ -27,7 +27,7 @@ class AutomationOutputProcessorCreate:
         fields.append("file_id={}".format(repr(self._file_id)))
         fields.append("complete_with_errors={}".format(repr(self._complete_with_errors)))
         fields.append("folder_id={}".format(repr(self._folder_id)))
-        fields.append("locaton_id={}".format(repr(self._locaton_id)))
+        fields.append("location_id={}".format(repr(self._location_id)))
         fields.append("timezone={}".format(repr(self._timezone)))
         return "AutomationOutputProcessorCreate({})".format(", ".join(fields))
 
@@ -37,7 +37,7 @@ class AutomationOutputProcessorCreate:
         file_id = self._file_id
         complete_with_errors = self._complete_with_errors
         folder_id = self._folder_id
-        locaton_id = self._locaton_id
+        location_id = self._location_id
         timezone = self._timezone
 
         field_dict: Dict[str, Any] = {}
@@ -52,8 +52,8 @@ class AutomationOutputProcessorCreate:
             field_dict["completeWithErrors"] = complete_with_errors
         if folder_id is not UNSET:
             field_dict["folderId"] = folder_id
-        if locaton_id is not UNSET:
-            field_dict["locatonId"] = locaton_id
+        if location_id is not UNSET:
+            field_dict["locationId"] = location_id
         if timezone is not UNSET:
             field_dict["timezone"] = timezone
 
@@ -118,16 +118,16 @@ class AutomationOutputProcessorCreate:
                 raise
             folder_id = cast(Union[Unset, str], UNSET)
 
-        def get_locaton_id() -> Union[Unset, str]:
-            locaton_id = d.pop("locatonId")
-            return locaton_id
+        def get_location_id() -> Union[Unset, str]:
+            location_id = d.pop("locationId")
+            return location_id
 
         try:
-            locaton_id = get_locaton_id()
+            location_id = get_location_id()
         except KeyError:
             if strict:
                 raise
-            locaton_id = cast(Union[Unset, str], UNSET)
+            location_id = cast(Union[Unset, str], UNSET)
 
         def get_timezone() -> Union[Unset, str]:
             timezone = d.pop("timezone")
@@ -146,7 +146,7 @@ class AutomationOutputProcessorCreate:
             file_id=file_id,
             complete_with_errors=complete_with_errors,
             folder_id=folder_id,
-            locaton_id=locaton_id,
+            location_id=location_id,
             timezone=timezone,
         )
 
@@ -214,19 +214,19 @@ class AutomationOutputProcessorCreate:
         self._folder_id = UNSET
 
     @property
-    def locaton_id(self) -> str:
+    def location_id(self) -> str:
         """ The API ID of the location to set for the automation output file. Storable items created by the correpsonding output processor will be created at this location. """
-        if isinstance(self._locaton_id, Unset):
-            raise NotPresentError(self, "locaton_id")
-        return self._locaton_id
+        if isinstance(self._location_id, Unset):
+            raise NotPresentError(self, "location_id")
+        return self._location_id
 
-    @locaton_id.setter
-    def locaton_id(self, value: str) -> None:
-        self._locaton_id = value
+    @location_id.setter
+    def location_id(self, value: str) -> None:
+        self._location_id = value
 
-    @locaton_id.deleter
-    def locaton_id(self) -> None:
-        self._locaton_id = UNSET
+    @location_id.deleter
+    def location_id(self) -> None:
+        self._location_id = UNSET
 
     @property
     def timezone(self) -> str:

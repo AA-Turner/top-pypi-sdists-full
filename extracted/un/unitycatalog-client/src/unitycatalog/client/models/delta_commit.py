@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from unitycatalog.client.models.delta_commit_info import DeltaCommitInfo
 from unitycatalog.client.models.delta_metadata import DeltaMetadata
+from unitycatalog.client.models.delta_uniform import DeltaUniform
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -33,7 +34,8 @@ class DeltaCommit(BaseModel):
     commit_info: Optional[DeltaCommitInfo] = None
     latest_backfilled_version: Optional[StrictInt] = Field(default=None, description="The highest version of the commits that have been backfilled for this table; meaning UC no longer  needs to keep track of commits of versions <= this version. ")
     metadata: Optional[DeltaMetadata] = None
-    __properties: ClassVar[List[str]] = ["table_id", "table_uri", "commit_info", "latest_backfilled_version", "metadata"]
+    uniform: Optional[DeltaUniform] = None
+    __properties: ClassVar[List[str]] = ["table_id", "table_uri", "commit_info", "latest_backfilled_version", "metadata", "uniform"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -80,6 +82,9 @@ class DeltaCommit(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of metadata
         if self.metadata:
             _dict['metadata'] = self.metadata.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of uniform
+        if self.uniform:
+            _dict['uniform'] = self.uniform.to_dict()
         return _dict
 
     @classmethod
@@ -96,7 +101,8 @@ class DeltaCommit(BaseModel):
             "table_uri": obj.get("table_uri"),
             "commit_info": DeltaCommitInfo.from_dict(obj["commit_info"]) if obj.get("commit_info") is not None else None,
             "latest_backfilled_version": obj.get("latest_backfilled_version"),
-            "metadata": DeltaMetadata.from_dict(obj["metadata"]) if obj.get("metadata") is not None else None
+            "metadata": DeltaMetadata.from_dict(obj["metadata"]) if obj.get("metadata") is not None else None,
+            "uniform": DeltaUniform.from_dict(obj["uniform"]) if obj.get("uniform") is not None else None
         })
         return _obj
 

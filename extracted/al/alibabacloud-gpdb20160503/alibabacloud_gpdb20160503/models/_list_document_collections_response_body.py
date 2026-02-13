@@ -18,7 +18,6 @@ class ListDocumentCollectionsResponseBody(DaraModel):
     ):
         # The total number of entries returned.
         self.count = count
-        # The queried document collections.
         self.items = items
         # The returned message.
         self.message = message
@@ -124,19 +123,12 @@ class ListDocumentCollectionsResponseBodyItemsCollectionList(DaraModel):
         sparse_retrieval_fields: str = None,
         support_sparse: bool = None,
     ):
-        # The name of the document collection.
         self.collection_name = collection_name
-        # The number of vector dimensions.
         self.dimension = dimension
-        # The name of the vector algorithm.
         self.embedding_model = embedding_model
-        # The fields that are used for full-text search. Multiple fields are separated by commas (,).
         self.full_text_retrieval_fields = full_text_retrieval_fields
-        # The metadata.
         self.metadata = metadata
-        # The vector similarity algorithm.
         self.metrics = metrics
-        # The analyzer that is used for full-text search.
         self.parser = parser
         self.sparse_retrieval_fields = sparse_retrieval_fields
         self.support_sparse = support_sparse

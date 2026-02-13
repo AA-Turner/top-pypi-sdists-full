@@ -1,0 +1,2 @@
+import{r as e}from"./rolldown-runtime-DIIn1E2Q.js";var decodeQueryParam=e=>{try{return decodeURIComponent(e)}catch{return null}},isSafeInternalRedirectPath=e=>e.startsWith(`/`)&&!e.startsWith(`//`);const getSafePreviousFullPath=e=>{let t=e.previousFullPath,n=Array.isArray(t)?t[0]:t;if(!n)return null;let r=decodeQueryParam(n);return r&&isSafeInternalRedirectPath(r)?r:null};export{getSafePreviousFullPath as t};
+//# sourceMappingURL=previousFullPath-CK8S4MWH.js.map

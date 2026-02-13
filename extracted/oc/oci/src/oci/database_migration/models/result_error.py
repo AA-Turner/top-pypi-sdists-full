@@ -36,23 +36,37 @@ class ResultError(object):
             The value to assign to the action property of this ResultError.
         :type action: str
 
+        :param action_link:
+            The value to assign to the action_link property of this ResultError.
+        :type action_link: str
+
+        :param action_text:
+            The value to assign to the action_text property of this ResultError.
+        :type action_text: str
+
         """
         self.swagger_types = {
             'code': 'str',
             'message': 'str',
             'issue': 'str',
-            'action': 'str'
+            'action': 'str',
+            'action_link': 'str',
+            'action_text': 'str'
         }
         self.attribute_map = {
             'code': 'code',
             'message': 'message',
             'issue': 'issue',
-            'action': 'action'
+            'action': 'action',
+            'action_link': 'actionLink',
+            'action_text': 'actionText'
         }
         self._code = None
         self._message = None
         self._issue = None
         self._action = None
+        self._action_link = None
+        self._action_text = None
 
     @property
     def code(self):
@@ -149,6 +163,54 @@ class ResultError(object):
         :type: str
         """
         self._action = action
+
+    @property
+    def action_link(self):
+        """
+        Gets the action_link of this ResultError.
+        The link to the documentation
+
+
+        :return: The action_link of this ResultError.
+        :rtype: str
+        """
+        return self._action_link
+
+    @action_link.setter
+    def action_link(self, action_link):
+        """
+        Sets the action_link of this ResultError.
+        The link to the documentation
+
+
+        :param action_link: The action_link of this ResultError.
+        :type: str
+        """
+        self._action_link = action_link
+
+    @property
+    def action_text(self):
+        """
+        Gets the action_text of this ResultError.
+        The text for the link to the documentation
+
+
+        :return: The action_text of this ResultError.
+        :rtype: str
+        """
+        return self._action_text
+
+    @action_text.setter
+    def action_text(self, action_text):
+        """
+        Sets the action_text of this ResultError.
+        The text for the link to the documentation
+
+
+        :param action_text: The action_text of this ResultError.
+        :type: str
+        """
+        self._action_text = action_text
 
     def __repr__(self):
         return formatted_flat_dict(self)

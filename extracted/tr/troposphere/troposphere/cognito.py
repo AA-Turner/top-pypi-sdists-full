@@ -331,6 +331,17 @@ class CustomSMSSender(AWSProperty):
     }
 
 
+class InboundFederation(AWSProperty):
+    """
+    `InboundFederation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-inboundfederation.html>`__
+    """
+
+    props: PropsDictType = {
+        "LambdaArn": (str, False),
+        "LambdaVersion": (str, False),
+    }
+
+
 class PreTokenGenerationConfig(AWSProperty):
     """
     `PreTokenGenerationConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-pretokengenerationconfig.html>`__
@@ -353,6 +364,7 @@ class LambdaConfig(AWSProperty):
         "CustomMessage": (str, False),
         "CustomSMSSender": (CustomSMSSender, False),
         "DefineAuthChallenge": (str, False),
+        "InboundFederation": (InboundFederation, False),
         "KMSKeyID": (str, False),
         "PostAuthentication": (str, False),
         "PostConfirmation": (str, False),

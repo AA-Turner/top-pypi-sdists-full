@@ -1,3 +1,4 @@
+import json
 import os
 import signal
 import threading
@@ -20,6 +21,7 @@ from abstra_internals.controllers.execution.execution_client import (
 )
 from abstra_internals.controllers.execution.execution_client_form import FormClient
 from abstra_internals.controllers.execution.execution_client_hook import HookClient
+from abstra_internals.controllers.execution.execution_conn import set_execution_conn
 from abstra_internals.controllers.main import MainController
 from abstra_internals.entities.execution import ClientContext
 from abstra_internals.entities.execution_context import FormContext, HookContext
@@ -27,6 +29,7 @@ from abstra_internals.environment import (
     EDITOR_MODE,
     IS_DEVELOPMENT,
     IS_PRODUCTION,
+    WORKER_LOG_TO_QUEUE,
 )
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.factory import (
@@ -202,6 +205,13 @@ def handle_execute(
             )
             actual_connection = rabbitmq_connection_to_close
 
+        if WORKER_LOG_TO_QUEUE and rabbitmq_connection_to_close is not None:
+            set_execution_conn(rabbitmq_connection_to_close)
+            AbstraLogger.warning(
+                f"[Worker] ABSTRA_WORKER_LOG_TO_QUEUE=true, will send execution logs via RabbitMQ "
+                f"(execution_id={rabbitmq_connection_to_close.execution_id})"
+            )
+
         if actual_connection is None:
             raise Exception("No connection available")
 
@@ -260,12 +270,27 @@ def handle_execute(
             )
         )
     finally:
+        # 1. Flush remaining buffered logs and clear the buffer
+        set_execution_conn(None)
+
+        # 2. Send execution:ended signal so the server knows to close the queue
+        if WORKER_LOG_TO_QUEUE and rabbitmq_connection_to_close is not None:
+            try:
+                rabbitmq_connection_to_close.send(
+                    json.dumps(
+                        {
+                            "type": "execution:ended",
+                            "execution_id": request.execution_id,
+                        }
+                    )
+                )
+            except Exception:
+                pass
+
+        # 3. Close the RabbitMQ connection
         if rabbitmq_connection_to_close is not None:
             try:
                 rabbitmq_connection_to_close.close()
-                AbstraLogger.debug(
-                    f"[Executor] Closed RabbitMQ connection for execution_id={request.execution_id}"
-                )
             except Exception as e:
                 AbstraLogger.error(f"[Executor] Error closing RabbitMQ connection: {e}")
 

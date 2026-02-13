@@ -2,7 +2,9 @@ import re
 
 import pytest
 
-from icalendar import Calendar, Event, Parameters, vCalAddress
+from icalendar import Parameters, vCalAddress
+from icalendar.cal.calendar import Calendar
+from icalendar.cal.event import Event
 
 
 @pytest.mark.parametrize(
@@ -38,13 +40,6 @@ from icalendar import Calendar, Event, Parameters, vCalAddress
         ),
         # Including empty strings
         (Parameters({"PARAM": ""}), b"PARAM="),
-        # We can also parse parameter strings
-        (
-            Parameters(
-                {"MEMBER": ["MAILTO:projectA@host.com", "MAILTO:projectB@host.com"]}
-            ),
-            b'MEMBER="MAILTO:projectA@host.com","MAILTO:projectB@host.com"',
-        ),
         # We can also parse parameter strings
         (
             Parameters(

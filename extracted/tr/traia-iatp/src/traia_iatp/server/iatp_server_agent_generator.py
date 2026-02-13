@@ -96,6 +96,16 @@ class IATPServerAgentGenerator:
             elif isinstance(mcp_server.capabilities, list):
                 capabilities = mcp_server.capabilities
         
+        # Build mcp_tools_description from endpoints if provided via kwargs
+        # This gives the agent pre-baked context about its available tools
+        if 'mcp_tools_description' not in kwargs:
+            mcp_endpoints = kwargs.pop('mcp_endpoints', None)
+            if mcp_endpoints:
+                kwargs['mcp_tools_description'] = self._build_tools_description(mcp_endpoints)
+                logger.info(f"Built tools description from {len(mcp_endpoints)} endpoint(s)")
+            else:
+                kwargs['mcp_tools_description'] = ""
+        
         # Prepare skill examples based on MCP server type
         skill_examples = kwargs.get('skill_examples', [])
         if not skill_examples:
@@ -149,6 +159,37 @@ class IATPServerAgentGenerator:
         logger.info(f"Generated utility agent '{agent_name}' at {generated_path}")
         return utility_agent
     
+    @staticmethod
+    def _build_tools_description(endpoints: list) -> str:
+        """Build a concise, LLM-friendly description of available MCP tools.
+
+        Each endpoint dict is expected to have at least 'endpoint_name'.
+        'endpoint_description' is optional but highly recommended.
+
+        Args:
+            endpoints: List of endpoint dicts (from MongoDB or local config).
+
+        Returns:
+            A newline-separated string listing each tool name and description.
+            The string is safe to embed inside a Jinja2 template (newlines escaped).
+        """
+        if not endpoints:
+            return ""
+
+        lines = []
+        for idx, ep in enumerate(endpoints, start=1):
+            name = ep.get("endpoint_name", f"tool_{idx}")
+            desc = ep.get("endpoint_description", "No description available.")
+            # Sanitize: collapse newlines and escape quotes for safe Jinja2 embedding
+            desc = " ".join(desc.replace("\r", "").split("\n")).strip()
+            desc = desc.replace('"', '\\"').replace("'", "\\'")
+            name = name.replace('"', '\\"').replace("'", "\\'")
+            # Keep each tool on a single line so the Jinja2 string stays clean
+            lines.append(f"  {idx}. {name} - {desc}")
+
+        tools_text = "\\n".join(lines)
+        return tools_text
+
     def _generate_skill_examples(self, mcp_server: MCPServer) -> list:
         """Generate example prompts based on MCP server type.
         

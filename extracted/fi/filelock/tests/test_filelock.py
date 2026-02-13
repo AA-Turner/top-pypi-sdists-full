@@ -231,7 +231,7 @@ class ExThread(threading.Thread):
     def run(self) -> None:
         try:
             super().run()
-        except Exception:  # noqa: BLE001 # pragma: no cover
+        except Exception:  # pragma: no cover
             self.ex = sys.exc_info()  # pragma: no cover
 
     def join(self, timeout: float | None = None) -> None:
@@ -597,7 +597,7 @@ def test_wrong_platform(tmp_path: Path) -> None:
     with pytest.raises(NotImplementedError):
         lock.acquire()
     with pytest.raises(NotImplementedError):
-        lock._release()  # noqa: SLF001
+        lock._release()
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="flock not run on windows")
@@ -771,23 +771,23 @@ def test_singleton_locks_are_deleted_when_no_external_references_exist(
     lock_path = tmp_path / "a"
     lock = lock_type(str(lock_path), is_singleton=True)
 
-    assert lock_type._instances == {str(lock_path): lock}  # noqa: SLF001
+    assert lock_type._instances == {str(lock_path): lock}
     del lock
-    assert lock_type._instances == {}  # noqa: SLF001
+    assert lock_type._instances == {}
 
 
 @pytest.mark.skipif(hasattr(sys, "pypy_version_info"), reason="del() does not trigger GC in PyPy")
 @pytest.mark.parametrize("lock_type", [FileLock, SoftFileLock])
 def test_singleton_instance_tracking_is_unique_per_subclass(lock_type: type[BaseFileLock]) -> None:
-    class Lock1(lock_type):  # type: ignore[valid-type, misc]
+    class Lock1(lock_type):  # ty: ignore[unsupported-base]
         pass
 
-    class Lock2(lock_type):  # type: ignore[valid-type, misc]
+    class Lock2(lock_type):  # ty: ignore[unsupported-base]
         pass
 
-    assert isinstance(Lock1._instances, WeakValueDictionary)  # noqa: SLF001
-    assert isinstance(Lock2._instances, WeakValueDictionary)  # noqa: SLF001
-    assert Lock1._instances is not Lock2._instances  # noqa: SLF001
+    assert isinstance(Lock1._instances, WeakValueDictionary)
+    assert isinstance(Lock2._instances, WeakValueDictionary)
+    assert Lock1._instances is not Lock2._instances
 
 
 def test_singleton_locks_when_inheriting_init_is_called_once(tmp_path: Path) -> None:
@@ -827,12 +827,150 @@ def test_file_lock_positional_argument(tmp_path: Path) -> None:
 def test_mtime_zero_exit_branch(
     lock_type: type[BaseFileLock], expected_exc: type[BaseException], tmp_path: Path
 ) -> None:
-    p = tmp_path / "z.lock"
-    p.touch()
-    Path(p).chmod(0o444)
-    os.utime(p, (0, 0))
+    lock_path = tmp_path / "z.lock"
+    lock_path.touch()
+    Path(lock_path).chmod(0o444)
+    os.utime(lock_path, (0, 0))
 
-    lock = lock_type(str(p))
+    lock = lock_type(str(lock_path))
 
     with pytest.raises(expected_exc):
         lock.acquire(timeout=0)
+
+
+@pytest.mark.parametrize("lock_type", [FileLock, SoftFileLock])
+def test_lock_file_removed_after_release(tmp_path: Path, lock_type: type[BaseFileLock]) -> None:
+    lock_path = tmp_path / "test.lock"
+    lock = lock_type(str(lock_path))
+    with lock:
+        assert lock_path.exists()
+    assert not lock_path.exists()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Unix flock semantics")
+def test_concurrent_acquire_release_removes_lock_file(tmp_path: Path) -> None:
+    lock_path = tmp_path / "test.lock"
+    errors: list[Exception] = []
+
+    def worker() -> None:
+        try:
+            for _ in range(20):
+                lock = FileLock(str(lock_path), is_singleton=False)
+                with lock:
+                    pass
+        except Exception as exc:
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker) for _ in range(4)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+    assert not errors, errors
+    assert not lock_path.exists()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Unix flock semantics")
+def test_lock_acquired_after_release_unlinks(tmp_path: Path) -> None:
+    lock_path = tmp_path / "test.lock"
+    first = FileLock(str(lock_path), is_singleton=False)
+    second = FileLock(str(lock_path), is_singleton=False)
+
+    first.acquire()
+    assert lock_path.exists()
+    first.release()
+    assert not lock_path.exists()
+
+    second.acquire()
+    assert lock_path.exists()
+    second.release()
+    assert not lock_path.exists()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Unix flock semantics")
+def test_stale_inode_retry_on_unlinked_lock(tmp_path: Path, mocker: MockerFixture) -> None:
+    lock_path = tmp_path / "test.lock"
+    lock = FileLock(str(lock_path), is_singleton=False)
+
+    real_fstat = os.fstat
+    call_count = 0
+
+    def fstat_unlinked_once(fd: int) -> os.stat_result:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            Path(lock_path).unlink()
+            return real_fstat(fd)
+        return real_fstat(fd)
+
+    mocker.patch("os.fstat", side_effect=fstat_unlinked_once)
+    lock.acquire()
+    assert lock.is_locked
+    assert call_count == 2
+    lock.release()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Unix flock semantics")
+def test_permission_error_fallback_without_o_creat(tmp_path: Path, mocker: MockerFixture) -> None:
+    lock_path = tmp_path / "test.lock"
+    lock_path.touch()
+    lock = FileLock(str(lock_path), is_singleton=False)
+
+    real_open = os.open
+    call_count = 0
+
+    def open_no_creat(path: str, flags: int, mode: int = 0o777, *, dir_fd: int | None = None) -> int:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1 and flags & os.O_CREAT:
+            raise PermissionError(13, "Permission denied", path)
+        return real_open(path, flags, mode) if dir_fd is None else real_open(path, flags, mode, dir_fd=dir_fd)
+
+    mocker.patch("os.open", side_effect=open_no_creat)
+    lock.acquire()
+    assert lock.is_locked
+    assert call_count == 2
+    lock.release()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Unix flock semantics")
+def test_permission_error_propagates_when_file_missing(tmp_path: Path, mocker: MockerFixture) -> None:
+    lock_path = tmp_path / "test.lock"
+    lock = FileLock(str(lock_path), is_singleton=False)
+
+    real_open = os.open
+
+    def open_always_permission_error(path: str, flags: int, mode: int = 0o777, *, dir_fd: int | None = None) -> int:
+        if "test.lock" in path:
+            raise PermissionError(13, "Permission denied", path)
+        return real_open(path, flags, mode) if dir_fd is None else real_open(path, flags, mode, dir_fd=dir_fd)
+
+    mocker.patch("os.open", side_effect=open_always_permission_error)
+    with pytest.raises(PermissionError, match="Permission denied"):
+        lock.acquire(timeout=0)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Unix flock semantics")
+def test_sticky_bit_fallback_handles_concurrent_unlink(tmp_path: Path, mocker: MockerFixture) -> None:
+    lock_path = tmp_path / "test.lock"
+    lock_path.touch()
+    lock = FileLock(str(lock_path), is_singleton=False)
+
+    real_open = os.open
+    call_count = 0
+
+    def open_permission_then_unlink(path: str, flags: int, mode: int = 0o777, *, dir_fd: int | None = None) -> int:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1 and flags & os.O_CREAT and "test.lock" in path:
+            raise PermissionError(13, "Permission denied", path)
+        if call_count == 2 and not (flags & os.O_CREAT) and "test.lock" in path:
+            lock_path.unlink(missing_ok=True)
+            raise FileNotFoundError(2, "No such file or directory", path)
+        return real_open(path, flags, mode) if dir_fd is None else real_open(path, flags, mode, dir_fd=dir_fd)
+
+    mocker.patch("os.open", side_effect=open_permission_then_unlink)
+    lock.acquire()
+    assert lock.is_locked
+    assert call_count == 3
+    lock.release()

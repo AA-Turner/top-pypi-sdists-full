@@ -39,7 +39,6 @@ class Request(webob.BaseRequest):
         self._masked_body: str | None = None
         self._masked_cookies = None
         self._masked_headers = None
-        self._masked_params = None
         self._masked_query_string = None
         self._parsed_http = None
 
@@ -53,10 +52,13 @@ class Request(webob.BaseRequest):
                 for k, vs in self._reportable_headers.items()
             },
             method=ensure_string(self.method),
-            parameters={
-                k: ([v for v in (vs if isinstance(vs, list) else [vs])])
-                for k, vs in self._reportable_params.items()
-            },
+            # The agent no longer sends `parameters`. These values are duplicated from
+            # other parts of the HTTP request (querystring or body), so they do not
+            # provide any new information. Additionally, the Contrast UI was using these
+            # values to try to reconstruct request bodies, which sometimes led to
+            # misleading data being displayed to users. This also caused complications
+            # with sensitive data masking, particularly `mask_http_body`.
+            parameters={},
             port=int(self.host_port),
             protocol=ensure_string(self.scheme),
             query_string=self._reportable_query_string,
@@ -141,13 +143,6 @@ class Request(webob.BaseRequest):
             return self._masked_headers
 
         return {ensure_string(k): ensure_string(v) for k, v in self.headers.items()}
-
-    @property
-    def _reportable_params(self):
-        if self._masked_params is not None:
-            return self._masked_params
-
-        return {ensure_string(k): ensure_string(v) for k, v in self.params.items()}
 
     @property
     def _reportable_query_string(self):

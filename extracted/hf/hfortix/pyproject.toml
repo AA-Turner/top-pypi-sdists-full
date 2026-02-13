@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hfortix"
-version = "0.5.159"
+version = "0.5.162"
 description = "Type-safe Python SDK for FortiGate firewall automation and FortiOS REST API - 1,348+ endpoints with async support and complete type safety"
 authors = [{name = "Herman W. Jacobsen", email = "herman@wjacobsen.fo"}]
 maintainers = [{name = "Herman W. Jacobsen", email = "herman@wjacobsen.fo"}]
@@ -12,9 +12,9 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Proprietary"}
 keywords = [
-    "fortinet", "fortigate", "fortios", "fortimanager", "fortianalyzer",
+    "fortinet", "fortigate", "fortios", "fortimanager", "fortianalyzer", "forticare", "fortiztp",
     "api", "sdk", "rest-api", "automation", "network-automation",
-    "firewall", "security", "network-security",
+    "firewall", "security", "network-security", "asset-management", "zero-touch-provisioning",
     "typed", "type-hints", "pydantic", "async", "asyncio",
     "configuration-management", "infrastructure-as-code", "iac",
     "network-as-code", "network-administration", "devops", "netops"
@@ -43,13 +43,19 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "hfortix-core>=0.5.159",
-    "hfortix-fortios>=0.5.159",
+    "hfortix-core>=0.5.161",
+    "hfortix-fortios>=0.5.161",
 ]
 
 [project.optional-dependencies]
-fortios = ["hfortix-fortios>=0.5.154"]
-all = ["hfortix-fortios>=0.5.154"]
+fortios = ["hfortix-fortios>=0.5.161"]
+forticare = ["hfortix-forticare>=0.5.161"]
+fortiztp = ["hfortix-fortiztp>=0.5.161"]
+all = [
+    "hfortix-fortios>=0.5.161",
+    "hfortix-forticare>=0.5.161",
+    "hfortix-fortiztp>=0.5.161",
+]
 
 [project.urls]
 Homepage = "https://github.com/hermanwjacobsen/hfortix"

@@ -349,6 +349,14 @@ class Configuration:
                 "value": "Bearer " + self.access_token,
             }
 
+            auth["ProgrammaticAccessToken"] = {
+                "type": "bearer",
+                "in": "header",
+                "format": "JWT",
+                "key": "Authorization",
+                "value": "Bearer " + self.access_token,
+            }
+
         return auth
 
     def to_debug_report(self):

@@ -13,13 +13,14 @@ import os
 from meutils.pipe import *
 from meutils.db.redis_db import redis_aclient
 from meutils.schemas.video_types import SoraVideoRequest, Video
-from meutils.apis.volcengine_apis import videos as volc_videos
 from meutils.apis.aiml import videos as aiml_videos
 from meutils.apis.gitee import videos as gitee_videos
 from meutils.apis.hailuoai import openai_videos as hailuoai_videos
 from meutils.apis.aiping import videos as aiping_videos
 from meutils.apis.replicate import videos as replicate_videos
 from meutils.apis.grok import videos as grok_videos
+from meutils.apis.volcengine_apis import videos_nx as seedance_videos
+from meutils.apis.volcengine_apis import videos as volc_videos
 
 from meutils.apis.runware import videos as runware_videos  # todo 兼容
 
@@ -30,7 +31,11 @@ from meutils.apis.runware import videos as runware_videos  # todo 兼容
 
 class OpenAIVideos(object):
 
-    def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None):
+    def __init__(
+            self,
+            api_key: Optional[str] = None,
+            base_url: Optional[str] = None,
+    ):
         self.api_key = api_key
         self.base_url = base_url or ""
         logger.debug(f"base_url: {self.base_url}")  # 来源
@@ -43,7 +48,10 @@ class OpenAIVideos(object):
     async def create(self, request: SoraVideoRequest):
         response = {}
 
-        if "xai" in self.base_url:
+        if "seedance" in self.base_url:
+            response = await seedance_videos.Tasks(api_key=self.api_key).create(request)
+
+        elif "xai" in self.base_url:
             response = await grok_videos.Tasks(api_key=self.api_key).create(request)
 
         elif "aiping" in self.base_url:
@@ -92,7 +100,10 @@ class OpenAIVideos(object):
                             4. 带有真人面部的图像无法生成。\n\n"""
 
                     if (_ := request.model_dump_json(indent=4, exclude_none=True)) and len(_) < 3000:
-                        message += _
+                        message += _.replace('fast', '*')
+                    else:
+                        message += f"请求参数过长 {len(_)}，无法展示\n\n"
+
                     response.error["message"] = message
 
                 #     logger.debug(response)
@@ -119,7 +130,11 @@ class OpenAIVideos(object):
 
         task_id = task_id.replace("@", "/")  # 还原
 
-        if api_key.startswith("xai-"):
+        if "csrfToken" in api_key:
+            video = await seedance_videos.Tasks(api_key=api_key).get(task_id)
+            return video
+
+        elif api_key.startswith("xai-"):
             video = await grok_videos.Tasks(api_key=api_key).get(task_id)
             return video
 

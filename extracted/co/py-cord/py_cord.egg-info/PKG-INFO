@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: py-cord
-Version: 2.7.0
+Version: 2.7.1
 Summary: A Python wrapper for the Discord API
 Author: Pycord Development
 License-Expression: MIT
@@ -29,14 +29,14 @@ License-File: LICENSE
 Requires-Dist: aiohttp<4.0,>=3.6.0
 Requires-Dist: typing_extensions<5,>=4.12.0
 Provides-Extra: docs
-Requires-Dist: sphinx==8.2.3; extra == "docs"
-Requires-Dist: sphinxcontrib_trio==1.1.2; extra == "docs"
+Requires-Dist: sphinx==9.1.0; extra == "docs"
+Requires-Dist: sphinxcontrib_trio==1.2.0; extra == "docs"
 Requires-Dist: sphinxcontrib-websupport==2.0.0; extra == "docs"
-Requires-Dist: myst-parser[linkify]==4.0.1; extra == "docs"
+Requires-Dist: myst-parser[linkify]==5.0.0; extra == "docs"
 Requires-Dist: sphinxext-opengraph==0.13.0; extra == "docs"
 Requires-Dist: sphinx-copybutton==0.5.2; extra == "docs"
-Requires-Dist: furo==2024.8.6; extra == "docs"
-Requires-Dist: sphinx-autodoc-typehints==3.5.2; extra == "docs"
+Requires-Dist: furo==2025.12.19; extra == "docs"
+Requires-Dist: sphinx-autodoc-typehints==3.6.2; extra == "docs"
 Requires-Dist: sphinx-intl==2.3.2; extra == "docs"
 Requires-Dist: typing_extensions==4.15.0; extra == "docs"
 Requires-Dist: levenshtein==0.27.3; extra == "docs"

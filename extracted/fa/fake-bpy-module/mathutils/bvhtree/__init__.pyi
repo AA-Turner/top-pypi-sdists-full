@@ -13,11 +13,14 @@ import mathutils
 
 class BVHTree:
     @classmethod
-    def FromBMesh(cls, bmesh: bmesh.types.BMesh, *, epsilon: float = 0.0) -> None:
+    def FromBMesh(
+        cls, bmesh: bmesh.types.BMesh, *, epsilon: float = 0.0
+    ) -> typing_extensions.Self:
         """BVH tree based on `BMesh` data.
 
         :param bmesh: BMesh data.
         :param epsilon: Increase the threshold for detecting overlap and raycast hits.
+        :return: BVHTree from BMesh data.
         """
 
     @classmethod
@@ -27,18 +30,17 @@ class BVHTree:
         depsgraph: bpy.types.Depsgraph,
         *,
         deform: bool = True,
-        render=False,
         cage: bool = False,
         epsilon: float = 0.0,
-    ) -> None:
+    ) -> typing_extensions.Self:
         """BVH tree based on `Object` data.
 
         :param object: Object data.
         :param depsgraph: Depsgraph to use for evaluating the mesh.
         :param deform: Use mesh with deformations.
-        :param render:
         :param cage: Use modifiers cage.
         :param epsilon: Increase the threshold for detecting overlap and raycast hits.
+        :return: BVHTree from Object data.
         """
 
     @classmethod
@@ -49,13 +51,14 @@ class BVHTree:
         *,
         all_triangles: bool = False,
         epsilon: float = 0.0,
-    ) -> None:
-        """BVH tree constructed geometry passed in as arguments.
+    ) -> typing_extensions.Self:
+        """BVH tree constructed from geometry passed in as arguments.
 
         :param vertices: float triplets each representing (x, y, z)
         :param polygons: Sequence of polygons, each containing indices to the vertices argument.
         :param all_triangles: Use when all polygons are triangles for more efficient conversion.
         :param epsilon: Increase the threshold for detecting overlap and raycast hits.
+        :return: BVHTree from polygon data.
         """
 
     def find_nearest(
@@ -76,13 +79,13 @@ class BVHTree:
 
     def find_nearest_range(
         self,
-        origin,
+        origin: collections.abc.Sequence[float] | mathutils.Vector,
         distance: float = 1.84467e19,
         /,
     ) -> list[tuple[mathutils.Vector, mathutils.Vector, int, float]]:
         """Find the nearest elements (typically face index) to a point in the distance range.
 
-        :param origin:
+        :param origin: Find nearest elements to this point.
         :param distance: Maximum distance threshold.
         :return: Returns a list of tuples (position, normal, index, distance)
         """
@@ -95,7 +98,7 @@ class BVHTree:
         """Find overlapping indices between 2 trees.
 
         :param other_tree: Other tree to perform overlap test on.
-        :return: Returns a list of unique index pairs,      the first index referencing this tree, the second referencing the other_tree.
+        :return: Returns a list of unique index pairs, the first index referencing this tree, the second referencing the other_tree.
         """
 
     def ray_cast(

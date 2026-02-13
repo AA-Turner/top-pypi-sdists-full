@@ -9,7 +9,7 @@ def completions_l():
             'columns': lambda table: Athena.column_names(),
             'partition-columns': lambda table: Athena.column_names(partition_cols_only=True),
             'topn-counts': lambda x: ['10'],
-            'topn-types': lambda x: ['last', 'slow', 'top'],
+            'topn-types': lambda x: ['slow', 'top'],
             'topn-windows': lambda x: ['day', 'month'],
         }, variant=ReplState.L
     ).completions_for_nesting()

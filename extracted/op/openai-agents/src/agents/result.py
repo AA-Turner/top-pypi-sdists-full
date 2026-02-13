@@ -8,6 +8,9 @@ from collections.abc import AsyncIterator
 from dataclasses import InitVar, dataclass, field
 from typing import Any, Literal, TypeVar, cast
 
+from pydantic import GetCoreSchemaHandler
+from pydantic_core import core_schema
+
 from .agent import Agent
 from .agent_output import AgentOutputSchemaBase
 from .exceptions import (
@@ -123,6 +126,16 @@ class RunResultBase(abc.ABC):
 
     _trace_state: TraceState | None = field(default=None, init=False, repr=False)
     """Serialized trace metadata captured during the run."""
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls,
+        _source_type: Any,
+        _handler: GetCoreSchemaHandler,
+    ) -> core_schema.CoreSchema:
+        # RunResult objects are runtime values; schema generation should treat them as instances
+        # instead of recursively traversing internal dataclass annotations.
+        return core_schema.is_instance_schema(cls)
 
     @property
     @abc.abstractmethod
@@ -480,7 +493,10 @@ class RunResultStreaming(RunResultBase):
         try:
             while True:
                 self._check_errors()
-                if self._stored_exception:
+                should_drain_queued_events = isinstance(self._stored_exception, MaxTurnsExceeded)
+                if self._stored_exception and (
+                    not should_drain_queued_events or self._event_queue.empty()
+                ):
                     logger.debug("Breaking due to stored exception")
                     self.is_complete = True
                     break

@@ -6,16 +6,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyvespa"
-version = "1.0.2"
+version = "1.1.0"
 description = "Python API for vespa.ai"
 readme = "README.md"
 keywords = ["vespa", "search engine", "data science"]
 classifiers = ["License :: OSI Approved :: Apache Software License"]
 dependencies = [
-    "httpr>=0.3.2",
+    "httpr>=0.4.0",
     "docker",
     "jinja2",
-    "cryptography",
+    "cryptography>=46.0.5",
     "aiohttp",
     "tenacity>=8.4.1",
     "typing_extensions",
@@ -29,7 +29,7 @@ dependencies = [
     "httpx[http2]",
 ]
 
-requires-python = ">=3.9,<3.14"
+requires-python = ">=3.10,<3.14"
 
 [[project.authors]]
 name = "Thiago G. Martins"
@@ -66,7 +66,7 @@ unittest = [
 ]
 docs = [
     "ipykernel==6.30.1",
-    "nbconvert",
+    "nbconvert>=7.17.0",
     "jupyter",
     "mkdocs-material",
     "mkdocs-jupyter",
@@ -89,7 +89,7 @@ feed = [
 ]
 notebooks = [
     "notebook",
-    "nbconvert",
+    "nbconvert>=7.17.0",
     "ipykernel==6.30.1",
     "jupytext",
     "numpy",
@@ -174,3 +174,8 @@ docstring-code-line-length = "dynamic"
 "*.ipynb" = [
     "E402",
 ] # Ignore module level import not at top of file for notebooks
+
+[tool.uv]
+constraint-dependencies = [
+    "pillow>=12.1.1",
+]

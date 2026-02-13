@@ -6,7 +6,7 @@ from adam.commands.postgres.utils_postgres import pg_database_names, pg_table_na
 from adam.repl_state import ReplState
 from adam.utils_log import wait_log
 from adam.utils_tabulize import tabulize
-from adam.utils_context import Context
+from adam.utils_context import NULL
 
 class DevicePostgres(Command, Device):
     COMMAND = f'{ReplState.P}:'
@@ -48,7 +48,7 @@ class DevicePostgres(Command, Device):
         _, container = PostgresDatabases.pod_and_container(state.namespace)
         return container
 
-    def ls(self, cmd: str, state: ReplState, ctx: Context = Context.NULL):
+    def ls(self, cmd: str, state: ReplState, ctx = NULL):
         if state.pod_targetted:
             self.bash(state, state, ['ls'])
             return
@@ -67,7 +67,7 @@ class DevicePostgres(Command, Device):
             else:
                 self.show_pg_hosts(state, ctx=ctx)
 
-    def show_pg_hosts(self, state: ReplState, ctx: Context = Context.NULL):
+    def show_pg_hosts(self, state: ReplState, ctx = NULL):
         if state.namespace:
             tabulize(PostgresDatabases.hosts(state),
                      lambda p: f'{p.host},{p.endpoint()}:{p.port()},{p.username()},{p.password()}',
@@ -143,16 +143,16 @@ class DevicePostgres(Command, Device):
     def enter(self, _: ReplState):
         wait_log('Inspecting postgres database instances...')
 
-    def show_tables(self, state: ReplState, ctx: Context = Context.NULL):
+    def show_tables(self, state: ReplState, ctx = NULL):
         tabulize(PostgresDatabases.tables(state, default_schema=True),
                  lambda d: d['name'],
                  separator=',',
                  ctx=ctx.copy(show_out=True))
 
-    def show_table_preview(self, state: ReplState, table: str, rows: int, ctx: Context = Context.NULL):
+    def show_table_preview(self, state: ReplState, table: str, rows: int, ctx = NULL):
         PostgresDatabases.run_sql(state, f'select * from {table} limit {rows}', ctx=ctx)
 
-    # def bash(self, s0: ReplState, s1: ReplState, args: list[str], ctx: Context = Context.NULL):
+    # def bash(self, s0: ReplState, s1: ReplState, args: list[str], ctx = NULL_CONTEXT):
         # pod, container = PostgresDatabases.pod_and_container(s1.namespace)
         # log2(f'Running on {pod}(container:{container})...')
 
@@ -161,11 +161,11 @@ class DevicePostgres(Command, Device):
     def bash_target_changed(self, s0: ReplState, s1: ReplState):
         return s0.pg_path != s1.pg_path
 
-    def exec_no_dir(self, command: str, state: ReplState, ctx: Context = Context.NULL):
+    def exec_no_dir(self, command: str, state: ReplState, ctx = NULL):
         with postgres(state) as pod:
             return pod.exec(command, ctx.copy(show_out=True))
 
-    def exec_with_dir(self, command: str, session_just_created: bool, state: ReplState, ctx: Context = Context.NULL):
+    def exec_with_dir(self, command: str, session_just_created: bool, state: ReplState, ctx = NULL):
         with postgres(state) as pod:
             return pod.exec(command, ctx=ctx.copy(show_out=not session_just_created))
 

@@ -17,6 +17,8 @@ if __import__("typing").TYPE_CHECKING:
     from regula.documentreader.webclient.gen.models.authenticity_check_result_list_inner import AuthenticityCheckResultListInner
     from regula.documentreader.webclient.gen.models.authenticity_result import AuthenticityResult
     from regula.documentreader.webclient.gen.models.authenticity_result_type import AuthenticityResultType
+    from regula.documentreader.webclient.gen.models.bsiv2_item import BSIV2Item
+    from regula.documentreader.webclient.gen.models.bsiv2_result import BSIV2Result
     from regula.documentreader.webclient.gen.models.bar_code_module_type import BarCodeModuleType
     from regula.documentreader.webclient.gen.models.barcode_position_item import BarcodePositionItem
     from regula.documentreader.webclient.gen.models.barcode_position_result import BarcodePositionResult
@@ -24,6 +26,7 @@ if __import__("typing").TYPE_CHECKING:
     from regula.documentreader.webclient.gen.models.bc_pdf417_info import BcPDF417INFO
     from regula.documentreader.webclient.gen.models.bc_roidetect import BcROIDETECT
     from regula.documentreader.webclient.gen.models.binary_data import BinaryData
+    from regula.documentreader.webclient.gen.models.bsi_tr03135 import BsiTr03135
     from regula.documentreader.webclient.gen.models.byte_array_item import ByteArrayItem
     from regula.documentreader.webclient.gen.models.byte_array_result import ByteArrayResult
     from regula.documentreader.webclient.gen.models.candidates_list_item import CandidatesListItem
@@ -272,6 +275,8 @@ from regula.documentreader.webclient.gen.models.authenticity_check_result_item i
 from regula.documentreader.webclient.gen.models.authenticity_check_result_list_inner import AuthenticityCheckResultListInner
 from regula.documentreader.webclient.gen.models.authenticity_result import AuthenticityResult
 from regula.documentreader.webclient.gen.models.authenticity_result_type import AuthenticityResultType
+from regula.documentreader.webclient.gen.models.bsiv2_item import BSIV2Item
+from regula.documentreader.webclient.gen.models.bsiv2_result import BSIV2Result
 from regula.documentreader.webclient.gen.models.bar_code_module_type import BarCodeModuleType
 from regula.documentreader.webclient.gen.models.barcode_position_item import BarcodePositionItem
 from regula.documentreader.webclient.gen.models.barcode_position_result import BarcodePositionResult
@@ -279,6 +284,7 @@ from regula.documentreader.webclient.gen.models.barcode_type import BarcodeType
 from regula.documentreader.webclient.gen.models.bc_pdf417_info import BcPDF417INFO
 from regula.documentreader.webclient.gen.models.bc_roidetect import BcROIDETECT
 from regula.documentreader.webclient.gen.models.binary_data import BinaryData
+from regula.documentreader.webclient.gen.models.bsi_tr03135 import BsiTr03135
 from regula.documentreader.webclient.gen.models.byte_array_item import ByteArrayItem
 from regula.documentreader.webclient.gen.models.byte_array_result import ByteArrayResult
 from regula.documentreader.webclient.gen.models.candidates_list_item import CandidatesListItem

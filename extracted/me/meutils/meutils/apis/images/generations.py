@@ -39,6 +39,8 @@ from meutils.apis.aiml.images import generate as aiml_generate
 from meutils.apis.modelscope_api.images import generate as modelscope_generate
 from meutils.apis.netmind.images import generate as netmind_generate
 from meutils.apis.hailuoai.openai_images import generate as hailuo_generate
+from meutils.apis.volcengine_apis.images_nx import generate as seedream_generate
+
 # 工具类
 from meutils.apis.textin_apis import Textin
 from meutils.apis.images.edits import edit_image as baidu_generate
@@ -49,10 +51,16 @@ async def generate(
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         http_url: Optional[Any] = None,
+        backup_api_key: Optional[str] = None,
 ):
     if len(str(request)) < 1024: logger.debug(request)
 
     base_url = base_url or ""
+
+    if "jimeng" in base_url:  # 逆向
+        return await jimeng_generate(request, api_key)
+    if "seedream" in base_url:
+        return await seedream_generate(request, api_key)
 
     if 'hailuo' in base_url:
         return await hailuo_generate(request, api_key)
@@ -135,9 +143,6 @@ async def generate(
             ("jimeng", "seed", "seededit_v3.0", "byteedit_v2.0", "i2i_portrait_photo")):  # seededit seedream
         return await volc_generate(request, api_key)
 
-    if request.model.startswith(("jimeng")):  # 即梦 逆向
-        return await jimeng_generate(request)
-
     if request.model in {"Hunyuan3D-2", "Hi3DGen", "Step1X-3D"}:
         return await image_to_3d_generate(request, api_key)
 
@@ -217,13 +222,22 @@ async def generate(
     if len(str(data)) < 1024:
         logger.debug(bjson(data))
 
-    client = AsyncClient(
-        api_key=api_key,
-        base_url=base_url,
-        http_client=await create_http_client(http_url)
-    )
-    response = await client.images.generate(**data)
-    return response
+    try:
+
+        client = AsyncClient(
+            api_key=api_key,
+            base_url=base_url,
+            http_client=await create_http_client(http_url)
+        )
+        response = await client.images.generate(**data)
+        return response
+    except Exception as e:
+        if backup_api_key:
+            if any(i in str(e).lower() for i in ['QuotaExceeded', "请重试"]):
+                logger.error(f"create video error: {e}, retrying with backup api key")
+                response = await generate(request, api_key=backup_api_key, base_url=base_url, http_url=http_url)
+                return response
+        raise e
 
 
 # "flux.1-krea-dev"
@@ -301,6 +315,12 @@ if __name__ == '__main__':
 
     base_url = 'hailuo'
     model = "nano-banana2"
+    api_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzIyODE1NzcsInVzZXIiOnsiaWQiOiI0NDQyMjk2MDAzMzA0OTgwNTUiLCJuYW1lIjoibWZ1aiBiamhuIiwiYXZhdGFyIjoiIiwiZGV2aWNlSUQiOiIzMzkxMTQ5Mjg4NjU1Mjk4NjQiLCJpc0Fub255bW91cyI6ZmFsc2V9fQ.__NDyZQQqyYb7TLrumo944EfuCmrbzYngQloNBK4CmM"
+
+    base_url = 'jimeng'
+    model = "high_aes_general_v50"
+
+    api_key = "4a7a0a0515b0a972a879170a065c795e"
 
     request = ImageRequest(
         model=model,
@@ -308,7 +328,6 @@ if __name__ == '__main__':
         prompt="去水印",
         image="https://s3.ffire.cc/files/jimeng.jpg",
     )
-    api_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzIyODE1NzcsInVzZXIiOnsiaWQiOiI0NDQyMjk2MDAzMzA0OTgwNTUiLCJuYW1lIjoibWZ1aiBiamhuIiwiYXZhdGFyIjoiIiwiZGV2aWNlSUQiOiIzMzkxMTQ5Mjg4NjU1Mjk4NjQiLCJpc0Fub255bW91cyI6ZmFsc2V9fQ.__NDyZQQqyYb7TLrumo944EfuCmrbzYngQloNBK4CmM"
 
     logger.debug(request)
 

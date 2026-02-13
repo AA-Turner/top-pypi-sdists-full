@@ -131,7 +131,7 @@ def run_coroutine_threadsafe(
 
 def call_soon_in_main_loop(coro: Coroutine[Any, Any, T]) -> asyncio.Future[T]:
     """Run a coroutine in the main event loop."""
-    from langgraph_api.utils import future as lg_future
+    from langgraph_api.utils import future as lg_future  # noqa: PLC0415
 
     if _MAIN_LOOP is None:
         raise RuntimeError("No event loop set")

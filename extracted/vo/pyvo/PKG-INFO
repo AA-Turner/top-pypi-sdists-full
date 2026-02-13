@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvo
-Version: 1.8
+Version: 1.8.1
 Summary: Astropy affiliated package for accessing Virtual Observatory data and services
 Author: the PyVO Developers
 License: BSD-3-Clause

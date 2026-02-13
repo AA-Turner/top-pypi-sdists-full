@@ -112,10 +112,13 @@ def pytest_configure(config: pytest.Config):
     )
 
     if os.environ.get("CODSPEED_ENV") is not None:
-        if os.environ.get("CODSPEED_RUNNER_MODE") == "walltime":
+        runner_mode = os.environ.get("CODSPEED_RUNNER_MODE")
+        if runner_mode == "walltime":
             default_mode = MeasurementMode.WallTime.value
+        elif runner_mode == "memory":
+            default_mode = MeasurementMode.Memory.value
         else:
-            default_mode = MeasurementMode.Instrumentation.value
+            default_mode = MeasurementMode.Simulation.value
     else:
         default_mode = MeasurementMode.WallTime.value
 
@@ -142,7 +145,7 @@ def pytest_configure(config: pytest.Config):
         disabled_plugins=tuple(disabled_plugins),
         is_codspeed_enabled=is_codspeed_enabled,
         mode=mode,
-        instrument=instrument(codspeed_config),
+        instrument=instrument(codspeed_config, mode),
         config=codspeed_config,
         profile_folder=Path(profile_folder) if profile_folder else None,
     )
@@ -300,11 +303,17 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus):
         if plugin.profile_folder:
             result_path = plugin.profile_folder / "results" / f"{os.getpid()}.json"
         else:
+            # Default to a .codspeed folder in the root of the project.
+            # Storing the results will be later used for features such as
+            # local comparison between runs.
             result_path = (
                 session.config.rootpath / f".codspeed/results_{time() * 1000:.0f}.json"
             )
         data = {**get_environment_metadata(), **plugin.instrument.get_result_dict()}
+        created = not result_path.parent.exists()
         result_path.parent.mkdir(parents=True, exist_ok=True)
+        if created:
+            (result_path.parent / ".gitignore").write_text("*\n")
         result_path.write_text(json.dumps(data, indent=2))
 
 

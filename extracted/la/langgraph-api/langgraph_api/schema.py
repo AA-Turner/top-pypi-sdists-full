@@ -378,6 +378,7 @@ NESTED_ENCRYPTED_SUBFIELDS: dict[tuple[str, str], list[str]] = {
     ("cron", "payload"): ["metadata", "context", "input", "config"],
     ("cron", "config"): ["configurable", "metadata"],
     ("assistant", "config"): ["configurable"],
+    ("thread", "config"): ["configurable"],
 }
 
 # Convenience alias for cron payload subfields.
@@ -441,6 +442,8 @@ NEVER_ENCRYPT_PATHS: frozenset[str] = frozenset(
         # Run execution parameters
         "run.kwargs.config.recursion_limit",
         "run.kwargs.config.max_concurrency",
+        # Temporary flag - must stay plaintext for SQL: (kwargs->>'temporary')::boolean
+        "run.kwargs.temporary",
         # Thread TTL in run configurable - needs to stay plaintext for system to apply
         "run.kwargs.config.configurable.ttl",
         # Checkpoint metadata execution state - system-controlled, not user data

@@ -10,7 +10,6 @@ via REST API using SparkConnectResource SDK.
 """
 
 import threading
-import uuid
 from concurrent import futures
 from typing import Dict, Iterator, Optional
 
@@ -57,6 +56,7 @@ from snowflake.snowpark_connect.server_common import (  # noqa: F401 - re-export
 )
 from snowflake.snowpark_connect.utils.concurrent import SynchronizedDict
 from snowflake.snowpark_connect.utils.env_utils import get_int_from_env
+from snowflake.snowpark_connect.utils.request_utils import get_or_generate_operation_id
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import telemetry
 from spark.connect import envelope_pb2
@@ -91,7 +91,7 @@ def _build_result_complete_response(
 ) -> base_pb2.ExecutePlanResponse:
     return base_pb2.ExecutePlanResponse(
         session_id=request.session_id,
-        operation_id=request.operation_id or "0",
+        operation_id=get_or_generate_operation_id(request),
         result_complete=base_pb2.ExecutePlanResponse.ResultComplete(),
     )
 
@@ -111,7 +111,7 @@ def _build_exec_plan_resp_stream_from_df_query_result(
     ):
         yield base_pb2.ExecutePlanResponse(
             session_id=request.session_id,
-            operation_id=request.operation_id or "0",
+            operation_id=get_or_generate_operation_id(request),
             arrow_batch=base_pb2.ExecutePlanResponse.ArrowBatch(
                 row_count=row_count,
                 data=arrow_batch_bytes,
@@ -535,7 +535,7 @@ class SnowflakeConnectClientServicer(base_pb2_grpc.SparkConnectServiceServicer):
         try:
             return base_pb2.ReleaseExecuteResponse(
                 session_id=request.session_id,
-                operation_id=request.operation_id or str(uuid.uuid4()),
+                operation_id=request.operation_id,
             )
         except Exception as e:
             telemetry.report_request_failure(e)

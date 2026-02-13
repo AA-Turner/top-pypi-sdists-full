@@ -2,11 +2,11 @@ import re
 
 from adam.utils_color import Color
 from adam.utils_cassandra.cassandra_nodes import CassandraNodes
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.utils_k8s.pod_exec_result import PodExecResult
 
 class NodeTools:
-    def status(ctx: Context = Context.NULL) -> tuple[dict, PodExecResult]:
+    def status(ctx = NULL) -> tuple[dict, PodExecResult]:
         ctx_fg = ctx.copy(background=False, text_color=Color.gray)
         result = CassandraNodes.exec(ctx.pod, ctx.namespace, f"nodetool -u {ctx.user} -pw {ctx.pw} status", ctx=ctx_fg)
         return NodeTools.parse_nodetool_status(result.stdout), result

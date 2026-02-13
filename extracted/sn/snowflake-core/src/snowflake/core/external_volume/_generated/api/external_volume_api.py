@@ -270,7 +270,7 @@ class ExternalVolumeApi:
         :param external_volume: (required)
         :type external_volume: ExternalVolume
         :param create_mode: Parameter allowing support for different modes of resource creation. Possible values include: - `errorIfExists`: Throws an error if you try to create a resource that already exists. - `orReplace`: Automatically replaces the existing resource with the current one. - `ifNotExists`: Creates a new resource when an alter is requested for a non-existent resource.
-        :type create_mode: Union[CreateMode, str]
+        :type create_mode: str
         :param async_req: Whether to execute the request asynchronously.
         :type async_req: bool, optional
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -313,7 +313,7 @@ class ExternalVolumeApi:
         :param external_volume: (required)
         :type external_volume: ExternalVolume
         :param create_mode: Parameter allowing support for different modes of resource creation. Possible values include: - `errorIfExists`: Throws an error if you try to create a resource that already exists. - `orReplace`: Automatically replaces the existing resource with the current one. - `ifNotExists`: Creates a new resource when an alter is requested for a non-existent resource.
-        :type create_mode: Union[CreateMode, str]
+        :type create_mode: str
         :param async_req: Whether to execute the request asynchronously.
         :type async_req: bool, optional
         :param _return_http_data_only: response data without head status code
@@ -394,7 +394,7 @@ class ExternalVolumeApi:
             _header_params["Content-Type"] = _content_types_list
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "SuccessResponse",
@@ -576,7 +576,7 @@ class ExternalVolumeApi:
         _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "ExternalVolume",
@@ -787,7 +787,7 @@ class ExternalVolumeApi:
         _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "Iterable[ExternalVolume]",
@@ -969,7 +969,7 @@ class ExternalVolumeApi:
         _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "SuccessResponse",
@@ -1192,7 +1192,7 @@ class ExternalVolumeApi:
         _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "SuccessResponse",

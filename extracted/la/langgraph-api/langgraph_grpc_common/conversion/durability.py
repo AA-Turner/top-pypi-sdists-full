@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from langgraph_grpc_common.proto import enum_durability_pb2
 
 if TYPE_CHECKING:
-    from langgraph.types import Durability  # type: ignore[unresolved-import]
+    from langgraph.types import Durability
 
 
 def durability_to_proto(

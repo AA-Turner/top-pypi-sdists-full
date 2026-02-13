@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-gcp
-Version: 0.6.16
+Version: 0.6.17
 Summary: Prefect integrations for interacting with Google Cloud Platform.
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License: Apache License 2.0
@@ -19,7 +19,7 @@ Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: prefect>=3.3.5
+Requires-Dist: prefect>=3.6.17
 Requires-Dist: google-api-python-client>=2.20.0
 Requires-Dist: google-cloud-storage>=2.0.0
 Requires-Dist: tenacity>=8.0.0

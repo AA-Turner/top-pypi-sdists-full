@@ -10180,6 +10180,16 @@ class Messages(System.Object):
             ...
 
         @staticmethod
+        def ignore_unrecognized_order(brokerage_order_id: str) -> str:
+            """
+            Returns a string message notify about unrecognized orders that are not being observed by Lean
+            
+            :param brokerage_order_id: The brokerage order id.
+            :returns: The string represent unrecognized message.
+            """
+            ...
+
+        @staticmethod
         def time_until_next_market_open(time_until_next_market_open: datetime.timedelta) -> str:
             """Returns a string message with the time until the next market open"""
             ...

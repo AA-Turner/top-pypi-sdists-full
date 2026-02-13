@@ -23,38 +23,39 @@ class Help(Command):
         if not self.args(cmd):
             return super().run(cmd, state)
 
-        def section(cmds : list[Command]):
-            sorted_cmds = sorted(cmds, key=lambda cmd: cmd.command())
-            return [f'  {c.help(state)}' for c in sorted_cmds if c.help(state)]
+        with self.context() as (_, ctx):
+            def section(cmds : list[Command]):
+                sorted_cmds = sorted(cmds, key=lambda cmd: cmd.command())
+                return [f'  {c.help(state)}' for c in sorted_cmds if c.help(state)]
 
-        def filters(cmds : list[CommandFilter]):
-            sorted_cmds = sorted(cmds, key=lambda cmd: cmd.command())
-            return [f'  {c.help(state)}' for c in sorted_cmds if c.help(state)]
+            def filters(cmds : list[CommandFilter]):
+                sorted_cmds = sorted(cmds, key=lambda cmd: cmd.command())
+                return [f'  {c.help(state)}' for c in sorted_cmds if c.help(state)]
 
-        lines = []
-        lines.append('NAVIGATION')
-        lines.append('  a: | c: | l: | p: | x:\tswitch to another operational device: App, Cassandra, Audit, Postgres or Export')
-        lines.extend(section(ReplCommands.navigation()))
-        lines.append('CASSANDRA')
-        lines.extend(section(ReplCommands.cassandra_ops()))
-        lines.append('POSTGRES')
-        lines.extend(section(ReplCommands.postgres_ops()))
-        lines.append('APP')
-        lines.extend(section(ReplCommands.app_ops()))
-        lines.append('EXPORT DB')
-        lines.extend(section(ReplCommands.export_ops()))
-        lines.append('AUDIT')
-        lines.extend(section(ReplCommands.audit_ops()))
-        lines.append('TOOLS')
-        lines.extend(section(ReplCommands.tools()))
-        lines.append('COMMAND FILTERS')
-        lines.extend(filters(ReplCommands.filters()))
-        lines.append('')
-        lines.extend(section(ReplCommands.exit()))
+            lines = []
+            lines.append('NAVIGATION\tALIAS')
+            lines.append('  a: | c: | l: | p: | x:\t\tswitch to another operational device: App, Cassandra, Audit, Postgres or Export')
+            lines.extend(section(ReplCommands.navigation()))
+            lines.append('CASSANDRA')
+            lines.extend(section(ReplCommands.cassandra_ops()))
+            lines.append('POSTGRES')
+            lines.extend(section(ReplCommands.postgres_ops()))
+            lines.append('APP')
+            lines.extend(section(ReplCommands.app_ops()))
+            lines.append('EXPORT DB')
+            lines.extend(section(ReplCommands.export_ops()))
+            lines.append('AUDIT')
+            lines.extend(section(ReplCommands.audit_ops()))
+            lines.append('TOOLS')
+            lines.extend(section(ReplCommands.tools()))
+            lines.append('COMMAND FILTERS')
+            lines.extend(filters(ReplCommands.filters()))
+            lines.append('')
+            lines.extend(section(ReplCommands.exit()))
 
-        tabulize(lines, separator='\t', ctx=self.context())
+            tabulize(lines, separator='\t', ctx=ctx)
 
-        return lines
+            return lines
 
     def completion(self, _: ReplState):
         return {Help.COMMAND: None}

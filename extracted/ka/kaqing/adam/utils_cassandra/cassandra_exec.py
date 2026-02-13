@@ -3,7 +3,7 @@ from typing import Union
 from adam.repl_state import ReplState
 from adam.utils_cassandra.cassandra_clusters import CassandraClusters
 from adam.utils_cassandra.cassandra_nodes import CassandraNodes
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.utils_k8s.pod_exec_result import PodExecResult
 
 def cassandra_exec(state: ReplState,
@@ -13,7 +13,7 @@ def cassandra_exec(state: ReplState,
                    on_any = False,
                    throw_err = False,
                    shell = '/bin/sh',
-                   ctx: Context = Context.NULL) -> Union[PodExecResult, list[PodExecResult]]:
+                   ctx = NULL) -> Union[PodExecResult, list[PodExecResult]]:
     if pod:
         return CassandraNodes.exec(pod,
                                     state.namespace,

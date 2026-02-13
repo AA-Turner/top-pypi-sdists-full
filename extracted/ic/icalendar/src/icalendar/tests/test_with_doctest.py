@@ -2,7 +2,7 @@
 
 See
 - doctest documentation: https://docs.python.org/3/library/doctest.html
-- Issue 443: https://github.com/collective/icalendar/issues/443
+- :issue:`443`
 
 This file should be tests, too:
 
@@ -13,24 +13,25 @@ This file should be tests, too:
 
 import doctest
 import importlib
-import os
 import sys
+from pathlib import Path
 
 import pytest
 
-HERE = os.path.dirname(__file__) or "."
-ICALENDAR_PATH = os.path.dirname(HERE)
+HERE = Path(__file__ or ".").absolute().parent
+ICALENDAR_PATH = HERE / ".."
 
 PYTHON_FILES = [
-    "/".join((dirpath, filename))
-    for dirpath, dirnames, filenames in os.walk(ICALENDAR_PATH)
-    for filename in filenames
-    if filename.lower().endswith(".py") and "fuzzing" not in dirpath
+    file
+    for file in ICALENDAR_PATH.glob("**/*.py")
+    if "fuzzing" not in file.relative_to(ICALENDAR_PATH).parts
 ]
 
 MODULE_NAMES = [
     "icalendar"
-    + python_file[len(ICALENDAR_PATH) : -3].replace("\\", "/").replace("/", ".")
+    + str(python_file)[len(str(ICALENDAR_PATH)) : -3]
+    .replace("\\", "/")
+    .replace("/", ".")
     for python_file in PYTHON_FILES
 ]
 
@@ -53,19 +54,8 @@ def test_docstring_of_python_file(module_name, env_for_doctest):
 
 
 # This collection needs to exclude .tox and other subdirectories
-DOCUMENTATION_PATH = os.path.join(HERE, "../../../")
-
-try:
-    DOCUMENT_PATHS = [
-        os.path.join(DOCUMENTATION_PATH, subdir, filename)
-        for subdir in ["docs", "."]
-        for filename in os.listdir(os.path.join(DOCUMENTATION_PATH, subdir))
-        if filename.lower().endswith(".rst")
-    ]
-except FileNotFoundError:
-    raise OSError(
-        "Could not find the documentation - remove the build folder and try again."
-    )
+REPOSITORY = HERE.parent.parent.parent
+DOCUMENT_PATHS = list(REPOSITORY.glob("**/*.rst"))
 
 
 @pytest.mark.parametrize(
@@ -76,7 +66,7 @@ except FileNotFoundError:
     ],
 )
 def test_files_is_included(filename):
-    assert any(path.endswith(filename) for path in DOCUMENT_PATHS)
+    assert any(path.name == filename for path in DOCUMENT_PATHS)
 
 
 @pytest.mark.parametrize("document", DOCUMENT_PATHS)
@@ -86,7 +76,7 @@ def test_documentation_file(document, zoneinfo_only, env_for_doctest, tzp):
     functions are also replaced to work.
     """
     try:
-        import pytz
+        import pytz  # noqa: F401
     except ImportError:
         pytest.skip("pytz not installed, skipping this file.")
     try:
@@ -96,9 +86,9 @@ def test_documentation_file(document, zoneinfo_only, env_for_doctest, tzp):
         )
     finally:
         tzp.use_zoneinfo()
-    assert (
-        test_result.failed == 0
-    ), f"{test_result.failed} errors in {os.path.basename(document)}"
+    assert test_result.failed == 0, (
+        f"{test_result.failed} errors in {Path(document).name}"
+    )
 
 
 def test_can_import_zoneinfo(env_for_doctest):

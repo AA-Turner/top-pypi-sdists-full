@@ -26,6 +26,27 @@ class TestPromptsApi(unittest.TestCase):
     def tearDown(self) -> None:
         pass
 
+    def test_prompts_create(self) -> None:
+        """Test case for prompts_create
+
+        Create a prompt
+        """
+        pass
+
+    def test_prompts_delete(self) -> None:
+        """Test case for prompts_delete
+
+        Delete a prompt
+        """
+        pass
+
+    def test_prompts_get(self) -> None:
+        """Test case for prompts_get
+
+        Get a prompt
+        """
+        pass
+
     def test_prompts_list(self) -> None:
         """Test case for prompts_list
 

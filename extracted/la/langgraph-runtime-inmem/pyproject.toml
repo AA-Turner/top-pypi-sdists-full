@@ -61,6 +61,6 @@ exclude = [
 
 
 [tool.ruff]
-lint.select = ["E", "F", "UP", "B", "I"]
+lint.select = ["E", "F", "UP", "B", "I", "PLC0415"]
 lint.ignore = ["E501", "B008"]
 target-version = "py311"

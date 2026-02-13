@@ -19,11 +19,15 @@ from __future__ import absolute_import
 from snowflake.core.warehouse._generated.models.error_response import ErrorResponse
 from snowflake.core.warehouse._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.warehouse._generated.models.success_response import SuccessResponse
+from snowflake.core.warehouse._generated.models.tag_assignment import TagAssignment
+from snowflake.core.warehouse._generated.models.tag_reference import TagReference
 from snowflake.core.warehouse._generated.models.warehouse import Warehouse
 
 __all__ = [
     "ErrorResponse",
     "SuccessAcceptedResponse",
     "SuccessResponse",
+    "TagAssignment",
+    "TagReference",
     "Warehouse",
 ]

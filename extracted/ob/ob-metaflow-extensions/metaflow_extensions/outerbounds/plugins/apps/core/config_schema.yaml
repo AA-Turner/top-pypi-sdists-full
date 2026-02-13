@@ -10,7 +10,6 @@ type: object
 required:
 - name
 - port
-- commands
 properties:
   name:
     description: The name of the app to deploy. (validation applied)
@@ -286,6 +285,13 @@ properties:
     default: false
     mutation_behavior: union
     cli_option: --force-upgrade
+  skip_code_package:
+    description: |-
+      When True, skip code packaging and rely on the container's embedded source code. When running the deployer programmatically, If this field is set, then the user cannot pass `package-code`
+    type: boolean
+    default: false
+    mutation_behavior: union
+    cli_option: --skip-code-package
   persistence:
     description: The persistence mode to deploy the app with. (validation applied)
     type: string

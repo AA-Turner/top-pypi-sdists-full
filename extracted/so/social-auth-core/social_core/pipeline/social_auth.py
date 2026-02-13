@@ -53,6 +53,7 @@ def associate_user(
             social = backend.strategy.storage.user.create_social_auth(
                 user, uid, backend.name
             )
+        # pylint: disable-next=broad-exception-caught
         except Exception as err:
             if not backend.strategy.storage.is_integrity_error(err):
                 raise
@@ -66,8 +67,7 @@ def associate_user(
             if not result["social"]:
                 raise
             return result
-        else:
-            return {"social": social, "user": social.user, "new_association": True}
+        return {"social": social, "user": social.user, "new_association": True}
     return None
 
 

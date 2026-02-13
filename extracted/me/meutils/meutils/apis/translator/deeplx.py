@@ -25,7 +25,7 @@ async def llm_translate(prompt):
         return prompt
     try:
         response = await zhipuai_client.chat.completions.create(
-            model="glm-4.5-flash",
+            model="glm-4.7-flash",
             messages=[
                 {"role": "system", "content": "将所有输入的文本翻译成英文。请不用解释，直接翻译。"},
                 {"role": "user", "content": f"文本：{prompt}"}
@@ -56,7 +56,7 @@ async def translate(
     """
     if not request.text.strip(): return {}
 
-    api_key = api_key or "pOnI-G2dDExp_DdXlDhPH2gbIx1DTBEo3JHZ3dam3bw"  # todo
+    api_key = api_key or "3R4rBRXQRoh66Gg3E0rvPkG6HtKVq7zdLAAiN0_6DeI"  # todo
 
     url = f"https://api.deeplx.org/{api_key}/translate"
 
@@ -78,11 +78,11 @@ async def translate(
 
 
 if __name__ == '__main__':
+    from meutils.pipe import *
     request = DeeplxRequest(text='讲个故事', source_lang='ZH', target_lang='EN')
     # with timer():
     #     arun(translate(request))
 
-    # arun(translate_prompt('把小鸭子放在女人的T恤上面。'))
 
-    # arun(llm_translate("这是一个文本"))
-    arun(llm_translate("你说yes"))
+    arun(llm_translate("这是一个文本"))
+    # arun(llm_translate("你说yes"))

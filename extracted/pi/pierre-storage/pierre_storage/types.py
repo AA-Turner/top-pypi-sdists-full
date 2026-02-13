@@ -212,6 +212,8 @@ class FileDiff(TypedDict):
     raw: str
     bytes: int
     is_eof: bool
+    additions: int
+    deletions: int
 
 
 class FilteredFile(TypedDict):

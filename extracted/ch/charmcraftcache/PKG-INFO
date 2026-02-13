@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: charmcraftcache
-Version: 0.8.0
+Version: 0.8.3
 Summary: Fast first-time builds for charmcraft
 License-File: LICENSE
 Author: Carl Csaposs
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: packaging (>=24.2)
 Requires-Dist: pyyaml (>=6.0.2)
 Requires-Dist: requests (>=2.32.3)
+Requires-Dist: rich (>=10.11.0)
 Requires-Dist: typer (>=0.15.1)
 Project-URL: Repository, https://github.com/canonical/charmcraftcache
 Description-Content-Type: text/markdown

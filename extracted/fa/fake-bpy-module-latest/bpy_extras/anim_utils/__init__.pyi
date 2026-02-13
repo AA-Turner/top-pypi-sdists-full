@@ -88,7 +88,11 @@ def animdata_get_channelbag_for_assigned_slot(anim_data) -> None:
     """
 
 def bake_action(
-    obj: bpy.types.Object, *, action: None | bpy.types.Action, frames: int, bake_options
+    obj: bpy.types.Object,
+    *,
+    action: None | bpy.types.Action,
+    frames: collections.abc.Iterable[int],
+    bake_options,
 ) -> None | bpy.types.Action:
     """
 
@@ -102,30 +106,44 @@ def bake_action(
 
 def bake_action_iter(
     obj: bpy.types.Object, *, action: None | bpy.types.Action, bake_options
-) -> bpy.types.Action:
-    """An coroutine that bakes action for a single object.
+) -> None | bpy.types.Action:
+    """A coroutine that bakes action for a single object.
 
         :param obj: Object to bake.
         :param action: An action to bake the data into, or None for a new action
     to be created.
-        :param bake_options: Boolean options of what to include into the action bake.
+        :param bake_options: Options for baking.
         :return: an action or None
     """
 
 def bake_action_objects(
-    object_action_pairs, *, frames, bake_options
+    object_action_pairs: collections.abc.Sequence[
+        tuple[bpy.types.Object, bpy.types.Action | None]
+    ],
+    *,
+    frames: collections.abc.Iterable[int],
+    bake_options,
 ) -> collections.abc.Sequence[bpy.types.Action]:
     """A version of `bake_action_objects_iter` that takes frames and returns the output.
 
-    :param frames: Frames to bake.
-    :param bake_options: Options for baking.
-    :return: A sequence of Action or None types (aligned with object_action_pairs)
+        :param object_action_pairs: Sequence of object action tuples,
+    action is the destination for the baked data. When None a new action will be created.
+        :param frames: Frames to bake.
+        :param bake_options: Options for baking.
+        :return: A sequence of Action or None types (aligned with object_action_pairs)
     """
 
-def bake_action_objects_iter(object_action_pairs, bake_options) -> None:
-    """An coroutine that bakes actions for multiple objects.
+def bake_action_objects_iter(
+    object_action_pairs: collections.abc.Sequence[
+        tuple[bpy.types.Object, bpy.types.Action | None]
+    ],
+    bake_options,
+) -> None:
+    """A coroutine that bakes actions for multiple objects.
 
         :param object_action_pairs: Sequence of object action tuples,
     action is the destination for the baked data. When None a new action will be created.
         :param bake_options: Options for baking.
+        :return: A generator that yields None for each frame, then finally
+    yields a tuple of actions (aligned with object_action_pairs).
     """

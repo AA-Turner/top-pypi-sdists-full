@@ -12,9 +12,9 @@ jobs:
     if: github.repository == 'napari/napari-plugin-engine'
     steps:
       - name: Checkout code
-        uses: actions/checkout@master
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
       - name: Install Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
           python-version: 3.8
       - name: Install Dependencies
@@ -25,7 +25,7 @@ jobs:
         run: |
           python -m pep517.build .
       - name: Publish PyPI Package
-        uses: pypa/gh-action-pypi-publish@master
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
         with:
           user: __token__
           password: ${{ secrets.pypi_password }}

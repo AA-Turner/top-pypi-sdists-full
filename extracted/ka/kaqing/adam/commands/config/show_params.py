@@ -22,10 +22,11 @@ class ShowParams(Command):
         if not self.args(cmd):
             return super().run(cmd, state)
 
-        return tabulize(Config().keys(),
-                        lambda k: f'{k}\t{Config().get(k, None)}',
-                        separator='\t',
-                        ctx=self.context())
+        with self.context() as (_, ctx):
+            return tabulize(Config().keys(),
+                            lambda k: f'{k}\t{Config().get(k, None)}',
+                            separator='\t',
+                            ctx=ctx)
 
     def completion(self, state: ReplState):
         return super().completion(state)

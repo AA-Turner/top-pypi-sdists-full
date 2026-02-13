@@ -463,3 +463,88 @@ class ParquetReaderConfig(ReaderWriterConfig):
         )
 
         return snowpark_args
+
+
+class XmlReaderConfig(ReaderWriterConfig):
+    def __init__(self, options: dict[str, str]) -> None:
+        super().__init__(
+            _Config(
+                default_config={
+                    # TODO: samplingRatio: 1.0,
+                    # TODO: inferSchema: true,
+                    "attributePrefix": "_",
+                    "valueTag": "_VALUE",
+                    "mode": "PERMISSIVE",
+                    "columnNameOfCorruptRecord": "_corrupt_record",
+                    "nullValue": "",
+                    "encoding": "UTF-8",
+                    "excludeAttribute": "false",
+                    "ignoreNamespace": "false",
+                    "ignoreSurroundingSpaces": "false",
+                    # TODO: timeZone: (spark.sql.session.timeZone),
+                    # TODO: timestampFormat: yyyy-MM-dd'T'HH:mm:ss[.SSS][XXX],
+                    # TODO: timestampNTZFormat: yyyy-MM-dd'T'HH:mm:ss[.SSS],
+                    # TODO: dateFormat: yyyy-MM-dd,
+                    # TODO: locale: en-US,
+                    # TODO: wildcardColName: xs_any,
+                },
+                supported_options={
+                    "rowTag",
+                    # "samplingRatio",
+                    "excludeAttribute",
+                    "mode",
+                    # "inferSchema",
+                    "columnNameOfCorruptRecord",
+                    "attributePrefix",
+                    "valueTag",
+                    "encoding",
+                    "ignoreSurroundingSpaces",
+                    "rowValidationXSDPath",
+                    "ignoreNamespace",
+                    # "timeZone",
+                    # "timestampFormat",
+                    # "timestampNTZFormat",
+                    # "dateFormat",
+                    # "locale",
+                    # "rootTag",
+                    # "declaration",
+                    # "arrayElementName",
+                    "nullValue",
+                    # "wildcardColName",
+                    "compression",  # not supported when rowTag is specified
+                    # "validateName",
+                    "pathGlobFilter",
+                    # "recursiveFileLookup",
+                    # "modifiedBefore",
+                },
+                boolean_config_list=[
+                    "excludeAttribute",
+                    "ignoreNamespace",
+                    "ignoreSurroundingSpaces",
+                ],
+                int_config_list=[],
+                float_config_list=[],
+            ),
+            options,
+        )
+
+    def convert_to_snowpark_args(self) -> dict[str, Any]:
+        snowpark_config = super().convert_to_snowpark_args()
+
+        # Rename Spark options to Snowpark equivalents
+        renamed_args = {
+            "encoding": "charset",
+            "excludeAttribute": "excludeAttributes",
+            "ignoreSurroundingSpaces": "ignoreSurroundingWhitespace",
+            "pathGlobFilter": "PATTERN",
+        }
+
+        for spark_arg, snowpark_arg in renamed_args.items():
+            if spark_arg in snowpark_config:
+                snowpark_config[snowpark_arg] = snowpark_config[spark_arg]
+                del snowpark_config[spark_arg]
+
+        # Snowpark-specific
+        snowpark_config["cacheResult"] = True
+
+        return snowpark_config

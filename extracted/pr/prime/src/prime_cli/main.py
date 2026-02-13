@@ -7,6 +7,7 @@ from rich.console import Console
 from . import __version__
 from .commands.availability import app as availability_app
 from .commands.config import app as config_app
+from .commands.deployments import app as deployments_app
 from .commands.disks import app as disks_app
 from .commands.env import app as env_app
 from .commands.evals import app as evals_app
@@ -19,6 +20,7 @@ from .commands.pods import app as pods_app
 from .commands.registry import app as registry_app
 from .commands.rl import app as rl_app
 from .commands.sandbox import app as sandbox_app
+from .commands.secrets import app as secret_app
 from .commands.teams import app as teams_app
 from .commands.tunnel import app as tunnel_app
 from .commands.upgrade import app as upgrade_app
@@ -34,11 +36,12 @@ app = typer.Typer(
 )
 
 # Lab commands
+app.add_typer(lab_app, name="lab", rich_help_panel="Lab")
 app.add_typer(env_app, name="env", rich_help_panel="Lab")
 app.add_typer(evals_app, name="eval", rich_help_panel="Lab")
 app.add_typer(gepa_app, name="gepa", rich_help_panel="Lab")
 app.add_typer(rl_app, name="rl", rich_help_panel="Lab")
-app.add_typer(lab_app, name="lab", rich_help_panel="Lab")
+app.add_typer(deployments_app, name="deployments", rich_help_panel="Lab")
 
 # Compute commands
 app.add_typer(availability_app, name="availability", rich_help_panel="Compute")
@@ -55,6 +58,7 @@ app.add_typer(login_app, name="login", rich_help_panel="Account")
 app.add_typer(whoami_app, name="whoami", rich_help_panel="Account")
 app.add_typer(config_app, name="config", rich_help_panel="Account")
 app.add_typer(teams_app, name="teams", rich_help_panel="Account")
+app.add_typer(secret_app, name="secret", rich_help_panel="Account")
 app.add_typer(upgrade_app, name="upgrade", rich_help_panel="Account")
 
 

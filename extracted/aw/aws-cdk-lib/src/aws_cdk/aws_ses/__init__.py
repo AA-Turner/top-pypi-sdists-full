@@ -881,6 +881,9 @@ class CfnConfigurationSet(
         from aws_cdk import aws_ses as ses
         
         cfn_configuration_set = ses.CfnConfigurationSet(self, "MyCfnConfigurationSet",
+            archiving_options=ses.CfnConfigurationSet.ArchivingOptionsProperty(
+                archive_arn="archiveArn"
+            ),
             delivery_options=ses.CfnConfigurationSet.DeliveryOptionsProperty(
                 max_delivery_seconds=123,
                 sending_pool_name="sendingPoolName",
@@ -930,6 +933,7 @@ class CfnConfigurationSet(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
+        archiving_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.ArchivingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         delivery_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.DeliveryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         reputation_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.ReputationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -943,6 +947,7 @@ class CfnConfigurationSet(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
+        :param archiving_options: An object that defines a MailManager archive that is used to preserve emails that you send using the configuration set.
         :param delivery_options: Specifies the name of the dedicated IP pool to associate with the configuration set and whether messages that use the configuration set are required to use Transport Layer Security (TLS).
         :param name: The name of the configuration set. The name must meet the following requirements:. - Contain only letters (a-z, A-Z), numbers (0-9), underscores (_), or dashes (-). - Contain 64 characters or fewer.
         :param reputation_options: An object that defines whether or not Amazon SES collects reputation metrics for the emails that you send that use the configuration set.
@@ -957,6 +962,7 @@ class CfnConfigurationSet(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnConfigurationSetProps(
+            archiving_options=archiving_options,
             delivery_options=delivery_options,
             name=name,
             reputation_options=reputation_options,
@@ -1062,6 +1068,24 @@ class CfnConfigurationSet(
     def configuration_set_ref(self) -> "_ConfigurationSetReference_07006bc6":
         '''A reference to a ConfigurationSet resource.'''
         return typing.cast("_ConfigurationSetReference_07006bc6", jsii.get(self, "configurationSetRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="archivingOptions")
+    def archiving_options(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.ArchivingOptionsProperty"]]:
+        '''An object that defines a MailManager archive that is used to preserve emails that you send using the configuration set.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.ArchivingOptionsProperty"]], jsii.get(self, "archivingOptions"))
+
+    @archiving_options.setter
+    def archiving_options(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.ArchivingOptionsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__98dddff2c17ff16f32868cbb08375468ce0e032bcd59174639e7ea9c59e0597a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "archivingOptions", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="deliveryOptions")
@@ -1199,6 +1223,61 @@ class CfnConfigurationSet(
             type_hints = typing.get_type_hints(_typecheckingstub__3f115779032dd22d020f87b590d89ccdd0a4fc3f269b15bbecfde29ad92e4289)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vdmOptions", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ses.CfnConfigurationSet.ArchivingOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"archive_arn": "archiveArn"},
+    )
+    class ArchivingOptionsProperty:
+        def __init__(
+            self,
+            *,
+            archive_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''An object that defines a MailManager archive that is used to preserve emails that you send using the configuration set.
+
+            :param archive_arn: The ARN of the MailManager archive to associate with the configuration set.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationset-archivingoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ses as ses
+                
+                archiving_options_property = ses.CfnConfigurationSet.ArchivingOptionsProperty(
+                    archive_arn="archiveArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6258c0fb16c48115872d650a20ab8971bed1bbfea75dd131a319a2cc66408ebd)
+                check_type(argname="argument archive_arn", value=archive_arn, expected_type=type_hints["archive_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if archive_arn is not None:
+                self._values["archive_arn"] = archive_arn
+
+        @builtins.property
+        def archive_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the MailManager archive to associate with the configuration set.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-configurationset-archivingoptions.html#cfn-ses-configurationset-archivingoptions-archivearn
+            '''
+            result = self._values.get("archive_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ArchivingOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ses.CfnConfigurationSet.ConditionThresholdProperty",
@@ -2804,6 +2883,7 @@ class CfnConfigurationSetEventDestinationProps:
     jsii_type="aws-cdk-lib.aws_ses.CfnConfigurationSetProps",
     jsii_struct_bases=[],
     name_mapping={
+        "archiving_options": "archivingOptions",
         "delivery_options": "deliveryOptions",
         "name": "name",
         "reputation_options": "reputationOptions",
@@ -2818,6 +2898,7 @@ class CfnConfigurationSetProps:
     def __init__(
         self,
         *,
+        archiving_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.ArchivingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         delivery_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.DeliveryOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         reputation_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationSet.ReputationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2829,6 +2910,7 @@ class CfnConfigurationSetProps:
     ) -> None:
         '''Properties for defining a ``CfnConfigurationSet``.
 
+        :param archiving_options: An object that defines a MailManager archive that is used to preserve emails that you send using the configuration set.
         :param delivery_options: Specifies the name of the dedicated IP pool to associate with the configuration set and whether messages that use the configuration set are required to use Transport Layer Security (TLS).
         :param name: The name of the configuration set. The name must meet the following requirements:. - Contain only letters (a-z, A-Z), numbers (0-9), underscores (_), or dashes (-). - Contain 64 characters or fewer.
         :param reputation_options: An object that defines whether or not Amazon SES collects reputation metrics for the emails that you send that use the configuration set.
@@ -2849,6 +2931,9 @@ class CfnConfigurationSetProps:
             from aws_cdk import aws_ses as ses
             
             cfn_configuration_set_props = ses.CfnConfigurationSetProps(
+                archiving_options=ses.CfnConfigurationSet.ArchivingOptionsProperty(
+                    archive_arn="archiveArn"
+                ),
                 delivery_options=ses.CfnConfigurationSet.DeliveryOptionsProperty(
                     max_delivery_seconds=123,
                     sending_pool_name="sendingPoolName",
@@ -2894,6 +2979,7 @@ class CfnConfigurationSetProps:
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e27ed179dbf809eedecaf57207416cd1680782d0d3ab4c539486ad7038b09efa)
+            check_type(argname="argument archiving_options", value=archiving_options, expected_type=type_hints["archiving_options"])
             check_type(argname="argument delivery_options", value=delivery_options, expected_type=type_hints["delivery_options"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument reputation_options", value=reputation_options, expected_type=type_hints["reputation_options"])
@@ -2903,6 +2989,8 @@ class CfnConfigurationSetProps:
             check_type(argname="argument tracking_options", value=tracking_options, expected_type=type_hints["tracking_options"])
             check_type(argname="argument vdm_options", value=vdm_options, expected_type=type_hints["vdm_options"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if archiving_options is not None:
+            self._values["archiving_options"] = archiving_options
         if delivery_options is not None:
             self._values["delivery_options"] = delivery_options
         if name is not None:
@@ -2919,6 +3007,17 @@ class CfnConfigurationSetProps:
             self._values["tracking_options"] = tracking_options
         if vdm_options is not None:
             self._values["vdm_options"] = vdm_options
+
+    @builtins.property
+    def archiving_options(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.ArchivingOptionsProperty"]]:
+        '''An object that defines a MailManager archive that is used to preserve emails that you send using the configuration set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-archivingoptions
+        '''
+        result = self._values.get("archiving_options")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationSet.ArchivingOptionsProperty"]], result)
 
     @builtins.property
     def delivery_options(
@@ -12452,6 +12551,41 @@ class CfnMultiRegionEndpoint(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForMultiRegionEndpoint")
+    @builtins.classmethod
+    def arn_for_multi_region_endpoint(
+        cls,
+        resource: "_IMultiRegionEndpointRef_cfd99631",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0dafae91114723063f1dbfdeb9faa90b4186daa9a0a81ec70ec225f8d5940ad0)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMultiRegionEndpoint", [resource]))
+
+    @jsii.member(jsii_name="fromEndpointName")
+    @builtins.classmethod
+    def from_endpoint_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        endpoint_name: builtins.str,
+    ) -> "_IMultiRegionEndpointRef_cfd99631":
+        '''Creates a new IMultiRegionEndpointRef from a endpointName.
+
+        :param scope: -
+        :param id: -
+        :param endpoint_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__60db9638b227c18d6130c9b4de856bffa2b0375f5ed82b4e032ca9c754147df2)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument endpoint_name", value=endpoint_name, expected_type=type_hints["endpoint_name"])
+        return typing.cast("_IMultiRegionEndpointRef_cfd99631", jsii.sinvoke(cls, "fromEndpointName", [scope, id, endpoint_name]))
+
     @jsii.member(jsii_name="isCfnMultiRegionEndpoint")
     @builtins.classmethod
     def is_cfn_multi_region_endpoint(cls, x: typing.Any) -> builtins.bool:
@@ -20569,6 +20703,7 @@ def _typecheckingstub__ad84a733d05a7160c0517733c56c249f6a299231ebcf8e982ed1aeda9
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
+    archiving_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.ArchivingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     delivery_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.DeliveryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     reputation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.ReputationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -20609,6 +20744,12 @@ def _typecheckingstub__703d8eb12ae21101f4f93e6ab7089d820f42a27a22e1028eee983deee
 
 def _typecheckingstub__3ec352b38e2d7189e23d09b362a1b86566764825e5e48e241ee1b2ef51c1b511(
     props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__98dddff2c17ff16f32868cbb08375468ce0e032bcd59174639e7ea9c59e0597a(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationSet.ArchivingOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20657,6 +20798,13 @@ def _typecheckingstub__0e2738cc83fe741aa7d2c58d5db581a79f89d7427a9504ac697d8f7dd
 
 def _typecheckingstub__3f115779032dd22d020f87b590d89ccdd0a4fc3f269b15bbecfde29ad92e4289(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationSet.VdmOptionsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6258c0fb16c48115872d650a20ab8971bed1bbfea75dd131a319a2cc66408ebd(
+    *,
+    archive_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20845,6 +20993,7 @@ def _typecheckingstub__5bf6472e974193204bd884002deb0a2d69e96cef811e1a0aa08aafb39
 
 def _typecheckingstub__e27ed179dbf809eedecaf57207416cd1680782d0d3ab4c539486ad7038b09efa(
     *,
+    archiving_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.ArchivingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     delivery_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.DeliveryOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     reputation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.ReputationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -22202,6 +22351,20 @@ def _typecheckingstub__8d7e94f6d9cd343f5c2c621d4e2a086c1db0d608865fb3a5015d0b11d
     details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMultiRegionEndpoint.DetailsProperty, typing.Dict[builtins.str, typing.Any]]],
     endpoint_name: builtins.str,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0dafae91114723063f1dbfdeb9faa90b4186daa9a0a81ec70ec225f8d5940ad0(
+    resource: _IMultiRegionEndpointRef_cfd99631,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__60db9638b227c18d6130c9b4de856bffa2b0375f5ed82b4e032ca9c754147df2(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    endpoint_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

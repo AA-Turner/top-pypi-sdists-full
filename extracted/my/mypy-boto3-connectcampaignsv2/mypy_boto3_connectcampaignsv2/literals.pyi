@@ -3,7 +3,7 @@ Type annotations for connectcampaignsv2 service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcampaignsv2/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -62,7 +62,11 @@ DayOfWeekType = Literal[
 ]
 EncryptionTypeType = Literal["KMS"]
 EventTypeType = Literal[
-    "Campaign-Email", "Campaign-Orchestration", "Campaign-SMS", "Campaign-Telephony"
+    "Campaign-Email",
+    "Campaign-Orchestration",
+    "Campaign-SMS",
+    "Campaign-Telephony",
+    "Campaign-WhatsApp",
 ]
 ExternalCampaignTypeType = Literal["JOURNEY", "MANAGED"]
 FailureCodeType = Literal["BufferLimitExceeded", "InvalidInput", "RequestThrottled", "UnknownError"]
@@ -226,7 +230,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -491,6 +494,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

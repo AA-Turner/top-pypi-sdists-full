@@ -11,12 +11,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from itertools import pairwise
-from math import atan, degrees
+from math import atan, cos, degrees, radians, sin, sqrt
 from pathlib import Path
 
 from fpdf import FPDF
-from fpdf.enums import TextMode
+from fpdf.enums import PDFResourceType, TextMode
 from pikepdf import Matrix, Rectangle
 
 from ocrmypdf.font import FontManager, MultiFontManager
@@ -163,6 +162,8 @@ class Fpdf2PdfRenderer:
 
         # Registered fonts: font_path -> fpdf_family_name
         self._registered_fonts: dict[str, str] = {}
+        # Track whether we've already logged the info-level suppression message
+        self._logged_aspect_ratio_suppression = False
 
     def render(self, output_path: Path) -> None:
         """Render page to PDF file.
@@ -189,9 +190,9 @@ class Fpdf2PdfRenderer:
 
         # Set text mode for invisible text
         if self.invisible_text:
-            pdf.text_rendering_mode = TextMode.INVISIBLE
+            pdf.text_mode = TextMode.INVISIBLE
         else:
-            pdf.text_rendering_mode = TextMode.FILL
+            pdf.text_mode = TextMode.FILL
 
         # Render content to PDF
         self.render_to_pdf(pdf)
@@ -299,6 +300,30 @@ class Fpdf2PdfRenderer:
         # Get textangle (rotation of the entire line)
         textangle = line.textangle or 0.0
 
+        # Read baseline early so we can detect rotation from steep slopes.
+        # When Tesseract doesn't report textangle for rotated text, the
+        # rotation gets encoded as a very steep baseline slope instead.
+        slope = 0.0
+        intercept_pt = 0.0
+        has_meaningful_baseline = False
+        if line.baseline is not None:
+            slope = line.baseline.slope
+            intercept_pt = self.coord_transform.px_to_pt(line.baseline.intercept)
+            if abs(slope) < 0.005:
+                slope = 0.0
+            has_meaningful_baseline = True
+
+        # Detect text rotation from steep baseline slope.
+        # A slope magnitude > 1.0 corresponds to > 45° from horizontal,
+        # which indicates the line is rotated, not merely skewed.
+        if textangle == 0.0 and abs(slope) > 1.0:
+            textangle = degrees(atan(slope))
+            # The original baseline slope and intercept are not meaningful
+            # after extracting rotation; recalculate intercept from font
+            # metrics below.
+            slope = 0.0
+            has_meaningful_baseline = False
+
         # Build line_size_aabb_matrix: transforms from page coords to un-rotated
         # line coords. The hOCR bbox is the minimum axis-aligned bounding box
         # enclosing the rotated text.
@@ -317,16 +342,10 @@ class Fpdf2PdfRenderer:
             inv_line_matrix, line_left_pt, line_top_pt, line_right_pt, line_bottom_pt
         )
 
-        # Get baseline information (slope and intercept)
-        slope = 0.0
-        intercept_pt = 0.0
-        if line.baseline is not None:
-            slope = line.baseline.slope
-            intercept_pt = self.coord_transform.px_to_pt(line.baseline.intercept)
-            if abs(slope) < 0.005:
-                slope = 0.0
-        else:
-            # No baseline provided: calculate from font metrics
+        # Get baseline intercept
+        if not has_meaningful_baseline:
+            # No baseline provided or baseline was used for rotation detection:
+            # calculate intercept from font metrics
             default_font_manager = self.multi_font_manager.fonts['NotoSans-Regular']
             ascent, descent, units_per_em = default_font_manager.get_font_metrics()
             ascent_norm = ascent / units_per_em
@@ -383,143 +402,331 @@ class Fpdf2PdfRenderer:
             w for w in line.children if w.ocr_class == OcrClass.WORD and w.text
         ]
 
-        # Render each word followed by space (except last)
-        # Use pairwise to iterate over consecutive word pairs, pairing the last
-        # word with a None to signal the end of the line.
-        for current_word, next_word in pairwise(words + [None]):
-            if current_word:  # Don't render EOL sentinel
-                # Render the current word
-                self._render_word(
-                    pdf,
-                    current_word,
-                    baseline_matrix,
-                    inv_baseline_matrix,
-                    font_size,
-                    total_rotation_deg,
-                    line_language,
-                )
-            if next_word:  # Don't render EOL sentinel
-                self._maybe_render_space(
-                    pdf,
-                    current_word,
-                    next_word,
-                    baseline_matrix,
-                    inv_baseline_matrix,
-                    font_size,
-                    total_rotation_deg,
-                    line_language,
-                    line.direction,
+        # Suppress lines where the text aspect ratio is implausible.
+        # This catches cases where Tesseract failed to detect rotation
+        # entirely (slope=0, no textangle) and produced garbage text in a
+        # bounding box whose shape doesn't match the text content at all.
+        if not self._check_aspect_ratio_plausible(
+            pdf, words, font_size, slope_angle_deg,
+            line_size_width, line_size_height, line_language,
+        ):
+            return
+
+        # Collect word rendering data: (text, x_baseline, font_family, word_tz)
+        word_render_data: list[tuple[str, float, str, float]] = []
+        for word in words:
+            if word is None or not word.text or word.bbox is None:
+                continue
+
+            word_left_pt = self.coord_transform.px_to_pt(word.bbox.left)
+            word_top_pt = self.coord_transform.px_to_pt(word.bbox.top)
+            word_right_pt = self.coord_transform.px_to_pt(word.bbox.right)
+            word_bottom_pt = self.coord_transform.px_to_pt(word.bbox.bottom)
+            word_width_pt = word_right_pt - word_left_pt
+
+            # Debug rendering: draw word bbox (in page coordinates)
+            if self.debug_options.render_word_bbox:
+                self._render_debug_word_bbox(
+                    pdf, word_left_pt, word_top_pt, word_right_pt, word_bottom_pt
                 )
 
-    def _render_word(
+            # Get x position in baseline coordinate system
+            box_llx, _, _, _ = transform_box(
+                inv_baseline_matrix,
+                word_left_pt,
+                word_top_pt,
+                word_right_pt,
+                word_bottom_pt,
+            )
+
+            # Select font and compute word-only Tz
+            font_manager = self.multi_font_manager.select_font_for_word(
+                word.text, line_language
+            )
+            font_family = self._register_font(pdf, font_manager)
+            pdf.set_font(font_family, size=font_size)
+            natural_width = pdf.get_string_width(word.text)
+            if natural_width > 0 and word_width_pt > 0:
+                word_tz = (word_width_pt / natural_width) * 100
+            else:
+                word_tz = 100.0
+
+            word_render_data.append((word.text, box_llx, font_family, word_tz))
+
+        if not word_render_data:
+            return
+
+        # Emit single BT block for the entire line using raw PDF operators.
+        # This avoids a poppler bug where Tz (horizontal scaling) is not
+        # carried across BT/ET boundaries, affecting all poppler-based tools
+        # and viewers (Evince, pdftotext, etc.). By keeping all words in a
+        # single BT block with relative Td positioning and per-word Tz, we
+        # ensure correct inter-word spacing.
+        self._emit_line_bt_block(
+            pdf,
+            word_render_data,
+            baseline_matrix,
+            font_size,
+            total_rotation_deg,
+        )
+
+    def _check_aspect_ratio_plausible(
         self,
         pdf: FPDF,
-        word: OcrElement,
-        baseline_matrix: Matrix,
-        inv_baseline_matrix: Matrix,
+        words: list[OcrElement | None],
         font_size: float,
-        rotation_deg: float,
+        slope_angle_deg: float,
+        line_size_width: float,
+        line_size_height: float,
         line_language: str | None,
-    ) -> None:
-        """Render a word using word bbox positioning.
+    ) -> bool:
+        """Check whether the line's aspect ratio is plausible for its text.
 
-        Position text so its visual bounding box matches the hOCR word bbox.
-        This provides more accurate placement than baseline-relative positioning
-        because we match the actual glyph bounds rather than relying on font
-        metrics which may not exactly match the OCR'd text appearance.
+        Compares the aspect ratio of the OCR bounding box to the aspect ratio
+        the text would have if rendered normally (accounting for baseline
+        slope). A large mismatch indicates Tesseract misread rotated text
+        without detecting the rotation.
+
+        Returns:
+            True if plausible (rendering should proceed), False to suppress.
+        """
+        if line_size_width <= 0 or line_size_height <= 0 or font_size <= 0:
+            return True
+
+        # Fast path: most lines are wider than they are tall, which is
+        # the normal shape for horizontal text. Only tall-narrow boxes
+        # (height > width) need the expensive font measurement check.
+        if line_size_width >= line_size_height:
+            return True
+
+        line_text = ' '.join(
+            w.text for w in words if w is not None and w.text
+        )
+        if not line_text:
+            return True
+
+        # Measure the natural rendered width of the line text
+        font_manager = self.multi_font_manager.select_font_for_word(
+            line_text, line_language
+        )
+        font_family = self._register_font(pdf, font_manager)
+        pdf.set_font(font_family, size=round(font_size))
+        natural_width = pdf.get_string_width(line_text)
+
+        if natural_width <= 0:
+            return True
+
+        # Compute the AABB the text would occupy considering baseline slope
+        theta = radians(abs(slope_angle_deg))
+        expected_w = natural_width * cos(theta) + font_size * sin(theta)
+        expected_h = natural_width * sin(theta) + font_size * cos(theta)
+
+        if expected_h <= 0:
+            return True
+
+        actual_aspect = line_size_width / line_size_height
+        expected_aspect = expected_w / expected_h
+        ratio = actual_aspect / expected_aspect
+
+        if ratio >= 0.1:
+            return True
+
+        # Implausible aspect ratio — suppress this line
+        log.debug(
+            "Suppressing text with improbable aspect ratio: "
+            "actual=%.3f expected=%.3f ratio=%.4f text=%r",
+            actual_aspect,
+            expected_aspect,
+            ratio,
+            line_text[:80],
+        )
+        if not self._logged_aspect_ratio_suppression:
+            log.info(
+                "Suppressing OCR output text with improbable aspect ratio"
+            )
+            self._logged_aspect_ratio_suppression = True
+        return False
+
+    def _emit_line_bt_block(
+        self,
+        pdf: FPDF,
+        word_render_data: list[tuple[str, float, str, float]],
+        baseline_matrix: Matrix,
+        font_size: float,
+        total_rotation_deg: float,
+    ) -> None:
+        """Emit a single BT block for the entire line using raw PDF operators.
+
+        Writes all words in a single BT..ET block with relative Td positioning
+        and per-word Tz. Each non-last word gets a trailing space appended, with
+        Tz calculated so the rendered width of "word " spans from the current
+        word's start to the next word's start. This works around a poppler bug
+        where Tz is not carried across BT/ET boundaries, which affects all
+        poppler-based viewers and tools (Evince, pdftotext, etc.).
 
         Args:
             pdf: FPDF instance
-            word: Word OCR element
+            word_render_data: List of (text, x_baseline, font_family, word_tz)
+                tuples, one per word on this line
             baseline_matrix: Transform from baseline coords to page coords
-            inv_baseline_matrix: Transform from page coords to baseline coords
-            font_size: Font size in points (from line calculation)
-            rotation_deg: Total rotation angle for text
-            line_language: Language code from line for font selection
+            font_size: Font size in points
+            total_rotation_deg: Total rotation angle (textangle + slope)
         """
-        if not word.text or word.bbox is None:
-            return
+        page_height = self.coord_transform.page_height_pt
 
-        # Select appropriate font for this word
-        font_manager = self.multi_font_manager.select_font_for_word(
-            word.text, line_language
-        )
+        # Compute baseline direction in PDF coordinates for rotation
+        has_rotation = abs(total_rotation_deg) > 0.01
+        bx0, by0_fpdf = transform_point(baseline_matrix, 0, 0)
+        by0_pdf = page_height - by0_fpdf
 
-        # Register font with fpdf2
-        font_family = self._register_font(pdf, font_manager)
+        ops: list[str] = []
 
-        # Convert word bbox to PDF points
-        word_left_pt = self.coord_transform.px_to_pt(word.bbox.left)
-        word_top_pt = self.coord_transform.px_to_pt(word.bbox.top)
-        word_right_pt = self.coord_transform.px_to_pt(word.bbox.right)
-        word_bottom_pt = self.coord_transform.px_to_pt(word.bbox.bottom)
-        word_width_pt = word_right_pt - word_left_pt
+        if has_rotation:
+            # Compute direction vector along the baseline in PDF coordinates
+            bx1, by1_fpdf = transform_point(baseline_matrix, 100, 0)
+            by1_pdf = page_height - by1_fpdf
+            dx = bx1 - bx0
+            dy = by1_pdf - by0_pdf
+            length = sqrt(dx * dx + dy * dy)
+            if length > 0:
+                cos_a = dx / length
+                sin_a = dy / length
+            else:
+                cos_a = 1.0
+                sin_a = 0.0
 
-        # Transform word bbox into baseline coordinate system to get x position
-        box_llx, _, _, _ = transform_box(
-            inv_baseline_matrix,
-            word_left_pt,
-            word_top_pt,
-            word_right_pt,
-            word_bottom_pt,
-        )
-
-        # Debug rendering: draw word bbox (in page coordinates)
-        if self.debug_options.render_word_bbox:
-            self._render_debug_word_bbox(
-                pdf, word_left_pt, word_top_pt, word_right_pt, word_bottom_pt
+            # Save graphics state, apply rotation+translation via cm.
+            # The cm maps local coordinates (baseline-aligned, x along text)
+            # to PDF page coordinates.
+            ops.append('q')
+            ops.append(
+                f'{cos_a:.6f} {sin_a:.6f} {-sin_a:.6f} {cos_a:.6f} '
+                f'{bx0:.2f} {by0_pdf:.2f} cm'
             )
 
-        # Use line-based font_size for consistent vertical sizing
-        word_font_size = font_size
+        # Begin text object
+        ops.append('BT')
 
-        # Set font
-        pdf.set_font(font_family, size=word_font_size)
+        # Text render mode: 3 = invisible, 0 = fill
+        tr = 3 if self.invisible_text else 0
+        ops.append(f'{tr} Tr')
 
-        # Calculate natural text width at this font size
-        natural_width = pdf.get_string_width(word.text)
-
-        # Calculate horizontal scale to fit word bbox width
-        if natural_width > 0 and word_width_pt > 0:
-            scale_x = (word_width_pt / natural_width) * 100
+        # Initial text position
+        first_x_baseline = word_render_data[0][1]
+        if has_rotation:
+            # In the cm-transformed space, origin is at the baseline start
+            ops.append(f'{first_x_baseline:.2f} 0 Td')
         else:
-            scale_x = 100
+            # Direct PDF coordinates
+            page_x, page_y_fpdf = transform_point(
+                baseline_matrix, first_x_baseline, 0
+            )
+            page_y_pdf = page_height - page_y_fpdf
+            ops.append(f'{page_x:.2f} {page_y_pdf:.2f} Td')
 
-        # Apply horizontal stretching
-        pdf.set_stretching(scale_x)
+        prev_font_family: str | None = None
+        prev_x_baseline = first_x_baseline
 
-        # Get left side bearing of first character to compensate for glyph offset
-        lsb_pt = font_manager.get_left_side_bearing(word.text[0], word_font_size)
+        for i, (text, x_baseline, font_family, word_tz) in enumerate(
+            word_render_data
+        ):
+            is_last = i == len(word_render_data) - 1
 
-        # Transform the baseline-relative x position back to page coordinates
-        # The word sits at (box_llx, 0) in baseline coords (on the baseline)
-        page_x, page_y = transform_point(baseline_matrix, box_llx, 0)
+            # Set font if changed
+            if font_family != prev_font_family:
+                pdf.set_font(font_family, size=font_size)
+                # Register font resource on this page
+                pdf._resource_catalog.add(
+                    PDFResourceType.FONT, pdf.current_font.i, pdf.page
+                )
+                ops.append(
+                    f'/F{pdf.current_font.i} {pdf.font_size_pt:.2f} Tf'
+                )
+                prev_font_family = font_family
 
-        # Adjust x position to account for lsb (scaled by horizontal stretch)
-        adjusted_x = page_x - lsb_pt * (scale_x / 100)
+            # Relative positioning (for words after the first)
+            if i > 0:
+                if has_rotation:
+                    # In rotated space, advance is purely along x-axis
+                    dx_baseline = x_baseline - prev_x_baseline
+                    ops.append(f'{dx_baseline:.2f} 0 Td')
+                else:
+                    # Non-rotated: compute delta in PDF coordinates
+                    px_prev, py_prev_f = transform_point(
+                        baseline_matrix, prev_x_baseline, 0
+                    )
+                    px_curr, py_curr_f = transform_point(
+                        baseline_matrix, x_baseline, 0
+                    )
+                    dx_pdf = px_curr - px_prev
+                    # Flip y delta for PDF coordinates (y-up)
+                    dy_pdf = -(py_curr_f - py_prev_f)
+                    ops.append(f'{dx_pdf:.2f} {dy_pdf:.2f} Td')
 
-        # Calculate y position based on baseline
-        # In fpdf2, set_xy(x, y) positions text such that the baseline is at:
-        #   baseline_y = set_y + font_size * (ascent / (ascent + |descent|))
-        # We want baseline at page_y, so:
-        #   page_y = set_y + font_size * (ascent / (ascent + |descent|))
-        #   set_y = page_y - font_size * (ascent / (ascent + |descent|))
-        ascent, descent, _ = font_manager.get_font_metrics()
-        total_height = ascent + abs(descent)
-        baseline_offset_ratio = ascent / total_height
-        adjusted_y = page_y - word_font_size * baseline_offset_ratio
+            # Determine text to render and compute Tz
+            if not is_last:
+                next_text, next_x_baseline, _, _ = word_render_data[i + 1]
+                advance = next_x_baseline - x_baseline
 
-        # Position and draw text with rotation
-        if abs(rotation_deg) > 0.1:
-            with pdf.rotation(-rotation_deg, x=page_x, y=page_y):
-                pdf.set_xy(adjusted_x, adjusted_y)
-                pdf.cell(text=word.text)
-        else:
-            pdf.set_xy(adjusted_x, adjusted_y)
-            pdf.cell(text=word.text)
+                # Add trailing space unless both words are CJK-only
+                if (
+                    advance > 0
+                    and not (
+                        self._is_cjk_only(text)
+                        and self._is_cjk_only(next_text)
+                    )
+                ):
+                    text_to_render = text + ' '
+                    natural_w = pdf.get_string_width(text_to_render)
+                    render_tz = (
+                        (advance / natural_w) * 100
+                        if natural_w > 0
+                        else word_tz
+                    )
+                else:
+                    text_to_render = text
+                    render_tz = word_tz
+            else:
+                text_to_render = text
+                render_tz = word_tz
 
-        # Reset stretching
-        pdf.set_stretching(100)
+            ops.append(f'{render_tz:.2f} Tz')
+            ops.append(self._encode_shaped_text(pdf, text_to_render))
+
+            prev_x_baseline = x_baseline
+
+        # End text object
+        ops.append('ET')
+
+        if has_rotation:
+            ops.append('Q')
+
+        pdf._out('\n'.join(ops))
+
+        # Reset fpdf2's internal stretching tracking so subsequent API calls
+        # don't think Tz is still set from our raw operators
+        pdf.font_stretching = 100
+
+    def _encode_shaped_text(self, pdf: FPDF, text: str) -> str:
+        """Encode text using HarfBuzz text shaping for complex script support.
+
+        Unlike font.encode_text() which maps unicode characters one-by-one to
+        glyph IDs, this uses HarfBuzz to handle BiDi reordering, Arabic joining
+        forms, Devanagari conjuncts, and other complex script shaping. Falls
+        back to encode_text() when text shaping is not enabled.
+        """
+        font = pdf.current_font
+        if pdf.text_shaping and pdf.text_shaping.get("use_shaping_engine"):
+            shaped = font.shape_text(text, pdf.font_size_pt, pdf.text_shaping)
+            if shaped:
+                mapped = "".join(
+                    chr(ti["mapped_char"])
+                    for ti in shaped
+                    if ti["mapped_char"] is not None
+                )
+                if mapped:
+                    return f"({font.escape_text(mapped)}) Tj"
+        return font.encode_text(text)
 
     def _is_cjk_only(self, text: str) -> bool:
         """Check if text contains only CJK characters.
@@ -558,157 +765,6 @@ class Fpdf2PdfRenderer:
             ):
                 return False
         return True
-
-    def _maybe_render_space(
-        self,
-        pdf: FPDF,
-        current_word: OcrElement,
-        next_word: OcrElement,
-        baseline_matrix: Matrix,
-        inv_baseline_matrix: Matrix,
-        font_size: float,
-        rotation_deg: float,
-        line_language: str | None,
-        direction: str | None,
-    ) -> None:
-        """Render a space character between two words if a gap exists.
-
-        This ensures that PDF readers like pdfminer.six can properly segment
-        words during text extraction. Some PDF readers rely on explicit space
-        characters rather than inferring word boundaries from positioning.
-
-        Args:
-            pdf: FPDF instance
-            current_word: The word that was just rendered
-            next_word: The next word to be rendered
-            baseline_matrix: Transform from baseline coords to page coords
-            inv_baseline_matrix: Transform from page coords to baseline coords
-            font_size: Font size in points
-            rotation_deg: Total rotation angle for text
-            line_language: Language code from line for font selection
-            direction: Text direction ("ltr" or "rtl")
-        """
-        if current_word.bbox is None or next_word.bbox is None:
-            return
-
-        # Skip if both words are CJK-only (no spaces in CJK text)
-        if self._is_cjk_only(current_word.text) and self._is_cjk_only(next_word.text):
-            return
-
-        # Calculate gap between words
-        if direction == "rtl":
-            gap_left = next_word.bbox.right
-            gap_right = current_word.bbox.left
-        else:
-            gap_left = current_word.bbox.right
-            gap_right = next_word.bbox.left
-
-        gap_width_px = gap_right - gap_left
-
-        # Use word height as proxy for line height
-        line_height_px = current_word.bbox.height
-
-        # Skip if gap is too small (noise) or words are overlapping
-        if gap_width_px <= line_height_px * 0.05:
-            return
-
-        # Render space in the gap
-        self._render_space(
-            pdf,
-            gap_left,
-            gap_right,
-            current_word.bbox.top,
-            current_word.bbox.bottom,
-            baseline_matrix,
-            inv_baseline_matrix,
-            font_size,
-            rotation_deg,
-            line_language,
-        )
-
-    def _render_space(
-        self,
-        pdf: FPDF,
-        gap_left_px: float,
-        gap_right_px: float,
-        gap_top_px: float,
-        gap_bottom_px: float,
-        baseline_matrix: Matrix,
-        inv_baseline_matrix: Matrix,
-        font_size: float,
-        rotation_deg: float,
-        line_language: str | None,
-    ) -> None:
-        """Render a space character in a gap between words.
-
-        Uses the same baseline transformation logic as word rendering to ensure
-        proper alignment on rotated or sloped baselines.
-
-        Args:
-            pdf: FPDF instance
-            gap_left_px: Left edge of gap in pixels
-            gap_right_px: Right edge of gap in pixels
-            gap_top_px: Top edge of gap in pixels
-            gap_bottom_px: Bottom edge of gap in pixels
-            baseline_matrix: Transform from baseline coords to page coords
-            inv_baseline_matrix: Transform from page coords to baseline coords
-            font_size: Font size in points
-            rotation_deg: Total rotation angle for text
-            line_language: Language code from line for font selection
-        """
-        # Convert gap to PDF points
-        gap_left_pt = self.coord_transform.px_to_pt(gap_left_px)
-        gap_top_pt = self.coord_transform.px_to_pt(gap_top_px)
-        gap_right_pt = self.coord_transform.px_to_pt(gap_right_px)
-        gap_bottom_pt = self.coord_transform.px_to_pt(gap_bottom_px)
-        gap_width_pt = gap_right_pt - gap_left_pt
-
-        # Transform gap bbox into baseline coordinate system to get x position
-        box_llx, _, _, _ = transform_box(
-            inv_baseline_matrix,
-            gap_left_pt,
-            gap_top_pt,
-            gap_right_pt,
-            gap_bottom_pt,
-        )
-
-        # Select font (use default font for space)
-        font_manager = self.multi_font_manager.select_font_for_word(" ", line_language)
-        font_family = self._register_font(pdf, font_manager)
-
-        # Set font
-        pdf.set_font(font_family, size=font_size)
-
-        # Calculate natural space width and scaling
-        natural_width = pdf.get_string_width(" ")
-        if natural_width > 0 and gap_width_pt > 0:
-            scale_x = (gap_width_pt / natural_width) * 100
-        else:
-            scale_x = 100
-
-        # Apply horizontal stretching
-        pdf.set_stretching(scale_x)
-
-        # Transform the baseline-relative x position back to page coordinates
-        page_x, page_y = transform_point(baseline_matrix, box_llx, 0)
-
-        # Calculate y position based on baseline (same as _render_word)
-        ascent, descent, _ = font_manager.get_font_metrics()
-        total_height = ascent + abs(descent)
-        baseline_offset_ratio = ascent / total_height
-        adjusted_y = page_y - font_size * baseline_offset_ratio
-
-        # Position and draw space with rotation
-        if abs(rotation_deg) > 0.1:
-            with pdf.rotation(-rotation_deg, x=page_x, y=page_y):
-                pdf.set_xy(page_x, adjusted_y)
-                pdf.cell(text=" ")
-        else:
-            pdf.set_xy(page_x, adjusted_y)
-            pdf.cell(text=" ")
-
-        # Reset stretching
-        pdf.set_stretching(100)
 
     def _render_debug_line_bbox(
         self,
@@ -802,9 +858,9 @@ class Fpdf2MultiPageRenderer:
 
         # Set text mode for invisible text
         if self.invisible_text:
-            pdf.text_rendering_mode = TextMode.INVISIBLE
+            pdf.text_mode = TextMode.INVISIBLE
         else:
-            pdf.text_rendering_mode = TextMode.FILL
+            pdf.text_mode = TextMode.FILL
 
         # Shared font registration across all pages
         shared_registered_fonts: dict[str, str] = {}

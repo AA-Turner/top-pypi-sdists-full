@@ -16,7 +16,7 @@ applicationToolSchema = create_model(
     chat_history = (Optional[list[BaseMessage]], FieldInfo(description="Chat History relevant for Application", default=[]))
 )
 
-def formulate_query(kwargs):
+def formulate_query(kwargs, is_subgraph=False):
     chat_history = []
     if kwargs.get('chat_history'):
         if isinstance(kwargs.get('chat_history')[-1], BaseMessage):
@@ -35,8 +35,7 @@ def formulate_query(kwargs):
     if not user_task:
         raise ToolException("Task is required to invoke the application. "
                             "Check the provided input (some errors may happen on previous steps).")
-    input_message = HumanMessage(content=user_task)
-    result = {"input": [input_message], "chat_history": chat_history}
+    result = {"input": [HumanMessage(content=user_task)] if not is_subgraph else user_task, "chat_history": chat_history}
     for key, value in kwargs.items():
         if key not in ("task", "chat_history"):
             result[key] = value
@@ -78,6 +77,17 @@ class Application(BaseTool):
         all_kwargs = {**kwargs, **extras, **schema_values}
         if config is None:
             config = {}
+
+        # Inject tool metadata into config so it's passed to callbacks
+        # This ensures agent_type and other metadata are available in callback handlers
+        if self.metadata:
+            if 'metadata' not in config:
+                config['metadata'] = {}
+            # Merge tool metadata into config metadata (config takes precedence)
+            for key, value in self.metadata.items():
+                if key not in config['metadata']:
+                    config['metadata'][key] = value
+
         return self._run(*config, **all_kwargs)
 
     def _run(self, *args, **kwargs):
@@ -103,7 +113,7 @@ class Application(BaseTool):
             logger.debug(f"[APP_RUN] Merged variables: {list(merged_vars.keys())}")
 
             self.application = self.client.application(**self.args_runnable, application_variables=application_variables)
-        response = self.application.invoke(formulate_query(kwargs))
+        response = self.application.invoke(formulate_query(kwargs, is_subgraph=self.is_subgraph))
         if self.is_subgraph:
             return response
         if self.return_type == "str":

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arrow-odbc
-Version: 9.3.3
+Version: 9.3.5
 Requires-Dist: cffi
 Requires-Dist: pyarrow>=8.0.0
 License-File: LICENSE
@@ -9,8 +9,8 @@ Author: Markus Klein
 License-Expression: MIT
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: repository, https://github.com/pacman82/arrow-odbc-py
 Project-URL: changelog, https://github.com/pacman82/arrow-odbc-py/blob/main/CHANGELOG.md
+Project-URL: repository, https://github.com/pacman82/arrow-odbc-py
 
 # arrow-odbc-py
 

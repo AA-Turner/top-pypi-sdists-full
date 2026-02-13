@@ -1,12 +1,13 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.1
 Name: pyecharts
-Version: 2.0.9
+Version: 2.1.0
 Summary: Python options, make charting easier
 Home-page: https://github.com/pyecharts/pyecharts
 Author: chenjiandongx
 Author-email: chenjiandongx@qq.com
 License: MIT
 Keywords: Echarts,charts,plotting-tool
+Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -23,24 +24,11 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
-License-File: LICENSE
-Requires-Dist: jinja2
-Requires-Dist: prettytable
-Requires-Dist: simplejson
 Provides-Extra: selenium
-Requires-Dist: snapshot-selenium; extra == "selenium"
 Provides-Extra: phantomjs
-Requires-Dist: snapshot-phantomjs; extra == "phantomjs"
 Provides-Extra: pyppeteer
-Requires-Dist: snapshot-pyppeteer; extra == "pyppeteer"
 Provides-Extra: images
-Requires-Dist: PIL; extra == "images"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: summary
+License-File: LICENSE
+
+UNKNOWN
+

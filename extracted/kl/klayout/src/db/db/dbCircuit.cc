@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -407,12 +407,14 @@ void Circuit::join_nets (Net *net, Net *with)
     subcircuit->connect_pin (with->begin_subcircuit_pins ()->pin_id (), net);
   }
 
-  while (with->begin_pins () != with->end_pins ()) {
-    join_pin_with_net (with->begin_pins ()->pin_id (), net);
-  }
-
   if (netlist ()->callbacks ()) {
     netlist ()->callbacks ()->link_nets (net, with);
+  }
+
+  //  NOTE: this needs to happen after the callback was called because further up in the
+  //  hierarchy we want the clusters to be joined already
+  while (with->begin_pins () != with->end_pins ()) {
+    join_pin_with_net (with->begin_pins ()->pin_id (), net);
   }
 
   //  create a new name for the joined net

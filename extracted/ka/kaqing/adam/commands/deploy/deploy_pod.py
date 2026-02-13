@@ -2,7 +2,7 @@ from kubernetes import client
 
 from adam.commands import extract_options
 from adam.commands.command import Command
-from adam.commands.deploy.deploy_utils import deploy_frontend, gen_labels
+from adam.commands.deploy.utils_deploy import deploy_frontend, gen_labels
 from adam.commands.deploy.undeploy_pod import UndeployPod
 from adam.config import Config
 from adam.utils_k8s.config_maps import ConfigMaps
@@ -38,12 +38,12 @@ class DeployPod(Command):
 
         with self.validate(args, state) as (args, state):
             with extract_options(args, '--force') as (args, forced):
-                if forced:
-                    UndeployPod().run(UndeployPod.COMMAND, state)
-
                 if KubeContext.in_cluster():
                     log2('This is doable only from outside of the Kubernetes cluster.')
                     return state
+
+                if forced:
+                    UndeployPod().run(UndeployPod.COMMAND, state)
 
                 sa_name = Config().get('pod.sa.name', 'ops')
                 sa_proto = Config().get('pod.sa.proto', 'c3')

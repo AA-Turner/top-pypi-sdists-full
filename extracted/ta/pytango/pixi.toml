@@ -68,7 +68,7 @@ wheel = { cmd = "delvewheel repair dist/$PIXI_ENVIRONMENT_NAME/pytango*.whl; mv 
 [dependencies]
 # These are default dependencies, so not included if `no-default-feature = true`
 # (E.g., when we build cpptango from source, we don't want these conda packages)
-cpptango = { version = ">=10.1.1,<10.2" }
+cpptango = { version = ">=10.1.2,<10.2" }
 tango-test = { version = "==3.12" }
 
 [feature.base.dependencies]

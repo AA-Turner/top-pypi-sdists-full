@@ -245,6 +245,18 @@ def _get_s3_object(
     else:
         obj_info = s3_client.get_object(Bucket=bucket, Key=key)
 
+    # release the streaming body to avoid keeping the connection open until timeout.
+    if "Body" in obj_info:
+        streaming_body = obj_info["Body"]
+        # Close the underlying http response stream.
+        try:
+            streaming_body.close()
+        except Exception as e:
+            LOGGER.warning(
+                "Failed to close S3 object's streaming body when listing objects in bucket, reason: %s",
+                e,
+            )
+
     return S3FileObject(
         key=key,
         bucket=bucket,

@@ -30,6 +30,7 @@ class QueryArgs:
                  owner_user_name: Optional[pulumi.Input[_builtins.str]] = None,
                  parameters: Optional[pulumi.Input[Sequence[pulumi.Input['QueryParameterArgs']]]] = None,
                  parent_path: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input['QueryProviderConfigArgs']] = None,
                  run_as_mode: Optional[pulumi.Input[_builtins.str]] = None,
                  schema: Optional[pulumi.Input[_builtins.str]] = None,
                  tags: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
@@ -44,6 +45,7 @@ class QueryArgs:
         :param pulumi.Input[_builtins.str] owner_user_name: Query owner's username.
         :param pulumi.Input[Sequence[pulumi.Input['QueryParameterArgs']]] parameters: Query parameter definition.  Consists of following attributes (one of `*_value` is required):
         :param pulumi.Input[_builtins.str] parent_path: The path to a workspace folder containing the query. The default is the user's home folder.  If changed, the query will be recreated.
+        :param pulumi.Input['QueryProviderConfigArgs'] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] run_as_mode: Sets the "Run as" role for the object.  Should be one of `OWNER`, `VIEWER`.
         :param pulumi.Input[_builtins.str] schema: Name of the schema where this query will be executed.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] tags: Tags that will be added to the query.
@@ -63,6 +65,8 @@ class QueryArgs:
             pulumi.set(__self__, "parameters", parameters)
         if parent_path is not None:
             pulumi.set(__self__, "parent_path", parent_path)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
         if run_as_mode is not None:
             pulumi.set(__self__, "run_as_mode", run_as_mode)
         if schema is not None:
@@ -179,6 +183,18 @@ class QueryArgs:
         pulumi.set(self, "parent_path", value)
 
     @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional[pulumi.Input['QueryProviderConfigArgs']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
+
+    @provider_config.setter
+    def provider_config(self, value: Optional[pulumi.Input['QueryProviderConfigArgs']]):
+        pulumi.set(self, "provider_config", value)
+
+    @_builtins.property
     @pulumi.getter(name="runAsMode")
     def run_as_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -228,6 +244,7 @@ class _QueryState:
                  owner_user_name: Optional[pulumi.Input[_builtins.str]] = None,
                  parameters: Optional[pulumi.Input[Sequence[pulumi.Input['QueryParameterArgs']]]] = None,
                  parent_path: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input['QueryProviderConfigArgs']] = None,
                  query_text: Optional[pulumi.Input[_builtins.str]] = None,
                  run_as_mode: Optional[pulumi.Input[_builtins.str]] = None,
                  schema: Optional[pulumi.Input[_builtins.str]] = None,
@@ -246,6 +263,7 @@ class _QueryState:
         :param pulumi.Input[_builtins.str] owner_user_name: Query owner's username.
         :param pulumi.Input[Sequence[pulumi.Input['QueryParameterArgs']]] parameters: Query parameter definition.  Consists of following attributes (one of `*_value` is required):
         :param pulumi.Input[_builtins.str] parent_path: The path to a workspace folder containing the query. The default is the user's home folder.  If changed, the query will be recreated.
+        :param pulumi.Input['QueryProviderConfigArgs'] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] query_text: Text of SQL query.
         :param pulumi.Input[_builtins.str] run_as_mode: Sets the "Run as" role for the object.  Should be one of `OWNER`, `VIEWER`.
         :param pulumi.Input[_builtins.str] schema: Name of the schema where this query will be executed.
@@ -273,6 +291,8 @@ class _QueryState:
             pulumi.set(__self__, "parameters", parameters)
         if parent_path is not None:
             pulumi.set(__self__, "parent_path", parent_path)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
         if query_text is not None:
             pulumi.set(__self__, "query_text", query_text)
         if run_as_mode is not None:
@@ -407,6 +427,18 @@ class _QueryState:
         pulumi.set(self, "parent_path", value)
 
     @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional[pulumi.Input['QueryProviderConfigArgs']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
+
+    @provider_config.setter
+    def provider_config(self, value: Optional[pulumi.Input['QueryProviderConfigArgs']]):
+        pulumi.set(self, "provider_config", value)
+
+    @_builtins.property
     @pulumi.getter(name="queryText")
     def query_text(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -492,6 +524,7 @@ class Query(pulumi.CustomResource):
                  owner_user_name: Optional[pulumi.Input[_builtins.str]] = None,
                  parameters: Optional[pulumi.Input[Sequence[pulumi.Input[Union['QueryParameterArgs', 'QueryParameterArgsDict']]]]] = None,
                  parent_path: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input[Union['QueryProviderConfigArgs', 'QueryProviderConfigArgsDict']]] = None,
                  query_text: Optional[pulumi.Input[_builtins.str]] = None,
                  run_as_mode: Optional[pulumi.Input[_builtins.str]] = None,
                  schema: Optional[pulumi.Input[_builtins.str]] = None,
@@ -499,27 +532,98 @@ class Query(pulumi.CustomResource):
                  warehouse_id: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
-        ## Import
+        This resource allows you to manage [Databricks SQL Queries](https://docs.databricks.com/en/sql/user/queries/index.html).  It supersedes SqlQuery resource - see migration guide below for more details.
 
-        This resource can be imported using query ID:
+        > This resource can only be used with a workspace-level provider!
 
-        hcl
+        ## Example Usage
 
-        import {
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
 
-          to = databricks_query.this
-
-          id = "<query-id>"
-
-        }
-
-        Alternatively, when using `terraform` version 1.4 or earlier, import using the `pulumi import` command:
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/query:Query this <query-id>
+        shared_dir = databricks.Directory("shared_dir", path="/Shared/Queries")
+        # This will be replaced with new databricks_query resource
+        this = databricks.Query("this",
+            warehouse_id=example["id"],
+            display_name="My Query Name",
+            query_text="SELECT 42 as value",
+            parent_path=shared_dir.path)
         ```
+
+        ## Migrating from `SqlQuery` resource
+
+        Under the hood, the new resource uses the same data as the `SqlQuery`, but exposed via different API. This means that we can migrate existing queries without recreating them.  This operation is done in few steps:
+
+        * Record the ID of existing `SqlQuery`, for example, by executing the `terraform state show databricks_sql_query.query` command.
+        * Create the code for the new implementation performing following changes:
+          * the `name` attribute is now named `display_name`
+          * the `parent` (if exists) is renamed to `parent_path` attribute, and should be converted from `folders/object_id` to the actual path.
+          * Blocks that specify values in the `parameter` block were renamed (see above).
+
+        For example, if we have the original `SqlQuery` defined as:
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        query = databricks.SqlQuery("query",
+            data_source_id=example["dataSourceId"],
+            query="select 42 as value",
+            name="My Query",
+            parent=f"folders/{shared_dir['objectId']}",
+            parameters=[{
+                "name": "p1",
+                "title": "Title for p1",
+                "text": {
+                    "value": "default",
+                },
+            }])
+        ```
+
+        we'll have a new resource defined as:
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        query = databricks.Query("query",
+            warehouse_id=example["id"],
+            query_text="select 42 as value",
+            display_name="My Query",
+            parent_path=shared_dir["path"],
+            parameters=[{
+                "name": "p1",
+                "title": "Title for p1",
+                "text_value": {
+                    "value": "default",
+                },
+            }])
+        ```
+
+        ## Access Control
+
+        Permissions can control which groups or individual users can *Manage*, *Edit*, *Run* or *View* individual queries.
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        query_usage = databricks.Permissions("query_usage",
+            sql_query_id=query["id"],
+            access_controls=[{
+                "group_name": "users",
+                "permission_level": "CAN_RUN",
+            }])
+        ```
+
+        ## Related Resources
+
+        The following resources are often used in the same context:
+
+        * Alert to manage [Databricks SQL Alerts](https://docs.databricks.com/en/sql/user/alerts/index.html).
+        * SqlEndpoint to manage [Databricks SQL Endpoints](https://docs.databricks.com/sql/admin/sql-endpoints.html).
+        * Directory to manage directories in [Databricks Workpace](https://docs.databricks.com/workspace/workspace-objects.html).
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -530,6 +634,7 @@ class Query(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] owner_user_name: Query owner's username.
         :param pulumi.Input[Sequence[pulumi.Input[Union['QueryParameterArgs', 'QueryParameterArgsDict']]]] parameters: Query parameter definition.  Consists of following attributes (one of `*_value` is required):
         :param pulumi.Input[_builtins.str] parent_path: The path to a workspace folder containing the query. The default is the user's home folder.  If changed, the query will be recreated.
+        :param pulumi.Input[Union['QueryProviderConfigArgs', 'QueryProviderConfigArgsDict']] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] query_text: Text of SQL query.
         :param pulumi.Input[_builtins.str] run_as_mode: Sets the "Run as" role for the object.  Should be one of `OWNER`, `VIEWER`.
         :param pulumi.Input[_builtins.str] schema: Name of the schema where this query will be executed.
@@ -543,27 +648,98 @@ class Query(pulumi.CustomResource):
                  args: QueryArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        ## Import
+        This resource allows you to manage [Databricks SQL Queries](https://docs.databricks.com/en/sql/user/queries/index.html).  It supersedes SqlQuery resource - see migration guide below for more details.
 
-        This resource can be imported using query ID:
+        > This resource can only be used with a workspace-level provider!
 
-        hcl
+        ## Example Usage
 
-        import {
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
 
-          to = databricks_query.this
-
-          id = "<query-id>"
-
-        }
-
-        Alternatively, when using `terraform` version 1.4 or earlier, import using the `pulumi import` command:
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/query:Query this <query-id>
+        shared_dir = databricks.Directory("shared_dir", path="/Shared/Queries")
+        # This will be replaced with new databricks_query resource
+        this = databricks.Query("this",
+            warehouse_id=example["id"],
+            display_name="My Query Name",
+            query_text="SELECT 42 as value",
+            parent_path=shared_dir.path)
         ```
+
+        ## Migrating from `SqlQuery` resource
+
+        Under the hood, the new resource uses the same data as the `SqlQuery`, but exposed via different API. This means that we can migrate existing queries without recreating them.  This operation is done in few steps:
+
+        * Record the ID of existing `SqlQuery`, for example, by executing the `terraform state show databricks_sql_query.query` command.
+        * Create the code for the new implementation performing following changes:
+          * the `name` attribute is now named `display_name`
+          * the `parent` (if exists) is renamed to `parent_path` attribute, and should be converted from `folders/object_id` to the actual path.
+          * Blocks that specify values in the `parameter` block were renamed (see above).
+
+        For example, if we have the original `SqlQuery` defined as:
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        query = databricks.SqlQuery("query",
+            data_source_id=example["dataSourceId"],
+            query="select 42 as value",
+            name="My Query",
+            parent=f"folders/{shared_dir['objectId']}",
+            parameters=[{
+                "name": "p1",
+                "title": "Title for p1",
+                "text": {
+                    "value": "default",
+                },
+            }])
+        ```
+
+        we'll have a new resource defined as:
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        query = databricks.Query("query",
+            warehouse_id=example["id"],
+            query_text="select 42 as value",
+            display_name="My Query",
+            parent_path=shared_dir["path"],
+            parameters=[{
+                "name": "p1",
+                "title": "Title for p1",
+                "text_value": {
+                    "value": "default",
+                },
+            }])
+        ```
+
+        ## Access Control
+
+        Permissions can control which groups or individual users can *Manage*, *Edit*, *Run* or *View* individual queries.
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        query_usage = databricks.Permissions("query_usage",
+            sql_query_id=query["id"],
+            access_controls=[{
+                "group_name": "users",
+                "permission_level": "CAN_RUN",
+            }])
+        ```
+
+        ## Related Resources
+
+        The following resources are often used in the same context:
+
+        * Alert to manage [Databricks SQL Alerts](https://docs.databricks.com/en/sql/user/alerts/index.html).
+        * SqlEndpoint to manage [Databricks SQL Endpoints](https://docs.databricks.com/sql/admin/sql-endpoints.html).
+        * Directory to manage directories in [Databricks Workpace](https://docs.databricks.com/workspace/workspace-objects.html).
 
         :param str resource_name: The name of the resource.
         :param QueryArgs args: The arguments to use to populate this resource's properties.
@@ -587,6 +763,7 @@ class Query(pulumi.CustomResource):
                  owner_user_name: Optional[pulumi.Input[_builtins.str]] = None,
                  parameters: Optional[pulumi.Input[Sequence[pulumi.Input[Union['QueryParameterArgs', 'QueryParameterArgsDict']]]]] = None,
                  parent_path: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input[Union['QueryProviderConfigArgs', 'QueryProviderConfigArgsDict']]] = None,
                  query_text: Optional[pulumi.Input[_builtins.str]] = None,
                  run_as_mode: Optional[pulumi.Input[_builtins.str]] = None,
                  schema: Optional[pulumi.Input[_builtins.str]] = None,
@@ -610,6 +787,7 @@ class Query(pulumi.CustomResource):
             __props__.__dict__["owner_user_name"] = owner_user_name
             __props__.__dict__["parameters"] = parameters
             __props__.__dict__["parent_path"] = parent_path
+            __props__.__dict__["provider_config"] = provider_config
             if query_text is None and not opts.urn:
                 raise TypeError("Missing required property 'query_text'")
             __props__.__dict__["query_text"] = query_text
@@ -643,6 +821,7 @@ class Query(pulumi.CustomResource):
             owner_user_name: Optional[pulumi.Input[_builtins.str]] = None,
             parameters: Optional[pulumi.Input[Sequence[pulumi.Input[Union['QueryParameterArgs', 'QueryParameterArgsDict']]]]] = None,
             parent_path: Optional[pulumi.Input[_builtins.str]] = None,
+            provider_config: Optional[pulumi.Input[Union['QueryProviderConfigArgs', 'QueryProviderConfigArgsDict']]] = None,
             query_text: Optional[pulumi.Input[_builtins.str]] = None,
             run_as_mode: Optional[pulumi.Input[_builtins.str]] = None,
             schema: Optional[pulumi.Input[_builtins.str]] = None,
@@ -666,6 +845,7 @@ class Query(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] owner_user_name: Query owner's username.
         :param pulumi.Input[Sequence[pulumi.Input[Union['QueryParameterArgs', 'QueryParameterArgsDict']]]] parameters: Query parameter definition.  Consists of following attributes (one of `*_value` is required):
         :param pulumi.Input[_builtins.str] parent_path: The path to a workspace folder containing the query. The default is the user's home folder.  If changed, the query will be recreated.
+        :param pulumi.Input[Union['QueryProviderConfigArgs', 'QueryProviderConfigArgsDict']] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] query_text: Text of SQL query.
         :param pulumi.Input[_builtins.str] run_as_mode: Sets the "Run as" role for the object.  Should be one of `OWNER`, `VIEWER`.
         :param pulumi.Input[_builtins.str] schema: Name of the schema where this query will be executed.
@@ -687,6 +867,7 @@ class Query(pulumi.CustomResource):
         __props__.__dict__["owner_user_name"] = owner_user_name
         __props__.__dict__["parameters"] = parameters
         __props__.__dict__["parent_path"] = parent_path
+        __props__.__dict__["provider_config"] = provider_config
         __props__.__dict__["query_text"] = query_text
         __props__.__dict__["run_as_mode"] = run_as_mode
         __props__.__dict__["schema"] = schema
@@ -774,6 +955,14 @@ class Query(pulumi.CustomResource):
         The path to a workspace folder containing the query. The default is the user's home folder.  If changed, the query will be recreated.
         """
         return pulumi.get(self, "parent_path")
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> pulumi.Output[Optional['outputs.QueryProviderConfig']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
 
     @_builtins.property
     @pulumi.getter(name="queryText")

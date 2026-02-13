@@ -7,7 +7,7 @@ from adam.config import Config
 from adam.repl_state import ReplState
 from adam.utils_cassandra.node_restartability import NodeRestartability
 from adam.utils_cassandra.node_schedules import NodeSchedules
-from adam.utils_context import Context
+from adam.utils_context import NULL, Context
 from adam.utils_k8s.pods import Pods, strip_pod_name
 
 def ts():
@@ -46,7 +46,7 @@ class NodeScheduler:
 
         Pods.delete(pod, namespace)
 
-    def cancel_restarts(state: ReplState, pods: list[str], timeout: int = 0, ctx: Context = Context.NULL):
+    def cancel_restarts(state: ReplState, pods: list[str], timeout: int = 0, ctx = NULL):
         canceled: dict[tuple[str, str], float] = {}
 
         # 1. delete from the pending queue first
@@ -72,7 +72,7 @@ class NodeScheduler:
         return canceled
 
     # single queue pattern
-    def loop(state: ReplState, ctx: Context = Context.NULL):
+    def loop(state: ReplState, ctx = NULL):
         while True:
             try:
                 t0: float = 0

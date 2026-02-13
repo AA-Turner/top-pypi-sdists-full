@@ -1,39 +1,18 @@
 """Nested Sets"""
 
+import functools
 import operator
 from functools import reduce
 
 from django.core import serializers
-from django.db import connection, models
-from django.db.models import Q
+from django.db import models, transaction
+from django.db.models import Case, F, Q, When
 from django.utils.translation import gettext_noop as _
 
 from treebeard.exceptions import InvalidMoveToDescendant, NodeAlreadySaved
-from treebeard.models import Node
+from treebeard.models import Node, get_result_class_base
 
-
-def get_result_class(cls):
-    """
-    For the given model class, determine what class we should use for the
-    nodes returned by its tree methods (such as get_children).
-
-    Usually this will be trivially the same as the initial model class,
-    but there are special cases when model inheritance is in use:
-
-    * If the model extends another via multi-table inheritance, we need to
-      use whichever ancestor originally implemented the tree behaviour (i.e.
-      the one which defines the 'lft'/'rgt' fields). We can't use the
-      subclass, because it's not guaranteed that the other nodes reachable
-      from the current one will be instances of the same subclass.
-
-    * If the model is a proxy model, the returned nodes should also use
-      the proxy class.
-    """
-    base_class = cls._meta.get_field("lft").model
-    if cls._meta.proxy_for_model == base_class:
-        return cls
-    else:
-        return base_class
+get_result_class = functools.partial(get_result_class_base, identifying_field="lft")
 
 
 def merge_deleted_counters(c1, c2):
@@ -70,7 +49,6 @@ class NS_NodeQuerySet(models.query.QuerySet):
             # foreign keys...
             result = super().delete(*args, **kwargs)
             deleted_counter = merge_deleted_counters(deleted_counter, result)
-            cursor = model._get_database_cursor("write")
 
             # Now closing the gap (Celko's trees book, page 62)
             # We do this for every gap that was left in the tree when the nodes
@@ -79,8 +57,7 @@ class NS_NodeQuerySet(models.query.QuerySet):
             # cheaper precalculating the gapsize per intervals, or just do a
             # complete reordering of the tree (uses COUNT)...
             for tree_id, drop_lft, drop_rgt in sorted(removed_ranges, reverse=True):
-                sql, params = model._get_close_gap_sql(drop_lft, drop_rgt, tree_id)
-                cursor.execute(sql, params)
+                model._close_gap(drop_lft, drop_rgt, tree_id)
         else:
             # we'll have to manually run through all the nodes that are going
             # to be deleted and remove nodes from the list if an ancestor is
@@ -138,6 +115,7 @@ class NS_Node(Node):
     )
 
     @classmethod
+    @transaction.atomic
     def add_root(cls, **kwargs):
         """Adds a root node to the tree."""
 
@@ -175,38 +153,18 @@ class NS_Node(Node):
 
     @classmethod
     def _move_right(cls, tree_id, rgt, lftmove=False, incdec=2):
-        if lftmove:
-            lftop = ">="
-        else:
-            lftop = ">"
-        sql = (
-            "UPDATE %(table)s "
-            " SET lft = CASE WHEN lft %(lftop)s %(parent_rgt)d "
-            "                THEN lft %(incdec)+d "
-            "                ELSE lft END, "
-            "     rgt = CASE WHEN rgt >= %(parent_rgt)d "
-            "                THEN rgt %(incdec)+d "
-            "                ELSE rgt END "
-            " WHERE rgt >= %(parent_rgt)d AND "
-            "       tree_id = %(tree_id)s"
-            % {
-                "table": connection.ops.quote_name(get_result_class(cls)._meta.db_table),
-                "parent_rgt": rgt,
-                "tree_id": tree_id,
-                "lftop": lftop,
-                "incdec": incdec,
-            }
+        lftop = "lft__gte" if lftmove else "lft__gt"
+        output_field = models.PositiveIntegerField()
+        cls.objects.filter(rgt__gte=rgt, tree_id=tree_id).update(
+            lft=Case(When(**{lftop: rgt}, then=F("lft") + incdec), default=F("lft"), output_field=output_field),
+            rgt=Case(When(rgt__gte=rgt, then=F("rgt") + incdec), default=F("rgt"), output_field=output_field),
         )
-        return sql, []
 
     @classmethod
     def _move_tree_right(cls, tree_id):
-        sql = "UPDATE %(table)s  SET tree_id = tree_id+1  WHERE tree_id >= %(tree_id)d" % {
-            "table": connection.ops.quote_name(get_result_class(cls)._meta.db_table),
-            "tree_id": tree_id,
-        }
-        return sql, []
+        cls.objects.filter(tree_id__gte=tree_id).update(tree_id=F("tree_id") + 1)
 
+    @transaction.atomic
     def add_child(self, **kwargs):
         """Adds a child to the node."""
         if not self.is_leaf():
@@ -217,10 +175,12 @@ class NS_Node(Node):
                 pos = "last-sibling"
             last_child = self.get_last_child()
             last_child._cached_parent_obj = self
-            return last_child.add_sibling(pos, **kwargs)
+            new_sibling = last_child.add_sibling(pos, **kwargs)
+            self.rgt += 2  # Update the rgt of the parent object, which may be used again in a loop
+            return new_sibling
 
         # we're adding the first child of this node
-        sql, params = self.__class__._move_right(self.tree_id, self.rgt, False, 2)
+        self.__class__._move_right(self.tree_id, self.rgt, False, 2)
 
         if len(kwargs) == 1 and "instance" in kwargs:
             # adding the passed (unsaved) instance to the tree
@@ -241,14 +201,12 @@ class NS_Node(Node):
 
         newobj._cached_parent_obj = self
 
-        cursor = self._get_database_cursor("write")
-        cursor.execute(sql, params)
-
         # saving the instance before returning it
         newobj.save()
 
         return newobj
 
+    @transaction.atomic
     def add_sibling(self, pos=None, **kwargs):
         """Adds a new node as a sibling to the current node object."""
 
@@ -265,7 +223,6 @@ class NS_Node(Node):
 
         newobj.depth = self.depth
 
-        sql = None
         target = self
 
         if target.is_root():
@@ -284,7 +241,7 @@ class NS_Node(Node):
                 newobj.tree_id = last_root.tree_id + 1
             else:
                 newpos = {"first-sibling": 1, "left": target.tree_id, "right": target.tree_id + 1}[pos]
-                sql, params = target.__class__._move_tree_right(newpos)
+                target.__class__._move_tree_right(newpos)
 
                 newobj.tree_id = newpos
         else:
@@ -323,25 +280,23 @@ class NS_Node(Node):
 
             if pos == "last-sibling":
                 newpos = target.get_parent().rgt
-                sql, params = move_right(target.tree_id, newpos, False, 2)
+                move_right(target.tree_id, newpos, False, 2)
             elif pos == "first-sibling":
                 newpos = target.lft
-                sql, params = move_right(target.tree_id, newpos - 1, False, 2)
+                move_right(target.tree_id, newpos - 1, False, 2)
             elif pos == "left":
                 newpos = target.lft
-                sql, params = move_right(target.tree_id, newpos, True, 2)
+                move_right(target.tree_id, newpos, True, 2)
 
             newobj.lft = newpos
             newobj.rgt = newpos + 1
 
         # saving the instance before returning it
-        if sql:
-            cursor = self._get_database_cursor("write")
-            cursor.execute(sql, params)
         newobj.save()
 
         return newobj
 
+    @transaction.atomic
     def move(self, target, pos=None):
         """
         Moves the current node and all it's descendants to a new position
@@ -375,7 +330,7 @@ class NS_Node(Node):
             or (pos in ("right", "last-sibling") and target == target.get_last_sibling())
             or (pos == "first-sibling" and target == target.get_first_sibling())
         ):
-            # special cases, not actually moving the node so no need to UPDATE
+            # special cases, not actually moving the node so nothing to do
             return
 
         if pos == "sorted-sibling":
@@ -407,97 +362,63 @@ class NS_Node(Node):
                 target = siblings[0]
 
         # ok let's move this
-        cursor = self._get_database_cursor("write")
-        move_right = cls._move_right
         gap = self.rgt - self.lft + 1
-        sql = None
         target_tree = target.tree_id
 
         # first make a hole
         if pos == "last-child":
             newpos = parent.rgt
-            sql, params = move_right(target.tree_id, newpos, False, gap)
+            cls._move_right(target.tree_id, newpos, False, gap)
         elif target.is_root():
             newpos = 1
             if pos == "last-sibling":
                 target_tree = target.get_siblings().reverse()[0].tree_id + 1
             elif pos == "first-sibling":
                 target_tree = 1
-                sql, params = cls._move_tree_right(1)
+                cls._move_tree_right(1)
             elif pos == "left":
-                sql, params = cls._move_tree_right(target.tree_id)
+                cls._move_tree_right(target.tree_id)
         else:
             if pos == "last-sibling":
                 newpos = target.get_parent().rgt
-                sql, params = move_right(target.tree_id, newpos, False, gap)
+                cls._move_right(target.tree_id, newpos, False, gap)
             elif pos == "first-sibling":
                 newpos = target.lft
-                sql, params = move_right(target.tree_id, newpos - 1, False, gap)
+                cls._move_right(target.tree_id, newpos - 1, False, gap)
             elif pos == "left":
                 newpos = target.lft
-                sql, params = move_right(target.tree_id, newpos, True, gap)
-
-        if sql:
-            cursor.execute(sql, params)
+                cls._move_right(target.tree_id, newpos, True, gap)
 
         # we reload 'self' because lft/rgt may have changed
+        self.refresh_from_db()
 
-        fromobj = cls.objects.get(pk=self.pk)
-
-        depthdiff = target.depth - fromobj.depth
+        depthdiff = target.depth - self.depth
         if parent:
             depthdiff += 1
 
         # move the tree to the hole
-        sql = (
-            "UPDATE %(table)s "
-            " SET tree_id = %(target_tree)d, "
-            "     lft = lft + %(jump)d , "
-            "     rgt = rgt + %(jump)d , "
-            "     depth = depth + %(depthdiff)d "
-            " WHERE tree_id = %(from_tree)d AND "
-            "     lft BETWEEN %(fromlft)d AND %(fromrgt)d"
-            % {
-                "table": connection.ops.quote_name(cls._meta.db_table),
-                "from_tree": fromobj.tree_id,
-                "target_tree": target_tree,
-                "jump": newpos - fromobj.lft,
-                "depthdiff": depthdiff,
-                "fromlft": fromobj.lft,
-                "fromrgt": fromobj.rgt,
-            }
+        jump = newpos - self.lft
+        cls.objects.filter(tree_id=self.tree_id, lft__range=(self.lft, self.rgt)).update(
+            tree_id=target_tree,
+            lft=F("lft") + jump,
+            rgt=F("rgt") + jump,
+            depth=F("depth") + depthdiff,
         )
-        cursor.execute(sql, [])
 
         # close the gap
-        sql, params = cls._get_close_gap_sql(fromobj.lft, fromobj.rgt, fromobj.tree_id)
-        cursor.execute(sql, params)
+        cls._close_gap(self.lft, self.rgt, self.tree_id)
 
     @classmethod
-    def _get_close_gap_sql(cls, drop_lft, drop_rgt, tree_id):
-        sql = (
-            "UPDATE %(table)s "
-            " SET lft = CASE "
-            "           WHEN lft > %(drop_lft)d "
-            "           THEN lft - %(gapsize)d "
-            "           ELSE lft END, "
-            "     rgt = CASE "
-            "           WHEN rgt > %(drop_lft)d "
-            "           THEN rgt - %(gapsize)d "
-            "           ELSE rgt END "
-            " WHERE (lft > %(drop_lft)d "
-            "     OR rgt > %(drop_lft)d) AND "
-            "     tree_id=%(tree_id)d"
-            % {
-                "table": connection.ops.quote_name(get_result_class(cls)._meta.db_table),
-                "gapsize": drop_rgt - drop_lft + 1,
-                "drop_lft": drop_lft,
-                "tree_id": tree_id,
-            }
+    def _close_gap(cls, drop_lft, drop_rgt, tree_id):
+        gapsize = drop_rgt - drop_lft + 1
+        output_field = models.PositiveIntegerField()
+        cls.objects.filter(Q(tree_id=tree_id) & (Q(lft__gt=drop_lft) | Q(rgt__gt=drop_lft))).update(
+            lft=Case(When(lft__gt=drop_lft, then=F("lft") - gapsize), default=F("lft"), output_field=output_field),
+            rgt=Case(When(rgt__gt=drop_lft, then=F("rgt") - gapsize), default=F("rgt"), output_field=output_field),
         )
-        return sql, []
 
     @classmethod
+    @transaction.atomic
     def load_bulk(cls, bulk_data, parent=None, keep_ids=False):
         """Loads a list/dictionary structure to the tree."""
 

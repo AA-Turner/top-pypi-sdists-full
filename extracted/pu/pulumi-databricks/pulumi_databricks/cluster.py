@@ -93,6 +93,7 @@ class ClusterArgs:
                * `DATA_SECURITY_MODE_STANDARD`: Alias for `USER_ISOLATION`.
                * `DATA_SECURITY_MODE_DEDICATED`: Alias for `SINGLE_USER`.
         :param pulumi.Input[_builtins.str] driver_instance_pool_id: similar to `instance_pool_id`, but for driver node. If omitted, and `instance_pool_id` is specified, then the driver will be allocated from that pool.
+        :param pulumi.Input['ClusterDriverNodeTypeFlexibilityArgs'] driver_node_type_flexibility: a block describing the alternative driver node types if `driver_node_type_id` isn't available.
         :param pulumi.Input[_builtins.str] driver_node_type_id: The node type of the Spark driver. This field is optional; if unset, API will set the driver node type to the same value as `node_type_id` defined above.
         :param pulumi.Input[_builtins.bool] enable_elastic_disk: If you don't want to allocate a fixed number of EBS volumes at cluster creation time, use autoscaling local storage. With autoscaling local storage, Databricks monitors the amount of free disk space available on your cluster's Spark workers. If a worker begins to run too low on disk, Databricks automatically attaches a new EBS volume to the worker before it runs out of disk space. EBS volumes are attached up to a limit of 5 TB of total disk space per instance (including the instance's local storage). To scale down EBS usage, make sure you have `autotermination_minutes` and `autoscale` attributes set. More documentation available at [cluster configuration page](https://docs.databricks.com/clusters/configure.html#autoscaling-local-storage-1).
         :param pulumi.Input[_builtins.bool] enable_local_disk_encryption: Some instance types you use to run clusters may have locally attached disks. Databricks may store shuffle data or temporary data on these locally attached disks. To ensure that all data at rest is encrypted for all storage types, including shuffle data stored temporarily on your cluster's local disks, you can enable local disk encryption. When local disk encryption is enabled, Databricks generates an encryption key locally unique to each cluster node and uses it to encrypt all data stored on local disks. The scope of the key is local to each cluster node and is destroyed along with the cluster node itself. During its lifetime, the key resides in memory for encryption and decryption and is stored encrypted on the disk. *Your workloads may run more slowly because of the performance impact of reading and writing encrypted data to and from local volumes. This feature is not available for all Azure Databricks subscriptions. Contact your Microsoft or Databricks account representative to request access.*
@@ -114,6 +115,7 @@ class ClusterArgs:
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] spark_env_vars: Map with environment variable key-value pairs to fine-tune Spark clusters. Key-value pairs of the form (X,Y) are exported (i.e., X='Y') while launching the driver and workers.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] ssh_public_keys: SSH public key contents that will be added to each Spark node in this cluster. The corresponding private keys can be used to login with the user name ubuntu on port 2200. You can specify up to 10 keys.
         :param pulumi.Input[_builtins.bool] use_ml_runtime: Whenever ML runtime should be selected or not.  Actual runtime is determined by `spark_version` (DBR release), this field `use_ml_runtime`, and whether `node_type_id` is GPU node or not.
+        :param pulumi.Input['ClusterWorkerNodeTypeFlexibilityArgs'] worker_node_type_flexibility: a block describing the alternative driver node types if `node_type_id` isn't available.
         """
         pulumi.set(__self__, "spark_version", spark_version)
         if apply_policy_default_values is not None:
@@ -359,6 +361,9 @@ class ClusterArgs:
     @_builtins.property
     @pulumi.getter(name="driverNodeTypeFlexibility")
     def driver_node_type_flexibility(self) -> Optional[pulumi.Input['ClusterDriverNodeTypeFlexibilityArgs']]:
+        """
+        a block describing the alternative driver node types if `driver_node_type_id` isn't available.
+        """
         return pulumi.get(self, "driver_node_type_flexibility")
 
     @driver_node_type_flexibility.setter
@@ -643,6 +648,9 @@ class ClusterArgs:
     @_builtins.property
     @pulumi.getter(name="workerNodeTypeFlexibility")
     def worker_node_type_flexibility(self) -> Optional[pulumi.Input['ClusterWorkerNodeTypeFlexibilityArgs']]:
+        """
+        a block describing the alternative driver node types if `node_type_id` isn't available.
+        """
         return pulumi.get(self, "worker_node_type_flexibility")
 
     @worker_node_type_flexibility.setter
@@ -738,6 +746,7 @@ class _ClusterState:
                * `DATA_SECURITY_MODE_DEDICATED`: Alias for `SINGLE_USER`.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] default_tags: (map) Tags that are added by Databricks by default, regardless of any `custom_tags` that may have been added. These include: Vendor: Databricks, Creator: <username_of_creator>, ClusterName: <name_of_cluster>, ClusterId: <id_of_cluster>, Name: <Databricks internal use>, and any workspace and pool tags.
         :param pulumi.Input[_builtins.str] driver_instance_pool_id: similar to `instance_pool_id`, but for driver node. If omitted, and `instance_pool_id` is specified, then the driver will be allocated from that pool.
+        :param pulumi.Input['ClusterDriverNodeTypeFlexibilityArgs'] driver_node_type_flexibility: a block describing the alternative driver node types if `driver_node_type_id` isn't available.
         :param pulumi.Input[_builtins.str] driver_node_type_id: The node type of the Spark driver. This field is optional; if unset, API will set the driver node type to the same value as `node_type_id` defined above.
         :param pulumi.Input[_builtins.bool] enable_elastic_disk: If you don't want to allocate a fixed number of EBS volumes at cluster creation time, use autoscaling local storage. With autoscaling local storage, Databricks monitors the amount of free disk space available on your cluster's Spark workers. If a worker begins to run too low on disk, Databricks automatically attaches a new EBS volume to the worker before it runs out of disk space. EBS volumes are attached up to a limit of 5 TB of total disk space per instance (including the instance's local storage). To scale down EBS usage, make sure you have `autotermination_minutes` and `autoscale` attributes set. More documentation available at [cluster configuration page](https://docs.databricks.com/clusters/configure.html#autoscaling-local-storage-1).
         :param pulumi.Input[_builtins.bool] enable_local_disk_encryption: Some instance types you use to run clusters may have locally attached disks. Databricks may store shuffle data or temporary data on these locally attached disks. To ensure that all data at rest is encrypted for all storage types, including shuffle data stored temporarily on your cluster's local disks, you can enable local disk encryption. When local disk encryption is enabled, Databricks generates an encryption key locally unique to each cluster node and uses it to encrypt all data stored on local disks. The scope of the key is local to each cluster node and is destroyed along with the cluster node itself. During its lifetime, the key resides in memory for encryption and decryption and is stored encrypted on the disk. *Your workloads may run more slowly because of the performance impact of reading and writing encrypted data to and from local volumes. This feature is not available for all Azure Databricks subscriptions. Contact your Microsoft or Databricks account representative to request access.*
@@ -761,6 +770,7 @@ class _ClusterState:
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] ssh_public_keys: SSH public key contents that will be added to each Spark node in this cluster. The corresponding private keys can be used to login with the user name ubuntu on port 2200. You can specify up to 10 keys.
         :param pulumi.Input[_builtins.str] state: (string) State of the cluster.
         :param pulumi.Input[_builtins.bool] use_ml_runtime: Whenever ML runtime should be selected or not.  Actual runtime is determined by `spark_version` (DBR release), this field `use_ml_runtime`, and whether `node_type_id` is GPU node or not.
+        :param pulumi.Input['ClusterWorkerNodeTypeFlexibilityArgs'] worker_node_type_flexibility: a block describing the alternative driver node types if `node_type_id` isn't available.
         """
         if apply_policy_default_values is not None:
             pulumi.set(__self__, "apply_policy_default_values", apply_policy_default_values)
@@ -1024,6 +1034,9 @@ class _ClusterState:
     @_builtins.property
     @pulumi.getter(name="driverNodeTypeFlexibility")
     def driver_node_type_flexibility(self) -> Optional[pulumi.Input['ClusterDriverNodeTypeFlexibilityArgs']]:
+        """
+        a block describing the alternative driver node types if `driver_node_type_id` isn't available.
+        """
         return pulumi.get(self, "driver_node_type_flexibility")
 
     @driver_node_type_flexibility.setter
@@ -1341,6 +1354,9 @@ class _ClusterState:
     @_builtins.property
     @pulumi.getter(name="workerNodeTypeFlexibility")
     def worker_node_type_flexibility(self) -> Optional[pulumi.Input['ClusterWorkerNodeTypeFlexibilityArgs']]:
+        """
+        a block describing the alternative driver node types if `node_type_id` isn't available.
+        """
         return pulumi.get(self, "worker_node_type_flexibility")
 
     @worker_node_type_flexibility.setter
@@ -1405,15 +1421,59 @@ class Cluster(pulumi.CustomResource):
                  workload_type: Optional[pulumi.Input[Union['ClusterWorkloadTypeArgs', 'ClusterWorkloadTypeArgsDict']]] = None,
                  __props__=None):
         """
+        This resource allows you to manage [Databricks Clusters](https://docs.databricks.com/clusters/index.html).
+
+        > This resource can only be used with a workspace-level provider!
+
+        > In case of `Cannot access cluster ####-######-####### that was terminated or unpinned more than 30 days ago` errors, please upgrade to v0.5.5 or later. If for some reason you cannot upgrade the version of provider, then the other viable option to unblock the apply pipeline is `terraform state rm path.to.databricks_cluster.resource` command.
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        smallest = databricks.get_node_type(local_disk=True)
+        latest_lts = databricks.get_spark_version(long_term_support=True)
+        shared_autoscaling = databricks.Cluster("shared_autoscaling",
+            cluster_name="Shared Autoscaling",
+            spark_version=latest_lts.id,
+            node_type_id=smallest.id,
+            autotermination_minutes=20,
+            autoscale={
+                "min_workers": 1,
+                "max_workers": 50,
+            })
+        ```
+
+        ## Access Control
+
+        * Group and User can control which groups or individual users can create clusters.
+        * ClusterPolicy can control which kinds of clusters users can create.
+        * Users, who have access to Cluster Policy, but do not have an `allow_cluster_create` argument set would still be able to create clusters, but within the boundary of the policy.
+        * Permissions can control which groups or individual users can *Manage*, *Restart* or *Attach to* individual clusters.
+        * `instance_profile_arn` *(AWS only)* can control which data a given cluster can access through cloud-native controls.
+
+        ## Related Resources
+
+        The following resources are often used in the same context:
+
+        * Dynamic Passthrough Clusters for a Group guide.
+        * End to end workspace management guide.
+        * get_clusters data to retrieve a list of Cluster ids.
+        * ClusterPolicy to create a Cluster policy, which limits the ability to create clusters based on a set of rules.
+        * get_current_user data to retrieve information about User or databricks_service_principal, that is calling Databricks REST API.
+        * GlobalInitScript to manage [global init scripts](https://docs.databricks.com/clusters/init-scripts.html#global-init-scripts), which are run on all Cluster and databricks_job.
+        * InstancePool to manage [instance pools](https://docs.databricks.com/clusters/instance-pools/index.html) to reduce cluster start and auto-scaling times by maintaining a set of idle, ready-to-use instances.
+        * InstanceProfile to manage AWS EC2 instance profiles that users can launch Cluster and access data, like databricks_mount.
+        * Job to manage [Databricks Jobs](https://docs.databricks.com/jobs.html) to run non-interactive code in a databricks_cluster.
+        * Library to install a [library](https://docs.databricks.com/libraries/index.html) on databricks_cluster.
+        * get_node_type data to get the smallest node type for Cluster that fits search criteria, like amount of RAM or number of cores.
+        * Pipeline to deploy [Lakeflow Declarative Pipelines](https://docs.databricks.com/aws/en/dlt).
+        * get_spark_version data to get [Databricks Runtime (DBR)](https://docs.databricks.com/runtime/dbr.html) version that could be used for `spark_version` parameter in Cluster and other resources.
+        * get_zones data to fetch all available AWS availability zones on your workspace on AWS.
+
         ## Import
 
         The resource cluster can be imported using cluster id.
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/cluster:Cluster this <cluster-id>
-        ```
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -1446,6 +1506,7 @@ class Cluster(pulumi.CustomResource):
                * `DATA_SECURITY_MODE_STANDARD`: Alias for `USER_ISOLATION`.
                * `DATA_SECURITY_MODE_DEDICATED`: Alias for `SINGLE_USER`.
         :param pulumi.Input[_builtins.str] driver_instance_pool_id: similar to `instance_pool_id`, but for driver node. If omitted, and `instance_pool_id` is specified, then the driver will be allocated from that pool.
+        :param pulumi.Input[Union['ClusterDriverNodeTypeFlexibilityArgs', 'ClusterDriverNodeTypeFlexibilityArgsDict']] driver_node_type_flexibility: a block describing the alternative driver node types if `driver_node_type_id` isn't available.
         :param pulumi.Input[_builtins.str] driver_node_type_id: The node type of the Spark driver. This field is optional; if unset, API will set the driver node type to the same value as `node_type_id` defined above.
         :param pulumi.Input[_builtins.bool] enable_elastic_disk: If you don't want to allocate a fixed number of EBS volumes at cluster creation time, use autoscaling local storage. With autoscaling local storage, Databricks monitors the amount of free disk space available on your cluster's Spark workers. If a worker begins to run too low on disk, Databricks automatically attaches a new EBS volume to the worker before it runs out of disk space. EBS volumes are attached up to a limit of 5 TB of total disk space per instance (including the instance's local storage). To scale down EBS usage, make sure you have `autotermination_minutes` and `autoscale` attributes set. More documentation available at [cluster configuration page](https://docs.databricks.com/clusters/configure.html#autoscaling-local-storage-1).
         :param pulumi.Input[_builtins.bool] enable_local_disk_encryption: Some instance types you use to run clusters may have locally attached disks. Databricks may store shuffle data or temporary data on these locally attached disks. To ensure that all data at rest is encrypted for all storage types, including shuffle data stored temporarily on your cluster's local disks, you can enable local disk encryption. When local disk encryption is enabled, Databricks generates an encryption key locally unique to each cluster node and uses it to encrypt all data stored on local disks. The scope of the key is local to each cluster node and is destroyed along with the cluster node itself. During its lifetime, the key resides in memory for encryption and decryption and is stored encrypted on the disk. *Your workloads may run more slowly because of the performance impact of reading and writing encrypted data to and from local volumes. This feature is not available for all Azure Databricks subscriptions. Contact your Microsoft or Databricks account representative to request access.*
@@ -1468,6 +1529,7 @@ class Cluster(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] spark_version: [Runtime version](https://docs.databricks.com/runtime/index.html) of the cluster. Any supported get_spark_version id.  We advise using Cluster Policies to restrict the list of versions for simplicity while maintaining enough control.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] ssh_public_keys: SSH public key contents that will be added to each Spark node in this cluster. The corresponding private keys can be used to login with the user name ubuntu on port 2200. You can specify up to 10 keys.
         :param pulumi.Input[_builtins.bool] use_ml_runtime: Whenever ML runtime should be selected or not.  Actual runtime is determined by `spark_version` (DBR release), this field `use_ml_runtime`, and whether `node_type_id` is GPU node or not.
+        :param pulumi.Input[Union['ClusterWorkerNodeTypeFlexibilityArgs', 'ClusterWorkerNodeTypeFlexibilityArgsDict']] worker_node_type_flexibility: a block describing the alternative driver node types if `node_type_id` isn't available.
         """
         ...
     @overload
@@ -1476,15 +1538,59 @@ class Cluster(pulumi.CustomResource):
                  args: ClusterArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
+        This resource allows you to manage [Databricks Clusters](https://docs.databricks.com/clusters/index.html).
+
+        > This resource can only be used with a workspace-level provider!
+
+        > In case of `Cannot access cluster ####-######-####### that was terminated or unpinned more than 30 days ago` errors, please upgrade to v0.5.5 or later. If for some reason you cannot upgrade the version of provider, then the other viable option to unblock the apply pipeline is `terraform state rm path.to.databricks_cluster.resource` command.
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        smallest = databricks.get_node_type(local_disk=True)
+        latest_lts = databricks.get_spark_version(long_term_support=True)
+        shared_autoscaling = databricks.Cluster("shared_autoscaling",
+            cluster_name="Shared Autoscaling",
+            spark_version=latest_lts.id,
+            node_type_id=smallest.id,
+            autotermination_minutes=20,
+            autoscale={
+                "min_workers": 1,
+                "max_workers": 50,
+            })
+        ```
+
+        ## Access Control
+
+        * Group and User can control which groups or individual users can create clusters.
+        * ClusterPolicy can control which kinds of clusters users can create.
+        * Users, who have access to Cluster Policy, but do not have an `allow_cluster_create` argument set would still be able to create clusters, but within the boundary of the policy.
+        * Permissions can control which groups or individual users can *Manage*, *Restart* or *Attach to* individual clusters.
+        * `instance_profile_arn` *(AWS only)* can control which data a given cluster can access through cloud-native controls.
+
+        ## Related Resources
+
+        The following resources are often used in the same context:
+
+        * Dynamic Passthrough Clusters for a Group guide.
+        * End to end workspace management guide.
+        * get_clusters data to retrieve a list of Cluster ids.
+        * ClusterPolicy to create a Cluster policy, which limits the ability to create clusters based on a set of rules.
+        * get_current_user data to retrieve information about User or databricks_service_principal, that is calling Databricks REST API.
+        * GlobalInitScript to manage [global init scripts](https://docs.databricks.com/clusters/init-scripts.html#global-init-scripts), which are run on all Cluster and databricks_job.
+        * InstancePool to manage [instance pools](https://docs.databricks.com/clusters/instance-pools/index.html) to reduce cluster start and auto-scaling times by maintaining a set of idle, ready-to-use instances.
+        * InstanceProfile to manage AWS EC2 instance profiles that users can launch Cluster and access data, like databricks_mount.
+        * Job to manage [Databricks Jobs](https://docs.databricks.com/jobs.html) to run non-interactive code in a databricks_cluster.
+        * Library to install a [library](https://docs.databricks.com/libraries/index.html) on databricks_cluster.
+        * get_node_type data to get the smallest node type for Cluster that fits search criteria, like amount of RAM or number of cores.
+        * Pipeline to deploy [Lakeflow Declarative Pipelines](https://docs.databricks.com/aws/en/dlt).
+        * get_spark_version data to get [Databricks Runtime (DBR)](https://docs.databricks.com/runtime/dbr.html) version that could be used for `spark_version` parameter in Cluster and other resources.
+        * get_zones data to fetch all available AWS availability zones on your workspace on AWS.
+
         ## Import
 
         The resource cluster can be imported using cluster id.
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/cluster:Cluster this <cluster-id>
-        ```
 
         :param str resource_name: The name of the resource.
         :param ClusterArgs args: The arguments to use to populate this resource's properties.
@@ -1687,6 +1793,7 @@ class Cluster(pulumi.CustomResource):
                * `DATA_SECURITY_MODE_DEDICATED`: Alias for `SINGLE_USER`.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] default_tags: (map) Tags that are added by Databricks by default, regardless of any `custom_tags` that may have been added. These include: Vendor: Databricks, Creator: <username_of_creator>, ClusterName: <name_of_cluster>, ClusterId: <id_of_cluster>, Name: <Databricks internal use>, and any workspace and pool tags.
         :param pulumi.Input[_builtins.str] driver_instance_pool_id: similar to `instance_pool_id`, but for driver node. If omitted, and `instance_pool_id` is specified, then the driver will be allocated from that pool.
+        :param pulumi.Input[Union['ClusterDriverNodeTypeFlexibilityArgs', 'ClusterDriverNodeTypeFlexibilityArgsDict']] driver_node_type_flexibility: a block describing the alternative driver node types if `driver_node_type_id` isn't available.
         :param pulumi.Input[_builtins.str] driver_node_type_id: The node type of the Spark driver. This field is optional; if unset, API will set the driver node type to the same value as `node_type_id` defined above.
         :param pulumi.Input[_builtins.bool] enable_elastic_disk: If you don't want to allocate a fixed number of EBS volumes at cluster creation time, use autoscaling local storage. With autoscaling local storage, Databricks monitors the amount of free disk space available on your cluster's Spark workers. If a worker begins to run too low on disk, Databricks automatically attaches a new EBS volume to the worker before it runs out of disk space. EBS volumes are attached up to a limit of 5 TB of total disk space per instance (including the instance's local storage). To scale down EBS usage, make sure you have `autotermination_minutes` and `autoscale` attributes set. More documentation available at [cluster configuration page](https://docs.databricks.com/clusters/configure.html#autoscaling-local-storage-1).
         :param pulumi.Input[_builtins.bool] enable_local_disk_encryption: Some instance types you use to run clusters may have locally attached disks. Databricks may store shuffle data or temporary data on these locally attached disks. To ensure that all data at rest is encrypted for all storage types, including shuffle data stored temporarily on your cluster's local disks, you can enable local disk encryption. When local disk encryption is enabled, Databricks generates an encryption key locally unique to each cluster node and uses it to encrypt all data stored on local disks. The scope of the key is local to each cluster node and is destroyed along with the cluster node itself. During its lifetime, the key resides in memory for encryption and decryption and is stored encrypted on the disk. *Your workloads may run more slowly because of the performance impact of reading and writing encrypted data to and from local volumes. This feature is not available for all Azure Databricks subscriptions. Contact your Microsoft or Databricks account representative to request access.*
@@ -1710,6 +1817,7 @@ class Cluster(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] ssh_public_keys: SSH public key contents that will be added to each Spark node in this cluster. The corresponding private keys can be used to login with the user name ubuntu on port 2200. You can specify up to 10 keys.
         :param pulumi.Input[_builtins.str] state: (string) State of the cluster.
         :param pulumi.Input[_builtins.bool] use_ml_runtime: Whenever ML runtime should be selected or not.  Actual runtime is determined by `spark_version` (DBR release), this field `use_ml_runtime`, and whether `node_type_id` is GPU node or not.
+        :param pulumi.Input[Union['ClusterWorkerNodeTypeFlexibilityArgs', 'ClusterWorkerNodeTypeFlexibilityArgsDict']] worker_node_type_flexibility: a block describing the alternative driver node types if `node_type_id` isn't available.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -1878,6 +1986,9 @@ class Cluster(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter(name="driverNodeTypeFlexibility")
     def driver_node_type_flexibility(self) -> pulumi.Output[Optional['outputs.ClusterDriverNodeTypeFlexibility']]:
+        """
+        a block describing the alternative driver node types if `driver_node_type_id` isn't available.
+        """
         return pulumi.get(self, "driver_node_type_flexibility")
 
     @_builtins.property
@@ -2083,6 +2194,9 @@ class Cluster(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter(name="workerNodeTypeFlexibility")
     def worker_node_type_flexibility(self) -> pulumi.Output[Optional['outputs.ClusterWorkerNodeTypeFlexibility']]:
+        """
+        a block describing the alternative driver node types if `node_type_id` isn't available.
+        """
         return pulumi.get(self, "worker_node_type_flexibility")
 
     @_builtins.property

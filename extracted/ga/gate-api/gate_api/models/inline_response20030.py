@@ -33,7 +33,7 @@ class InlineResponse20030(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'order_id': 'float',
+        'order_id': 'str',
         'text': 'str'
     }
 
@@ -43,7 +43,7 @@ class InlineResponse20030(object):
     }
 
     def __init__(self, order_id=None, text=None, local_vars_configuration=None):  # noqa: E501
-        # type: (float, str, Configuration) -> None
+        # type: (str, str, Configuration) -> None
         """InlineResponse20030 - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -60,9 +60,10 @@ class InlineResponse20030(object):
     def order_id(self):
         """Gets the order_id of this InlineResponse20030.  # noqa: E501
 
+        Order ID  # noqa: E501
 
         :return: The order_id of this InlineResponse20030.  # noqa: E501
-        :rtype: float
+        :rtype: str
         """
         return self._order_id
 
@@ -70,9 +71,10 @@ class InlineResponse20030(object):
     def order_id(self, order_id):
         """Sets the order_id of this InlineResponse20030.
 
+        Order ID  # noqa: E501
 
         :param order_id: The order_id of this InlineResponse20030.  # noqa: E501
-        :type: float
+        :type: str
         """
         if self.local_vars_configuration.client_side_validation and order_id is None:  # noqa: E501
             raise ValueError("Invalid value for `order_id`, must not be `None`")  # noqa: E501
@@ -83,6 +85,7 @@ class InlineResponse20030(object):
     def text(self):
         """Gets the text of this InlineResponse20030.  # noqa: E501
 
+        User-defined Order ID  # noqa: E501
 
         :return: The text of this InlineResponse20030.  # noqa: E501
         :rtype: str
@@ -93,6 +96,7 @@ class InlineResponse20030(object):
     def text(self, text):
         """Sets the text of this InlineResponse20030.
 
+        User-defined Order ID  # noqa: E501
 
         :param text: The text of this InlineResponse20030.  # noqa: E501
         :type: str

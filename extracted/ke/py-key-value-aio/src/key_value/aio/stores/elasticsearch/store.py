@@ -3,22 +3,6 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Any, overload
 
-from key_value.shared.errors import DeserializationError, SerializationError
-from key_value.shared.utils.managed_entry import ManagedEntry
-from key_value.shared.utils.sanitization import (
-    AlwaysHashStrategy,
-    HashFragmentMode,
-    HybridSanitizationStrategy,
-    SanitizationStrategy,
-)
-from key_value.shared.utils.sanitize import (
-    ALPHANUMERIC_CHARACTERS,
-    LOWERCASE_ALPHABET,
-    NUMBERS,
-    UPPERCASE_ALPHABET,
-)
-from key_value.shared.utils.serialization import SerializationAdapter
-from key_value.shared.utils.time_to_live import now_as_epoch
 from typing_extensions import override
 
 from key_value.aio.stores.base import (
@@ -30,6 +14,22 @@ from key_value.aio.stores.base import (
     BaseStore,
 )
 from key_value.aio.stores.elasticsearch.utils import LessCapableJsonSerializer, LessCapableNdjsonSerializer, new_bulk_action
+from key_value.shared.errors import DeserializationError, SerializationError
+from key_value.shared.managed_entry import ManagedEntry
+from key_value.shared.sanitization import (
+    AlwaysHashStrategy,
+    HashFragmentMode,
+    HybridSanitizationStrategy,
+    SanitizationStrategy,
+)
+from key_value.shared.sanitize import (
+    ALPHANUMERIC_CHARACTERS,
+    LOWERCASE_ALPHABET,
+    NUMBERS,
+    UPPERCASE_ALPHABET,
+)
+from key_value.shared.serialization import SerializationAdapter
+from key_value.shared.time_to_live import now_as_epoch
 
 try:
     from elastic_transport import ObjectApiResponse
@@ -50,6 +50,31 @@ except ImportError as e:
 
 
 logger = logging.getLogger(__name__)
+
+
+# Private helper functions to encapsulate Elasticsearch client operations with type ignore comments
+# These are module-level functions (not methods) so they are not exported with the store class
+
+
+async def _elasticsearch_bulk(
+    client: AsyncElasticsearch,
+    operations: list[dict[str, Any]],
+    *,
+    refresh: bool = False,
+) -> ObjectApiResponse[Any]:
+    """Execute a bulk operation on Elasticsearch."""
+    return await client.bulk(operations=operations, refresh=refresh)
+
+
+def _get_aggregation_buckets(aggregations: dict[str, Any], agg_name: str) -> list[Any]:
+    """Get buckets from an aggregation result."""
+    return aggregations[agg_name]["buckets"]
+
+
+def _get_bucket_key(bucket: Any) -> str:
+    """Get the key from an aggregation bucket."""
+    return bucket["key"]
+
 
 DEFAULT_INDEX_PREFIX = "kv_store"
 
@@ -160,6 +185,7 @@ class ElasticsearchStore(
 
     _key_sanitization_strategy: SanitizationStrategy
     _collection_sanitization_strategy: SanitizationStrategy
+    _auto_create: bool
 
     @overload
     def __init__(
@@ -170,6 +196,7 @@ class ElasticsearchStore(
         default_collection: str | None = None,
         key_sanitization_strategy: SanitizationStrategy | None = None,
         collection_sanitization_strategy: SanitizationStrategy | None = None,
+        auto_create: bool = True,
     ) -> None:
         """Initialize the elasticsearch store.
 
@@ -179,6 +206,7 @@ class ElasticsearchStore(
             default_collection: The default collection to use if no collection is provided.
             key_sanitization_strategy: The sanitization strategy to use for keys.
             collection_sanitization_strategy: The sanitization strategy to use for collections.
+            auto_create: Whether to automatically create indices if they don't exist. Defaults to True.
         """
 
     @overload
@@ -191,6 +219,7 @@ class ElasticsearchStore(
         default_collection: str | None = None,
         key_sanitization_strategy: SanitizationStrategy | None = None,
         collection_sanitization_strategy: SanitizationStrategy | None = None,
+        auto_create: bool = True,
     ) -> None:
         """Initialize the elasticsearch store.
 
@@ -199,6 +228,7 @@ class ElasticsearchStore(
             api_key: The api key to use.
             index_prefix: The index prefix to use. Collections will be prefixed with this prefix.
             default_collection: The default collection to use if no collection is provided.
+            auto_create: Whether to automatically create indices if they don't exist. Defaults to True.
         """
 
     def __init__(
@@ -211,6 +241,7 @@ class ElasticsearchStore(
         default_collection: str | None = None,
         key_sanitization_strategy: SanitizationStrategy | None = None,
         collection_sanitization_strategy: SanitizationStrategy | None = None,
+        auto_create: bool = True,
     ) -> None:
         """Initialize the elasticsearch store.
 
@@ -224,6 +255,8 @@ class ElasticsearchStore(
             default_collection: The default collection to use if no collection is provided.
             key_sanitization_strategy: The sanitization strategy to use for keys.
             collection_sanitization_strategy: The sanitization strategy to use for collections.
+            auto_create: Whether to automatically create indices if they don't exist. Defaults to True.
+                When False, raises ValueError if an index doesn't exist.
         """
         if elasticsearch_client is None and url is None:
             msg = "Either elasticsearch_client or url must be provided"
@@ -249,6 +282,7 @@ class ElasticsearchStore(
         self._is_serverless = False
 
         self._serializer = ElasticsearchSerializationAdapter()
+        self._auto_create = auto_create
 
         super().__init__(
             default_collection=default_collection,
@@ -274,6 +308,10 @@ class ElasticsearchStore(
         if await self._client.options(ignore_status=404).indices.exists(index=index_name):
             return
 
+        if not self._auto_create:
+            msg = f"Index '{index_name}' does not exist. Either create the index manually or set auto_create=True."
+            raise ValueError(msg)
+
         try:
             _ = await self._client.options(ignore_status=404).indices.create(index=index_name, mappings=DEFAULT_MAPPING, settings={})
         except BadRequestError as e:
@@ -282,7 +320,10 @@ class ElasticsearchStore(
             raise
 
     def _get_index_name(self, collection: str) -> str:
-        return self._index_prefix + "-" + self._sanitize_collection(collection=collection).lower()
+        # The Sanitization Strategy ensures that we do not have conflicts between upper and lower case
+        # but it does not lowercase the collection name, so we do that here, which conveniently also
+        # prevents errors when using PassthroughStrategy.
+        return (self._index_prefix + "-" + self._sanitize_collection(collection=collection)).lower()
 
     def _get_document_id(self, key: str) -> str:
         return self._sanitize_key(key=key)
@@ -412,7 +453,7 @@ class ElasticsearchStore(
             operations.extend([index_action, document])
 
         try:
-            _ = await self._client.bulk(operations=operations, refresh=self._should_refresh_on_put)  # pyright: ignore[reportUnknownMemberType]
+            _ = await _elasticsearch_bulk(self._client, operations, refresh=self._should_refresh_on_put)
         except ElasticsearchSerializationError as e:
             msg = f"Failed to serialize bulk operations: {e}"
             raise SerializationError(message=msg) from e
@@ -449,7 +490,7 @@ class ElasticsearchStore(
 
             operations.append(delete_action)
 
-        elasticsearch_response = await self._client.bulk(operations=operations)  # pyright: ignore[reportUnknownMemberType]
+        elasticsearch_response = await _elasticsearch_bulk(self._client, operations)
 
         body: dict[str, Any] = get_body_from_response(response=elasticsearch_response)
 
@@ -518,9 +559,9 @@ class ElasticsearchStore(
         body: dict[str, Any] = get_body_from_response(response=search_response)
         aggregations: dict[str, Any] = get_aggregations_from_body(body=body)
 
-        buckets: list[Any] = aggregations["collections"]["buckets"]  # pyright: ignore[reportAny]
+        buckets = _get_aggregation_buckets(aggregations, "collections")
 
-        return [bucket["key"] for bucket in buckets]  # pyright: ignore[reportAny]
+        return [_get_bucket_key(bucket) for bucket in buckets]
 
     @override
     async def _delete_collection(self, *, collection: str) -> bool:

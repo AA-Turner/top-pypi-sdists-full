@@ -19,7 +19,7 @@ class LittleFSRepl(cmd.Cmd):
         """Initialize the shell with a LittleFS handle."""
         super().__init__()
         self._fs = fs
-        self._mounted = False
+        self._mounted = True
         self._cwd = "/"
 
     def onecmd(self, line: str) -> bool:
@@ -64,6 +64,10 @@ class LittleFSRepl(cmd.Cmd):
             if not chunk:
                 break
             dst.write(chunk)
+
+    def emptyline(self):
+        """Override to prevent repeating the last command."""
+        pass
 
     def do_mount(self, _: str = "") -> None:
         """Attempt to mount the remote filesystem."""

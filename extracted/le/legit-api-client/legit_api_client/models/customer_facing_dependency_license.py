@@ -19,6 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from legit_api_client.models.customer_facing_license_metadata import CustomerFacingLicenseMetadata
 from legit_api_client.models.package_source import PackageSource
 from typing import Optional, Set
 from typing_extensions import Self
@@ -29,7 +30,8 @@ class CustomerFacingDependencyLicense(BaseModel):
     """ # noqa: E501
     name: Optional[StrictStr] = None
     source: Optional[PackageSource] = None
-    __properties: ClassVar[List[str]] = ["name", "source"]
+    metadata: Optional[CustomerFacingLicenseMetadata] = None
+    __properties: ClassVar[List[str]] = ["name", "source", "metadata"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -70,10 +72,18 @@ class CustomerFacingDependencyLicense(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of metadata
+        if self.metadata:
+            _dict['metadata'] = self.metadata.to_dict()
         # set to None if name (nullable) is None
         # and model_fields_set contains the field
         if self.name is None and "name" in self.model_fields_set:
             _dict['name'] = None
+
+        # set to None if metadata (nullable) is None
+        # and model_fields_set contains the field
+        if self.metadata is None and "metadata" in self.model_fields_set:
+            _dict['metadata'] = None
 
         return _dict
 
@@ -88,7 +98,8 @@ class CustomerFacingDependencyLicense(BaseModel):
 
         _obj = cls.model_validate({
             "name": obj.get("name"),
-            "source": obj.get("source")
+            "source": obj.get("source"),
+            "metadata": CustomerFacingLicenseMetadata.from_dict(obj["metadata"]) if obj.get("metadata") is not None else None
         })
         return _obj
 

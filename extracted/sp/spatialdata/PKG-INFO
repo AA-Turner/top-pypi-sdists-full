@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spatialdata
-Version: 0.7.1.post1
+Version: 0.7.2
 Summary: Spatial data format.
 Project-URL: Documentation, https://spatialdata.scverse.org/en/latest
 Project-URL: Source, https://github.com/scverse/spatialdata.git
@@ -44,6 +44,7 @@ Requires-Dist: click
 Requires-Dist: dask-image
 Requires-Dist: dask<2026.1.2,>=2025.2.0
 Requires-Dist: datashader
+Requires-Dist: distributed<2026.1.2
 Requires-Dist: fsspec[http,s3]
 Requires-Dist: geopandas>=0.14
 Requires-Dist: multiscale-spatial-image==2.0.3
@@ -62,7 +63,6 @@ Requires-Dist: shapely>=2.0.1
 Requires-Dist: spatial-image>=1.2.3
 Requires-Dist: typing-extensions>=4.8.0
 Requires-Dist: universal-pathlib>=0.2.6
-Requires-Dist: xarray-schema
 Requires-Dist: xarray-spatial>=0.3.5
 Requires-Dist: xarray>=2024.10.0
 Requires-Dist: zarr>=3.0.0

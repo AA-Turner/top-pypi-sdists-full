@@ -12,6 +12,8 @@
 # *******************************************************
 import threading
 
+MAX_OFFSET = 9223372036854775807  # Java Long.MAX_VALUE
+
 
 class OffsetCounter:
     """
@@ -30,6 +32,8 @@ class OffsetCounter:
     def __iadd__(self, value: int) -> "OffsetCounter":
         with self._lock:
             self._offset += value
+            if self._offset > MAX_OFFSET:
+                self._offset = 0  # reset to 0 if overflow
         return self
 
     def __int__(self):

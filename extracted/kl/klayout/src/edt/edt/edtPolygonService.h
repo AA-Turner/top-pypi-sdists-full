@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -46,9 +46,10 @@ public:
   virtual void do_mouse_move (const db::DPoint &p);
   virtual void do_mouse_move_inactive (const db::DPoint &p);
   virtual bool do_mouse_click (const db::DPoint &p);
-  virtual void do_finish_edit ();
+  virtual void do_finish_edit (bool);
   virtual void do_cancel_edit ();
   virtual bool selection_applies (const lay::ObjectInstPath &sel) const;
+  virtual void function (const std::string &name, const std::string &value);
 
 private:
   std::vector <db::DPoint> m_points;

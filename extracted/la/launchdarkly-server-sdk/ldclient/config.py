@@ -4,9 +4,10 @@ This submodule contains the :class:`Config` class for custom configuration of th
 Note that the same class can also be imported from the ``ldclient.client`` submodule.
 """
 
+import warnings
 from dataclasses import dataclass
 from threading import Event
-from typing import Callable, List, Optional, Set, TypeVar
+from typing import Callable, List, Optional, Protocol, Set, TypeVar
 
 from ldclient.feature_store import InMemoryFeatureStore
 from ldclient.hook import Hook
@@ -92,11 +93,11 @@ class BigSegmentsConfig:
 
 
 class HTTPConfig:
-    """Advanced HTTP configuration options for the SDK client.
+    """Advanced HTTP configuration options for the SDK client / data sources.
 
     This class groups together HTTP/HTTPS-related configuration properties that rarely need to be changed.
     If you need to set these, construct an ``HTTPConfig`` instance and pass it as the ``http`` parameter when
-    you construct the main :class:`Config` for the SDK client.
+    you construct the main :class:`Config` for the SDK client, or to the appropriate data source builder method.
     """
 
     def __init__(
@@ -156,23 +157,37 @@ class HTTPConfig:
         return self.__disable_ssl_verification
 
 
-T = TypeVar("T")
+T_co = TypeVar("T_co", covariant=True)
 
-Builder = Callable[['Config'], T]
+
+class DataSourceBuilder(Protocol[T_co]):  # pylint: disable=too-few-public-methods
+    """
+    Protocol for building data sources.
+    """
+
+    def build(self, config: 'Config') -> T_co:
+        """
+        Builds the data source.
+
+        :param config: the SDK configuration
+        :return: the built data source
+        """
+        raise NotImplementedError
 
 
 @dataclass(frozen=True)
 class DataSystemConfig:
     """Configuration for LaunchDarkly's data acquisition strategy."""
 
-    initializers: Optional[List[Builder[Initializer]]]
+    initializers: Optional[List[DataSourceBuilder[Initializer]]]
     """The initializers for the data system."""
 
-    primary_synchronizer: Optional[Builder[Synchronizer]]
-    """The primary synchronizer for the data system."""
-
-    secondary_synchronizer: Optional[Builder[Synchronizer]] = None
-    """The secondary synchronizers for the data system."""
+    synchronizers: Optional[List[DataSourceBuilder[Synchronizer]]]
+    """
+    The synchronizers for the data system, ordered by preference.
+    The first synchronizer is the most preferred, with subsequent synchronizers
+    serving as fallbacks in order of decreasing preference.
+    """
 
     data_store_mode: DataStoreMode = DataStoreMode.READ_WRITE
     """The data store mode specifies the mode in which the persistent store will operate, if present."""
@@ -180,7 +195,7 @@ class DataSystemConfig:
     data_store: Optional[FeatureStore] = None
     """The (optional) persistent data store instance."""
 
-    fdv1_fallback_synchronizer: Optional[Builder[Synchronizer]] = None
+    fdv1_fallback_synchronizer: Optional[DataSourceBuilder[Synchronizer]] = None
     """An optional fallback synchronizer that will read from FDv1"""
 
 
@@ -343,8 +358,11 @@ class Config:
         """Returns a new ``Config`` instance that is the same as this one, except for having a different SDK key.
         The key will not be updated if the provided key contains invalid characters.
 
+        DEPRECATED: This method is deprecated and will be removed in a future version.
+
         :param new_sdk_key: the new SDK key
         """
+        warnings.warn("copy_with_new_sdk_key is deprecated and will be removed in a future version", DeprecationWarning, stacklevel=2)
         return Config(
             sdk_key=new_sdk_key,
             base_uri=self.__base_uri,
@@ -441,7 +459,7 @@ class Config:
         return self.__event_processor_class
 
     @property
-    def feature_requester_class(self) -> Callable:
+    def feature_requester_class(self) -> Optional[Callable]:
         return self.__feature_requester_class
 
     @property
@@ -595,4 +613,4 @@ class Config:
             log.warning("Missing or blank SDK key")
 
 
-__all__ = ['Config', 'BigSegmentsConfig', 'DataSystemConfig', 'HTTPConfig']
+__all__ = ['Config', 'BigSegmentsConfig', 'DataSourceBuilder', 'DataSystemConfig', 'HTTPConfig']

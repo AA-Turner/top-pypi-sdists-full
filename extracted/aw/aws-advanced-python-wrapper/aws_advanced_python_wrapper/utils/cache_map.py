@@ -23,6 +23,8 @@ V = TypeVar('V')
 
 
 class CacheMap(Generic[K, V]):
+    _DEFAULT_EXPIRATION_TIME = 300_000_000_000  # 5 minutes
+
     def __init__(self):
         self._cache: Dict[K, CacheItem[V]] = {}
         self._cleanup_interval_ns: int = 600_000_000_000  # 10 minutes
@@ -30,7 +32,8 @@ class CacheMap(Generic[K, V]):
         self._lock = threading.RLock()
 
     def __len__(self):
-        return len(self._cache)
+        with self._lock:
+            return len(self._cache)
 
     def get(self, key: K) -> Optional[V]:
         with self._lock:
@@ -61,16 +64,19 @@ class CacheMap(Generic[K, V]):
 
             return None
 
-    def put(self, key: K, item: V, item_expiration_ns: int):
-        self._cache[key] = CacheItem(item, time.perf_counter_ns() + item_expiration_ns)
-        self._cleanup()
+    def put(self, key: K, item: V, item_expiration_ns: int = _DEFAULT_EXPIRATION_TIME):
+        with self._lock:
+            self._cache[key] = CacheItem(item, time.perf_counter_ns() + item_expiration_ns)
+            self._cleanup()
 
     def remove(self, key: K):
-        self._cache.pop(key, None)
-        self._cleanup()
+        with self._lock:
+            self._cache.pop(key, None)
+            self._cleanup()
 
     def clear(self):
-        self._cache.clear()
+        with self._lock:
+            self._cache.clear()
 
     def get_dict(self) -> Dict[K, V]:
         with self._lock:

@@ -37,49 +37,49 @@ class ReaperForward(Command):
             if not Reapers.pod_name(state):
                 return state
 
-            ctx = self.context()
-            spec = Reapers.reaper_spec(state)
-            if state.in_repl:
-                if ReaperForwardSession.is_forwarding:
-                    log2("Another port-forward is already running.")
+            with self.context(args) as (args, ctx):
+                spec = Reapers.reaper_spec(state)
+                if state.in_repl:
+                    if ReaperForwardSession.is_forwarding:
+                        log2("Another port-forward is already running.")
 
-                    return "already-running"
+                        return "already-running"
 
-                # make it a daemon to exit with a Ctrl-D
-                thread = threading.Thread(target=self.loop, args=(state,), daemon=True)
-                thread.start()
+                    # make it a daemon to exit with a Ctrl-D
+                    thread = threading.Thread(target=self.loop, args=(state,), daemon=True)
+                    thread.start()
 
-                while not ReaperForwardSession.is_forwarding:
-                    time.sleep(1)
+                    while not ReaperForwardSession.is_forwarding:
+                        time.sleep(1)
 
-                d = {
-                    'reaper-ui': spec["web-uri"],
-                    'reaper-username': spec["username"],
-                    'reaper-password': spec["password"]
-                }
-                ctx.log2()
-                tabulize(d.items(),
-                         lambda a: f'{a[0]},{a[1]}',
-                         separator=',',
-                         ctx=ctx)
-
-                for k, v in d.items():
-                    ReplSession().prompt_session.history.append_string(f'cp {k}')
-                ctx.log2()
-                ctx.log2(f'Use <Up> arrow key to copy the values to clipboard.')
-            else:
-                try:
-                    ctx.log2(f'Click: {spec["web-uri"]}')
-                    ctx.log2(f'username: {spec["username"]}')
-                    ctx.log2(f'password: {spec["password"]}')
+                    d = {
+                        'reaper-ui': spec["web-uri"],
+                        'reaper-username': spec["username"],
+                        'reaper-password': spec["password"]
+                    }
                     ctx.log2()
-                    ctx.log2(f"Press Ctrl+C to break.")
+                    tabulize(d.items(),
+                            lambda a: f'{a[0]},{a[1]}',
+                            separator=',',
+                            ctx=ctx)
 
-                    time.sleep(Config().get('reaper.port-forward.timeout', 3600 * 24))
-                except KeyboardInterrupt:
-                    pass
+                    for k, v in d.items():
+                        ReplSession().prompt_session.history.append_string(f'cp {k}')
+                    ctx.log2()
+                    ctx.log2(f'Use <Up> arrow key to copy the values to clipboard.')
+                else:
+                    try:
+                        ctx.log2(f'Click: {spec["web-uri"]}')
+                        ctx.log2(f'username: {spec["username"]}')
+                        ctx.log2(f'password: {spec["password"]}')
+                        ctx.log2()
+                        ctx.log2(f"Press Ctrl+C to break.")
 
-            return state
+                        time.sleep(Config().get('reaper.port-forward.timeout', 3600 * 24))
+                    except KeyboardInterrupt:
+                        pass
+
+                return state
 
     def loop(self, state: ReplState):
         with port_forwarding(state, Reapers.local_port(), partial(Reapers.svc_or_pod, state), Reapers.target_port()):

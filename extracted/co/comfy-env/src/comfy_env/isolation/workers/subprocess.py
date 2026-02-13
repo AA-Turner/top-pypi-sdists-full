@@ -299,8 +299,26 @@ def _to_shm(obj, registry, visited=None):
         visited[obj_id] = result
         return result
 
-    # primitives pass through
-    return obj
+    # primitives pass through (str, int, float, bool, None)
+    if obj is None or isinstance(obj, (str, int, float, bool)):
+        return obj
+
+    # Fallback: pickle any remaining object to shared memory
+    import pickle
+    try:
+        obj_bytes = pickle.dumps(obj)
+        block = shm.SharedMemory(create=True, size=len(obj_bytes))
+        block.buf[:len(obj_bytes)] = obj_bytes
+        registry.append(block)
+        result = {
+            "__shm_pickle__": True,
+            "name": block.name,
+            "size": len(obj_bytes),
+        }
+        visited[obj_id] = result
+        return result
+    except Exception:
+        return obj
 
 
 def _deserialize_tensor_ref(data):
@@ -382,6 +400,16 @@ def _from_shm(obj, unlink=True):
         if unlink:
             block.unlink()
         return pickle.loads(mesh_bytes)
+
+    # generic pickled object (VideoFromFile, etc.)
+    if "__shm_pickle__" in obj:
+        import pickle
+        block = shm.SharedMemory(name=obj["name"])
+        obj_bytes = bytes(block.buf[:obj["size"]])
+        block.close()
+        if unlink:
+            block.unlink()
+        return pickle.loads(obj_bytes)
 
     # regular dict - recurse
     return {k: _from_shm(v, unlink) for k, v in obj.items()}
@@ -498,6 +526,15 @@ from types import SimpleNamespace
 # Enable faulthandler to dump traceback on SIGSEGV/SIGABRT/etc
 faulthandler.enable(file=sys.stderr, all_threads=True)
 
+# Also dump to a file so we can see segfaults even if stderr is lost
+import tempfile as _fh_tempfile
+_faulthandler_log = os.path.join(_fh_tempfile.gettempdir(), "comfy_worker_faulthandler.log")
+try:
+    _fh_file = open(_faulthandler_log, "a")
+    faulthandler.enable(file=_fh_file, all_threads=True)
+except Exception:
+    pass
+
 # Debug logging (set COMFY_ENV_DEBUG=1 to enable)
 _DEBUG = os.environ.get("COMFY_ENV_DEBUG", "").lower() in ("1", "true", "yes")
 
@@ -595,6 +632,17 @@ if sys.platform == "win32":
 from multiprocessing import shared_memory as shm
 import numpy as np
 
+# Pin to single CPU core before importing torch to prevent TSC non-monotonicity
+# during libc10_cuda.so static initialization (WSL has imprecise per-core TSC sync).
+# See: https://github.com/pytorch/pytorch/issues/129992
+_affinity_pinned = False
+if sys.platform == "linux":
+    try:
+        os.sched_setaffinity(0, {0})
+        _affinity_pinned = True
+    except OSError:
+        pass
+
 # Set PyTorch to use file_system sharing (uses /dev/shm, no resource_tracker)
 try:
     import torch
@@ -603,6 +651,13 @@ try:
     wlog("[worker] PyTorch sharing strategy set to file_system")
 except Exception as e:
     wlog(f"[worker] PyTorch not available: {e}")
+
+# Release CPU affinity back to all cores for actual GPU work
+if _affinity_pinned:
+    try:
+        os.sched_setaffinity(0, set(range(os.cpu_count() or 1)))
+    except OSError:
+        pass
 
 
 # Tensor keeper - holds tensor references to prevent GC before parent reads shared memory
@@ -783,20 +838,22 @@ def _deserialize_tensor_native(data):
     return tensor
 
 
-def _from_shm(obj):
+def _from_shm(obj, _depth=0, _key="root"):
     """Reconstruct from shared memory metadata. Does NOT unlink - caller handles that."""
     if _DEBUG and isinstance(obj, dict) and any(k in obj for k in ("__type__", "__shm_np__", "tensor_size")):
         print(f"[comfy-env] _from_shm got dict with keys: {list(obj.keys())[:5]}", file=sys.stderr, flush=True)
     if not isinstance(obj, dict):
         if isinstance(obj, list):
-            return [_from_shm(v) for v in obj]
+            return [_from_shm(v, _depth+1, f"{_key}[{i}]") for i, v in enumerate(obj)]
         return obj
 
     # TensorRef -> use PyTorch's native deserialization (new format, worker->parent)
     if obj.get("__type__") == "TensorRef":
+        wlog(f"[_from_shm] {_key}: TensorRef tensor_size={obj.get('tensor_size')}")
         if _DEBUG:
             print(f"[comfy-env] DESERIALIZE TensorRef: tensor_size={obj.get('tensor_size')}", file=sys.stderr, flush=True)
         tensor = _deserialize_tensor_native(obj)
+        wlog(f"[_from_shm] {_key}: TensorRef deserialized shape={tensor.shape}")
         if _DEBUG:
             print(f"[comfy-env] DESERIALIZED tensor shape: {tensor.shape}", file=sys.stderr, flush=True)
         # Convert back to numpy if it was originally numpy
@@ -806,24 +863,35 @@ def _from_shm(obj):
 
     # __shm_np__ -> legacy format (parent->worker, uses Python SharedMemory)
     if "__shm_np__" in obj:
+        shm_name = obj["__shm_np__"]
+        shape = tuple(obj["shape"])
+        dtype = obj["dtype"]
+        nbytes = np.prod(shape) * np.dtype(dtype).itemsize
+        wlog(f"[_from_shm] {_key}: opening shm '{shm_name}' shape={shape} dtype={dtype} ({nbytes/1e6:.1f} MB)")
         if _DEBUG:
             print(f"[comfy-env] DESERIALIZE __shm_np__: shape={obj.get('shape')}, was_tensor={obj.get('__was_tensor__')}", file=sys.stderr, flush=True)
-        block = shm.SharedMemory(name=obj["__shm_np__"])
+        block = shm.SharedMemory(name=shm_name)
+        wlog(f"[_from_shm] {_key}: shm opened, block.size={block.size}")
         # Unregister from resource_tracker - parent owns these blocks and will clean them up
         try:
             from multiprocessing.resource_tracker import unregister
             unregister(block._name, "shared_memory")
         except Exception:
             pass
-        arr = np.ndarray(tuple(obj["shape"]), dtype=np.dtype(obj["dtype"]), buffer=block.buf).copy()
-        block.close()
+        wlog(f"[_from_shm] {_key}: mapping {nbytes/1e6:.1f} MB from shm (zero-copy)")
+        arr = np.ndarray(shape, dtype=np.dtype(dtype), buffer=block.buf)
+        _input_shm_blocks.append(block)  # keep alive -- parent cleans up after we respond
+        wlog(f"[_from_shm] {_key}: mapped, arr.shape={arr.shape}")
         if _DEBUG:
             print(f"[comfy-env] DESERIALIZED arr shape: {arr.shape}", file=sys.stderr, flush=True)
         # Convert back to tensor if it was originally a tensor
         if obj.get("__was_tensor__"):
             try:
                 import torch
-                return torch.from_numpy(arr)
+                wlog(f"[_from_shm] {_key}: converting to torch tensor")
+                result = torch.from_numpy(arr)
+                wlog(f"[_from_shm] {_key}: torch tensor ready shape={result.shape}")
+                return result
             except Exception:
                 pass
         return arr
@@ -831,6 +899,7 @@ def _from_shm(obj):
     # trimesh (pickled)
     if "__shm_trimesh__" in obj:
         import pickle
+        wlog(f"[_from_shm] {_key}: trimesh shm '{obj['name']}' size={obj['size']}")
         block = shm.SharedMemory(name=obj["name"])
         # Unregister from resource_tracker - parent owns these blocks
         try:
@@ -843,7 +912,24 @@ def _from_shm(obj):
         # Don't unlink - parent will clean up
         return pickle.loads(mesh_bytes)
 
-    return {k: _from_shm(v) for k, v in obj.items()}
+    # generic pickled object (VideoFromFile, etc.)
+    if "__shm_pickle__" in obj:
+        import pickle
+        wlog(f"[_from_shm] {_key}: pickled obj shm '{obj['name']}' size={obj['size']}")
+        block = shm.SharedMemory(name=obj["name"])
+        try:
+            from multiprocessing.resource_tracker import unregister
+            unregister(block._name, "shared_memory")
+        except Exception:
+            pass
+        obj_bytes = bytes(block.buf[:obj["size"]])
+        block.close()
+        return pickle.loads(obj_bytes)
+
+    # Dict - recurse with key names for debugging
+    if _depth == 0:
+        wlog(f"[_from_shm] top-level keys: {list(obj.keys())}")
+    return {k: _from_shm(v, _depth+1, k) for k, v in obj.items()}
 
 def _cleanup_shm(registry):
     for block in registry:
@@ -872,6 +958,8 @@ class ShmKeeper:
                 _cleanup_shm(old_blocks)
 
 _shm_keeper = ShmKeeper()
+
+_input_shm_blocks = []  # Keep parent->worker shm blocks alive during request processing
 
 # =============================================================================
 # Object Reference System - keep complex objects in worker, pass refs to host
@@ -1151,6 +1239,14 @@ def main():
             transport.send({"status": "pong"})
             continue
 
+        # Release input shm blocks from previous request
+        for _old_block in _input_shm_blocks:
+            try:
+                _old_block.close()
+            except Exception:
+                pass
+        _input_shm_blocks.clear()
+
         shm_registry = []
         try:
             request_type = request.get("type", "call_module")
@@ -1284,11 +1380,11 @@ class SubprocessWorker(Worker):
         self._socket_addr: Optional[str] = None
         self._transport: Optional[SocketTransport] = None
 
-        # Stderr inherits from parent (no pipe — avoids tqdm/\r deadlock)
+        # Stderr inherits from parent (no pipe -- avoids tqdm/\r deadlock)
 
         # Write worker script to temp file
         self._worker_script = self._temp_dir / "persistent_worker.py"
-        self._worker_script.write_text(_PERSISTENT_WORKER_SCRIPT)
+        self._worker_script.write_text(_PERSISTENT_WORKER_SCRIPT, encoding="utf-8")
 
     def _find_comfyui_base(self) -> Optional[Path]:
         """Find ComfyUI base directory."""

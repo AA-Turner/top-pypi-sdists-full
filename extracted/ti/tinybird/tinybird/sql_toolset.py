@@ -539,7 +539,7 @@ def replace_tables(
                     if (
                         dependent_table[2]
                         and dependent_table[2] not in _enabled_table_functions
-                        and not (dependent_table[2] in ["cluster"] and replacement[0] == VALID_REMOTE)
+                        and not (dependent_table[2] == "cluster" and replacement[0] == VALID_REMOTE)
                     ):
                         raise InvalidFunction(table_function_name=dependent_table[2])
                     if dependent_table[0] or dependent_table[1]:

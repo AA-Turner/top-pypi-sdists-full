@@ -1,9 +1,7 @@
-from adam.commands import extract_options, extract_trailing_options
+from adam.commands import extract_options
 from adam.commands.command import Command
 from adam.commands.export.exporter import export
 from adam.repl_state import ReplState, RequiredState
-from adam.utils_job.job import Job
-from adam.utils_context import Context
 
 class ExportTables(Command):
     COMMAND = 'export'
@@ -29,10 +27,10 @@ class ExportTables(Command):
 
         with self.validate(args, state) as (args, state):
             # remove & if present
-            with extract_trailing_options(args, '&') as (args, _):
+            with self.context(args) as (args, ctx):
                 with extract_options(args, '--export-only') as (args, export_only):
                     with export(state) as exporter:
-                        exporter.export(args, export_only=export_only, ctx=Context.new(cmd, background=False, history=Context.LOCAL))
+                        exporter.export(args, export_only=export_only, ctx=ctx)
 
                         return state
 

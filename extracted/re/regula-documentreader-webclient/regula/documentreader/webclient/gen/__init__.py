@@ -33,6 +33,8 @@ __all__ = [
     "AuthenticityCheckResultListInner",
     "AuthenticityResult",
     "AuthenticityResultType",
+    "BSIV2Item",
+    "BSIV2Result",
     "BarCodeModuleType",
     "BarcodePositionItem",
     "BarcodePositionResult",
@@ -40,6 +42,7 @@ __all__ = [
     "BcPDF417INFO",
     "BcROIDETECT",
     "BinaryData",
+    "BsiTr03135",
     "ByteArrayItem",
     "ByteArrayResult",
     "CandidatesListItem",
@@ -301,6 +304,8 @@ if __import__("typing").TYPE_CHECKING:
     from regula.documentreader.webclient.gen.models.authenticity_check_result_list_inner import AuthenticityCheckResultListInner as AuthenticityCheckResultListInner
     from regula.documentreader.webclient.gen.models.authenticity_result import AuthenticityResult as AuthenticityResult
     from regula.documentreader.webclient.gen.models.authenticity_result_type import AuthenticityResultType as AuthenticityResultType
+    from regula.documentreader.webclient.gen.models.bsiv2_item import BSIV2Item as BSIV2Item
+    from regula.documentreader.webclient.gen.models.bsiv2_result import BSIV2Result as BSIV2Result
     from regula.documentreader.webclient.gen.models.bar_code_module_type import BarCodeModuleType as BarCodeModuleType
     from regula.documentreader.webclient.gen.models.barcode_position_item import BarcodePositionItem as BarcodePositionItem
     from regula.documentreader.webclient.gen.models.barcode_position_result import BarcodePositionResult as BarcodePositionResult
@@ -308,6 +313,7 @@ if __import__("typing").TYPE_CHECKING:
     from regula.documentreader.webclient.gen.models.bc_pdf417_info import BcPDF417INFO as BcPDF417INFO
     from regula.documentreader.webclient.gen.models.bc_roidetect import BcROIDETECT as BcROIDETECT
     from regula.documentreader.webclient.gen.models.binary_data import BinaryData as BinaryData
+    from regula.documentreader.webclient.gen.models.bsi_tr03135 import BsiTr03135 as BsiTr03135
     from regula.documentreader.webclient.gen.models.byte_array_item import ByteArrayItem as ByteArrayItem
     from regula.documentreader.webclient.gen.models.byte_array_result import ByteArrayResult as ByteArrayResult
     from regula.documentreader.webclient.gen.models.candidates_list_item import CandidatesListItem as CandidatesListItem
@@ -575,6 +581,8 @@ from regula.documentreader.webclient.gen.models.authenticity_check_result_item i
 from regula.documentreader.webclient.gen.models.authenticity_check_result_list_inner import AuthenticityCheckResultListInner as AuthenticityCheckResultListInner
 from regula.documentreader.webclient.gen.models.authenticity_result import AuthenticityResult as AuthenticityResult
 from regula.documentreader.webclient.gen.models.authenticity_result_type import AuthenticityResultType as AuthenticityResultType
+from regula.documentreader.webclient.gen.models.bsiv2_item import BSIV2Item as BSIV2Item
+from regula.documentreader.webclient.gen.models.bsiv2_result import BSIV2Result as BSIV2Result
 from regula.documentreader.webclient.gen.models.bar_code_module_type import BarCodeModuleType as BarCodeModuleType
 from regula.documentreader.webclient.gen.models.barcode_position_item import BarcodePositionItem as BarcodePositionItem
 from regula.documentreader.webclient.gen.models.barcode_position_result import BarcodePositionResult as BarcodePositionResult
@@ -582,6 +590,7 @@ from regula.documentreader.webclient.gen.models.barcode_type import BarcodeType 
 from regula.documentreader.webclient.gen.models.bc_pdf417_info import BcPDF417INFO as BcPDF417INFO
 from regula.documentreader.webclient.gen.models.bc_roidetect import BcROIDETECT as BcROIDETECT
 from regula.documentreader.webclient.gen.models.binary_data import BinaryData as BinaryData
+from regula.documentreader.webclient.gen.models.bsi_tr03135 import BsiTr03135 as BsiTr03135
 from regula.documentreader.webclient.gen.models.byte_array_item import ByteArrayItem as ByteArrayItem
 from regula.documentreader.webclient.gen.models.byte_array_result import ByteArrayResult as ByteArrayResult
 from regula.documentreader.webclient.gen.models.candidates_list_item import CandidatesListItem as CandidatesListItem

@@ -239,6 +239,7 @@ class BashToolInput(ToolInput, tag=BASH_TOOL_NAME):
     timeout: int | None = None
     description: str | None = None
     background: bool = False
+    bash_id: str | None = None
 
 
 class PartialBashToolResult(PartialToolResult, tag=BASH_TOOL_NAME):
@@ -253,6 +254,7 @@ class BashToolResult(ToolResult, tag=BASH_TOOL_NAME):
     stopped_by_user: bool
     pid: int | None = None
     output_file: str | None = None
+    bash_id: str | None = None
 
 
 DOWNLOAD_ARTIFACT_TOOL_NAME = "download_artifact"
@@ -295,16 +297,8 @@ STORE_ARTIFACT_TOOL_NAME = "store_artifact"
 
 
 class StoreArtifactToolInput(ToolInput, tag=STORE_ARTIFACT_TOOL_NAME):
-    """Store an artifact to the CLI's config directory.
-
-    The CLI resolves the local path using its own INDENT_HOME configuration,
-    storing files flat in ~/.indent/chats/{chat_uuid}/{filename}.
-
-    The chat_uuid is obtained from the CLI's session context, not passed in the input.
-    """
-
     presigned_url: str
-    filename: str  # Just the filename, no path (e.g., "document.pdf")
+    filename: str  # Relative path within chat dir (e.g., "query_results/my-query.parquet")
 
 
 class StoreArtifactToolResult(ToolResult, tag=STORE_ARTIFACT_TOOL_NAME):

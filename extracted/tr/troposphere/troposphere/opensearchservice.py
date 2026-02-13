@@ -72,6 +72,16 @@ class S3VectorsEngine(AWSProperty):
     }
 
 
+class ServerlessVectorAcceleration(AWSProperty):
+    """
+    `ServerlessVectorAcceleration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-serverlessvectoracceleration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Enabled": (boolean, False),
+    }
+
+
 class AIMLOptions(AWSProperty):
     """
     `AIMLOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-aimloptions.html>`__
@@ -79,6 +89,7 @@ class AIMLOptions(AWSProperty):
 
     props: PropsDictType = {
         "S3VectorsEngine": (S3VectorsEngine, False),
+        "ServerlessVectorAcceleration": (ServerlessVectorAcceleration, False),
     }
 
 

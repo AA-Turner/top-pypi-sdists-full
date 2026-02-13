@@ -1,50 +1,39 @@
 Metadata-Version: 2.4
 Name: zope.deferredimport
-Version: 6.0
+Version: 6.1
 Summary: zope.deferredimport allows you to perform imports names that will only be resolved when used in the code.
-Home-page: http://github.com/zopefoundation/zope.deferredimport
-Author: Zope Foundation and Contributors
-Author-email: zope-dev@zope.dev
-License: ZPL-2.1
-Project-URL: Issue Tracker, https://github.com/zopefoundation/zope.deferredimport/issues
-Project-URL: Sources, https://github.com/zopefoundation/zope.deferredimport
+Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
+Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
+License-Expression: ZPL-2.1
+Project-URL: Source, https://github.com/zopefoundation/zope.deferredimport
+Project-URL: Issues, https://github.com/zopefoundation/zope.deferredimport/issues
+Project-URL: Documentation, https://zopedeferredimport.readthedocs.io/
+Project-URL: Changelog, https://raw.githubusercontent.com/zopefoundation/zope.deferredimport/master/CHANGES.rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development
-Requires-Python: >=3.9
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: setuptools
 Requires-Dist: zope.proxy
 Provides-Extra: test
 Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 =========================
  ``zope.deferredimport``
@@ -77,10 +66,24 @@ used.
 
 Documentation is hosted at https://zopedeferredimport.readthedocs.io/
 
-
 =========
  Changes
 =========
+
+6.1 (2026-02-09)
+================
+
+- Move package metadata from setup.py to pyproject.toml.
+
+- Add support for Python 3.14.
+
+- Drop support for Python 3.9.
+
+- Remove run-time dependency on ``setuptools``.
+
+- Adjust ``narrative`` doctest so that the sample files it generates match
+  those in git again.
+
 
 6.0 (2025-09-12)
 ================

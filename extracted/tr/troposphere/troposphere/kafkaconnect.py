@@ -50,7 +50,7 @@ class ProvisionedCapacity(AWSProperty):
     """
 
     props: PropsDictType = {
-        "McuCount": (integer, False),
+        "McuCount": (integer, True),
         "WorkerCount": (integer, True),
     }
 
@@ -223,6 +223,7 @@ class Connector(AWSObject):
         "KafkaClusterEncryptionInTransit": (KafkaClusterEncryptionInTransit, True),
         "KafkaConnectVersion": (str, True),
         "LogDelivery": (LogDelivery, False),
+        "NetworkType": (str, False),
         "Plugins": ([Plugin], True),
         "ServiceExecutionRoleArn": (str, True),
         "Tags": (Tags, False),

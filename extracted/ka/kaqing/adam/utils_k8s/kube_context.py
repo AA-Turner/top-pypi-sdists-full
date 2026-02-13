@@ -6,7 +6,7 @@ from adam.config import Config
 from adam.utils import idp_token_from_env
 from adam.utils_log import log2
 from adam.utils_tabulize import tabulize
-from adam.utils_context import Context
+from adam.utils_context import NULL
 
 class KubeContext:
     _in_cluster = False

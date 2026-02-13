@@ -40,11 +40,20 @@ class ImportHelper:
         :param confirm_text:
         """
 
-def axis_conversion(from_forward="Y", from_up="Z", to_forward="Y", to_up="Z") -> None:
-    """Each argument is an axis in [X, Y, Z, -X, -Y, -Z]
+def axis_conversion(
+    from_forward: typing.Literal["X", "Y", "Z", "-X", "-Y", "-Z"] = "Y",
+    from_up: typing.Literal["X", "Y", "Z", "-X", "-Y", "-Z"] = "Z",
+    to_forward: typing.Literal["X", "Y", "Z", "-X", "-Y", "-Z"] = "Y",
+    to_up: typing.Literal["X", "Y", "Z", "-X", "-Y", "-Z"] = "Z",
+) -> mathutils.Matrix:
+    """Each argument is an axis
     where the first 2 are a source and the second 2 are the target.
-    :rtype: `mathutils.Matrix`
 
+        :param from_forward: Source forward axis.
+        :param from_up: Source up axis.
+        :param to_forward: Target forward axis.
+        :param to_up: Target up axis.
+        :return: The conversion matrix.
     """
 
 def axis_conversion_ensure(
@@ -65,24 +74,32 @@ def create_derived_objects(
     """This function takes a sequence of objects, returning their instances.
 
         :param depsgraph: The evaluated depsgraph.
-        :param objects: A sequencer of objects.
+        :param objects: A sequence of objects.
         :return: A dictionary where each key is an object from objects,
     values are lists of (object, matrix) tuples representing instances.
     """
 
-def orientation_helper(axis_forward="Y", axis_up="Z") -> None:
+def orientation_helper(
+    axis_forward: typing.Literal["X", "Y", "Z", "-X", "-Y", "-Z"] = "Y",
+    axis_up: typing.Literal["X", "Y", "Z", "-X", "-Y", "-Z"] = "Z",
+) -> collections.abc.Callable[typing.Any, typing.Any]:
     """A decorator for import/export classes, generating properties needed by the axis conversion system and IO helpers,
     with specified default values (axes).
 
+        :param axis_forward: The default forward axis.
+        :param axis_up: The default up axis.
+        :return: A class decorator.
     """
 
 def path_reference(
     filepath: str,
     base_src: str,
     base_dst: str,
-    mode: str = "AUTO",
+    mode: typing.Literal[
+        "AUTO", "ABSOLUTE", "RELATIVE", "MATCH", "STRIP", "COPY"
+    ] = "AUTO",
     copy_subdir: str = "",
-    copy_set: set[tuple[str, str]] | None = None,
+    copy_set: None | set[tuple[str, str]] | None = None,
     library: None | bpy.types.Library | None = None,
 ) -> str:
     """Return a filepath relative to a destination directory, for use with
@@ -90,12 +107,11 @@ def path_reference(
 
         :param filepath: the file path to return,
     supporting blenders relative // prefix.
-        :param base_src: the directory the filepath is relative too
+        :param base_src: the directory the filepath is relative to
     (normally the blend file).
         :param base_dst: the directory the filepath will be referenced from
     (normally the export path).
-        :param mode: the method used get the path in
-    [AUTO, ABSOLUTE, RELATIVE, MATCH, STRIP, COPY]
+        :param mode: the method used to reference the path.
         :param copy_subdir: the subdirectory of base_dst to use when mode=COPY.
         :param copy_set: collect from/to pairs when mode=COPY,
     pass to path_reference_copy when exporting is done.
@@ -112,20 +128,22 @@ def path_reference_copy(
     :param report: function used for reporting warnings, takes a string argument.
     """
 
-def poll_file_object_drop(context) -> None:
+def poll_file_object_drop(context: bpy.types.Context) -> bool:
     """A default implementation for FileHandler poll_drop methods. Allows for both the 3D Viewport and
     the Outliner (in ViewLayer display mode) to be targets for file drag and drop.
 
+        :param context: The context.
+        :return: Whether the drop target is valid.
     """
 
 def unique_name(
     key: typing.Any,
     name: str,
-    name_dict: dict,
-    name_max=-1,
-    clean_func: typing.Any | None = None,
+    name_dict: dict[typing.Any, str],
+    name_max: int = -1,
+    clean_func: None | collections.abc.Callable[str, str] | None = None,
     sep: str = ".",
-) -> None:
+) -> str:
     """Helper function for storing unique names which may have special characters
     stripped and restricted to a maximum length.
 
@@ -137,10 +155,26 @@ def unique_name(
         :param name_dict: This is used to cache namespace to ensure no collisions
     occur, this should be an empty dict initially and only modified by this
     function.
+        :param name_max: Maximum length of the name. When -1 the name is unlimited.
         :param clean_func: Function to call on name before creating a unique value.
         :param sep: Separator to use when between the name and a number when a
     duplicate name is found.
+        :return: A unique name.
     """
 
-def unpack_face_list(list_of_tuples) -> None: ...
-def unpack_list(list_of_tuples) -> None: ...
+def unpack_face_list(
+    list_of_tuples: collections.abc.Sequence[tuple[int, ...]],
+) -> list[int]:
+    """Unpack a list of faces (triangles or quads) into a flat list,
+    padding triangles with a zero to fit into groups of four.
+
+        :param list_of_tuples: A sequence of face index tuples (3 or 4 elements each).
+        :return: A flat list of face indices, padded with zeros.
+    """
+
+def unpack_list(list_of_tuples: collections.abc.Sequence[tuple]) -> list:
+    """Flatten a sequence of tuples into a single list.
+
+    :param list_of_tuples: A sequence of tuples to unpack.
+    :return: A flat list of all values.
+    """

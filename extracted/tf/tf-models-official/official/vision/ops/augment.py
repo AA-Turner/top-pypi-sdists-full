@@ -1,4 +1,4 @@
-# Copyright 2024 The TensorFlow Authors. All Rights Reserved.
+# Copyright 2025 The TensorFlow Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -2697,8 +2697,8 @@ class MixupAndCutmix:
 
   @staticmethod
   def _sample_from_beta(alpha, beta, shape):
-    sample_alpha = tf.random.gamma(shape, 1., beta=alpha)
-    sample_beta = tf.random.gamma(shape, 1., beta=beta)
+    sample_alpha = tf.random.gamma(shape, alpha, beta=1.0)
+    sample_beta = tf.random.gamma(shape, beta, beta=1.0)
     return sample_alpha / (sample_alpha + sample_beta)
 
   def _cutmix(self, images: tf.Tensor,

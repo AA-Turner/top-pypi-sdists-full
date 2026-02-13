@@ -42,6 +42,8 @@ from unitycatalog.client.models.delta_commit_metadata_properties import DeltaCom
 from unitycatalog.client.models.delta_get_commits import DeltaGetCommits
 from unitycatalog.client.models.delta_get_commits_response import DeltaGetCommitsResponse
 from unitycatalog.client.models.delta_metadata import DeltaMetadata
+from unitycatalog.client.models.delta_uniform import DeltaUniform
+from unitycatalog.client.models.delta_uniform_iceberg import DeltaUniformIceberg
 from unitycatalog.client.models.dependency import Dependency
 from unitycatalog.client.models.dependency_list import DependencyList
 from unitycatalog.client.models.external_location_info import ExternalLocationInfo

@@ -17,7 +17,7 @@ import yaml
 from prompt_toolkit.completion import Completer
 
 from adam.config_holder import ConfigHolder
-from adam.utils_fs import creating_dir
+from adam.directories import creating_dir
 from adam.utils_log import log2
 
 from . import __version__

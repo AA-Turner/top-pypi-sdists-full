@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: click-extra
-Version: 7.5.1
+Version: 7.5.2
 Summary: 🌈 Drop-in replacement for Click to make user-friendly and colorful CLI
-Keywords: ansi-colors,cli,cloup,colorization,configuration,console,ini,json,json5,jsonc,hjson,logging,multiplatform,pygments,pytest,python,python-tabulate,sphinx,terminal,toml,xml,yaml
+Keywords: ansi-colors,cli,cloup,colorization,configuration,console,hjson,ini,json,json5,jsonc,logging,multiplatform,pygments,pytest,python,python-tabulate,sphinx,terminal,toml,xml,yaml
 Author: Kevin Deldycke
 Author-email: Kevin Deldycke <kevin@deldycke.com>
 License-File: license
@@ -21,7 +21,7 @@ Classifier: Operating System :: POSIX :: BSD :: FreeBSD
 Classifier: Operating System :: POSIX :: BSD :: NetBSD
 Classifier: Operating System :: POSIX :: BSD :: OpenBSD
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -37,34 +37,34 @@ Classifier: Topic :: Terminals
 Classifier: Topic :: Text Processing :: Filters
 Classifier: Topic :: Text Processing :: Markup :: HTML
 Classifier: Topic :: Text Processing :: Markup :: Markdown
-Classifier: Topic :: Text Processing :: Markup :: XML
 Classifier: Topic :: Text Processing :: Markup :: reStructuredText
+Classifier: Topic :: Text Processing :: Markup :: XML
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
-Requires-Dist: boltons>=25.0.0
+Requires-Dist: boltons>=25
 Requires-Dist: click>=8.3.1
 Requires-Dist: cloup>=3.0.7
-Requires-Dist: deepmerge>=2.0
-Requires-Dist: extra-platforms>=8.0.0
+Requires-Dist: deepmerge>=2
+Requires-Dist: extra-platforms>=8
 Requires-Dist: requests>=2.32.5
 Requires-Dist: tabulate[widechars]>=0.9
-Requires-Dist: tomli>=2.3.0 ; python_full_version < '3.11'
-Requires-Dist: wcmatch>=10.0
-Requires-Dist: hjson>=3.1.0 ; extra == 'hjson'
+Requires-Dist: tomli>=2.3 ; python_full_version < '3.11'
+Requires-Dist: wcmatch>=10
+Requires-Dist: hjson>=3.1 ; extra == 'hjson'
 Requires-Dist: json5>=0.12.1 ; extra == 'json5'
 Requires-Dist: json-with-comments>=1.2.10 ; extra == 'jsonc'
 Requires-Dist: pygments>=2.14 ; extra == 'pygments'
-Requires-Dist: pygments-ansi-color>=0.3.0 ; extra == 'pygments'
-Requires-Dist: pytest>=9.0.0 ; extra == 'pytest'
+Requires-Dist: pygments-ansi-color>=0.3 ; extra == 'pygments'
+Requires-Dist: pytest>=9 ; extra == 'pytest'
 Requires-Dist: docutils>=0.20 ; extra == 'sphinx'
 Requires-Dist: pygments>=2.14 ; extra == 'sphinx'
-Requires-Dist: pygments-ansi-color>=0.3.0 ; extra == 'sphinx'
-Requires-Dist: sphinx>=8.0.0 ; extra == 'sphinx'
-Requires-Dist: xmltodict>=1.0.0 ; extra == 'xml'
+Requires-Dist: pygments-ansi-color>=0.3 ; extra == 'sphinx'
+Requires-Dist: sphinx>=8 ; extra == 'sphinx'
+Requires-Dist: xmltodict>=1 ; extra == 'xml'
 Requires-Dist: pyyaml>=6.0.3 ; extra == 'yaml'
 Requires-Python: >=3.10
 Project-URL: Homepage, https://github.com/kdeldycke/click-extra
-Project-URL: Download, https://github.com/kdeldycke/click-extra/releases/tag/v7.5.1
+Project-URL: Download, https://github.com/kdeldycke/click-extra/releases/tag/v7.5.2
 Project-URL: Changelog, https://github.com/kdeldycke/click-extra/blob/main/changelog.md
 Project-URL: Issues, https://github.com/kdeldycke/click-extra/issues
 Project-URL: Repository, https://github.com/kdeldycke/click-extra
@@ -135,7 +135,7 @@ To undestrand how we ended up with the result above, [go read the tutorial](http
 - Remote loading of [configuration from URLs](https://kdeldycke.github.io/click-extra/config.html#remote-url)
 - Optional [strict validation](https://kdeldycke.github.io/click-extra/config.html#strictness) of configuration
 - Respect the [default application path](https://kdeldycke.github.io/click-extra/config.html#default-folder) on each platform (XDG spec. on Linux)
-- [Glob search patterns](https://kdeldycke.github.io/click-extra/config.html#pattern-matching) for configuration files
+- [Glob search patterns](https://kdeldycke.github.io/click-extra/config.html#search-pattern) for configuration files
 - A `--no-config` option to disable configuration file loading
 - Respect of `CLI` > `Configuration` > `Environment` > `Defaults` [precedence](https://kdeldycke.github.io/click-extra/config.html#precedence)
 - Normalization and discoverability of environment variables
@@ -157,7 +157,7 @@ To undestrand how we ended up with the result above, [go read the tutorial](http
 - [`click:source` and `click:run` Sphinx directives](https://kdeldycke.github.io/click-extra/sphinx.html) in MyST Markdown and reStructuredText to document CLI source code and their execution
 - [Inline testing of CLI examples](https://kdeldycke.github.io/click-extra/sphinx.html#inline-tests) in documentation
 - Render [GitHub alerts](https://kdeldycke.github.io/click-extra/sphinx.html#github-alerts) into MyST admonitions
-- [ANSI-capable Pygments lexers](https://kdeldycke.github.io/click-extra/pygments.html#lexers) for shell session and console output
+- [ANSI-capable Pygments lexers](https://kdeldycke.github.io/click-extra/pygments.html#ansi-language-lexers) for shell session and console output
 - [Fixes 50+ bugs](https://kdeldycke.github.io/click-extra/issues.html) from other Click-related projects
 - Rely on [Cloup](https://github.com/janluke/cloup) to add:
   - option groups

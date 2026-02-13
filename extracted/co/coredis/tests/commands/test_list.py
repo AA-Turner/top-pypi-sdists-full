@@ -1,26 +1,22 @@
 from __future__ import annotations
 
-import asyncio
-
+import anyio
 import pytest
 
 from coredis import PureToken
+from coredis._concurrency import gather
 from tests.conftest import server_deprecation_warning, targets
 
 
 @targets(
     "redis_basic",
-    "redis_basic_resp2",
-    "redis_basic_blocking",
     "redis_basic_raw",
     "redis_cluster",
-    "redis_cluster_blocking",
     "redis_cluster_raw",
     "redis_cached",
     "redis_cluster_cached",
     "dragonfly",
     "valkey",
-    "redict",
 )
 class TestList:
     async def test_blpop(self, client, _s):
@@ -46,8 +42,6 @@ class TestList:
         await client.rpush("c{foo}", ["1"])
         assert await client.blpop(["c{foo}"], timeout=1) == [_s("c{foo}"), _s("1")]
 
-    @pytest.mark.min_server_version("7.0.0")
-    @pytest.mark.nodragonfly
     async def test_lmpop(self, client, _s):
         await client.rpush("a{foo}", [1, 2, 3])
         await client.rpush("b{foo}", [4, 5, 6])
@@ -260,7 +254,6 @@ class TestList:
         )
         assert 1 == await client.llen("x{foo}")
 
-    @pytest.mark.min_server_version("7.0.0")
     @pytest.mark.nocluster
     @pytest.mark.nodragonfly
     async def test_blmpop(self, client, cloner, _s):
@@ -277,11 +270,12 @@ class TestList:
         assert result[1] == [_s("6")]
 
         async def _delayadd():
-            await asyncio.sleep(0.1)
+            await anyio.sleep(0.1)
             clone = await cloner(client)
-            return await clone.rpush("a{foo}", ["42"])
+            async with clone:
+                return await clone.rpush("a{foo}", ["42"])
 
-        result = await asyncio.gather(client.blmpop(["a{foo}"], 1, PureToken.LEFT), _delayadd())
+        result = await gather(client.blmpop(["a{foo}"], 1, PureToken.LEFT), _delayadd())
         assert result[0][1] == [_s("42")]
 
     async def test_blmove(self, client, _s):

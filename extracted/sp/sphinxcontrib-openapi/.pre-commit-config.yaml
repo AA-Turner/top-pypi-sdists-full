@@ -1,12 +1,14 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
+        exclude: 'tests/examples'
       - id: end-of-file-fixer
         exclude: >
           (?x)(
-            tests/renderers/httpdomain/rendered
+            tests/renderers/httpdomain/rendered |
+            tests/examples/
           )
       - id: check-docstring-first
       - id: check-json
@@ -14,7 +16,7 @@ repos:
       - id: debug-statements
 
   - repo: https://github.com/psf/black
-    rev: 23.10.0
+    rev: 26.1.0
     hooks:
       - id: black
         args: [--line-length=88, --target-version=py35]
@@ -46,6 +48,6 @@ repos:
           )
 
   - repo: https://github.com/pycqa/flake8
-    rev: 6.1.0
+    rev: 7.3.0
     hooks:
       - id: flake8

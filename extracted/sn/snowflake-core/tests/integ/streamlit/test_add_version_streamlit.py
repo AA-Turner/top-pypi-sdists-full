@@ -1,12 +1,11 @@
 import pytest
 
-from tests.integ.utils import random_string
-
 from snowflake.core.streamlit import (
     AddVersionStreamlitRequest,
     AddVersionStreamlitRequestVersion,
     Streamlit,
 )
+from tests.integ.utils import random_string
 
 
 @pytest.mark.min_sf_ver("9.38.0")

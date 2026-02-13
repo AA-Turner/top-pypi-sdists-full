@@ -1,7 +1,8 @@
 import urllib
 from typing import Optional
 
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING
+from collections.abc import Iterator
 
 if TYPE_CHECKING:
     from fhirclient.server import FHIRServer
@@ -9,7 +10,7 @@ if TYPE_CHECKING:
 
 
 # Use forward references to avoid circular imports
-def _fetch_next_page(bundle: 'Bundle', server: 'FHIRServer') -> Optional['Bundle']:
+def _fetch_next_page(bundle: "Bundle", server: "FHIRServer") -> Optional["Bundle"]:
     """
     Fetch the next page of results using the `next` link provided in the bundle.
 
@@ -25,7 +26,7 @@ def _fetch_next_page(bundle: 'Bundle', server: 'FHIRServer') -> Optional['Bundle
     return None
 
 
-def _get_next_link(bundle: 'Bundle') -> Optional[str]:
+def _get_next_link(bundle: "Bundle") -> str | None:
     """
     Extract the `next` link from the Bundle's links.
 
@@ -72,7 +73,7 @@ def _sanitize_next_link(next_link: str) -> str:
     return next_link
 
 
-def _execute_pagination_request(sanitized_url: str, server: 'FHIRServer') -> 'Bundle':
+def _execute_pagination_request(sanitized_url: str, server: "FHIRServer") -> "Bundle":
     """
     Execute the request to retrieve the next page using the sanitized URL via Bundle.read_from.
 
@@ -87,10 +88,11 @@ def _execute_pagination_request(sanitized_url: str, server: 'FHIRServer') -> 'Bu
         HTTPError: If the request fails due to network issues or server errors.
     """
     from fhirclient.models.bundle import Bundle
+
     return Bundle.read_from(sanitized_url, server)
 
 
-def iter_pages(first_bundle: 'Bundle', server: 'FHIRServer') -> Iterator['Bundle']:
+def iter_pages(first_bundle: "Bundle", server: "FHIRServer") -> Iterator["Bundle"]:
     """
     Iterator that yields each page of results as a FHIR Bundle.
 
@@ -102,8 +104,7 @@ def iter_pages(first_bundle: 'Bundle', server: 'FHIRServer') -> Iterator['Bundle
         Bundle: Each page of results as a FHIR Bundle.
     """
     # Since _fetch_next_page can return None
-    bundle: Optional[Bundle] = first_bundle
+    bundle: Bundle | None = first_bundle
     while bundle:
         yield bundle
         bundle = _fetch_next_page(bundle, server)
-

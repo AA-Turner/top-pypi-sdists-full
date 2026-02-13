@@ -17,11 +17,6 @@ from exponent.commands.settings import use_settings
 from exponent.commands.types import exponent_cli_group
 from exponent.core.config import Settings
 from exponent.core.graphql.client import GraphQLClient
-from exponent.core.graphql.generated_client.chats import (
-    ChatsChatsChats,
-    ChatsChatsUnauthenticatedError,
-)
-from exponent.core.graphql.subscriptions import AUTHENTICATED_USER_SUBSCRIPTION
 from exponent.utils.version import (
     get_installed_metadata,
     get_installed_version,
@@ -29,6 +24,14 @@ from exponent.utils.version import (
     get_python_path,
     get_sys_executable,
 )
+
+CURRENT_USER_QUERY = """
+    query CurrentUser {
+        currentUser {
+            userUuid
+        }
+    }
+"""
 
 
 @exponent_cli_group()
@@ -309,13 +312,9 @@ async def get_chats_task(
     graphql_client = GraphQLClient(api_key, base_api_url, base_ws_url)
     result = await graphql_client.get_chats()
 
-    # Handle the typed response
-    if isinstance(result.chats, ChatsChatsUnauthenticatedError):
-        click.secho(f"Error: {result.chats.message}", fg="red")
-    elif isinstance(result.chats, ChatsChatsChats):
-        click.echo(f"Found {len(result.chats.chats)} chats:")
-        for chat in result.chats.chats:
-            click.echo(f"  - {chat.name or 'Untitled'} ({chat.chat_uuid})")
+    click.echo(f"Found {len(result.organization_chats_page.chats)} chats:")
+    for chat in result.organization_chats_page.chats:
+        click.echo(f"  - {chat.name or 'Untitled'} ({chat.chat_uuid})")
 
 
 async def get_authenticated_user_task(
@@ -324,8 +323,8 @@ async def get_authenticated_user_task(
     base_ws_url: str,
 ) -> None:
     graphql_client = GraphQLClient(api_key, base_api_url, base_ws_url)
-    async for it in graphql_client.subscribe(AUTHENTICATED_USER_SUBSCRIPTION, vars={"token": api_key}):
-        click.echo(it)
+    result = await graphql_client.execute(CURRENT_USER_QUERY)
+    click.echo(result)
 
 
 @config_cli.command(hidden=True)

@@ -20,7 +20,7 @@ dependencies = [
     # keep in sync with jax-version in .github/workflows/build.yml
     "jax>=0.8.1",
     "msgpack",
-    "optax",
+    "optax==0.2.6",
     "orbax-checkpoint",
     "tensorstore",
     "rich>=11.1",
@@ -43,6 +43,7 @@ dynamic = ["version", "readme"]
 [project.optional-dependencies]
 testing = [
     "clu",
+    "chex",
     "clu<=0.0.9; python_version<'3.10'",
     "einops",
     "gymnasium[atari]; python_version<'3.14'",
@@ -79,6 +80,7 @@ docs = [
     "sphinx-book-theme",
     "Pygments>=2.6.1",
     "ipykernel",
+    "tqdm==4.67.1",
     "myst_nb",
     "nbstripout",
     "recommonmark",
@@ -202,6 +204,8 @@ filterwarnings = [
     "ignore:.*[Data|Static]' is deprecated, please replace.*:DeprecationWarning",
     # DeprecationWarning: Implicit conversion of an array to a dtype is deprecated; rather than dtype=arr use dtype=arr.dtype.
     "ignore:.*Implicit conversion of an array to a dtype is deprecated; rather than dtype=arr use dtype=arr.dtype.*:DeprecationWarning",
+    # DeprecationWarning: Setting `jax_pmap_shmap_merge` is deprecated in JAX v0.9.0 and will be removed in JAX v0.10.0
+    "ignore:.*Setting `jax_pmap_shmap_merge` is deprecated in JAX.*:DeprecationWarning",
 ]
 
 [tool.coverage.report]

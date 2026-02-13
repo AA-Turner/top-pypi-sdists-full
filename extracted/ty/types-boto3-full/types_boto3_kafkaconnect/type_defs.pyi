@@ -355,6 +355,7 @@ class AutoScalingDescriptionTypeDef(TypedDict):
     minWorkerCount: NotRequired[int]
     scaleInPolicy: NotRequired[ScaleInPolicyDescriptionTypeDef]
     scaleOutPolicy: NotRequired[ScaleOutPolicyDescriptionTypeDef]
+    maxAutoscalingTaskCount: NotRequired[int]
 
 class AutoScalingTypeDef(TypedDict):
     maxWorkerCount: int
@@ -362,6 +363,7 @@ class AutoScalingTypeDef(TypedDict):
     minWorkerCount: int
     scaleInPolicy: NotRequired[ScaleInPolicyTypeDef]
     scaleOutPolicy: NotRequired[ScaleOutPolicyTypeDef]
+    maxAutoscalingTaskCount: NotRequired[int]
 
 class AutoScalingUpdateTypeDef(TypedDict):
     maxWorkerCount: int
@@ -369,6 +371,7 @@ class AutoScalingUpdateTypeDef(TypedDict):
     minWorkerCount: int
     scaleInPolicy: ScaleInPolicyUpdateTypeDef
     scaleOutPolicy: ScaleOutPolicyUpdateTypeDef
+    maxAutoscalingTaskCount: NotRequired[int]
 
 class CreateConnectorResponseTypeDef(TypedDict):
     connectorArn: str

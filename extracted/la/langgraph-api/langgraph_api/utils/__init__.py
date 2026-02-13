@@ -158,7 +158,7 @@ def validate_stream_id(stream_id: str | None, invalid_stream_id_detail: str | No
 
 
 def next_cron_date(schedule: str, base_time: datetime) -> datetime:
-    import croniter  # type: ignore[unresolved-import]
+    import croniter  # type: ignore[unresolved-import]  # noqa: PLC0415
 
     cron_iter = croniter.croniter(schedule, base_time)
     return cron_iter.get_next(datetime)

@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: u8darts
-Version: 0.40.0
-Summary: A python library for easy manipulation and forecasting of time series.
-Home-page: https://unit8co.github.io/darts/
-Maintainer: Unit8 SA
-Maintainer-email: darts@unit8.co
-License: Apache License 2.0
-Project-URL: Bug Tracker, https://github.com/unit8co/darts/issues
+Version: 0.41.0
+Summary: ⚠️ DEPRECATED - Use 'darts' package instead. This legacy compatibility package redirects to 'darts'.
+Maintainer-email: Unit8 SA <darts@unit8.co>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://unit8co.github.io/darts/
 Project-URL: Documentation, https://unit8co.github.io/darts/
-Project-URL: Source Code, https://github.com/unit8co/darts
-Keywords: time series forecasting
+Project-URL: Repository, https://github.com/unit8co/darts
+Keywords: time series,forecasting
+Classifier: Development Status :: 7 - Inactive
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
@@ -23,79 +22,27 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: holidays>=0.11.1
-Requires-Dist: joblib>=0.16.0
-Requires-Dist: matplotlib>=3.3.0
-Requires-Dist: narwhals>=1.25.1
-Requires-Dist: nfoursid>=1.0.0
-Requires-Dist: numpy>=1.19.0
-Requires-Dist: pandas>=1.0.5
-Requires-Dist: pyod>=0.9.5
-Requires-Dist: requests>=2.22.0
-Requires-Dist: scikit-learn<1.8.0,>=1.6.0
-Requires-Dist: scipy>=1.3.2
-Requires-Dist: shap>=0.40.0
-Requires-Dist: statsmodels>=0.14.0
-Requires-Dist: tqdm>=4.60.0
-Requires-Dist: typing-extensions
-Requires-Dist: xarray>=0.17.0
-Provides-Extra: all
-Requires-Dist: holidays>=0.11.1; extra == "all"
-Requires-Dist: joblib>=0.16.0; extra == "all"
-Requires-Dist: matplotlib>=3.3.0; extra == "all"
-Requires-Dist: narwhals>=1.25.1; extra == "all"
-Requires-Dist: nfoursid>=1.0.0; extra == "all"
-Requires-Dist: numpy>=1.19.0; extra == "all"
-Requires-Dist: pandas>=1.0.5; extra == "all"
-Requires-Dist: pyod>=0.9.5; extra == "all"
-Requires-Dist: requests>=2.22.0; extra == "all"
-Requires-Dist: scikit-learn<1.8.0,>=1.6.0; extra == "all"
-Requires-Dist: scipy>=1.3.2; extra == "all"
-Requires-Dist: shap>=0.40.0; extra == "all"
-Requires-Dist: statsmodels>=0.14.0; extra == "all"
-Requires-Dist: tqdm>=4.60.0; extra == "all"
-Requires-Dist: typing-extensions; extra == "all"
-Requires-Dist: xarray>=0.17.0; extra == "all"
-Requires-Dist: pytorch-lightning<2.5.3,>=2.0.0; extra == "all"
-Requires-Dist: tensorboardX>=2.1; extra == "all"
-Requires-Dist: torch>=2.0.0; extra == "all"
-Requires-Dist: huggingface-hub>=0.35.3; extra == "all"
-Requires-Dist: safetensors>=0.6.2; extra == "all"
-Requires-Dist: prophet>=1.1.1; extra == "all"
-Requires-Dist: catboost>=1.0.6; extra == "all"
-Requires-Dist: lightgbm>=3.2.0; extra == "all"
-Requires-Dist: statsforecast>=1.4; extra == "all"
-Requires-Dist: xgboost>=2.1.4; extra == "all"
+Requires-Dist: darts==0.41.0
 Provides-Extra: torch
-Requires-Dist: pytorch-lightning<2.5.3,>=2.0.0; extra == "torch"
-Requires-Dist: tensorboardX>=2.1; extra == "torch"
-Requires-Dist: torch>=2.0.0; extra == "torch"
-Requires-Dist: huggingface-hub>=0.35.3; extra == "torch"
-Requires-Dist: safetensors>=0.6.2; extra == "torch"
+Requires-Dist: darts[torch]==0.41.0; extra == "torch"
 Provides-Extra: notorch
-Requires-Dist: prophet>=1.1.1; extra == "notorch"
-Requires-Dist: catboost>=1.0.6; extra == "notorch"
-Requires-Dist: lightgbm>=3.2.0; extra == "notorch"
-Requires-Dist: statsforecast>=1.4; extra == "notorch"
-Requires-Dist: xgboost>=2.1.4; extra == "notorch"
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
+Requires-Dist: darts[notorch]==0.41.0; extra == "notorch"
+Provides-Extra: all
+Requires-Dist: darts[all]==0.41.0; extra == "all"
 Dynamic: license-file
-Dynamic: maintainer
-Dynamic: maintainer-email
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+
+# ⚠️⚠️⚠️ Important: Migration from u8darts to darts ⚠️⚠️⚠️
+
+⚠️⚠️⚠️ As of version `0.41.0`: The `u8darts` PyPI package is deprecated use `darts` instead ⚠️⚠️⚠️
+
+## How to migrate from Darts versions <=0.40.0 to versions >=0.41.0
+
+- use `pip install "darts[option]>=0.41.0"` rather than `pip install "u8darts[option]"` (e.g. `pip install "darts[all]>=0.41.0"`)
+- replace `u8darts` by `darts>=0.41.0` in your pip requirements files (pyproject.toml, requirements.txt, setup.py, setup.cfg, Pipfile, etc ...)
+- if the `u8darts` package is used by one of your dependencies it would be great if you take some time to track which package uses `u8darts` instead of `darts` and report it to their issue tracker
 
 # Time Series Made Easy in Python
 

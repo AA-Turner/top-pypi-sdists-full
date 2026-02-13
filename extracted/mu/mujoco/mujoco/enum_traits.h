@@ -98,6 +98,14 @@ struct mjtGeom {
     std::make_pair("mjGEOM_NONE", ::mjtGeom::mjGEOM_NONE)};
 };
 
+struct mjtProjection {
+  static constexpr char name[] = "mjtProjection";
+  using type = ::mjtProjection;
+  static constexpr auto values = std::array{
+    std::make_pair("mjPROJ_PERSPECTIVE", ::mjtProjection::mjPROJ_PERSPECTIVE),
+    std::make_pair("mjPROJ_ORTHOGRAPHIC", ::mjtProjection::mjPROJ_ORTHOGRAPHIC)};
+};
+
 struct mjtCamLight {
   static constexpr char name[] = "mjtCamLight";
   using type = ::mjtCamLight;
@@ -199,6 +207,7 @@ struct mjtEq {
     std::make_pair("mjEQ_JOINT", ::mjtEq::mjEQ_JOINT),
     std::make_pair("mjEQ_TENDON", ::mjtEq::mjEQ_TENDON),
     std::make_pair("mjEQ_FLEX", ::mjtEq::mjEQ_FLEX),
+    std::make_pair("mjEQ_FLEXVERT", ::mjtEq::mjEQ_FLEXVERT),
     std::make_pair("mjEQ_DISTANCE", ::mjtEq::mjEQ_DISTANCE)};
 };
 
@@ -384,6 +393,31 @@ struct mjtConDataField {
     std::make_pair("mjNCONDATA", ::mjtConDataField::mjNCONDATA)};
 };
 
+struct mjtRayDataField {
+  static constexpr char name[] = "mjtRayDataField";
+  using type = ::mjtRayDataField;
+  static constexpr auto values = std::array{
+    std::make_pair("mjRAYDATA_DIST", ::mjtRayDataField::mjRAYDATA_DIST),
+    std::make_pair("mjRAYDATA_DIR", ::mjtRayDataField::mjRAYDATA_DIR),
+    std::make_pair("mjRAYDATA_ORIGIN", ::mjtRayDataField::mjRAYDATA_ORIGIN),
+    std::make_pair("mjRAYDATA_POINT", ::mjtRayDataField::mjRAYDATA_POINT),
+    std::make_pair("mjRAYDATA_NORMAL", ::mjtRayDataField::mjRAYDATA_NORMAL),
+    std::make_pair("mjRAYDATA_DEPTH", ::mjtRayDataField::mjRAYDATA_DEPTH),
+    std::make_pair("mjNRAYDATA", ::mjtRayDataField::mjNRAYDATA)};
+};
+
+struct mjtCamOutBit {
+  static constexpr char name[] = "mjtCamOutBit";
+  using type = ::mjtCamOutBit;
+  static constexpr auto values = std::array{
+    std::make_pair("mjCAMOUT_RGB", ::mjtCamOutBit::mjCAMOUT_RGB),
+    std::make_pair("mjCAMOUT_DEPTH", ::mjtCamOutBit::mjCAMOUT_DEPTH),
+    std::make_pair("mjCAMOUT_DIST", ::mjtCamOutBit::mjCAMOUT_DIST),
+    std::make_pair("mjCAMOUT_NORMAL", ::mjtCamOutBit::mjCAMOUT_NORMAL),
+    std::make_pair("mjCAMOUT_SEG", ::mjtCamOutBit::mjCAMOUT_SEG),
+    std::make_pair("mjNCAMOUT", ::mjtCamOutBit::mjNCAMOUT)};
+};
+
 struct mjtSameFrame {
   static constexpr char name[] = "mjtSameFrame";
   using type = ::mjtSameFrame;
@@ -455,6 +489,7 @@ struct mjtState {
     std::make_pair("mjSTATE_QPOS", ::mjtState::mjSTATE_QPOS),
     std::make_pair("mjSTATE_QVEL", ::mjtState::mjSTATE_QVEL),
     std::make_pair("mjSTATE_ACT", ::mjtState::mjSTATE_ACT),
+    std::make_pair("mjSTATE_HISTORY", ::mjtState::mjSTATE_HISTORY),
     std::make_pair("mjSTATE_WARMSTART", ::mjtState::mjSTATE_WARMSTART),
     std::make_pair("mjSTATE_CTRL", ::mjtState::mjSTATE_CTRL),
     std::make_pair("mjSTATE_QFRC_APPLIED", ::mjtState::mjSTATE_QFRC_APPLIED),
@@ -762,6 +797,7 @@ struct mjtRndFlag {
     std::make_pair("mjRND_SKYBOX", ::mjtRndFlag::mjRND_SKYBOX),
     std::make_pair("mjRND_FOG", ::mjtRndFlag::mjRND_FOG),
     std::make_pair("mjRND_HAZE", ::mjtRndFlag::mjRND_HAZE),
+    std::make_pair("mjRND_DEPTH", ::mjtRndFlag::mjRND_DEPTH),
     std::make_pair("mjRND_SEGMENT", ::mjtRndFlag::mjRND_SEGMENT),
     std::make_pair("mjRND_IDCOLOR", ::mjtRndFlag::mjRND_IDCOLOR),
     std::make_pair("mjRND_CULL_FACE", ::mjtRndFlag::mjRND_CULL_FACE),
@@ -900,6 +936,7 @@ static constexpr auto kAllEnums = std::make_tuple(
     mjtEnableBit{},
     mjtJoint{},
     mjtGeom{},
+    mjtProjection{},
     mjtCamLight{},
     mjtLightType{},
     mjtTexture{},
@@ -920,6 +957,8 @@ static constexpr auto kAllEnums = std::make_tuple(
     mjtStage{},
     mjtDataType{},
     mjtConDataField{},
+    mjtRayDataField{},
+    mjtCamOutBit{},
     mjtSameFrame{},
     mjtSleepPolicy{},
     mjtLRMode{},

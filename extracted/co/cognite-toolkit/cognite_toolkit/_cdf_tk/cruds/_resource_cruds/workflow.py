@@ -154,15 +154,18 @@ class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[WorkflowResponse]:
         if data_set_external_id is None:
             for workflows in self.client.tool.workflows.iterate(limit=100):
                 yield from workflows
             return
-        data_set = self.client.data_sets.retrieve(external_id=data_set_external_id)
-        if data_set is None:
+        data_sets = self.client.tool.datasets.retrieve(
+            [ExternalId(external_id=data_set_external_id)], ignore_unknown_ids=True
+        )
+        if not data_sets:
             raise ToolkitRequiredValueError(f"DataSet {data_set_external_id!r} does not exist")
+        data_set = data_sets[0]
         for workflows in self.client.tool.workflows.iterate(limit=100):
             for workflow in workflows:
                 if workflow.data_set_id == data_set.id:
@@ -176,7 +179,7 @@ class WorkflowCRUD(ResourceCRUD[ExternalId, WorkflowRequest, WorkflowResponse]):
         DatasetLoader and identifier of that dataset.
         """
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, item["dataSetExternalId"]
+            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
 
 
 @final
@@ -408,7 +411,7 @@ class WorkflowVersionCRUD(ResourceCRUD[WorkflowVersionId, WorkflowVersionRequest
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[WorkflowVersionResponse]:
         # Note: The new API doesn't support filtering by workflow_ids in list, so we iterate over all
         for versions in self.client.tool.workflows.versions.iterate(limit=100):
@@ -557,7 +560,7 @@ class WorkflowTriggerCRUD(ResourceCRUD[ExternalId, WorkflowTriggerRequest, Workf
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[WorkflowTriggerResponse]:
         triggers = self.client.tool.workflows.triggers.list(limit=None)
         if parent_ids is not None:

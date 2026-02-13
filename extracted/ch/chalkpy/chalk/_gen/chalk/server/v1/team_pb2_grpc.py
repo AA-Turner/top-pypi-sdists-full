@@ -150,6 +150,26 @@ class TeamServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.ReactivateUserRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.ReactivateUserResponse.FromString,
         )
+        self.CreateCustomRole = channel.unary_unary(
+            "/chalk.server.v1.TeamService/CreateCustomRole",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateCustomRoleRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateCustomRoleResponse.FromString,
+        )
+        self.DeleteCustomRole = channel.unary_unary(
+            "/chalk.server.v1.TeamService/DeleteCustomRole",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteCustomRoleRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteCustomRoleResponse.FromString,
+        )
+        self.UpdateCustomRole = channel.unary_unary(
+            "/chalk.server.v1.TeamService/UpdateCustomRole",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateCustomRoleRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateCustomRoleResponse.FromString,
+        )
+        self.GetProject = channel.unary_unary(
+            "/chalk.server.v1.TeamService/GetProject",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.GetProjectRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.GetProjectResponse.FromString,
+        )
 
 
 class TeamServiceServicer(object):
@@ -322,6 +342,30 @@ class TeamServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def CreateCustomRole(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteCustomRole(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpdateCustomRole(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetProject(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_TeamServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -459,6 +503,26 @@ def add_TeamServiceServicer_to_server(servicer, server):
             servicer.ReactivateUser,
             request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.ReactivateUserRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.ReactivateUserResponse.SerializeToString,
+        ),
+        "CreateCustomRole": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateCustomRole,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateCustomRoleRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.CreateCustomRoleResponse.SerializeToString,
+        ),
+        "DeleteCustomRole": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteCustomRole,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteCustomRoleRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteCustomRoleResponse.SerializeToString,
+        ),
+        "UpdateCustomRole": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateCustomRole,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateCustomRoleRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.UpdateCustomRoleResponse.SerializeToString,
+        ),
+        "GetProject": grpc.unary_unary_rpc_method_handler(
+            servicer.GetProject,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.GetProjectRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.GetProjectResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.TeamService", rpc_method_handlers)
@@ -1242,6 +1306,122 @@ class TeamService(object):
             "/chalk.server.v1.TeamService/ReactivateUser",
             chalk_dot_server_dot_v1_dot_team__pb2.ReactivateUserRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_team__pb2.ReactivateUserResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateCustomRole(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/CreateCustomRole",
+            chalk_dot_server_dot_v1_dot_team__pb2.CreateCustomRoleRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.CreateCustomRoleResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteCustomRole(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/DeleteCustomRole",
+            chalk_dot_server_dot_v1_dot_team__pb2.DeleteCustomRoleRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.DeleteCustomRoleResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpdateCustomRole(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/UpdateCustomRole",
+            chalk_dot_server_dot_v1_dot_team__pb2.UpdateCustomRoleRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.UpdateCustomRoleResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetProject(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/GetProject",
+            chalk_dot_server_dot_v1_dot_team__pb2.GetProjectRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.GetProjectResponse.FromString,
             options,
             channel_credentials,
             insecure,

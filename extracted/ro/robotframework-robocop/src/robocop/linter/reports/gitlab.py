@@ -2,16 +2,13 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import robocop.linter.reports
 from robocop.files import get_relative_path
-from robocop.formatter.utils.misc import StatementLinesCollector
 from robocop.linter.rules import RuleSeverity
 
 if TYPE_CHECKING:
-    from robot.parsing import File
-
     from robocop.config import Config
     from robocop.linter.diagnostics import Diagnostic, Diagnostics
 
@@ -38,26 +35,23 @@ class GitlabReport(robocop.linter.reports.JsonFileReport):
 
     NO_ALL = False
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config) -> None:
         self.name = "gitlab"
         self.description = "Generate Gitlab Code Quality output file"
         super().__init__(output_path="robocop-code-quality.json", config=config)
 
-    def generate_report(self, diagnostics: Diagnostics, **kwargs) -> None:  # noqa: ARG002
+    def generate_report(self, diagnostics: Diagnostics, **kwargs: object) -> None:  # type: ignore[override]  # noqa: ARG002
         report = self.generate_gitlab_report(diagnostics)
-        super().generate_report(report, "Gitlab Code Quality")
+        super().generate_report_with_type(report, "Gitlab Code Quality")
 
-    def generate_gitlab_report(self, diagnostics: Diagnostics) -> list[dict]:
+    def generate_gitlab_report(self, diagnostics: Diagnostics) -> list[dict[str, Any]]:
         report = []
         cwd = Path.cwd()
         for source, diag_by_source in diagnostics.diag_by_source.items():
             source_rel = str(get_relative_path(source, cwd).as_posix())
-            source_lines = None
             fingerprints = set()
             for diagnostic in diag_by_source:
-                if not source_lines:  # TODO: model should be coming from source, not diagnostics
-                    source_lines = self._get_source_lines(diagnostic.model, source)
-                content = self._get_line_content(diagnostic, source_lines)
+                content = self._get_line_content(diagnostic, diagnostic.source.source_lines)
                 unique_id = 0
                 while True:
                     fingerprint = self.get_fingerprint(diagnostic, source_rel, content, unique_id)
@@ -75,17 +69,6 @@ class GitlabReport(robocop.linter.reports.JsonFileReport):
                     }
                 )
         return report
-
-    @staticmethod
-    def _get_source_lines(model: File | None, source: str | None = None) -> list[str]:
-        if model is not None:
-            return StatementLinesCollector(model).text.splitlines()
-        if source is not None:
-            try:
-                return Path(source).read_text(encoding="utf-8").splitlines()
-            except OSError:
-                return []
-        return []
 
     @staticmethod
     def _get_line_content(diagnostic: Diagnostic, lines: list[str]) -> str:

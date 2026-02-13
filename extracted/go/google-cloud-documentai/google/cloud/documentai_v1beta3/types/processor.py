@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.documentai_v1beta3.types import document_schema as gcd_document_schema
@@ -189,11 +189,11 @@ class ProcessorVersion(proto.Message):
 
             Attributes:
                 finetuning_allowed (bool):
-                    Whether finetuning is allowed for this base
+                    Whether fine tuning is allowed for this base
                     processor version.
                 min_train_labeled_documents (int):
                     The minimum number of labeled documents in
-                    the training dataset required for finetuning.
+                    the training dataset required for fine tuning.
             """
 
             finetuning_allowed: bool = proto.Field(

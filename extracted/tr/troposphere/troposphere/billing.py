@@ -20,6 +20,17 @@ class Dimensions(AWSProperty):
     }
 
 
+class TimeRange(AWSProperty):
+    """
+    `TimeRange <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-billing-billingview-timerange.html>`__
+    """
+
+    props: PropsDictType = {
+        "BeginDateInclusive": (str, False),
+        "EndDateInclusive": (str, False),
+    }
+
+
 class DataFilterExpression(AWSProperty):
     """
     `DataFilterExpression <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-billing-billingview-datafilterexpression.html>`__
@@ -28,6 +39,7 @@ class DataFilterExpression(AWSProperty):
     props: PropsDictType = {
         "Dimensions": (Dimensions, False),
         "Tags": (Tags, False),
+        "TimeRange": (TimeRange, False),
     }
 
 

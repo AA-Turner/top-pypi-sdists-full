@@ -21,7 +21,7 @@ from worker_automate_hub.models.dto.rpa_processo_entrada_dto import (
 )
 from worker_automate_hub.tasks.task_definitions import task_definitions
 from worker_automate_hub.utils.logger import logger
-from worker_automate_hub.utils.toast import show_toast
+from worker_automate_hub.utils.toast import task_bar_toast
 from worker_automate_hub.utils.util import capture_and_send_screenshot
 import asyncio
 from worker_automate_hub.api.rpa_fila_service import burn_queue
@@ -31,7 +31,7 @@ console = Console()
 
 async def perform_task(task: RpaProcessoEntradaDTO):
     log_msg = f"Processo a ser executado: {task.nomProcesso}"
-    show_toast("Info", f"Processo a ser executado: {task.nomProcesso}")
+    # task_bar_toast("Info", f"Processo a ser executado: {task.nomProcesso}", "Worker Automate Hub")
 
     console.print(f"\n{log_msg}\n", style="green")
     logger.info(log_msg)
@@ -44,7 +44,7 @@ async def perform_task(task: RpaProcessoEntradaDTO):
         err_msg = f"[WORKER] [{worker_config['NOME_ROBO']}] Falha ao obter o processo [{task.nomProcesso}] uuid [{task_uuid}] da API, não foi possivel registrar o historico, mas o processo será executado."
         console.print(err_msg, style="yellow")
         logger.error(err_msg)
-        show_toast("Erro", err_msg)
+        # task_bar_toast("Erro", err_msg, "Worker Automate Hub")
         await send_gchat_message(err_msg)
         registrar_historico = False
     else:
@@ -79,13 +79,20 @@ async def perform_task(task: RpaProcessoEntradaDTO):
                 )
 
             if result.sucesso == False:
-                show_toast("Erro", f"Processo executado com falha: {result}")
-
+                # task_bar_toast(
+                #    "Erro",
+                #    f"Processo executado com falha: {result}",
+                #    "Worker Automate Hub",
+                # )
                 await capture_and_send_screenshot(
                     uuidRelacao=historico.uuidHistorico, desArquivo=result.retorno
                 )
-            else:
-                show_toast("Sucesso", f"Processo executado com sucesso: {result}")
+            # else:
+            # task_bar_toast(
+            #    "Sucesso",
+            #    f"Processo executado com sucesso: {result}",
+            #    "Worker Automate Hub",
+            # )
 
             if url_retorno is not None and result.sucesso == False:
                 if identificador_webhook:
@@ -102,7 +109,7 @@ async def perform_task(task: RpaProcessoEntradaDTO):
             err_msg = f"Falha ao buscar o processo {task.nomProcesso} na API."
             console.print(err_msg, style="yellow")
             logger.error(err_msg)
-            show_toast("Erro", err_msg)
+            # task_bar_toast("Erro", err_msg, "Worker Automate Hub")
             await send_gchat_message(err_msg)
 
             if registrar_historico:
@@ -127,7 +134,7 @@ async def perform_task(task: RpaProcessoEntradaDTO):
         err_msg = f"Erro ao performar o processo: {e}"
         console.print(f"\n{err_msg}\n", style="red")
         logger.error(err_msg)
-        show_toast("Erro", err_msg)
+        task_bar_toast("Erro", err_msg, "Worker Automate Hub")
 
         if registrar_historico:
             await create_update_historico(

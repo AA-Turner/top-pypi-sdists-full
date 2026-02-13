@@ -136,6 +136,8 @@ class ASSETBROWSER_MT_view(AssetBrowserMenu, _bpy_types.Menu):
 class ASSETBROWSER_PT_display(
     bpy_extras.asset_utils.AssetBrowserPanel, _bpy_types.Panel
 ):
+    """Mixin class for panels that should only show in the asset browser."""
+
     bl_label: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any
@@ -164,6 +166,8 @@ class ASSETBROWSER_PT_display(
 class ASSETBROWSER_PT_filter(
     bpy_extras.asset_utils.AssetBrowserPanel, _bpy_types.Panel
 ):
+    """Mixin class for panels that should only show in the asset browser."""
+
     bl_category: typing.Any
     bl_label: typing.Any
     bl_region_type: typing.Any
@@ -192,6 +196,8 @@ class ASSETBROWSER_PT_filter(
 class ASSETBROWSER_PT_import_settings(
     bpy_extras.asset_utils.AssetBrowserPanel, _bpy_types.Panel
 ):
+    """Mixin class for panels that should only show in the asset browser."""
+
     bl_idname: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
@@ -222,6 +228,8 @@ class ASSETBROWSER_PT_import_settings(
 class ASSETBROWSER_PT_metadata(
     bpy_extras.asset_utils.AssetBrowserPanel, _bpy_types.Panel
 ):
+    """Mixin class for panels that should only show in the asset browser."""
+
     bl_label: typing.Any
     bl_options: typing.Any
     bl_region_type: typing.Any
@@ -260,6 +268,8 @@ class ASSETBROWSER_PT_metadata(
 class ASSETBROWSER_PT_metadata_preview(
     bpy_extras.asset_utils.AssetMetaDataPanel, _bpy_types.Panel
 ):
+    """Mixin class for panels that display asset metadata in the asset browser."""
+
     bl_label: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any
@@ -287,6 +297,8 @@ class ASSETBROWSER_PT_metadata_preview(
 class ASSETBROWSER_PT_metadata_tags(
     bpy_extras.asset_utils.AssetMetaDataPanel, _bpy_types.Panel
 ):
+    """Mixin class for panels that display asset metadata in the asset browser."""
+
     bl_label: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any

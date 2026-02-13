@@ -229,14 +229,12 @@ class RedshiftDataAPIDialect(PGDialect):
         """Return a list of schema names available in the database."""
         from sqlalchemy import text
 
-        query = text(
-            """
+        query = text("""
 SELECT schema_name
 FROM information_schema.schemata
 WHERE schema_name NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
 ORDER BY schema_name
-"""
-        )
+""")
         result = connection.execute(query)
         return [row[0] for row in result]
 
@@ -247,15 +245,13 @@ ORDER BY schema_name
 
         from sqlalchemy import text
 
-        query = text(
-            """
+        query = text("""
 SELECT table_name
 FROM information_schema.tables
 WHERE table_schema = %s
 AND table_type = 'BASE TABLE'
 ORDER BY table_name
-"""
-        )
+""")
         result = connection.execute(query, (schema,))
         return [row[0] for row in result]
 
@@ -266,14 +262,12 @@ ORDER BY table_name
 
         from sqlalchemy import text
 
-        query = text(
-            """
+        query = text("""
 SELECT table_name
 FROM information_schema.views
 WHERE table_schema = %s
 ORDER BY table_name
-"""
-        )
+""")
         result = connection.execute(query, (schema,))
         return [row[0] for row in result]
 
@@ -284,8 +278,7 @@ ORDER BY table_name
 
         from sqlalchemy import text
 
-        query = text(
-            """
+        query = text("""
 SELECT
     column_name,
     data_type,
@@ -299,8 +292,7 @@ FROM information_schema.columns
 WHERE table_schema = %s
 AND table_name = %s
 ORDER BY ordinal_position
-"""
-        )
+""")
 
         result = connection.execute(query, (schema, table_name))
         columns = []
@@ -411,8 +403,7 @@ ORDER BY ordinal_position
 
         from sqlalchemy import text
 
-        query = text(
-            """
+        query = text("""
 SELECT
     kcu.column_name,
     kcu.ordinal_position
@@ -425,8 +416,7 @@ WHERE tc.constraint_type = 'PRIMARY KEY'
     AND tc.table_schema = %s
     AND tc.table_name = %s
 ORDER BY kcu.ordinal_position
-"""
-        )
+""")
 
         result = connection.execute(query, (schema, table_name))
         columns = [row[0] for row in result]
@@ -446,8 +436,7 @@ ORDER BY kcu.ordinal_position
 
         from sqlalchemy import text
 
-        query = text(
-            """
+        query = text("""
 SELECT
     kcu.column_name,
     ccu.table_schema AS foreign_table_schema,
@@ -465,8 +454,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     AND tc.table_schema = %s
     AND tc.table_name = %s
 ORDER BY kcu.ordinal_position
-"""
-        )
+""")
 
         result = connection.execute(query, (schema, table_name))
         foreign_keys = []

@@ -2,7 +2,7 @@ import sys
 from typing import TypeVar
 
 from adam.utils_concurrent import parallelize
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.utils_k8s.app_pods import AppPods
 from adam.utils_k8s.pod_exec_result import PodExecResult
 from .kube_context import KubeContext
@@ -17,7 +17,7 @@ class AppClusters:
              action: str = 'action',
              on_any = False,
              shell = '/bin/sh',
-             ctx: Context = Context.NULL) -> list[PodExecResult]:
+             ctx = NULL) -> list[PodExecResult]:
         samples = 1 if on_any else sys.maxsize
         with parallelize(pods,
                          msg='d`Running|Ran ' + action + ' command onto {size} pods') as exec:

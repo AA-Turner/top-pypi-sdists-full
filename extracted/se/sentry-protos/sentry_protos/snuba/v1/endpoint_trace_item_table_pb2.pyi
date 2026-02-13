@@ -291,11 +291,80 @@ class Column(google.protobuf.message.Message):
         def ClearField(self, field_name: typing.Literal["default_value", b"default_value", "default_value_double", b"default_value_double", "default_value_int64", b"default_value_int64", "left", b"left", "op", b"op", "right", b"right"]) -> None: ...
         def WhichOneof(self, oneof_group: typing.Literal["default_value", b"default_value"]) -> typing.Literal["default_value_double", "default_value_int64"] | None: ...
 
+    @typing.final
+    class FormulaCondition(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        class _Op:
+            ValueType = typing.NewType("ValueType", builtins.int)
+            V: typing_extensions.TypeAlias = ValueType
+
+        class _OpEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[Column.FormulaCondition._Op.ValueType], builtins.type):
+            DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+            OP_UNSPECIFIED: Column.FormulaCondition._Op.ValueType  # 0
+            OP_LESS_THAN: Column.FormulaCondition._Op.ValueType  # 1
+            OP_GREATER_THAN: Column.FormulaCondition._Op.ValueType  # 2
+            OP_LESS_THAN_OR_EQUALS: Column.FormulaCondition._Op.ValueType  # 3
+            OP_GREATER_THAN_OR_EQUALS: Column.FormulaCondition._Op.ValueType  # 4
+            OP_EQUALS: Column.FormulaCondition._Op.ValueType  # 5
+            OP_NOT_EQUALS: Column.FormulaCondition._Op.ValueType  # 6
+
+        class Op(_Op, metaclass=_OpEnumTypeWrapper): ...
+        OP_UNSPECIFIED: Column.FormulaCondition.Op.ValueType  # 0
+        OP_LESS_THAN: Column.FormulaCondition.Op.ValueType  # 1
+        OP_GREATER_THAN: Column.FormulaCondition.Op.ValueType  # 2
+        OP_LESS_THAN_OR_EQUALS: Column.FormulaCondition.Op.ValueType  # 3
+        OP_GREATER_THAN_OR_EQUALS: Column.FormulaCondition.Op.ValueType  # 4
+        OP_EQUALS: Column.FormulaCondition.Op.ValueType  # 5
+        OP_NOT_EQUALS: Column.FormulaCondition.Op.ValueType  # 6
+
+        LEFT_FIELD_NUMBER: builtins.int
+        OP_FIELD_NUMBER: builtins.int
+        RIGHT_FIELD_NUMBER: builtins.int
+        op: global___Column.FormulaCondition.Op.ValueType
+        @property
+        def left(self) -> global___Column: ...
+        @property
+        def right(self) -> global___Column: ...
+        def __init__(
+            self,
+            *,
+            left: global___Column | None = ...,
+            op: global___Column.FormulaCondition.Op.ValueType = ...,
+            right: global___Column | None = ...,
+        ) -> None: ...
+        def HasField(self, field_name: typing.Literal["left", b"left", "right", b"right"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing.Literal["left", b"left", "op", b"op", "right", b"right"]) -> None: ...
+
+    @typing.final
+    class ConditionalFormula(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        CONDITION_FIELD_NUMBER: builtins.int
+        MATCH_FIELD_NUMBER: builtins.int
+        DEFAULT_FIELD_NUMBER: builtins.int
+        @property
+        def condition(self) -> global___Column.FormulaCondition: ...
+        @property
+        def match(self) -> global___Column: ...
+        @property
+        def default(self) -> global___Column: ...
+        def __init__(
+            self,
+            *,
+            condition: global___Column.FormulaCondition | None = ...,
+            match: global___Column | None = ...,
+            default: global___Column | None = ...,
+        ) -> None: ...
+        def HasField(self, field_name: typing.Literal["condition", b"condition", "default", b"default", "match", b"match"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing.Literal["condition", b"condition", "default", b"default", "match", b"match"]) -> None: ...
+
     KEY_FIELD_NUMBER: builtins.int
     AGGREGATION_FIELD_NUMBER: builtins.int
     CONDITIONAL_AGGREGATION_FIELD_NUMBER: builtins.int
     FORMULA_FIELD_NUMBER: builtins.int
     LITERAL_FIELD_NUMBER: builtins.int
+    CONDITIONAL_FORMULA_FIELD_NUMBER: builtins.int
     LABEL_FIELD_NUMBER: builtins.int
     label: builtins.str
     @property
@@ -308,6 +377,8 @@ class Column(google.protobuf.message.Message):
     def formula(self) -> global___Column.BinaryFormula: ...
     @property
     def literal(self) -> sentry_protos.snuba.v1.formula_pb2.Literal: ...
+    @property
+    def conditional_formula(self) -> global___Column.ConditionalFormula: ...
     def __init__(
         self,
         *,
@@ -316,11 +387,12 @@ class Column(google.protobuf.message.Message):
         conditional_aggregation: sentry_protos.snuba.v1.attribute_conditional_aggregation_pb2.AttributeConditionalAggregation | None = ...,
         formula: global___Column.BinaryFormula | None = ...,
         literal: sentry_protos.snuba.v1.formula_pb2.Literal | None = ...,
+        conditional_formula: global___Column.ConditionalFormula | None = ...,
         label: builtins.str = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["aggregation", b"aggregation", "column", b"column", "conditional_aggregation", b"conditional_aggregation", "formula", b"formula", "key", b"key", "literal", b"literal"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["aggregation", b"aggregation", "column", b"column", "conditional_aggregation", b"conditional_aggregation", "formula", b"formula", "key", b"key", "label", b"label", "literal", b"literal"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing.Literal["column", b"column"]) -> typing.Literal["key", "aggregation", "conditional_aggregation", "formula", "literal"] | None: ...
+    def HasField(self, field_name: typing.Literal["aggregation", b"aggregation", "column", b"column", "conditional_aggregation", b"conditional_aggregation", "conditional_formula", b"conditional_formula", "formula", b"formula", "key", b"key", "literal", b"literal"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["aggregation", b"aggregation", "column", b"column", "conditional_aggregation", b"conditional_aggregation", "conditional_formula", b"conditional_formula", "formula", b"formula", "key", b"key", "label", b"label", "literal", b"literal"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["column", b"column"]) -> typing.Literal["key", "aggregation", "conditional_aggregation", "formula", "literal", "conditional_formula"] | None: ...
 
 global___Column = Column
 

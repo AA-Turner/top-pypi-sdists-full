@@ -162,7 +162,7 @@ class DataLabelingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/datalabelingservicedataplane/create_annotation.py.html>`__ to see an example of how to use create_annotation API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/datalabelingservicedataplane/create_annotation.py.html>`__ to see an example of how to use create_annotation API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -267,7 +267,7 @@ class DataLabelingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/datalabelingservicedataplane/create_record.py.html>`__ to see an example of how to use create_record API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/datalabelingservicedataplane/create_record.py.html>`__ to see an example of how to use create_record API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -372,7 +372,7 @@ class DataLabelingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/datalabelingservicedataplane/delete_annotation.py.html>`__ to see an example of how to use delete_annotation API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/datalabelingservicedataplane/delete_annotation.py.html>`__ to see an example of how to use delete_annotation API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['annotationId']
@@ -484,7 +484,7 @@ class DataLabelingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/datalabelingservicedataplane/delete_record.py.html>`__ to see an example of how to use delete_record API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/datalabelingservicedataplane/delete_record.py.html>`__ to see an example of how to use delete_record API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['recordId']
@@ -589,7 +589,7 @@ class DataLabelingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/datalabelingservicedataplane/get_annotation.py.html>`__ to see an example of how to use get_annotation API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/datalabelingservicedataplane/get_annotation.py.html>`__ to see an example of how to use get_annotation API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['annotationId']
@@ -694,7 +694,7 @@ class DataLabelingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/datalabelingservicedataplane/get_dataset.py.html>`__ to see an example of how to use get_dataset API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/datalabelingservicedataplane/get_dataset.py.html>`__ to see an example of how to use get_dataset API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['datasetId']
@@ -799,7 +799,7 @@ class DataLabelingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/datalabelingservicedataplane/get_record.py.html>`__ to see an example of how to use get_record API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/datalabelingservicedataplane/get_record.py.html>`__ to see an example of how to use get_record API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['recordId']
@@ -911,7 +911,7 @@ class DataLabelingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/datalabelingservicedataplane/get_record_content.py.html>`__ to see an example of how to use get_record_content API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/datalabelingservicedataplane/get_record_content.py.html>`__ to see an example of how to use get_record_content API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['recordId']
@@ -1025,7 +1025,7 @@ class DataLabelingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/datalabelingservicedataplane/get_record_preview_content.py.html>`__ to see an example of how to use get_record_preview_content API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/datalabelingservicedataplane/get_record_preview_content.py.html>`__ to see an example of how to use get_record_preview_content API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['recordId']
@@ -1171,7 +1171,7 @@ class DataLabelingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/datalabelingservicedataplane/list_annotations.py.html>`__ to see an example of how to use list_annotations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/datalabelingservicedataplane/list_annotations.py.html>`__ to see an example of how to use list_annotations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'datasetId']
@@ -1349,7 +1349,7 @@ class DataLabelingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/datalabelingservicedataplane/list_records.py.html>`__ to see an example of how to use list_records API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/datalabelingservicedataplane/list_records.py.html>`__ to see an example of how to use list_records API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'datasetId']
@@ -1521,7 +1521,7 @@ class DataLabelingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/datalabelingservicedataplane/summarize_annotation_analytics.py.html>`__ to see an example of how to use summarize_annotation_analytics API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/datalabelingservicedataplane/summarize_annotation_analytics.py.html>`__ to see an example of how to use summarize_annotation_analytics API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'datasetId']
@@ -1693,7 +1693,7 @@ class DataLabelingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/datalabelingservicedataplane/summarize_record_analytics.py.html>`__ to see an example of how to use summarize_record_analytics API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/datalabelingservicedataplane/summarize_record_analytics.py.html>`__ to see an example of how to use summarize_record_analytics API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'datasetId']
@@ -1844,7 +1844,7 @@ class DataLabelingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/datalabelingservicedataplane/update_annotation.py.html>`__ to see an example of how to use update_annotation API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/datalabelingservicedataplane/update_annotation.py.html>`__ to see an example of how to use update_annotation API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['annotationId']
@@ -1963,7 +1963,7 @@ class DataLabelingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/datalabelingservicedataplane/update_record.py.html>`__ to see an example of how to use update_record API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/datalabelingservicedataplane/update_record.py.html>`__ to see an example of how to use update_record API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['recordId']

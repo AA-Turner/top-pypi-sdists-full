@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: slack_sdk
-Version: 3.39.0
+Version: 3.40.0
 Summary: The Slack API Platform SDK for Python
 Home-page: https://github.com/slackapi/python-slack-sdk
 Author: Slack Technologies, LLC
@@ -41,8 +41,8 @@ Dynamic: license-file
 <h1 align="center">Python Slack SDK</h1>
 
 <p align="center">
-    <a href="https://github.com/slackapi/python-slack-sdk/actions/workflows/tests.yml">
-        <img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/slackapi/python-slack-sdk/tests.yml"></a>
+    <a href="https://github.com/slackapi/python-slack-sdk/actions/workflows/ci-build.yml">
+        <img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/slackapi/python-slack-sdk/ci-build.yml"></a>
     <a href="https://codecov.io/gh/slackapi/python-slack-sdk">
         <img alt="Codecov" src="https://img.shields.io/codecov/c/gh/slackapi/python-slack-sdk"></a>
     <a href="https://pepy.tech/project/slack-sdk">

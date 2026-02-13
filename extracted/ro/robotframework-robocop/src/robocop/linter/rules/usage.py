@@ -1,22 +1,30 @@
-from collections.abc import Iterable
+from __future__ import annotations
+
+import re
 from dataclasses import dataclass, field
 from itertools import chain
-from re import Pattern
-from typing import TYPE_CHECKING, Optional, Union
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 from robot.api import Token
 from robot.errors import DataError
-from robot.parsing.model.blocks import File, Keyword, Section
 from robot.parsing.model.statements import Tags
 from robot.running.arguments import EmbeddedArguments
 
 from robocop.linter import sonar_qube
 from robocop.linter.rules import ProjectChecker, Rule, RuleSeverity
-from robocop.linter.utils.misc import ROBOT_VERSION, normalize_robot_name
+from robocop.linter.utils.misc import normalize_robot_name
 from robocop.parsing.run_keywords import iterate_keyword_names
+from robocop.source_file import SourceFile, VirtualSourceFile
+from robocop.version_handling import ROBOT_VERSION
 
 if TYPE_CHECKING:
-    from robocop.config import ConfigManager
+    from collections.abc import Iterable
+
+    from robot.parsing.model.blocks import File, Keyword, Section
+    from robot.parsing.model.statements import KeywordCall, Setup, Statement, Template
+
+    from robocop.config.manager import ConfigManager
     from robocop.linter.diagnostics import Diagnostic
 
 
@@ -27,6 +35,7 @@ class UnusedKeywordRule(Rule):
     Reports not used keywords.
 
     Example:
+
         *** Test Cases ***
         Test that only non used keywords are reported
             Used Keyword
@@ -74,7 +83,7 @@ class KeywordUsage:
 
 @dataclass
 class KeywordDefinition:
-    name: Union[str, Pattern]
+    name: str | re.Pattern[str]
     keyword_node: Keyword
     used: int = 0
     used_names: set[str] = field(default_factory=set)
@@ -126,34 +135,38 @@ class RobotFile:
             else:
                 for name in keyword_usage.names:
                     for keyword_name, keyword_def in self.embedded_keywords.items():
-                        if keyword_def.name.match(name):
+                        if isinstance(keyword_def.name, re.Pattern) and keyword_def.name.match(name):
                             # not entirely correct since keyword usage could be two usages with the same normalized name
                             self.embedded_keywords[keyword_name].update(keyword_usage)
 
 
 class UnusedKeywords(ProjectChecker):
     unused_keyword: UnusedKeywordRule
+    current_file: RobotFile
 
     # TODO: ignore run keywords with variables?
     # TODO: handle BDD
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.files: dict[str, RobotFile] = {}
-        self.current_file: Optional[RobotFile] = None
         super().__init__()
 
-    def scan_project(self, config_manager: "ConfigManager") -> list["Diagnostic"]:  # noqa: ARG002
+    def scan_project(
+        self,
+        project_source_file: SourceFile | VirtualSourceFile,
+        config_manager: ConfigManager,  # noqa: ARG002
+    ) -> list[Diagnostic]:
         self.issues = []
         for robot_file in self.files.values():
             if not (robot_file.is_suite or robot_file.any_private):
                 continue
             robot_file.search_usage()
+            local_file = SourceFile(path=Path(robot_file.path), config=project_source_file.config)
             for keyword in robot_file.not_used_keywords:
                 name = keyword.keyword_node.name
                 self.report(
                     self.unused_keyword,
-                    source=robot_file.path,
-                    ast_model=robot_file.ast_model,
+                    source=local_file,
                     node=keyword.keyword_node,
                     keyword_name=name,
                     end_col=len(name) + 1,
@@ -162,14 +175,14 @@ class UnusedKeywords(ProjectChecker):
 
     def visit_File(self, node: File) -> None:  # noqa: N802
         self.current_file = RobotFile(str(node.source), node)  # TODO: handle "-"
-        self.generic_visit(node)
+        # self.generic_visit(node)
         self.files[self.current_file.path] = self.current_file
 
-    def visit_TestCaseSection(self, node: type[Section]) -> None:  # noqa: N802
+    def visit_TestCaseSection(self, _node: Section) -> None:  # noqa: N802
         self.current_file.is_suite = True
-        self.generic_visit(node)
+        # self.generic_visit(node)
 
-    def mark_used_keywords(self, node, name_token_type: str) -> None:
+    def mark_used_keywords(self, node: Statement, name_token_type: str) -> None:
         for keyword in iterate_keyword_names(node, name_token_type):
             self.mark_used_keyword(keyword.value)
 
@@ -182,23 +195,23 @@ class UnusedKeywords(ProjectChecker):
         self.current_file.used_keywords[normalized_name].update(name)
         # what about possible library names? searching removes, but for sake of collecting
 
-    def visit_Setup(self, node) -> None:  # noqa: N802
+    def visit_Setup(self, node: Setup) -> None:  # noqa: N802
         self.mark_used_keywords(node, Token.NAME)
 
     visit_TestTeardown = visit_SuiteTeardown = visit_Teardown = visit_TestSetup = visit_SuiteSetup = visit_Setup  # noqa: N815
 
-    def visit_Template(self, node) -> None:  # noqa: N802
+    def visit_Template(self, node: Template) -> None:  # noqa: N802
         # allow / disallow param
         if node.value:
             self.mark_used_keyword(node.value)
-        self.generic_visit(node)
+        # self.generic_visit(node)
 
     visit_TestTemplate = visit_Template  # noqa: N815
 
-    def visit_KeywordCall(self, node) -> None:  # noqa: N802
+    def visit_KeywordCall(self, node: KeywordCall) -> None:  # noqa: N802
         self.mark_used_keywords(node, Token.KEYWORD)
 
-    def visit_Keyword(self, node) -> None:  # noqa: N802
+    def visit_Keyword(self, node: Keyword) -> None:  # noqa: N802
         try:
             embedded = KeywordEmbedded(node.name)
             if embedded and embedded.args:
@@ -212,10 +225,10 @@ class UnusedKeywords(ProjectChecker):
                 )
         except DataError:
             pass
-        self.generic_visit(node)
+        # self.generic_visit(node)
 
     @staticmethod
-    def is_keyword_private(node) -> bool:
+    def is_keyword_private(node: Keyword) -> bool:
         for statement in node.body:
             if isinstance(statement, Tags):
                 for tag in statement.get_tokens(Token.ARGUMENT):

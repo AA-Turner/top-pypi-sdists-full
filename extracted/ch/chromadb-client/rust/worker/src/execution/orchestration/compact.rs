@@ -360,6 +360,7 @@ impl CompactionContext {
     pub(crate) async fn run_get_logs(
         &mut self,
         collection_id: CollectionUuid,
+        database_name: chroma_types::DatabaseName,
         system: System,
         is_getting_compacted_logs: bool,
     ) -> Result<LogFetchOrchestratorResponse, LogFetchOrchestratorError> {
@@ -368,6 +369,7 @@ impl CompactionContext {
         self.collection_info = OnceCell::new();
         let log_fetch_orchestrator = LogFetchOrchestrator::new(
             collection_id,
+            database_name,
             self.is_rebuild || is_getting_compacted_logs,
             self.fetch_log_batch_size,
             self.max_compaction_size,
@@ -407,10 +409,14 @@ impl CompactionContext {
 
                 Ok(Success::new(materialized, collection_info.clone()).into())
             }
-            LogFetchOrchestratorResponse::RequireCompactionOffsetRepair(repair) => Ok(
-                RequireCompactionOffsetRepair::new(repair.job_id, repair.witnessed_offset_in_sysdb)
-                    .into(),
-            ),
+            LogFetchOrchestratorResponse::RequireCompactionOffsetRepair(repair) => {
+                Ok(RequireCompactionOffsetRepair::new(
+                    repair.job_id,
+                    repair.database_name.clone(),
+                    repair.witnessed_offset_in_sysdb,
+                )
+                .into())
+            }
             LogFetchOrchestratorResponse::RequireFunctionBackfill(backfill) => {
                 if let Some(hnsw_index_uuid) = backfill.collection_info.hnsw_index_uuid {
                     self.hnsw_index_uuids.insert(hnsw_index_uuid);
@@ -609,6 +615,7 @@ impl CompactionContext {
 
     async fn run_backfill_attached_function_workflow(
         &mut self,
+        database_name: chroma_types::DatabaseName,
         system: System,
     ) -> Result<BackfillResult, CompactionError> {
         // See if we need backfill
@@ -622,6 +629,7 @@ impl CompactionContext {
         let log_fetch_records = match self
             .run_get_logs(
                 self.get_collection_info().map_err(CompactionError::CompactionContextError)?.collection_id,
+                database_name,
                 system.clone(),
                 true,
             )
@@ -726,10 +734,11 @@ impl CompactionContext {
     pub(crate) async fn run_compaction(
         &mut self,
         collection_id: CollectionUuid,
+        database_name: chroma_types::DatabaseName,
         system: System,
     ) -> Result<CompactionResponse, CompactionError> {
         let result = self
-            .run_get_logs(collection_id, system.clone(), false)
+            .run_get_logs(collection_id, database_name.clone(), system.clone(), false)
             .await?;
 
         let (log_fetch_records, _) = match result {
@@ -739,6 +748,7 @@ impl CompactionContext {
             LogFetchOrchestratorResponse::RequireCompactionOffsetRepair(repair) => {
                 return Ok(CompactionResponse::RequireCompactionOffsetRepair {
                     job_id: repair.job_id,
+                    database_name: repair.database_name.clone(),
                     witnessed_offset_in_sysdb: repair.witnessed_offset_in_sysdb,
                 });
             }
@@ -752,9 +762,11 @@ impl CompactionContext {
                     (backfill.materialized, backfill.collection_info)
                 } else {
                     // Try to run backfill workflow
-                    let fn_result =
-                        Box::pin(self.run_backfill_attached_function_workflow(system.clone()))
-                            .await?;
+                    let fn_result = Box::pin(self.run_backfill_attached_function_workflow(
+                        database_name.clone(),
+                        system.clone(),
+                    ))
+                    .await?;
 
                     match fn_result {
                         BackfillResult::BackfillCompleted {
@@ -879,6 +891,7 @@ pub enum CompactionResponse {
     },
     RequireCompactionOffsetRepair {
         job_id: JobId,
+        database_name: chroma_types::DatabaseName,
         witnessed_offset_in_sysdb: i64,
     },
 }
@@ -887,6 +900,7 @@ pub enum CompactionResponse {
 pub async fn compact(
     system: System,
     collection_id: CollectionUuid,
+    database_name: chroma_types::DatabaseName,
     is_rebuild: bool,
     fetch_log_batch_size: u32,
     max_compaction_size: usize,
@@ -919,7 +933,8 @@ pub async fn compact(
         compaction_context.set_poison_offset(poison_offset);
     }
 
-    let result = Box::pin(compaction_context.run_compaction(collection_id, system)).await;
+    let result =
+        Box::pin(compaction_context.run_compaction(collection_id, database_name, system)).await;
     Box::pin(compaction_context.cleanup()).await;
     result
 }
@@ -929,6 +944,7 @@ mod tests {
     use chroma_log::test::{
         add_delete_net_zero_generator, upsert_generator, TEST_EMBEDDING_DIMENSION,
     };
+    use chroma_types::DatabaseName;
     use std::collections::HashMap;
     use std::path::{Path, PathBuf};
     use tokio::fs;
@@ -979,6 +995,7 @@ mod tests {
             maximum_fetch_count: None,
             collection_uuid: cas.collection.collection_id,
             tenant: cas.collection.tenant.clone(),
+            database_name: chroma_types::DatabaseName::new("test_db").unwrap(),
         };
 
         let filter = Filter {
@@ -1033,10 +1050,13 @@ mod tests {
         let mut sysdb = SysDb::Test(TestSysDb::new());
         let test_segments = TestDistributedSegment::new().await;
         let collection_id = test_segments.collection.collection_id;
+        let database_name =
+            chroma_types::DatabaseName::new(test_segments.collection.database.clone())
+                .expect("database name should be valid");
         sysdb
             .create_collection(
                 test_segments.collection.tenant,
-                test_segments.collection.database,
+                database_name.clone(),
                 collection_id,
                 test_segments.collection.name,
                 vec![
@@ -1072,6 +1092,7 @@ mod tests {
         let compact_result = Box::pin(compact(
             system.clone(),
             collection_id,
+            database_name.clone(),
             false,
             50,
             1000,
@@ -1089,7 +1110,7 @@ mod tests {
         assert!(compact_result.is_ok());
 
         let old_cas = sysdb
-            .get_collection_with_segments(collection_id)
+            .get_collection_with_segments(None, collection_id)
             .await
             .expect("Collection and segment information should be present");
 
@@ -1101,6 +1122,7 @@ mod tests {
             maximum_fetch_count: None,
             collection_uuid: collection_id,
             tenant: old_cas.collection.tenant.clone(),
+            database_name: chroma_types::DatabaseName::new("test_db").unwrap(),
         };
         let filter = Filter {
             query_ids: None,
@@ -1148,6 +1170,7 @@ mod tests {
         let rebuild_result = Box::pin(compact(
             system.clone(),
             collection_id,
+            database_name,
             true,
             5000,
             10000,
@@ -1165,7 +1188,7 @@ mod tests {
         assert!(rebuild_result.is_ok());
 
         let new_cas = sysdb
-            .get_collection_with_segments(collection_id)
+            .get_collection_with_segments(None, collection_id)
             .await
             .expect("Collection and segment information should be present");
 
@@ -1227,10 +1250,13 @@ mod tests {
         let mut sysdb = SysDb::Test(TestSysDb::new());
         let test_segments = TestDistributedSegment::new().await;
         let collection_id = test_segments.collection.collection_id;
+        let database_name =
+            chroma_types::DatabaseName::new(test_segments.collection.database.clone())
+                .expect("database name should be valid");
         sysdb
             .create_collection(
                 test_segments.collection.tenant,
-                test_segments.collection.database,
+                database_name.clone(),
                 collection_id,
                 test_segments.collection.name,
                 vec![
@@ -1252,6 +1278,7 @@ mod tests {
         let rebuild_result = Box::pin(compact(
             system.clone(),
             collection_id,
+            database_name,
             true,
             5000,
             10000,
@@ -1269,7 +1296,7 @@ mod tests {
         assert!(rebuild_result.is_ok());
 
         let new_cas = sysdb
-            .get_collection_with_segments(collection_id)
+            .get_collection_with_segments(None, collection_id)
             .await
             .expect("Collection and segment information should be present");
 
@@ -1303,6 +1330,7 @@ mod tests {
         };
 
         let collection_uuid = collection.collection_id;
+        let collection_database = collection.database.clone();
 
         // Add some log records
         add_delete_generator
@@ -1409,7 +1437,7 @@ mod tests {
         let dispatcher_handle = system.start_component(dispatcher);
 
         let old_cas = sysdb
-            .get_collection_with_segments(collection_uuid)
+            .get_collection_with_segments(None, collection_uuid)
             .await
             .unwrap();
 
@@ -1422,9 +1450,13 @@ mod tests {
         )
         .await;
 
+        let database_name = chroma_types::DatabaseName::new(collection_database.clone())
+            .expect("database name should be valid");
+
         let first_compaction_result = Box::pin(compact(
             system.clone(),
             collection_uuid,
+            database_name,
             false,
             5000,
             10000,
@@ -1443,7 +1475,7 @@ mod tests {
         first_compaction_result.expect("Should succeed");
 
         let collection = sysdb
-            .get_collection_with_segments(collection_uuid)
+            .get_collection_with_segments(None, collection_uuid)
             .await
             .unwrap()
             .collection;
@@ -1451,7 +1483,7 @@ mod tests {
         assert_eq!(collection.version, 1);
 
         let new_cas = sysdb
-            .get_collection_with_segments(collection_uuid)
+            .get_collection_with_segments(None, collection_uuid)
             .await
             .unwrap();
         let new_records = get_all_records(
@@ -1491,6 +1523,7 @@ mod tests {
         };
 
         let collection_uuid = collection.collection_id;
+        let collection_database = collection.database.clone();
 
         // Add some log records
         upsert_generator
@@ -1596,7 +1629,7 @@ mod tests {
             .expect("Should be able to initialize dispatcher");
         let dispatcher_handle = system.start_component(dispatcher);
         let old_cas = sysdb
-            .get_collection_with_segments(collection_uuid)
+            .get_collection_with_segments(None, collection_uuid)
             .await
             .unwrap();
 
@@ -1609,9 +1642,13 @@ mod tests {
         )
         .await;
 
+        let database_name = chroma_types::DatabaseName::new(collection_database.clone())
+            .expect("database name should be valid");
+
         let first_compaction_result = Box::pin(compact(
             system.clone(),
             collection_uuid,
+            database_name,
             false,
             5000,
             10000,
@@ -1630,7 +1667,7 @@ mod tests {
         first_compaction_result.expect_err("Should fail");
 
         let new_cas = sysdb
-            .get_collection_with_segments(collection_uuid)
+            .get_collection_with_segments(None, collection_uuid)
             .await
             .unwrap();
         let new_records = get_all_records(
@@ -1675,6 +1712,7 @@ mod tests {
         };
 
         let collection_uuid = collection.collection_id;
+        let collection_database = collection.database.clone();
 
         // Add some log records
         add_delete_generator
@@ -1784,7 +1822,7 @@ mod tests {
         let dispatcher_handle = system.start_component(dispatcher);
 
         let old_cas = sysdb
-            .get_collection_with_segments(collection_uuid)
+            .get_collection_with_segments(None, collection_uuid)
             .await
             .unwrap();
 
@@ -1798,9 +1836,12 @@ mod tests {
         .await;
 
         // Run first compaction - this should fail to update the log offset
+        let database_name = chroma_types::DatabaseName::new(collection_database.clone())
+            .expect("database name should be valid");
         let first_compaction_result = Box::pin(compact(
             system.clone(),
             collection_uuid,
+            database_name.clone(),
             false,
             5000,
             10000,
@@ -1835,6 +1876,7 @@ mod tests {
         let second_compaction_result = Box::pin(compact(
             system.clone(),
             collection_uuid,
+            database_name,
             false,
             5000,
             10000,
@@ -1855,6 +1897,7 @@ mod tests {
             Ok(CompactionResponse::RequireCompactionOffsetRepair {
                 job_id,
                 witnessed_offset_in_sysdb,
+                database_name: _,
             }) => {
                 println!("Got expected RequireCompactionOffsetRepair response");
                 println!("Job ID: {:?}", job_id);
@@ -1878,7 +1921,7 @@ mod tests {
         // Manually repair the log position in sysdb (simulating external repair)
         // The segments were actually flushed with data up to offset 60, so update the collection
         let mut collection = sysdb
-            .get_collection_with_segments(collection_uuid)
+            .get_collection_with_segments(None, collection_uuid)
             .await
             .unwrap()
             .collection;
@@ -1892,7 +1935,7 @@ mod tests {
 
         // Now verify we can get records successfully after repair
         let new_cas = sysdb
-            .get_collection_with_segments(collection_uuid)
+            .get_collection_with_segments(None, collection_uuid)
             .await
             .unwrap();
         let new_records = get_all_records(
@@ -1931,6 +1974,7 @@ mod tests {
         };
 
         let collection_uuid = collection.collection_id;
+        let collection_database = collection.database.clone();
 
         // Add logs that represent inserts and deletes that net out to 0
         // Use the add_delete_generator to create 250 records (125 pairs of insert+delete)
@@ -2041,7 +2085,7 @@ mod tests {
         let dispatcher_handle = system.start_component(dispatcher);
 
         let old_cas = sysdb
-            .get_collection_with_segments(collection_uuid)
+            .get_collection_with_segments(None, collection_uuid)
             .await
             .unwrap();
 
@@ -2054,9 +2098,13 @@ mod tests {
         )
         .await;
 
+        let database_name = chroma_types::DatabaseName::new(collection_database.clone())
+            .expect("database name should be valid");
+
         let compact_result = Box::pin(compact(
             system.clone(),
             collection_uuid,
+            database_name,
             false, // walrus_enabled
             50,    // min_compaction_size
             1000,  // max_compaction_size
@@ -2081,7 +2129,7 @@ mod tests {
 
         // Verify that the collection has 0 bytes post-compaction since all operations net out to empty
         let new_cas = sysdb
-            .get_collection_with_segments(collection_uuid)
+            .get_collection_with_segments(None, collection_uuid)
             .await
             .unwrap();
         let collection_after_compaction = new_cas.clone().collection;
@@ -2147,6 +2195,7 @@ mod tests {
         };
 
         let collection_uuid = collection.collection_id;
+        let collection_database = collection.database.clone();
 
         // First, add some real data for the first compaction (50 records)
         {
@@ -2261,9 +2310,12 @@ mod tests {
         let dispatcher_handle = system.start_component(dispatcher);
 
         // Run first compaction with real data
+        let database_name = chroma_types::DatabaseName::new(collection_database.clone())
+            .expect("database name should be valid");
         let first_compact_result = Box::pin(compact(
             system.clone(),
             collection_uuid,
+            database_name.clone(),
             false, // walrus_enabled
             50,    // min_compaction_size
             1000,  // max_compaction_size
@@ -2287,7 +2339,7 @@ mod tests {
 
         // Verify first compaction created data
         let collection_after_first = sysdb
-            .get_collection_with_segments(collection_uuid)
+            .get_collection_with_segments(None, collection_uuid)
             .await
             .expect("Collection should exist after first compaction");
 
@@ -2331,7 +2383,7 @@ mod tests {
         }
 
         let old_cas = sysdb
-            .get_collection_with_segments(collection_uuid)
+            .get_collection_with_segments(None, collection_uuid)
             .await
             .unwrap();
 
@@ -2348,6 +2400,7 @@ mod tests {
         let second_compact_result = Box::pin(compact(
             system.clone(),
             collection_uuid,
+            database_name,
             false, // walrus_enabled
             50,    // min_compaction_size
             1000,  // max_compaction_size
@@ -2372,7 +2425,7 @@ mod tests {
 
         // Verify that the collection still has the same data from the first compaction
         let collection_after_second = sysdb
-            .get_collection_with_segments(collection_uuid)
+            .get_collection_with_segments(None, collection_uuid)
             .await
             .expect("Collection should exist after second compaction");
 
@@ -2406,7 +2459,7 @@ mod tests {
 
         check_purge_successful(tmpdir.path()).await;
         let new_cas = sysdb
-            .get_collection_with_segments(collection_uuid)
+            .get_collection_with_segments(None, collection_uuid)
             .await
             .unwrap();
         let new_records = get_all_records(
@@ -2576,7 +2629,7 @@ mod tests {
         let dispatcher_handle = system.start_component(dispatcher);
 
         let old_cas = sysdb
-            .get_collection_with_segments(collection_uuid)
+            .get_collection_with_segments(None, collection_uuid)
             .await
             .unwrap();
 
@@ -2610,7 +2663,13 @@ mod tests {
         // Start compaction 1's log_fetch_orchestrator
         println!("Starting compaction 1's run_get_logs...");
         let compaction_1_logs_result = compaction_context_1
-            .run_get_logs(collection_uuid, system.clone(), false)
+            .run_get_logs(
+                collection_uuid,
+                DatabaseName::new(collection.database.clone())
+                    .expect("database name should be valid"),
+                system.clone(),
+                false,
+            )
             .await;
 
         // Store the logs for compaction 1 to use later
@@ -2653,9 +2712,12 @@ mod tests {
 
         // Now start compaction 2 and let it run completely using the compact() function
         println!("Starting compaction 2 to completion...");
+        let database_name = chroma_types::DatabaseName::new(collection.database.clone())
+            .expect("database name should be valid");
         let compaction_2 = Box::pin(compact(
             system.clone(),
             collection_uuid,
+            database_name,
             false, // walrus_enabled
             50,    // min_compaction_size
             1000,  // max_compaction_size
@@ -2676,7 +2738,7 @@ mod tests {
 
         assert_eq!(
             sysdb
-                .get_collection_with_segments(collection_uuid)
+                .get_collection_with_segments(None, collection_uuid)
                 .await
                 .unwrap()
                 .collection
@@ -2709,7 +2771,7 @@ mod tests {
 
         // Verify that the collection was successfully compacted (by whichever succeeded)
         let collection_after_compaction = sysdb
-            .get_collection_with_segments(collection_uuid)
+            .get_collection_with_segments(None, collection_uuid)
             .await
             .expect("Collection should exist after compaction");
 
@@ -2720,7 +2782,7 @@ mod tests {
         );
 
         let new_cas = sysdb
-            .get_collection_with_segments(collection_uuid)
+            .get_collection_with_segments(None, collection_uuid)
             .await
             .unwrap();
         let new_records = get_all_records(
@@ -2798,11 +2860,14 @@ mod tests {
         // Create input collection
         let collection_name = format!("test_rebuild_fn_{}", uuid::Uuid::new_v4());
         let collection_id = CollectionUuid::new();
+        let database_name =
+            chroma_types::DatabaseName::new(test_segments.collection.database.clone())
+                .expect("database name should be valid");
 
         sysdb
             .create_collection(
                 test_segments.collection.tenant.clone(),
-                test_segments.collection.database.clone(),
+                database_name.clone(),
                 collection_id,
                 collection_name,
                 vec![
@@ -2826,6 +2891,7 @@ mod tests {
         sysdb
             .flush_compaction(
                 tenant.clone(),
+                DatabaseName::new(db.clone()).expect("database name should be valid"),
                 collection_id,
                 -1,
                 0,
@@ -2905,6 +2971,7 @@ mod tests {
         Box::pin(compact(
             system.clone(),
             collection_id,
+            database_name.clone(),
             false, // not a rebuild
             50,
             1000,
@@ -2989,6 +3056,7 @@ mod tests {
         Box::pin(compact(
             system.clone(),
             collection_id,
+            database_name.clone(),
             false, // not a rebuild
             50,
             1000,
@@ -3031,7 +3099,7 @@ mod tests {
 
         // Get output collection info before rebuild
         let output_before_rebuild = sysdb
-            .get_collection_with_segments(output_collection_id)
+            .get_collection_with_segments(None, output_collection_id)
             .await
             .expect("Should get output collection before rebuild");
         let output_version_before = output_before_rebuild.collection.version;
@@ -3047,6 +3115,7 @@ mod tests {
         Box::pin(compact(
             system.clone(),
             collection_id,
+            database_name,
             true, // is_rebuild = true
             5000,
             10000,
@@ -3066,7 +3135,7 @@ mod tests {
 
         // Verify the input collection was rebuilt (version incremented)
         let input_after_rebuild = sysdb
-            .get_collection_with_segments(collection_id)
+            .get_collection_with_segments(None, collection_id)
             .await
             .expect("Should get input collection after rebuild");
         println!(
@@ -3080,7 +3149,7 @@ mod tests {
 
         // Verify the output collection was also rebuilt
         let output_after_rebuild = sysdb
-            .get_collection_with_segments(output_collection_id)
+            .get_collection_with_segments(None, output_collection_id)
             .await
             .expect("Should get output collection after rebuild");
 

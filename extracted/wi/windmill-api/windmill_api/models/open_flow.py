@@ -24,12 +24,14 @@ class OpenFlow:
         schema (Union[Unset, OpenFlowSchema]): JSON Schema for flow inputs. Use this to define input parameters, their
             types, defaults, and validation. For resource inputs, set type to 'object' and format to 'resource-<type>'
             (e.g., 'resource-stripe')
+        on_behalf_of_email (Union[Unset, str]): The flow will be run with the permissions of the user with this email.
     """
 
     summary: str
     value: "OpenFlowValue"
     description: Union[Unset, str] = UNSET
     schema: Union[Unset, "OpenFlowSchema"] = UNSET
+    on_behalf_of_email: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -40,6 +42,8 @@ class OpenFlow:
         schema: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.schema, Unset):
             schema = self.schema.to_dict()
+
+        on_behalf_of_email = self.on_behalf_of_email
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -53,6 +57,8 @@ class OpenFlow:
             field_dict["description"] = description
         if schema is not UNSET:
             field_dict["schema"] = schema
+        if on_behalf_of_email is not UNSET:
+            field_dict["on_behalf_of_email"] = on_behalf_of_email
 
         return field_dict
 
@@ -75,11 +81,14 @@ class OpenFlow:
         else:
             schema = OpenFlowSchema.from_dict(_schema)
 
+        on_behalf_of_email = d.pop("on_behalf_of_email", UNSET)
+
         open_flow = cls(
             summary=summary,
             value=value,
             description=description,
             schema=schema,
+            on_behalf_of_email=on_behalf_of_email,
         )
 
         open_flow.additional_properties = d

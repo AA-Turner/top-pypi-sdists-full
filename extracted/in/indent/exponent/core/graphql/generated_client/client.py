@@ -9,10 +9,14 @@ from .base_model import UNSET, UnsetType
 from .chats import Chats
 from .create_cloud_chat_from_repository import CreateCloudChatFromRepository
 from .enable_cloud_repository import EnableCloudRepository
-from .enums import SandboxProvider
 from .github_repositories import GithubRepositories
 from .halt_chat_stream import HaltChatStream
-from .input_types import ChatConfig, ChatInput, RepositoryInput
+from .input_types import (
+    ChatConfigInput,
+    ChatInput,
+    ChatResourceConfigInput,
+    RepositoryInput,
+)
 from .rebuild_cloud_repository import RebuildCloudRepository
 from .refresh_api_key import RefreshApiKey
 from .report_sandbox_info import ReportSandboxInfo
@@ -28,12 +32,8 @@ class IndentGraphQLClient(AsyncBaseClient):
     async def chats(self, **kwargs: Any) -> Chats:
         query = gql("""
             query Chats {
-              chats {
-                __typename
-                ... on UnauthenticatedError {
-                  message
-                }
-                ... on Chats {
+              organizationChatsPage(limit: 200) {
+                ... on OrganizationChatsPage {
                   chats {
                     chatUuid
                     name
@@ -62,36 +62,22 @@ class IndentGraphQLClient(AsyncBaseClient):
         return Chats.model_validate(data)
 
     async def create_cloud_chat_from_repository(
-        self,
-        repository_uuid: UUID,
-        provider: Union[Optional[SandboxProvider], UnsetType] = UNSET,
-        **kwargs: Any
+        self, resource_config: ChatResourceConfigInput, **kwargs: Any
     ) -> CreateCloudChatFromRepository:
         query = gql("""
-            mutation CreateCloudChatFromRepository($repositoryUuid: UUID!, $provider: SandboxProvider) {
-              createCloudChat(repositoryUuid: $repositoryUuid, provider: $provider) {
+            mutation CreateCloudChatFromRepository($resourceConfig: ChatResourceConfigInput!) {
+              createChatWithResourceConfig(input: {resourceConfig: $resourceConfig}) {
                 __typename
                 ... on Chat {
                   chatUuid
                 }
-                ... on UnauthenticatedError {
-                  message
-                }
-                ... on NotFoundError {
-                  resourceType
-                  resourceId
-                  message
-                }
-                ... on CloudSessionError {
+                ... on InputValidationError {
                   message
                 }
               }
             }
             """)
-        variables: dict[str, object] = {
-            "repositoryUuid": repository_uuid,
-            "provider": provider,
-        }
+        variables: dict[str, object] = {"resourceConfig": resource_config}
         response = await self.execute(
             query=query,
             operation_name="CreateCloudChatFromRepository",
@@ -121,14 +107,6 @@ class IndentGraphQLClient(AsyncBaseClient):
                     }
                   }
                 }
-                ... on UnauthenticatedError {
-                  message
-                }
-                ... on NotFoundError {
-                  resourceType
-                  resourceId
-                  message
-                }
                 ... on CloudSessionError {
                   message
                 }
@@ -152,7 +130,7 @@ class IndentGraphQLClient(AsyncBaseClient):
                 __typename
                 ... on Repositories {
                   repositories {
-                    uuid
+                    uuid: repositoryUuid
                     githubOrgName
                     githubRepoName
                     createdAt
@@ -180,14 +158,6 @@ class IndentGraphQLClient(AsyncBaseClient):
                 ... on Chat {
                   chatUuid
                 }
-                ... on UnauthenticatedError {
-                  message
-                }
-                ... on NotFoundError {
-                  resourceType
-                  resourceId
-                  message
-                }
                 ... on RemoteExecutionError {
                   message
                 }
@@ -206,7 +176,7 @@ class IndentGraphQLClient(AsyncBaseClient):
     ) -> RebuildCloudRepository:
         query = gql("""
             mutation RebuildCloudRepository($repositoryUuid: UUID!) {
-              rebuildCloudRepository(repositoryUuid: $repositoryUuid) {
+              rebuildCloudRepository(input: {repositoryUuid: $repositoryUuid}) {
                 __typename
                 ... on ContainerImages {
                   images {
@@ -214,14 +184,6 @@ class IndentGraphQLClient(AsyncBaseClient):
                     createdAt
                     updatedAt
                   }
-                }
-                ... on UnauthenticatedError {
-                  message
-                }
-                ... on NotFoundError {
-                  resourceType
-                  resourceId
-                  message
                 }
                 ... on CloudSessionError {
                   message
@@ -242,13 +204,10 @@ class IndentGraphQLClient(AsyncBaseClient):
     async def refresh_api_key(self, **kwargs: Any) -> RefreshApiKey:
         query = gql("""
             mutation RefreshApiKey {
-              refreshApiKey {
+              refreshApiKey(input: {}) {
                 __typename
                 ... on User {
                   userApiKey
-                }
-                ... on UnauthenticatedError {
-                  message
                 }
               }
             }
@@ -270,16 +229,11 @@ class IndentGraphQLClient(AsyncBaseClient):
         query = gql("""
             mutation ReportSandboxInfo($sandboxId: String!, $diskUsageGb: Float, $indentLogFile: String) {
               reportSandboxInfo(
-                sandboxId: $sandboxId
-                diskUsageGb: $diskUsageGb
-                indentLogFile: $indentLogFile
+                input: {sandboxId: $sandboxId, diskUsageGb: $diskUsageGb, indentLogFile: $indentLogFile}
               ) {
                 __typename
                 ... on SandboxInfoResponse {
                   success
-                  message
-                }
-                ... on UnauthenticatedError {
                   message
                 }
               }
@@ -302,13 +256,10 @@ class IndentGraphQLClient(AsyncBaseClient):
     async def set_login_complete(self, **kwargs: Any) -> SetLoginComplete:
         query = gql("""
             mutation SetLoginComplete {
-              setLoginComplete {
+              setLoginComplete(input: {}) {
                 __typename
                 ... on User {
                   userApiKey
-                }
-                ... on UnauthenticatedError {
-                  message
                 }
               }
             }
@@ -326,26 +277,16 @@ class IndentGraphQLClient(AsyncBaseClient):
     async def start_chat_turn(
         self,
         chat_input: ChatInput,
-        chat_config: ChatConfig,
-        parent_uuid: Union[Optional[str], UnsetType] = UNSET,
+        chat_config: ChatConfigInput,
+        parent_uuid: Union[Optional[UUID], UnsetType] = UNSET,
         **kwargs: Any
     ) -> StartChatTurn:
         query = gql("""
-            mutation StartChatTurn($chatInput: ChatInput!, $parentUuid: String, $chatConfig: ChatConfig!) {
+            mutation StartChatTurn($chatInput: ChatInput!, $parentUuid: UUID, $chatConfig: ChatConfigInput!) {
               startChatTurn(
-                chatInput: $chatInput
-                parentUuid: $parentUuid
-                chatConfig: $chatConfig
+                input: {chatInput: $chatInput, parentUuid: $parentUuid, chatConfigInput: $chatConfig}
               ) {
                 __typename
-                ... on UnauthenticatedError {
-                  message
-                }
-                ... on NotFoundError {
-                  resourceType
-                  resourceId
-                  message
-                }
                 ... on Chat {
                   chatUuid
                 }

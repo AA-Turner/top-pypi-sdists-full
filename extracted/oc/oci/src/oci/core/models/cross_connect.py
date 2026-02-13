@@ -124,6 +124,10 @@ class CrossConnect(object):
             The value to assign to the oci_logical_device_name property of this CrossConnect.
         :type oci_logical_device_name: str
 
+        :param interface_name:
+            The value to assign to the interface_name property of this CrossConnect.
+        :type interface_name: str
+
         """
         self.swagger_types = {
             'compartment_id': 'str',
@@ -140,7 +144,8 @@ class CrossConnect(object):
             'time_created': 'datetime',
             'macsec_properties': 'MacsecProperties',
             'oci_physical_device_name': 'str',
-            'oci_logical_device_name': 'str'
+            'oci_logical_device_name': 'str',
+            'interface_name': 'str'
         }
         self.attribute_map = {
             'compartment_id': 'compartmentId',
@@ -157,7 +162,8 @@ class CrossConnect(object):
             'time_created': 'timeCreated',
             'macsec_properties': 'macsecProperties',
             'oci_physical_device_name': 'ociPhysicalDeviceName',
-            'oci_logical_device_name': 'ociLogicalDeviceName'
+            'oci_logical_device_name': 'ociLogicalDeviceName',
+            'interface_name': 'interfaceName'
         }
         self._compartment_id = None
         self._cross_connect_group_id = None
@@ -174,6 +180,7 @@ class CrossConnect(object):
         self._macsec_properties = None
         self._oci_physical_device_name = None
         self._oci_logical_device_name = None
+        self._interface_name = None
 
     @property
     def compartment_id(self):
@@ -582,6 +589,30 @@ class CrossConnect(object):
         :type: str
         """
         self._oci_logical_device_name = oci_logical_device_name
+
+    @property
+    def interface_name(self):
+        """
+        Gets the interface_name of this CrossConnect.
+        The name of the FastConnect interface where this cross-connect is installed.
+
+
+        :return: The interface_name of this CrossConnect.
+        :rtype: str
+        """
+        return self._interface_name
+
+    @interface_name.setter
+    def interface_name(self, interface_name):
+        """
+        Sets the interface_name of this CrossConnect.
+        The name of the FastConnect interface where this cross-connect is installed.
+
+
+        :param interface_name: The interface_name of this CrossConnect.
+        :type: str
+        """
+        self._interface_name = interface_name
 
     def __repr__(self):
         return formatted_flat_dict(self)

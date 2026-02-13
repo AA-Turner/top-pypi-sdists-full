@@ -8,14 +8,12 @@ import re
 import sys
 import time
 import warnings
-from typing import (
-    Literal,
-    Optional
-)
+from typing import Literal
 
 import requests
 from requests_cache import CacheMixin
 
+from fastf1.exceptions import RateLimitExceededError
 from fastf1.logger import get_logger
 
 
@@ -183,6 +181,10 @@ class Cache(metaclass=_MetaCache):
         >>> session = fastf1.get_session(2021, 5, 'Q')
         >>> # ...
 
+    When doing this, :func:`enable_cache` must be called right after your
+    imports and before any other FastF1 related functionality is called to
+    ensure that the cache is configured correctly.
+
     An alternative way to set the cache directory is to configure an
     environment variable `FASTF1_CACHE`. However, this value will be
     ignored if `Cache.enable_cache()` is called.
@@ -204,7 +206,7 @@ class Cache(metaclass=_MetaCache):
     _IGNORE_VERSION = False
     _FORCE_RENEW = False
 
-    _requests_session_cached: Optional[_CachedSessionWithRateLimiting] = None
+    _requests_session_cached: _CachedSessionWithRateLimiting | None = None
     _requests_session: requests.Session = _SessionWithRateLimiting()
     _default_cache_enabled = False  # flag to ensure that warning about disabled cache is logged once only # noqa: E501
     _tmp_disabled = False
@@ -615,6 +617,11 @@ class Cache(metaclass=_MetaCache):
         returned. This can be useful for freezing the state of the cache or
         working with an unstable internet connection.
 
+        .. note::
+
+            This function must be called after :func:`enable_cache` when
+            using a custom cache directory.
+
         Args:
             enabled: sets the state of offline mode to 'enabled' (``True``)
                 or 'disabled' (``False``)
@@ -640,11 +647,16 @@ class Cache(metaclass=_MetaCache):
         Additionally, the pickle cache (stage 2) is disabled completely, so
         no parsed data is cached. This means that the API parser code is
         always executed and not skipped due to caching.
+
+        .. note::
+
+            This function must be called after :func:`enable_cache` when
+            using a custom cache directory.
         """
         cls._ci_mode = enabled
 
     @classmethod
-    def get_cache_info(cls) -> tuple[Optional[str], Optional[int]]:
+    def get_cache_info(cls) -> tuple[str | None, int | None]:
         """Returns information about the cache directory and its size.
 
         If the cache is not configured, None will be returned for both the
@@ -691,8 +703,3 @@ class _NoCacheContext:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         Cache.set_enabled()
-
-
-class RateLimitExceededError(Exception):
-    """Raised if a hard rate limit is exceeded."""
-    pass

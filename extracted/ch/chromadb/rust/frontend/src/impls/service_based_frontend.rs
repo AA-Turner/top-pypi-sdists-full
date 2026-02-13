@@ -16,7 +16,7 @@ use chroma_metering::{
 };
 use chroma_segment::local_segment_manager::LocalSegmentManager;
 use chroma_sqlite::db::SqliteDb;
-use chroma_sysdb::{GetCollectionsOptions, SysDb};
+use chroma_sysdb::{DatabaseOrTopology, GetCollectionsOptions, SysDb};
 use chroma_system::System;
 use chroma_types::{
     operator::{Filter, KnnBatch, KnnProjection, Limit, Projection, Scan},
@@ -26,19 +26,20 @@ use chroma_types::{
     CountCollectionsError, CountCollectionsRequest, CountCollectionsResponse, CountRequest,
     CountResponse, CreateCollectionError, CreateCollectionRequest, CreateCollectionResponse,
     CreateDatabaseError, CreateDatabaseRequest, CreateDatabaseResponse, CreateTenantError,
-    CreateTenantRequest, CreateTenantResponse, DeleteCollectionError, DeleteCollectionRecordsError,
-    DeleteCollectionRecordsRequest, DeleteCollectionRecordsResponse, DeleteCollectionRequest,
-    DeleteDatabaseError, DeleteDatabaseRequest, DeleteDatabaseResponse, DetachFunctionError,
-    DetachFunctionRequest, DetachFunctionResponse, ForkCollectionError, ForkCollectionRequest,
-    ForkCollectionResponse, GetCollectionByCrnError, GetCollectionByCrnRequest,
-    GetCollectionByCrnResponse, GetCollectionError, GetCollectionRequest, GetCollectionResponse,
-    GetCollectionsError, GetDatabaseError, GetDatabaseRequest, GetDatabaseResponse, GetRequest,
-    GetResponse, GetTenantError, GetTenantRequest, GetTenantResponse, HealthCheckResponse,
-    HeartbeatError, Include, IndexStatusError, IndexStatusResponse, KnnIndex,
-    ListCollectionsRequest, ListCollectionsResponse, ListDatabasesError, ListDatabasesRequest,
-    ListDatabasesResponse, Operation, OperationRecord, QueryError, QueryRequest, QueryResponse,
-    ResetError, ResetResponse, Schema, SchemaError, SearchRequest, SearchResponse, Segment,
-    SegmentScope, SegmentType, SegmentUuid, UpdateCollectionError, UpdateCollectionRecordsError,
+    CreateTenantRequest, CreateTenantResponse, DatabaseName, DeleteCollectionError,
+    DeleteCollectionRecordsError, DeleteCollectionRecordsRequest, DeleteCollectionRecordsResponse,
+    DeleteCollectionRequest, DeleteDatabaseError, DeleteDatabaseRequest, DeleteDatabaseResponse,
+    DetachFunctionError, DetachFunctionRequest, DetachFunctionResponse, ForkCollectionError,
+    ForkCollectionRequest, ForkCollectionResponse, GetCollectionByCrnError,
+    GetCollectionByCrnRequest, GetCollectionByCrnResponse, GetCollectionError,
+    GetCollectionRequest, GetCollectionResponse, GetCollectionsError, GetDatabaseError,
+    GetDatabaseRequest, GetDatabaseResponse, GetRequest, GetResponse, GetTenantError,
+    GetTenantRequest, GetTenantResponse, HealthCheckResponse, HeartbeatError, Include,
+    IndexStatusError, IndexStatusResponse, KnnIndex, ListCollectionsRequest,
+    ListCollectionsResponse, ListDatabasesError, ListDatabasesRequest, ListDatabasesResponse,
+    Operation, OperationRecord, QueryError, QueryRequest, QueryResponse, ResetError, ResetResponse,
+    Schema, SchemaError, SearchRequest, SearchResponse, Segment, SegmentScope, SegmentType,
+    SegmentUuid, UpdateCollectionError, UpdateCollectionRecordsError,
     UpdateCollectionRecordsRequest, UpdateCollectionRecordsResponse, UpdateCollectionRequest,
     UpdateCollectionResponse, UpdateTenantError, UpdateTenantRequest, UpdateTenantResponse,
     UpsertCollectionRecordsError, UpsertCollectionRecordsRequest, UpsertCollectionRecordsResponse,
@@ -81,6 +82,7 @@ pub struct ServiceBasedFrontend {
     enable_schema: bool,
     retries_builder: ExponentialBuilder,
     min_records_for_invocation: u64,
+    tenants_with_quantization_enabled: Vec<String>,
 }
 
 impl ServiceBasedFrontend {
@@ -95,6 +97,7 @@ impl ServiceBasedFrontend {
         default_knn_index: KnnIndex,
         enable_schema: bool,
         min_records_for_invocation: u64,
+        tenants_with_quantization_enabled: Vec<String>,
     ) -> Self {
         let meter = global::meter("chroma");
         let fork_retries_counter = meter.u64_counter("fork_retries").build();
@@ -149,7 +152,18 @@ impl ServiceBasedFrontend {
             enable_schema,
             retries_builder,
             min_records_for_invocation,
+            tenants_with_quantization_enabled,
         }
+    }
+
+    /// Check if quantization should be enabled for the given tenant
+    /// Returns true if:
+    /// - The list contains "*" (all tenants), OR
+    /// - The tenant_id is in the list
+    fn should_enable_quantization_for_tenant(&self, tenant_id: &str) -> bool {
+        self.tenants_with_quantization_enabled
+            .iter()
+            .any(|t| t == "*" || t == tenant_id)
     }
 
     pub fn get_default_knn_index(&self) -> KnnIndex {
@@ -172,11 +186,12 @@ impl ServiceBasedFrontend {
 
     pub async fn get_cached_collection(
         &mut self,
+        database_name: DatabaseName,
         collection_id: CollectionUuid,
     ) -> Result<Collection, GetCollectionError> {
         Ok(self
             .collections_with_segments_provider
-            .get_collection_with_segments(collection_id)
+            .get_collection_with_segments(Some(database_name), collection_id)
             .await
             .map_err(|err| Box::new(err) as Box<dyn ChromaError>)?
             .collection)
@@ -184,11 +199,19 @@ impl ServiceBasedFrontend {
 
     async fn set_collection_dimension(
         &mut self,
+        database_name: DatabaseName,
         collection_id: CollectionUuid,
         dimension: u32,
     ) -> Result<UpdateCollectionResponse, UpdateCollectionError> {
         self.sysdb_client
-            .update_collection(collection_id, None, None, Some(dimension), None)
+            .update_collection(
+                Some(database_name),
+                collection_id,
+                None,
+                None,
+                Some(dimension),
+                None,
+            )
             .await
             .map_err(|err| Box::new(err) as Box<dyn ChromaError>)?;
         // Invalidate the cache.
@@ -201,6 +224,7 @@ impl ServiceBasedFrontend {
 
     async fn validate_embedding<Embedding, F>(
         &mut self,
+        database_name: DatabaseName,
         collection_id: CollectionUuid,
         option_embeddings: Option<&Vec<Embedding>>,
         update_if_not_present: bool,
@@ -209,7 +233,9 @@ impl ServiceBasedFrontend {
     where
         F: Fn(&Embedding) -> Option<usize>,
     {
-        let collection = self.get_cached_collection(collection_id).await?;
+        let collection = self
+            .get_cached_collection(database_name.clone(), collection_id)
+            .await?;
         if let Some(embeddings) = option_embeddings {
             let emb_dims = embeddings
                 .iter()
@@ -234,7 +260,13 @@ impl ServiceBasedFrontend {
                 }
                 None => {
                     if update_if_not_present {
-                        self.set_collection_dimension(collection_id, emb_dim)
+                        let database_name =
+                            DatabaseName::new(&collection.database).ok_or_else(|| {
+                                ValidationError::InvalidArgument(
+                                    "database name must be at least 3 characters".to_string(),
+                                )
+                            })?;
+                        self.set_collection_dimension(database_name, collection_id, emb_dim)
                             .await?;
                     }
                 }
@@ -353,7 +385,7 @@ impl ServiceBasedFrontend {
             .sysdb_client
             .get_collections(GetCollectionsOptions {
                 tenant: Some(tenant_id.clone()),
-                database: Some(database_name.clone()),
+                database_or_topology: Some(DatabaseOrTopology::Database(database_name.clone())),
                 limit,
                 offset,
                 ..Default::default()
@@ -398,7 +430,7 @@ impl ServiceBasedFrontend {
             .get_collections(GetCollectionsOptions {
                 name: Some(collection_name.clone()),
                 tenant: Some(tenant_id.clone()),
-                database: Some(database_name.clone()),
+                database_or_topology: Some(DatabaseOrTopology::Database(database_name.clone())),
                 limit: Some(1),
                 ..Default::default()
             })
@@ -459,7 +491,9 @@ impl ServiceBasedFrontend {
         if let Some(config) = configuration.as_ref() {
             match &config.vector_index {
                 VectorIndexConfiguration::Spann { .. } => {
-                    if !supported_segment_types.contains(&SegmentType::Spann) {
+                    if !supported_segment_types.contains(&SegmentType::Spann)
+                        && !supported_segment_types.contains(&SegmentType::QuantizedSpann)
+                    {
                         return Err(CreateCollectionError::SpannNotImplemented);
                     }
                 }
@@ -477,7 +511,9 @@ impl ServiceBasedFrontend {
         // Check default server configuration's index type
         match self.default_knn_index {
             KnnIndex::Spann => {
-                if !supported_segment_types.contains(&SegmentType::Spann) {
+                if !supported_segment_types.contains(&SegmentType::Spann)
+                    && !supported_segment_types.contains(&SegmentType::QuantizedSpann)
+                {
                     return Err(CreateCollectionError::SpannNotImplemented);
                 }
             }
@@ -491,7 +527,7 @@ impl ServiceBasedFrontend {
             }
         }
 
-        let reconciled_schema = if self.enable_schema {
+        let mut reconciled_schema = if self.enable_schema {
             // its safe to take here, bc we're moving all config info to schema
             // when configuration is None, we then populate in sysdb with empty config {}
             // this allows for easier migration paths in the future
@@ -510,13 +546,25 @@ impl ServiceBasedFrontend {
             None
         };
 
+        // Enable quantization for tenants in the config list (or all tenants if "*" is present)
+        if let Some(ref mut schema) = reconciled_schema {
+            if let Some(spann_config) = schema.get_spann_config_mut() {
+                spann_config.quantize = self.should_enable_quantization_for_tenant(&tenant_id);
+            }
+        }
+
         let segments = match self.executor {
             Executor::Distributed(_) => {
                 let mut vector_segment_type = SegmentType::HnswDistributed;
                 if self.enable_schema {
                     if let Some(schema) = reconciled_schema.as_ref() {
                         if schema.get_internal_spann_config().is_some() {
-                            vector_segment_type = SegmentType::Spann;
+                            // Use QuantizedSpann if quantization is enabled, otherwise use Spann
+                            if schema.is_quantization_enabled() {
+                                vector_segment_type = SegmentType::QuantizedSpann;
+                            } else {
+                                vector_segment_type = SegmentType::Spann;
+                            }
                         }
                     }
                 }
@@ -622,6 +670,7 @@ impl ServiceBasedFrontend {
     pub async fn update_collection(
         &mut self,
         UpdateCollectionRequest {
+            database_name,
             collection_id,
             new_name,
             new_metadata,
@@ -631,6 +680,7 @@ impl ServiceBasedFrontend {
     ) -> Result<UpdateCollectionResponse, UpdateCollectionError> {
         self.sysdb_client
             .update_collection(
+                database_name,
                 collection_id,
                 new_name,
                 new_metadata,
@@ -657,14 +707,15 @@ impl ServiceBasedFrontend {
             ..
         }: DeleteCollectionRequest,
     ) -> Result<DeleteCollectionRecordsResponse, DeleteCollectionError> {
+        let db_name = DatabaseName::new(&database_name).ok_or_else(|| {
+            DeleteCollectionError::Internal(Box::new(ValidationError::InvalidArgument(
+                "database name must be at least 3 characters".to_string(),
+            )))
+        })?;
         let collection = self
             .get_collection(
-                GetCollectionRequest::try_new(
-                    tenant_id.clone(),
-                    database_name.clone(),
-                    collection_name,
-                )
-                .map_err(DeleteCollectionError::Validation)?,
+                GetCollectionRequest::try_new(tenant_id.clone(), db_name, collection_name)
+                    .map_err(DeleteCollectionError::Validation)?,
             )
             .await?;
 
@@ -696,15 +747,34 @@ impl ServiceBasedFrontend {
         &mut self,
         ForkCollectionRequest {
             tenant_id,
+            database_name,
             source_collection_id,
             target_collection_name,
             ..
         }: ForkCollectionRequest,
     ) -> Result<ForkCollectionResponse, ForkCollectionError> {
         let target_collection_id = CollectionUuid::new();
+        let database_name = DatabaseName::new(database_name).ok_or_else(|| {
+            ForkCollectionError::InvalidArgument("database_name cannot be empty".to_string())
+        })?;
+        // Get source collection to extract CMEK for the forked log.
+        let source_collection = self
+            .get_cached_collection(database_name.clone(), source_collection_id)
+            .await
+            .map_err(|err| ForkCollectionError::Internal(err.boxed()))?;
+        let cmek = source_collection
+            .schema
+            .as_ref()
+            .and_then(|schema| schema.cmek.clone());
         let log_offsets = self
             .log_client
-            .fork_logs(&tenant_id, source_collection_id, target_collection_id)
+            .fork_logs(
+                &tenant_id,
+                database_name,
+                source_collection_id,
+                target_collection_id,
+                cmek,
+            )
             .await?;
         let mut collection_and_segments = self
             .sysdb_client
@@ -790,12 +860,13 @@ impl ServiceBasedFrontend {
     pub async fn retryable_push_logs(
         &mut self,
         tenant_id: &str,
+        database_name: DatabaseName,
         collection_id: CollectionUuid,
         records: Vec<OperationRecord>,
         cmek: Option<Cmek>,
     ) -> Result<(), Box<dyn ChromaError>> {
         self.log_client
-            .push_logs(tenant_id, collection_id, records, cmek)
+            .push_logs(tenant_id, database_name, collection_id, records, cmek)
             .await
     }
 
@@ -803,6 +874,7 @@ impl ServiceBasedFrontend {
         &mut self,
         AddCollectionRecordsRequest {
             tenant_id,
+            database_name,
             collection_id,
             ids,
             embeddings,
@@ -812,8 +884,11 @@ impl ServiceBasedFrontend {
             ..
         }: AddCollectionRecordsRequest,
     ) -> Result<AddCollectionRecordsResponse, AddCollectionRecordsError> {
+        let database_name = DatabaseName::new(database_name)
+            .ok_or(AddCollectionRecordsError::InvalidDatabaseName)?;
         let collection = self
             .validate_embedding(
+                database_name.clone(),
                 collection_id,
                 Some(&embeddings),
                 true,
@@ -833,13 +908,20 @@ impl ServiceBasedFrontend {
             let mut self_clone = self.clone();
             let records_clone = records.clone();
             let tenant_id_clone = tenant_id.clone();
+            let database_name_clone = database_name.clone();
             let cmek_clone = collection
                 .schema
                 .as_ref()
                 .and_then(|schema| schema.cmek.clone());
             async move {
                 self_clone
-                    .retryable_push_logs(&tenant_id_clone, collection_id, records_clone, cmek_clone)
+                    .retryable_push_logs(
+                        &tenant_id_clone,
+                        database_name_clone,
+                        collection_id,
+                        records_clone,
+                        cmek_clone,
+                    )
                     .await
             }
         };
@@ -895,6 +977,7 @@ impl ServiceBasedFrontend {
         &mut self,
         UpdateCollectionRecordsRequest {
             tenant_id,
+            database_name,
             collection_id,
             ids,
             embeddings,
@@ -904,10 +987,16 @@ impl ServiceBasedFrontend {
             ..
         }: UpdateCollectionRecordsRequest,
     ) -> Result<UpdateCollectionRecordsResponse, UpdateCollectionRecordsError> {
+        let database_name = DatabaseName::new(database_name)
+            .ok_or(UpdateCollectionRecordsError::InvalidDatabaseName)?;
         let collection = self
-            .validate_embedding(collection_id, embeddings.as_ref(), true, |embedding| {
-                embedding.as_ref().map(|emb| emb.len())
-            })
+            .validate_embedding(
+                database_name.clone(),
+                collection_id,
+                embeddings.as_ref(),
+                true,
+                |embedding| embedding.as_ref().map(|emb| emb.len()),
+            )
             .await
             .map_err(|err| err.boxed())?;
 
@@ -926,13 +1015,20 @@ impl ServiceBasedFrontend {
             let mut self_clone = self.clone();
             let records_clone = records.clone();
             let tenant_id_clone = tenant_id.clone();
+            let database_name_clone = database_name.clone();
             let cmek_clone = collection
                 .schema
                 .as_ref()
                 .and_then(|schema| schema.cmek.clone());
             async move {
                 self_clone
-                    .retryable_push_logs(&tenant_id_clone, collection_id, records_clone, cmek_clone)
+                    .retryable_push_logs(
+                        &tenant_id_clone,
+                        database_name_clone,
+                        collection_id,
+                        records_clone,
+                        cmek_clone,
+                    )
                     .await
             }
         };
@@ -988,6 +1084,7 @@ impl ServiceBasedFrontend {
         &mut self,
         UpsertCollectionRecordsRequest {
             tenant_id,
+            database_name,
             collection_id,
             ids,
             embeddings,
@@ -997,8 +1094,11 @@ impl ServiceBasedFrontend {
             ..
         }: UpsertCollectionRecordsRequest,
     ) -> Result<UpsertCollectionRecordsResponse, UpsertCollectionRecordsError> {
+        let database_name = DatabaseName::new(database_name)
+            .ok_or(UpsertCollectionRecordsError::InvalidDatabaseName)?;
         let collection = self
             .validate_embedding(
+                database_name.clone(),
                 collection_id,
                 Some(&embeddings),
                 true,
@@ -1024,13 +1124,20 @@ impl ServiceBasedFrontend {
             let mut self_clone = self.clone();
             let records_clone = records.clone();
             let tenant_id_clone = tenant_id.clone();
+            let database_name_clone = database_name.clone();
             let cmek_clone = collection
                 .schema
                 .as_ref()
                 .and_then(|schema| schema.cmek.clone());
             async move {
                 self_clone
-                    .retryable_push_logs(&tenant_id_clone, collection_id, records_clone, cmek_clone)
+                    .retryable_push_logs(
+                        &tenant_id_clone,
+                        database_name_clone,
+                        collection_id,
+                        records_clone,
+                        cmek_clone,
+                    )
                     .await
             }
         };
@@ -1093,12 +1200,14 @@ impl ServiceBasedFrontend {
             ..
         }: DeleteCollectionRecordsRequest,
     ) -> Result<DeleteCollectionRecordsResponse, DeleteCollectionRecordsError> {
+        let database_name_typed = DatabaseName::new(database_name.clone())
+            .ok_or(DeleteCollectionRecordsError::InvalidDatabaseName)?;
         let mut records = Vec::new();
 
         let read_event = if let Some(where_clause) = r#where {
             let collection_and_segments = self
                 .collections_with_segments_provider
-                .get_collection_with_segments(collection_id)
+                .get_collection_with_segments(Some(database_name_typed.clone()), collection_id)
                 .await
                 .map_err(|err| Box::new(err) as Box<dyn ChromaError>)?;
             if self.enable_schema {
@@ -1212,20 +1321,26 @@ impl ServiceBasedFrontend {
             let log_size_bytes = records.iter().map(OperationRecord::size_bytes).sum();
 
             let cmek = self
-                .get_cached_collection(collection_id)
+                .get_cached_collection(database_name_typed.clone(), collection_id)
                 .await
                 .map_err(|err| DeleteCollectionRecordsError::Internal(err.boxed()))?
                 .schema
                 .and_then(|schema| schema.cmek.clone());
-            self.retryable_push_logs(&tenant_id, collection_id, records, cmek)
-                .await
-                .map_err(|err| {
-                    if err.code() == ErrorCodes::Unavailable {
-                        DeleteCollectionRecordsError::Backoff
-                    } else {
-                        DeleteCollectionRecordsError::Internal(Box::new(err) as _)
-                    }
-                })?;
+            self.retryable_push_logs(
+                &tenant_id,
+                database_name_typed.clone(),
+                collection_id,
+                records,
+                cmek,
+            )
+            .await
+            .map_err(|err| {
+                if err.code() == ErrorCodes::Unavailable {
+                    DeleteCollectionRecordsError::Backoff
+                } else {
+                    DeleteCollectionRecordsError::Internal(Box::new(err) as _)
+                }
+            })?;
 
             // Attach metadata to the write context
             chroma_metering::with_current(|context| {
@@ -1311,11 +1426,20 @@ impl ServiceBasedFrontend {
 
     pub async fn retryable_count(
         &mut self,
-        CountRequest { collection_id, .. }: CountRequest,
+        CountRequest {
+            database_name,
+            collection_id,
+            ..
+        }: CountRequest,
     ) -> Result<CountResponse, QueryError> {
+        let database_name_typed = DatabaseName::new(&database_name).ok_or_else(|| {
+            QueryError::Other(Box::new(ValidationError::InvalidArgument(
+                "database name must be at least 3 characters".to_string(),
+            )))
+        })?;
         let collection_and_segments = self
             .collections_with_segments_provider
-            .get_collection_with_segments(collection_id)
+            .get_collection_with_segments(Some(database_name_typed), collection_id)
             .await
             .map_err(|err| Box::new(err) as Box<dyn ChromaError>)?;
         let latest_collection_logical_size_bytes = collection_and_segments
@@ -1418,9 +1542,12 @@ impl ServiceBasedFrontend {
 
     pub async fn indexing_status(
         &mut self,
+        database_name: DatabaseName,
         collection_id: CollectionUuid,
     ) -> Result<IndexStatusResponse, IndexStatusError> {
-        let collection = self.get_cached_collection(collection_id).await?;
+        let collection = self
+            .get_cached_collection(database_name.clone(), collection_id)
+            .await?;
 
         let num_indexed_ops = collection.log_position.try_into().map_err(|_| {
             IndexStatusError::Internal(Box::new(chroma_error::TonicError(tonic::Status::internal(
@@ -1436,7 +1563,7 @@ impl ServiceBasedFrontend {
         // The same logic is used in get_enum_offset_on_server in log-service/src/lib.rs
         let enumeration_offset = self
             .log_client
-            .scout_logs(&collection.tenant, collection_id, 0)
+            .scout_logs(&collection.tenant, database_name, collection_id, 0)
             .await?
             .saturating_sub(1);
 
@@ -1464,6 +1591,7 @@ impl ServiceBasedFrontend {
     async fn retryable_get(
         &mut self,
         GetRequest {
+            database_name,
             collection_id,
             ids,
             r#where,
@@ -1473,9 +1601,14 @@ impl ServiceBasedFrontend {
             ..
         }: GetRequest,
     ) -> Result<GetResponse, QueryError> {
+        let database_name_typed = DatabaseName::new(&database_name).ok_or_else(|| {
+            QueryError::Other(Box::new(ValidationError::InvalidArgument(
+                "database name must be at least 3 characters".to_string(),
+            )))
+        })?;
         let collection_and_segments = self
             .collections_with_segments_provider
-            .get_collection_with_segments(collection_id)
+            .get_collection_with_segments(Some(database_name_typed), collection_id)
             .await
             .map_err(|err| Box::new(err) as Box<dyn ChromaError>)?;
         if self.enable_schema {
@@ -1611,6 +1744,7 @@ impl ServiceBasedFrontend {
     async fn retryable_query(
         &mut self,
         QueryRequest {
+            database_name,
             collection_id,
             ids,
             r#where,
@@ -1620,9 +1754,14 @@ impl ServiceBasedFrontend {
             ..
         }: QueryRequest,
     ) -> Result<QueryResponse, QueryError> {
+        let database_name_typed = DatabaseName::new(&database_name).ok_or_else(|| {
+            QueryError::Other(Box::new(ValidationError::InvalidArgument(
+                "database name must be at least 3 characters".to_string(),
+            )))
+        })?;
         let collection_and_segments = self
             .collections_with_segments_provider
-            .get_collection_with_segments(collection_id)
+            .get_collection_with_segments(Some(database_name_typed), collection_id)
             .await
             .map_err(|err| Box::new(err) as Box<dyn ChromaError>)?;
         if self.enable_schema {
@@ -1715,7 +1854,13 @@ impl ServiceBasedFrontend {
     }
 
     pub async fn query(&mut self, request: QueryRequest) -> Result<QueryResponse, QueryError> {
+        let database_name_typed = DatabaseName::new(&request.database_name).ok_or_else(|| {
+            QueryError::Other(Box::new(ValidationError::InvalidArgument(
+                "database name must be at least 3 characters".to_string(),
+            )))
+        })?;
         self.validate_embedding(
+            database_name_typed,
             request.collection_id,
             Some(&request.embeddings),
             false,
@@ -1777,9 +1922,14 @@ impl ServiceBasedFrontend {
     ) -> Result<SearchResponse, QueryError> {
         // TODO: The dispatch logic is mostly the same for count/get/query/search, we should consider unifying them
         // Get collection and segments once for all queries
+        let database_name_typed = DatabaseName::new(&request.database_name).ok_or_else(|| {
+            QueryError::Other(Box::new(ValidationError::InvalidArgument(
+                "database name must be at least 3 characters".to_string(),
+            )))
+        })?;
         let collection_and_segments = self
             .collections_with_segments_provider
-            .get_collection_with_segments(request.collection_id)
+            .get_collection_with_segments(Some(database_name_typed), request.collection_id)
             .await
             .map_err(|err| QueryError::Other(Box::new(err) as Box<dyn ChromaError>))?;
         if self.enable_schema {
@@ -1938,7 +2088,7 @@ impl ServiceBasedFrontend {
     pub async fn attach_function(
         &mut self,
         tenant_name: String,
-        database_name: String,
+        database_name: DatabaseName,
         collection_id: String,
         AttachFunctionRequest {
             name,
@@ -1969,7 +2119,7 @@ impl ServiceBasedFrontend {
                 output_collection.clone(),
                 params,
                 tenant_name.clone(),
-                database_name,
+                database_name.clone().into_string(),
                 self.min_records_for_invocation,
             )
             .await?;
@@ -1988,8 +2138,13 @@ impl ServiceBasedFrontend {
         }
 
         // Step 2: Start backfill (only for newly created functions)
-        self.start_backfill(tenant_name, input_collection_id, attached_function_id)
-            .await?;
+        self.start_backfill(
+            tenant_name,
+            database_name,
+            input_collection_id,
+            attached_function_id,
+        )
+        .await?;
 
         // Step 3: Create output collection and set is_ready = true
         // Generate a default HNSW schema for the output collection with the attached function ID
@@ -2033,10 +2188,13 @@ impl ServiceBasedFrontend {
     async fn start_backfill(
         &mut self,
         tenant: String,
+        database_name: DatabaseName,
         collection_id: CollectionUuid,
         _attached_function_id: chroma_types::AttachedFunctionUuid,
     ) -> Result<(), chroma_types::AttachFunctionError> {
-        let collection = self.get_cached_collection(collection_id).await?;
+        let collection = self
+            .get_cached_collection(database_name.clone(), collection_id)
+            .await?;
         let embedding_dim = collection.dimension.unwrap_or(1);
         let fake_embedding = vec![0.0; embedding_dim as usize];
         // TODO(tanujnay112): Make this either a configurable or better yet a separate
@@ -2055,7 +2213,7 @@ impl ServiceBasedFrontend {
         ];
 
         let cmek = collection.schema.and_then(|schema| schema.cmek.clone());
-        self.retryable_push_logs(&tenant, collection_id, logs, cmek)
+        self.retryable_push_logs(&tenant, database_name, collection_id, logs, cmek)
             .await?;
         Ok(())
     }
@@ -2063,7 +2221,7 @@ impl ServiceBasedFrontend {
     pub async fn get_attached_function(
         &mut self,
         _tenant_name: String,
-        _database_name: String,
+        _database_name: DatabaseName,
         collection_id: String,
         function_name: String,
     ) -> Result<chroma_types::AttachedFunction, chroma_sysdb::GetAttachedFunctionError> {
@@ -2097,7 +2255,7 @@ impl ServiceBasedFrontend {
     pub async fn detach_function(
         &mut self,
         _tenant_id: String,
-        _database_name: String,
+        _database_name: DatabaseName,
         collection_id: String,
         name: String,
         DetachFunctionRequest { delete_output, .. }: DetachFunctionRequest,
@@ -2202,6 +2360,7 @@ impl Configurable<(FrontendConfig, System)> for ServiceBasedFrontend {
             config.default_knn_index,
             config.enable_schema,
             config.min_records_for_invocation,
+            config.tenants_with_quantization_enabled.clone(),
         ))
     }
 }
@@ -2227,11 +2386,13 @@ mod tests {
             .await
             .unwrap();
 
+        let database_name =
+            DatabaseName::new("default_database").expect("database name should be valid");
         let collection = frontend
             .create_collection(
                 CreateCollectionRequest::try_new(
                     "default_tenant".to_string(),
-                    "default_database".to_string(),
+                    database_name,
                     "test".to_string(),
                     None,
                     None,

@@ -1,4 +1,4 @@
-# Copyright 2024 The TensorFlow Authors. All Rights Reserved.
+# Copyright 2025 The TensorFlow Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,8 +30,8 @@ def expand_to_match_rank(a: tf.Tensor, b: tf.Tensor) -> tf.Tensor:
     than a, otherwise a `tf.Tensor` of shape (D0, D1, ..., Dn)
   """
   rank_deficit = b.shape.rank - a.shape.rank
-  if rank_deficit > 0:
-    return tf.reshape(a, a.shape + [1] * rank_deficit)
+  for _ in range(rank_deficit):
+    a = tf.expand_dims(a, axis=-1)
   return a
 
 

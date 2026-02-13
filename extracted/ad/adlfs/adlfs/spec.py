@@ -9,7 +9,6 @@ import io
 import logging
 import os
 import re
-import sys
 import typing
 import warnings
 import weakref
@@ -261,7 +260,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
     ...                       'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY,})
     """
 
-    protocol = "abfs"
+    protocol = ("abfs", "az", "abfss")
 
     def __init__(
         self,
@@ -318,6 +317,20 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 "0",
                 "f",
             ]
+            if os.getenv("AZURE_STORAGE_ANON") is None:
+                if (
+                    self.sas_token is None
+                    and self.account_key is None
+                    and credential is None
+                    and self.connection_string is None
+                    and self.client_id is None
+                ):
+                    warnings.warn(
+                        "AzureBlobFileSystem will no longer be defaulting to anonymous authentication in an "
+                        "upcoming release. To continue using anonymous credentials, please set anon=True. ",
+                        DeprecationWarning,
+                        stacklevel=2,
+                    )
         self.location_mode = location_mode
         self.credential = credential
         if account_host:
@@ -398,7 +411,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         STORE_SUFFIX = ".dfs.core.windows.net"
         logger.debug(f"_strip_protocol for {path}")
-        if not path.startswith(("abfs://", "az://", "abfss://")):
+        if isinstance(cls.protocol, str):
+            # The protocol can be either a string or a tuple of strings.
+            # While the default protocol is a tuple, a user can override the protocol to be a string.
+            # So, this handles the case where the user has overridden the protocol, restricting
+            # supported protocols to a single string.
+            protocol_startswith = (f"{cls.protocol}://",)
+        else:
+            protocol_startswith = tuple(f"{proto}://" for proto in cls.protocol)
+        if not path.startswith(protocol_startswith):
             path = path.lstrip("/")
             path = "abfs://" + path
         ops = infer_storage_options(path)
@@ -1279,6 +1300,27 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     sync_wrapper(_rm_files)
 
+    async def _rm_file(self, path: str, **kwargs):
+        """Delete a file.
+
+        Parameters
+        ----------
+        path: str
+            File to delete.
+        """
+        container_name, p, version_id = self.split_path(path)
+        try:
+            async with self.service_client.get_container_client(
+                container=container_name
+            ) as cc:
+                await cc.delete_blob(p, version_id=version_id)
+        except ResourceNotFoundError as e:
+            raise FileNotFoundError(
+                errno.ENOENT, os.strerror(errno.ENOENT), path
+            ) from e
+        self.invalidate_cache(path)
+        self.invalidate_cache(self._parent(path))
+
     async def _separate_directory_markers_for_non_empty_directories(
         self, file_paths: typing.Iterable[str]
     ) -> typing.Tuple[typing.List[str], typing.List[str]]:
@@ -1715,6 +1757,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                             ),
                             max_concurrency=max_concurrency or self.max_concurrency,
                             **self._timeout_kwargs,
+                            **kwargs,
                         )
                 self.invalidate_cache()
             except ResourceExistsError:
@@ -1993,7 +2036,7 @@ class AzureBlobFile(AbstractBufferedFile):
                 FutureWarning,
             )
             cache_options["trim"] = kwargs.pop("trim")
-        self.metadata = None
+        self._metadata = None
         self.kwargs = kwargs
 
         if self.mode not in {"ab", "rb", "wb", "xb"}:
@@ -2020,20 +2063,34 @@ class AzureBlobFile(AbstractBufferedFile):
                 size=self.size,
                 **cache_options,
             )
-            self.metadata = sync(
+
+        else:
+            self._metadata = metadata or {"is_directory": "false"}
+            self.buffer = io.BytesIO()
+            self.offset = None
+            self.forced = False
+            self.location = None
+
+    @property
+    def metadata(self):
+        """Lazy-loaded metadata for the blob."""
+        if self._metadata is None:
+            # NOTE: self.details["metadata"] contains the same data and is already
+            # fetched during __init__ for read mode. Once we build confidence that
+            # details always contains metadata, we can avoid this sync call entirely.
+            self._metadata = sync(
                 self.loop,
                 get_blob_metadata,
                 self.container_client,
                 self.blob,
                 version_id=self.version_id,
             )
+        return self._metadata
 
-        else:
-            self.metadata = metadata or {"is_directory": "false"}
-            self.buffer = io.BytesIO()
-            self.offset = None
-            self.forced = False
-            self.location = None
+    @metadata.setter
+    def metadata(self, value):
+        """Set metadata for the blob."""
+        self._metadata = value
 
     def _get_loop(self):
         try:
@@ -2159,9 +2216,8 @@ class AzureBlobFile(AbstractBufferedFile):
 
     async def _stage_block(self, data, start, end, block_id, semaphore):
         async with semaphore:
-            if self._sdk_supports_memoryview_for_writes():
-                # Use memoryview to avoid making copies of the bytes when we splice for partitioned uploads
-                data = memoryview(data)
+            # Use memoryview to avoid making copies of the bytes when we splice for partitioned uploads
+            data = memoryview(data)
             async with self.container_client.get_blob_client(blob=self.blob) as bc:
                 await bc.stage_block(
                     block_id=block_id,
@@ -2276,12 +2332,3 @@ class AzureBlobFile(AbstractBufferedFile):
         self.__dict__.update(state)
         self.loop = self._get_loop()
         self.container_client = self._get_container_client()
-
-    def _sdk_supports_memoryview_for_writes(self) -> bool:
-        # The SDK validates iterable bytes objects passed to its HTTP request layer
-        # expose an __iter__() method. However, memoryview objects did not expose an
-        # __iter__() method till Python 3.10.
-        #
-        # We still want to leverage memorviews when we can to avoid unnecessary copies. So
-        # we check the Python version to determine if we can use memoryviews for writes.
-        return sys.version_info >= (3, 10)

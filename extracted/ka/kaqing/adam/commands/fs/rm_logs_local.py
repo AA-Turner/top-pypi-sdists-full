@@ -1,8 +1,9 @@
 import os
 
 from adam.commands.command import Command
+from adam.directories import Directories
 from adam.repl_state import ReplState
-from adam.utils_log import log2, log_dir
+from adam.utils_log import log2
 
 class RmLogsLocal(Command):
     COMMAND = ':rm logs'
@@ -24,7 +25,7 @@ class RmLogsLocal(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            cmd = f'rm -rf {log_dir()}/*'
+            cmd = f'rm -rf {Directories.local_log_dir()}/*'
             log2(cmd, text_color='gray')
             os.system(cmd)
             log2()
@@ -35,4 +36,4 @@ class RmLogsLocal(Command):
         return super().completion(state)
 
     def help(self, state: ReplState):
-        return super().help(state, f'remove all qing log files under {log_dir()}')
+        return super().help(state, f'remove all qing log files under {Directories.local_log_dir()}')

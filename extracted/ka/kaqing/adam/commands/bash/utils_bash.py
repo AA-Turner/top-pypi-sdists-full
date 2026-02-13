@@ -1,6 +1,6 @@
 from adam.commands.devices.devices import device
 from adam.repl_state import ReplState
-from adam.utils_context import Context
+from adam.utils_context import NULL
 
 class BashHandler:
     def __init__(self, s0: ReplState, s1: ReplState):
@@ -13,5 +13,5 @@ class BashHandler:
     def __exit__(self, exc_type, exc_val, exc_tb):
         return False
 
-    def exec(self, args: list[str], ctx: Context = Context.NULL):
+    def exec(self, args: list[str], ctx = NULL):
         return device(self.s1).bash(self.s0, self.s1, args, ctx=ctx)

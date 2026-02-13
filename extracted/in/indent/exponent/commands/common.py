@@ -21,17 +21,6 @@ from exponent.core.config import (
     get_settings,
 )
 from exponent.core.graphql.client import GraphQLClient
-from exponent.core.graphql.generated_client import (
-    ExponentModels,
-    ReportSandboxInfoReportSandboxInfoSandboxInfoResponse,
-    ReportSandboxInfoReportSandboxInfoUnauthenticatedError,
-    SetLoginCompleteSetLoginCompleteUnauthenticatedError,
-    SetLoginCompleteSetLoginCompleteUser,
-)
-from exponent.core.graphql.generated_client.refresh_api_key import (
-    RefreshApiKeyRefreshApiKeyUnauthenticatedError,
-    RefreshApiKeyRefreshApiKeyUser,
-)
 from exponent.core.remote_execution.client import (
     REMOTE_EXECUTION_CLIENT_EXIT_INFO,
     RemoteExecutionClient,
@@ -232,7 +221,6 @@ async def start_chat_turn(api_key: str, base_api_url: str, base_ws_url: str, cha
         chat_uuid=chat_uuid,
         prompt=prompt,
         parent_uuid=None,
-        exponent_model=ExponentModels.PREMIUM,
         require_confirmation=False,
         read_only=False,
         depth_limit=20,
@@ -315,17 +303,8 @@ async def set_login_complete(api_key: str, base_api_url: str, base_ws_url: str) 
 
     data = result.set_login_complete
 
-    if isinstance(data, SetLoginCompleteSetLoginCompleteUnauthenticatedError):
-        raise HandledExponentError(f"Verification failed: {data.message}")
-
-    if isinstance(data, SetLoginCompleteSetLoginCompleteUser):
-        if data.user_api_key != api_key:
-            # We got a user object back, but the api_key is different
-            # than the one used in the user's request...
-            # This should never happen
-            raise HandledExponentError("Invalid API key, login to https://indent.com to find your API key.")
-    else:
-        raise HandledExponentError(f"Unexpected response type from setLoginComplete: {type(data).__name__}")
+    if data.user_api_key != api_key:
+        raise HandledExponentError("Invalid API key, login to https://indent.com to find your API key.")
 
 
 async def refresh_api_key_task(
@@ -336,22 +315,14 @@ async def refresh_api_key_task(
     graphql_client = GraphQLClient(api_key, base_api_url, base_ws_url)
     result = await graphql_client.refresh_api_key()
 
-    # Handle error case
-    if isinstance(result.refresh_api_key, RefreshApiKeyRefreshApiKeyUnauthenticatedError):
-        click.secho(f"Error: {result.refresh_api_key.message}", fg="red")
-        return
+    new_api_key = result.refresh_api_key.user_api_key
+    settings = get_settings()
 
-    # Handle success case
-    if isinstance(result.refresh_api_key, RefreshApiKeyRefreshApiKeyUser):
-        new_api_key = result.refresh_api_key.user_api_key
-        settings = get_settings()
+    click.echo(f"Saving new API Key to {settings.config_file_path}")
+    settings.update_api_key(new_api_key)
+    settings.write_settings_to_config_file()
 
-        click.echo(f"Saving new API Key to {settings.config_file_path}")
-        settings.update_api_key(new_api_key)
-        settings.write_settings_to_config_file()
-
-        click.secho("API key has been refreshed and saved successfully!", fg="green")
-        return
+    click.secho("API key has been refreshed and saved successfully!", fg="green")
 
 
 async def report_sandbox_info(
@@ -384,12 +355,6 @@ async def report_sandbox_info(
     )
 
     data = result.report_sandbox_info
-
-    if isinstance(data, ReportSandboxInfoReportSandboxInfoUnauthenticatedError):
-        raise HandledExponentError(f"Authentication failed: {data.message}")
-
-    if not isinstance(data, ReportSandboxInfoReportSandboxInfoSandboxInfoResponse):
-        raise HandledExponentError("Failed to report sandbox info: Unexpected response")
 
     if not data.success:
         raise HandledExponentError(f"Failed to report sandbox info: {data.message}")

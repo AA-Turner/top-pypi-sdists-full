@@ -7,7 +7,6 @@ Qiita OAuth2 backend, docs at:
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING, Any, Literal
 
 from social_core.exceptions import AuthException
@@ -27,6 +26,7 @@ class QiitaOAuth2(BaseOAuth2):
 
     AUTHORIZATION_URL = "https://qiita.com/api/v2/oauth/authorize"
     ACCESS_TOKEN_URL = "https://qiita.com/api/v2/access_tokens"
+    ACCESS_TOKEN_PAYLOAD = "json"
     SCOPE_SEPARATOR = " "
     REDIRECT_STATE = True
     EXTRA_DATA = [
@@ -50,29 +50,33 @@ class QiitaOAuth2(BaseOAuth2):
         ("image_monthly_upload_remaining", "image_monthly_upload_remaining"),
     ]
 
-    # TODO: I am pretty sure this method returns the wrong type; it should
-    # return a dict
-    def auth_complete_params(self, state=None):  # type: ignore[reportIncompatibleMethodOverride]
+    def auth_complete_params(self, state=None):
         data = super().auth_complete_params(state)
         if "grant_type" in data:
             del data["grant_type"]
         if "redirect_uri" in data:
             del data["redirect_uri"]
-        return json.dumps(data)
-
-    def auth_headers(self):
-        return {"Content-Type": "application/json"}
+        return data
 
     def request_access_token(
         self,
         url: str,
         method: Literal["GET", "POST", "DELETE"] = "GET",
         headers: Mapping[str, str | bytes] | None = None,
-        data: dict | bytes | str | None = None,
+        data: dict | None = None,
+        json: dict | None = None,
         auth: tuple[str, str] | AuthBase | None = None,
         params: dict | None = None,
     ) -> dict[Any, Any]:
-        data = super().request_access_token(url, method, headers, data, auth, params)
+        data = super().request_access_token(
+            url=url,
+            method=method,
+            headers=headers,
+            data=data,
+            json=json,
+            auth=auth,
+            params=params,
+        )
         data.update({"access_token": data["token"]})
         return data
 

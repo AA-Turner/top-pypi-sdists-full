@@ -1581,7 +1581,8 @@ class AnyscaleClient(AnyscaleClientInterface):
             raise RuntimeError(f"Path '{local_dir}' is not a valid directory.")
 
         cloud_resource_id = None
-        if cloud_resource_name is not None:
+        cloud = self.get_cloud(cloud_id=cloud_id)
+        if cloud_resource_name is not None and cloud is not None and not cloud.is_aioa:
             cloud_resources = self._internal_api_client.get_cloud_resources_api_v2_clouds_cloud_id_resources_get(
                 cloud_id=cloud_id,
             ).results
@@ -1968,6 +1969,8 @@ class AnyscaleClient(AnyscaleClientInterface):
         creator_id: Optional[str] = None,
         count: Optional[int] = None,
         paging_token: Optional[str] = None,
+        sort_field: Optional[str] = None,
+        sort_order: Optional[str] = None,
     ) -> DecoratedscheduleListResponse:
         """List schedules with filtering and pagination."""
         # Build kwargs dynamically to avoid passing None for count,
@@ -1978,6 +1981,8 @@ class AnyscaleClient(AnyscaleClientInterface):
             "name": name,
             "creator_id": creator_id,
             "paging_token": paging_token,
+            "sort_field": sort_field,
+            "sort_order": sort_order,
         }
         if count is not None:
             kwargs["count"] = count

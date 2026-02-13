@@ -31,6 +31,8 @@ from snowflake.core.stream._generated.models.stream_source_table import StreamSo
 from snowflake.core.stream._generated.models.stream_source_view import StreamSourceView
 from snowflake.core.stream._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.stream._generated.models.success_response import SuccessResponse
+from snowflake.core.stream._generated.models.tag_assignment import TagAssignment
+from snowflake.core.stream._generated.models.tag_reference import TagReference
 
 __all__ = [
     "ErrorResponse",
@@ -48,4 +50,6 @@ __all__ = [
     "StreamSourceView",
     "SuccessAcceptedResponse",
     "SuccessResponse",
+    "TagAssignment",
+    "TagReference",
 ]

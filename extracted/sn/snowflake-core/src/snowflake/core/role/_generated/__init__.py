@@ -31,3 +31,5 @@ from snowflake.core.role._generated.models.role import Role
 from snowflake.core.role._generated.models.securable import Securable
 from snowflake.core.role._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.role._generated.models.success_response import SuccessResponse
+from snowflake.core.role._generated.models.tag_assignment import TagAssignment
+from snowflake.core.role._generated.models.tag_reference import TagReference

@@ -106,7 +106,7 @@ class DataType(Enum):
 		else:
 			return DataType.String
 
-	def get_default_value(self, enm: Enum = None) -> Any:
+	def get_default_value(self, enm=None) -> Any:
 		"""Returns default value for the current type.
 		If the data type is Enum or EnumString, you have to provide the enum class."""
 		if self.is_list:

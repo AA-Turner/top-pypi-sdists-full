@@ -821,6 +821,14 @@ class Config:
             current_backend_version=current_backend_version,
         )
 
+    def has_api_owner_set_enabled(
+        self, current_backend_version: Optional[SemanticVersion]
+    ) -> BackendFeatureSupportByVersion:
+        return self.has_enabled_by_minimal_backend_version(
+            minimal_backend_version_key="comet.api_owner.minimum_backend_version",
+            current_backend_version=current_backend_version,
+        )
+
     def should_use_raw_throttling_messages(
         self, current_backend_version: Optional[SemanticVersion]
     ) -> BackendFeatureSupportByVersion:

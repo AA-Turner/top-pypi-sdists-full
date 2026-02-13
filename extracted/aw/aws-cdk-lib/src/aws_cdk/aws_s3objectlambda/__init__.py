@@ -154,6 +154,48 @@ class CfnAccessPoint(
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAccessPoint", [resource]))
 
+    @jsii.member(jsii_name="fromAccessPointArn")
+    @builtins.classmethod
+    def from_access_point_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_IAccessPointRef_22b02bce":
+        '''Creates a new IAccessPointRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__defea8bccd68eb183683f1aadec1ecc1382e458ccc4d40e795d9f849f225940f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_IAccessPointRef_22b02bce", jsii.sinvoke(cls, "fromAccessPointArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromAccessPointName")
+    @builtins.classmethod
+    def from_access_point_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        access_point_name: builtins.str,
+    ) -> "_IAccessPointRef_22b02bce":
+        '''Creates a new IAccessPointRef from a accessPointName.
+
+        :param scope: -
+        :param id: -
+        :param access_point_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__91374202740135884457f0822a12ceffd47c8eacf315dec4b3a8e999855f10a3)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument access_point_name", value=access_point_name, expected_type=type_hints["access_point_name"])
+        return typing.cast("_IAccessPointRef_22b02bce", jsii.sinvoke(cls, "fromAccessPointName", [scope, id, access_point_name]))
+
     @jsii.member(jsii_name="isCfnAccessPoint")
     @builtins.classmethod
     def is_cfn_access_point(cls, x: typing.Any) -> builtins.bool:
@@ -1291,6 +1333,22 @@ def _typecheckingstub__fc24858ef1979ca1cb8fba3d4a06956342322b232c5594f16f11ee6c3
 
 def _typecheckingstub__06444ab8b2f9ba6206f38f54678eaf6f0787ca9d63e3291eeef56b3796acf45d(
     resource: _IAccessPointRef_22b02bce,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__defea8bccd68eb183683f1aadec1ecc1382e458ccc4d40e795d9f849f225940f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__91374202740135884457f0822a12ceffd47c8eacf315dec4b3a8e999855f10a3(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    access_point_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

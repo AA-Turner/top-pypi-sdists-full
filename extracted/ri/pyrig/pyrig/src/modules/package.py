@@ -6,42 +6,32 @@ that depend on pyrig, allowing discovery of ConfigFile implementations and
 BuilderConfigFile subclasses across the ecosystem.
 """
 
-import importlib.metadata
 import logging
-import re
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Sequence
 from functools import cache
 from pathlib import Path
 from types import ModuleType
 from typing import Any
 
-from pyrig.src.graph import DiGraph
 from pyrig.src.modules.class_ import (
+    all_cls_from_module,
+    all_methods_from_cls,
     discard_parent_classes,
-    get_all_cls_from_module,
-    get_all_methods_from_cls,
-    get_all_subclasses,
+    discover_all_subclasses,
 )
-from pyrig.src.modules.function import get_all_functions_from_module
+from pyrig.src.modules.dependency_graph import DependencyGraph
+from pyrig.src.modules.function import all_functions_from_module
 from pyrig.src.modules.imports import (
-    get_modules_and_packages_from_package,
-    import_pkg_with_dir_fallback,
+    import_package_with_dir_fallback,
     module_is_package,
+    modules_and_packages_from_package,
 )
 from pyrig.src.modules.module import (
-    import_module_with_default,
     import_module_with_file_fallback,
 )
 from pyrig.src.modules.path import ModulePath, make_dir_with_init_file
 
 logger = logging.getLogger(__name__)
-
-# Pre-compiled regex for parsing package names from requirement strings.
-# Matches everything before the first version specifier (>, <, =, [, ;, etc.)
-# Allows alphanumeric, underscore, hyphen, and period (for namespace packages).
-# Performance: compiled once at module load vs. per-call compilation.
-# Used by DependencyGraph and PyprojectConfigFile.L.
-PACKAGE_REQ_NAME_SPLIT_PATTERN = re.compile(r"[^a-zA-Z0-9_.-]")
 
 
 def create_package(path: Path) -> ModuleType:
@@ -66,149 +56,10 @@ def create_package(path: Path) -> ModuleType:
         raise ValueError(msg)
     make_dir_with_init_file(path)
 
-    return import_pkg_with_dir_fallback(path)
+    return import_package_with_dir_fallback(path)
 
 
-class DependencyGraph(DiGraph):
-    """Directed graph of installed Python package dependencies.
-
-    Nodes are package names, edges represent dependency relationships.
-    Built automatically on instantiation by scanning installed distributions.
-    Central to pyrig's multi-package discovery system.
-    """
-
-    def __init__(self) -> None:
-        """Initialize and build the dependency graph from installed distributions."""
-        super().__init__()
-        self.build()
-
-    def build(self) -> None:
-        """Build the graph from installed Python distributions."""
-        logger.debug("Building dependency graph from installed distributions")
-        for dist in importlib.metadata.distributions():
-            name = self.parse_distname_from_metadata(dist)
-            self.add_node(name)
-
-            requires = dist.requires or []
-            for req in requires:
-                dep = self.parse_pkg_name_from_req(req)
-                if dep:
-                    self.add_edge(name, dep)  # package → dependency
-        logger.debug("Dependency graph built with %d packages", len(self.nodes()))
-
-    @staticmethod
-    def parse_distname_from_metadata(dist: importlib.metadata.Distribution) -> str:
-        """Extract and normalize distribution name from metadata.
-
-        Args:
-            dist: Distribution object.
-
-        Returns:
-            Normalized package name (lowercase, underscores).
-        """
-        # replace - with _ to handle packages like pyrig
-        name: str = dist.metadata["Name"]
-        return DependencyGraph.normalize_package_name(name)
-
-    @staticmethod
-    def get_all_dependencies() -> list[str]:
-        """Get all installed package names.
-
-        Returns:
-            List of normalized package names.
-        """
-        dists = importlib.metadata.distributions()
-        # extract the name from the metadata
-        return [DependencyGraph.parse_distname_from_metadata(dist) for dist in dists]
-
-    @staticmethod
-    def normalize_package_name(name: str) -> str:
-        """Normalize a package name (lowercase, hyphens → underscores).
-
-        Args:
-            name: Package name to normalize.
-
-        Returns:
-            Normalized package name.
-        """
-        return name.lower().replace("-", "_").strip()
-
-    @staticmethod
-    def parse_pkg_name_from_req(req: str) -> str | None:
-        """Extract package name from a requirement string.
-
-        Uses pre-compiled regex for better performance when parsing many requirements.
-
-        Args:
-            req: Requirement string (e.g., "requests>=2.0,<3.0").
-
-        Returns:
-            Normalized package name, or None if parsing fails.
-        """
-        # Split on the first non-alphanumeric character (except -, _, and .)
-        # Uses module-level compiled pattern for performance
-        dep = PACKAGE_REQ_NAME_SPLIT_PATTERN.split(req.strip(), maxsplit=1)[0].strip()
-        return DependencyGraph.normalize_package_name(dep) if dep else None
-
-    def get_all_depending_on(
-        self, package: ModuleType | str, *, include_self: bool = False
-    ) -> list[ModuleType]:
-        """Find all packages that depend on the given package.
-
-        Primary method for discovering packages that extend pyrig's functionality.
-
-        Args:
-            package: Package to find dependents of (module or name string).
-            include_self: If True, includes the target package in results.
-
-        Returns:
-            List of imported module objects for dependent packages.
-            Sorted in topological order (dependencies before dependents).
-
-        Raises:
-            ValueError: If package not found in dependency graph.
-
-        Note:
-            Only returns packages that can be successfully imported.
-        """
-        # replace - with _ to handle packages like pyrig
-        if isinstance(package, ModuleType):
-            package = package.__name__
-        target = package.lower()
-        if target not in self:
-            msg = f"""Package '{target}' not found in dependency graph."""
-            raise ValueError(msg)
-
-        dependents_set = self.ancestors(target)
-        if include_self:
-            dependents_set.add(target)
-
-        # Sort in topological order (dependencies before dependents)
-        dependents = self.topological_sort_subgraph(dependents_set)
-
-        logger.debug("Found packages depending on %s: %s", package, dependents)
-
-        return self.import_packages(dependents)
-
-    @staticmethod
-    def import_packages(names: Iterable[str]) -> list[ModuleType]:
-        """Import packages by name, skipping import failures.
-
-        Args:
-            names: Package names to import.
-
-        Returns:
-            List of successfully imported modules.
-        """
-        modules: list[ModuleType] = []
-        for name in names:
-            module = import_module_with_default(name)
-            if module is not None:
-                modules.append(module)
-        return modules
-
-
-def get_pkg_name_from_project_name(project_name: str) -> str:
+def package_name_from_project_name(project_name: str) -> str:
     """Convert project name to package name (hyphens → underscores).
 
     Args:
@@ -220,19 +71,19 @@ def get_pkg_name_from_project_name(project_name: str) -> str:
     return project_name.replace("-", "_")
 
 
-def get_project_name_from_pkg_name(pkg_name: str) -> str:
+def project_name_from_package_name(package_name: str) -> str:
     """Convert package name to project name (underscores → hyphens).
 
     Args:
-        pkg_name: Package name.
+        package_name: Package name.
 
     Returns:
         Project name.
     """
-    return pkg_name.replace("_", "-")
+    return package_name.replace("_", "-")
 
 
-def get_project_name_from_cwd() -> str:
+def project_name_from_cwd() -> str:
     """Get project name from current directory name.
 
     Returns:
@@ -242,16 +93,16 @@ def get_project_name_from_cwd() -> str:
     return cwd.name
 
 
-def get_pkg_name_from_cwd() -> str:
+def package_name_from_cwd() -> str:
     """Get package name from current directory name.
 
     Returns:
         Package name (directory name with underscores).
     """
-    return get_pkg_name_from_project_name(get_project_name_from_cwd())
+    return package_name_from_project_name(project_name_from_cwd())
 
 
-def get_objs_from_obj(
+def objs_from_obj(
     obj: Callable[..., Any] | type | ModuleType,
 ) -> Sequence[Callable[..., Any] | type | ModuleType]:
     """Extract contained objects from a container.
@@ -269,18 +120,18 @@ def get_objs_from_obj(
     """
     if isinstance(obj, ModuleType):
         if module_is_package(obj):
-            return get_modules_and_packages_from_package(obj)[1]
+            return modules_and_packages_from_package(obj)[1]
         objs: list[Callable[..., Any] | type] = []
-        objs.extend(get_all_functions_from_module(obj))
-        objs.extend(get_all_cls_from_module(obj))
+        objs.extend(all_functions_from_module(obj))
+        objs.extend(all_cls_from_module(obj))
         return objs
     if isinstance(obj, type):
-        return get_all_methods_from_cls(obj, exclude_parent_methods=True)
+        return all_methods_from_cls(obj, exclude_parent_methods=True)
     return []
 
 
 @cache
-def get_all_deps_depending_on_dep(
+def all_deps_depending_on_dep(
     dep: ModuleType, *, include_self: bool = False
 ) -> list[ModuleType]:
     """Get all packages that depend on pyrig.
@@ -289,19 +140,19 @@ def get_all_deps_depending_on_dep(
         List of imported module objects for dependent packages.
     """
     # Note we do not use cached to avoid caching the entire graph during CLI invocations
-    return DependencyGraph().get_all_depending_on(dep, include_self=include_self)
+    return DependencyGraph().all_depending_on(dep, include_self=include_self)
 
 
 @cache
 def discover_equivalent_modules_across_dependents(
-    module: ModuleType, dep: ModuleType, until_pkg: ModuleType | None = None
+    module: ModuleType, dep: ModuleType, until_package: ModuleType | None = None
 ) -> list[ModuleType]:
     """Find equivalent module paths across all packages that depend on a dependency.
 
     Core function for pyrig's multi-package architecture. Given a module path
-    within a base dependency (e.g., ``pyrig.dev.configs``), discovers and imports
+    within a base dependency (e.g., ``pyrig.rig.configs``), discovers and imports
     the equivalent module path in every package that depends on that dependency
-    (e.g., ``myapp.dev.configs``, ``other_pkg.dev.configs``).
+    (e.g., ``myapp.rig.configs``, ``other_package.rig.configs``).
 
     This enables automatic discovery of plugin implementations across an entire
     ecosystem of packages without requiring explicit registration.
@@ -315,11 +166,11 @@ def discover_equivalent_modules_across_dependents(
 
     Args:
         module: Template module whose path will be replicated across dependents.
-            For example, ``pyrig.dev.configs`` would find ``myapp.dev.configs``
+            For example, ``pyrig.rig.configs`` would find ``myapp.rig.configs``
             in a package ``myapp`` that depends on ``pyrig``.
         dep: The base dependency package. All packages depending on this will
             be searched for equivalent modules.
-        until_pkg: Optional package to stop at. When provided, stops iterating
+        until_package: Optional package to stop at. When provided, stops iterating
             through dependents once this package is reached (inclusive).
             Useful for limiting discovery scope.
 
@@ -328,11 +179,11 @@ def discover_equivalent_modules_across_dependents(
         topological order (base dependency first, then dependents in order).
 
     Example:
-        >>> # Find all dev.configs modules across pyrig ecosystem
-        >>> from pyrig.dev import configs
+        >>> # Find all rig.configs modules across pyrig ecosystem
+        >>> from pyrig.rig import configs
         >>> import pyrig
         >>> modules = discover_equivalent_modules_across_dependents(configs, pyrig)
-        >>> # Returns: [pyrig.dev.configs, myapp.dev.configs, other_pkg.dev.configs]
+        >>> # Returns: [pyrig.rig.configs, myapp.rig.configs, other_package.rig.configs]
 
     Note:
         The module path transformation is a simple string replacement of the
@@ -340,7 +191,7 @@ def discover_equivalent_modules_across_dependents(
         This assumes consistent package structure across the ecosystem.
 
     See Also:
-        DependencyGraph.get_all_depending_on: Finds dependent packages
+        DependencyGraph.all_depending_on: Finds dependent packages
         discover_subclasses_across_dependents: Uses this to find subclasses
     """
     module_name = module.__name__
@@ -349,15 +200,20 @@ def discover_equivalent_modules_across_dependents(
         module_name,
         dep.__name__,
     )
-    pkgs = get_all_deps_depending_on_dep(dep, include_self=True)
+    packages = all_deps_depending_on_dep(dep, include_self=True)
 
     modules: list[ModuleType] = []
-    for pkg in pkgs:
-        pkg_module_name = module_name.replace(dep.__name__, pkg.__name__, 1)
-        pkg_module_path = ModulePath.pkg_name_to_relative_dir_path(pkg_module_name)
-        pkg_module = import_module_with_file_fallback(pkg_module_path)
-        modules.append(pkg_module)
-        if isinstance(until_pkg, ModuleType) and pkg.__name__ == until_pkg.__name__:
+    for package in packages:
+        package_module_name = module_name.replace(dep.__name__, package.__name__, 1)
+        package_module_path = ModulePath.package_name_to_relative_dir_path(
+            package_module_name
+        )
+        package_module = import_module_with_file_fallback(package_module_path)
+        modules.append(package_module)
+        if (
+            isinstance(until_package, ModuleType)
+            and package.__name__ == until_package.__name__
+        ):
             break
     logger.debug(
         "Found modules equivalent to %s: %s", module_name, [m.__name__ for m in modules]
@@ -369,7 +225,7 @@ def discover_equivalent_modules_across_dependents(
 def discover_subclasses_across_dependents[T: type](
     cls: T,
     dep: ModuleType,
-    load_pkg_before: ModuleType,
+    load_package_before: ModuleType,
     *,
     discard_parents: bool = False,
     exclude_abstract: bool = False,
@@ -378,7 +234,7 @@ def discover_subclasses_across_dependents[T: type](
 
     Primary discovery function for pyrig's multi-package plugin architecture.
     Combines ``discover_equivalent_modules_across_dependents`` with
-    ``get_all_subclasses`` to find subclass implementations across all packages
+    ``subclasses`` to find subclass implementations across all packages
     that depend on a base dependency.
 
     This is the main mechanism that enables:
@@ -389,7 +245,7 @@ def discover_subclasses_across_dependents[T: type](
     The discovery process:
         1. Finds all equivalent modules across dependent packages using
            ``discover_equivalent_modules_across_dependents``
-        2. For each module, calls ``get_all_subclasses`` to discover subclasses
+        2. For each module, calls ``subclasses`` to discover subclasses
            of ``cls`` defined in that module (applying ``discard_parents`` and
            ``exclude_abstract`` filters per-module)
         3. Aggregates all discovered subclasses into a single list
@@ -403,9 +259,9 @@ def discover_subclasses_across_dependents[T: type](
             subclasses of this type (or the class itself).
         dep: The base dependency package (e.g., ``pyrig``). The function will
             search all packages that depend on this for subclass implementations.
-        load_pkg_before: Template module path to replicate across dependents.
-            For example, ``pyrig.dev.configs`` would search for subclasses in
-            ``myapp.dev.configs`` for each dependent package ``myapp``.
+        load_package_before: Template module path to replicate across dependents.
+            For example, ``pyrig.rig.configs`` would search for subclasses in
+            ``myapp.rig.configs`` for each dependent package ``myapp``.
         discard_parents: If True, removes classes that have subclasses also
             in the result set. Essential for override patterns where a package
             extends a config from another package - only the leaf (most derived)
@@ -420,12 +276,12 @@ def discover_subclasses_across_dependents[T: type](
 
     Example:
         >>> # Discover all ConfigFile implementations across ecosystem
-        >>> from pyrig.dev import configs
+        >>> from pyrig.rig import configs
         >>> import pyrig
         >>> subclasses = discover_subclasses_across_dependents(
         ...     cls=ConfigFile,
         ...     dep=pyrig,
-        ...     load_pkg_before=configs,
+        ...     load_package_before=configs,
         ...     discard_parents=True,
         ...     exclude_abstract=True,
         ... )
@@ -433,14 +289,14 @@ def discover_subclasses_across_dependents[T: type](
 
     Note:
         When ``discard_parents=True``, the filtering is performed twice: once
-        within each ``get_all_subclasses`` call (per-module) and once after
+        within each ``subclasses`` call (per-module) and once after
         aggregation (cross-module). The second pass is essential because a
         parent class from module A and its child from module B would both
         survive the per-module filtering.
 
     See Also:
         discover_equivalent_modules_across_dependents: Module discovery
-        get_all_subclasses: Per-module subclass discovery
+        subclasses: Per-module subclass discovery
         discover_leaf_subclass_across_dependents: When exactly one leaf expected
     """
     logger.debug(
@@ -449,11 +305,13 @@ def discover_subclasses_across_dependents[T: type](
         dep.__name__,
     )
     subclasses: list[T] = []
-    for pkg in discover_equivalent_modules_across_dependents(load_pkg_before, dep):
+    for package in discover_equivalent_modules_across_dependents(
+        load_package_before, dep
+    ):
         subclasses.extend(
-            get_all_subclasses(
+            discover_all_subclasses(
                 cls,
-                load_package_before=pkg,
+                load_package_before=package,
                 discard_parents=discard_parents,
                 exclude_abstract=exclude_abstract,
             )
@@ -472,7 +330,7 @@ def discover_subclasses_across_dependents[T: type](
 
 @cache
 def discover_leaf_subclass_across_dependents[T: type](
-    cls: T, dep: ModuleType, load_pkg_before: ModuleType
+    cls: T, dep: ModuleType, load_package_before: ModuleType
 ) -> T:
     """Discover the single deepest subclass in the inheritance hierarchy.
 
@@ -498,7 +356,7 @@ def discover_leaf_subclass_across_dependents[T: type](
     Args:
         cls: Base class to find the leaf subclass of.
         dep: The base dependency package (e.g., ``pyrig``).
-        load_pkg_before: Template module path to replicate across dependents.
+        load_package_before: Template module path to replicate across dependents.
 
     Returns:
         The single leaf subclass type (deepest in inheritance tree).
@@ -515,7 +373,7 @@ def discover_leaf_subclass_across_dependents[T: type](
         >>> leaf = discover_leaf_subclass_across_dependents(
         ...     cls=PyprojectConfigFile,
         ...     dep=pyrig,
-        ...     load_pkg_before=configs,
+        ...     load_package_before=configs,
         ... )
         >>> # Returns the most-derived PyprojectConfigFile subclass
 
@@ -532,7 +390,7 @@ def discover_leaf_subclass_across_dependents[T: type](
     classes = discover_subclasses_across_dependents(
         cls=cls,
         dep=dep,
-        load_pkg_before=load_pkg_before,
+        load_package_before=load_package_before,
         discard_parents=True,
         exclude_abstract=False,
     )
@@ -540,7 +398,7 @@ def discover_leaf_subclass_across_dependents[T: type](
     if len(classes) > 1:
         msg = (
             f"Multiple final leaves found for {cls.__name__} "
-            f"in {load_pkg_before.__name__}: {classes}"
+            f"in {load_package_before.__name__}: {classes}"
         )
         raise ValueError(msg)
     leaf = classes[0]

@@ -269,8 +269,10 @@ async def _encrypt_thread_field(
 
     Encryption is handled by the gRPC server for custom encryption,
     but not for AES encryption."""
-    from langgraph_api.encryption.middleware import encrypt_json_if_needed
-    from langgraph_api.encryption.shared import using_custom_encryption
+    from langgraph_api.encryption.middleware import (  # noqa: PLC0415
+        encrypt_json_if_needed,
+    )
+    from langgraph_api.encryption.shared import using_custom_encryption  # noqa: PLC0415
 
     if isinstance(data, BaseException):
         data = {"error": type(data).__name__, "message": str(data)}
@@ -311,24 +313,6 @@ async def _thread_status_checkpoint_to_proto(
     )
 
 
-def _json_contains(container: Any, subset: dict[str, Any]) -> bool:
-    if not subset:
-        return True
-    if not isinstance(container, dict):
-        return False
-    for key, value in subset.items():
-        if key not in container:
-            return False
-        candidate = container[key]
-        if isinstance(value, dict):
-            if not _json_contains(candidate, value):
-                return False
-        else:
-            if candidate != value:
-                return False
-    return True
-
-
 @grpc_error_guard
 class Threads(Authenticated):
     """gRPC-based threads operations."""
@@ -365,36 +349,6 @@ class Threads(Authenticated):
             },
         )
 
-        if ids:
-            normalized_ids = [_normalize_uuid(thread_id) for thread_id in ids]
-            threads: list[Thread] = []
-            client = await get_shared_client()
-            for thread_id in normalized_ids:
-                request = pb.GetThreadRequest(
-                    thread_id=pb.UUID(value=_normalize_uuid(thread_id)),
-                    filters=auth_filters,
-                )
-                response = await client.threads.Get(request)
-                thread = proto_to_thread(response)
-
-                if status and thread["status"] != status:
-                    continue
-                if metadata and not _json_contains(thread["metadata"], metadata):
-                    continue
-                if values and not _json_contains(thread.get("values") or {}, values):
-                    continue
-                threads.append(thread)
-
-            total = len(threads)
-            paginated = threads[offset : offset + limit]
-            cursor = offset + limit if total > offset + limit else None
-
-            async def generate_results():
-                for thread in paginated:
-                    yield _filter_thread_fields(thread, select)
-
-            return generate_results(), cursor
-
         request_kwargs: dict[str, Any] = {
             "filters": auth_filters,
             "metadata_json": json_dumpb_optional(metadata),
@@ -416,6 +370,11 @@ class Threads(Authenticated):
 
         if select:
             request_kwargs["select"] = select
+
+        if ids:
+            request_kwargs["ids"] = [
+                pb.UUID(value=_normalize_uuid(thread_id)) for thread_id in ids
+            ]
 
         client = await get_shared_client()
         response = await client.threads.Search(
@@ -959,6 +918,7 @@ class Threads(Authenticated):
                     thread_config,
                     checkpointer=checkpointer,
                     store=(await api_store.get_store()),
+                    access_context="threads.read",
                 ) as graph:
                     return await graph.aget_state(config, subgraphs=subgraphs)
             else:
@@ -1025,7 +985,7 @@ class Threads(Authenticated):
                             thread_config,
                             checkpointer=checkpointer,
                             store=(await api_store.get_store()),
-                            is_for_execution=False,
+                            access_context="threads.update",
                         )
                     )
                     await stack.enter_async_context(conn.transaction())
@@ -1109,7 +1069,7 @@ class Threads(Authenticated):
                             thread_config,
                             checkpointer=checkpointer,
                             store=(await api_store.get_store()),
-                            is_for_execution=False,
+                            access_context="threads.update",
                         )
                     )
 
@@ -1200,7 +1160,7 @@ class Threads(Authenticated):
                         conn=conn, unpack_hook=_msgpack_ext_hook_to_json
                     ),
                     store=(await api_store.get_store()),
-                    is_for_execution=False,
+                    access_context="threads.read",
                 ) as graph:
                     return [
                         c

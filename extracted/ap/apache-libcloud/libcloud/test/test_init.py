@@ -17,12 +17,16 @@ import os
 import sys
 import logging
 import tempfile
+from unittest import mock
 from unittest.mock import patch
 
+import pytest
+
 import libcloud
-from libcloud import _init_once
+from libcloud import _init_once, reset_debug
 from libcloud.base import DriverTypeNotFoundError
 from libcloud.test import unittest
+from libcloud.common.base import Connection, LibcloudConnection
 from libcloud.utils.loggingconnection import LoggingConnection
 
 try:
@@ -32,32 +36,57 @@ try:
 except ImportError:
     have_paramiko = False
 
+_, TEMP_LOGFILE_PATH = tempfile.mkstemp()
+
 
 class TestUtils(unittest.TestCase):
-    def tearDown(self):
-        if "LIBCLOUD_DEBUG" in os.environ:
-            del os.environ["LIBCLOUD_DEBUG"]
+    def setUp(self):
+        # Reset debug level
+        reset_debug()
 
-    def test_init_once_and_debug_mode(self):
+        # Reset paramiko log level and handlers
         if have_paramiko:
             paramiko_logger = logging.getLogger("paramiko")
+            paramiko_logger.handlers = []
             paramiko_logger.setLevel(logging.INFO)
+
+    @mock.patch.dict(os.environ, {"LIBCLOUD_DEBUG": ""}, clear=True)
+    @pytest.mark.serial
+    def test_init_once_and_no_debug_mode(self):
+        if have_paramiko:
+            paramiko_logger = logging.getLogger("paramiko")
+            paramiko_log_level = paramiko_logger.getEffectiveLevel()
+            self.assertEqual(paramiko_log_level, logging.INFO)
+
+        self.assertIsNone(LoggingConnection.log)
+        self.assertEqual(Connection.conn_class, LibcloudConnection)
 
         # Debug mode is disabled
         _init_once()
 
         self.assertIsNone(LoggingConnection.log)
+        self.assertEqual(Connection.conn_class, LibcloudConnection)
 
         if have_paramiko:
             paramiko_log_level = paramiko_logger.getEffectiveLevel()
             self.assertEqual(paramiko_log_level, logging.INFO)
 
-        # Enable debug mode
-        _, tmp_path = tempfile.mkstemp()
-        os.environ["LIBCLOUD_DEBUG"] = tmp_path
+    @mock.patch.dict(os.environ, {"LIBCLOUD_DEBUG": TEMP_LOGFILE_PATH}, clear=True)
+    @pytest.mark.serial
+    def test_init_once_and_debug_mode(self):
+        if have_paramiko:
+            paramiko_logger = logging.getLogger("paramiko")
+            paramiko_log_level = paramiko_logger.getEffectiveLevel()
+            self.assertEqual(paramiko_log_level, logging.INFO)
+
+        self.assertIsNone(LoggingConnection.log)
+        self.assertEqual(Connection.conn_class, LibcloudConnection)
+
+        # Debug mode is enabled
         _init_once()
 
         self.assertTrue(LoggingConnection.log is not None)
+        self.assertEqual(Connection.conn_class, LoggingConnection)
 
         if have_paramiko:
             paramiko_log_level = paramiko_logger.getEffectiveLevel()

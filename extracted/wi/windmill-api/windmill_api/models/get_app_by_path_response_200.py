@@ -11,7 +11,6 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.get_app_by_path_response_200_extra_perms import GetAppByPathResponse200ExtraPerms
     from ..models.get_app_by_path_response_200_policy import GetAppByPathResponse200Policy
-    from ..models.get_app_by_path_response_200_value import GetAppByPathResponse200Value
 
 
 T = TypeVar("T", bound="GetAppByPathResponse200")
@@ -28,7 +27,7 @@ class GetAppByPathResponse200:
         versions (List[int]):
         created_by (str):
         created_at (datetime.datetime):
-        value (GetAppByPathResponse200Value):
+        value (Any):
         policy (GetAppByPathResponse200Policy):
         execution_mode (GetAppByPathResponse200ExecutionMode):
         extra_perms (GetAppByPathResponse200ExtraPerms):
@@ -44,7 +43,7 @@ class GetAppByPathResponse200:
     versions: List[int]
     created_by: str
     created_at: datetime.datetime
-    value: "GetAppByPathResponse200Value"
+    value: Any
     policy: "GetAppByPathResponse200Policy"
     execution_mode: GetAppByPathResponse200ExecutionMode
     extra_perms: "GetAppByPathResponse200ExtraPerms"
@@ -63,8 +62,7 @@ class GetAppByPathResponse200:
         created_by = self.created_by
         created_at = self.created_at.isoformat()
 
-        value = self.value.to_dict()
-
+        value = self.value
         policy = self.policy.to_dict()
 
         execution_mode = self.execution_mode.value
@@ -104,7 +102,6 @@ class GetAppByPathResponse200:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.get_app_by_path_response_200_extra_perms import GetAppByPathResponse200ExtraPerms
         from ..models.get_app_by_path_response_200_policy import GetAppByPathResponse200Policy
-        from ..models.get_app_by_path_response_200_value import GetAppByPathResponse200Value
 
         d = src_dict.copy()
         id = d.pop("id")
@@ -121,7 +118,7 @@ class GetAppByPathResponse200:
 
         created_at = isoparse(d.pop("created_at"))
 
-        value = GetAppByPathResponse200Value.from_dict(d.pop("value"))
+        value = d.pop("value")
 
         policy = GetAppByPathResponse200Policy.from_dict(d.pop("policy"))
 

@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple, List, Any
 from datetime import datetime, timezone
@@ -142,6 +143,20 @@ class SparkExpectationsWriter:
 
         """
         try:
+            # For stats tables, automatically enable mergeSchema to allow seamless schema evolution
+            # when new columns are added (e.g., databricks_workspace_id, databricks_hostname)
+            if stats_table:
+                # Create a copy to avoid mutating the original config
+                config = config.copy()
+                if config.get("options") is None:
+                    config["options"] = {}
+                else:
+                    config["options"] = config["options"].copy()
+                # Only set mergeSchema if not explicitly configured by user
+                if "mergeSchema" not in config["options"]:
+                    config["options"]["mergeSchema"] = "true"
+                    _log.info("Auto-enabled mergeSchema for stats table to support schema evolution")
+
             # Add metadata columns for non-stats tables
             if not stats_table:
                 df = df.withColumn(self._context.get_run_id_name, lit(f"{self._context.get_run_id}")).withColumn(
@@ -654,7 +669,7 @@ class SparkExpectationsWriter:
             self._context.print_dataframe_with_debugger(_df_detailed_stats)
 
             _log.info(
-                "Writing metrics to the detailed stats table: {self._context.get_dq_detailed_stats_table_name}, started"
+                f"Writing metrics to the detailed stats table: {self._context.get_dq_detailed_stats_table_name}, started"
             )
 
             self.save_df_as_table(
@@ -672,7 +687,7 @@ class SparkExpectationsWriter:
             _df_custom_detailed_stats_source = self._prep_secondary_query_output()
 
             _log.info(
-                "Writing metrics to the output custom table: {self._context.get_query_dq_output_custom_table_name}, started"
+                f"Writing metrics to the output custom table: {self._context.get_query_dq_output_custom_table_name}, started"
             )
 
             self.save_df_as_table(
@@ -683,7 +698,7 @@ class SparkExpectationsWriter:
             )
 
             _log.info(
-                "Writing metrics to the output custom table: {self._context.get_query_dq_output_custom_table_name}, ended"
+                f"Writing metrics to the output custom table: {self._context.get_query_dq_output_custom_table_name}, ended"
             )
         except Exception as e:
             raise SparkExpectationsMiscException(f"error occurred while saving the data into the stats table {e}")
@@ -711,6 +726,29 @@ class SparkExpectationsWriter:
             alert = SparkExpectationsAlert(self._context)
             alert.prep_report_data()
 
+    def _is_legacy_dbr_version(self) -> bool:
+        """Returns True only when we can positively confirm the runtime is DBR < 13.3.
+
+        .. deprecated::
+            Support for DBR < 13.3 is deprecated and will be removed in a future
+            version. DBR 12.2 LTS reached end-of-support in September 2024.
+            Migrate to DBR 13.3+ or Serverless compute.
+
+        The legacy branch uses the Strimzi OAuth library (io.strimzi.kafka.oauth.client)
+        which was required before DBR 13.3. Starting with DBR 13.3, Databricks bundles
+        Kafka 3.x which includes built-in OAuth support via kafkashaded classes.
+
+        For any version that is absent, non-numeric (e.g. Serverless 'client.1.13'),
+        or unrecognizable we return False so the caller defaults to the modern config,
+        """
+        dbr_version = self._context.get_dbr_version
+        if not dbr_version:
+            return False
+        try:
+            return float(dbr_version) < 13.3
+        except (ValueError, TypeError):
+            return False
+
     def get_kafka_write_options(self, se_stats_dict: dict) -> dict:
         """Gets Kafka write configuration options based on runtime environment and config settings"""
 
@@ -733,7 +771,21 @@ class SparkExpectationsWriter:
                 "topic": f"{self._context.get_topic_name}",
             }
 
-        elif self._context.get_dbr_version and self._context.get_dbr_version >= 13.3:
+        elif self._is_legacy_dbr_version():
+            # Deprecated: Legacy config for DBR < 13.3 which uses the Strimzi OAuth library
+            # instead of the built-in kafkashaded OAuth support added in Kafka 3.x.
+            # TODO: Remove this branch once DBR < 13.3 support is dropped.
+            options = {
+                "kafka.bootstrap.servers": f"{secret_handler.get_secret(self._context.get_server_url_key)}",
+                "kafka.security.protocol": "SASL_SSL",
+                "kafka.sasl.mechanism": "OAUTHBEARER",
+                "kafka.sasl.jaas.config": f"""kafkashaded.org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required oauth.client.id='{secret_handler.get_secret(self._context.get_client_id)}'  oauth.client.secret='{secret_handler.get_secret(self._context.get_token)}' oauth.token.endpoint.uri='{secret_handler.get_secret(self._context.get_token_endpoint_url)}'; """,
+                "kafka.sasl.login.callback.handler.class": "io.strimzi.kafka.oauth.client.JaasClientOauthLoginCallbackHandler",
+                "topic": f"{secret_handler.get_secret(self._context.get_topic_name)}",
+            }
+        else:
+            # Modern config (DBR >= 13.3, Serverless, or unknown runtime).
+            # Uses the built-in kafkashaded OAuth classes available in Kafka 3.x+.
             options = {
                 "kafka.bootstrap.servers": f"{secret_handler.get_secret(self._context.get_server_url_key)}",
                 "kafka.security.protocol": "SASL_SSL",
@@ -741,15 +793,6 @@ class SparkExpectationsWriter:
                 "kafka.sasl.jaas.config": f"""kafkashaded.org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required clientId="{secret_handler.get_secret(self._context.get_client_id)}" clientSecret="{secret_handler.get_secret(self._context.get_token)}";""",
                 "kafka.sasl.oauthbearer.token.endpoint.url": f"{secret_handler.get_secret(self._context.get_token_endpoint_url)}",
                 "kafka.sasl.login.callback.handler.class": "kafkashaded.org.apache.kafka.common.security.oauthbearer.secured.OAuthBearerLoginCallbackHandler",
-                "topic": f"{secret_handler.get_secret(self._context.get_topic_name)}",
-            }
-        else:
-            options = {
-                "kafka.bootstrap.servers": f"{secret_handler.get_secret(self._context.get_server_url_key)}",
-                "kafka.security.protocol": "SASL_SSL",
-                "kafka.sasl.mechanism": "OAUTHBEARER",
-                "kafka.sasl.jaas.config": f"""kafkashaded.org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required oauth.client.id='{secret_handler.get_secret(self._context.get_client_id)}'  oauth.client.secret='{secret_handler.get_secret(self._context.get_token)}' oauth.token.endpoint.uri='{secret_handler.get_secret(self._context.get_token_endpoint_url)}'; """,
-                "kafka.sasl.login.callback.handler.class": "io.strimzi.kafka.oauth.client.JaasClientOauthLoginCallbackHandler",
                 "topic": f"{secret_handler.get_secret(self._context.get_topic_name)}",
             }
 
@@ -905,6 +948,7 @@ class SparkExpectationsWriter:
                 .withColumn("success_percentage", sql_round(df.success_percentage, 2))
                 .withColumn("error_percentage", sql_round(df.error_percentage, 2))
                 .withColumn("dq_env", lit(dq_env))
+                .withColumn("se_job_metadata", lit(json.dumps(self._context.get_se_job_metadata)))
             )
 
             self._context.set_stats_dict(df)
@@ -1049,8 +1093,10 @@ class SparkExpectationsWriter:
                 .withColumn("tag", col("row_dq_res")["tag"])
                 .withColumn("action_if_failed", col("row_dq_res")["action_if_failed"])
                 .withColumn("column_name", col("row_dq_res")["column_name"])
-                .select("rule_type", "rule", "priority", "column_name", "description", "tag", "action_if_failed")
-                .groupBy("rule_type", "rule", "priority", "column_name", "description", "tag", "action_if_failed")
+                .withColumn("id_hash", col("row_dq_res")["id_hash"])
+                .withColumn("expectation_hash", col("row_dq_res")["expectation_hash"])
+                .select("rule_type", "rule", "priority", "column_name", "description", "tag", "action_if_failed", "id_hash", "expectation_hash" )
+                .groupBy("rule_type", "rule", "priority", "column_name", "description", "tag", "action_if_failed", "id_hash", "expectation_hash")
                 .count()
                 .withColumnRenamed("count", "failed_row_count")
             )
@@ -1064,6 +1110,8 @@ class SparkExpectationsWriter:
                     "tag": row.tag,
                     "action_if_failed": row.action_if_failed,
                     "failed_row_count": row.failed_row_count,
+                    "id_hash": row.id_hash,
+                    "expectation_hash": row.expectation_hash
                 }
                 for row in df_res.select(
                     "rule_type",
@@ -1074,6 +1122,8 @@ class SparkExpectationsWriter:
                     "tag",
                     "action_if_failed",
                     "failed_row_count",
+                    "id_hash",
+                    "expectation_hash"
                 ).collect()
             ]
             failed_rule_list = []
@@ -1096,7 +1146,9 @@ class SparkExpectationsWriter:
                                     "description": each_rule["description"],
                                     "tag": each_rule["tag"],
                                     "action_if_failed": each_rule["action_if_failed"],
-                                    "failed_row_count": 0
+                                    "failed_row_count": 0,
+                                    "id_hash": each_rule["id_hash"],
+                                    "expectation_hash": each_rule["expectation_hash"]
                                 }
                             )
 

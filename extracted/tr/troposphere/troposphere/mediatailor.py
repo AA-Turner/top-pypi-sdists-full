@@ -148,6 +148,29 @@ class AdConditioningConfiguration(AWSProperty):
     }
 
 
+class HttpRequest(AWSProperty):
+    """
+    `HttpRequest <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-httprequest.html>`__
+    """
+
+    props: PropsDictType = {
+        "Body": (str, False),
+        "CompressRequest": (str, False),
+        "Headers": (dict, False),
+        "HttpMethod": (str, False),
+    }
+
+
+class AdDecisionServerConfiguration(AWSProperty):
+    """
+    `AdDecisionServerConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-addecisionserverconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "HttpRequest": (HttpRequest, True),
+    }
+
+
 class AvailSuppression(AWSProperty):
     """
     `AvailSuppression <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-availsuppression.html>`__
@@ -278,6 +301,7 @@ class PlaybackConfiguration(AWSObject):
 
     props: PropsDictType = {
         "AdConditioningConfiguration": (AdConditioningConfiguration, False),
+        "AdDecisionServerConfiguration": (AdDecisionServerConfiguration, False),
         "AdDecisionServerUrl": (str, True),
         "AvailSuppression": (AvailSuppression, False),
         "Bumper": (Bumper, False),

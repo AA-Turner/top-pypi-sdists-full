@@ -1,13 +1,12 @@
 """Generalized truncation framework for tool results."""
 
 import os
-import tempfile
 from abc import ABC, abstractmethod
 from typing import Any, Generic, TypeVar, cast
 
 from msgspec.structs import replace
 
-from exponent.core.config import get_chat_artifacts_dir
+from exponent.core.file_layout import bash_result_path, generate_bash_id
 from exponent.core.remote_execution.cli_rpc_types import (
     BashToolResult,
     ErrorToolResult,
@@ -27,22 +26,16 @@ DEFAULT_LIST_PREVIEW_ITEMS = 10
 
 
 def _write_full_output_to_file(output: str, chat_uuid: str) -> str | None:
-    """Write full output to a temp file, truncated to last MAX_FILE_CHARS characters.
-
-    Files are written to the per-chat artifacts directory (~/.indent/chats/{uuid}/).
-    """
     try:
         if len(output) > MAX_FILE_CHARS:
             output = output[-MAX_FILE_CHARS:]
 
-        artifacts_dir = get_chat_artifacts_dir(chat_uuid)
-        os.makedirs(artifacts_dir, exist_ok=True)
-
-        fd, path = tempfile.mkstemp(prefix="bash_output_", suffix=".txt", dir=artifacts_dir)
-        try:
-            os.write(fd, output.encode("utf-8", errors="replace"))
-        finally:
-            os.close(fd)
+        bash_id = generate_bash_id()
+        epoch_ms = int(__import__("time").time() * 1000)
+        path, _ = bash_result_path(chat_uuid, bash_id, epoch_ms)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as f:
+            f.write(output.encode("utf-8", errors="replace"))
         return path
     except Exception:
         return None

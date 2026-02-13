@@ -54,18 +54,18 @@ from google.api_core import (
 )
 from google.api_core import client_options
 from google.api_core import exceptions as core_exceptions
-from google.api_core import operation_async  # type: ignore
 from google.api_core import retry as retries
+import google.api_core.operation_async as operation_async  # type: ignore
 import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.cloud.location import locations_pb2
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 
 from google.cloud.discoveryengine_v1.services.data_store_service import (
     DataStoreServiceAsyncClient,
@@ -4794,6 +4794,7 @@ def test_create_data_store_rest_call_success(request_type):
             "disable_initial_index": True,
             "disable_automatic_refresh": True,
         },
+        "natural_language_query_understanding_config": {"mode": 1},
         "kms_key_name": "kms_key_name_value",
         "cmek_config": {
             "name": "name_value",
@@ -5478,6 +5479,7 @@ def test_update_data_store_rest_call_success(request_type):
             "disable_initial_index": True,
             "disable_automatic_refresh": True,
         },
+        "natural_language_query_understanding_config": {"mode": 1},
         "kms_key_name": "kms_key_name_value",
         "cmek_config": {
             "name": "name_value",

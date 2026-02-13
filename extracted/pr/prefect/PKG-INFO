@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect
-Version: 3.6.16
+Version: 3.6.17
 Summary: Workflow orchestration and management.
 Project-URL: Changelog, https://github.com/PrefectHQ/prefect/releases
 Project-URL: Documentation, https://docs.prefect.io
@@ -39,7 +39,7 @@ Requires-Dist: exceptiongroup>=1.0.0
 Requires-Dist: fastapi<1.0.0,>=0.111.0
 Requires-Dist: fsspec>=2022.5.0
 Requires-Dist: graphviz>=0.20.1
-Requires-Dist: griffe<2.0.0,>=0.49.0
+Requires-Dist: griffe<3.0.0,>=0.49.0
 Requires-Dist: httpcore<2.0.0,>=1.0.5
 Requires-Dist: httpx[http2]!=0.23.2,>=0.23
 Requires-Dist: humanize<5.0.0,>=4.9.0
@@ -95,6 +95,8 @@ Provides-Extra: docker
 Requires-Dist: prefect-docker>=0.6.0; extra == 'docker'
 Provides-Extra: email
 Requires-Dist: prefect-email>=0.4.0; extra == 'email'
+Provides-Extra: fast-cli
+Requires-Dist: cyclopts>=3.0; extra == 'fast-cli'
 Provides-Extra: gcp
 Requires-Dist: prefect-gcp>=0.6.0; extra == 'gcp'
 Provides-Extra: github

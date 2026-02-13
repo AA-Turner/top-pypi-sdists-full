@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-mockito
-Version: 0.0.5
+Version: 0.0.6.post1
 Summary: Base fixtures for mockito
 Project-URL: Homepage, https://github.com/kaste/pytest-mockito
 Author-email: herr kaste <herr.kaste@gmail.com>

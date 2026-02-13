@@ -10,6 +10,8 @@ from chalk._gen.chalk.server.v1 import environment_pb2 as _environment_pb2
 from chalk._gen.chalk.server.v1 import graph_pb2 as _graph_pb2_1
 from chalk._gen.chalk.server.v1 import log_pb2 as _log_pb2
 from chalk._gen.chalk.utils.v1 import field_change_pb2 as _field_change_pb2
+from google.api import field_behavior_pb2 as _field_behavior_pb2
+from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -724,6 +726,7 @@ class ClusterTimescaleSpecs(_message.Message):
         "ip_allowlist",
         "gateway_port",
         "gateway_id",
+        "shared_preload_libraries",
     )
     class PostgresParametersEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -770,6 +773,7 @@ class ClusterTimescaleSpecs(_message.Message):
     IP_ALLOWLIST_FIELD_NUMBER: _ClassVar[int]
     GATEWAY_PORT_FIELD_NUMBER: _ClassVar[int]
     GATEWAY_ID_FIELD_NUMBER: _ClassVar[int]
+    SHARED_PRELOAD_LIBRARIES_FIELD_NUMBER: _ClassVar[int]
     timescale_image: str
     database_name: str
     database_replicas: int
@@ -799,6 +803,7 @@ class ClusterTimescaleSpecs(_message.Message):
     ip_allowlist: _containers.RepeatedScalarFieldContainer[str]
     gateway_port: int
     gateway_id: str
+    shared_preload_libraries: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         timescale_image: _Optional[str] = ...,
@@ -830,9 +835,37 @@ class ClusterTimescaleSpecs(_message.Message):
         ip_allowlist: _Optional[_Iterable[str]] = ...,
         gateway_port: _Optional[int] = ...,
         gateway_id: _Optional[str] = ...,
+        shared_preload_libraries: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class CreateClusterTimescaleDBResponse(_message.Message):
+    __slots__ = ("cluster_timescale_id", "specs")
+    CLUSTER_TIMESCALE_ID_FIELD_NUMBER: _ClassVar[int]
+    SPECS_FIELD_NUMBER: _ClassVar[int]
+    cluster_timescale_id: str
+    specs: ClusterTimescaleSpecs
+    def __init__(
+        self,
+        cluster_timescale_id: _Optional[str] = ...,
+        specs: _Optional[_Union[ClusterTimescaleSpecs, _Mapping]] = ...,
+    ) -> None: ...
+
+class UpdateClusterTimescaleDBRequest(_message.Message):
+    __slots__ = ("cluster_timescale_id", "specs", "update_mask")
+    CLUSTER_TIMESCALE_ID_FIELD_NUMBER: _ClassVar[int]
+    SPECS_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_MASK_FIELD_NUMBER: _ClassVar[int]
+    cluster_timescale_id: str
+    specs: ClusterTimescaleSpecs
+    update_mask: _field_mask_pb2.FieldMask
+    def __init__(
+        self,
+        cluster_timescale_id: _Optional[str] = ...,
+        specs: _Optional[_Union[ClusterTimescaleSpecs, _Mapping]] = ...,
+        update_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
+    ) -> None: ...
+
+class UpdateClusterTimescaleDBResponse(_message.Message):
     __slots__ = ("cluster_timescale_id", "specs")
     CLUSTER_TIMESCALE_ID_FIELD_NUMBER: _ClassVar[int]
     SPECS_FIELD_NUMBER: _ClassVar[int]
@@ -901,6 +934,7 @@ class EnvoyGatewaySpecs(_message.Message):
         "load_balancer_class",
         "cluster_gateway_id",
         "suspended",
+        "routing",
     )
     class ServiceAnnotationsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -922,6 +956,7 @@ class EnvoyGatewaySpecs(_message.Message):
     LOAD_BALANCER_CLASS_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_GATEWAY_ID_FIELD_NUMBER: _ClassVar[int]
     SUSPENDED_FIELD_NUMBER: _ClassVar[int]
+    ROUTING_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     gateway_name: str
     gateway_class_name: str
@@ -934,6 +969,7 @@ class EnvoyGatewaySpecs(_message.Message):
     load_balancer_class: str
     cluster_gateway_id: str
     suspended: bool
+    routing: str
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -948,6 +984,7 @@ class EnvoyGatewaySpecs(_message.Message):
         load_balancer_class: _Optional[str] = ...,
         cluster_gateway_id: _Optional[str] = ...,
         suspended: bool = ...,
+        routing: _Optional[str] = ...,
     ) -> None: ...
 
 class EnvoyGatewayListener(_message.Message):
@@ -1067,10 +1104,14 @@ class TLSManualCertificateRef(_message.Message):
     def __init__(self, secret_name: _Optional[str] = ..., secret_namespace: _Optional[str] = ...) -> None: ...
 
 class CreateClusterGatewayResponse(_message.Message):
-    __slots__ = ("id",)
+    __slots__ = ("id", "specs")
     ID_FIELD_NUMBER: _ClassVar[int]
+    SPECS_FIELD_NUMBER: _ClassVar[int]
     id: str
-    def __init__(self, id: _Optional[str] = ...) -> None: ...
+    specs: EnvoyGatewaySpecs
+    def __init__(
+        self, id: _Optional[str] = ..., specs: _Optional[_Union[EnvoyGatewaySpecs, _Mapping]] = ...
+    ) -> None: ...
 
 class CreateClusterBackgroundPersistenceRequest(_message.Message):
     __slots__ = ("environment_ids", "specs_string", "specs", "kube_cluster_id", "id")
@@ -1546,39 +1587,85 @@ class PySpyStackTraceCollectorSpec(_message.Message):
     ) -> None: ...
 
 class PerfCollectorSpec(_message.Message):
-    __slots__ = ("perf_polling_frequency_hz", "call_graph", "max_dumps_retained", "dump_duration_seconds")
+    __slots__ = (
+        "perf_polling_frequency_hz",
+        "call_graph",
+        "max_dumps_retained",
+        "dump_duration_seconds",
+        "export_to",
+        "bucket_subdirectory",
+    )
     PERF_POLLING_FREQUENCY_HZ_FIELD_NUMBER: _ClassVar[int]
     CALL_GRAPH_FIELD_NUMBER: _ClassVar[int]
     MAX_DUMPS_RETAINED_FIELD_NUMBER: _ClassVar[int]
     DUMP_DURATION_SECONDS_FIELD_NUMBER: _ClassVar[int]
+    EXPORT_TO_FIELD_NUMBER: _ClassVar[int]
+    BUCKET_SUBDIRECTORY_FIELD_NUMBER: _ClassVar[int]
     perf_polling_frequency_hz: int
     call_graph: bool
     max_dumps_retained: int
     dump_duration_seconds: int
+    export_to: str
+    bucket_subdirectory: str
     def __init__(
         self,
         perf_polling_frequency_hz: _Optional[int] = ...,
         call_graph: bool = ...,
         max_dumps_retained: _Optional[int] = ...,
         dump_duration_seconds: _Optional[int] = ...,
+        export_to: _Optional[str] = ...,
+        bucket_subdirectory: _Optional[str] = ...,
     ) -> None: ...
 
 class PerfettoDaemonSpec(_message.Message):
-    __slots__ = ("config_text", "max_retained_runs", "interval", "trigger_name")
+    __slots__ = ("config_text", "max_retained_runs", "interval", "trigger_name", "export_to", "bucket_subdirectory")
     CONFIG_TEXT_FIELD_NUMBER: _ClassVar[int]
     MAX_RETAINED_RUNS_FIELD_NUMBER: _ClassVar[int]
     INTERVAL_FIELD_NUMBER: _ClassVar[int]
     TRIGGER_NAME_FIELD_NUMBER: _ClassVar[int]
+    EXPORT_TO_FIELD_NUMBER: _ClassVar[int]
+    BUCKET_SUBDIRECTORY_FIELD_NUMBER: _ClassVar[int]
     config_text: str
     max_retained_runs: int
     interval: int
     trigger_name: str
+    export_to: str
+    bucket_subdirectory: str
     def __init__(
         self,
         config_text: _Optional[str] = ...,
         max_retained_runs: _Optional[int] = ...,
         interval: _Optional[int] = ...,
         trigger_name: _Optional[str] = ...,
+        export_to: _Optional[str] = ...,
+        bucket_subdirectory: _Optional[str] = ...,
+    ) -> None: ...
+
+class DirectoryWatcherSpec(_message.Message):
+    __slots__ = (
+        "watch_directory_subpath",
+        "upload_destination_fallback",
+        "upload_destination_path_fallback",
+        "interval_ms",
+        "upload_destination_uri_fallback",
+    )
+    WATCH_DIRECTORY_SUBPATH_FIELD_NUMBER: _ClassVar[int]
+    UPLOAD_DESTINATION_FALLBACK_FIELD_NUMBER: _ClassVar[int]
+    UPLOAD_DESTINATION_PATH_FALLBACK_FIELD_NUMBER: _ClassVar[int]
+    INTERVAL_MS_FIELD_NUMBER: _ClassVar[int]
+    UPLOAD_DESTINATION_URI_FALLBACK_FIELD_NUMBER: _ClassVar[int]
+    watch_directory_subpath: str
+    upload_destination_fallback: str
+    upload_destination_path_fallback: str
+    interval_ms: int
+    upload_destination_uri_fallback: str
+    def __init__(
+        self,
+        watch_directory_subpath: _Optional[str] = ...,
+        upload_destination_fallback: _Optional[str] = ...,
+        upload_destination_path_fallback: _Optional[str] = ...,
+        interval_ms: _Optional[int] = ...,
+        upload_destination_uri_fallback: _Optional[str] = ...,
     ) -> None: ...
 
 class ObservabilityDaemonSpec(_message.Message):
@@ -1592,6 +1679,7 @@ class ObservabilityDaemonSpec(_message.Message):
         "py_spy_stack_trace_collector",
         "perf_collector",
         "perfetto_daemon",
+        "directory_watcher",
     )
     KEEP_RUNNING_WHEN_SUSPENDED_FIELD_NUMBER: _ClassVar[int]
     REQUEST_FIELD_NUMBER: _ClassVar[int]
@@ -1602,6 +1690,7 @@ class ObservabilityDaemonSpec(_message.Message):
     PY_SPY_STACK_TRACE_COLLECTOR_FIELD_NUMBER: _ClassVar[int]
     PERF_COLLECTOR_FIELD_NUMBER: _ClassVar[int]
     PERFETTO_DAEMON_FIELD_NUMBER: _ClassVar[int]
+    DIRECTORY_WATCHER_FIELD_NUMBER: _ClassVar[int]
     keep_running_when_suspended: bool
     request: KubeResourceConfig
     limit: KubeResourceConfig
@@ -1611,6 +1700,7 @@ class ObservabilityDaemonSpec(_message.Message):
     py_spy_stack_trace_collector: PySpyStackTraceCollectorSpec
     perf_collector: PerfCollectorSpec
     perfetto_daemon: PerfettoDaemonSpec
+    directory_watcher: DirectoryWatcherSpec
     def __init__(
         self,
         keep_running_when_suspended: bool = ...,
@@ -1622,6 +1712,7 @@ class ObservabilityDaemonSpec(_message.Message):
         py_spy_stack_trace_collector: _Optional[_Union[PySpyStackTraceCollectorSpec, _Mapping]] = ...,
         perf_collector: _Optional[_Union[PerfCollectorSpec, _Mapping]] = ...,
         perfetto_daemon: _Optional[_Union[PerfettoDaemonSpec, _Mapping]] = ...,
+        directory_watcher: _Optional[_Union[DirectoryWatcherSpec, _Mapping]] = ...,
     ) -> None: ...
 
 class TelemetryDeploymentSpec(_message.Message):

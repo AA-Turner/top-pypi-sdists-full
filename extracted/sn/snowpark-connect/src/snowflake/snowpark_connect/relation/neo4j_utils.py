@@ -110,14 +110,20 @@ def transform_neo4j_to_jdbc_options(
     elif url.startswith("bolt://"):
         # bolt://host:port -> jdbc:neo4j://host:port (strip bolt://, add jdbc:neo4j://)
         jdbc_options["url"] = f"jdbc:neo4j://{url[7:]}"
+    elif url.startswith("bolt+ssc://"):
+        # bolt+ssc://host:port -> jdbc:neo4j+ssc://host:port (TLS, self-signed cert)
+        jdbc_options["url"] = f"jdbc:neo4j+ssc://{url[11:]}"
     elif url.startswith("bolt+s://"):
-        # bolt+s://host:port -> jdbc:neo4j+s://host:port
+        # bolt+s://host:port -> jdbc:neo4j+s://host:port (TLS, CA-verified)
         jdbc_options["url"] = f"jdbc:neo4j+s://{url[9:]}"
+    elif url.startswith("neo4j+ssc://"):
+        # neo4j+ssc://host:port -> jdbc:neo4j+ssc://host:port (TLS, self-signed cert)
+        jdbc_options["url"] = f"jdbc:neo4j+ssc://{url[12:]}"
     elif url.startswith("neo4j://"):
         # neo4j://host:port -> jdbc:neo4j://host:port
         jdbc_options["url"] = f"jdbc:neo4j://{url[8:]}"
     elif url.startswith("neo4j+s://"):
-        # neo4j+s://host:port -> jdbc:neo4j+s://host:port
+        # neo4j+s://host:port -> jdbc:neo4j+s://host:port (TLS, CA-verified)
         jdbc_options["url"] = f"jdbc:neo4j+s://{url[10:]}"
     else:
         # Assume it's just host:port

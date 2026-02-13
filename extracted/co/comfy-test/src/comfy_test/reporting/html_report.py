@@ -217,7 +217,16 @@ def generate_html_report(
         if dir_name in platform_ids:
             current_platform = dir_name
 
-    html_content = _render_report(results, screenshots, log_contents, repo_name, video_data)
+    # Load models report if available
+    models_data = None
+    models_file = output_dir / "models.json"
+    if models_file.exists():
+        try:
+            models_data = json.loads(models_file.read_text(encoding='utf-8-sig'))
+        except Exception:
+            pass
+
+    html_content = _render_report(results, screenshots, log_contents, repo_name, video_data, models_data)
 
     output_file = output_dir / "index.html"
     output_file.write_text(html_content, encoding="utf-8")
@@ -230,6 +239,7 @@ def _render_report(
     log_contents: Dict[str, str],
     repo_name: str,
     video_data: Optional[Dict[str, Any]] = None,
+    models_data: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Render the HTML report from results data."""
     video_data = video_data or {}
@@ -238,6 +248,8 @@ def _render_report(
     passed = summary.get("passed", 0)
     failed = summary.get("failed", 0)
     workflows = results.get("workflows", [])
+    skipped = sum(1 for w in workflows if w.get("status") == "skipped")
+    total = total - skipped
     timestamp = results.get("timestamp", "")
     hardware = results.get("hardware", {})
 
@@ -248,15 +260,21 @@ def _render_report(
     except (ValueError, AttributeError):
         timestamp_display = timestamp
 
-    # Build hardware display string
-    hardware_parts = []
+    # Build metadata chips
+    meta_chips_parts = []
+    svg_clock = '<svg viewBox="0 0 16 16"><path d="M8 0a8 8 0 110 16A8 8 0 018 0zm.5 4.5a.5.5 0 00-1 0v3.793L5.854 9.854a.5.5 0 10.708.708l1.853-1.854a.5.5 0 00.085-.094V4.5z"/></svg>'
+    svg_cpu = '<svg viewBox="0 0 16 16"><path d="M5 0a.5.5 0 01.5.5V2h1V.5a.5.5 0 011 0V2h1V.5a.5.5 0 011 0V2h.5A2.5 2.5 0 0112.5 4.5H14v1h-1.5v1H14v1h-1.5v1H14v1h-1.5A2.5 2.5 0 0110 12h-.5v1.5a.5.5 0 01-1 0V12h-1v1.5a.5.5 0 01-1 0V12H6v1.5a.5.5 0 01-1 0V12h-.5A2.5 2.5 0 012 9.5H.5v-1H2v-1H.5v-1H2v-1H.5v-1H2A2.5 2.5 0 014.5 2V.5A.5.5 0 015 0zm-.5 4A1.5 1.5 0 003 5.5v4A1.5 1.5 0 004.5 11h6a1.5 1.5 0 001.5-1.5v-4A1.5 1.5 0 0010.5 4h-6z"/></svg>'
+    svg_gpu = '<svg viewBox="0 0 16 16"><path d="M4 8a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm7.5-1.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM3 2a2 2 0 00-2 2v8a2 2 0 002 2h10a2 2 0 002-2V4a2 2 0 00-2-2H3z"/></svg>'
+    svg_os = '<svg viewBox="0 0 16 16"><path d="M2.5 4a.5.5 0 100 1 .5.5 0 000-1zM4 4.5a.5.5 0 01.5-.5h7a.5.5 0 010 1h-7a.5.5 0 01-.5-.5zM2.5 7a.5.5 0 100 1 .5.5 0 000-1zM4 7.5a.5.5 0 01.5-.5h7a.5.5 0 010 1h-7A.5.5 0 014 7.5zM2.5 10a.5.5 0 100 1 .5.5 0 000-1zM4 10.5a.5.5 0 01.5-.5h7a.5.5 0 010 1h-7a.5.5 0 01-.5-.5z"/></svg>'
+    if timestamp_display:
+        meta_chips_parts.append(f'<span class="meta-chip">{svg_clock} {html.escape(timestamp_display)}</span>')
     if hardware.get("os"):
-        hardware_parts.append(hardware["os"])
+        meta_chips_parts.append(f'<span class="meta-chip">{svg_os} {html.escape(hardware["os"])}</span>')
     if hardware.get("cpu"):
-        hardware_parts.append(hardware["cpu"])
+        meta_chips_parts.append(f'<span class="meta-chip">{svg_cpu} {html.escape(hardware["cpu"])}</span>')
     if hardware.get("gpu") and hardware["gpu"] != "None":
-        hardware_parts.append(hardware["gpu"])
-    hardware_display = " | ".join(hardware_parts) if hardware_parts else ""
+        meta_chips_parts.append(f'<span class="meta-chip">{svg_gpu} {html.escape(hardware["gpu"])}</span>')
+    meta_chips = ' '.join(meta_chips_parts)
 
     # Calculate pass rate
     pass_rate = (passed / total * 100) if total > 0 else 0
@@ -265,24 +283,25 @@ def _render_report(
     failed_workflows = [w for w in workflows if w.get("status") == "fail"]
     failed_section = _render_failed_section(failed_workflows, log_contents)
     workflow_cards, workflow_data_js = _render_workflow_cards(workflows, screenshots, log_contents)
+    models_section = _render_models_section(models_data)
 
     # Load and fill template (using string.Template to avoid escaping CSS braces)
     template = Template(_load_template("report.html"))
     return template.safe_substitute(
         repo_name=html.escape(repo_name),
-        timestamp_display=timestamp_display,
-        hardware_meta=f' | {hardware_display}' if hardware_display else '',
+        meta_chips=meta_chips,
         pass_rate=pass_rate,
         pass_rate_display=f"{pass_rate:.1f}",
         progress_class=' has-failures' if failed > 0 else '',
         passed=passed,
         failed=failed,
         total=total,
-        failed_badge=f'<span class="stat-badge stat-fail">{failed} FAILED</span>' if failed > 0 else '',
+        failed_badge=f'<span class="stat-badge stat-fail">{failed} failed</span>' if failed > 0 else '',
         failed_section=failed_section,
         workflow_cards=workflow_cards,
         workflow_data_js=workflow_data_js,
         video_data_js=json.dumps(video_data),
+        models_section=models_section,
     )
 
 
@@ -331,6 +350,8 @@ def _render_workflow_cards(
     for w in workflows:
         name = w.get("name", "unknown")
         status = w.get("status", "unknown")
+        if status == "skipped":
+            continue
         duration = w.get("duration_seconds", 0)
         hardware = w.get("hardware")
         screenshot_file = screenshots.get(name, "")
@@ -376,6 +397,69 @@ def _render_workflow_cards(
 
     workflow_data_js = json.dumps(workflow_data)
     return '\n'.join(cards), workflow_data_js
+
+
+def _render_models_section(models_data: Optional[Dict[str, Any]]) -> str:
+    """Render the downloaded models section."""
+    if not models_data or not models_data.get("folders"):
+        return ""
+
+    summary = models_data.get("summary", {})
+    folders = models_data.get("folders", {})
+
+    folder_items = []
+    for folder_name, folder_info in folders.items():
+        files_list = folder_info.get("files", [])
+        source = folder_info.get("source", {})
+        folder_size = folder_info.get("total_size_human", "")
+
+        # Source badge
+        source_html = ""
+        if source.get("type") == "huggingface":
+            repo = html.escape(source.get("repo", ""))
+            url = html.escape(source.get("url", ""))
+            source_html = f'<a class="models-source-link" href="{url}" target="_blank" rel="noopener">HF: {repo}</a>'
+
+        # File rows
+        file_rows = []
+        for f in files_list:
+            path = html.escape(f.get("path", ""))
+            size = html.escape(f.get("size_human", ""))
+            file_rows.append(
+                f'<div class="models-file">'
+                f'<span class="models-file-path">{path}</span>'
+                f'<span class="models-file-size">{size}</span>'
+                f'</div>'
+            )
+
+        files_html = "\n".join(file_rows)
+        folder_items.append(f'''
+            <details class="models-folder" open>
+                <summary class="models-folder-header">
+                    <span class="models-folder-name">models/{html.escape(folder_name)}/</span>
+                    <span class="models-folder-meta">
+                        {source_html}
+                        <span class="models-folder-size">{html.escape(folder_size)}</span>
+                    </span>
+                </summary>
+                <div class="models-file-list">
+                    {files_html}
+                </div>
+            </details>
+        ''')
+
+    total_size = html.escape(summary.get("total_size_human", "0 B"))
+    total_files = summary.get("total_files", 0)
+
+    return f'''
+        <div class="models-section">
+            <div class="section-header">
+                <h2 class="section-title">Downloaded Models</h2>
+                <span class="models-total">{total_files} files &middot; {total_size}</span>
+            </div>
+            {''.join(folder_items)}
+        </div>
+    '''
 
 
 def generate_root_index(output_dir: Path, repo_name: Optional[str] = None) -> Path:

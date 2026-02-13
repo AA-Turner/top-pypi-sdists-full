@@ -1,15 +1,14 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: mysqlclient
-Version: 2.2.7
+Version: 2.2.8
 Summary: Python interface to MySQL
 Author-email: Inada Naoki <songofacandy@gmail.com>
-License: GNU General Public License v2 or later (GPLv2+)
+License-Expression: GPL-2.0-or-later
 Project-URL: Project, https://github.com/PyMySQL/mysqlclient
 Project-URL: Documentation, https://mysqlclient.readthedocs.io/
 Keywords: MySQL
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Other Environment
-Classifier: License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows :: Windows NT/2000
 Classifier: Operating System :: OS Independent
@@ -19,17 +18,17 @@ Classifier: Operating System :: Unix
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Database
 Classifier: Topic :: Database :: Database Engines/Servers
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: license-file
 
 # mysqlclient
 
@@ -54,6 +53,17 @@ Or when you have question about MySQL/MariaDB:
 * [MySQL Support](https://dev.mysql.com/support/)
 * [Getting Help With MariaDB](https://mariadb.com/kb/en/getting-help-with-mariadb/)
 
+## Free threading Python
+
+> [!NOTE]
+> The support for Free threading Python is experimental.
+
+Since v2.2.8, free threading is supported when importing the extension module. Therefore, importing MySQLdb does not acquire GIL.
+
+However, this library does not support simultaneous operations on a single Connection object from multiple threads, regardless of free threading, and the behavior in such cases remains undefined.
+
+> [!WARNING]
+> Do not use a single Connection object from multiple threads simultaneously.
 
 ## Install
 

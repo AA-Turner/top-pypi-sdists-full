@@ -14,7 +14,7 @@ import heapq
 from collections import deque
 from typing import Self
 
-from pyrig.src.modules.class_ import get_cached_instance
+from pyrig.src.modules.class_ import cached_instance
 
 
 class DiGraph:
@@ -39,7 +39,7 @@ class DiGraph:
     def cached(cls) -> Self:
         """Get or create a cached singleton instance of this graph class.
 
-        Uses ``get_cached_instance`` to ensure only one instance exists per class.
+        Uses ``cached_instance`` to ensure only one instance exists per class.
         Subclasses like ``DependencyGraph`` use this to avoid rebuilding the
         dependency graph on every access, since it's expensive to scan all
         installed distributions.
@@ -47,7 +47,7 @@ class DiGraph:
         Returns:
             The cached singleton instance, created on first call.
         """
-        return get_cached_instance(cls)
+        return cached_instance(cls)
 
     def __init__(self) -> None:
         """Initialize an empty directed graph with no nodes or edges."""
@@ -113,7 +113,7 @@ class DiGraph:
         "A depends on B"), this returns all packages that depend on the target,
         either directly or transitively.
 
-        Used by ``DependencyGraph.get_all_depending_on`` to discover all packages
+        Used by ``DependencyGraph.all_depending_on`` to discover all packages
         in the ecosystem that depend on a given package (e.g., finding all packages
         that depend on pyrig).
 
@@ -192,7 +192,7 @@ class DiGraph:
         multiple nodes have no remaining dependencies. An edge A → B means
         "A depends on B", so B appears before A in the result.
 
-        Used by ``DependencyGraph.get_all_depending_on`` to ensure packages are
+        Used by ``DependencyGraph.all_depending_on`` to ensure packages are
         processed in the correct order: base dependencies before dependents.
         This is critical for discovering plugin implementations where a child
         package's class extends a parent package's class.

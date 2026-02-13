@@ -80,6 +80,7 @@ if __name__ == '__main__':
     size = "1792x1024"
     size = "1280x720"
     size = "21x9"
+    size = "768x1366"
     print(size2aspect_ratio(size))
 
     # print(size2resolution("512x512"))

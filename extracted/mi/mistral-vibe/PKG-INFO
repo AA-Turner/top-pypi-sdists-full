@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistral-vibe
-Version: 2.0.2
+Version: 2.1.0
 Summary: Minimal CLI coding agent by Mistral
 Project-URL: Homepage, https://github.com/mistralai/mistral-vibe
 Project-URL: Repository, https://github.com/mistralai/mistral-vibe
@@ -21,9 +21,13 @@ Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
 Requires-Python: >=3.12
-Requires-Dist: agent-client-protocol==0.7.1
+Requires-Dist: agent-client-protocol==0.8.0
 Requires-Dist: anyio>=4.12.0
+Requires-Dist: cryptography>=44.0.0
+Requires-Dist: gitpython>=3.1.46
+Requires-Dist: giturlparse>=0.14.0
 Requires-Dist: httpx>=0.28.1
+Requires-Dist: keyring>=25.6.0
 Requires-Dist: mcp>=1.14.0
 Requires-Dist: mistralai==1.9.11
 Requires-Dist: packaging>=24.1
@@ -40,6 +44,7 @@ Requires-Dist: tomli-w>=1.2.0
 Requires-Dist: tree-sitter-bash>=0.25.1
 Requires-Dist: tree-sitter>=0.25.2
 Requires-Dist: watchfiles>=1.1.1
+Requires-Dist: zstandard>=0.25.0
 Description-Content-Type: text/markdown
 
 # Mistral Vibe
@@ -637,7 +642,7 @@ Mistral Vibe can be used in text editors and IDEs that support [Agent Client Pro
 ## Resources
 
 - [CHANGELOG](CHANGELOG.md) - See what's new in each version
-- [CONTRIBUTING](CONTRIBUTING.md) - Guidelines for feedback and bug reports
+- [CONTRIBUTING](CONTRIBUTING.md) - Guidelines for feature requests, feedback and bug reports
 
 ## License
 

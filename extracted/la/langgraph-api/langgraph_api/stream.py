@@ -112,7 +112,7 @@ def _preproces_debug_checkpoint_task(task: dict[str, Any]) -> dict[str, Any]:
 def _preprocess_debug_checkpoint(
     payload: CheckpointPayload | None,
 ) -> dict[str, Any] | None:
-    from langgraph_api.state import runnable_config_to_checkpoint
+    from langgraph_api.state import runnable_config_to_checkpoint  # noqa: PLC0415
 
     if not payload:
         return None
@@ -170,7 +170,7 @@ async def astream_state(
             checkpointer=None
             if temporary
             else await api_checkpointer.get_checkpointer(),
-            is_for_execution=True,
+            access_context="threads.create_run",
         )
     )
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: later
-Version: 25.8.1
+Version: 26.1.1
 Summary: A toolbox for asyncio services
 Keywords: asyncio,later
 Author: Meta Platforms, Inc
@@ -19,7 +19,7 @@ Classifier: Topic :: Software Development :: Testing
 License-File: LICENSE
 Requires-Dist: async-timeout >= 2.0.0, <= 5.0.1
 Requires-Dist: async-timeout==5.0.1 ; extra == "dev"
-Requires-Dist: coverage==7.10.5 ; extra == "dev"
+Requires-Dist: coverage==7.13.3 ; extra == "dev"
 Requires-Dist: flit==3.12.0 ; extra == "dev"
 Project-URL: Github, https://github.com/facebookincubator/later
 Provides-Extra: dev

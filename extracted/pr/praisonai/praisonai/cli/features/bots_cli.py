@@ -112,11 +112,156 @@ class BotHandler:
     Supports comprehensive tool/capability configuration inspired by moltbot.
     """
     
+    @staticmethod
+    def _load_dotenv() -> None:
+        """Auto-load .env file if python-dotenv is available."""
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+            logger.debug(".env file loaded")
+        except ImportError:
+            # Also try manual .env loading as fallback
+            env_path = os.path.join(os.getcwd(), ".env")
+            if os.path.exists(env_path):
+                try:
+                    with open(env_path, "r") as f:
+                        for line in f:
+                            line = line.strip()
+                            if line and not line.startswith("#") and "=" in line:
+                                key, _, value = line.partition("=")
+                                key = key.strip()
+                                value = value.strip()
+                                # Don't override existing env vars
+                                if key and key not in os.environ:
+                                    os.environ[key] = value
+                    logger.debug(f".env file loaded manually from {env_path}")
+                except Exception as e:
+                    logger.debug(f"Could not load .env: {e}")
+    
+    def start_from_config(self, config_file: str) -> None:
+        """Start a bot from a single YAML config file.
+        
+        The YAML file contains platform, token, and agent configuration
+        all in one place — designed for non-developers.
+        
+        Example YAML::
+        
+            platform: telegram
+            token: "${TELEGRAM_BOT_TOKEN}"
+            agent:
+              name: "My Assistant"
+              instructions: "You are a helpful assistant."
+              llm: "gpt-4o-mini"
+              tools: [search_web]
+              memory: true
+              web_search: true
+        
+        Args:
+            config_file: Path to the bot YAML configuration file
+        """
+        import re
+        self._load_dotenv()
+        
+        if not os.path.exists(config_file):
+            print(f"Error: Config file not found: {config_file}")
+            return
+        
+        try:
+            import yaml
+            with open(config_file, "r") as f:
+                config = yaml.safe_load(f)
+        except Exception as e:
+            print(f"Error: Invalid YAML config: {e}")
+            return
+        
+        if not config or not isinstance(config, dict):
+            print("Error: Config file must be a YAML dictionary")
+            return
+        
+        # Resolve env vars in string values (e.g., ${TELEGRAM_BOT_TOKEN})
+        def resolve_env_vars(value):
+            if isinstance(value, str):
+                return re.sub(
+                    r'\$\{([^}]+)\}',
+                    lambda m: os.environ.get(m.group(1), m.group(0)),
+                    value,
+                )
+            return value
+        
+        platform = config.get("platform")
+        if not platform:
+            print("Error: 'platform' is required in bot config (telegram, discord, or slack)")
+            return
+        
+        platform = platform.lower().strip()
+        if platform not in ("telegram", "discord", "slack", "whatsapp"):
+            print(f"Error: Unknown platform '{platform}'. Use: telegram, discord, slack, whatsapp")
+            return
+        
+        token = resolve_env_vars(config.get("token", ""))
+        app_token = resolve_env_vars(config.get("app_token", ""))
+        
+        # Build capabilities from YAML agent config
+        agent_config = config.get("agent", {})
+        capabilities = BotCapabilities(
+            memory=agent_config.get("memory", False),
+            knowledge=bool(agent_config.get("knowledge", False)),
+            knowledge_sources=agent_config.get("knowledge", []) if isinstance(agent_config.get("knowledge"), list) else [],
+            web_search=agent_config.get("web_search", False),
+            web_search_provider=agent_config.get("web_search_provider", "duckduckgo"),
+            tools=agent_config.get("tools", []) or [],
+            model=agent_config.get("llm"),
+            auto_approve=agent_config.get("auto_approve", False),
+        )
+        
+        # Write a temporary agent YAML for _load_agent (reuse existing logic)
+        # Or pass the agent_config directly
+        if platform == "telegram":
+            self.start_telegram(
+                token=token or None,
+                agent_file=None,
+                capabilities=capabilities,
+                agent_config_dict=agent_config,
+            )
+        elif platform == "discord":
+            self.start_discord(
+                token=token or None,
+                agent_file=None,
+                capabilities=capabilities,
+                agent_config_dict=agent_config,
+            )
+        elif platform == "slack":
+            self.start_slack(
+                token=token or None,
+                app_token=app_token or None,
+                agent_file=None,
+                capabilities=capabilities,
+                agent_config_dict=agent_config,
+            )
+        elif platform == "whatsapp":
+            phone_number_id = resolve_env_vars(config.get("phone_number_id", ""))
+            verify_token_val = resolve_env_vars(config.get("verify_token", ""))
+            webhook_port = config.get("webhook_port", 8080)
+            wa_mode = config.get("mode", "cloud")
+            wa_creds_dir = config.get("creds_dir")
+            self.start_whatsapp(
+                token=token or None,
+                phone_number_id=phone_number_id or None,
+                verify_token=verify_token_val or None,
+                webhook_port=int(webhook_port),
+                agent_file=None,
+                capabilities=capabilities,
+                agent_config_dict=agent_config,
+                mode=wa_mode,
+                creds_dir=wa_creds_dir,
+            )
+    
     def start_telegram(
         self,
         token: Optional[str] = None,
         agent_file: Optional[str] = None,
         capabilities: Optional[BotCapabilities] = None,
+        agent_config_dict: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Start a Telegram bot.
         
@@ -124,7 +269,9 @@ class BotHandler:
             token: Telegram bot token (or use TELEGRAM_BOT_TOKEN env var)
             agent_file: Optional path to agent configuration file
             capabilities: Optional capabilities configuration
+            agent_config_dict: Optional agent config dict from bot YAML
         """
+        self._load_dotenv()
         token = token or os.environ.get("TELEGRAM_BOT_TOKEN")
         if not token:
             print("Error: Telegram bot token required")
@@ -143,7 +290,7 @@ class BotHandler:
             print("Install with: pip install python-telegram-bot")
             return
         
-        agent = self._load_agent(agent_file, capabilities)
+        agent = self._load_agent(agent_file, capabilities, agent_config_dict=agent_config_dict)
         bot = TelegramBot(token=token, agent=agent)
         
         self._print_startup_info("Telegram", capabilities)
@@ -159,6 +306,7 @@ class BotHandler:
         token: Optional[str] = None,
         agent_file: Optional[str] = None,
         capabilities: Optional[BotCapabilities] = None,
+        agent_config_dict: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Start a Discord bot.
         
@@ -167,6 +315,7 @@ class BotHandler:
             agent_file: Optional path to agent configuration file
             capabilities: Optional capabilities configuration
         """
+        self._load_dotenv()
         token = token or os.environ.get("DISCORD_BOT_TOKEN")
         if not token:
             print("Error: Discord bot token required")
@@ -185,7 +334,7 @@ class BotHandler:
             print("Install with: pip install discord.py")
             return
         
-        agent = self._load_agent(agent_file, capabilities)
+        agent = self._load_agent(agent_file, capabilities, agent_config_dict=agent_config_dict)
         bot = DiscordBot(token=token, agent=agent)
         
         self._print_startup_info("Discord", capabilities)
@@ -202,6 +351,7 @@ class BotHandler:
         app_token: Optional[str] = None,
         agent_file: Optional[str] = None,
         capabilities: Optional[BotCapabilities] = None,
+        agent_config_dict: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Start a Slack bot.
         
@@ -210,7 +360,9 @@ class BotHandler:
             app_token: Slack app token (or use SLACK_APP_TOKEN env var)
             agent_file: Optional path to agent configuration file
             capabilities: Optional capabilities configuration
+            agent_config_dict: Optional agent config dict from bot YAML
         """
+        self._load_dotenv()
         token = token or os.environ.get("SLACK_BOT_TOKEN")
         app_token = app_token or os.environ.get("SLACK_APP_TOKEN")
         
@@ -231,7 +383,7 @@ class BotHandler:
             print("Install with: pip install slack-bolt")
             return
         
-        agent = self._load_agent(agent_file, capabilities)
+        agent = self._load_agent(agent_file, capabilities, agent_config_dict=agent_config_dict)
         bot = SlackBot(token=token, app_token=app_token, agent=agent)
         
         self._print_startup_info("Slack", capabilities)
@@ -242,6 +394,94 @@ class BotHandler:
             print("\nStopping bot...")
             asyncio.run(bot.stop())
     
+    def start_whatsapp(
+        self,
+        token: Optional[str] = None,
+        phone_number_id: Optional[str] = None,
+        verify_token: Optional[str] = None,
+        webhook_port: int = 8080,
+        agent_file: Optional[str] = None,
+        capabilities: Optional[BotCapabilities] = None,
+        agent_config_dict: Optional[Dict[str, Any]] = None,
+        mode: str = "cloud",
+        creds_dir: Optional[str] = None,
+    ) -> None:
+        """Start a WhatsApp bot.
+        
+        Args:
+            token: WhatsApp access token (Cloud mode, or WHATSAPP_ACCESS_TOKEN env var)
+            phone_number_id: Phone number ID (Cloud mode, or WHATSAPP_PHONE_NUMBER_ID env var)
+            verify_token: Webhook verify token (Cloud mode, or WHATSAPP_VERIFY_TOKEN env var)
+            webhook_port: Port for webhook server (Cloud mode, default 8080)
+            agent_file: Optional path to agent configuration file
+            capabilities: Optional capabilities configuration
+            agent_config_dict: Optional agent config dict from bot YAML
+            mode: Connection mode — 'cloud' (default) or 'web' (experimental)
+            creds_dir: Credentials directory for Web mode
+        """
+        self._load_dotenv()
+        mode = (mode or "cloud").lower().strip()
+        
+        if mode == "web":
+            # Web mode: no tokens needed
+            print("⚠️  WhatsApp Web mode is EXPERIMENTAL.")
+            print("   Uses reverse-engineered protocol. Your number may be banned.")
+        else:
+            # Cloud mode: tokens required
+            token = token or os.environ.get("WHATSAPP_ACCESS_TOKEN")
+            phone_number_id = phone_number_id or os.environ.get("WHATSAPP_PHONE_NUMBER_ID")
+            verify_token = verify_token or os.environ.get("WHATSAPP_VERIFY_TOKEN", "")
+            
+            if not token:
+                print("Error: WhatsApp access token required (Cloud mode)")
+                print("Provide via --token or WHATSAPP_ACCESS_TOKEN environment variable")
+                print("Or use --mode web for token-free QR scan mode")
+                return
+            
+            if not phone_number_id:
+                print("Error: WhatsApp phone number ID required (Cloud mode)")
+                print("Provide via --phone-id or WHATSAPP_PHONE_NUMBER_ID environment variable")
+                print("Or use --mode web for token-free QR scan mode")
+                return
+        
+        # Set auto-approve if enabled
+        if capabilities and capabilities.auto_approve:
+            os.environ["PRAISONAI_AUTO_APPROVE"] = "true"
+            logger.info("Auto-approve enabled for all tool executions")
+        
+        try:
+            from praisonai.bots import WhatsAppBot
+        except ImportError as e:
+            print(f"Error: WhatsAppBot import failed. {e}")
+            if mode == "web":
+                print("Install with: pip install 'praisonai[bot-whatsapp-web]'")
+            else:
+                print("Install with: pip install aiohttp")
+            return
+        
+        agent = self._load_agent(agent_file, capabilities, agent_config_dict=agent_config_dict)
+        bot = WhatsAppBot(
+            token=token or "",
+            phone_number_id=phone_number_id or "",
+            agent=agent,
+            verify_token=verify_token or "",
+            webhook_port=webhook_port,
+            mode=mode,
+            creds_dir=creds_dir,
+        )
+        
+        if mode == "web":
+            self._print_startup_info("WhatsApp (Web mode)", capabilities)
+        else:
+            self._print_startup_info("WhatsApp", capabilities)
+            print(f"Webhook server on port {webhook_port}")
+        
+        try:
+            asyncio.run(bot.start())
+        except KeyboardInterrupt:
+            print("\nStopping bot...")
+            asyncio.run(bot.stop())
+
     def _get_agent_kwargs(self, capabilities: Optional[BotCapabilities]) -> Dict[str, Any]:
         """Extract Agent constructor kwargs from BotCapabilities (DRY).
         
@@ -313,12 +553,14 @@ class BotHandler:
         self,
         file_path: Optional[str],
         capabilities: Optional[BotCapabilities] = None,
+        agent_config_dict: Optional[Dict[str, Any]] = None,
     ):
         """Load agent from configuration file with capabilities.
         
         Args:
             file_path: Path to agent YAML configuration
             capabilities: Bot capabilities to apply
+            agent_config_dict: Optional pre-parsed agent config dict (from bot YAML)
             
         Returns:
             Configured Agent instance
@@ -330,6 +572,34 @@ class BotHandler:
         
         # Get agent kwargs from capabilities (DRY)
         agent_kwargs = self._get_agent_kwargs(capabilities)
+        
+        # If we have a pre-parsed agent config dict (from bot YAML --config),
+        # use it directly instead of loading from file
+        if agent_config_dict:
+            yaml_tools = agent_config_dict.get("tools", [])
+            if isinstance(yaml_tools, list):
+                all_tools = self._resolve_tools(yaml_tools) + tools
+            else:
+                all_tools = tools
+            
+            # Parse capabilities from YAML agent config
+            if agent_config_dict.get("memory") and "memory" not in agent_kwargs:
+                agent_kwargs["memory"] = True
+            if agent_config_dict.get("knowledge"):
+                k = agent_config_dict["knowledge"]
+                if isinstance(k, list) and "knowledge" not in agent_kwargs:
+                    agent_kwargs["knowledge"] = k
+                elif "knowledge" not in agent_kwargs:
+                    agent_kwargs["knowledge"] = True
+            if agent_config_dict.get("llm") and "llm" not in agent_kwargs:
+                agent_kwargs["llm"] = agent_config_dict["llm"]
+            
+            return Agent(
+                name=agent_config_dict.get("name", "assistant"),
+                instructions=agent_config_dict.get("instructions", "You are a helpful assistant."),
+                tools=all_tools if all_tools else None,
+                **agent_kwargs,
+            )
         
         # Default agent if no file
         if not file_path:
@@ -679,8 +949,18 @@ Examples:
             capabilities=capabilities,
         )
         return 0
+    elif platform == "whatsapp":
+        handler.start_whatsapp(
+            token=getattr(args, "token", None),
+            phone_number_id=getattr(args, "phone_id", None),
+            verify_token=getattr(args, "verify_token", None),
+            webhook_port=getattr(args, "port", 8080),
+            agent_file=getattr(args, "agent", None),
+            capabilities=capabilities,
+        )
+        return 0
     else:
-        print("Available platforms: telegram, discord, slack")
+        print("Available platforms: telegram, discord, slack, whatsapp")
         print("")
         print("Usage: praisonai bot <platform> [options]")
         print("")
@@ -750,5 +1030,32 @@ def add_bot_parser(subparsers) -> None:
         help="Slack app token for Socket Mode (or use SLACK_APP_TOKEN env var)",
     )
     _add_capability_args(slack_parser)
+    
+    # WhatsApp
+    whatsapp_parser = bot_subparsers.add_parser(
+        "whatsapp",
+        help="Start a WhatsApp bot",
+    )
+    whatsapp_parser.add_argument(
+        "--token",
+        help="WhatsApp access token (or use WHATSAPP_ACCESS_TOKEN env var)",
+    )
+    whatsapp_parser.add_argument(
+        "--phone-id",
+        dest="phone_id",
+        help="WhatsApp phone number ID (or use WHATSAPP_PHONE_NUMBER_ID env var)",
+    )
+    whatsapp_parser.add_argument(
+        "--verify-token",
+        dest="verify_token",
+        help="Webhook verification token (or use WHATSAPP_VERIFY_TOKEN env var)",
+    )
+    whatsapp_parser.add_argument(
+        "--port",
+        type=int,
+        default=8080,
+        help="Webhook server port (default: 8080)",
+    )
+    _add_capability_args(whatsapp_parser)
     
     bot_parser.set_defaults(func=handle_bot_command)

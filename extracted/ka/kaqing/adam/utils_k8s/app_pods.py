@@ -3,7 +3,7 @@ from typing import List
 from kubernetes import client
 
 from adam.config import Config
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.pod_exec_result import PodExecResult
 from adam.repl_session import ReplSession
@@ -31,7 +31,7 @@ class AppPods:
              command: str,
              throw_err = False,
              shell = '/bin/sh',
-             ctx: Context = Context.NULL) -> PodExecResult:
+             ctx = NULL) -> PodExecResult:
         container = Config().get('app.container-name', 'c3-server')
         r = Pods.exec(pod_name, container, namespace, command, throw_err = throw_err, shell = shell, ctx = ctx)
 

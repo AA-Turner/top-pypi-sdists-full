@@ -22,7 +22,7 @@ mathutils.noise.rst
 :maxdepth: 1
 :caption: Submodules
 
-```../examples/mathutils.py```
+```../examples/mathutils.0.py```
 
 """
 
@@ -37,7 +37,7 @@ from . import kdtree as kdtree
 from . import noise as noise
 
 class Color:
-    """This object gives access to Colors in Blender.Most colors returned by Blender APIs are in scene linear color space, as defined by    the OpenColorIO configuration. The notable exception is user interface theming colors,    which are in sRGB color space."""
+    """This object gives access to Colors in Blender.Most colors returned by Blender APIs are in scene linear color space, as defined by the OpenColorIO configuration. The notable exception is user interface theming colors, which are in sRGB color space."""
 
     b: float
     """ Blue color channel."""
@@ -61,7 +61,7 @@ class Color:
     """ True when this object wraps external data (read-only)."""
 
     owner: typing.Any
-    """ The item this is wrapping or None  (read-only)."""
+    """ The item this is wrapping or None (read-only)."""
 
     r: float
     """ Red color channel."""
@@ -325,7 +325,7 @@ class Euler:
     """ Euler rotation order."""
 
     owner: typing.Any
-    """ The item this is wrapping or None  (read-only)."""
+    """ The item this is wrapping or None (read-only)."""
 
     x: float
     """ Euler axis angle in radians."""
@@ -484,7 +484,7 @@ class Matrix:
     """ True if this matrix is orthogonal, 3x3 and 4x4 only, (read-only)."""
 
     is_orthogonal_axis_vectors: bool
-    """ True if this matrix has got orthogonal axis vectors, 3x3 and 4x4 only, (read-only)."""
+    """ True if this matrix has orthogonal axis vectors, 3x3 and 4x4 only, (read-only)."""
 
     is_valid: bool
     """ True when the owner of this data is valid."""
@@ -496,7 +496,7 @@ class Matrix:
     """ The average scale applied to each axis (read-only)."""
 
     owner: typing.Any
-    """ The item this is wrapping or None  (read-only)."""
+    """ The item this is wrapping or None (read-only)."""
 
     row: typing.Any
     """ Access the matrix by rows (default), (read-only)."""
@@ -671,7 +671,8 @@ class Matrix:
 
     def invert(
         self,
-        fallback: collections.abc.Sequence[collections.abc.Sequence[float]]
+        fallback: None
+        | collections.abc.Sequence[collections.abc.Sequence[float]]
         | typing_extensions.Self
         | None = None,
         /,
@@ -716,7 +717,7 @@ class Matrix:
         factor: float,
         /,
     ) -> typing_extensions.Self:
-        """Returns the interpolation of two matrices. Uses polar decomposition, see   "Matrix Animation and Polar Decomposition", Shoemake and Duff, 1992.
+        """Returns the interpolation of two matrices. Uses polar decomposition, see "Matrix Animation and Polar Decomposition", Shoemake and Duff, 1992.
 
         :param other: value to interpolate with.
         :param factor: The interpolation value in [0.0, 1.0].
@@ -769,14 +770,14 @@ class Matrix:
 
     def to_euler(
         self,
-        order="XYZ",
-        euler_compat: Euler | collections.abc.Sequence[float] | None = None,
+        order: typing.Literal["XYZ", "XZY", "YXZ", "YZX", "ZXY", "ZYX"] = "XYZ",
+        euler_compat: Euler | None | collections.abc.Sequence[float] | None = None,
         /,
     ) -> Euler:
         """Return an Euler representation of the rotation matrix
         (3x3 or 4x4 matrix only).
 
-                :param order: A rotation order string.   :type order: Literal[XYZ, XZY, YXZ, YZX, ZXY, ZYX]
+                :param order: A rotation order string.
                 :param euler_compat: Optional euler argument the new euler will be made
         compatible with (no axis flipping between them).
         Useful for converting a series of matrices to animation curves.
@@ -999,19 +1000,19 @@ class Quaternion:
     """ Size of the quaternion (read-only)."""
 
     owner: typing.Any
-    """ The item this is wrapping or None  (read-only)."""
+    """ The item this is wrapping or None (read-only)."""
 
     w: float
-    """ Quaternion axis value."""
+    """ Quaternion component value."""
 
     x: float
-    """ Quaternion axis value."""
+    """ Quaternion component value."""
 
     y: float
-    """ Quaternion axis value."""
+    """ Quaternion component value."""
 
     z: float
-    """ Quaternion axis value."""
+    """ Quaternion component value."""
 
     def conjugate(self) -> None:
         """Set the quaternion to its conjugate (negate x, y, z)."""
@@ -1138,7 +1139,7 @@ class Quaternion:
     def to_euler(
         self,
         order: typing.Literal["XYZ", "XZY", "YXZ", "YZX", "ZXY", "ZYX"] = "XYZ",
-        euler_compat: Euler | collections.abc.Sequence[float] | None = None,
+        euler_compat: Euler | None | collections.abc.Sequence[float] | None = None,
         /,
     ) -> Euler:
         """Return Euler representation of the quaternion.
@@ -1146,15 +1147,15 @@ class Quaternion:
                 :param order: Rotation order.
                 :param euler_compat: Optional euler argument the new euler will be made
         compatible with (no axis flipping between them).
-        Useful for converting a series of matrices to animation curves.
+        Useful for converting a series of quaternions to animation curves.
                 :return: Euler representation of the quaternion.
         """
 
-    def to_exponential_map(self) -> None:
+    def to_exponential_map(self) -> Vector:
         """Return the exponential map representation of the quaternion.This representation consists of the rotation axis multiplied by the rotation angle.
         Such a representation is useful for interpolation between multiple orientations.To convert back to a quaternion, pass it to the `Quaternion` constructor.
 
-                :return: exponential map.
+                :return: 3D exponential map.
         """
 
     def to_matrix(self) -> Matrix:
@@ -1344,7 +1345,7 @@ class Vector:
     """ Vector Length."""
 
     owner: typing.Any
-    """ The item this is wrapping or None  (read-only)."""
+    """ The item this is wrapping or None (read-only)."""
 
     w: float
     """ Vector W axis (4D Vectors only)."""
@@ -1733,7 +1734,7 @@ class Vector:
         step: int = 1,
         /,
     ) -> typing_extensions.Self:
-        """Create a vector filled with a range of values.
+        """Create a vector filled with a range of values.This method can also be called with a single argument, in which case the argument is interpreted as stop and start defaults to 0.
 
         :param start: The start of the range used to fill the vector.
         :param stop: The end of the range used to fill the vector.
@@ -1962,7 +1963,7 @@ class Vector:
 
     def to_track_quat(
         self,
-        track: typing.Literal["-", "X", "Y", "Z", "-X", "-Y", "-Z"] = "Z",
+        track: typing.Literal["X", "Y", "Z", "-X", "-Y", "-Z"] = "Z",
         up: typing.Literal["X", "Y", "Z"] = "Y",
         /,
     ) -> Quaternion:

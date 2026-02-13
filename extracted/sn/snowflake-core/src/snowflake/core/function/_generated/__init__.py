@@ -28,3 +28,5 @@ from snowflake.core.function._generated.models.function_argument import Function
 from snowflake.core.function._generated.models.service_function import ServiceFunction
 from snowflake.core.function._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.function._generated.models.success_response import SuccessResponse
+from snowflake.core.function._generated.models.tag_assignment import TagAssignment
+from snowflake.core.function._generated.models.tag_reference import TagReference

@@ -14535,6 +14535,41 @@ class CfnDBParameterGroup(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForDBParameterGroup")
+    @builtins.classmethod
+    def arn_for_db_parameter_group(
+        cls,
+        resource: "_IDBParameterGroupRef_9d70a5d3",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6211884dd5a9686889fb88a972e68b8f6f7834a48e4a61c870f855e73be14824)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDBParameterGroup", [resource]))
+
+    @jsii.member(jsii_name="fromDBParameterGroupName")
+    @builtins.classmethod
+    def from_db_parameter_group_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        db_parameter_group_name: builtins.str,
+    ) -> "_IDBParameterGroupRef_9d70a5d3":
+        '''Creates a new IDBParameterGroupRef from a dbParameterGroupName.
+
+        :param scope: -
+        :param id: -
+        :param db_parameter_group_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__164cd515e2b7a4d2cbd432b8170f5de34ff55898a532d748e9fcfda16e8122b2)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument db_parameter_group_name", value=db_parameter_group_name, expected_type=type_hints["db_parameter_group_name"])
+        return typing.cast("_IDBParameterGroupRef_9d70a5d3", jsii.sinvoke(cls, "fromDBParameterGroupName", [scope, id, db_parameter_group_name]))
+
     @jsii.member(jsii_name="isCfnDBParameterGroup")
     @builtins.classmethod
     def is_cfn_db_parameter_group(cls, x: typing.Any) -> builtins.bool:
@@ -53803,6 +53838,20 @@ def _typecheckingstub__c10aa78132a0eae6199258b5e55e45968fdce240e932138b48918eafb
     db_parameter_group_name: typing.Optional[builtins.str] = None,
     parameters: typing.Any = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6211884dd5a9686889fb88a972e68b8f6f7834a48e4a61c870f855e73be14824(
+    resource: _IDBParameterGroupRef_9d70a5d3,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__164cd515e2b7a4d2cbd432b8170f5de34ff55898a532d748e9fcfda16e8122b2(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    db_parameter_group_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

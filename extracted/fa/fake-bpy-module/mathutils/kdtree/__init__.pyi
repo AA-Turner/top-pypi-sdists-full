@@ -1,7 +1,7 @@
 """
 Generic 3-dimensional kd-tree to perform spatial searches.
 
-```../examples/mathutils.kdtree.py```
+```../examples/mathutils.kdtree.0.py```
 
 """
 
@@ -12,7 +12,7 @@ import numpy.typing as npt
 import mathutils
 
 class KDTree:
-    """KdTree(size) -> new kd-tree initialized to hold size items."""
+    """KDTree(size) -> new kd-tree initialized to hold size items."""
 
     def balance(self) -> None:
         """Balance the tree."""
@@ -21,11 +21,11 @@ class KDTree:
         self,
         co: collections.abc.Sequence[float],
         *,
-        filter: collections.abc.Callable[int, bool] | None = None,
+        filter: None | collections.abc.Callable[int, bool] | None = None,
     ) -> tuple[mathutils.Vector, int, float]:
         """Find nearest point to co.
 
-        :param co: 3D coordinates.
+        :param co: 3D coordinate.
         :param filter: function which takes an index and returns True for indices to include in the search.
         :return: Returns (position, index, distance).
         """

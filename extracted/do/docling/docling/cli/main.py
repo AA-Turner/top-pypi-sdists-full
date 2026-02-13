@@ -28,6 +28,7 @@ from docling.backend.docling_parse_backend import DoclingParseDocumentBackend
 from docling.backend.docling_parse_v2_backend import DoclingParseV2DocumentBackend
 from docling.backend.docling_parse_v4_backend import DoclingParseV4DocumentBackend
 from docling.backend.image_backend import ImageDocumentBackend
+from docling.backend.latex_backend import LatexDocumentBackend
 from docling.backend.mets_gbs_backend import MetsGbsDocumentBackend
 from docling.backend.pdf_backend import PdfDocumentBackend
 from docling.backend.pypdfium2_backend import PyPdfiumDocumentBackend
@@ -76,6 +77,7 @@ from docling.datamodel.pipeline_options import (
     TableStructureOptions,
     TesseractCliOcrOptions,
     TesseractOcrOptions,
+    VlmConvertOptions,
     VlmPipelineOptions,
 )
 from docling.datamodel.settings import settings
@@ -86,6 +88,7 @@ from docling.document_converter import (
     ExcelFormatOption,
     FormatOption,
     HTMLFormatOption,
+    LatexFormatOption,
     MarkdownFormatOption,
     PdfFormatOption,
     PowerpointFormatOption,
@@ -111,6 +114,9 @@ err_console = Console(stderr=True)
 
 ocr_factory_internal = get_ocr_factory(allow_external_plugins=False)
 ocr_engines_enum_internal = ocr_factory_internal.get_enum()
+
+# Get available VLM presets from the registry
+vlm_preset_ids = VlmConvertOptions.list_preset_ids()
 
 DOCLING_ASCII_ART = r"""
                              ████ ██████
@@ -407,9 +413,12 @@ def convert(  # noqa: C901
         typer.Option(..., help="Choose the pipeline to process PDF or image files."),
     ] = ProcessingPipeline.STANDARD,
     vlm_model: Annotated[
-        VlmModelType,
-        typer.Option(..., help="Choose the VLM model to use with PDF or image files."),
-    ] = VlmModelType.GRANITEDOCLING,
+        str,
+        typer.Option(
+            ...,
+            help=f"Choose the VLM preset to use with PDF or image files. Available presets: {', '.join(vlm_preset_ids)}",
+        ),
+    ] = "granite_docling",
     asr_model: Annotated[
         AsrModelType,
         typer.Option(..., help="Choose the ASR model to use with audio/video files."),
@@ -811,6 +820,9 @@ def convert(  # noqa: C901
                 InputFormat.MD: MarkdownFormatOption(
                     pipeline_options=simple_format_option
                 ),
+                InputFormat.LATEX: LatexFormatOption(
+                    pipeline_options=simple_format_option
+                ),
             }
 
         elif pipeline == ProcessingPipeline.VLM:
@@ -818,52 +830,18 @@ def convert(  # noqa: C901
                 enable_remote_services=enable_remote_services,
             )
 
-            if vlm_model == VlmModelType.GRANITE_VISION:
-                pipeline_options.vlm_options = (
-                    vlm_model_specs.GRANITE_VISION_TRANSFORMERS
+            # Use the new preset system
+            try:
+                pipeline_options.vlm_options = VlmConvertOptions.from_preset(vlm_model)
+                _log.info(f"Using VLM preset: {vlm_model}")
+            except KeyError:
+                err_console.print(
+                    f"[red]Error: VLM preset '{vlm_model}' not found.[/red]"
                 )
-            elif vlm_model == VlmModelType.GRANITE_VISION_OLLAMA:
-                pipeline_options.vlm_options = vlm_model_specs.GRANITE_VISION_OLLAMA
-            elif vlm_model == VlmModelType.GOT_OCR_2:
-                pipeline_options.vlm_options = vlm_model_specs.GOT2_TRANSFORMERS
-            elif vlm_model == VlmModelType.SMOLDOCLING:
-                pipeline_options.vlm_options = vlm_model_specs.SMOLDOCLING_TRANSFORMERS
-                if sys.platform == "darwin":
-                    try:
-                        import mlx_vlm
-
-                        pipeline_options.vlm_options = vlm_model_specs.SMOLDOCLING_MLX
-                    except ImportError:
-                        _log.warning(
-                            "To run SmolDocling faster, please install mlx-vlm:\n"
-                            "pip install mlx-vlm"
-                        )
-
-            elif vlm_model == VlmModelType.GRANITEDOCLING:
-                pipeline_options.vlm_options = (
-                    vlm_model_specs.GRANITEDOCLING_TRANSFORMERS
+                err_console.print(
+                    f"[yellow]Available presets: {', '.join(vlm_preset_ids)}[/yellow]"
                 )
-                if sys.platform == "darwin":
-                    try:
-                        import mlx_vlm
-
-                        pipeline_options.vlm_options = (
-                            vlm_model_specs.GRANITEDOCLING_MLX
-                        )
-                    except ImportError:
-                        _log.warning(
-                            "To run GraniteDocling faster, please install mlx-vlm:\n"
-                            "pip install mlx-vlm"
-                        )
-
-            elif vlm_model == VlmModelType.SMOLDOCLING_VLLM:
-                pipeline_options.vlm_options = vlm_model_specs.SMOLDOCLING_VLLM
-
-            elif vlm_model == VlmModelType.GRANITEDOCLING_VLLM:
-                pipeline_options.vlm_options = vlm_model_specs.GRANITEDOCLING_VLLM
-
-            elif vlm_model == VlmModelType.DEEPSEEKOCR_OLLAMA:
-                pipeline_options.vlm_options = vlm_model_specs.DEEPSEEKOCR_OLLAMA
+                raise typer.Abort()
 
             pdf_format_option = PdfFormatOption(
                 pipeline_cls=VlmPipeline, pipeline_options=pipeline_options

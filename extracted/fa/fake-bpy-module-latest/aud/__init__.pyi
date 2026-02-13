@@ -7,7 +7,7 @@ Audaspace (pronounced "outer space") is a high level audio library.
 This script shows how to use the classes: Device, Sound and
 Handle.
 
-```../examples/aud.py```
+```../examples/aud.0.py```
 
 """
 

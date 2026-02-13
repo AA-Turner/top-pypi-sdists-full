@@ -15,7 +15,7 @@ long_description = (this_directory / "README.md").read_text()
 
 setup(
     name="unitycatalog-client",
-    version="0.3.1",
+    version="0.4.0",
     description="Official Python SDK for Unity Catalog",
     long_description=long_description,
     long_description_content_type="text/markdown",

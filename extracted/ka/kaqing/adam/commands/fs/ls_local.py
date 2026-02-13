@@ -1,9 +1,9 @@
 import os
 
 from adam.commands.command import Command
+from adam.directories import Directories
 from adam.repl_state import ReplState
 from adam.utils_log import log2
-from adam.utils_local import local_qing_dir
 
 class LsLocal(Command):
     COMMAND = ':ls'
@@ -28,7 +28,7 @@ class LsLocal(Command):
             if args:
                 os.system(f'ls {args}')
             else:
-                os.system(f'ls {local_qing_dir()}')
+                os.system(f'ls {Directories.local_q_dir()}')
             log2()
 
             return state

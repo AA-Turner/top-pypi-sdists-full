@@ -112,8 +112,7 @@ def log_payment_validation_success(
     payment_amount: int,
     required_amount: int,
     from_address: str,
-    to_address: str,
-    request_path: str
+    to_address: str
 ):
     """Log successful payment validation.
     
@@ -123,13 +122,11 @@ def log_payment_validation_success(
         required_amount: Amount required
         from_address: Payer address
         to_address: Payee address
-        request_path: Request path for signature binding
     """
     logger.info(f"✅ {tool_name}: Payment VERIFIED successfully (Mode 2: Paid)")
     logger.info(f"   Payment amount: {payment_amount} wei (required: {required_amount} wei)")
     logger.info(f"   From (wallet): {from_address}")
     logger.info(f"   To (provider): {to_address}")
-    logger.info(f"   Request path: {request_path}")
 
 
 __all__ = [

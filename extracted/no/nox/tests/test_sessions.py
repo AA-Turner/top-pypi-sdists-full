@@ -282,7 +282,7 @@ class TestSession:
     def test_run_with_func(self) -> None:
         session, _ = self.make_session_and_runner()
 
-        assert session.run(operator.add, 1, 2) == 3  # type: ignore[arg-type]
+        assert session.run(operator.add, 1, 2) == 3  # type: ignore[call-overload]
 
     def test_run_with_func_error(self) -> None:
         session, _ = self.make_session_and_runner()
@@ -292,7 +292,7 @@ class TestSession:
             raise ValueError(msg)
 
         with pytest.raises(nox.command.CommandFailed):
-            assert session.run(raise_value_error)  # type: ignore[arg-type]
+            assert session.run(raise_value_error)  # type: ignore[call-overload]
 
     def test_run_install_only(self, caplog: pytest.LogCaptureFixture) -> None:
         caplog.set_level(logging.INFO)
@@ -544,7 +544,7 @@ class TestSession:
                 timeout_kwargs["terminate_timeout"] = terminate_timeout_setting
 
             with pytest.raises(KeyboardInterrupt):
-                session.run(sys.executable, "--version", **timeout_kwargs)  # type: ignore[arg-type]
+                session.run(sys.executable, "--version", **timeout_kwargs)  # type: ignore[call-overload]
 
         shutdown_process.assert_called_once_with(
             proc=mock.ANY,
@@ -1125,7 +1125,7 @@ class TestSession:
             ValueError,
             match=re.escape("First argument to `session.run` is a list. Did you mean"),
         ):
-            session.run(["ls", "-al"])  # type: ignore[arg-type]
+            session.run(["ls", "-al"])  # type: ignore[call-overload]
 
 
 class TestSessionRunner:
@@ -1275,7 +1275,7 @@ class TestSessionRunner:
         with mock.patch("nox.virtualenv.VirtualEnv.create", autospec=True):
             runner._create_venv()
         assert runner.venv
-        assert runner.venv.venv_backend == venv_backend.split("|")[-1]
+        assert runner.venv.venv_backend == venv_backend.rsplit("|", maxsplit=1)[-1]
 
     @pytest.mark.parametrize(
         "venv_backend",

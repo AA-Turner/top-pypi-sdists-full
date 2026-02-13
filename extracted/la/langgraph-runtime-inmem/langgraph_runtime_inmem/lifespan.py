@@ -28,18 +28,20 @@ async def lifespan(
     taskset: set[asyncio.Task] | None = None,
     **kwargs: Any,
 ):
-    import langgraph_api.config as config
-    from langgraph_api import __version__, feature_flags, graph
-    from langgraph_api import (
+    import langgraph_api.config as config  # noqa: PLC0415
+    from langgraph_api import __version__, feature_flags, graph  # noqa: PLC0415
+    from langgraph_api import (  # noqa: PLC0415
         _checkpointer as api_checkpointer,
     )
-    from langgraph_api import store as api_store
-    from langgraph_api.asyncio import SimpleTaskGroup, set_event_loop
-    from langgraph_api.http import start_http_client, stop_http_client
-    from langgraph_api.js.ui import start_ui_bundler, stop_ui_bundler
-    from langgraph_api.metadata import metadata_loop
+    from langgraph_api import store as api_store  # noqa: PLC0415
+    from langgraph_api.asyncio import SimpleTaskGroup, set_event_loop  # noqa: PLC0415
+    from langgraph_api.http import start_http_client, stop_http_client  # noqa: PLC0415
+    from langgraph_api.js.ui import start_ui_bundler, stop_ui_bundler  # noqa: PLC0415
+    from langgraph_api.metadata import metadata_loop  # noqa: PLC0415
 
-    from langgraph_runtime_inmem import __version__ as langgraph_runtime_inmem_version
+    from langgraph_runtime_inmem import (  # noqa: PLC0415
+        __version__ as langgraph_runtime_inmem_version,
+    )
 
     await logger.ainfo(
         f"Starting In-Memory runtime with langgraph-api={__version__} and in-memory runtime={langgraph_runtime_inmem_version}",
@@ -89,14 +91,16 @@ async def lifespan(
                 await logger.ainfo("Using custom store. Skipping store TTL sweeper.")
 
             if feature_flags.USE_RUNTIME_CONTEXT_API:
-                from langgraph._internal._constants import CONFIG_KEY_RUNTIME
-                from langgraph.runtime import Runtime
+                from langgraph._internal._constants import (  # noqa: PLC0415
+                    CONFIG_KEY_RUNTIME,
+                )
+                from langgraph.runtime import Runtime  # noqa: PLC0415
 
                 langgraph_config: RunnableConfig = {
                     CONF: {CONFIG_KEY_RUNTIME: Runtime(store=store_instance)}
                 }
             else:
-                from langgraph.constants import CONFIG_KEY_STORE
+                from langgraph.constants import CONFIG_KEY_STORE  # noqa: PLC0415
 
                 langgraph_config: RunnableConfig = {
                     CONF: {CONFIG_KEY_STORE: store_instance}
@@ -115,7 +119,7 @@ async def lifespan(
                 tg.create_task(queue_with_signal())
 
             if config.FF_CRONS_ENABLED:
-                from langgraph_api import cron_scheduler
+                from langgraph_api import cron_scheduler  # noqa: PLC0415
 
                 tg.create_task(cron_scheduler.cron_scheduler())
 

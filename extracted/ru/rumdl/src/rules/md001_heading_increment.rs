@@ -91,6 +91,16 @@ impl Default for MD001HeadingIncrement {
     }
 }
 
+/// Result of computing the fix for a single heading
+struct HeadingFixInfo {
+    /// The level after fixing (may equal original if no fix needed)
+    fixed_level: usize,
+    /// The heading style to use for the replacement
+    style: HeadingStyle,
+    /// Whether this heading needs a fix
+    needs_fix: bool,
+}
+
 impl MD001HeadingIncrement {
     /// Create a new instance with specified settings
     pub fn new(front_matter_title: bool) -> Self {
@@ -136,6 +146,44 @@ impl MD001HeadingIncrement {
         // Default behavior: check for "title:" field
         FrontMatterUtils::has_front_matter_field(content, "title:")
     }
+
+    /// Single source of truth for heading level computation and style mapping.
+    ///
+    /// Returns `(HeadingFixInfo, new_prev_level)`. Both `check()` and `fix()` call
+    /// this, making it structurally impossible for them to diverge.
+    fn compute_heading_fix(
+        prev_level: Option<usize>,
+        heading: &crate::lint_context::HeadingInfo,
+    ) -> (HeadingFixInfo, Option<usize>) {
+        let level = heading.level as usize;
+
+        let (fixed_level, needs_fix) = if let Some(prev) = prev_level
+            && level > prev + 1
+        {
+            (prev + 1, true)
+        } else {
+            (level, false)
+        };
+
+        // Map heading style, adjusting Setext variant based on the fixed level
+        let style = match heading.style {
+            crate::lint_context::HeadingStyle::ATX => HeadingStyle::Atx,
+            crate::lint_context::HeadingStyle::Setext1 | crate::lint_context::HeadingStyle::Setext2 => {
+                if fixed_level == 1 {
+                    HeadingStyle::Setext1
+                } else {
+                    HeadingStyle::Setext2
+                }
+            }
+        };
+
+        let info = HeadingFixInfo {
+            fixed_level,
+            style,
+            needs_fix,
+        };
+        (info, Some(fixed_level))
+    }
 }
 
 impl Rule for MD001HeadingIncrement {
@@ -150,40 +198,27 @@ impl Rule for MD001HeadingIncrement {
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
         let mut warnings = Vec::new();
 
-        // If frontmatter has a title field, treat it as an implicit H1
         let mut prev_level: Option<usize> = if self.has_front_matter_title(ctx.content) {
             Some(1)
         } else {
             None
         };
 
-        // Process valid headings using the filtered iterator
         for valid_heading in ctx.valid_headings() {
             let heading = valid_heading.heading;
             let line_info = valid_heading.line_info;
+
             let level = heading.level as usize;
 
-            // Check if this heading level is more than one level deeper than the previous
-            if let Some(prev) = prev_level
-                && level > prev + 1
-            {
-                // Preserve original indentation (including tabs)
-                let line = line_info.content(ctx.content);
-                let original_indent = &line[..line_info.indent];
-                // Map heading style
-                let style = match heading.style {
-                    crate::lint_context::HeadingStyle::ATX => HeadingStyle::Atx,
-                    crate::lint_context::HeadingStyle::Setext1 => HeadingStyle::Setext1,
-                    crate::lint_context::HeadingStyle::Setext2 => HeadingStyle::Setext2,
-                };
+            let (fix_info, new_prev) = Self::compute_heading_fix(prev_level, heading);
+            prev_level = new_prev;
 
-                // Create a fix with the correct heading level
-                let fixed_level = prev + 1;
-                // Use raw_text to preserve inline attribute lists like { #id .class }
-                let replacement = HeadingUtils::convert_heading_style(&heading.raw_text, fixed_level as u32, style);
-
-                // Calculate precise range: highlight the entire heading
+            if fix_info.needs_fix {
                 let line_content = line_info.content(ctx.content);
+                let original_indent = &line_content[..line_info.indent];
+                let replacement =
+                    HeadingUtils::convert_heading_style(&heading.raw_text, fix_info.fixed_level as u32, fix_info.style);
+
                 let (start_line, start_col, end_line, end_col) =
                     calculate_heading_range(valid_heading.line_num, line_content);
 
@@ -193,7 +228,10 @@ impl Rule for MD001HeadingIncrement {
                     column: start_col,
                     end_line,
                     end_column: end_col,
-                    message: format!("Expected heading level {}, but found heading level {}", prev + 1, level),
+                    message: format!(
+                        "Expected heading level {}, but found heading level {}",
+                        fix_info.fixed_level, level
+                    ),
                     severity: Severity::Error,
                     fix: Some(Fix {
                         range: ctx.line_index.line_content_range(valid_heading.line_num),
@@ -201,8 +239,6 @@ impl Rule for MD001HeadingIncrement {
                     }),
                 });
             }
-
-            prev_level = Some(level);
         }
 
         Ok(warnings)
@@ -211,58 +247,52 @@ impl Rule for MD001HeadingIncrement {
     fn fix(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
         let mut fixed_lines = Vec::new();
 
-        // If frontmatter has a title field, treat it as an implicit H1
         let mut prev_level: Option<usize> = if self.has_front_matter_title(ctx.content) {
             Some(1)
         } else {
             None
         };
 
+        let mut skip_next = false;
         for line_info in ctx.lines.iter() {
-            if let Some(heading) = &line_info.heading {
-                // Skip invalid headings (e.g., `#NoSpace` which lacks required space after #)
+            if skip_next {
+                skip_next = false;
+                continue;
+            }
+
+            if let Some(heading) = line_info.heading.as_deref() {
                 if !heading.is_valid {
                     fixed_lines.push(line_info.content(ctx.content).to_string());
                     continue;
                 }
 
-                let level = heading.level as usize;
-                let mut fixed_level = level;
+                let is_setext = matches!(
+                    heading.style,
+                    crate::lint_context::HeadingStyle::Setext1 | crate::lint_context::HeadingStyle::Setext2
+                );
 
-                // Check if this heading needs fixing
-                if let Some(prev) = prev_level
-                    && level > prev + 1
-                {
-                    fixed_level = prev + 1;
+                let (fix_info, new_prev) = Self::compute_heading_fix(prev_level, heading);
+                prev_level = new_prev;
+
+                if fix_info.needs_fix {
+                    let replacement = HeadingUtils::convert_heading_style(
+                        &heading.raw_text,
+                        fix_info.fixed_level as u32,
+                        fix_info.style,
+                    );
+                    let line = line_info.content(ctx.content);
+                    let original_indent = &line[..line_info.indent];
+                    fixed_lines.push(format!("{original_indent}{replacement}"));
+
+                    // Setext headings span two lines (text + underline). The replacement
+                    // already includes both lines, so skip the underline line.
+                    if is_setext {
+                        skip_next = true;
+                    }
+                } else {
+                    // Heading is valid — preserve original content exactly
+                    fixed_lines.push(line_info.content(ctx.content).to_string());
                 }
-
-                // Map heading style - when fixing, we may need to change Setext style based on level
-                let style = match heading.style {
-                    crate::lint_context::HeadingStyle::ATX => HeadingStyle::Atx,
-                    crate::lint_context::HeadingStyle::Setext1 => {
-                        if fixed_level == 1 {
-                            HeadingStyle::Setext1
-                        } else {
-                            HeadingStyle::Setext2
-                        }
-                    }
-                    crate::lint_context::HeadingStyle::Setext2 => {
-                        if fixed_level == 1 {
-                            HeadingStyle::Setext1
-                        } else {
-                            HeadingStyle::Setext2
-                        }
-                    }
-                };
-
-                // Use raw_text to preserve inline attribute lists like { #id .class }
-                let replacement = HeadingUtils::convert_heading_style(&heading.raw_text, fixed_level as u32, style);
-                // Preserve original indentation (including tabs)
-                let line = line_info.content(ctx.content);
-                let original_indent = &line[..line_info.indent];
-                fixed_lines.push(format!("{original_indent}{replacement}"));
-
-                prev_level = Some(fixed_level);
             } else {
                 fixed_lines.push(line_info.content(ctx.content).to_string());
             }
@@ -350,12 +380,14 @@ mod tests {
         let result = rule.check(&ctx).unwrap();
         assert!(result.is_empty());
 
-        // Test with invalid headings
+        // Test with invalid headings: H1 → H3 → H4
+        // H3 skips level 2, and H4 is > fixed(H3=H2) + 1, so both are flagged
         let content = "# Heading 1\n### Heading 3\n#### Heading 4";
         let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
-        assert_eq!(result.len(), 1);
+        assert_eq!(result.len(), 2);
         assert_eq!(result[0].line, 2);
+        assert_eq!(result[1].line, 3);
     }
 
     #[test]
@@ -481,6 +513,244 @@ mod tests {
             fix.replacement.contains("{ #custom-id .special }"),
             "check() fix should preserve attribute list, got: {}",
             fix.replacement
+        );
+    }
+
+    #[test]
+    fn test_check_single_skip_with_repeated_level() {
+        let rule = MD001HeadingIncrement::default();
+
+        // H1 followed by two H3s: only the first H3 is flagged.
+        // After fixing H3a to H2 (prev+1), H3b at level 3 = 2+1 is valid.
+        let content = "# H1\n### H3a\n### H3b";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+
+        let warnings = rule.check(&ctx).unwrap();
+        assert_eq!(warnings.len(), 1, "Only first H3 should be flagged: got {warnings:?}");
+        assert!(warnings[0].message.contains("Expected heading level 2"));
+
+        // Verify check()+apply_all_fixes produces idempotent output
+        let fixed = rule.fix(&ctx).unwrap();
+        let ctx_fixed = LintContext::new(&fixed, crate::config::MarkdownFlavor::Standard, None);
+        let warnings_after = rule.check(&ctx_fixed).unwrap();
+        assert!(
+            warnings_after.is_empty(),
+            "After fix, no warnings should remain: {fixed:?}, warnings: {warnings_after:?}"
+        );
+    }
+
+    #[test]
+    fn test_check_cascading_skip_produces_idempotent_fix() {
+        let rule = MD001HeadingIncrement::default();
+
+        // H1 → H4 → H5: both are flagged.
+        // H4: prev=1, expected=2. Fixed level tracked as 2.
+        // H5: prev=2, expected=3.
+        // Both fixes applied in one pass produce clean output.
+        let content = "# Title\n#### Deep\n##### Deeper";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+
+        let warnings = rule.check(&ctx).unwrap();
+        assert_eq!(
+            warnings.len(),
+            2,
+            "Both deep headings should be flagged for idempotent fix"
+        );
+        assert!(warnings[0].message.contains("Expected heading level 2"));
+        assert!(warnings[1].message.contains("Expected heading level 3"));
+
+        // Verify single-pass idempotent fix
+        let fixed = rule.fix(&ctx).unwrap();
+        let ctx_fixed = LintContext::new(&fixed, crate::config::MarkdownFlavor::Standard, None);
+        let warnings_after = rule.check(&ctx_fixed).unwrap();
+        assert!(
+            warnings_after.is_empty(),
+            "Fixed content should have no warnings: {fixed:?}"
+        );
+    }
+
+    #[test]
+    fn test_check_level_decrease_resets_tracking() {
+        let rule = MD001HeadingIncrement::default();
+
+        // H1 → H3 (flagged) → H1 (decrease, always allowed) → H3 (flagged again)
+        let content = "# Title\n### Sub\n# Another\n### Sub2";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+
+        let warnings = rule.check(&ctx).unwrap();
+        assert_eq!(
+            warnings.len(),
+            2,
+            "Both H3 headings should be flagged (each follows an H1)"
+        );
+
+        // Verify single-pass idempotent fix
+        let fixed = rule.fix(&ctx).unwrap();
+        let ctx_fixed = LintContext::new(&fixed, crate::config::MarkdownFlavor::Standard, None);
+        assert!(
+            rule.check(&ctx_fixed).unwrap().is_empty(),
+            "Fixed content should pass: {fixed:?}"
+        );
+    }
+
+    /// Core invariant: for every warning with a Fix, the replacement text must
+    /// match what fix() produces for that same line.
+    #[test]
+    fn test_check_and_fix_produce_identical_replacements() {
+        let rule = MD001HeadingIncrement::default();
+
+        let inputs = [
+            "# H1\n### H3\n",
+            "# H1\n#### H4\n##### H5\n",
+            "# H1\n### H3\n# H1b\n### H3b\n",
+            "# H1\n\n### H3 { #custom-id }\n",
+            "---\ntitle: Doc\n---\n\n### Deep\n",
+        ];
+
+        for input in &inputs {
+            let ctx = LintContext::new(input, crate::config::MarkdownFlavor::Standard, None);
+            let warnings = rule.check(&ctx).unwrap();
+            let fixed = rule.fix(&ctx).unwrap();
+            let fixed_lines: Vec<&str> = fixed.lines().collect();
+
+            for warning in &warnings {
+                if let Some(ref fix) = warning.fix {
+                    // Extract the fixed line from fix() output for the same line number
+                    let line_idx = warning.line - 1;
+                    assert!(
+                        line_idx < fixed_lines.len(),
+                        "Warning line {} out of range for fixed output (input: {input:?})",
+                        warning.line,
+                    );
+                    let fix_output_line = fixed_lines[line_idx];
+                    assert_eq!(
+                        fix.replacement, fix_output_line,
+                        "check() fix and fix() output diverge at line {} (input: {input:?})",
+                        warning.line,
+                    );
+                }
+            }
+        }
+    }
+
+    /// Setext H1 followed by deep ATX heading: Setext heading is untouched,
+    /// ATX heading is fixed to H2.
+    #[test]
+    fn test_setext_headings_mixed_with_atx_cascading() {
+        let rule = MD001HeadingIncrement::default();
+
+        let content = "Setext Title\n============\n\n#### Deep ATX\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+
+        let warnings = rule.check(&ctx).unwrap();
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].message.contains("Expected heading level 2"));
+
+        let fixed = rule.fix(&ctx).unwrap();
+        assert!(
+            fixed.contains("## Deep ATX"),
+            "H4 after Setext H1 should be fixed to ATX H2, got: {fixed}"
+        );
+
+        // Verify idempotency
+        let ctx_fixed = LintContext::new(&fixed, crate::config::MarkdownFlavor::Standard, None);
+        assert!(
+            rule.check(&ctx_fixed).unwrap().is_empty(),
+            "Fixed content should produce no warnings"
+        );
+    }
+
+    /// fix(fix(x)) == fix(x) for various inputs
+    #[test]
+    fn test_fix_idempotent_applied_twice() {
+        let rule = MD001HeadingIncrement::default();
+
+        let inputs = [
+            "# H1\n### H3\n#### H4\n",
+            "## H2\n##### H5\n###### H6\n",
+            "# A\n### B\n# C\n### D\n##### E\n",
+            "# H1\nH2\n--\n#### H4\n",
+            // Setext edge cases
+            "Title\n=====\n",
+            "Title\n=====\n\n#### Deep\n",
+            "Sub\n---\n\n#### Deep\n",
+            "T1\n==\nT2\n--\n#### Deep\n",
+        ];
+
+        for input in &inputs {
+            let ctx1 = LintContext::new(input, crate::config::MarkdownFlavor::Standard, None);
+            let fixed_once = rule.fix(&ctx1).unwrap();
+
+            let ctx2 = LintContext::new(&fixed_once, crate::config::MarkdownFlavor::Standard, None);
+            let fixed_twice = rule.fix(&ctx2).unwrap();
+
+            assert_eq!(
+                fixed_once, fixed_twice,
+                "fix() is not idempotent for input: {input:?}\nfirst:  {fixed_once:?}\nsecond: {fixed_twice:?}"
+            );
+        }
+    }
+
+    /// Setext underline must not be duplicated: fix() should produce the same
+    /// number of lines as the input for valid documents.
+    #[test]
+    fn test_setext_fix_no_underline_duplication() {
+        let rule = MD001HeadingIncrement::default();
+
+        // Setext H1 only — no fix needed, output must be identical
+        let content = "Title\n=====\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).unwrap();
+        assert_eq!(fixed, content, "Valid Setext H1 should be unchanged");
+
+        // Setext H2 only — no fix needed
+        let content = "Sub\n---\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).unwrap();
+        assert_eq!(fixed, content, "Valid Setext H2 should be unchanged");
+
+        // Two consecutive Setext headings — valid H1 then H2
+        let content = "Title\n=====\nSub\n---\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).unwrap();
+        assert_eq!(fixed, content, "Valid consecutive Setext headings should be unchanged");
+
+        // Setext H1 at end of file without trailing newline
+        let content = "Title\n=====";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).unwrap();
+        assert_eq!(fixed, content, "Setext H1 at EOF without newline should be unchanged");
+
+        // Setext H2 followed by deep ATX heading
+        let content = "Sub\n---\n\n#### Deep\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).unwrap();
+        assert!(
+            fixed.contains("### Deep"),
+            "H4 after Setext H2 should become H3, got: {fixed}"
+        );
+        assert_eq!(
+            fixed.matches("---").count(),
+            1,
+            "Underline should not be duplicated, got: {fixed}"
+        );
+
+        // Underline longer than text must not be normalized for valid headings
+        let content = "Hi\n==========\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).unwrap();
+        assert_eq!(
+            fixed, content,
+            "Valid Setext with long underline must be preserved exactly, got: {fixed}"
+        );
+
+        // Underline shorter than text must not be normalized
+        let content = "Long Title Here\n===\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).unwrap();
+        assert_eq!(
+            fixed, content,
+            "Valid Setext with short underline must be preserved exactly, got: {fixed}"
         );
     }
 }

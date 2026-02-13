@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aimodelshare
-Version: 0.5.77
+Version: 0.5.81
 Summary: Deploy locally saved machine learning models to a live REST API and integrated dashboard.
 Author-email: Michael Parrott <mikedparrott@modelshare.ai>
 License: 

@@ -55,7 +55,7 @@ class ShopifyOAuth2(BaseOAuth2):
         shopify.Session.setup(api_key=key, secret=secret)
         scope = self.get_scope()
         state = self.state_token()
-        self.strategy.session_set(self.name + "_state", state)
+        self.strategy.session_set(f"{self.name}_state", state)
         redirect_uri = self.get_redirect_uri(state)
         session = shopify.Session(
             self.data.get("shop").strip(), version=self.shopify_api_version
@@ -75,11 +75,10 @@ class ShopifyOAuth2(BaseOAuth2):
                 shop_url, version=self.shopify_api_version, token=self.data
             )
             access_token = shopify_session.token
-        except shopify.ValidationException:
-            raise AuthCanceled(self)
-        else:
-            if not access_token:
-                raise AuthFailed(self, "Authentication Failed")
+        except shopify.ValidationException as error:
+            raise AuthCanceled(self) from error
+        if not access_token:
+            raise AuthFailed(self, "Authentication Failed")
         return self.do_auth(
             access_token, shop_url, shopify_session.url, *args, **kwargs
         )

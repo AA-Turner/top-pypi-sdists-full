@@ -26,10 +26,11 @@ class ShowExportDatabases(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with export_db(state) as dbs:
-                dbs.show_databases(self.context())
+            with self.context() as (_, ctx):
+                with export_db(state) as dbs:
+                    dbs.show_databases(ctx)
 
-            return state
+                return state
 
     def completion(self, _: ReplState):
         return {}

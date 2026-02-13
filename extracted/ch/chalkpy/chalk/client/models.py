@@ -454,6 +454,8 @@ class ExchangeCredentialsResponse(BaseModel):
     api_server: str
     primary_environment: Optional[str] = None
     engines: Optional[Mapping[str, str]] = None
+    grpc_engines: Optional[Mapping[str, str]] = None
+    environment_id_to_name: Optional[Mapping[str, str]] = None
 
 
 class OfflineQueryInput(BaseModel):
@@ -1358,31 +1360,30 @@ class DatasetRevisionInfoResponse(BaseModel):
         raise NotImplementedError("not implemented for base class")
 
 
-DEFAULT_SHARD_BATCH_KEY = ShardBatchKey(shard_id=0, batch_id=0)
-
-
 class DatasetRevisionSummaryResponse(DatasetRevisionInfoResponse):
     type: DatasetRevisionResponseType = DatasetRevisionResponseType.SUMMARY
 
     def to_polars(self, shard_batch_key: Optional[ShardBatchKey] = None) -> pl.LazyFrame:
-        if shard_batch_key is None:
-            shard_batch_key = DEFAULT_SHARD_BATCH_KEY
         if self.urls is None or len(self.urls) == 0:
             default_err_msg = f"dataset revision '{self.revision_id}' {self.type.value} could not be found"
             raise ValueError(self.error or default_err_msg)
-        if shard_batch_key in self.urls:
-            return read_parquet_with_shard_batch_columns(shard_batch_key, self.urls[shard_batch_key]).lazy()
-        raise ValueError(f"ShardBatchKey {shard_batch_key} not found in return")
+        if shard_batch_key is None:
+            return self.concat_urls().lazy()
+        else:
+            if shard_batch_key in self.urls:
+                return read_parquet_with_shard_batch_columns(shard_batch_key, self.urls[shard_batch_key]).lazy()
+            raise ValueError(f"ShardBatchKey {shard_batch_key} not found in return")
 
     def to_pandas(self, shard_batch_key: Optional[ShardBatchKey] = None) -> pd.DataFrame:
-        if shard_batch_key is None:
-            shard_batch_key = DEFAULT_SHARD_BATCH_KEY
         if self.urls is None or len(self.urls) == 0:
             default_err_msg = f"dataset revision '{self.revision_id}' {self.type.value} could not be found"
             raise ValueError(self.error or default_err_msg)
-        if shard_batch_key in self.urls:
-            return read_parquet_with_shard_batch_columns(shard_batch_key, self.urls[shard_batch_key]).to_pandas()
-        raise ValueError(f"ShardBatchKey {shard_batch_key} not found in return")
+        if shard_batch_key is None:
+            return self.concat_urls().to_pandas()
+        else:
+            if shard_batch_key in self.urls:
+                return read_parquet_with_shard_batch_columns(shard_batch_key, self.urls[shard_batch_key]).to_pandas()
+            raise ValueError(f"ShardBatchKey {shard_batch_key} not found in return")
 
 
 class DatasetRevisionPreviewResponse(DatasetRevisionInfoResponse):

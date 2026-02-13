@@ -736,9 +736,9 @@ class NttCisLBDriver(Driver):
         if optimization_profile is not None:
             ET.SubElement(create_node_elm, "optimizationProfile").text = optimization_profile
         if fallback_persistence_profile is not None:
-            ET.SubElement(
-                create_node_elm, "fallbackPersistenceProfileId"
-            ).text = fallback_persistence_profile.id
+            ET.SubElement(create_node_elm, "fallbackPersistenceProfileId").text = (
+                fallback_persistence_profile.id
+            )
         if irule is not None:
             ET.SubElement(create_node_elm, "iruleId").text = irule.id
 

@@ -100,6 +100,7 @@ def get_cool_off_iso8601(delta: timedelta) -> str:
         return f"P{days_str}T{time_str}"
     return f"P{days_str}"
 
+
 def get_attempt_expiration(request: Optional[HttpRequest] = None) -> datetime:
     """
     Get threshold for fetching access attempts from the database.
@@ -111,10 +112,11 @@ def get_attempt_expiration(request: Optional[HttpRequest] = None) -> datetime:
             "Cool off threshold can not be calculated with settings.AXES_COOLOFF_TIME set to None"
         )
 
-    attempt_time = request.axes_attempt_time
+    attempt_time = request.axes_attempt_time  # type: ignore[union-attr]
     if attempt_time is None:
         return datetime.now() + cool_off
     return attempt_time + cool_off
+
 
 def get_credentials(username: Optional[str] = None, **kwargs) -> dict:
     """
@@ -162,7 +164,7 @@ def get_client_username(
         log.debug(
             "Using parameter credentials to get username with key settings.AXES_USERNAME_FORM_FIELD"
         )
-        return credentials.get(settings.AXES_USERNAME_FORM_FIELD, None)
+        return credentials.get(settings.AXES_USERNAME_FORM_FIELD, None)  # type: ignore[return-value]
 
     log.debug(
         "Using parameter request.POST to get username with key settings.AXES_USERNAME_FORM_FIELD"

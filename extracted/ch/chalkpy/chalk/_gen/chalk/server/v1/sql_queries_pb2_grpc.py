@@ -25,6 +25,11 @@ class SqlQueriesServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQueryRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQueryResponse.FromString,
         )
+        self.GetSqlQuerySignedUrls = channel.unary_unary(
+            "/chalk.server.v1.SqlQueriesService/GetSqlQuerySignedUrls",
+            request_serializer=chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQuerySignedUrlsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQuerySignedUrlsResponse.FromString,
+        )
 
 
 class SqlQueriesServiceServicer(object):
@@ -42,6 +47,12 @@ class SqlQueriesServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetSqlQuerySignedUrls(self, request, context):
+        """Get signed URLs for SQL query results"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_SqlQueriesServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -54,6 +65,11 @@ def add_SqlQueriesServiceServicer_to_server(servicer, server):
             servicer.GetSqlQuery,
             request_deserializer=chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQueryRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQueryResponse.SerializeToString,
+        ),
+        "GetSqlQuerySignedUrls": grpc.unary_unary_rpc_method_handler(
+            servicer.GetSqlQuerySignedUrls,
+            request_deserializer=chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQuerySignedUrlsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQuerySignedUrlsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.SqlQueriesService", rpc_method_handlers)
@@ -112,6 +128,35 @@ class SqlQueriesService(object):
             "/chalk.server.v1.SqlQueriesService/GetSqlQuery",
             chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQueryRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQueryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetSqlQuerySignedUrls(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.SqlQueriesService/GetSqlQuerySignedUrls",
+            chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQuerySignedUrlsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_sql__queries__pb2.GetSqlQuerySignedUrlsResponse.FromString,
             options,
             channel_credentials,
             insecure,

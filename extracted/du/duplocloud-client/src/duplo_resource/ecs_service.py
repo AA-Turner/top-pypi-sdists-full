@@ -1,11 +1,11 @@
 from duplocloud.client import DuploClient
-from duplocloud.resource import DuploTenantResourceV2
+from duplocloud.resource import DuploResourceV2
 from duplocloud.errors import DuploError, DuploStillWaiting
 from duplocloud.commander import Command, Resource
 import duplocloud.args as args
 
-@Resource("ecs")
-class DuploEcsService(DuploTenantResourceV2):
+@Resource("ecs", scope="tenant")
+class DuploEcsService(DuploResourceV2):
   """Manage Duplo ECS Resources
   
   A collection of commands to manage ECS services and task definitions.
@@ -31,6 +31,19 @@ class DuploEcsService(DuploTenantResourceV2):
     """
     tenant_id = self.tenant["TenantId"]
     url = f"subscriptions/{tenant_id}/GetEcsServices"
+    response = self.duplo.get(url)
+    return response.json()
+  
+  def list_detailed_services(self) -> list:
+    """List detailed ECS Services
+
+    Retrieve a list of all detailed ECS services in a tenant.
+
+    Returns:
+      list: A list of detailed ECS services in the tenant.
+    """
+    tenant_id = self.tenant["TenantId"]
+    url = f"v3/subscriptions/{tenant_id}/aws/ecs/service"
     response = self.duplo.get(url)
     return response.json()
 
@@ -249,7 +262,7 @@ class DuploEcsService(DuploTenantResourceV2):
     if svc:
       self.update_service(svc)
       if self.duplo.wait:
-        self.wait(lambda: self.wait_on_task(name))
+        self.wait(lambda: self._wait_on_service(svcFam.get("EcsServiceName", None), arn))
     return {
       "message": msg
     }
@@ -266,6 +279,9 @@ class DuploEcsService(DuploTenantResourceV2):
           del containerDefinition["StartTimeout"]
         if containerDefinition.get("StopTimeout") == 0:
           del containerDefinition["StopTimeout"]
+        if containerDefinition.get("LinuxParameters", None) is not None and \
+            containerDefinition.get("LinuxParameters").get("SharedMemorySize") == 0:
+          del containerDefinition["LinuxParameters"]["SharedMemorySize"]
         return containerDefinition
     
     containers = list(map(sanitize_container_definition, task_def.get("ContainerDefinitions", [])))
@@ -355,6 +371,7 @@ class DuploEcsService(DuploTenantResourceV2):
     Returns:
       message: A message indicating the task has been run.
     """
+    name = self.prefixed_name(name)
     td = self.find_def(name)
     tenant_id = self.tenant["TenantId"]
     path = f"v3/subscriptions/{tenant_id}/aws/runEcsTask"
@@ -367,10 +384,38 @@ class DuploEcsService(DuploTenantResourceV2):
       self.wait(lambda: self._wait_on_task(name))
     return res.json()
 
-  def _wait_on_task(self,
-                   name: str) -> None:
+  def _wait_on_task(self, name: str) -> None:
     tasks = self.list_tasks(name)
+
     # filter the tasks down to any where the DesiredStatus and LastStatus are different
     running_tasks = [t for t in tasks if t["DesiredStatus"] != t["LastStatus"]]
     if len(running_tasks) > 0:
-      raise DuploStillWaiting(f"Service {name} waiting for replicas update")
+      raise DuploStillWaiting(f"{name} still have unsettled tasks")
+
+  # only define target definition ARN we know for sure the target service WILL trigger a new deployment
+  # with target_definition_arn as its task definition
+  def _wait_on_service(self, name: str, target_definition_arn: str = None) -> None:
+    if name is None:
+      raise DuploError(f"Attempted to wait on invalid ECS service name \"{name}\"")
+
+    try:
+      services = self.list_detailed_services()
+      service = [found for found in services if found.get("EcsServiceName", None) == name].pop()
+    except IndexError:
+      raise DuploError(f"Unable to find ECS service {name}")
+
+    try:
+      primary_deployment = [deployment for deployment in service.get("AwsEcsService", {}).get("Deployments", []) if deployment.get("Status", None) == "PRIMARY"][0]
+    except IndexError:
+      raise DuploError(f"Failed to find primary deployment for ECS Service {name}")
+
+    state = primary_deployment.get("RolloutState", {}).get("Value", "IN_PROGRESS")
+
+    if state == "IN_PROGRESS" or (target_definition_arn is not None and primary_deployment.get("TaskDefinition", None) != target_definition_arn):
+      raise DuploStillWaiting(f"ECS Service {name} primary deployment is not yet complete")
+    
+    if state == "FAILED":
+      raise DuploError(f"ECS Service {name} deployment failed with reason {primary_deployment.get('RolloutStateReason', 'Unknown')}")
+    
+    # if ECS Service primary deployment is not IN_PROGRESS or FAILED, assume COMPLETED and exit
+    return

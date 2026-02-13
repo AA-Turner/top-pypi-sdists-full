@@ -7,18 +7,17 @@ When we generate VTIMEZONE from actual tzinfo instances of
 
 Then, we cannot assume that the future information stays the same but
 we should be able to create tests that work for the past.
+
+See https://github.com/collective/icalendar/issues/722
 """
 
+import zoneinfo
+from copy import deepcopy
 from datetime import date, datetime, timedelta
 from re import findall
 
 import pytest
 from dateutil.tz import gettz
-
-try:
-    from zoneinfo import available_timezones
-except ImportError:
-    from backports.zoneinfo import available_timezones
 
 from icalendar import Calendar, Component, Event, Timezone
 from icalendar.timezone import tzid_from_tzinfo, tzids_from_tzinfo
@@ -40,7 +39,7 @@ def assert_components_equal(c1: Component, c2: Component):
     ll2 = c2.to_ical().decode().splitlines()
     pad = max(len(l) for l in ll1 if len(l) <= ML)
     diff = 0
-    for l1, l2 in zip(ll1, ll2):
+    for l1, l2 in zip(ll1, ll2, strict=False):
         a = len(l1) > 32 or len(l2) > 32
         print(
             a * "  " + l1,
@@ -286,7 +285,7 @@ queries = [
 @pytest.mark.parametrize("query", queries)
 def test_add_missing_timezones_to_example(calendars, query):
     """Add the missing timezones to the calendar."""
-    cal = calendars.issue_722_missing_timezones
+    cal: Calendar = calendars.issue_722_missing_timezones
     tzid = query_tzid(query, cal)
     tzs = cal.get_missing_tzids()
     assert tzid in tzs
@@ -396,7 +395,9 @@ def test_timezone_is_not_missing(calendars, calendar):
 
 def test_add_missing_known_timezones(calendars):
     """Add all timezones specified."""
-    cal: Calendar = calendars.issue_722_missing_timezones
+    cal: Calendar = deepcopy(
+        calendars.issue_722_missing_timezones
+    )  # avoid side effects
     assert len(cal.timezones) == 0
     cal.add_missing_timezones()
     assert len(cal.timezones) == len(queries), "all timezones are known"
@@ -427,7 +428,9 @@ def test_dates_before_and_after_are_considered():
     pytest.skip("todo")
 
 
-@pytest.mark.parametrize("tzid", available_timezones() - {"Factory", "localtime"})
+@pytest.mark.parametrize(
+    "tzid", zoneinfo.available_timezones() - {"Factory", "localtime"}
+)
 def test_we_can_identify_dateutil_timezones(tzid):
     """dateutil and others were badly supported.
 

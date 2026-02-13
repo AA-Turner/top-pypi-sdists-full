@@ -4961,6 +4961,69 @@ class DynamoDBProps:
 
 
 @jsii.data_type(
+    jsii_type="@aws-solutions-constructs/core.EnvironmentVariableDefinition",
+    jsii_struct_bases=[],
+    name_mapping={
+        "default_name": "defaultName",
+        "value": "value",
+        "client_name_override": "clientNameOverride",
+    },
+)
+class EnvironmentVariableDefinition:
+    def __init__(
+        self,
+        *,
+        default_name: builtins.str,
+        value: builtins.str,
+        client_name_override: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param default_name: -
+        :param value: -
+        :param client_name_override: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9bd2cfab10fd8697c263acf3cf9d5f9c850484cfe7c4b66fe1a62cfd71ac151b)
+            check_type(argname="argument default_name", value=default_name, expected_type=type_hints["default_name"])
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            check_type(argname="argument client_name_override", value=client_name_override, expected_type=type_hints["client_name_override"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "default_name": default_name,
+            "value": value,
+        }
+        if client_name_override is not None:
+            self._values["client_name_override"] = client_name_override
+
+    @builtins.property
+    def default_name(self) -> builtins.str:
+        result = self._values.get("default_name")
+        assert result is not None, "Required property 'default_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def value(self) -> builtins.str:
+        result = self._values.get("value")
+        assert result is not None, "Required property 'value' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_name_override(self) -> typing.Optional[builtins.str]:
+        result = self._values.get("client_name_override")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EnvironmentVariableDefinition(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="@aws-solutions-constructs/core.EventBridgeProps",
     jsii_struct_bases=[],
     name_mapping={
@@ -5747,6 +5810,348 @@ class PipesProps:
 
 
 @jsii.data_type(
+    jsii_type="@aws-solutions-constructs/core.PollyBucketDetails",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bucket_interface": "bucketInterface",
+        "bucket": "bucket",
+        "logging_bucket": "loggingBucket",
+    },
+)
+class PollyBucketDetails:
+    def __init__(
+        self,
+        *,
+        bucket_interface: _aws_cdk_aws_s3_ceddda9d.IBucket,
+        bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
+        logging_bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
+    ) -> None:
+        '''
+        :param bucket_interface: -
+        :param bucket: -
+        :param logging_bucket: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9c5a7db708f79bfb8a12d8d31880678321003c677b155081af227c5313fc056b)
+            check_type(argname="argument bucket_interface", value=bucket_interface, expected_type=type_hints["bucket_interface"])
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+            check_type(argname="argument logging_bucket", value=logging_bucket, expected_type=type_hints["logging_bucket"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bucket_interface": bucket_interface,
+        }
+        if bucket is not None:
+            self._values["bucket"] = bucket
+        if logging_bucket is not None:
+            self._values["logging_bucket"] = logging_bucket
+
+    @builtins.property
+    def bucket_interface(self) -> _aws_cdk_aws_s3_ceddda9d.IBucket:
+        result = self._values.get("bucket_interface")
+        assert result is not None, "Required property 'bucket_interface' is missing"
+        return typing.cast(_aws_cdk_aws_s3_ceddda9d.IBucket, result)
+
+    @builtins.property
+    def bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+        result = self._values.get("bucket")
+        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+
+    @builtins.property
+    def logging_bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+        result = self._values.get("logging_bucket")
+        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PollyBucketDetails(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-solutions-constructs/core.PollyConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={
+        "environment_variables": "environmentVariables",
+        "lambda_iam_actions_required": "lambdaIamActionsRequired",
+        "destination_bucket": "destinationBucket",
+        "notification_topic_encryption_key": "notificationTopicEncryptionKey",
+        "sns_notification_topic": "snsNotificationTopic",
+    },
+)
+class PollyConfiguration:
+    def __init__(
+        self,
+        *,
+        environment_variables: typing.Sequence[typing.Union[EnvironmentVariableDefinition, typing.Dict[builtins.str, typing.Any]]],
+        lambda_iam_actions_required: typing.Sequence[builtins.str],
+        destination_bucket: typing.Optional[typing.Union[PollyBucketDetails, typing.Dict[builtins.str, typing.Any]]] = None,
+        notification_topic_encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
+        sns_notification_topic: typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic] = None,
+    ) -> None:
+        '''
+        :param environment_variables: -
+        :param lambda_iam_actions_required: -
+        :param destination_bucket: -
+        :param notification_topic_encryption_key: -
+        :param sns_notification_topic: -
+        '''
+        if isinstance(destination_bucket, dict):
+            destination_bucket = PollyBucketDetails(**destination_bucket)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2d369fc5c6d438dd788a5566f6e09426a616767c37b5b654d7a494beeb480420)
+            check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
+            check_type(argname="argument lambda_iam_actions_required", value=lambda_iam_actions_required, expected_type=type_hints["lambda_iam_actions_required"])
+            check_type(argname="argument destination_bucket", value=destination_bucket, expected_type=type_hints["destination_bucket"])
+            check_type(argname="argument notification_topic_encryption_key", value=notification_topic_encryption_key, expected_type=type_hints["notification_topic_encryption_key"])
+            check_type(argname="argument sns_notification_topic", value=sns_notification_topic, expected_type=type_hints["sns_notification_topic"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "environment_variables": environment_variables,
+            "lambda_iam_actions_required": lambda_iam_actions_required,
+        }
+        if destination_bucket is not None:
+            self._values["destination_bucket"] = destination_bucket
+        if notification_topic_encryption_key is not None:
+            self._values["notification_topic_encryption_key"] = notification_topic_encryption_key
+        if sns_notification_topic is not None:
+            self._values["sns_notification_topic"] = sns_notification_topic
+
+    @builtins.property
+    def environment_variables(self) -> typing.List[EnvironmentVariableDefinition]:
+        result = self._values.get("environment_variables")
+        assert result is not None, "Required property 'environment_variables' is missing"
+        return typing.cast(typing.List[EnvironmentVariableDefinition], result)
+
+    @builtins.property
+    def lambda_iam_actions_required(self) -> typing.List[builtins.str]:
+        result = self._values.get("lambda_iam_actions_required")
+        assert result is not None, "Required property 'lambda_iam_actions_required' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def destination_bucket(self) -> typing.Optional[PollyBucketDetails]:
+        result = self._values.get("destination_bucket")
+        return typing.cast(typing.Optional[PollyBucketDetails], result)
+
+    @builtins.property
+    def notification_topic_encryption_key(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key]:
+        result = self._values.get("notification_topic_encryption_key")
+        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key], result)
+
+    @builtins.property
+    def sns_notification_topic(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic]:
+        result = self._values.get("sns_notification_topic")
+        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PollyConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-solutions-constructs/core.PollyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "async_jobs": "asyncJobs",
+        "bucket_environment_variable_name": "bucketEnvironmentVariableName",
+        "bucket_props": "bucketProps",
+        "enable_topic_encryption_with_customer_managed_key": "enableTopicEncryptionWithCustomerManagedKey",
+        "existing_bucket_obj": "existingBucketObj",
+        "existing_topic_encryption_key": "existingTopicEncryptionKey",
+        "existing_topic_obj": "existingTopicObj",
+        "logging_bucket_props": "loggingBucketProps",
+        "log_s3_access_logs": "logS3AccessLogs",
+        "topic_encryption_key": "topicEncryptionKey",
+        "topic_encryption_key_props": "topicEncryptionKeyProps",
+        "topic_environment_variable_name": "topicEnvironmentVariableName",
+        "topic_props": "topicProps",
+    },
+)
+class PollyProps:
+    def __init__(
+        self,
+        *,
+        async_jobs: typing.Optional[builtins.bool] = None,
+        bucket_environment_variable_name: typing.Optional[builtins.str] = None,
+        bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        enable_topic_encryption_with_customer_managed_key: typing.Optional[builtins.bool] = None,
+        existing_bucket_obj: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
+        existing_topic_encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
+        existing_topic_obj: typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic] = None,
+        logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        log_s3_access_logs: typing.Optional[builtins.bool] = None,
+        topic_encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
+        topic_encryption_key_props: typing.Optional[typing.Union[_aws_cdk_aws_kms_ceddda9d.KeyProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        topic_environment_variable_name: typing.Optional[builtins.str] = None,
+        topic_props: typing.Optional[typing.Union[_aws_cdk_aws_sns_ceddda9d.TopicProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param async_jobs: -
+        :param bucket_environment_variable_name: -
+        :param bucket_props: -
+        :param enable_topic_encryption_with_customer_managed_key: -
+        :param existing_bucket_obj: -
+        :param existing_topic_encryption_key: -
+        :param existing_topic_obj: -
+        :param logging_bucket_props: -
+        :param log_s3_access_logs: -
+        :param topic_encryption_key: -
+        :param topic_encryption_key_props: -
+        :param topic_environment_variable_name: -
+        :param topic_props: -
+        '''
+        if isinstance(bucket_props, dict):
+            bucket_props = _aws_cdk_aws_s3_ceddda9d.BucketProps(**bucket_props)
+        if isinstance(logging_bucket_props, dict):
+            logging_bucket_props = _aws_cdk_aws_s3_ceddda9d.BucketProps(**logging_bucket_props)
+        if isinstance(topic_encryption_key_props, dict):
+            topic_encryption_key_props = _aws_cdk_aws_kms_ceddda9d.KeyProps(**topic_encryption_key_props)
+        if isinstance(topic_props, dict):
+            topic_props = _aws_cdk_aws_sns_ceddda9d.TopicProps(**topic_props)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0bce3984817c4752a3f31a1ee15f4a0b321c70705adab2060cbe27a6fb56a83d)
+            check_type(argname="argument async_jobs", value=async_jobs, expected_type=type_hints["async_jobs"])
+            check_type(argname="argument bucket_environment_variable_name", value=bucket_environment_variable_name, expected_type=type_hints["bucket_environment_variable_name"])
+            check_type(argname="argument bucket_props", value=bucket_props, expected_type=type_hints["bucket_props"])
+            check_type(argname="argument enable_topic_encryption_with_customer_managed_key", value=enable_topic_encryption_with_customer_managed_key, expected_type=type_hints["enable_topic_encryption_with_customer_managed_key"])
+            check_type(argname="argument existing_bucket_obj", value=existing_bucket_obj, expected_type=type_hints["existing_bucket_obj"])
+            check_type(argname="argument existing_topic_encryption_key", value=existing_topic_encryption_key, expected_type=type_hints["existing_topic_encryption_key"])
+            check_type(argname="argument existing_topic_obj", value=existing_topic_obj, expected_type=type_hints["existing_topic_obj"])
+            check_type(argname="argument logging_bucket_props", value=logging_bucket_props, expected_type=type_hints["logging_bucket_props"])
+            check_type(argname="argument log_s3_access_logs", value=log_s3_access_logs, expected_type=type_hints["log_s3_access_logs"])
+            check_type(argname="argument topic_encryption_key", value=topic_encryption_key, expected_type=type_hints["topic_encryption_key"])
+            check_type(argname="argument topic_encryption_key_props", value=topic_encryption_key_props, expected_type=type_hints["topic_encryption_key_props"])
+            check_type(argname="argument topic_environment_variable_name", value=topic_environment_variable_name, expected_type=type_hints["topic_environment_variable_name"])
+            check_type(argname="argument topic_props", value=topic_props, expected_type=type_hints["topic_props"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if async_jobs is not None:
+            self._values["async_jobs"] = async_jobs
+        if bucket_environment_variable_name is not None:
+            self._values["bucket_environment_variable_name"] = bucket_environment_variable_name
+        if bucket_props is not None:
+            self._values["bucket_props"] = bucket_props
+        if enable_topic_encryption_with_customer_managed_key is not None:
+            self._values["enable_topic_encryption_with_customer_managed_key"] = enable_topic_encryption_with_customer_managed_key
+        if existing_bucket_obj is not None:
+            self._values["existing_bucket_obj"] = existing_bucket_obj
+        if existing_topic_encryption_key is not None:
+            self._values["existing_topic_encryption_key"] = existing_topic_encryption_key
+        if existing_topic_obj is not None:
+            self._values["existing_topic_obj"] = existing_topic_obj
+        if logging_bucket_props is not None:
+            self._values["logging_bucket_props"] = logging_bucket_props
+        if log_s3_access_logs is not None:
+            self._values["log_s3_access_logs"] = log_s3_access_logs
+        if topic_encryption_key is not None:
+            self._values["topic_encryption_key"] = topic_encryption_key
+        if topic_encryption_key_props is not None:
+            self._values["topic_encryption_key_props"] = topic_encryption_key_props
+        if topic_environment_variable_name is not None:
+            self._values["topic_environment_variable_name"] = topic_environment_variable_name
+        if topic_props is not None:
+            self._values["topic_props"] = topic_props
+
+    @builtins.property
+    def async_jobs(self) -> typing.Optional[builtins.bool]:
+        result = self._values.get("async_jobs")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def bucket_environment_variable_name(self) -> typing.Optional[builtins.str]:
+        result = self._values.get("bucket_environment_variable_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def bucket_props(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+        result = self._values.get("bucket_props")
+        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+
+    @builtins.property
+    def enable_topic_encryption_with_customer_managed_key(
+        self,
+    ) -> typing.Optional[builtins.bool]:
+        result = self._values.get("enable_topic_encryption_with_customer_managed_key")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def existing_bucket_obj(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket]:
+        result = self._values.get("existing_bucket_obj")
+        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket], result)
+
+    @builtins.property
+    def existing_topic_encryption_key(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key]:
+        result = self._values.get("existing_topic_encryption_key")
+        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key], result)
+
+    @builtins.property
+    def existing_topic_obj(self) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic]:
+        result = self._values.get("existing_topic_obj")
+        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic], result)
+
+    @builtins.property
+    def logging_bucket_props(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+        result = self._values.get("logging_bucket_props")
+        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+
+    @builtins.property
+    def log_s3_access_logs(self) -> typing.Optional[builtins.bool]:
+        result = self._values.get("log_s3_access_logs")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def topic_encryption_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key]:
+        result = self._values.get("topic_encryption_key")
+        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key], result)
+
+    @builtins.property
+    def topic_encryption_key_props(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.KeyProps]:
+        result = self._values.get("topic_encryption_key_props")
+        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.KeyProps], result)
+
+    @builtins.property
+    def topic_environment_variable_name(self) -> typing.Optional[builtins.str]:
+        result = self._values.get("topic_environment_variable_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def topic_props(self) -> typing.Optional[_aws_cdk_aws_sns_ceddda9d.TopicProps]:
+        result = self._values.get("topic_props")
+        return typing.cast(typing.Optional[_aws_cdk_aws_sns_ceddda9d.TopicProps], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PollyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="@aws-solutions-constructs/core.RegionalLambdaRestApiResponse",
     jsii_struct_bases=[],
     name_mapping={"api": "api", "group": "group", "role": "role"},
@@ -6454,6 +6859,7 @@ class ServiceEndpointTypes(enum.Enum):
     TRANSCRIBE = "TRANSCRIBE"
     TRANSLATE = "TRANSLATE"
     TEXTRACT = "TEXTRACT"
+    POLLY = "POLLY"
 
 
 @jsii.data_type(
@@ -7876,6 +8282,7 @@ __all__ = [
     "DeployGlueJobResponse",
     "DeploySagemakerEndpointResponse",
     "DynamoDBProps",
+    "EnvironmentVariableDefinition",
     "EventBridgeProps",
     "EventSourceProps",
     "GlobalLambdaRestApiResponse",
@@ -7889,6 +8296,9 @@ __all__ = [
     "OpenSearchProps",
     "PipesLogLevel",
     "PipesProps",
+    "PollyBucketDetails",
+    "PollyConfiguration",
+    "PollyProps",
     "RegionalLambdaRestApiResponse",
     "RegionalRestApiResponse",
     "S3OacOrigin",
@@ -8513,6 +8923,15 @@ def _typecheckingstub__fb247f6ada82965a3afeba568ee3ee0a3bacfe3f70c90eb7a7d261e9a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9bd2cfab10fd8697c263acf3cf9d5f9c850484cfe7c4b66fe1a62cfd71ac151b(
+    *,
+    default_name: builtins.str,
+    value: builtins.str,
+    client_name_override: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__93242b8fe544dd6ab96871ea0286ca1ca0675f344a0e8e2fd2116e52aa4fdabf(
     *,
     event_bus_props: typing.Optional[typing.Union[_aws_cdk_aws_events_ceddda9d.EventBusProps, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -8617,6 +9036,45 @@ def _typecheckingstub__87594edd93213c38ce202aa16be748b2b19d103564cbf8a1b35556020
 def _typecheckingstub__73eb22e320b5f438016ca1a62ce94f711b8b918dfc631a29b91571e4f08f7597(
     *,
     pipes_props: typing.Optional[typing.Union[_aws_cdk_aws_pipes_ceddda9d.CfnPipeProps, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9c5a7db708f79bfb8a12d8d31880678321003c677b155081af227c5313fc056b(
+    *,
+    bucket_interface: _aws_cdk_aws_s3_ceddda9d.IBucket,
+    bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
+    logging_bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2d369fc5c6d438dd788a5566f6e09426a616767c37b5b654d7a494beeb480420(
+    *,
+    environment_variables: typing.Sequence[typing.Union[EnvironmentVariableDefinition, typing.Dict[builtins.str, typing.Any]]],
+    lambda_iam_actions_required: typing.Sequence[builtins.str],
+    destination_bucket: typing.Optional[typing.Union[PollyBucketDetails, typing.Dict[builtins.str, typing.Any]]] = None,
+    notification_topic_encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
+    sns_notification_topic: typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0bce3984817c4752a3f31a1ee15f4a0b321c70705adab2060cbe27a6fb56a83d(
+    *,
+    async_jobs: typing.Optional[builtins.bool] = None,
+    bucket_environment_variable_name: typing.Optional[builtins.str] = None,
+    bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    enable_topic_encryption_with_customer_managed_key: typing.Optional[builtins.bool] = None,
+    existing_bucket_obj: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
+    existing_topic_encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
+    existing_topic_obj: typing.Optional[_aws_cdk_aws_sns_ceddda9d.Topic] = None,
+    logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    log_s3_access_logs: typing.Optional[builtins.bool] = None,
+    topic_encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.Key] = None,
+    topic_encryption_key_props: typing.Optional[typing.Union[_aws_cdk_aws_kms_ceddda9d.KeyProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    topic_environment_variable_name: typing.Optional[builtins.str] = None,
+    topic_props: typing.Optional[typing.Union[_aws_cdk_aws_sns_ceddda9d.TopicProps, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

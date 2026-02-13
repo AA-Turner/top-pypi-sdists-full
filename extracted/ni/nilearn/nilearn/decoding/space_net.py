@@ -24,6 +24,7 @@ from sklearn.utils import check_array, check_X_y
 from sklearn.utils.estimator_checks import check_is_fitted
 from sklearn.utils.extmath import safe_sparse_dot
 
+from nilearn._base import NilearnBaseEstimator
 from nilearn._utils import logger
 from nilearn._utils.cache_mixin import CacheMixin
 from nilearn._utils.docs import fill_doc
@@ -31,8 +32,9 @@ from nilearn._utils.logger import find_stack_level
 from nilearn._utils.param_validation import (
     check_parameter_in_allowed,
     check_params,
+    sanitize_verbose,
 )
-from nilearn._utils.tags import SKLEARN_LT_1_6
+from nilearn._utils.versions import SKLEARN_LT_1_6
 from nilearn.decoding._mixin import _ClassifierMixin, _RegressorMixin
 from nilearn.decoding._utils import adjust_screening_percentile
 from nilearn.image import get_data
@@ -378,10 +380,7 @@ def path_scores(
     # misc
     _, n_features = X.shape
 
-    if verbose:
-        verbose = 1
-    elif not verbose:
-        verbose = 0
+    verbose = sanitize_verbose(verbose)
 
     # Univariate feature screening. Note that if we have only as few as 100
     # features in the mask's support, then we should use all of them to
@@ -462,7 +461,7 @@ def path_scores(
                     mask=mask,
                     init=init,
                     callback=early_stopper,
-                    verbose=max(verbose - 1, 0.0),
+                    verbose=max(verbose - 1, 0),
                     **path_solver_params,
                 )
 
@@ -548,7 +547,7 @@ def path_scores(
 
 
 @fill_doc
-class BaseSpaceNet(CacheMixin, LinearRegression):
+class BaseSpaceNet(CacheMixin, LinearRegression, NilearnBaseEstimator):
     """Regression and classification learners with sparsity and spatial priors.
 
     `SpaceNet` implements Graph-Net and TV-L1 priors /
@@ -720,7 +719,7 @@ class BaseSpaceNet(CacheMixin, LinearRegression):
             return self._estimator_type == "classifier"
         return self.__sklearn_tags__().estimator_type == "classifier"
 
-    def _check_params(self):
+    def _check_params(self) -> None:
         """Make sure parameters are sane."""
         if self.l1_ratios is not None:
             l1_ratios = self.l1_ratios
@@ -967,7 +966,7 @@ class BaseSpaceNet(CacheMixin, LinearRegression):
     def _adapt_weights_y_mean_all_coef(self, w):
         return w, self.ymean_, self.all_coef_
 
-    def __sklearn_is_fitted__(self):
+    def __sklearn_is_fitted__(self) -> bool:
         return hasattr(self, "masker_")
 
     def predict(self, X):
@@ -1163,7 +1162,7 @@ class SpaceNetClassifier(_ClassifierMixin, BaseSpaceNet):
         # TODO (sklearn  >= 1.6.0) remove
         self._estimator_type = "classifier"
 
-    def _validate_loss(self, value):
+    def _validate_loss(self, value) -> None:
         if value is not None:
             check_parameter_in_allowed(value, self.SUPPORTED_LOSSES, "loss")
 
@@ -1181,7 +1180,7 @@ class SpaceNetClassifier(_ClassifierMixin, BaseSpaceNet):
             y_numeric=False,
         )
 
-    def _set_intercept(self):
+    def _set_intercept(self) -> None:
         self.intercept_ = self.w_[:, -1]
 
     def score(self, X, y):

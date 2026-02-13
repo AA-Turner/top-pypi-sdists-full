@@ -13,3 +13,27 @@ class StudioUser(StudioUserBase, BaseUser):
             "identity": self.identity,
             "permissions": self.permissions,
         }
+
+    def __getitem__(self, key):
+        return self.dict()[key]
+
+    def __contains__(self, key):
+        return key in self.dict()
+
+    def __iter__(self):
+        return iter(self.dict())
+
+    def __len__(self):
+        return len(self.dict())
+
+    def get(self, key, /, default=None):
+        return self.dict().get(key, default)
+
+    def keys(self):
+        return self.dict().keys()
+
+    def values(self):
+        return self.dict().values()
+
+    def items(self):
+        return self.dict().items()

@@ -9,7 +9,7 @@ supports flattening the filled form to prevent further modifications.
 """
 
 from io import BytesIO
-from typing import Dict, Union, cast
+from typing import Dict, cast
 
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import DictionaryObject
@@ -31,7 +31,7 @@ from .watermark import create_watermarks_and_draw, merge_watermarks_with_pdf
 
 
 def signature_image_handler(
-    widget: dict, middleware: Union[Signature, Image], images_to_draw: list
+    widget: dict, middleware: Signature | Image, images_to_draw: list
 ) -> bool:
     """Handles signature and image widgets by extracting image data and preparing it for drawing.
 
@@ -43,7 +43,7 @@ def signature_image_handler(
 
     Args:
         widget (dict): The widget dictionary representing the signature or image field.
-        middleware (Union[Signature, Image]): The middleware object containing the image data and properties.
+        middleware (Signature | Image): The middleware object containing the image data and properties.
         images_to_draw (list): A list to store image data for drawing.
 
     Returns:
@@ -68,6 +68,81 @@ def signature_image_handler(
         )
 
     return any_image_to_draw
+
+
+def update_widget(
+    annot: DictionaryObject,
+    widget: WIDGET_TYPES,
+    key: str,
+    radio_button_tracker: Dict[str, int],
+    images_to_draw_page: list,
+    need_appearances: bool,
+    flatten: bool,
+) -> bool:
+    """Updates a single widget's value and handles its properties.
+
+    This function updates the value of a single PDF form widget based on its type. It also
+    handles widget flattening and prepares images or signatures for drawing if applicable.
+
+    Args:
+        annot (DictionaryObject): The annotation object representing the widget in the PDF.
+        widget (WIDGET_TYPES): The widget middleware object containing the new value.
+        key (str): The unique key identifying the widget.
+        radio_button_tracker (Dict[str, int]): A tracker for radio button groups to manage their indices.
+        images_to_draw_page (list): A list to store image data for the current page.
+        need_appearances (bool): If True, skips updating appearance streams for certain fields.
+        flatten (bool): Whether to flatten the widget to prevent further editing.
+
+    Returns:
+        bool: True if an image or signature was prepared for drawing, False otherwise.
+    """
+    if flatten:
+        flatten_field(annot, True)
+    if widget.value is None:
+        return False
+
+    any_image_to_draw = False
+    if isinstance(widget, (Signature, Image)):
+        any_image_to_draw = signature_image_handler(annot, widget, images_to_draw_page)
+    elif type(widget) is Checkbox:
+        update_checkbox_value(annot, widget.value)
+    elif isinstance(widget, Radio):
+        if key not in radio_button_tracker:
+            radio_button_tracker[key] = 0
+        radio_button_tracker[key] += 1
+        if widget.value == radio_button_tracker[key] - 1:
+            update_radio_value(annot)
+    elif isinstance(widget, Dropdown):
+        update_dropdown_value(annot, widget, need_appearances)
+    elif isinstance(widget, Text):
+        update_text_value(annot, widget, need_appearances)
+
+    return any_image_to_draw
+
+
+def handle_image_drawing(
+    result: bytes,
+    images_to_draw: Dict[int, list],
+) -> bytes:
+    """Merges prepared images and signatures with the filled PDF.
+
+    This function takes the filled PDF and a dictionary of images to draw (from signatures
+    or image fields) and merges them into the PDF as watermarks.
+
+    Args:
+        result (bytes): The filled PDF as bytes.
+        images_to_draw (Dict[int, list]): A dictionary mapping page numbers to lists of image data.
+
+    Returns:
+        bytes: The PDF with images and signatures merged.
+    """
+    images = []
+    for page, elements in images_to_draw.items():
+        images.extend(
+            [{"page_number": page, "type": "image", **element} for element in elements]
+        )
+
+    return merge_watermarks_with_pdf(result, create_watermarks_and_draw(result, images))
 
 
 def fill(
@@ -101,7 +176,6 @@ def fill(
                The image drawn stream is only returned if there are any image or signature widgets
                in the form.
     """
-    # pylint: disable=R0912
     pdf = PdfReader(stream_to_io(template))
     out = PdfWriter()
     out.append(pdf)
@@ -120,28 +194,15 @@ def fill(
             if widget is None:
                 continue
 
-            # flatten all
-            if flatten:
-                flatten_field(annot, True)
-            if widget.value is None:
-                continue
-
-            if isinstance(widgets[key], (Signature, Image)):
-                any_image_to_draw |= signature_image_handler(
-                    annot, widgets[key], images_to_draw[page_num + 1]
-                )
-            elif type(widget) is Checkbox:
-                update_checkbox_value(annot, widget.value)
-            elif isinstance(widget, Radio):
-                if key not in radio_button_tracker:
-                    radio_button_tracker[key] = 0
-                radio_button_tracker[key] += 1
-                if widget.value == radio_button_tracker[key] - 1:
-                    update_radio_value(annot)
-            elif isinstance(widget, Dropdown):
-                update_dropdown_value(annot, widget, need_appearances)
-            elif isinstance(widget, Text):
-                update_text_value(annot, widget, need_appearances)
+            any_image_to_draw |= update_widget(
+                annot,
+                widget,
+                key,
+                radio_button_tracker,
+                images_to_draw[page_num + 1],
+                need_appearances,
+                flatten,
+            )
 
     with BytesIO() as f:
         out.write(f)
@@ -151,12 +212,4 @@ def fill(
     if not any_image_to_draw:
         return result, None
 
-    images = []
-    for page, elements in images_to_draw.items():
-        images.extend(
-            [{"page_number": page, "type": "image", **element} for element in elements]
-        )
-
-    return result, (
-        merge_watermarks_with_pdf(result, create_watermarks_and_draw(result, images))
-    )
+    return result, handle_image_drawing(result, images_to_draw)

@@ -24,13 +24,13 @@ class OpenFlowWPath:
         schema (Union[Unset, OpenFlowWPathSchema]): JSON Schema for flow inputs. Use this to define input parameters,
             their types, defaults, and validation. For resource inputs, set type to 'object' and format to 'resource-<type>'
             (e.g., 'resource-stripe')
+        on_behalf_of_email (Union[Unset, str]):
         tag (Union[Unset, str]):
         ws_error_handler_muted (Union[Unset, bool]):
         priority (Union[Unset, int]):
         dedicated_worker (Union[Unset, bool]):
         timeout (Union[Unset, float]):
         visible_to_runner_only (Union[Unset, bool]):
-        on_behalf_of_email (Union[Unset, str]):
     """
 
     summary: str
@@ -38,13 +38,13 @@ class OpenFlowWPath:
     path: str
     description: Union[Unset, str] = UNSET
     schema: Union[Unset, "OpenFlowWPathSchema"] = UNSET
+    on_behalf_of_email: Union[Unset, str] = UNSET
     tag: Union[Unset, str] = UNSET
     ws_error_handler_muted: Union[Unset, bool] = UNSET
     priority: Union[Unset, int] = UNSET
     dedicated_worker: Union[Unset, bool] = UNSET
     timeout: Union[Unset, float] = UNSET
     visible_to_runner_only: Union[Unset, bool] = UNSET
-    on_behalf_of_email: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -57,13 +57,13 @@ class OpenFlowWPath:
         if not isinstance(self.schema, Unset):
             schema = self.schema.to_dict()
 
+        on_behalf_of_email = self.on_behalf_of_email
         tag = self.tag
         ws_error_handler_muted = self.ws_error_handler_muted
         priority = self.priority
         dedicated_worker = self.dedicated_worker
         timeout = self.timeout
         visible_to_runner_only = self.visible_to_runner_only
-        on_behalf_of_email = self.on_behalf_of_email
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -78,6 +78,8 @@ class OpenFlowWPath:
             field_dict["description"] = description
         if schema is not UNSET:
             field_dict["schema"] = schema
+        if on_behalf_of_email is not UNSET:
+            field_dict["on_behalf_of_email"] = on_behalf_of_email
         if tag is not UNSET:
             field_dict["tag"] = tag
         if ws_error_handler_muted is not UNSET:
@@ -90,8 +92,6 @@ class OpenFlowWPath:
             field_dict["timeout"] = timeout
         if visible_to_runner_only is not UNSET:
             field_dict["visible_to_runner_only"] = visible_to_runner_only
-        if on_behalf_of_email is not UNSET:
-            field_dict["on_behalf_of_email"] = on_behalf_of_email
 
         return field_dict
 
@@ -116,6 +116,8 @@ class OpenFlowWPath:
         else:
             schema = OpenFlowWPathSchema.from_dict(_schema)
 
+        on_behalf_of_email = d.pop("on_behalf_of_email", UNSET)
+
         tag = d.pop("tag", UNSET)
 
         ws_error_handler_muted = d.pop("ws_error_handler_muted", UNSET)
@@ -128,21 +130,19 @@ class OpenFlowWPath:
 
         visible_to_runner_only = d.pop("visible_to_runner_only", UNSET)
 
-        on_behalf_of_email = d.pop("on_behalf_of_email", UNSET)
-
         open_flow_w_path = cls(
             summary=summary,
             value=value,
             path=path,
             description=description,
             schema=schema,
+            on_behalf_of_email=on_behalf_of_email,
             tag=tag,
             ws_error_handler_muted=ws_error_handler_muted,
             priority=priority,
             dedicated_worker=dedicated_worker,
             timeout=timeout,
             visible_to_runner_only=visible_to_runner_only,
-            on_behalf_of_email=on_behalf_of_email,
         )
 
         open_flow_w_path.additional_properties = d

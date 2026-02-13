@@ -198,6 +198,8 @@ impl Display for ConditionRedundantReason {
     }
 }
 
+static MAX_TUPLE_LENGTH: usize = 256;
+
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// Infer a type for an expression, with an optional type hint that influences the inferred type.
     /// The inferred type is also checked against the hint.
@@ -587,7 +589,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     )
                 }
             }
-            Expr::StringLiteral(x) => Lit::from_string_literal(x).to_implicit_type(),
+            Expr::StringLiteral(x) => match Lit::from_string_literal(x) {
+                Some(lit) => lit.to_implicit_type(),
+                None => self.heap.mk_literal_string(LitStyle::Implicit),
+            },
             Expr::BytesLiteral(x) => Lit::from_bytes_literal(x).to_implicit_type(),
             Expr::NumberLiteral(x) => match &x.value {
                 Number::Int(x) => Lit::from_int(x).to_implicit_type(),
@@ -642,6 +647,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     fn tuple_infer(&self, x: &ExprTuple, hint: Option<HintRef>, errors: &ErrorCollector) -> Type {
         let owner = Owner::new();
+        let has_hint = hint.is_some();
         let (hint_ts, default_hint) = if let Some(hint) = &hint {
             let (tuples, nontuples) = self.split_tuple_hint(hint.ty());
             // Combine hints from multiple tuples.
@@ -769,7 +775,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.heap.mk_any_error()
         } else {
             match unbounded.as_slice() {
-                [] => self.heap.mk_concrete_tuple(prefix),
+                [] => {
+                    if !has_hint && prefix.len() > MAX_TUPLE_LENGTH {
+                        self.heap.mk_unbounded_tuple(self.heap.mk_any_implicit())
+                    } else {
+                        self.heap.mk_concrete_tuple(prefix)
+                    }
+                }
                 [middle] => self.heap.mk_unpacked_tuple(prefix, middle.clone(), suffix),
                 // We can't precisely model unpacking two unbounded iterables, so we'll keep any
                 // concrete prefix and suffix elements and merge everything in between into an unbounded tuple

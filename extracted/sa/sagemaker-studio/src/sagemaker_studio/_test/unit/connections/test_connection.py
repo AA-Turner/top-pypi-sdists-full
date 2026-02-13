@@ -1278,3 +1278,32 @@ class TestConnection(unittest.TestCase):
 
         result = connection._spark_options()
         self.assertIsNone(result)
+
+    def test_physical_endpoint_with_enable_trusted_identity_propagation(self):
+        """Test that PhysicalEndpoint can handle enableTrustedIdentityPropagation field."""
+        connection_data = {
+            "connectionId": "12345",
+            "type": "ATHENA",
+            "physicalEndpoints": [
+                {
+                    "awsLocation": {"awsAccountId": "123456789012", "awsRegion": "us-east-1"},
+                    "enableTrustedIdentityPropagation": True,
+                }
+            ],
+        }
+
+        # This should not raise a TypeError
+        connection = Connection(
+            connection_data,
+            self.glue_mock,
+            self.dz_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
+            ClientConfig(),
+        )
+
+        # Verify the field is properly mapped
+        self.assertEqual(len(connection.physical_endpoints), 1)
+        self.assertTrue(connection.physical_endpoints[0].enable_trusted_identity_propagation)
+        self.assertEqual(connection.physical_endpoints[0].aws_account_id, "123456789012")
+        self.assertEqual(connection.physical_endpoints[0].aws_region, "us-east-1")

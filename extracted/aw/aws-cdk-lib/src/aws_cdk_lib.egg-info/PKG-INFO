@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk-lib
-Version: 2.237.1
+Version: 2.238.0
 Summary: Version 2 of the AWS Cloud Development Kit library
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -1463,6 +1463,8 @@ To do this for all templates, set the context key `@aws-cdk/core:suppressTemplat
 To do this for a specific stack, add a `suppressTemplateIndentation: true` property to the
 stack's `StackProps` parameter. You can also set this property to `false` to override
 the context key setting.
+
+Similarly, to do this for a specific nested stack, add a `suppressTemplateIndentation: true` property to its `NestedStackProps` parameter. You can also set this property to `false` to override the context key setting.
 
 ## App Context
 

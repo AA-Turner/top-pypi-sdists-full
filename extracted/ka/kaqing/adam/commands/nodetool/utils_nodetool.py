@@ -1,6 +1,6 @@
 from adam.commands.devices.devices import device
 from adam.commands.export.utils_export import state_with_pod
-from adam.utils_job.utils_fs import find_pids_for_cluster
+from adam.utils_job.utils_ps import find_pids_for_cluster
 from adam.commands.reaper.utils_reaper import reaper
 from adam.config import Config
 from adam.repl_state import ReplState

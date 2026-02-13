@@ -4,7 +4,7 @@ import threading
 import time
 
 from adam.config import Config
-from adam.utils_context import Context
+from adam.utils_context import NULL, Context
 from adam.utils_k8s.pods import strip_pod_name
 
 def ts():
@@ -29,7 +29,7 @@ class NodeSchedules:
         with NodeSchedules.lock:
             return copy(NodeSchedules._completed)
 
-    def restartings(timeout: int = 0, ctx: Context = Context.NULL):
+    def restartings(timeout: int = 0, ctx = NULL):
         if not timeout:
             timeout = Config().get('cassandra.restart.grace-period-in-seconds', 5 * 60)
 
@@ -44,7 +44,7 @@ class NodeSchedules:
     def waiting_ons():
         return copy(NodeSchedules._waiting_ons)
 
-    def restarts(namespace: str = None, ctx: Context = Context.NULL) -> list[str]:
+    def restarts(namespace: str = None, ctx = NULL) -> list[str]:
         pods = set()
 
         for p in NodeSchedules.pending().keys():

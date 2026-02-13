@@ -235,11 +235,11 @@ python_args: tuple[str, ...]
 """
 
 render_icon_size: int
-""" Reference size for icon/preview renders (read-only).
+""" Reference size for icon renders (read-only).
 """
 
 render_preview_size: int
-""" Reference size for icon/preview renders (read-only).
+""" Reference size for preview renders (read-only).
 """
 
 sdl: typing.Any

@@ -5,7 +5,7 @@
 // Usage:
 //
 //	wandb-core [service flags]
-//	wandb-core leet [<run-directory>] [leet flags]
+//	wandb-core leet [<wandb-directory>] [leet flags]
 //
 // Service flags: see `wandb-core -h`.
 // Leet flags:    see `wandb-core leet -h`.
@@ -40,6 +40,14 @@ const (
 	exitCodeSuccess       = 0 // normal exit
 	exitCodeErrorInternal = 1 // some error occurred
 	exitCodeErrorArgs     = 2 // incorrect command-line flags
+
+	// exitCodeSignal is used when the program shuts down due to a signal.
+	//
+	// A common convention is to use 128 plus the signal number, but Go's
+	// signal package does not provide the standard integer numbers associated
+	// with the signal, so for simplicity, we return 128.
+	// See https://github.com/golang/go/issues/30328.
+	exitCodeSignal = 128
 )
 
 func main() {
@@ -136,14 +144,9 @@ func serviceMain() int {
 		defer func() { _ = file.Close() }()
 	}
 
-	// Graceful shutdown on SIGINT/SIGTERM.
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		sig := <-c
-		slog.Info("main: received shutdown signal", "signal", sig)
-		os.Exit(0)
-	}()
+	// Record certain signals in the log file for debugging.
+	signalCh := make(chan os.Signal, 1)
+	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)
 
 	srv := server.NewServer(
 		server.ServerParams{
@@ -156,12 +159,22 @@ func serviceMain() int {
 			SentryClient:        sentryClient,
 		},
 	)
+	srvCh := make(chan error, 1)
+	go func() { srvCh <- srv.Serve(*portFilename) }()
 
-	if err := srv.Serve(*portFilename); err != nil {
-		slog.Error("main: Serve() returned error", "error", err)
-		return exitCodeErrorInternal
+	select {
+	case err := <-srvCh:
+		if err != nil {
+			slog.Error("main: Serve() returned error", "error", err)
+			return exitCodeErrorInternal
+		} else {
+			return exitCodeSuccess
+		}
+
+	case sig := <-signalCh:
+		slog.Info("main: received shutdown signal", "signal", sig)
+		return exitCodeSignal
 	}
-	return exitCodeSuccess
 }
 
 // leetMain runs the TUI subcommand.
@@ -173,20 +186,21 @@ func leetMain(args []string) int {
 		"Specifies the log level to use for logging. -4: debug, 0: info, 4: warn, 8: error.")
 	disableAnalytics := fs.Bool("no-observability", false,
 		"Disables observability features such as metrics and logging analytics.")
-
+	runFile := fs.String("run-file", "",
+		"Path to a .wandb file to open directly in single-run view.")
 	pprofAddr := fs.String("pprof", "",
 		"If set, serves /debug/pprof/* on this address (e.g. 127.0.0.1:6060).")
+	editConfig := fs.Bool("config", false, "Open config editor.")
 
 	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, `wandb-core leet - Lightweight Experiment Exploration Tool
 A terminal UI for viewing your W&B runs locally.
 
 Usage:
-  wandb-core leet [flags] <wandb-file>
+  wandb-core leet [flags] <wandb-directory>
+
 Arguments:
-  <wandb-file>       Path to the .wandb file of a W&B run.
-                     Example:
-                       /path/to/.wandb/run-20250731_170606-iazb7i1k/run-iazb7i1k.wandb
+  <wandb-directory>  Path to the wandb directory containing run folders.
 
 Options:
   -h, --help         Show this help message
@@ -255,21 +269,39 @@ Flags:
 		},
 	)
 
-	wandbFile := fs.Arg(0)
+	if *editConfig {
+		editor := leet.NewConfigEditor(leet.ConfigEditorParams{Logger: logger})
+		p := tea.NewProgram(editor, tea.WithAltScreen(), tea.WithMouseCellMotion())
+		if _, err := p.Run(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return exitCodeErrorInternal
+		}
+		return exitCodeSuccess
+	}
 
-	// Run the TUI; allow in-process restarts (Alt+R) without re-parsing flags.
+	wandbDir := fs.Arg(0)
+	if wandbDir == "" {
+		fmt.Fprintln(os.Stderr, "Error: wandb directory path required")
+		fs.Usage()
+		return exitCodeErrorArgs
+	}
+
 	for {
-		model := leet.NewModel(wandbFile, nil, logger)
-		p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
+		m := leet.NewModel(leet.ModelParams{
+			WandbDir: wandbDir,
+			RunFile:  *runFile,
+			Logger:   logger,
+		})
+		program := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
 
-		finalModel, err := p.Run()
+		finalModel, err := program.Run()
 		if err != nil {
 			logger.CaptureError(fmt.Errorf("wandb-leet: %v", err))
 			return exitCodeErrorInternal
 		}
 
 		// If the model requests a restart, loop again.
-		if m, ok := finalModel.(*leet.Model); ok && m.ShouldRestart() {
+		if fm, ok := finalModel.(*leet.Model); ok && fm.ShouldRestart() {
 			continue
 		}
 

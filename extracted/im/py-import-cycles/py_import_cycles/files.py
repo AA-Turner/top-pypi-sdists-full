@@ -6,7 +6,6 @@ from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from .log import logger
 from .modules import PyModule
 
 
@@ -24,19 +23,34 @@ def scan_packages(packages: Sequence[Path]) -> Iterator[PyModule]:
                 continue
 
             for file in files:
-                # Regular package or Python module
-                if (file_path := root_path / file).suffix == ".py":
-                    try:
-                        yield PyModule(package=package_path, path=file_path)
-                    except ValueError as e:
-                        logger.error("Cannot make py module from %s: %s", file_path, e)
-
-            if not (root_path / "__init__.py").exists():
-                # Namespace package
+                # May be a regular package or a module
+                file_path = root_path / file
                 try:
-                    yield PyModule(package=package_path, path=root_path)
-                except ValueError as e:
-                    logger.error("Cannot make py module from %s: %s", root_path, e)
+                    yield PyModule(package=package_path, path=file_path)
+                except ValueError:
+                    pass
+
+            # May be a namespace package
+            try:
+                yield PyModule(package=package_path, path=root_path)
+            except ValueError:
+                pass
+
+
+def parse_files(files: Sequence[str]) -> Iterator[PyModule]:
+    cwd = Path.cwd()
+    for file in files:
+        raw_root_path, raw_rel_file_path = file.split("::", 1)
+
+        root_path = Path(raw_root_path)
+        if not root_path.is_absolute():
+            root_path = cwd / raw_root_path
+
+        rel_file_path = Path(raw_rel_file_path)
+        yield PyModule(
+            package=root_path / rel_file_path.parts[0],
+            path=root_path / rel_file_path,
+        )
 
 
 @dataclass(frozen=True, kw_only=True)

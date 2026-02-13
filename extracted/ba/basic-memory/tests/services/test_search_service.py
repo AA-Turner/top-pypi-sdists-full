@@ -515,6 +515,72 @@ async def test_extract_entity_tags_no_tags_key(search_service, session_maker):
 
 
 @pytest.mark.asyncio
+async def test_search_tag_prefix_maps_to_tags_filter(search_service, entity_service):
+    """`tag:foo` prefix should translate to tags filter and return tagged entities."""
+    from basic_memory.schemas import Entity as EntitySchema
+
+    tagged_entity, _ = await entity_service.create_or_update_entity(
+        EntitySchema(
+            title="Tagged Note Missing",
+            directory="tags",
+            entity_type="note",
+            content="# Tagged Note",
+            entity_metadata={"tags": ["tier1", "alpha"]},
+        )
+    )
+
+    await search_service.index_entity(tagged_entity)
+
+    results = await search_service.search(SearchQuery(text="tag:tier1"))
+
+    assert any(r.permalink == tagged_entity.permalink for r in results)
+
+
+@pytest.mark.asyncio
+async def test_search_tag_prefix_with_nonexistent_tag_returns_empty(search_service, entity_service):
+    """`tag:missing` should return no results when tags do not match."""
+    from basic_memory.schemas import Entity as EntitySchema
+
+    tagged_entity, _ = await entity_service.create_or_update_entity(
+        EntitySchema(
+            title="Tagged Note",
+            directory="tags",
+            entity_type="note",
+            content="# Tagged Note",
+            entity_metadata={"tags": ["tier1", "alpha"]},
+        )
+    )
+
+    await search_service.index_entity(tagged_entity)
+
+    results = await search_service.search(SearchQuery(text="tag:missing"))
+
+    assert not results
+
+
+@pytest.mark.asyncio
+async def test_search_tag_prefix_multiple_tags_requires_all(search_service, entity_service):
+    """`tag:tier1,alpha` should match entities containing all listed tags."""
+    from basic_memory.schemas import Entity as EntitySchema
+
+    tagged_entity, _ = await entity_service.create_or_update_entity(
+        EntitySchema(
+            title="Multi Tagged Note",
+            directory="tags/multi",
+            entity_type="note",
+            content="# Tagged Note",
+            entity_metadata={"tags": ["tier1", "alpha"]},
+        )
+    )
+
+    await search_service.index_entity(tagged_entity)
+
+    results = await search_service.search(SearchQuery(text="tag:tier1,alpha"))
+
+    assert any(r.permalink == tagged_entity.permalink for r in results)
+
+
+@pytest.mark.asyncio
 async def test_search_by_frontmatter_tags(search_service, session_maker, test_project):
     """Test that entities can be found by searching for their frontmatter tags."""
     from basic_memory.repository import EntityRepository

@@ -14,7 +14,7 @@ class IoTransferEventArgs(object):
 	def __init__(self, reading: bool, opc_sync: bool, total_size: int | None, context: str):
 		"""Initializes new instance of IoTransferEventArgs
 		:param reading: True: reading operation, False: writing operation
-		:param opc_sync: defines if the command is OPC-synchronised
+		:param opc_sync: defines if the command is OPC-synchronized
 		:param total_size: total size of the data received
 		:param context: SCPI query. It is truncated to maximum of 100 characters"""
 		self._transfer_id = next(self.id_generator)
@@ -51,7 +51,7 @@ class IoTransferEventArgs(object):
 	@classmethod
 	def write_str(cls, opc_sync: bool, total_size: int, context: str) -> 'IoTransferEventArgs':
 		"""Creates new IoTransferEventArgs of write string \n
-		:param opc_sync: defines if the command is OPC-synchronised
+		:param opc_sync: defines if the command is OPC-synchronized
 		:param total_size: size of the data to write
 		:param context: SCPI command write. It is truncated to maximum of 100 characters
 		:return: IoTransferEventArgs object of a write-string operation."""

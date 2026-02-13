@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2023 M. Andersen and L. Vandenberghe.
+ * Copyright 2012-2026 M. Andersen and L. Vandenberghe.
  * Copyright 2010-2011 L. Vandenberghe.
  * Copyright 2004-2009 J. Dahl and L. Vandenberghe.
  *
@@ -90,10 +90,10 @@ static int set_defaults(double *control)
     while (PyDict_Next(param, &pos, &key, &value))
 #if PY_MAJOR_VERSION >= 3
         if ((PyUnicode_Check(key)) && 
-            get_param_idx(_PyUnicode_AsString(key),&param_id)) {
+            get_param_idx(PyUnicode_AsUTF8(key),&param_id)) {
             if (!PyLong_Check(value) && !PyFloat_Check(value)){
                 sprintf(err_str, "invalid value for AMD parameter: %-.20s",
-                    _PyUnicode_AsString(key));
+                    PyUnicode_AsUTF8(key));
 #else
         if ((keystr = PyString_AsString(key)) && get_param_idx(keystr,
             &param_id)) {

@@ -125,8 +125,8 @@ class Authenticated:
         action: Literal["create", "read", "update", "delete", "search", "create_run"],
         value: Any,
     ) -> Auth.types.FilterType | None:
-        from langgraph_api.auth.custom import handle_event
-        from langgraph_api.utils import get_auth_ctx
+        from langgraph_api.auth.custom import handle_event  # noqa: PLC0415
+        from langgraph_api.utils import get_auth_ctx  # noqa: PLC0415
 
         ctx = ctx or get_auth_ctx()
         if not ctx:
@@ -151,7 +151,7 @@ class Assistants(Authenticated):
         select: list[AssistantSelectField] | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> tuple[AsyncIterator[Assistant], int]:
-        from langgraph_api.graph import assert_graph_exists
+        from langgraph_api.graph import assert_graph_exists  # noqa: PLC0415
 
         metadata = metadata if metadata is not None else {}
         filters = await Assistants.handle_event(
@@ -257,7 +257,7 @@ class Assistants(Authenticated):
         system: bool = False,
     ) -> AsyncIterator[Assistant]:
         """Insert an assistant."""
-        from langgraph_api.graph import assert_graph_exists
+        from langgraph_api.graph import assert_graph_exists  # noqa: PLC0415
 
         assistant_id = _ensure_uuid(assistant_id)
         metadata = metadata if metadata is not None else {}
@@ -371,7 +371,7 @@ class Assistants(Authenticated):
         Returns:
             return the updated assistant model.
         """
-        from langgraph_api.graph import assert_graph_exists
+        from langgraph_api.graph import assert_graph_exists  # noqa: PLC0415
 
         assistant_id = _ensure_uuid(assistant_id)
         metadata = metadata if metadata is not None else {}
@@ -679,7 +679,7 @@ class Assistants(Authenticated):
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> int:
         """Get count of assistants."""
-        from langgraph_api.graph import assert_graph_exists
+        from langgraph_api.graph import assert_graph_exists  # noqa: PLC0415
 
         metadata = metadata if metadata is not None else {}
         filters = await Assistants.handle_event(
@@ -1074,7 +1074,7 @@ class Threads(Authenticated):
         # This does not accept the auth context since it's only used internally
     ) -> None:
         """Set the status of a thread."""
-        from langgraph_api.serde import json_dumpb
+        from langgraph_api.serde import json_dumpb, json_loads  # noqa: PLC0415
 
         thread_id = _ensure_uuid(thread_id)
 
@@ -1130,7 +1130,7 @@ class Threads(Authenticated):
                     if checkpoint
                     else {}
                 ),
-                "error": json_dumpb(exception) if exception else None,
+                "error": json_loads(json_dumpb(exception)) if exception else None,
             }
         )
 
@@ -1158,8 +1158,8 @@ class Threads(Authenticated):
             exception: Exception that occurred (affects thread status)
         """
         # No auth since it's internal
-        from langgraph_api.errors import UserInterrupt, UserRollback
-        from langgraph_api.serde import json_dumpb
+        from langgraph_api.errors import UserInterrupt, UserRollback  # noqa: PLC0415
+        from langgraph_api.serde import json_dumpb, json_loads  # noqa: PLC0415
 
         thread_id = _ensure_uuid(thread_id)
         run_id = _ensure_uuid(run_id)
@@ -1227,7 +1227,7 @@ class Threads(Authenticated):
                 "values": checkpoint["values"] if checkpoint else None,
                 "interrupts": interrupts,
                 "status": final_thread_status,
-                "error": json_dumpb(exception) if exception else None,
+                "error": json_loads(json_dumpb(exception)) if exception else None,
             }
         )
 
@@ -1463,8 +1463,8 @@ class Threads(Authenticated):
             ctx: Auth.types.BaseAuthContext | None = None,
         ) -> StateSnapshot:
             """Get state for a thread."""
-            from langgraph_api.graph import get_graph
-            from langgraph_api.store import get_store
+            from langgraph_api.graph import get_graph  # noqa: PLC0415
+            from langgraph_api.store import get_store  # noqa: PLC0415
 
             checkpointer = await asyncio.to_thread(
                 Checkpointer, conn, unpack_hook=_msgpack_ext_hook_to_json
@@ -1513,7 +1513,7 @@ class Threads(Authenticated):
                     thread_config,
                     checkpointer=checkpointer,
                     store=(await get_store()),
-                    is_for_execution=False,
+                    access_context="threads.read",
                 ) as graph:
                     result = await graph.aget_state(config, subgraphs=subgraphs)
                     if (
@@ -1544,11 +1544,13 @@ class Threads(Authenticated):
             ctx: Auth.types.BaseAuthContext | None = None,
         ) -> ThreadUpdateResponse:
             """Add state to a thread."""
-            from langgraph_api.graph import get_graph
-            from langgraph_api.schema import ThreadUpdateResponse
-            from langgraph_api.state import state_snapshot_to_thread_state
-            from langgraph_api.store import get_store
-            from langgraph_api.utils import fetchone
+            from langgraph_api.graph import get_graph  # noqa: PLC0415
+            from langgraph_api.schema import ThreadUpdateResponse  # noqa: PLC0415
+            from langgraph_api.state import (  # noqa: PLC0415
+                state_snapshot_to_thread_state,
+            )
+            from langgraph_api.store import get_store  # noqa: PLC0415
+            from langgraph_api.utils import fetchone  # noqa: PLC0415
 
             thread_id = _ensure_uuid(config["configurable"]["thread_id"])
             filters = await Threads.handle_event(
@@ -1609,7 +1611,7 @@ class Threads(Authenticated):
                     thread_config,
                     checkpointer=checkpointer,
                     store=(await get_store()),
-                    is_for_execution=False,
+                    access_context="threads.update",
                 ) as graph:
                     update_config = config.copy()
                     update_config["configurable"] = {
@@ -1633,7 +1635,7 @@ class Threads(Authenticated):
                             break
 
                     # Publish state update event
-                    from langgraph_api.serde import json_dumpb
+                    from langgraph_api.serde import json_dumpb  # noqa: PLC0415
 
                     event_data = {
                         "state": state_snapshot_to_thread_state(state),
@@ -1668,12 +1670,12 @@ class Threads(Authenticated):
         ) -> ThreadUpdateResponse:
             """Update a thread with a batch of state updates."""
 
-            from langgraph.types import StateUpdate
-            from langgraph_api.command import map_cmd
-            from langgraph_api.graph import get_graph
-            from langgraph_api.schema import ThreadUpdateResponse
-            from langgraph_api.store import get_store
-            from langgraph_api.utils import fetchone
+            from langgraph.types import StateUpdate  # noqa: PLC0415
+            from langgraph_api.command import map_cmd  # noqa: PLC0415
+            from langgraph_api.graph import get_graph  # noqa: PLC0415
+            from langgraph_api.schema import ThreadUpdateResponse  # noqa: PLC0415
+            from langgraph_api.store import get_store  # noqa: PLC0415
+            from langgraph_api.utils import fetchone  # noqa: PLC0415
 
             thread_id = _ensure_uuid(config["configurable"]["thread_id"])
             filters = await Threads.handle_event(
@@ -1712,7 +1714,7 @@ class Threads(Authenticated):
                     thread_config,
                     checkpointer=Checkpointer(),
                     store=(await get_store()),
-                    is_for_execution=False,
+                    access_context="threads.update",
                 ) as graph:
                     next_config = await graph.abulk_update_state(
                         config,
@@ -1743,7 +1745,7 @@ class Threads(Authenticated):
                             break
 
                     # Publish state update event
-                    from langgraph_api.serde import json_dumpb
+                    from langgraph_api.serde import json_dumpb  # noqa: PLC0415
 
                     event_data = {
                         "state": state,
@@ -1776,9 +1778,9 @@ class Threads(Authenticated):
             ctx: Auth.types.BaseAuthContext | None = None,
         ) -> list[StateSnapshot]:
             """Get the history of a thread."""
-            from langgraph_api.graph import get_graph
-            from langgraph_api.store import get_store
-            from langgraph_api.utils import fetchone
+            from langgraph_api.graph import get_graph  # noqa: PLC0415
+            from langgraph_api.store import get_store  # noqa: PLC0415
+            from langgraph_api.utils import fetchone  # noqa: PLC0415
 
             thread_id = _ensure_uuid(config["configurable"]["thread_id"])
             thread = None
@@ -1813,7 +1815,7 @@ class Threads(Authenticated):
                         Checkpointer, conn, unpack_hook=_msgpack_ext_hook_to_json
                     ),
                     store=(await get_store()),
-                    is_for_execution=False,
+                    access_context="threads.read",
                 ) as graph:
                     # Convert before parameter if it's a string
                     before_param = (
@@ -1876,7 +1878,7 @@ class Threads(Authenticated):
             """Stream the thread output."""
             await Threads.Stream.check_thread_stream_auth(thread_id, ctx)
 
-            from langgraph_api.utils.stream_codec import (
+            from langgraph_api.utils.stream_codec import (  # noqa: PLC0415
                 decode_stream_message,
             )
 
@@ -2017,7 +2019,7 @@ class Threads(Authenticated):
             message: bytes,
         ) -> None:
             """Publish a thread-level event to the thread stream."""
-            from langgraph_api.utils.stream_codec import STREAM_CODEC
+            from langgraph_api.utils.stream_codec import STREAM_CODEC  # noqa: PLC0415
 
             topic = f"thread:{thread_id}:stream".encode()
 
@@ -2234,8 +2236,8 @@ class Runs(Authenticated):
         """Enter a run, listen for cancellation while running, signal when done."
         This method should be called as a context manager by a worker executing a run.
         """
-        from langgraph_api.asyncio import SimpleTaskGroup, ValueEvent
-        from langgraph_api.utils.stream_codec import STREAM_CODEC
+        from langgraph_api.asyncio import SimpleTaskGroup, ValueEvent  # noqa: PLC0415
+        from langgraph_api.utils.stream_codec import STREAM_CODEC  # noqa: PLC0415
 
         stream_manager = get_stream_manager()
         # Get control queue for this run (normal queue is created during run creation)
@@ -2304,7 +2306,7 @@ class Runs(Authenticated):
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> AsyncIterator[Run]:
         """Create a run."""
-        from langgraph_api.schema import Run, Thread
+        from langgraph_api.schema import Run, Thread  # noqa: PLC0415
 
         assistant_id = _ensure_uuid(assistant_id)
         assistant = next(
@@ -2834,9 +2836,11 @@ class Runs(Authenticated):
             ctx: Auth.types.BaseAuthContext | None = None,
         ) -> AsyncIterator[tuple[bytes, bytes, bytes | None]]:
             """Stream the run output."""
-            from langgraph_api.asyncio import create_task
-            from langgraph_api.serde import json_dumpb
-            from langgraph_api.utils.stream_codec import decode_stream_message
+            from langgraph_api.asyncio import create_task  # noqa: PLC0415
+            from langgraph_api.serde import json_dumpb  # noqa: PLC0415
+            from langgraph_api.utils.stream_codec import (  # noqa: PLC0415
+                decode_stream_message,
+            )
 
             queue = stream_channel
             try:
@@ -2979,7 +2983,7 @@ class Runs(Authenticated):
             resumable: bool = False,
         ) -> None:
             """Publish a message to all subscribers of the run stream."""
-            from langgraph_api.utils.stream_codec import STREAM_CODEC
+            from langgraph_api.utils.stream_codec import STREAM_CODEC  # noqa: PLC0415
 
             topic = f"run:{run_id}:stream".encode()
 
@@ -2995,7 +2999,7 @@ async def listen_for_cancellation(
     queue: asyncio.Queue, run_id: UUID, thread_id: UUID | None, done: ValueEvent
 ):
     """Listen for cancellation messages and set the done event accordingly."""
-    from langgraph_api.errors import UserInterrupt, UserRollback
+    from langgraph_api.errors import UserInterrupt, UserRollback  # noqa: PLC0415
 
     stream_manager = get_stream_manager()
 
@@ -3053,8 +3057,12 @@ class Crons(Authenticated):
         enabled: bool,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> AsyncIterator[Cron]:
-        from langgraph_api.graph import get_assistant_id
-        from langgraph_api.utils import get_auth_ctx, next_cron_date, uuid7
+        from langgraph_api.graph import get_assistant_id  # noqa: PLC0415
+        from langgraph_api.utils import (  # noqa: PLC0415
+            get_auth_ctx,
+            next_cron_date,
+            uuid7,
+        )
 
         ctx = ctx or get_auth_ctx()
         user_id = ctx.user.identity if ctx is not None else None
@@ -3085,7 +3093,7 @@ class Crons(Authenticated):
             config["configurable"] = configurable
         configurable["cron_id"] = str(cron_id)
 
-        request_data = Auth.types.CronsCreate(
+        cron_request_data = Auth.types.CronsCreate(
             payload=payload,
             schedule=schedule,
             cron_id=cron_id,
@@ -3093,13 +3101,22 @@ class Crons(Authenticated):
             user_id=user_id,
             end_time=end_time,
         )
-        request_data["metadata"] = metadata  # type: ignore
-        filters = await Crons.handle_event(ctx, "create", request_data)
+        cron_request_data["metadata"] = metadata  # type: ignore
+        filters = await Crons.handle_event(ctx, "create", cron_request_data)
 
         Crons._validate_cron_schedule_or_throw(schedule)
 
         assistant_id = get_assistant_id(payload["assistant_id"])
         payload["assistant_id"] = assistant_id
+
+        # Get assistant-specific auth filters
+        assistant_request_data = Auth.types.AssistantsRead(
+            assistant_id=payload["assistant_id"]
+        )
+        assistant_request_data["metadata"] = metadata  # type: ignore
+        assistant_filters = await Assistants.handle_event(
+            ctx, "read", assistant_request_data
+        )
 
         # Validate assistant exists
         assistant = next(
@@ -3111,16 +3128,13 @@ class Crons(Authenticated):
             None,
         )
         if not assistant:
-            if filters and assistant_id:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Assistant '{assistant_id}' not found",
-                )
             raise HTTPException(
                 status_code=404,
                 detail=f"Assistant '{assistant_id}' not found",
             )
-        if filters and not _check_filter_match(assistant.get("metadata", {}), filters):
+        if assistant_filters and not _check_filter_match(
+            assistant.get("metadata", {}), assistant_filters
+        ):
             raise HTTPException(
                 status_code=404,
                 detail=f"Assistant '{assistant_id}' not found",
@@ -3128,6 +3142,13 @@ class Crons(Authenticated):
 
         # Validate thread exists if provided
         if thread_id is not None:
+            # Get thread-specific auth filters
+            thread_request_data = Auth.types.ThreadsRead(thread_id=thread_id)
+            thread_request_data["metadata"] = metadata  # type: ignore
+            thread_filters = await Threads.handle_event(
+                ctx, "read", thread_request_data
+            )
+
             thread = next(
                 (
                     t
@@ -3141,7 +3162,9 @@ class Crons(Authenticated):
                     status_code=404,
                     detail=f"Thread with ID '{thread_id}' not found. Please verify the ID is correct and the thread hasn't been deleted or expired.",
                 )
-            if filters and not _check_filter_match(thread.get("metadata", {}), filters):
+            if thread_filters and not _check_filter_match(
+                thread.get("metadata", {}), thread_filters
+            ):
                 raise HTTPException(
                     status_code=404,
                     detail=f"Thread with ID '{thread_id}' not found. Please verify the ID is correct and the thread hasn't been deleted or expired.",
@@ -3204,7 +3227,7 @@ class Crons(Authenticated):
         metadata: dict | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> AsyncIterator[Cron]:
-        from langgraph_api.utils import get_auth_ctx, next_cron_date
+        from langgraph_api.utils import get_auth_ctx, next_cron_date  # noqa: PLC0415
 
         ctx = ctx or get_auth_ctx()
         request_data = Auth.types.CronsUpdate(
@@ -3214,8 +3237,9 @@ class Crons(Authenticated):
             enabled=enabled,
             on_run_completed=on_run_completed,
             payload=payload,
-            metadata=metadata,
         )
+        if metadata is not None:
+            request_data["metadata"] = metadata
         filters = await Crons.handle_event(ctx, "update", request_data)
 
         # Check if anything to update
@@ -3256,7 +3280,7 @@ class Crons(Authenticated):
             cron["on_run_completed"] = on_run_completed
 
         if metadata is not None:
-            cron["metadata"] = metadata
+            cron["metadata"] = {**cron.get("metadata", {}), **metadata}
 
         if payload is not None:
             # Shallow merge payload, preserve assistant_id and config.configurable.cron_id

@@ -13,12 +13,12 @@ use chroma_metering::{
 use chroma_system::System;
 use chroma_tracing::add_tracing_middleware;
 use chroma_types::{
-    decode_embeddings, maybe_decode_update_embeddings, AddCollectionRecordsPayload,
+    decode_embeddings, maybe_decode_update_embeddings, validate_name, AddCollectionRecordsPayload,
     AddCollectionRecordsResponse, AttachFunctionRequest, AttachFunctionResponse, ChecklistResponse,
     Collection, CollectionConfiguration, CollectionMetadataUpdate, CollectionUuid,
     CountCollectionsRequest, CountCollectionsResponse, CountRequest, CountResponse,
     CreateCollectionPayload, CreateCollectionRequest, CreateDatabaseRequest,
-    CreateDatabaseResponse, CreateTenantRequest, CreateTenantResponse,
+    CreateDatabaseResponse, CreateTenantRequest, CreateTenantResponse, DatabaseName,
     DeleteCollectionRecordsPayload, DeleteCollectionRecordsResponse, DeleteDatabaseRequest,
     DeleteDatabaseResponse, DetachFunctionRequest, DetachFunctionResponse, ForkCollectionResponse,
     GetAttachedFunctionResponse, GetCollectionByCrnRequest, GetCollectionRequest,
@@ -428,9 +428,13 @@ impl FrontendServer {
         headers: &HeaderMap,
         action: AuthzAction,
         resource: AuthzResource,
+        database_name: DatabaseName,
         collection_id: CollectionUuid,
     ) -> Result<GetUserIdentityResponse, ServerError> {
-        let collection = self.frontend.get_cached_collection(collection_id).await?;
+        let collection = self
+            .frontend
+            .get_cached_collection(database_name, collection_id)
+            .await?;
         Ok(self
             .auth
             .authenticate_and_authorize_collection(headers, action, resource, collection)
@@ -443,12 +447,20 @@ impl FrontendServer {
 // the appropriate method on the `FrontendServer` struct.
 
 /// Health check endpoint that returns 200 if the server and executor are ready
+/// Healthcheck
+/// Returns the health status of the service.
 #[utoipa::path(
     get,
     path = "/api/v2/healthcheck",
+    summary = "Healthcheck",
+    description = "Returns the health status of the service.",
+    tag = "System",
     responses(
         (status = 200, description = "Success", body = String, content_type = "application/json"),
         (status = 503, description = "Service Unavailable", body = ErrorResponse),
+    ),
+    extensions(
+        ("x-codeSamples" = json!([]))
     )
 )]
 async fn healthcheck(State(server): State<FrontendServer>) -> impl IntoResponse {
@@ -461,13 +473,36 @@ async fn healthcheck(State(server): State<FrontendServer>) -> impl IntoResponse 
     (code, Json(res))
 }
 
-/// Heartbeat endpoint that returns a nanosecond timestamp of the current time.
+/// Heartbeat
+/// Returns a nanosecond timestamp of the current time.
 #[utoipa::path(
     get,
     path = "/api/v2/heartbeat",
+    summary = "Heartbeat",
+    description = "Returns a nanosecond timestamp of the current time.",
+    tag = "System",
     responses(
         (status = 200, description = "Success", body = HeartbeatResponse),
         (status = 500, description = "Server error", body = ErrorResponse)
+    ),
+    extensions(
+        ("x-codeSamples" = json!([
+            {
+                "lang": "typescript",
+                "label": "Heartbeat",
+                "source": "const timestamp = await client.heartbeat();"
+            },
+            {
+                "lang": "python",
+                "label": "Heartbeat",
+                "source": "timestamp = client.heartbeat()"
+            },
+            {
+                "lang": "rust",
+                "label": "Heartbeat",
+                "source": "let timestamp = client.heartbeat().await?;"
+            }
+        ]))
     )
 )]
 async fn heartbeat(
@@ -477,10 +512,14 @@ async fn heartbeat(
     Ok(Json(server.frontend.heartbeat().await?))
 }
 
-/// Pre-flight checks endpoint reporting basic readiness info.
+/// Pre-flight checks
+/// Returns basic readiness information.
 #[utoipa::path(
     get,
     path = "/api/v2/pre-flight-checks",
+    summary = "Pre-flight checks",
+    description = "Returns basic readiness information.",
+    tag = "System",
     responses(
         (status = 200, description = "Pre flight checks", body = ChecklistResponse),
         (status = 500, description = "Server error", body = ErrorResponse)
@@ -496,14 +535,24 @@ async fn pre_flight_checks(
     }))
 }
 
-/// Reset endpoint allowing authorized users to reset the database.
+/// Reset database
+/// Resets the database. Requires authorization.
 #[utoipa::path(
     post,
     path = "/api/v2/reset",
+    summary = "Reset database",
+    description = "Resets the database. Requires authorization.",
+    tag = "System",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     responses(
         (status = 200, description = "Reset successful", body = bool),
         (status = 401, description = "Unauthorized", body = ErrorResponse),
         (status = 500, description = "Server error", body = ErrorResponse)
+    ),
+    extensions(
+        ("x-hidden" = json!(true))
     )
 )]
 async fn reset(
@@ -526,12 +575,30 @@ async fn reset(
     Ok(Json(true))
 }
 
+/// Get version
 /// Returns the version of the server.
 #[utoipa::path(
     get,
     path = "/api/v2/version",
+    summary = "Get version",
+    description = "Returns the version of the server.",
+    tag = "System",
     responses(
         (status = 200, description = "Get server version", body = String)
+    ),
+    extensions(
+        ("x-codeSamples" = json!([
+            {
+                "lang": "typescript",
+                "label": "Get version",
+                "source": "const version = await client.version();"
+            },
+            {
+                "lang": "python",
+                "label": "Get version",
+                "source": "version = client.get_version()"
+            }
+        ]))
     )
 )]
 async fn version(State(server): State<FrontendServer>) -> Json<String> {
@@ -541,12 +608,19 @@ async fn version(State(server): State<FrontendServer>) -> Json<String> {
     Json("1.0.0".to_string())
 }
 
-/// Retrieves the current user's identity, tenant, and databases.
+/// Get user identity
+/// Returns the current user's identity, tenant, and databases.
 #[utoipa::path(
     get,
     path = "/api/v2/auth/identity",
+    summary = "Get user identity",
+    description = "Returns the current user's identity, tenant, and databases.",
+    tag = "Authentication",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     responses(
-        (status = 200, description = "Get user identity", body = GetUserIdentityResponse),
+        (status = 200, description = "User identity", body = GetUserIdentityResponse),
         (status = 500, description = "Server error", body = ErrorResponse)
     )
 )]
@@ -563,10 +637,17 @@ struct CreateTenantPayload {
     name: String,
 }
 
+/// Create tenant
 /// Creates a new tenant.
 #[utoipa::path(
     post,
     path = "/api/v2/tenants",
+    summary = "Create tenant",
+    description = "Creates a new tenant.",
+    tag = "Tenant",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     request_body = CreateTenantPayload,
     responses(
         (status = 200, description = "Tenant created successfully", body = CreateTenantResponse),
@@ -596,15 +677,27 @@ async fn create_tenant(
     Ok(Json(server.frontend.create_tenant(request).await?))
 }
 
+/// Get tenant
 /// Returns an existing tenant by name.
 #[utoipa::path(
     get,
     path = "/api/v2/tenants/{tenant_name}",
+    summary = "Get tenant",
+    description = "Returns an existing tenant by name.",
+    tag = "Tenant",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     params(
-        ("tenant_name" = String, Path, description = "Tenant to retrieve")
+        ("tenant_name" = String, Path, description = "Tenant UUID")
     ),
     responses(
-        (status = 200, description = "Tenant found", body = GetTenantResponse),
+        (status = 200, description = "Tenant found", body = GetTenantResponse,
+            example = json!({
+                "name": "1e30d217-3d78-4f8c-b244-79381dc6a254",
+                "resource_name": null
+            })
+        ),
         (status = 401, description = "Unauthorized", body = ErrorResponse),
         (status = 404, description = "Tenant not found", body = ErrorResponse),
         (status = 500, description = "Server error", body = ErrorResponse)
@@ -637,12 +730,19 @@ pub struct UpdateTenantPayload {
     pub resource_name: String,
 }
 
+/// Update tenant
 /// Updates an existing tenant by name.
 #[utoipa::path(
     patch,
     path = "/api/v2/tenants/{tenant_name}",
+    summary = "Update tenant",
+    description = "Updates an existing tenant by name.",
+    tag = "Tenant",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     params(
-        ("tenant_name" = String, Path, description = "Tenant to update")
+        ("tenant_name" = String, Path, description = "Tenant UUID")
     ),
     request_body = UpdateTenantPayload,
     responses(
@@ -676,15 +776,42 @@ async fn update_tenant(
     Ok(Json(server.frontend.update_tenant(request).await?))
 }
 
+#[derive(Debug, thiserror::Error)]
+#[error("{0}")]
+pub struct InvalidDatabaseError(String);
+
+impl From<validator::ValidationError> for InvalidDatabaseError {
+    fn from(err: validator::ValidationError) -> Self {
+        let message = err
+            .message
+            .map(|m| m.to_string())
+            .unwrap_or_else(|| "invalid database name".to_string());
+        Self(message)
+    }
+}
+
+impl chroma_error::ChromaError for InvalidDatabaseError {
+    fn code(&self) -> chroma_error::ErrorCodes {
+        chroma_error::ErrorCodes::InvalidArgument
+    }
+}
+
 #[derive(Deserialize, Serialize, ToSchema, Debug)]
 pub struct CreateDatabasePayload {
     pub name: String,
 }
 
-/// Creates a new database for a given tenant.
+/// Create database
+/// Creates a new database for a tenant.
 #[utoipa::path(
     post,
     path = "/api/v2/tenants/{tenant}/databases",
+    summary = "Create database",
+    description = "Creates a new database for a tenant.",
+    tag = "Database",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     request_body = CreateDatabasePayload,
     responses(
         (status = 200, description = "Database created successfully", body = CreateDatabaseResponse),
@@ -692,7 +819,16 @@ pub struct CreateDatabasePayload {
         (status = 500, description = "Server error", body = ErrorResponse)
     ),
     params(
-        ("tenant" = String, Path, description = "Tenant ID to associate with the new database")
+        ("tenant" = String, Path, description = "Tenant UUID")
+    ),
+    extensions(
+        ("x-codeSamples" = json!([
+            {
+                "lang": "terminal",
+                "label": "Create Database",
+                "source": "chroma db create my-new-db"
+            }
+        ]))
     )
 )]
 async fn create_database(
@@ -701,6 +837,9 @@ async fn create_database(
     State(mut server): State<FrontendServer>,
     Json(CreateDatabasePayload { name }): Json<CreateDatabasePayload>,
 ) -> Result<Json<CreateDatabaseResponse>, ServerError> {
+    if let Err(err) = validate_name(&name) {
+        return Err(InvalidDatabaseError::from(err).into());
+    }
     server.metrics.create_database.add(1, &[]);
     tracing::info!(name: "create_database", tenant_name = %tenant, database_name = %name);
     server
@@ -725,7 +864,10 @@ async fn create_database(
     let mut quota_payload = QuotaPayload::new(Action::CreateDatabase, tenant.clone(), api_token);
     quota_payload = quota_payload.with_collection_name(&name);
     let _ = server.quota_enforcer.enforce(&quota_payload).await?;
-    let create_database_request = CreateDatabaseRequest::try_new(tenant, name)?;
+    let database_name = DatabaseName::new(name).ok_or_else(|| {
+        ValidationError::InvalidArgument("database name must be at least 3 characters".to_string())
+    })?;
+    let create_database_request = CreateDatabaseRequest::try_new(tenant, database_name)?;
     let res = server
         .frontend
         .create_database(create_database_request)
@@ -740,19 +882,35 @@ struct ListDatabasesParams {
     offset: u32,
 }
 
-/// Lists all databases for a given tenant.
+/// List databases
+/// Lists all databases for a tenant.
 #[utoipa::path(
     get,
     path = "/api/v2/tenants/{tenant}/databases",
+    summary = "List databases",
+    description = "Lists all databases for a tenant.",
+    tag = "Database",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     responses(
         (status = 200, description = "List of databases", body = ListDatabasesResponse),
         (status = 401, description = "Unauthorized", body = ErrorResponse),
         (status = 500, description = "Server error", body = ErrorResponse)
     ),
     params(
-        ("tenant" = String, Path, description = "Tenant ID to list databases for"),
-        ("limit" = Option<u32>, Query, description = "Limit for pagination"),
-        ("offset" = Option<u32>, Query, description = "Offset for pagination")
+        ("tenant" = String, Path, description = "Tenant UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
+        ("limit" = Option<u32>, Query, description = "Limit for pagination", minimum = 1, example = 10),
+        ("offset" = Option<u32>, Query, description = "Offset for pagination", minimum = 0, example = 0)
+    ),
+    extensions(
+        ("x-codeSamples" = json!([
+            {
+                "lang": "terminal",
+                "label": "List Databases",
+                "source": "chroma db list"
+            }
+        ]))
     )
 )]
 async fn list_databases(
@@ -781,10 +939,17 @@ async fn list_databases(
     Ok(Json(server.frontend.list_databases(request).await?))
 }
 
-/// Retrieves a specific database by name.
+/// Get database
+/// Returns a database by name.
 #[utoipa::path(
     get,
     path = "/api/v2/tenants/{tenant}/databases/{database}",
+    summary = "Get database",
+    description = "Returns a database by name.",
+    tag = "Database",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     responses(
         (status = 200, description = "Database retrieved successfully", body = GetDatabaseResponse),
         (status = 401, description = "Unauthorized", body = ErrorResponse),
@@ -792,8 +957,8 @@ async fn list_databases(
         (status = 500, description = "Server error", body = ErrorResponse)
     ),
     params(
-        ("tenant" = String, Path, description = "Tenant ID"),
-        ("database" = String, Path, description = "Name of the database to retrieve")
+        ("tenant" = String, Path, description = "Tenant UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
+        ("database" = String, Path, description = "Database name")
     )
 )]
 async fn get_database(
@@ -816,15 +981,25 @@ async fn get_database(
         .await?;
     let _guard =
         server.scorecard_request(&["op:get_database", format!("tenant:{}", tenant).as_str()])?;
-    let request = GetDatabaseRequest::try_new(tenant, database)?;
+    let database_name = DatabaseName::new(database).ok_or_else(|| {
+        ValidationError::InvalidArgument("database name must be at least 3 characters".to_string())
+    })?;
+    let request = GetDatabaseRequest::try_new(tenant, database_name)?;
     let res = server.frontend.get_database(request).await?;
     Ok(Json(res))
 }
 
-/// Deletes a specific database.
+/// Delete database
+/// Deletes a database by name.
 #[utoipa::path(
     delete,
     path = "/api/v2/tenants/{tenant}/databases/{database}",
+    summary = "Delete database",
+    description = "Deletes a database by name.",
+    tag = "Database",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     responses(
         (status = 200, description = "Database deleted successfully", body = DeleteDatabaseResponse),
         (status = 401, description = "Unauthorized", body = ErrorResponse),
@@ -832,8 +1007,17 @@ async fn get_database(
         (status = 500, description = "Server error", body = ErrorResponse)
     ),
     params(
-        ("tenant" = String, Path, description = "Tenant ID"),
-        ("database" = String, Path, description = "Name of the database to delete")
+        ("tenant" = String, Path, description = "Tenant UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
+        ("database" = String, Path, description = "Database name")
+    ),
+    extensions(
+        ("x-codeSamples" = json!([
+            {
+                "lang": "terminal",
+                "label": "Delete Database",
+                "source": "chroma db delete my-db"
+            }
+        ]))
     )
 )]
 async fn delete_database(
@@ -867,20 +1051,46 @@ struct ListCollectionsParams {
     offset: u32,
 }
 
-/// Lists all collections in the specified database.
+/// List collections
+/// Lists all collections in a database.
 #[utoipa::path(
     get,
     path = "/api/v2/tenants/{tenant}/databases/{database}/collections",
+    summary = "List collections",
+    description = "Lists all collections in a database.",
+    tag = "Collection",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     responses(
         (status = 200, description = "List of collections", body = ListCollectionsResponse),
         (status = 401, description = "Unauthorized", body = ErrorResponse),
         (status = 500, description = "Server error", body = ErrorResponse)
     ),
     params(
-        ("tenant" = String, Path, description = "Tenant ID"),
-        ("database" = String, Path, description = "Database name to list collections from"),
-        ("limit" = Option<u32>, Query, description = "Limit for pagination"),
-        ("offset" = Option<u32>, Query, description = "Offset for pagination")
+        ("tenant" = String, Path, description = "Tenant UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
+        ("database" = String, Path, description = "Database name"),
+        ("limit" = Option<u32>, Query, description = "Limit for pagination", minimum = 1, example = 10),
+        ("offset" = Option<u32>, Query, description = "Offset for pagination", minimum = 0, example = 0)
+    ),
+    extensions(
+        ("x-codeSamples" = json!([
+            {
+                "lang": "typescript",
+                "label": "List collections",
+                "source": "const collections = await client.listCollections({ limit: 10, offset: 0 });"
+            },
+            {
+                "lang": "python",
+                "label": "List collections",
+                "source": "collections = client.list_collections()"
+            },
+            {
+                "lang": "rust",
+                "label": "List collections",
+                "source": "let collections = client.list_collections(10, Some(0)).await?;"
+            }
+        ]))
     )
 )]
 async fn list_collections(
@@ -922,22 +1132,51 @@ async fn list_collections(
     };
 
     // TODO: Limit shouldn't be optional here
-    let request = ListCollectionsRequest::try_new(tenant, database, validated_limit, offset)?;
+    let database_name = DatabaseName::new(&database).ok_or_else(|| {
+        ValidationError::InvalidArgument("database name must be at least 3 characters".to_string())
+    })?;
+    let request = ListCollectionsRequest::try_new(tenant, database_name, validated_limit, offset)?;
     Ok(Json(server.frontend.list_collections(request).await?))
 }
 
-/// Retrieves the total number of collections in a given database.
+/// Get number of collections
+/// Returns the total number of collections in a database.
 #[utoipa::path(
     get,
     path = "/api/v2/tenants/{tenant}/databases/{database}/collections_count",
+    summary = "Get number of collections",
+    description = "Returns the total number of collections in a database.",
+    tag = "Collection",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     responses(
         (status = 200, description = "Count of collections", body = CountCollectionsResponse),
         (status = 401, description = "Unauthorized", body = ErrorResponse),
         (status = 500, description = "Server error", body = ErrorResponse)
     ),
     params(
-        ("tenant" = String, Path, description = "Tenant ID"),
-        ("database" = String, Path, description = "Database name to count collections from")
+        ("tenant" = String, Path, description = "Tenant UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
+        ("database" = String, Path, description = "Database name")
+    ),
+    extensions(
+        ("x-codeSamples" = json!([
+            {
+                "lang": "typescript",
+                "label": "Count collections",
+                "source": "const count: number = await client.countCollections();"
+            },
+            {
+                "lang": "python",
+                "label": "Count collections",
+                "source": "count = client.count_collections()"
+            },
+            {
+                "lang": "rust",
+                "label": "Count collections",
+                "source": "let count = client.count_collections().await?;"
+            }
+        ]))
     )
 )]
 async fn count_collections(
@@ -963,23 +1202,62 @@ async fn count_collections(
         format!("tenant:{}", tenant).as_str(),
     ])?;
 
-    let request = CountCollectionsRequest::try_new(tenant, database)?;
+    let database_name = DatabaseName::new(&database).ok_or_else(|| {
+        ValidationError::InvalidArgument("database name must be at least 3 characters".to_string())
+    })?;
+    let request = CountCollectionsRequest::try_new(tenant, database_name)?;
     Ok(Json(server.frontend.count_collections(request).await?))
 }
 
-/// Creates a new collection under the specified database.
+/// Create collection
+/// Creates a new collection in a database.
 #[utoipa::path(
     post,
     path = "/api/v2/tenants/{tenant}/databases/{database}/collections",
-    request_body = CreateCollectionPayload,
+    summary = "Create collection",
+    description = "Creates a new collection in a database.",
+    tag = "Collection",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
+    request_body(
+        content = CreateCollectionPayload,
+        description = "Collection creation payload",
+        example = json!({
+            "name": "my_collection",
+            "schema": null,
+            "configuration": null,
+            "metadata": {"key": "value"},
+            "get_or_create": false
+        })
+    ),
     responses(
         (status = 200, description = "Collection created successfully", body = Collection),
         (status = 401, description = "Unauthorized", body = ErrorResponse),
         (status = 500, description = "Server error", body = ErrorResponse)
     ),
     params(
-        ("tenant" = String, Path, description = "Tenant ID"),
-        ("database" = String, Path, description = "Database name containing the new collection")
+        ("tenant" = String, Path, description = "Tenant UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
+        ("database" = String, Path, description = "Database name")
+    ),
+    extensions(
+        ("x-codeSamples" = json!([
+            {
+                "lang": "typescript",
+                "label": "Create collection",
+                "source": "const collection = await client.createCollection({ name: 'my_collection' });"
+            },
+            {
+                "lang": "python",
+                "label": "Create collection",
+                "source": "collection = client.create_collection(name='my_collection')"
+            },
+            {
+                "lang": "rust",
+                "label": "Create collection",
+                "source": "let collection = client.get_or_create_collection(\"my_collection\", None).await?;"
+            }
+        ]))
     )
 )]
 async fn create_collection(
@@ -1031,9 +1309,12 @@ async fn create_collection(
         )?),
     };
 
+    let database_name = DatabaseName::new(database).ok_or_else(|| {
+        ValidationError::InvalidArgument("database name must be at least 3 characters".to_string())
+    })?;
     let request = CreateCollectionRequest::try_new(
         tenant,
-        database,
+        database_name,
         payload.name,
         payload.metadata,
         configuration,
@@ -1045,10 +1326,17 @@ async fn create_collection(
     Ok(Json(collection))
 }
 
-/// Retrieves a collection by ID or name.
+/// Get collection
+/// Returns a collection by ID or name.
 #[utoipa::path(
     get,
     path = "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}",
+    summary = "Get collection",
+    description = "Returns a collection by ID or name.",
+    tag = "Collection",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     responses(
         (status = 200, description = "Collection found", body = Collection),
         (status = 401, description = "Unauthorized", body = ErrorResponse),
@@ -1056,9 +1344,28 @@ async fn create_collection(
         (status = 500, description = "Server error", body = ErrorResponse)
     ),
     params(
-        ("tenant" = String, Path, description = "Tenant ID"),
+        ("tenant" = String, Path, description = "Tenant UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
         ("database" = String, Path, description = "Database name"),
-        ("collection_id" = String, Path, description = "UUID of the collection")
+        ("collection_id" = String, Path, description = "Collection UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254")
+    ),
+    extensions(
+        ("x-codeSamples" = json!([
+            {
+                "lang": "typescript",
+                "label": "Get collection",
+                "source": "const collection = await client.getCollection({ name: 'my_collection' });"
+            },
+            {
+                "lang": "python",
+                "label": "Get collection",
+                "source": "collection = client.get_collection(name='my_collection')"
+            },
+            {
+                "lang": "rust",
+                "label": "Get collection",
+                "source": "let collection = client.get_collection(\"my_collection\").await?;"
+            }
+        ]))
     )
 )]
 async fn get_collection(
@@ -1081,15 +1388,25 @@ async fn get_collection(
         .await?;
     let _guard =
         server.scorecard_request(&["op:get_collection", format!("tenant:{}", tenant).as_str()])?;
-    let request = GetCollectionRequest::try_new(tenant, database, collection_name)?;
+    let database_name = DatabaseName::new(&database).ok_or_else(|| {
+        ValidationError::InvalidArgument("database name must be at least 3 characters".to_string())
+    })?;
+    let request = GetCollectionRequest::try_new(tenant, database_name, collection_name)?;
     let collection = server.frontend.get_collection(request).await?;
     Ok(Json(collection))
 }
 
-/// Retrieves a collection by Chroma Resource Name.
+/// Get collection by CRN
+/// Returns a collection by Chroma Resource Name.
 #[utoipa::path(
     get,
     path = "/api/v2/collections/{crn}",
+    summary = "Get collection by CRN",
+    description = "Returns a collection by Chroma Resource Name.",
+    tag = "Collection",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     responses(
         (status = 200, description = "Collection found", body = Collection),
         (status = 401, description = "Unauthorized", body = ErrorResponse),
@@ -1097,7 +1414,22 @@ async fn get_collection(
         (status = 500, description = "Server error", body = ErrorResponse)
     ),
     params(
-        ("crn" = String, Path, description = "Chroma Resource Name")
+        ("crn" = String, Path, description = "Chroma Resource Name", example = "my_tenant:my_database:my_collection")
+    ),
+    extensions(
+        ("x-codeSamples" = json!([
+            {
+                "lang": "typescript",
+                "label": "Get collection by CRN",
+                "source": "const collection = await client.getCollectionByCrn('my_tenant:my_database:my_collection');"
+            },
+            {
+                "lang": "python",
+                "label": "Get collection by CRN",
+                "source": "collection = client.get_collection_by_crn('my_tenant:my_database:my_collection')"
+            }
+        ])),
+        ("x-hidden" = json!(true))
     )
 )]
 async fn get_collection_by_crn(
@@ -1123,11 +1455,26 @@ async fn get_collection_by_crn(
     Ok(Json(collection))
 }
 
+/// Update collection
 /// Updates an existing collection's name or metadata.
 #[utoipa::path(
     put,
     path = "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}",
-    request_body = UpdateCollectionPayload,
+    summary = "Update collection",
+    description = "Updates an existing collection's name or metadata.",
+    tag = "Collection",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
+    request_body(
+        content = UpdateCollectionPayload,
+        description = "Collection update payload",
+        example = json!({
+            "new_name": "updated_collection_name",
+            "new_metadata": {"key": "value"},
+            "new_configuration": null
+        })
+    ),
     responses(
         (status = 200, description = "Collection updated successfully", body = UpdateCollectionResponse),
         (status = 401, description = "Unauthorized", body = ErrorResponse),
@@ -1135,9 +1482,28 @@ async fn get_collection_by_crn(
         (status = 500, description = "Server error", body = ErrorResponse)
     ),
     params(
-        ("tenant" = String, Path, description = "Tenant ID"),
+        ("tenant" = String, Path, description = "Tenant UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
         ("database" = String, Path, description = "Database name"),
-        ("collection_id" = String, Path, description = "UUID of the collection to update")
+        ("collection_id" = String, Path, description = "Collection UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254")
+    ),
+    extensions(
+        ("x-codeSamples" = json!([
+            {
+                "lang": "typescript",
+                "label": "Update collection",
+                "source": "await collection.modify({ name: 'new_name', metadata: { key: 'value' } });"
+            },
+            {
+                "lang": "python",
+                "label": "Update collection",
+                "source": "collection.modify(name='new_name', metadata={'key': 'value'})"
+            },
+            {
+                "lang": "rust",
+                "label": "Update collection",
+                "source": "use chroma_types::Metadata;\nlet mut metadata = Metadata::new();\nmetadata.insert(\"key\".to_string(), \"value\".into());\ncollection.modify(Some(\"new_name\"), Some(metadata)).await?;"
+            }
+        ]))
     )
 )]
 async fn update_collection(
@@ -1148,6 +1514,9 @@ async fn update_collection(
 ) -> Result<Json<UpdateCollectionResponse>, ServerError> {
     server.metrics.update_collection.add(1, &[]);
     tracing::info!(name: "update_collection", tenant_name = %tenant, database_name = %database, collection_id = %collection_id);
+    let database_name = DatabaseName::new(&database).ok_or_else(|| {
+        ValidationError::InvalidArgument("database name must be at least 3 characters".to_string())
+    })?;
     server
         .authenticate_and_authorize_collection(
             &headers,
@@ -1157,6 +1526,7 @@ async fn update_collection(
                 database: Some(database.clone()),
                 collection: Some(collection_id.clone()),
             },
+            database_name.clone(),
             CollectionUuid::from_str(&collection_id).map_err(|_| ValidationError::CollectionId)?,
         )
         .await?;
@@ -1176,6 +1546,7 @@ async fn update_collection(
         quota_payload = quota_payload.with_update_collection_metadata(new_metadata);
     }
     let _ = server.quota_enforcer.enforce(&quota_payload).await?;
+
     let collection_id =
         CollectionUuid::from_str(&collection_id).map_err(|_| ValidationError::CollectionId)?;
 
@@ -1185,6 +1556,7 @@ async fn update_collection(
     };
 
     let request = chroma_types::UpdateCollectionRequest::try_new(
+        Some(database_name),
         collection_id,
         payload.new_name,
         payload
@@ -1198,10 +1570,17 @@ async fn update_collection(
     Ok(Json(UpdateCollectionResponse {}))
 }
 
-/// Deletes a collection in a given database.
+/// Delete collection
+/// Deletes a collection in a database.
 #[utoipa::path(
     delete,
     path = "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}",
+    summary = "Delete collection",
+    description = "Deletes a collection in a database.",
+    tag = "Collection",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     responses(
         (status = 200, description = "Collection deleted successfully", body = UpdateCollectionResponse),
         (status = 401, description = "Unauthorized", body = ErrorResponse),
@@ -1209,9 +1588,28 @@ async fn update_collection(
         (status = 500, description = "Server error", body = ErrorResponse)
     ),
     params(
-        ("tenant" = String, Path, description = "Tenant ID"),
+        ("tenant" = String, Path, description = "Tenant UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
         ("database" = String, Path, description = "Database name"),
-        ("collection_id" = String, Path, description = "UUID of the collection to delete")
+        ("collection_id" = String, Path, description = "Collection UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254")
+    ),
+    extensions(
+        ("x-codeSamples" = json!([
+            {
+                "lang": "typescript",
+                "label": "Delete collection",
+                "source": "await client.deleteCollection({ name: 'my_collection' });"
+            },
+            {
+                "lang": "python",
+                "label": "Delete collection",
+                "source": "client.delete_collection(name='my_collection')"
+            },
+            {
+                "lang": "rust",
+                "label": "Delete collection",
+                "source": "client.delete_collection(\"my_collection\").await?;"
+            }
+        ]))
     )
 )]
 async fn delete_collection(
@@ -1243,10 +1641,17 @@ async fn delete_collection(
     Ok(Json(UpdateCollectionResponse {}))
 }
 
-/// Forks an existing collection.
+/// Fork collection
+/// Creates a fork of an existing collection.
 #[utoipa::path(
     post,
     path = "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/fork",
+    summary = "Fork collection",
+    description = "Creates a fork of an existing collection.",
+    tag = "Collection",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     request_body = ForkCollectionPayload,
     responses(
         (status = 200, description = "Collection forked successfully", body = ForkCollectionResponse),
@@ -1255,9 +1660,28 @@ async fn delete_collection(
         (status = 500, description = "Server error", body = ErrorResponse)
     ),
     params(
-        ("tenant" = String, Path, description = "Tenant ID"),
+        ("tenant" = String, Path, description = "Tenant UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
         ("database" = String, Path, description = "Database name"),
-        ("collection_id" = String, Path, description = "UUID of the collection to update")
+        ("collection_id" = String, Path, description = "Collection UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254")
+    ),
+    extensions(
+        ("x-codeSamples" = json!([
+            {
+                "lang": "typescript",
+                "label": "Fork collection",
+                "source": "const forked = await collection.fork({ name: 'forked_collection' });"
+            },
+            {
+                "lang": "python",
+                "label": "Fork collection",
+                "source": "forked = collection.fork(new_name='forked_collection')"
+            },
+            {
+                "lang": "rust",
+                "label": "Fork collection",
+                "source": "let forked = collection.fork(\"forked_collection\").await?;"
+            }
+        ]))
     )
 )]
 async fn fork_collection(
@@ -1320,14 +1744,45 @@ async fn fork_collection(
     ))
 }
 
+/// Add records
 /// Adds records to a collection.
 #[utoipa::path(
     post,
     path = "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/add",
+    summary = "Add records",
+    description = "Adds records to a collection.",
+    tag = "Record",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     request_body = AddCollectionRecordsPayload,
     responses(
         (status = 201, description = "Collection added successfully", body = AddCollectionRecordsResponse),
         (status = 400, description = "Invalid data for collection addition")
+    ),
+    params(
+        ("tenant" = String, Path, description = "Tenant UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
+        ("database" = String, Path, description = "Database name"),
+        ("collection_id" = String, Path, description = "Collection UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254")
+    ),
+    extensions(
+        ("x-codeSamples" = json!([
+            {
+                "lang": "typescript",
+                "label": "Add records",
+                "source": "await collection.add({ ids: ['id1', 'id2'], embeddings: [[0.1, 0.2], [0.3, 0.4]], documents: ['doc1', 'doc2'] });"
+            },
+            {
+                "lang": "python",
+                "label": "Add records",
+                "source": "collection.add(ids=['id1', 'id2'], embeddings=[[0.1, 0.2], [0.3, 0.4]], documents=['doc1', 'doc2'])"
+            },
+            {
+                "lang": "rust",
+                "label": "Add records",
+                "source": "collection.add(\n    vec![\"id1\".to_string(), \"id2\".to_string()],\n    vec![vec![0.1, 0.2], vec![0.3, 0.4]],\n    Some(vec![Some(\"doc1\".to_string()), Some(\"doc2\".to_string())]),\n    None,\n    None\n).await?;"
+            }
+        ]))
     )
 )]
 // NOTE(hammadb) collection_[add, upsert, update] can have large payloads, so we trace
@@ -1350,6 +1805,11 @@ async fn collection_add(
                 database: Some(database.clone()),
                 collection: Some(collection_id.clone()),
             },
+            DatabaseName::new(&database).ok_or_else(|| {
+                ValidationError::InvalidArgument(
+                    "database name must be at least 3 characters".to_string(),
+                )
+            })?,
             CollectionUuid::from_str(&collection_id).map_err(|_| ValidationError::CollectionId)?,
         )
         .await?;
@@ -1417,14 +1877,45 @@ async fn collection_add(
     Ok((StatusCode::CREATED, Json(res)))
 }
 
+/// Update records
 /// Updates records in a collection by ID.
 #[utoipa::path(
     post,
     path = "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/update",
+    summary = "Update records",
+    description = "Updates records in a collection by ID.",
+    tag = "Record",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     request_body = UpdateCollectionRecordsPayload,
     responses(
         (status = 200, description = "Collection updated successfully", body = UpdateCollectionRecordsResponse),
         (status = 404, description = "Collection not found")
+    ),
+    params(
+        ("tenant" = String, Path, description = "Tenant UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
+        ("database" = String, Path, description = "Database name"),
+        ("collection_id" = String, Path, description = "Collection UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254")
+    ),
+    extensions(
+        ("x-codeSamples" = json!([
+            {
+                "lang": "typescript",
+                "label": "Update records",
+                "source": "await collection.update({ ids: ['id1'], documents: ['updated doc'], metadatas: [{ key: 'value' }] });"
+            },
+            {
+                "lang": "python",
+                "label": "Update records",
+                "source": "collection.update(ids=['id1'], documents=['updated doc'], metadatas=[{'key': 'value'}])"
+            },
+            {
+                "lang": "rust",
+                "label": "Update records",
+                "source": "use chroma_types::UpdateMetadata;\nlet mut metadata = UpdateMetadata::new();\nmetadata.insert(\"key\".to_string(), chroma_types::UpdateMetadataValue::Str(\"value\".to_string()));\ncollection.update(\n    vec![\"id1\".to_string()],\n    None,\n    Some(vec![Some(\"updated doc\".to_string())]),\n    None,\n    Some(vec![Some(metadata)])\n).await?;"
+            }
+        ]))
     )
 )]
 // NOTE(hammadb) collection_[add, upsert, update] can have large payloads, so we trace
@@ -1447,6 +1938,11 @@ async fn collection_update(
                 database: Some(database.clone()),
                 collection: Some(collection_id.clone()),
             },
+            DatabaseName::new(&database).ok_or_else(|| {
+                ValidationError::InvalidArgument(
+                    "database name must be at least 3 characters".to_string(),
+                )
+            })?,
             CollectionUuid::from_str(&collection_id).map_err(|_| ValidationError::CollectionId)?,
         )
         .await?;
@@ -1515,10 +2011,17 @@ async fn collection_update(
     ))
 }
 
+/// Upsert records
 /// Upserts records in a collection (create if not exists, otherwise update).
 #[utoipa::path(
     post,
     path = "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/upsert",
+    summary = "Upsert records",
+    description = "Upserts records in a collection (create if not exists, otherwise update).",
+    tag = "Record",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     request_body = UpsertCollectionRecordsPayload,
     responses(
         (status = 200, description = "Records upserted successfully", body = UpsertCollectionRecordsResponse),
@@ -1527,9 +2030,28 @@ async fn collection_update(
         (status = 500, description = "Server error", body = ErrorResponse),
     ),
     params(
-        ("tenant" = String, Path, description = "Tenant ID"),
+        ("tenant" = String, Path, description = "Tenant UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
         ("database" = String, Path, description = "Database name"),
-        ("collection_id" = String, Path, description = "Collection ID"),
+        ("collection_id" = String, Path, description = "Collection UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
+    ),
+    extensions(
+        ("x-codeSamples" = json!([
+            {
+                "lang": "typescript",
+                "label": "Upsert records",
+                "source": "await collection.upsert({ ids: ['id1', 'id2'], embeddings: [[0.1, 0.2], [0.3, 0.4]], documents: ['doc1', 'doc2'] });"
+            },
+            {
+                "lang": "python",
+                "label": "Upsert records",
+                "source": "collection.upsert(ids=['id1', 'id2'], embeddings=[[0.1, 0.2], [0.3, 0.4]], documents=['doc1', 'doc2'])"
+            },
+            {
+                "lang": "rust",
+                "label": "Upsert records",
+                "source": "collection.upsert(\n    vec![\"id1\".to_string(), \"id2\".to_string()],\n    vec![vec![0.1, 0.2], vec![0.3, 0.4]],\n    Some(vec![Some(\"doc1\".to_string()), Some(\"doc2\".to_string())]),\n    None,\n    None\n).await?;"
+            }
+        ]))
     )
 )]
 // NOTE(hammadb) collection_[add, upsert, update] can have large payloads, so we trace
@@ -1552,6 +2074,11 @@ async fn collection_upsert(
                 database: Some(database.clone()),
                 collection: Some(collection_id.clone()),
             },
+            DatabaseName::new(&database).ok_or_else(|| {
+                ValidationError::InvalidArgument(
+                    "database name must be at least 3 characters".to_string(),
+                )
+            })?,
             CollectionUuid::from_str(&collection_id).map_err(|_| ValidationError::CollectionId)?,
         )
         .await?;
@@ -1618,10 +2145,17 @@ async fn collection_upsert(
     ))
 }
 
+/// Delete records
 /// Deletes records in a collection. Can filter by IDs or metadata.
 #[utoipa::path(
     post,
     path = "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/delete",
+    summary = "Delete records",
+    description = "Deletes records in a collection. Can filter by IDs or metadata.",
+    tag = "Record",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     request_body = DeleteCollectionRecordsPayload,
     responses(
         (status = 200, description = "Records deleted successfully", body = DeleteCollectionRecordsResponse),
@@ -1630,9 +2164,43 @@ async fn collection_upsert(
         (status = 500, description = "Server error", body = ErrorResponse),
     ),
     params(
-        ("tenant" = String, Path, description = "Tenant ID"),
+        ("tenant" = String, Path, description = "Tenant UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
         ("database" = String, Path, description = "Database name"),
-        ("collection_id" = String, Path, description = "Collection ID"),
+        ("collection_id" = String, Path, description = "Collection UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
+    ),
+    extensions(
+        ("x-codeSamples" = json!([
+            {
+                "lang": "typescript",
+                "label": "Delete records by IDs",
+                "source": "await collection.delete({ ids: ['id1', 'id2'] });"
+            },
+            {
+                "lang": "typescript",
+                "label": "Delete records by metadata filter",
+                "source": "await collection.delete({ where: { category: 'old' } });"
+            },
+            {
+                "lang": "python",
+                "label": "Delete records by IDs",
+                "source": "collection.delete(ids=['id1', 'id2'])"
+            },
+            {
+                "lang": "python",
+                "label": "Delete records by metadata filter",
+                "source": "collection.delete(where={'category': 'old'})"
+            },
+            {
+                "lang": "rust",
+                "label": "Delete records by IDs",
+                "source": "collection.delete(Some(vec![\"id1\".to_string(), \"id2\".to_string()]), None).await?;"
+            },
+            {
+                "lang": "rust",
+                "label": "Delete records by metadata filter",
+                "source": "use chroma_types::{Where, MetadataExpression, MetadataComparison, MetadataValue, PrimitiveOperator};\nlet where_clause = Where::Metadata(MetadataExpression {\n    key: \"category\".to_string(),\n    comparison: MetadataComparison::Primitive(PrimitiveOperator::Equal, MetadataValue::Str(\"old\".to_string())),\n});\ncollection.delete(None, Some(where_clause)).await?;"
+            }
+        ]))
     )
 )]
 async fn collection_delete(
@@ -1651,6 +2219,11 @@ async fn collection_delete(
                 database: Some(database.clone()),
                 collection: Some(collection_id.clone()),
             },
+            DatabaseName::new(&database).ok_or_else(|| {
+                ValidationError::InvalidArgument(
+                    "database name must be at least 3 characters".to_string(),
+                )
+            })?,
             CollectionUuid::from_str(&collection_id).map_err(|_| ValidationError::CollectionId)?,
         )
         .await?;
@@ -1705,10 +2278,17 @@ async fn collection_delete(
     Ok(Json(DeleteCollectionRecordsResponse {}))
 }
 
-/// Retrieves the number of records in a collection.
+/// Get number of records
+/// Returns the number of records in a collection.
 #[utoipa::path(
     get,
     path = "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/count",
+    summary = "Get number of records",
+    description = "Returns the number of records in a collection.",
+    tag = "Record",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     responses(
         (status = 200, description = "Number of records in the collection", body = CountResponse),
         (status = 401, description = "Unauthorized", body = ErrorResponse),
@@ -1716,9 +2296,28 @@ async fn collection_delete(
         (status = 500, description = "Server error", body = ErrorResponse)
     ),
     params(
-        ("tenant" = String, Path, description = "Tenant ID for the collection"),
-        ("database" = String, Path, description = "Database containing this collection"),
-        ("collection_id" = String, Path, description = "Collection ID whose records are counted")
+        ("tenant" = String, Path, description = "Tenant UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
+        ("database" = String, Path, description = "Database name"),
+        ("collection_id" = String, Path, description = "Collection UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254")
+    ),
+    extensions(
+        ("x-codeSamples" = json!([
+            {
+                "lang": "typescript",
+                "label": "Count records",
+                "source": "const count = await collection.count();"
+            },
+            {
+                "lang": "python",
+                "label": "Count records",
+                "source": "count = collection.count()"
+            },
+            {
+                "lang": "rust",
+                "label": "Count records",
+                "source": "let count = collection.count().await?;"
+            }
+        ]))
     )
 )]
 async fn collection_count(
@@ -1742,6 +2341,11 @@ async fn collection_count(
                 database: Some(database.clone()),
                 collection: Some(collection_id.clone()),
             },
+            DatabaseName::new(&database).ok_or_else(|| {
+                ValidationError::InvalidArgument(
+                    "database name must be at least 3 characters".to_string(),
+                )
+            })?,
             CollectionUuid::from_str(&collection_id).map_err(|_| ValidationError::CollectionId)?,
         )
         .await?;
@@ -1786,10 +2390,17 @@ async fn collection_count(
     ))
 }
 
-/// Retrieves the indexing status of a collection.
+/// Get indexing status
+/// Returns the indexing status of a collection.
 #[utoipa::path(
     get,
     path = "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/indexing_status",
+    summary = "Get indexing status",
+    description = "Returns the indexing status of a collection.",
+    tag = "Record",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     responses(
         (status = 200, description = "Index status retrieved successfully", body = IndexStatusResponse),
         (status = 401, description = "Unauthorized", body = ErrorResponse),
@@ -1797,9 +2408,28 @@ async fn collection_count(
         (status = 500, description = "Server error", body = ErrorResponse)
     ),
     params(
-        ("tenant" = String, Path, description = "Tenant ID"),
-        ("database" = String, Path, description = "Database name for the collection"),
-        ("collection_id" = String, Path, description = "Collection ID to get index status for")
+        ("tenant" = String, Path, description = "Tenant UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
+        ("database" = String, Path, description = "Database name"),
+        ("collection_id" = String, Path, description = "Collection UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254")
+    ),
+    extensions(
+        ("x-codeSamples" = json!([
+            {
+                "lang": "typescript",
+                "label": "Get indexing status",
+                "source": "const status: IndexingStatus = await collection.getIndexingStatus();"
+            },
+            {
+                "lang": "python",
+                "label": "Get indexing status",
+                "source": "status = collection.get_indexing_status()"
+            },
+            {
+                "lang": "rust",
+                "label": "Get indexing status",
+                "source": "let status = collection.get_indexing_status().await?;"
+            }
+        ]))
     )
 )]
 async fn indexing_status(
@@ -1830,6 +2460,11 @@ async fn indexing_status(
                 database: Some(database.clone()),
                 collection: Some(collection_id.clone()),
             },
+            DatabaseName::new(&database).ok_or_else(|| {
+                ValidationError::InvalidArgument(
+                    "database name must be at least 3 characters".to_string(),
+                )
+            })?,
             CollectionUuid::from_str(&collection_id).map_err(|_| ValidationError::CollectionId)?,
         )
         .await?;
@@ -1850,31 +2485,84 @@ async fn indexing_status(
 
     let collection_id =
         CollectionUuid::from_str(&collection_id).map_err(|_| ValidationError::CollectionId)?;
+    let database_name = DatabaseName::new(database).ok_or_else(|| {
+        ValidationError::InvalidArgument("database name must be at least 3 characters".to_string())
+    })?;
 
     Ok(Json(
         server
             .frontend
-            .indexing_status(collection_id)
+            .indexing_status(database_name, collection_id)
             .meter(metering_context_container)
             .await?,
     ))
 }
 
-/// Retrieves records from a collection by ID or metadata filter.
+/// Get records
+/// Returns records from a collection by ID or metadata filter.
 #[utoipa::path(
     post,
     path = "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/get",
+    summary = "Get records",
+    description = "Returns records from a collection by ID or metadata filter.",
+    tag = "Record",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     request_body = GetRequestPayload,
     responses(
-        (status = 200, description = "Records retrieved from the collection", body = GetResponse),
+        (status = 200, description = "Records retrieved from the collection", body = GetResponse,
+            example = json!({
+                "ids": ["record1", "record2"],
+                "embeddings": [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]],
+                "documents": ["Document 1", "Document 2"],
+                "uris": null,
+                "metadatas": [{"key": "value"}, {"key2": "value2"}],
+                "include": ["documents", "metadatas", "embeddings"]
+            })
+        ),
         (status = 401, description = "Unauthorized", body = ErrorResponse),
         (status = 404, description = "Collection not found", body = ErrorResponse),
         (status = 500, description = "Server error", body = ErrorResponse)
     ),
     params(
-        ("tenant" = String, Path, description = "Tenant ID"),
-        ("database" = String, Path, description = "Database name for the collection"),
-        ("collection_id" = String, Path, description = "Collection ID to fetch records from")
+        ("tenant" = String, Path, description = "Tenant UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
+        ("database" = String, Path, description = "Database name"),
+        ("collection_id" = String, Path, description = "Collection UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254")
+    ),
+    extensions(
+        ("x-codeSamples" = json!([
+            {
+                "lang": "typescript",
+                "label": "Get records by IDs",
+                "source": "const results = await collection.get({ ids: ['id1', 'id2'] });"
+            },
+            {
+                "lang": "typescript",
+                "label": "Get records by metadata filter",
+                "source": "const results = await collection.get({ where: { category: 'science' }, limit: 10 });"
+            },
+            {
+                "lang": "python",
+                "label": "Get records by IDs",
+                "source": "results = collection.get(ids=['id1', 'id2'])"
+            },
+            {
+                "lang": "python",
+                "label": "Get records by metadata filter",
+                "source": "results = collection.get(where={'category': 'science'}, limit=10)"
+            },
+            {
+                "lang": "rust",
+                "label": "Get records by IDs",
+                "source": "use chroma_types::IncludeList;\nlet response = collection.get(\n    Some(vec![\"id1\".to_string(), \"id2\".to_string()]),\n    None,\n    None,\n    None,\n    Some(IncludeList::default_get())\n).await?;"
+            },
+            {
+                "lang": "rust",
+                "label": "Get records by metadata filter",
+                "source": "use chroma_types::{Where, MetadataExpression, MetadataComparison, MetadataValue, PrimitiveOperator, IncludeList};\nlet where_clause = Where::Metadata(MetadataExpression {\n    key: \"category\".to_string(),\n    comparison: MetadataComparison::Primitive(PrimitiveOperator::Equal, MetadataValue::Str(\"science\".to_string())),\n});\nlet response = collection.get(None, Some(where_clause), Some(10), None, None).await?;"
+            }
+        ]))
     )
 )]
 async fn collection_get(
@@ -1893,6 +2581,11 @@ async fn collection_get(
                 database: Some(database.clone()),
                 collection: Some(collection_id.clone()),
             },
+            DatabaseName::new(&database).ok_or_else(|| {
+                ValidationError::InvalidArgument(
+                    "database name must be at least 3 characters".to_string(),
+                )
+            })?,
             CollectionUuid::from_str(&collection_id).map_err(|_| ValidationError::CollectionId)?,
         )
         .await?;
@@ -1980,11 +2673,26 @@ async fn collection_get(
     Ok(Json(res))
 }
 
-/// Query a collection in a variety of ways, including vector search, metadata filtering, and full-text search
+/// Query collection
+/// Queries a collection using dense vector search with metadata and full-text search filtering.
 #[utoipa::path(
     post,
     path = "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/query",
-    request_body = QueryRequestPayload,
+    summary = "Query collection",
+    description = "Queries a collection using dense vector search with metadata and full-text search filtering.",
+    tag = "Record",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
+    request_body(
+        content = QueryRequestPayload,
+        description = "Query request payload",
+        example = json!({
+            "query_embeddings": [[0.1, 0.2, 0.3]],
+            "n_results": 10,
+            "include": ["documents", "metadatas", "distances"]
+        })
+    ),
     responses(
         (status = 200, description = "Records matching the query", body = QueryResponse),
         (status = 401, description = "Unauthorized", body = ErrorResponse),
@@ -1992,11 +2700,45 @@ async fn collection_get(
         (status = 500, description = "Server error", body = ErrorResponse),
     ),
     params(
-        ("tenant" = String, Path, description = "Tenant ID"),
-        ("database" = String, Path, description = "Database name containing the collection"),
-        ("collection_id" = String, Path, description = "Collection ID to query"),
-        ("limit" = Option<u32>, Query, description = "Limit for pagination"),
-        ("offset" = Option<u32>, Query, description = "Offset for pagination")
+        ("tenant" = String, Path, description = "Tenant UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
+        ("database" = String, Path, description = "Database name"),
+        ("collection_id" = String, Path, description = "Collection UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
+        ("limit" = Option<u32>, Query, description = "Limit for pagination", minimum = 1, example = 10),
+        ("offset" = Option<u32>, Query, description = "Offset for pagination", minimum = 0, example = 0)
+    ),
+    extensions(
+        ("x-codeSamples" = json!([
+            {
+                "lang": "typescript",
+                "label": "Query with embeddings",
+                "source": "const results = await collection.query({ queryEmbeddings: [[0.1, 0.2, 0.3]], nResults: 10 });"
+            },
+            {
+                "lang": "typescript",
+                "label": "Query with text",
+                "source": "const results = await collection.query({ queryTexts: ['search text'], nResults: 10 });"
+            },
+            {
+                "lang": "python",
+                "label": "Query with embeddings",
+                "source": "results = collection.query(query_embeddings=[[0.1, 0.2, 0.3]], n_results=10)"
+            },
+            {
+                "lang": "python",
+                "label": "Query with text",
+                "source": "results = collection.query(query_texts=['search text'], n_results=10)"
+            },
+            {
+                "lang": "rust",
+                "label": "Query with embeddings",
+                "source": "let results = collection.query(\n    vec![vec![0.1, 0.2, 0.3]],\n    Some(10),\n    None,\n    None,\n    None\n).await?;"
+            },
+            {
+                "lang": "rust",
+                "label": "Query with metadata filter",
+                "source": "use chroma_types::{Where, MetadataExpression, MetadataComparison, MetadataValue, PrimitiveOperator};\nlet where_clause = Where::Metadata(MetadataExpression {\n    key: \"category\".to_string(),\n    comparison: MetadataComparison::Primitive(PrimitiveOperator::Equal, MetadataValue::Str(\"science\".to_string())),\n});\nlet results = collection.query(\n    vec![vec![0.1, 0.2, 0.3]],\n    Some(10),\n    Some(where_clause),\n    None,\n    None\n).await?;"
+            }
+        ]))
     )
 )]
 
@@ -2016,6 +2758,11 @@ async fn collection_query(
                 database: Some(database.clone()),
                 collection: Some(collection_id.clone()),
             },
+            DatabaseName::new(&database).ok_or_else(|| {
+                ValidationError::InvalidArgument(
+                    "database name must be at least 3 characters".to_string(),
+                )
+            })?,
             CollectionUuid::from_str(&collection_id).map_err(|_| ValidationError::CollectionId)?,
         )
         .await?;
@@ -2104,11 +2851,28 @@ async fn collection_query(
     Ok(Json(res))
 }
 
-/// Search records from a collection with hybrid criterias.
+/// Search records
+/// Searches records from a collection with dense, sparse, or hybrid vector search.
 #[utoipa::path(
     post,
     path = "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/search",
-    request_body = SearchRequestPayload,
+    summary = "Search records",
+    description = "Searches records from a collection with dense, sparse, or hybrid vector search.",
+    tag = "Record",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
+    request_body(
+        content = SearchRequestPayload,
+        description = "Search request payload",
+        example = json!({
+            "searches": [{
+                "query_embeddings": [[0.1, 0.2, 0.3]],
+                "n_results": 10
+            }],
+            "read_level": "IndexAndWal"
+        })
+    ),
     responses(
         (status = 200, description = "Records searched from the collection", body = SearchResponse),
         (status = 401, description = "Unauthorized", body = ErrorResponse),
@@ -2116,9 +2880,33 @@ async fn collection_query(
         (status = 500, description = "Server error", body = ErrorResponse)
     ),
     params(
-        ("tenant" = String, Path, description = "Tenant ID"),
-        ("database" = String, Path, description = "Database name for the collection"),
-        ("collection_id" = String, Path, description = "Collection ID to search records from")
+        ("tenant" = String, Path, description = "Tenant UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
+        ("database" = String, Path, description = "Database name"),
+        ("collection_id" = String, Path, description = "Collection UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254")
+    ),
+    extensions(
+        ("x-codeSamples" = json!([
+            {
+                "lang": "typescript",
+                "label": "Search with embeddings",
+                "source": "import { Search, K, Knn } from 'chromadb';\nconst results = await collection.search(new Search().rank(Knn({ query: [0.1, 0.2, 0.3], limit: 10 })));"
+            },
+            {
+                "lang": "python",
+                "label": "Search with embeddings",
+                "source": "from chromadb import Search, Knn\nsearch = Search().rank(Knn(query=[0.1, 0.2, 0.3], limit=10))\nresults = collection.search(search)"
+            },
+            {
+                "lang": "rust",
+                "label": "Search with embeddings",
+                "source": "use chroma_types::plan::{SearchPayload, ReadLevel};\nuse chroma_types::operator::{RankExpr, QueryVector, Key};\nlet search = SearchPayload::default()\n    .rank(RankExpr::Knn {\n        query: QueryVector::Dense(vec![0.1, 0.2, 0.3]),\n        key: Key::Embedding,\n        limit: 10,\n        default: None,\n        return_rank: false,\n    })\n    .limit(Some(10), 0)\n    .select([Key::Document, Key::Score]);\nlet results = collection.search(vec![search]).await?;"
+            },
+            {
+                "lang": "rust",
+                "label": "Search with metadata filter",
+                "source": "use chroma_types::plan::{SearchPayload, ReadLevel};\nuse chroma_types::operator::{RankExpr, QueryVector, Key};\nlet search = SearchPayload::default()\n    .r#where(Key::field(\"category\").eq(\"science\"))\n    .rank(RankExpr::Knn {\n        query: QueryVector::Dense(vec![0.1, 0.2, 0.3]),\n        key: Key::Embedding,\n        limit: 100,\n        default: None,\n        return_rank: false,\n    })\n    .limit(Some(10), 0)\n    .select([Key::Document, Key::Score]);\nlet results = collection.search(vec![search]).await?;"
+            }
+        ]))
     )
 )]
 async fn collection_search(
@@ -2137,6 +2925,11 @@ async fn collection_search(
                 database: Some(database.clone()),
                 collection: Some(collection_id.clone()),
             },
+            DatabaseName::new(&database).ok_or_else(|| {
+                ValidationError::InvalidArgument(
+                    "database name must be at least 3 characters".to_string(),
+                )
+            })?,
             CollectionUuid::from_str(&collection_id).map_err(|_| ValidationError::CollectionId)?,
         )
         .await?;
@@ -2217,20 +3010,36 @@ async fn collection_search(
     Ok(Json(res))
 }
 
-/// Attach a function to a collection
+/// Attach function
+/// Attaches a function to a collection.
 #[utoipa::path(
     post,
     path = "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/functions/attach",
-    request_body = AttachFunctionRequest,
+    summary = "Attach function",
+    description = "Attaches a function to a collection.",
+    tag = "Function",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
+    request_body(
+        content = AttachFunctionRequest,
+        description = "Function attachment request",
+        example = json!({
+            "name": "my_function",
+            "function_id": "1e30d217-3d78-4f8c-b244-79381dc6a254",
+            "output_collection": "output_collection_name",
+            "params": {}
+        })
+    ),
     responses(
         (status = 200, description = " Function attached successfully", body = AttachFunctionResponse),
         (status = 401, description = "Unauthorized", body = ErrorResponse),
         (status = 500, description = "Server error", body = ErrorResponse)
     ),
     params(
-        ("tenant" = String, Path, description = "Tenant ID"),
+        ("tenant" = String, Path, description = "Tenant UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
         ("database" = String, Path, description = "Database name"),
-        ("collection_id" = String, Path, description = "Collection ID")
+        ("collection_id" = String, Path, description = "Collection UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254")
     )
 )]
 async fn attach_function(
@@ -2258,17 +3067,27 @@ async fn attach_function(
         format!("database:{}", database).as_str(),
     ])?;
 
+    let database_name = DatabaseName::new(database).ok_or_else(|| {
+        ValidationError::InvalidArgument("database name must be at least 3 characters".to_string())
+    })?;
     let res = server
         .frontend
-        .attach_function(tenant, database, collection_id, request)
+        .attach_function(tenant, database_name, collection_id, request)
         .await?;
     Ok(Json(res))
 }
 
-/// Get an attached function by name
+/// Get attached function
+/// Returns an attached function by name.
 #[utoipa::path(
     get,
     path = "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/functions/{function_name}",
+    summary = "Get attached function",
+    description = "Returns an attached function by name.",
+    tag = "Function",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     responses(
         (status = 200, description = "Attached function retrieved successfully", body = GetAttachedFunctionResponse),
         (status = 401, description = "Unauthorized", body = ErrorResponse),
@@ -2276,10 +3095,10 @@ async fn attach_function(
         (status = 500, description = "Server error", body = ErrorResponse)
     ),
     params(
-        ("tenant" = String, Path, description = "Tenant ID"),
+        ("tenant" = String, Path, description = "Tenant UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
         ("database" = String, Path, description = "Database name"),
-        ("collection_id" = String, Path, description = "Collection ID"),
-        ("function_name" = String, Path, description = "Attached function name")
+        ("collection_id" = String, Path, description = "Collection UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
+        ("function_name" = String, Path, description = "Function name")
     )
 )]
 async fn get_attached_function(
@@ -2306,9 +3125,12 @@ async fn get_attached_function(
         format!("database:{}", database).as_str(),
     ])?;
 
+    let database_name = DatabaseName::new(database).ok_or_else(|| {
+        ValidationError::InvalidArgument("database name must be at least 3 characters".to_string())
+    })?;
     let attached_function = server
         .frontend
-        .get_attached_function(tenant, database, collection_id, function_name)
+        .get_attached_function(tenant, database_name, collection_id, function_name)
         .await?;
     let attached_function_api =
         chroma_types::AttachedFunctionApiResponse::from_attached_function(attached_function)?;
@@ -2317,10 +3139,17 @@ async fn get_attached_function(
     }))
 }
 
-/// Detach a function
+/// Detach function
+/// Detaches a function from a collection.
 #[utoipa::path(
     post,
     path = "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/attached_functions/{name}/detach",
+    summary = "Detach function",
+    description = "Detaches a function from a collection.",
+    tag = "Function",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
     request_body = DetachFunctionRequest,
     responses(
         (status = 200, description = "Function detached successfully", body = DetachFunctionResponse),
@@ -2328,10 +3157,10 @@ async fn get_attached_function(
         (status = 500, description = "Server error", body = ErrorResponse)
     ),
     params(
-        ("tenant" = String, Path, description = "Tenant ID"),
+        ("tenant" = String, Path, description = "Tenant UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
         ("database" = String, Path, description = "Database name"),
-        ("collection_id" = String, Path, description = "Input collection ID"),
-        ("name" = String, Path, description = "Attached function name")
+        ("collection_id" = String, Path, description = "Collection UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
+        ("name" = String, Path, description = "Function name")
     )
 )]
 async fn detach_function(
@@ -2359,9 +3188,12 @@ async fn detach_function(
         format!("database:{}", database_name).as_str(),
     ])?;
 
+    let database_name_typed = DatabaseName::new(database_name).ok_or_else(|| {
+        ValidationError::InvalidArgument("database name must be at least 3 characters".to_string())
+    })?;
     let res = server
         .frontend
-        .detach_function(tenant, database_name, collection_id, name, request)
+        .detach_function(tenant, database_name_typed, collection_id, name, request)
         .await?;
     Ok(Json(res))
 }
@@ -2386,7 +3218,7 @@ impl Modify for ChromaTokenSecurityAddon {
             .as_mut()
             .expect("It should be able to get components as mutable");
         components.add_security_scheme(
-            "x-chroma-token",
+            "ApiKeyAuth",
             SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::new("x-chroma-token"))),
         );
     }

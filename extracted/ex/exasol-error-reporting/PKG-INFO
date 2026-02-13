@@ -1,18 +1,20 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: exasol-error-reporting
-Version: 1.0.0
+Version: 1.1.0
 Summary: Exasol Python Error Reporting
-Home-page: https://github.com/exasol/error-reporting-python
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Keywords: exasol,python,error-reporting
 Author: Umit Buyuksahin
 Author-email: umit.buyuksahin@exasol.com
-Requires-Python: >=3.9,<4.0
-Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.10,<4.0
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Project-URL: Homepage, https://github.com/exasol/error-reporting-python
 Project-URL: Repository, https://github.com/exasol/error-reporting-python
 Description-Content-Type: text/markdown
 

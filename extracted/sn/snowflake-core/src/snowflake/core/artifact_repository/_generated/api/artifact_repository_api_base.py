@@ -241,12 +241,13 @@ class ArtifactRepositoryResourceBase(SchemaObjectReferenceMixin["ArtifactReposit
         Parameters
         __________
         """
-        return self.collection._api.fetch_artifact_repository(
+        result = self.collection._api.fetch_artifact_repository(
             self.database.name,
             self.schema.name,
             self._identifier,
             async_req=False,
         )
+        return result
 
     @api_telemetry
     def fetch_async(

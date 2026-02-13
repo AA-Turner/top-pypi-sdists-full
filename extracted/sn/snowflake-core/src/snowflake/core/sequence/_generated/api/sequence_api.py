@@ -330,7 +330,7 @@ class SequenceApi:
         :param sequence: (required)
         :type sequence: Sequence
         :param create_mode: Parameter allowing support for different modes of resource creation. Possible values include: - `errorIfExists`: Throws an error if you try to create a resource that already exists. - `orReplace`: Automatically replaces the existing resource with the current one. - `ifNotExists`: Creates a new resource when an alter is requested for a non-existent resource.
-        :type create_mode: Union[CreateMode, str]
+        :type create_mode: str
         :param async_req: Whether to execute the request asynchronously.
         :type async_req: bool, optional
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -393,7 +393,7 @@ class SequenceApi:
         :param sequence: (required)
         :type sequence: Sequence
         :param create_mode: Parameter allowing support for different modes of resource creation. Possible values include: - `errorIfExists`: Throws an error if you try to create a resource that already exists. - `orReplace`: Automatically replaces the existing resource with the current one. - `ifNotExists`: Creates a new resource when an alter is requested for a non-existent resource.
-        :type create_mode: Union[CreateMode, str]
+        :type create_mode: str
         :param async_req: Whether to execute the request asynchronously.
         :type async_req: bool, optional
         :param _return_http_data_only: response data without head status code
@@ -480,7 +480,7 @@ class SequenceApi:
             _header_params["Content-Type"] = _content_types_list
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "SuccessResponse",
@@ -693,7 +693,7 @@ class SequenceApi:
         :param sequence: (required)
         :type sequence: Sequence
         :param create_mode: Parameter allowing support for different modes of resource creation. Possible values include: - `errorIfExists`: Throws an error if you try to create a resource that already exists. - `orReplace`: Automatically replaces the existing resource with the current one. - `ifNotExists`: Creates a new resource when an alter is requested for a non-existent resource.
-        :type create_mode: Union[CreateMode, str]
+        :type create_mode: str
         :param target_database: Database of the target resource. Defaults to the source's database
         :type target_database: str
         :param target_schema: Schema of the target resource. Defaults to the source's schema
@@ -780,7 +780,7 @@ class SequenceApi:
         :param sequence: (required)
         :type sequence: Sequence
         :param create_mode: Parameter allowing support for different modes of resource creation. Possible values include: - `errorIfExists`: Throws an error if you try to create a resource that already exists. - `orReplace`: Automatically replaces the existing resource with the current one. - `ifNotExists`: Creates a new resource when an alter is requested for a non-existent resource.
-        :type create_mode: Union[CreateMode, str]
+        :type create_mode: str
         :param target_database: Database of the target resource. Defaults to the source's database
         :type target_database: str
         :param target_schema: Schema of the target resource. Defaults to the source's schema
@@ -880,7 +880,7 @@ class SequenceApi:
             _header_params["Content-Type"] = _content_types_list
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "SuccessResponse",
@@ -1150,7 +1150,7 @@ class SequenceApi:
         _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "Sequence",
@@ -1445,7 +1445,7 @@ class SequenceApi:
         _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "Iterable[Sequence]",
@@ -1838,7 +1838,7 @@ class SequenceApi:
         _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "SuccessResponse",
@@ -2145,7 +2145,7 @@ class SequenceApi:
         _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "SuccessResponse",

@@ -21,7 +21,18 @@ def blend_get() -> str:
     :return: The current blend mode.
     """
 
-def blend_set(mode: str) -> None:
+def blend_set(
+    mode: typing.Literal[
+        "NONE",
+        "ALPHA",
+        "ALPHA_PREMULT",
+        "ADDITIVE",
+        "ADDITIVE_PREMULT",
+        "MULTIPLY",
+        "SUBTRACT",
+        "INVERT",
+    ],
+) -> None:
     """Defines the fixed pipeline blending equation.
 
         :param mode: The type of blend mode.
@@ -76,17 +87,20 @@ def depth_test_get() -> str:
     :return: The current depth test mode.
     """
 
-def depth_test_set(mode: str) -> None:
+def depth_test_set(
+    mode: typing.Literal[
+        "NONE", "ALWAYS", "LESS", "LESS_EQUAL", "EQUAL", "GREATER", "GREATER_EQUAL"
+    ],
+) -> None:
     """Defines the depth_test equation.
 
-        :param mode: The depth test equation name.
-    Possible values are NONE, ALWAYS, LESS, LESS_EQUAL, EQUAL, GREATER and GREATER_EQUAL.
+    :param mode: The depth test equation name.
     """
 
-def face_culling_set(culling: str) -> None:
+def face_culling_set(culling: typing.Literal["NONE", "FRONT", "BACK"]) -> None:
     """Specify whether none, front-facing or back-facing facets can be culled.
 
-    :param culling: NONE, FRONT or BACK.
+    :param culling: The face culling mode.
     """
 
 def front_facing_set(invert: bool) -> None:

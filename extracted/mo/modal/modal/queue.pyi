@@ -485,6 +485,32 @@ class _Queue(modal._object._Object):
         ...
 
     @staticmethod
+    def from_id(queue_id: str, client: typing.Optional[modal.client._Client] = None) -> _Queue:
+        """Construct a Queue from an id and look up the Queue metadata.
+
+        This is a lazy method that defers hydrating the local
+        object with metadata from Modal servers until the first
+        time it is actually used.
+
+        The ID of a Queue object can be accessed using `.object_id`.
+
+        **Example:**
+
+        ```python notest
+        @app.function()
+        def my_consumer(queue_id: str):
+            queue = modal.Queue.from_id(queue_id)
+            queue.put("Hello from remote function!")
+
+        with modal.Queue.ephemeral() as q:
+            # Pass the queue ID to a remote function
+            my_consumer.remote(q.object_id)
+            print(q.get())  # "Hello from remote function!"
+        ```
+        """
+        ...
+
+    @staticmethod
     async def delete(
         name: str,
         *,
@@ -778,6 +804,32 @@ class Queue(modal.object.Object):
         ```python
         q = modal.Queue.from_name("my-queue", create_if_missing=True)
         q.put(123)
+        ```
+        """
+        ...
+
+    @staticmethod
+    def from_id(queue_id: str, client: typing.Optional[modal.client.Client] = None) -> Queue:
+        """Construct a Queue from an id and look up the Queue metadata.
+
+        This is a lazy method that defers hydrating the local
+        object with metadata from Modal servers until the first
+        time it is actually used.
+
+        The ID of a Queue object can be accessed using `.object_id`.
+
+        **Example:**
+
+        ```python notest
+        @app.function()
+        def my_consumer(queue_id: str):
+            queue = modal.Queue.from_id(queue_id)
+            queue.put("Hello from remote function!")
+
+        with modal.Queue.ephemeral() as q:
+            # Pass the queue ID to a remote function
+            my_consumer.remote(q.object_id)
+            print(q.get())  # "Hello from remote function!"
         ```
         """
         ...

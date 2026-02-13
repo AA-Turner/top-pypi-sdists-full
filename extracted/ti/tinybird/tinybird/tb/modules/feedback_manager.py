@@ -223,6 +223,7 @@ class FeedbackManager:
         "The --incremental parameter is only supported when the `--connector` parameter is passed"
     )
     error_syncing_datasource = error_message("Failed syncing Data Source {datasource}: {error}")
+    error_sample_import_datasource = error_message("Failed importing sample for Data Source {datasource}: {error}")
     error_sync_not_supported = error_message("The --sync parameter is only supported for {valid_datasources}")
     error_invalid_connector = error_message("Invalid connector parameter: Use one of {connectors}")
     error_connector_not_configured = error_message(
@@ -1037,7 +1038,12 @@ STEP 3: ADD KEY TO SERVICE ACCOUNT
     success_update_datasource = success_message("** Data Source '{datasource}' updated:\n    {params}")
     success_promoting_datasource = success_message("** Data Source '{datasource}' connection settings updated")
     success_truncate_datasource = success_message("** Data Source '{datasource}' truncated")
+    success_stop_datasource = success_message("** Data Source '{datasource}' Kafka ingestion stopped")
+    success_start_datasource = success_message("** Data Source '{datasource}' Kafka ingestion started")
     success_sync_datasource = success_message("** Data Source '{datasource}' syncing in progress")
+    success_sample_import_datasource = success_message(
+        "** Sample imported into Data Source '{datasource}'\n   File: {file}\n   Rows: {rows}\n   Size: {size}"
+    )
     success_exchange_datasources = success_message("** Data Sources '{datasource_a}' and '{datasource_b}' exchanged")
 
     success_delete_rows_datasource = success_message(

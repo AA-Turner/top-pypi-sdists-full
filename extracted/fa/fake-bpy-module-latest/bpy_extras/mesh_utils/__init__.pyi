@@ -5,22 +5,30 @@ import numpy.typing as npt
 import bpy.types
 import mathutils
 
-def edge_face_count(mesh) -> list[int]:
+def edge_face_count(mesh: bpy.types.Mesh) -> list[int]:
     """
 
-    :return: list face users for each item in mesh.edges.
+    :param mesh: The mesh to count edges for.
+    :return: list of face users for each item in mesh.edges.
     """
 
-def edge_face_count_dict(mesh) -> dict[tuple[int, int], int]:
+def edge_face_count_dict(mesh: bpy.types.Mesh) -> dict[tuple[int, int], int]:
     """
 
+    :param mesh: The mesh to count edges for.
     :return: Dictionary of edge keys with their value set to the number of faces using each edge.
     """
 
-def edge_loops_from_edges(mesh, edges=None) -> None:
-    """Edge loops defined by edgesTakes me.edges or a list of edges and returns the edge loopsreturn a list of vertex indices.
-    [ [1, 6, 7, 2], ...]closed loops have matching start and end values.
+def edge_loops_from_edges(
+    mesh: bpy.types.Mesh, edges: None | list[bpy.types.MeshEdge] | None = None
+) -> list[list[int]]:
+    """Edge loops defined by edges.Takes mesh.edges or a list of edges and returns the edge loops
+    as a list of vertex indices.
+    Closed loops have matching start and end values.
 
+        :param mesh: The mesh to extract edge loops from.
+        :param edges: Edges to use, or None to use all edges in the mesh.
+        :return: A list of edge loops, each a list of vertex indices.
     """
 
 def mesh_linked_triangles(
@@ -46,19 +54,20 @@ def ngon_tessellate(
     | tuple[collections.abc.Sequence[float]],
     indices: list[int],
     fix_loops: bool = True,
-    debug_print=True,
-) -> None:
+    debug_print: bool = True,
+) -> list[tuple[int, int, int]]:
     """Takes a poly-line of indices (ngon) and returns a list of face
     index lists. Designed to be used for importers that need indices for an
     ngon to create from existing verts.
 
         :param from_data: Either a mesh, or a list/tuple of 3D vectors.
-        :param indices: a list of indices to use this list
-    is the ordered closed poly-line
-    to fill, and can be a subset of the data given.
+        :param indices: a list of indices to use.
+    This list is the ordered closed poly-line to fill, and can be a subset of the data given.
         :param fix_loops: If this is enabled poly-lines
     that use loops to make multiple
     poly-lines are dealt with correctly.
+        :param debug_print: Print debug information to the console.
+        :return: Tessellated faces as a list of triangle index tuples.
     """
 
 def triangle_random_points(

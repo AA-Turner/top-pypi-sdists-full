@@ -13,6 +13,20 @@
 # limitations under the License.
 
 # pyre-strict
+"""
+Task management utilities for asyncio services.
+
+This module provides utilities for managing and monitoring asyncio tasks:
+
+- :class:`Watcher`: An async context manager for supervising a group of tasks,
+  with automatic restart via "fixer" functions when tasks fail.
+- :class:`TaskSentinel`: A sentinel task instance used as a placeholder.
+- :func:`cancel`: Safely cancel a future/task and await its cancellation.
+- :func:`as_task`: Decorator to wrap coroutine functions as tasks.
+- :func:`herd`: Decorator providing thundering herd protection for async functions.
+- :class:`WatcherError`: Exception raised when tasks don't cancel cleanly.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -21,7 +35,6 @@ import functools
 import logging
 import threading
 from collections.abc import Awaitable, Callable, Coroutine, Hashable, Mapping, Sequence
-
 from functools import partial, wraps
 from inspect import isawaitable
 from types import TracebackType
@@ -34,14 +47,13 @@ from typing import (
     ParamSpec,
     Protocol,
     TypeVar,
-    Union,
 )
 from unittest.mock import Mock
 
 from .event import BiDirectionalEvent
 
 
-FixerType = Callable[[asyncio.Task], Union[asyncio.Task, Awaitable[asyncio.Task]]]
+FixerType = Callable[[asyncio.Task], asyncio.Task | Awaitable[asyncio.Task]]
 logger: logging.Logger = logging.getLogger(__name__)
 T = TypeVar("T")
 TParams = ParamSpec("TParams")
@@ -57,7 +69,15 @@ __all__: Sequence[str] = [
 
 
 class TaskSentinel(asyncio.Task):
-    """When you need a done task for typing"""
+    """
+    A sentinel task used as a placeholder for type safety.
+
+    This is used as a default value when a task parameter is optional,
+    allowing type checkers to distinguish between "no task provided"
+    and an actual task. The sentinel is a done task that returns None.
+
+    The global :data:`START_TASK` is the canonical instance of this class.
+    """
 
     def __init__(self) -> None:
         fake = Mock()
@@ -67,16 +87,24 @@ class TaskSentinel(asyncio.Task):
 
 async def cancel(fut: asyncio.Future) -> None:
     """
-    Cancel a future/task and await for it to cancel.
-    If the fut is already done() this is a no-op
-    If everything goes well this returns None.
+    Cancel a future/task and await its cancellation.
 
-    If this coroutine is cancelled, we wait for the passed in argument to cancel
-    but we will raise the CancelledError as per Cancellation Contract, Unless the task
-    doesn't cancel correctly then we could raise other exceptions.
+    This function safely cancels a future and waits for the cancellation to
+    complete. It handles various edge cases around asyncio cancellation.
 
-    If the task raises an exception during cancellation we re-raise it
-    if the task completes instead of cancelling we raise a InvalidStateError
+    Args:
+        fut: The future or task to cancel.
+
+    Raises:
+        asyncio.CancelledError: If this coroutine itself is cancelled while
+            waiting for the target to cancel (after the target has cancelled).
+        asyncio.InvalidStateError: If the task completes with a result instead
+            of raising CancelledError after cancel() was called.
+        Exception: Any exception raised by the task during cancellation is
+            re-raised.
+
+    Note:
+        If the future is already done, this is a no-op.
     """
     if fut.done():
         return  # nothing to do
@@ -116,8 +144,26 @@ def as_task(
     func: Callable[TParams, Coroutine[object, object, T]],
 ) -> Callable[TParams, asyncio.Task[T]]:
     """
-    Decorate a function, So that when called it is wrapped in a task
-    on the running loop.
+    Decorator that wraps a coroutine function to return a task when called.
+
+    When the decorated function is called, instead of returning a coroutine
+    that must be awaited, it immediately schedules the coroutine as a task
+    on the running event loop and returns the task.
+
+    Example::
+
+        @as_task
+        async def background_work() -> None:
+            await do_something()
+
+        # Returns a Task immediately, doesn't need to be awaited to start
+        task = background_work()
+
+    Args:
+        func: The coroutine function to wrap.
+
+    Returns:
+        A wrapper function that returns an ``asyncio.Task`` when called.
     """
 
     @wraps(func)
@@ -138,10 +184,53 @@ WATCHER_CONTEXT: contextvars.ContextVar[Watcher] = contextvars.ContextVar(
 
 
 class WatcherError(RuntimeError):
-    pass
+    """
+    Exception raised when watched tasks don't cancel cleanly.
+
+    This exception is raised by :class:`Watcher` when one or more tasks
+    either don't respond to cancellation within the timeout period,
+    or raise exceptions during cancellation.
+
+    The exception contains a list of the problematic tasks as the second
+    argument.
+    """
 
 
 class Watcher:
+    """
+    An async context manager for supervising and managing a group of asyncio tasks.
+
+    The Watcher monitors tasks and can automatically restart them using "fixer"
+    functions when they fail. It provides a structured way to manage long-running
+    background tasks in asyncio services.
+
+    Example::
+
+        async def my_worker():
+            while True:
+                await do_work()
+
+        def create_worker(failed_task: asyncio.Task) -> asyncio.Task:
+            # Log the failure if this is a restart
+            if failed_task is not START_TASK:
+                logger.error(f"Worker failed: {failed_task.exception()}")
+            return asyncio.create_task(my_worker())
+
+        async with Watcher() as watcher:
+            watcher.watch(fixer=create_worker)  # Starts and monitors the worker
+            # Watcher blocks here until cancelled or all tasks complete
+
+    The Watcher can be accessed from within watched tasks via context variables::
+
+        watcher = Watcher.get()  # Get the current watcher from context
+
+    Attributes:
+        loop: The event loop this watcher is running on.
+        running: True if the watcher is currently in its main loop.
+        done_ok: If True, tasks completing normally are removed silently.
+            If False, completed tasks without a fixer will raise an error.
+    """
+
     _tasks: dict[asyncio.Future, FixerType | None]
     _scheduled: list[FixerType]
     _tasks_changed: BiDirectionalEvent
@@ -156,6 +245,15 @@ class Watcher:
 
     @staticmethod
     def get() -> Watcher:
+        """
+        Get the current Watcher from context variables.
+
+        Returns:
+            The Watcher instance from the current context.
+
+        Raises:
+            LookupError: If no Watcher is set in the current context.
+        """
         return WATCHER_CONTEXT.get()
 
     def __init__(
@@ -166,10 +264,18 @@ class Watcher:
         done_ok: bool = True,
     ) -> None:
         """
-        cancel_timeout is the time in seconds we will wait after cancelling all
-        the tasks watched by this watcher.
+        Initialize a new Watcher.
 
-        context is wether to expose this Watcher via contextvars now or at __aenter__
+        Args:
+            cancel_timeout: Time in seconds to wait for tasks to cancel during
+                shutdown. If tasks don't cancel within this time, a WatcherError
+                is raised. Defaults to 300 seconds (5 minutes).
+            context: If True, expose this Watcher via contextvars immediately.
+                If False (default), the Watcher is only exposed when entering
+                the async context (``async with``).
+            done_ok: If True (default), tasks that complete successfully are
+                silently removed from the watch list. If False, tasks without
+                a fixer that complete will raise a RuntimeError.
         """
         if context:
             WATCHER_CONTEXT.set(self)
@@ -204,14 +310,22 @@ class Watcher:
         shield: bool = False,
     ) -> bool:
         """
-        The ability to unwatch a task, by task or fixer
-        This is a coroutine to insure the watcher has re-watched the tasks list
+        Remove a task from the watch list.
 
-        If the task was shielded then you need to specify here so we can find
-        the shield and remove it from the watch list.
+        This method allows unwatching by task reference or by fixer function.
+        It is a coroutine to ensure the watcher's internal state is properly
+        synchronized after removal.
 
-        When unwatching a fixer, if the returned task is not the same
-        as the one passed in we will cancel it, and await it.
+        Args:
+            task: The task to remove from watching. Defaults to START_TASK.
+            fixer: If provided, find and remove the task associated with this
+                fixer function. If the found task differs from ``task``, it
+                will be cancelled.
+            shield: If True, look for the task in the shielded tasks list
+                instead of the regular watch list.
+
+        Returns:
+            True if a task was found and removed, False otherwise.
         """
 
         async def tasks_changed() -> None:
@@ -249,19 +363,31 @@ class Watcher:
         shield: bool = False,
     ) -> None:
         """
-        Add a task to be watched by the watcher
-        You can also attach a fixer co-routine or function to be used to fix a
-        task that has died.
+        Add a task to be watched by the watcher.
 
-        The fixer will be passed the failed task, and is expected to return a working
-        task, or raise if that is impossible.
+        There are several usage patterns:
 
-        You can also just pass in the fixer and we will use it to create the task
-        to be watched.  The fixer will be passed a dummy task singleton:
-        `later.task.START_TASK`
+        1. **Watch an existing task**: Pass just the ``task`` argument.
+        2. **Watch with auto-restart**: Pass ``task`` and ``fixer``. When the
+           task fails, the fixer is called to create a replacement.
+        3. **Create and watch**: Pass only ``fixer`` (task defaults to START_TASK).
+           The fixer is called immediately with START_TASK to create the initial task.
+        4. **Shield mode**: Pass ``task`` with ``shield=True``. The task is
+           monitored but won't be cancelled when the watcher exits.
 
-        shield argument lets you watch a task, but not cancel it in this watcher.
-        Useful for triggering on task failures, but not managing said task.
+        Args:
+            task: The task to watch. Use :data:`START_TASK` sentinel when
+                providing only a fixer to create the initial task.
+            fixer: A callable that receives a failed task and returns a new task
+                (or an awaitable that returns a task). Called with START_TASK
+                for initial task creation, or with the failed task for restarts.
+            shield: If True, wrap the task in ``asyncio.shield()`` so it won't
+                be cancelled when the watcher exits. Cannot be used with fixer.
+
+        Raises:
+            TypeError: If ``task`` is not an ``asyncio.Task``.
+            ValueError: If using START_TASK without a fixer, or using shield
+                with a fixer.
         """
         # Watching a coro, leads to a confusing error deep in watcher
         # so use runtime checks not just static types.
@@ -275,8 +401,9 @@ class Watcher:
         elif shield:
             if fixer:
                 raise ValueError("`fixer` can not be used with shield=True")
-            # pyre-fixme[1001]: Awaitable assigned to `self._shielded_tasks` is
-            #  never awaited.
+            # The shield Future is stored here and awaited later via asyncio.wait()
+            # in __aexit__. Pyre incorrectly flags this as an unawaited awaitable.
+            # pyre-fixme[1001]: False positive - shield is awaited via asyncio.wait().
             self._shielded_tasks[task] = asyncio.shield(task)
             self._tasks[self._shielded_tasks[task]] = None
         else:
@@ -288,6 +415,20 @@ class Watcher:
         coro: Coroutine[object, object, T],
         **kws: Any,
     ) -> asyncio.Task[T]:
+        """
+        Create a task and immediately add it to the watch list.
+
+        This is a convenience method combining ``asyncio.create_task()`` and
+        :meth:`watch`. The task is watched without a fixer, so if it fails,
+        behavior depends on the ``done_ok`` setting.
+
+        Args:
+            coro: The coroutine to wrap in a task.
+            **kws: Additional keyword arguments passed to ``asyncio.create_task()``.
+
+        Returns:
+            The newly created and watched task.
+        """
         t = asyncio.create_task(coro, **kws)
         self.watch(t)
         return t
@@ -301,6 +442,20 @@ class Watcher:
     def add_preexit_callback(
         self, callback: Callable[..., None], *args: Any, **kws: Any
     ) -> None:
+        """
+        Register a callback to run before the watcher exits.
+
+        Pre-exit callbacks are invoked synchronously (not awaited) before
+        tasks are cancelled during watcher shutdown. They are useful for
+        cleanup operations that need to happen before task cancellation.
+
+        Exceptions raised by callbacks are logged and ignored.
+
+        Args:
+            callback: A callable to invoke.
+            *args: Positional arguments to pass to the callback.
+            **kws: Keyword arguments to pass to the callback.
+        """
         self._preexit_callbacks.append(partial(callback, *args, **kws))
 
     def _run_preexit_callbacks(self) -> None:
@@ -385,7 +540,7 @@ class Watcher:
             self._tasks[new_task] = fixer
         else:
             raise TypeError(
-                f"{fixer}(task) failed to return a task, returned:" f"{new_task}!"
+                f"{fixer}(task) failed to return a task, returned:{new_task}!"
             ) from exc
 
     async def _handle_cancel(self) -> None:
@@ -393,7 +548,8 @@ class Watcher:
         if not tasks:
             return
 
-        # pyre-fixme[1001]: Awaitable assigned to `task` is never awaited.
+        # Task.cancel() returns bool, not an awaitable. Pyre incorrectly flags this.
+        # pyre-fixme[1001]: False positive - Task.cancel() is synchronous.
         for task in tasks:
             task.cancel()
 
@@ -414,11 +570,21 @@ class Watcher:
 
 
 CacheKey = NewType("CacheKey", tuple[Hashable, ...])
-ArgID = Union[int, str]
+ArgID = int | str
 
 
 class _CountTask:
-    """So herd can track herd size and task together for cancellation"""
+    """
+    Internal tracker for herd size and associated task.
+
+    Used by :func:`herd` to track how many callers are waiting on a shared
+    coroutine and to manage cancellation properly. The task is only cancelled
+    when all waiters have cancelled or completed.
+
+    Attributes:
+        task: The shared asyncio Task, or None if not yet created.
+        count: Number of active callers waiting on this task.
+    """
 
     task: asyncio.Task | None = None
     count: int = 0
@@ -426,7 +592,18 @@ class _CountTask:
 
 def _get_local(local: threading.local, field: str) -> dict[CacheKey, object]:
     """
-    helper for attempting to fetch a named attr from a threading.local
+    Retrieve or create a dictionary from a thread-local storage object.
+
+    This helper is used by :func:`herd` to maintain per-thread caches of
+    in-flight coroutines.
+
+    Args:
+        local: The threading.local instance to access.
+        field: The attribute name to retrieve or create.
+
+    Returns:
+        A dictionary stored in the thread-local object. If the attribute
+        doesn't exist, an empty dictionary is created and stored.
     """
     try:
         return cast(dict[CacheKey, object], getattr(local, field))
@@ -496,16 +673,33 @@ def herd(
     ]
 ):
     """
-    Provide a simple thundering herd protection as a decorator.
-    if requests comes in while and existing request with those same args is pending,
-    wait for the pending request and return its results.
+    Decorator providing thundering herd protection for async functions.
 
-    ignored_args are arguments that should be ignored for matching with
-    existing requests. Use arg position or kwargs name.
-    Example: a client arg for when multiple clients exists but the request hits the same
-    backend.
+    When multiple calls with the same arguments arrive while a request is
+    pending, they wait for the pending request and share its result instead
+    of making duplicate requests. Each caller is shielded from cancellation
+    affecting other callers.
 
-    Each member of the herd is "shielded" from cancellation effecting other herd members
+    Can be used with or without parentheses::
+
+        @herd
+        async def fetch_data(key: str) -> Data:
+            ...
+
+        @herd(ignored_args={0})
+        async def fetch_data(client: Client, key: str) -> Data:
+            ...
+
+    Args:
+        fn: The async function to wrap. If None, returns a decorator.
+        ignored_args: Set of argument indices (int) or keyword argument names
+            (str) to exclude when matching requests. Useful when different
+            callers share arguments (like a client) but the underlying
+            request is the same.
+
+    Returns:
+        The wrapped function (if ``fn`` is provided) or a decorator
+        (if ``fn`` is None).
     """
 
     def decorator(

@@ -37,6 +37,8 @@ from snowflake.core.streamlit._generated.models.streamlit_push_options import St
 from snowflake.core.streamlit._generated.models.streamlit_version_for_git import StreamlitVersionForGit
 from snowflake.core.streamlit._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.streamlit._generated.models.success_response import SuccessResponse
+from snowflake.core.streamlit._generated.models.tag_assignment import TagAssignment
+from snowflake.core.streamlit._generated.models.tag_reference import TagReference
 from snowflake.core.streamlit._generated.models.version_details_streamlit import VersionDetailsStreamlit
 
 __all__ = [
@@ -55,5 +57,7 @@ __all__ = [
     "StreamlitVersionForGit",
     "SuccessAcceptedResponse",
     "SuccessResponse",
+    "TagAssignment",
+    "TagReference",
     "VersionDetailsStreamlit",
 ]

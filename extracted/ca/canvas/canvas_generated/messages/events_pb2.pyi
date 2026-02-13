@@ -991,6 +991,7 @@ class EventType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     SHOW_NOTE_HEADER_BUTTON: _ClassVar[EventType]
     SHOW_NOTE_FOOTER_BUTTON: _ClassVar[EventType]
     ACTION_BUTTON_CLICKED: _ClassVar[EventType]
+    SHOW_NOTE_BODY_BUTTON: _ClassVar[EventType]
     PATIENT_CHART__CONDITIONS: _ClassVar[EventType]
     PATIENT_CHART__DETECTED_ISSUES: _ClassVar[EventType]
     PATIENT_CHART_SUMMARY__SECTION_CONFIGURATION: _ClassVar[EventType]
@@ -1068,6 +1069,7 @@ class EventType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     PATIENT_FACILITY_ADDRESS_CREATED: _ClassVar[EventType]
     PATIENT_FACILITY_ADDRESS_UPDATED: _ClassVar[EventType]
     PATIENT_FACILITY_ADDRESS_DELETED: _ClassVar[EventType]
+    GET_HOMEPAGE_CONFIGURATION: _ClassVar[EventType]
 UNKNOWN: EventType
 ALLERGY_INTOLERANCE_CREATED: EventType
 ALLERGY_INTOLERANCE_UPDATED: EventType
@@ -2050,6 +2052,7 @@ CUSTOM_COMMAND_COMMAND__AVAILABLE_ACTIONS: EventType
 SHOW_NOTE_HEADER_BUTTON: EventType
 SHOW_NOTE_FOOTER_BUTTON: EventType
 ACTION_BUTTON_CLICKED: EventType
+SHOW_NOTE_BODY_BUTTON: EventType
 PATIENT_CHART__CONDITIONS: EventType
 PATIENT_CHART__DETECTED_ISSUES: EventType
 PATIENT_CHART_SUMMARY__SECTION_CONFIGURATION: EventType
@@ -2127,6 +2130,7 @@ PATIENT_PREFERRED_PHARMACY_UPDATED: EventType
 PATIENT_FACILITY_ADDRESS_CREATED: EventType
 PATIENT_FACILITY_ADDRESS_UPDATED: EventType
 PATIENT_FACILITY_ADDRESS_DELETED: EventType
+GET_HOMEPAGE_CONFIGURATION: EventType
 
 class Event(_message.Message):
     __slots__ = ("type", "target", "context", "target_type", "actor", "source")

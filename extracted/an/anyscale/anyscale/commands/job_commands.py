@@ -26,11 +26,18 @@ from anyscale.commands.util import (
     build_kv_table,
     convert_kv_strings_to_dict,
     override_env_vars,
+    parse_connections,
     parse_repeatable_tags_to_dict,
     parse_tags_kv_to_str_map,
 )
 from anyscale.controllers.job_controller import JobController
-from anyscale.job.models import JobConfig, JobLogMode, JobSortField, JobState, JobStatus
+from anyscale.job.models import (
+    JobConfig,
+    JobLogMode,
+    JobSortField,
+    JobState,
+    JobStatus,
+)
 from anyscale.util import (
     AnyscaleJSONEncoder,
     get_endpoint,
@@ -266,6 +273,16 @@ def job_cli() -> None:
     type=int,
     help="The timeout in seconds for each job run. Set to None for no limit to be set.",
 )
+@click.option(
+    "--connection",
+    "connections",
+    multiple=True,
+    help="[Beta] Third-party connection to associate with the job (e.g., Databricks). "
+    "Format: connection_type=TYPE,connection_name=NAME. "
+    "Example: --connection connection_type=databricks,connection_name=my-conn. "
+    "Can be repeated for multiple connections. "
+    "This feature is in beta preview. Contact support@anyscale.com to request enablement.",
+)
 @click.argument("entrypoint", required=False, nargs=-1, type=click.UNPROCESSED)
 def submit(  # noqa: PLR0912 PLR0913 C901
     entrypoint: Tuple[str],
@@ -287,6 +304,7 @@ def submit(  # noqa: PLR0912 PLR0913 C901
     project: Optional[str],
     max_retries: Optional[int],
     timeout_s: Optional[int],
+    connections: Tuple[str],
 ):
     """Submit a job.
 
@@ -437,6 +455,7 @@ and override the entrypoint with `python main.py`.
 
         if max_retries is not None:
             config = config.options(max_retries=max_retries)
+        # SDK will handle warning and default if max_retries is None
 
         if timeout_s is not None:
             config = config.options(timeout_s=timeout_s)
@@ -445,6 +464,10 @@ and override the entrypoint with `python main.py`.
             tag_map = parse_tags_kv_to_str_map(tags)
             if tag_map:
                 config = config.options(tags=tag_map)
+
+        if connections:
+            parsed_connections = parse_connections(connections)
+            config = config.options(connections=parsed_connections)
 
         log.info(f"Submitting job with config {config}.")
         job_id = anyscale.job.submit(config)

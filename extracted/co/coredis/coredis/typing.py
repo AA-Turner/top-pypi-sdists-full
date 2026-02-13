@@ -25,9 +25,11 @@ from collections.abc import (
 from types import GenericAlias, ModuleType, UnionType
 from typing import (
     TYPE_CHECKING,
+    Annotated,
     Any,
     AnyStr,
     ClassVar,
+    Concatenate,
     Final,
     Generic,
     Literal,
@@ -61,6 +63,7 @@ from beartype.door import is_bearable, is_subhint
 from typing_extensions import (
     NotRequired,
     Self,
+    TypeIs,
     Unpack,
 )
 
@@ -100,6 +103,22 @@ class Node(TypedDict):
     port: int
 
 
+@dataclasses.dataclass(unsafe_hash=True)
+class ManagedNode:
+    """
+    Represents a cluster node (primary or replica) in a redis cluster
+    """
+
+    host: str
+    port: int
+    server_type: Literal["primary", "replica"] | None = None
+    node_id: str | None = None
+
+    @property
+    def name(self) -> str:
+        return f"{self.host}:{self.port}"
+
+
 class RedisCommandP(Protocol):
     """
     Protocol of a redis command with all associated arguments
@@ -137,7 +156,7 @@ class ExecutionParameters(TypedDict):
 
 
 #: Represents the acceptable types of a redis key
-KeyT = str | bytes
+KeyT = Annotated[str | bytes, "KeyT"]
 
 
 class Serializable(Generic[R]):
@@ -155,11 +174,10 @@ class Serializable(Generic[R]):
       class MyThing:
           ...
 
-      client = coredis.Redis()
-
-      # This will pass type checking but will fail with an :exc:`LookupError`
-      # at runtime
-      await client.set("fubar", coredis.typing.Serializable(MyThing()))
+      async with coredis.Redis() as client:
+          # This will pass type checking but will fail with an :exc:`LookupError`
+          # at runtime
+          await client.set("fubar", coredis.typing.Serializable(MyThing()))
 
       # however, if a serializer is registered, the above would succeed
       @client.type_adapter.serializer
@@ -205,13 +223,13 @@ class TypeAdapter:
       def mapping_to_decimal_mapping(mapping: Mapping[str|bytes, str|bytes]) -> dict[str|bytes, Decimal]:
           return {key: value_to_decimal(value) for key, value in mapping.items()}
 
-      client = coredis.Redis(type_adapter=adapter, decode_responses=True)
-      await client.set("key", Serializable(Decimal(1.5)))
-      await client.lpush("list", [Serializable(Decimal(1.5))])
-      await client.hset("dict", {"first": Serializable(Decimal(1.5))})
-      assert Decimal(1.5) == await client.get("key").transform(Decimal)
-      assert [Decimal(1.5)] == await client.lrange("list", 0, 0).transform(list[Decimal])
-      assert {"first": Decimal(1.5)} == await client.hgetall("dict").transform(dict[str, Decimal])
+      async with coredis.Redis(type_adapter=adapter, decode_responses=True) as client:
+          await client.set("key", Serializable(Decimal(1.5)))
+          await client.lpush("list", [Serializable(Decimal(1.5))])
+          await client.hset("dict", {"first": Serializable(Decimal(1.5))})
+          assert Decimal(1.5) == await client.get("key").transform(Decimal)
+          assert [Decimal(1.5)] == await client.lrange("list", 0, 0).transform(list[Decimal])
+          assert {"first": Decimal(1.5)} == await client.hgetall("dict").transform(dict[str, Decimal])
     """
 
     def __init__(
@@ -548,6 +566,7 @@ __all__ = [
     "Callable",
     "ClassVar",
     "CommandArgList",
+    "Concatenate",
     "Coroutine",
     "Final",
     "Generic",
@@ -580,6 +599,7 @@ __all__ = [
     "Sequence",
     "StringT",
     "TypeGuard",
+    "TypeIs",
     "TypedDict",
     "TypeVar",
     "Unpack",

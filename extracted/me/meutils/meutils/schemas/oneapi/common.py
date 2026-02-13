@@ -164,14 +164,12 @@ MODEL_PRICE = {
     **REPLICATE_MODELS,
     **FREE_MODELS,
 
+    "deepl-en": 12.5,
+    "deepl-zh": 12.5,
+
     "klingai/avatar-standard": 0.236 * 5,
     "klingai/avatar-pro": 0.484 * 5,
     "bytedance/omnihuman/v1.5": 0.672 * 5,
-
-    "nano-banana2": 0.03,
-    "async/nano-banana-pro": 0.03,
-    "async/nano-banana-pro_2k": 0.08,
-    "async/nano-banana-pro_4k": 0.1,
 
     "async/minimax-hailuo-image-01": 0.02,
     "async/gpt-image-1.5": 0.06,
@@ -180,12 +178,18 @@ MODEL_PRICE = {
 
     "grok-4-image": 0.03,
 
-    "nano-banana": 0.04 * 3,
-    "nano-banana-pro": 0.04 * 4,
-    "nano-banana-pro_2k": 0.04 * 4,
-    "nano-banana-pro_4k": 0.3,
+    "async/nano-banana-pro": 0.03,
+    "async/nano-banana-pro_2k": 0.08,
+    "async/nano-banana-pro_4k": 0.1,
+
+    "nano-banana": 0.03,
+
+    "nano-banana2": 0.03,
     "nano-banana-2": 0.04 * 4,
-    "google/nano-banana-pro": 1.2,
+    "nano-banana-pro": 0.16,
+    "nano-banana-pro_1k": 0.15,
+    "nano-banana-pro_2k": 0.16,
+    "nano-banana-pro_4k": 0.18,
 
     "vip/nano-banana-pro": 0.15 * 4,
     "vip/nano-banana-pro_4k": 0.3 * 4,
@@ -197,12 +201,12 @@ MODEL_PRICE = {
     "gemini-2.5-flash-image-preview": 0.03,
     "gemini-2.5-flash-image-preview-hd": 0.03,
 
-
     "qwen-image": 0.05,
     "qwen-image-edit": 0.05,
     "qwen-image-2509": 0.05,
     "qwen-image-edit-2509": 0.05,
     "qwen-image-2511": 0.05,
+    "qwen-image-2.0": 0.05,
 
     "wan-ai-wan2.1-t2v-14b": 1,
     "wan-ai-wan2.1-t2v-14b-turbo": 1,
@@ -273,6 +277,9 @@ MODEL_PRICE = {
     "doubao-seedream-4-0-250828": 0.2,
     "seedream-4-5": 0.25,
     "doubao-seedream-4-5-251128": 0.25,
+    "doubao-seedream-5-0-260128":  0.25,
+    "seedream-5.0": 0.05,
+
     "seedream-4-0-250828": 0.2,
     "doubao-seedream-3-0-t2i-250415": 0.05,
     "doubao-seededit-3-0-i2i-250628": 0.05,
@@ -370,9 +377,9 @@ MODEL_PRICE = {
     "sora-2-hd": 0.2,
     "sora-2-pro": 2,
 
-    "sora-2-4s": 0.15 * 4 ,
-    "sora-2-8s": 0.15 * 8 ,
-    "sora-2-12s": 0.15 * 12 ,
+    "sora-2-4s": 0.15 * 4,
+    "sora-2-8s": 0.15 * 8,
+    "sora-2-12s": 0.15 * 12,
 
     # 视频
     "api-videos-3d": 0.01,
@@ -385,6 +392,8 @@ MODEL_PRICE = {
     # grok
     "grok-3-image": 0.1,
     "grok-imagine-0.9": 0.1,
+    "grok-imagine-image": 0.02*4,
+    "grok-imagine-image-pro": 0.07*4,
 
     # 虚拟换衣fish
     "api-kolors-virtual-try-on": 0.1,
@@ -455,10 +464,13 @@ MODEL_PRICE = {
 
     "api-hunyuan-video": 0.1,
 
+    # OCR
     "deepseek-ocr": 0.01,
-    "deepseek-ocr-2": 0.01,
+    "deepseek-ocr-2": 0.02,
 
     "paddleocr-vl": 0.01,
+    "paddleocr-vl-1.5": 0.02,
+
     # kling
 
     "kling-image-o1": 0.1,
@@ -470,6 +482,12 @@ MODEL_PRICE = {
     "stable-diffusion-3-medium": 0.02,
     "stable-diffusion-3-5-large": 0.05,
     "chat-stable-diffusion-3-5-large": 0.05,
+    #
+    "glm-image": 0.05,
+
+    # flux
+    "flux.2-klein-4b": 0.003,
+    "flux.2-klein-9b": 0.005,
 
     "flux": 0.01,
     "flux-schnell": 0.01,
@@ -567,6 +585,7 @@ MODEL_PRICE = {
     "gemini-3-pro-all": 0.03,
 
     "grok-4.1": 0.02,
+    "grok-4.1-thinking": 0.02,
 
     "o1-plus": 0.2,
     "o1-pro": 1.2,
@@ -893,6 +912,7 @@ MODEL_RATIO = {
     "glm-4.6v": 0.5,
     "glm-4.7": 1,
     "glm-4-7-251222": 1,
+    "glm-5": 2,
 
     "longcat-flash-chat": 1,
     "longcat-flash-thinking": 2,
@@ -2010,6 +2030,7 @@ COMPLETION_RATIO = {
     "glm-4.6v": 3,
     "glm-4.7": 4,
     "glm-4-7-251222": 4,
+    "glm-5": 4.5,
 
     "step-1-flash": 5,
     "step-1-8k": 5,

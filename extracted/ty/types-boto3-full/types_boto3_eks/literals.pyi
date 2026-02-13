@@ -113,8 +113,10 @@ AMITypesType = Literal[
     "CUSTOM",
     "WINDOWS_CORE_2019_x86_64",
     "WINDOWS_CORE_2022_x86_64",
+    "WINDOWS_CORE_2025_x86_64",
     "WINDOWS_FULL_2019_x86_64",
     "WINDOWS_FULL_2022_x86_64",
+    "WINDOWS_FULL_2025_x86_64",
 ]
 AccessScopeTypeType = Literal["cluster", "namespace"]
 AddonActiveWaiterName = Literal["addon_active"]
@@ -338,6 +340,7 @@ UpdateTypeType = Literal[
     "LoggingUpdate",
     "RemoteNetworkConfigUpdate",
     "UpgradePolicyUpdate",
+    "VendedLogsUpdate",
     "VersionUpdate",
     "VpcConfigUpdate",
     "ZonalShiftConfigUpdate",

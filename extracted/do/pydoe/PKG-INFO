@@ -1,7 +1,9 @@
 Metadata-Version: 2.4
 Name: pyDOE
-Version: 0.9.3
+Version: 0.9.5
 Summary: Design of Experiments for Python
+Project-URL: homepage, https://pydoe.github.io/pydoe/
+Project-URL: documentation, https://pydoe.github.io/pydoe/
 Project-URL: source, https://github.com/pydoe/pydoe
 Project-URL: releasenotes, https://github.com/pydoe/pydoe/releases/latest
 Project-URL: issues, https://github.com/pydoe/pydoe/issues
@@ -31,16 +33,16 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development
-Requires-Python: >=3.8
-Requires-Dist: numpy>=1.22
-Requires-Dist: scipy>=1.8
+Requires-Python: >=3.10
+Requires-Dist: numpy>=2.2.6
+Requires-Dist: scipy>=1.15.3
 Description-Content-Type: text/markdown
 
 PyDOE: An Experimental Design Package for Python
 ================================================
 
-[![Tests](https://github.com/pydoe/pydoe/actions/workflows/tests.yml/badge.svg)](https://github.com/pydoe/pydoe/actions/workflows/tests.yml)
-[![Documentation](https://github.com/pydoe/pydoe/actions/workflows/docs.yml/badge.svg)](https://github.com/pydoe/pydoe/actions/workflows/docs.yml)
+[![Tests](https://github.com/pydoe/pydoe/actions/workflows/code_test.yml/badge.svg)](https://github.com/pydoe/pydoe/actions/workflows/code_test.yml)
+[![Documentation](https://github.com/pydoe/pydoe/actions/workflows/docs_build.yml/badge.svg)](https://github.com/pydoe/pydoe/actions/workflows/docs_build.yml)
 [![DOI](https://zenodo.org/badge/709347557.svg)](https://zenodo.org/doi/10.5281/zenodo.10958492)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 

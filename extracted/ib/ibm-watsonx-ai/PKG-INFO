@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ibm_watsonx_ai
-Version: 1.5.1
+Version: 1.5.2
 Summary: IBM watsonx.ai API Client
 Author: IBM
 Maintainer-email: Maria Oleszkiewicz <maria.oleszkiewicz@pl.ibm.com>, Mateusz Szewczyk <Mateusz.Szewczyk@ibm.com>
@@ -62,8 +62,11 @@ Requires-Dist: mcp<2.0,>=1.6.0; extra == "mcp"
 
 <div align="center">
 
-# 📦 `ibm-watsonx-ai`
+# 📦 ibm-watsonx-ai
+
 ### Official IBM watsonx.ai Python SDK
+
+---
 
 ![IBM](https://img.shields.io/badge/IBM-watsonx.ai-0F62FE?style=for-the-badge&logo=ibm&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.11%20–%203.13-3776AB?style=for-the-badge&logo=python&logoColor=white)
@@ -133,7 +136,7 @@ pip install "ibm-watsonx-ai[rag]"
 
 ## 🚀 Quick Start
 
-### Authentication
+### [Authentication](https://ibm.github.io/watsonx-ai-python-sdk/setup.html)
 
 ```python
 from ibm_watsonx_ai import Credentials, APIClient
@@ -143,5 +146,40 @@ credentials = Credentials(
     api_key="<your-ibm-api-key>"
 )
 
-client = APIClient(credentials, space_id="<your-space-id>")
+api_client = APIClient(credentials, space_id="<your-space-id>")
+```
+
+### [Working with `ModelInference`](https://ibm.github.io/watsonx-ai-python-sdk/fm_model_inference.html)
+
+#### Get available models
+
+```python
+list(api_client.foundation_models.ChatModels)
+
+# [<ChatModels.GRANITE_3_3_8B_INSTRUCT: 'ibm/granite-3-3-8b-instruct'>,
+#  <ChatModels.GRANITE_4_H_SMALL: 'ibm/granite-4-h-small'>,
+#  <ChatModels.LLAMA_3_3_70B_INSTRUCT: 'meta-llama/llama-3-3-70b-instruct'>,
+#  <ChatModels.GPT_OSS_120B: 'openai/gpt-oss-120b'>]
+```
+
+#### Initialisation
+
+```python
+from ibm_watsonx_ai.foundation_models import ModelInference
+
+model = ModelInference(
+    api_client=api_client,
+    model_id="ibm/granite-4-h-small"
+)
+```
+
+#### Chat with model
+
+```python
+messages = [
+    {"role": "system", "content": "You are a helpful assistant that translates English to French."},
+    {"role": "user", "content": "I love you for listening to Rock."}
+]
+
+model.chat(messages=messages)
 ```

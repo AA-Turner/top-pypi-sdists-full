@@ -29,9 +29,14 @@ def pytest_runtest_call(item):
         finally:
             unstub()
 
-    if exc is not None:
-        # Turn the mockito verification error into a clean pytest failure.
-        outcome.force_exception(Failed(str(exc), pytrace=False))
+    try:
+        outcome.get_result()
+    except Exception:
+        pass
+    else:
+        if exc is not None:
+            # Turn the mockito verification error into a clean pytest failure.
+            outcome.force_exception(Failed(str(exc), pytrace=False))
 
 
 @pytest.fixture

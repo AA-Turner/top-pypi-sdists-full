@@ -5,6 +5,7 @@
 from dataclasses import dataclass
 
 import snowflake.snowpark.types as snowpark_type
+from snowflake.snowpark_connect.config import get_scala_version
 from snowflake.snowpark_connect.type_mapping import map_type_to_snowflake_type
 from snowflake.snowpark_connect.utils.jvm_udf_utils import (
     NullHandling,
@@ -13,6 +14,7 @@ from snowflake.snowpark_connect.utils.jvm_udf_utils import (
     Signature,
     build_jvm_udxf_imports,
     map_type_to_java_type,
+    to_json,
 )
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.udf_utils import (
@@ -40,6 +42,7 @@ import com.snowflake.snowpark_java.types.*;
 
 public class JavaUDAF {
     private final static String OPERATION_FILE = "__operation_file__";
+    private final static String SCHEMA_JSON = "__schema_json__";
     private static scala.Function2<__reduce_type__, __reduce_type__, __reduce_type__> operation = null;
     private static UdfPacket udfPacket = null;
 
@@ -116,6 +119,7 @@ class JavaUDAFDef:
     signature: Signature
     java_signature: Signature
     imports: list[str]
+    schema_json: str
     null_handling: NullHandling = NullHandling.RETURNS_NULL_ON_NULL_INPUT
 
     # -------------------- DDL Emitter --------------------
@@ -150,13 +154,14 @@ class JavaUDAFDef:
             .replace("__value_type__", self.java_signature.params[1].data_type)
             .replace(
                 "__mapped_value__",
-                "com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, input, 0)"
+                "com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, input, 0, SCHEMA_JSON)"
                 if is_variant_input
                 else "input",
             )
             .replace("__reduce_type__", reduce_type)
             .replace("__return_type__", return_type)
             .replace("__response_wrapper__", response_wrapper)
+            .replace("__schema_json__", self.schema_json)
         )
 
     def to_create_function_sql(self) -> str:
@@ -189,7 +194,7 @@ RETURNS {ret_type}
 LANGUAGE JAVA
 {self.null_handling.value}
 RUNTIME_VERSION = 17
-PACKAGES = ('com.snowflake:snowpark:latest')
+PACKAGES = ('com.snowflake:snowpark_{get_scala_version()}:latest')
 {imports_sql}
 HANDLER = 'JavaUDAF'
 AS
@@ -305,6 +310,8 @@ def create_java_udaf_for_reduce_scala_function(
         else sql_return_type
     )
 
+    schema_json = to_json(input_types if input_types else [])
+
     udf_def = JavaUDAFDef(
         name=udf_name,
         signature=Signature(
@@ -314,6 +321,7 @@ def create_java_udaf_for_reduce_scala_function(
         java_signature=Signature(
             params=java_input_params, returns=ReturnType(java_return_type)
         ),
+        schema_json=schema_json,
     )
     create_udf_sql = udf_def.to_create_function_sql()
     logger.info(f"Creating Java UDAF: {create_udf_sql}")

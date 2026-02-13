@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nilearn
-Version: 0.13.0
+Version: 0.13.1
 Summary: Statistical learning for neuroimaging in Python
 Project-URL: Changelog, https://nilearn.github.io/stable/changes/whats_new.html
 Project-URL: Development, https://github.com/nilearn/nilearn
@@ -135,6 +135,16 @@ Requires-Dist: pytest-rerunfailures; extra == 'test'
 Requires-Dist: pytest-timeout; extra == 'test'
 Requires-Dist: pytest-xdist[psutil]; extra == 'test'
 Requires-Dist: pytest>=6.0.0; extra == 'test'
+Provides-Extra: test-free-threaded
+Requires-Dist: numpydoc>=1.8.0; extra == 'test-free-threaded'
+Requires-Dist: pytest-csv; extra == 'test-free-threaded'
+Requires-Dist: pytest-mpl; extra == 'test-free-threaded'
+Requires-Dist: pytest-randomly; extra == 'test-free-threaded'
+Requires-Dist: pytest-reporter-html1<0.9.4,>=0.9.2; extra == 'test-free-threaded'
+Requires-Dist: pytest-rerunfailures; extra == 'test-free-threaded'
+Requires-Dist: pytest-run-parallel; extra == 'test-free-threaded'
+Requires-Dist: pytest>=6.0.0; extra == 'test-free-threaded'
+Requires-Dist: rich; extra == 'test-free-threaded'
 Description-Content-Type: text/x-rst
 
 .. image:: https://img.shields.io/pypi/v/nilearn.svg

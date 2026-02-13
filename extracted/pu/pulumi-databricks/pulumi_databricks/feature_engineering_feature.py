@@ -28,6 +28,7 @@ class FeatureEngineeringFeatureArgs:
                  description: Optional[pulumi.Input[_builtins.str]] = None,
                  filter_condition: Optional[pulumi.Input[_builtins.str]] = None,
                  lineage_context: Optional[pulumi.Input['FeatureEngineeringFeatureLineageContextArgs']] = None,
+                 provider_config: Optional[pulumi.Input['FeatureEngineeringFeatureProviderConfigArgs']] = None,
                  time_window: Optional[pulumi.Input['FeatureEngineeringFeatureTimeWindowArgs']] = None):
         """
         The set of arguments for constructing a FeatureEngineeringFeature resource.
@@ -37,6 +38,11 @@ class FeatureEngineeringFeatureArgs:
         :param pulumi.Input['FeatureEngineeringFeatureSourceArgs'] source: The data source of the feature
         :param pulumi.Input[_builtins.str] description: The description of the feature
         :param pulumi.Input[_builtins.str] filter_condition: The filter condition applied to the source data before aggregation
+        :param pulumi.Input['FeatureEngineeringFeatureLineageContextArgs'] lineage_context: WARNING: This field is primarily intended for internal use by Databricks systems and
+               is automatically populated when features are created through Databricks notebooks or jobs.
+               Users should not manually set this field as incorrect values may lead to inaccurate lineage tracking or unexpected behavior.
+               This field will be set by feature-engineering client and should be left unset by SDK and terraform users
+        :param pulumi.Input['FeatureEngineeringFeatureProviderConfigArgs'] provider_config: Configure the provider for management through account provider.
         :param pulumi.Input['FeatureEngineeringFeatureTimeWindowArgs'] time_window: The time window in which the feature is computed
         """
         pulumi.set(__self__, "full_name", full_name)
@@ -49,6 +55,8 @@ class FeatureEngineeringFeatureArgs:
             pulumi.set(__self__, "filter_condition", filter_condition)
         if lineage_context is not None:
             pulumi.set(__self__, "lineage_context", lineage_context)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
         if time_window is not None:
             pulumi.set(__self__, "time_window", time_window)
 
@@ -127,11 +135,29 @@ class FeatureEngineeringFeatureArgs:
     @_builtins.property
     @pulumi.getter(name="lineageContext")
     def lineage_context(self) -> Optional[pulumi.Input['FeatureEngineeringFeatureLineageContextArgs']]:
+        """
+        WARNING: This field is primarily intended for internal use by Databricks systems and
+        is automatically populated when features are created through Databricks notebooks or jobs.
+        Users should not manually set this field as incorrect values may lead to inaccurate lineage tracking or unexpected behavior.
+        This field will be set by feature-engineering client and should be left unset by SDK and terraform users
+        """
         return pulumi.get(self, "lineage_context")
 
     @lineage_context.setter
     def lineage_context(self, value: Optional[pulumi.Input['FeatureEngineeringFeatureLineageContextArgs']]):
         pulumi.set(self, "lineage_context", value)
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional[pulumi.Input['FeatureEngineeringFeatureProviderConfigArgs']]:
+        """
+        Configure the provider for management through account provider.
+        """
+        return pulumi.get(self, "provider_config")
+
+    @provider_config.setter
+    def provider_config(self, value: Optional[pulumi.Input['FeatureEngineeringFeatureProviderConfigArgs']]):
+        pulumi.set(self, "provider_config", value)
 
     @_builtins.property
     @pulumi.getter(name="timeWindow")
@@ -155,6 +181,7 @@ class _FeatureEngineeringFeatureState:
                  function: Optional[pulumi.Input['FeatureEngineeringFeatureFunctionArgs']] = None,
                  inputs: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  lineage_context: Optional[pulumi.Input['FeatureEngineeringFeatureLineageContextArgs']] = None,
+                 provider_config: Optional[pulumi.Input['FeatureEngineeringFeatureProviderConfigArgs']] = None,
                  source: Optional[pulumi.Input['FeatureEngineeringFeatureSourceArgs']] = None,
                  time_window: Optional[pulumi.Input['FeatureEngineeringFeatureTimeWindowArgs']] = None):
         """
@@ -164,6 +191,11 @@ class _FeatureEngineeringFeatureState:
         :param pulumi.Input[_builtins.str] full_name: The full three-part name (catalog, schema, name) of the feature
         :param pulumi.Input['FeatureEngineeringFeatureFunctionArgs'] function: The function by which the feature is computed
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] inputs: The input columns from which the feature is computed
+        :param pulumi.Input['FeatureEngineeringFeatureLineageContextArgs'] lineage_context: WARNING: This field is primarily intended for internal use by Databricks systems and
+               is automatically populated when features are created through Databricks notebooks or jobs.
+               Users should not manually set this field as incorrect values may lead to inaccurate lineage tracking or unexpected behavior.
+               This field will be set by feature-engineering client and should be left unset by SDK and terraform users
+        :param pulumi.Input['FeatureEngineeringFeatureProviderConfigArgs'] provider_config: Configure the provider for management through account provider.
         :param pulumi.Input['FeatureEngineeringFeatureSourceArgs'] source: The data source of the feature
         :param pulumi.Input['FeatureEngineeringFeatureTimeWindowArgs'] time_window: The time window in which the feature is computed
         """
@@ -179,6 +211,8 @@ class _FeatureEngineeringFeatureState:
             pulumi.set(__self__, "inputs", inputs)
         if lineage_context is not None:
             pulumi.set(__self__, "lineage_context", lineage_context)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
         if source is not None:
             pulumi.set(__self__, "source", source)
         if time_window is not None:
@@ -247,11 +281,29 @@ class _FeatureEngineeringFeatureState:
     @_builtins.property
     @pulumi.getter(name="lineageContext")
     def lineage_context(self) -> Optional[pulumi.Input['FeatureEngineeringFeatureLineageContextArgs']]:
+        """
+        WARNING: This field is primarily intended for internal use by Databricks systems and
+        is automatically populated when features are created through Databricks notebooks or jobs.
+        Users should not manually set this field as incorrect values may lead to inaccurate lineage tracking or unexpected behavior.
+        This field will be set by feature-engineering client and should be left unset by SDK and terraform users
+        """
         return pulumi.get(self, "lineage_context")
 
     @lineage_context.setter
     def lineage_context(self, value: Optional[pulumi.Input['FeatureEngineeringFeatureLineageContextArgs']]):
         pulumi.set(self, "lineage_context", value)
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional[pulumi.Input['FeatureEngineeringFeatureProviderConfigArgs']]:
+        """
+        Configure the provider for management through account provider.
+        """
+        return pulumi.get(self, "provider_config")
+
+    @provider_config.setter
+    def provider_config(self, value: Optional[pulumi.Input['FeatureEngineeringFeatureProviderConfigArgs']]):
+        pulumi.set(self, "provider_config", value)
 
     @_builtins.property
     @pulumi.getter
@@ -290,31 +342,12 @@ class FeatureEngineeringFeature(pulumi.CustomResource):
                  function: Optional[pulumi.Input[Union['FeatureEngineeringFeatureFunctionArgs', 'FeatureEngineeringFeatureFunctionArgsDict']]] = None,
                  inputs: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  lineage_context: Optional[pulumi.Input[Union['FeatureEngineeringFeatureLineageContextArgs', 'FeatureEngineeringFeatureLineageContextArgsDict']]] = None,
+                 provider_config: Optional[pulumi.Input[Union['FeatureEngineeringFeatureProviderConfigArgs', 'FeatureEngineeringFeatureProviderConfigArgsDict']]] = None,
                  source: Optional[pulumi.Input[Union['FeatureEngineeringFeatureSourceArgs', 'FeatureEngineeringFeatureSourceArgsDict']]] = None,
                  time_window: Optional[pulumi.Input[Union['FeatureEngineeringFeatureTimeWindowArgs', 'FeatureEngineeringFeatureTimeWindowArgsDict']]] = None,
                  __props__=None):
         """
         [![Private Preview](https://img.shields.io/badge/Release_Stage-Private_Preview-blueviolet)](https://docs.databricks.com/aws/en/release-notes/release-types)
-
-        ## Import
-
-        As of Pulumi v1.5, resources can be imported through configuration.
-
-        hcl
-
-        import {
-
-          id = "full_name"
-
-          to = databricks_feature_engineering_feature.this
-
-        }
-
-        If you are using an older version of Pulumi, import the resource using the `pulumi import` command as follows:
-
-        ```sh
-        $ pulumi import databricks:index/featureEngineeringFeature:FeatureEngineeringFeature this "full_name"
-        ```
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -323,6 +356,11 @@ class FeatureEngineeringFeature(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] full_name: The full three-part name (catalog, schema, name) of the feature
         :param pulumi.Input[Union['FeatureEngineeringFeatureFunctionArgs', 'FeatureEngineeringFeatureFunctionArgsDict']] function: The function by which the feature is computed
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] inputs: The input columns from which the feature is computed
+        :param pulumi.Input[Union['FeatureEngineeringFeatureLineageContextArgs', 'FeatureEngineeringFeatureLineageContextArgsDict']] lineage_context: WARNING: This field is primarily intended for internal use by Databricks systems and
+               is automatically populated when features are created through Databricks notebooks or jobs.
+               Users should not manually set this field as incorrect values may lead to inaccurate lineage tracking or unexpected behavior.
+               This field will be set by feature-engineering client and should be left unset by SDK and terraform users
+        :param pulumi.Input[Union['FeatureEngineeringFeatureProviderConfigArgs', 'FeatureEngineeringFeatureProviderConfigArgsDict']] provider_config: Configure the provider for management through account provider.
         :param pulumi.Input[Union['FeatureEngineeringFeatureSourceArgs', 'FeatureEngineeringFeatureSourceArgsDict']] source: The data source of the feature
         :param pulumi.Input[Union['FeatureEngineeringFeatureTimeWindowArgs', 'FeatureEngineeringFeatureTimeWindowArgsDict']] time_window: The time window in which the feature is computed
         """
@@ -334,26 +372,6 @@ class FeatureEngineeringFeature(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         [![Private Preview](https://img.shields.io/badge/Release_Stage-Private_Preview-blueviolet)](https://docs.databricks.com/aws/en/release-notes/release-types)
-
-        ## Import
-
-        As of Pulumi v1.5, resources can be imported through configuration.
-
-        hcl
-
-        import {
-
-          id = "full_name"
-
-          to = databricks_feature_engineering_feature.this
-
-        }
-
-        If you are using an older version of Pulumi, import the resource using the `pulumi import` command as follows:
-
-        ```sh
-        $ pulumi import databricks:index/featureEngineeringFeature:FeatureEngineeringFeature this "full_name"
-        ```
 
         :param str resource_name: The name of the resource.
         :param FeatureEngineeringFeatureArgs args: The arguments to use to populate this resource's properties.
@@ -376,6 +394,7 @@ class FeatureEngineeringFeature(pulumi.CustomResource):
                  function: Optional[pulumi.Input[Union['FeatureEngineeringFeatureFunctionArgs', 'FeatureEngineeringFeatureFunctionArgsDict']]] = None,
                  inputs: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  lineage_context: Optional[pulumi.Input[Union['FeatureEngineeringFeatureLineageContextArgs', 'FeatureEngineeringFeatureLineageContextArgsDict']]] = None,
+                 provider_config: Optional[pulumi.Input[Union['FeatureEngineeringFeatureProviderConfigArgs', 'FeatureEngineeringFeatureProviderConfigArgsDict']]] = None,
                  source: Optional[pulumi.Input[Union['FeatureEngineeringFeatureSourceArgs', 'FeatureEngineeringFeatureSourceArgsDict']]] = None,
                  time_window: Optional[pulumi.Input[Union['FeatureEngineeringFeatureTimeWindowArgs', 'FeatureEngineeringFeatureTimeWindowArgsDict']]] = None,
                  __props__=None):
@@ -399,6 +418,7 @@ class FeatureEngineeringFeature(pulumi.CustomResource):
                 raise TypeError("Missing required property 'inputs'")
             __props__.__dict__["inputs"] = inputs
             __props__.__dict__["lineage_context"] = lineage_context
+            __props__.__dict__["provider_config"] = provider_config
             if source is None and not opts.urn:
                 raise TypeError("Missing required property 'source'")
             __props__.__dict__["source"] = source
@@ -419,6 +439,7 @@ class FeatureEngineeringFeature(pulumi.CustomResource):
             function: Optional[pulumi.Input[Union['FeatureEngineeringFeatureFunctionArgs', 'FeatureEngineeringFeatureFunctionArgsDict']]] = None,
             inputs: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
             lineage_context: Optional[pulumi.Input[Union['FeatureEngineeringFeatureLineageContextArgs', 'FeatureEngineeringFeatureLineageContextArgsDict']]] = None,
+            provider_config: Optional[pulumi.Input[Union['FeatureEngineeringFeatureProviderConfigArgs', 'FeatureEngineeringFeatureProviderConfigArgsDict']]] = None,
             source: Optional[pulumi.Input[Union['FeatureEngineeringFeatureSourceArgs', 'FeatureEngineeringFeatureSourceArgsDict']]] = None,
             time_window: Optional[pulumi.Input[Union['FeatureEngineeringFeatureTimeWindowArgs', 'FeatureEngineeringFeatureTimeWindowArgsDict']]] = None) -> 'FeatureEngineeringFeature':
         """
@@ -433,6 +454,11 @@ class FeatureEngineeringFeature(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] full_name: The full three-part name (catalog, schema, name) of the feature
         :param pulumi.Input[Union['FeatureEngineeringFeatureFunctionArgs', 'FeatureEngineeringFeatureFunctionArgsDict']] function: The function by which the feature is computed
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] inputs: The input columns from which the feature is computed
+        :param pulumi.Input[Union['FeatureEngineeringFeatureLineageContextArgs', 'FeatureEngineeringFeatureLineageContextArgsDict']] lineage_context: WARNING: This field is primarily intended for internal use by Databricks systems and
+               is automatically populated when features are created through Databricks notebooks or jobs.
+               Users should not manually set this field as incorrect values may lead to inaccurate lineage tracking or unexpected behavior.
+               This field will be set by feature-engineering client and should be left unset by SDK and terraform users
+        :param pulumi.Input[Union['FeatureEngineeringFeatureProviderConfigArgs', 'FeatureEngineeringFeatureProviderConfigArgsDict']] provider_config: Configure the provider for management through account provider.
         :param pulumi.Input[Union['FeatureEngineeringFeatureSourceArgs', 'FeatureEngineeringFeatureSourceArgsDict']] source: The data source of the feature
         :param pulumi.Input[Union['FeatureEngineeringFeatureTimeWindowArgs', 'FeatureEngineeringFeatureTimeWindowArgsDict']] time_window: The time window in which the feature is computed
         """
@@ -446,6 +472,7 @@ class FeatureEngineeringFeature(pulumi.CustomResource):
         __props__.__dict__["function"] = function
         __props__.__dict__["inputs"] = inputs
         __props__.__dict__["lineage_context"] = lineage_context
+        __props__.__dict__["provider_config"] = provider_config
         __props__.__dict__["source"] = source
         __props__.__dict__["time_window"] = time_window
         return FeatureEngineeringFeature(resource_name, opts=opts, __props__=__props__)
@@ -493,7 +520,21 @@ class FeatureEngineeringFeature(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter(name="lineageContext")
     def lineage_context(self) -> pulumi.Output[Optional['outputs.FeatureEngineeringFeatureLineageContext']]:
+        """
+        WARNING: This field is primarily intended for internal use by Databricks systems and
+        is automatically populated when features are created through Databricks notebooks or jobs.
+        Users should not manually set this field as incorrect values may lead to inaccurate lineage tracking or unexpected behavior.
+        This field will be set by feature-engineering client and should be left unset by SDK and terraform users
+        """
         return pulumi.get(self, "lineage_context")
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> pulumi.Output[Optional['outputs.FeatureEngineeringFeatureProviderConfig']]:
+        """
+        Configure the provider for management through account provider.
+        """
+        return pulumi.get(self, "provider_config")
 
     @_builtins.property
     @pulumi.getter

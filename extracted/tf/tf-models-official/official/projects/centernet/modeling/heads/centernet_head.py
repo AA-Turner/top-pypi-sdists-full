@@ -1,4 +1,4 @@
-# Copyright 2024 The TensorFlow Authors. All Rights Reserved.
+# Copyright 2025 The TensorFlow Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -102,4 +102,4 @@ class CenterNetHead(tf_keras.Model):
   @property
   def output_specs(self) -> Mapping[str, tf.TensorShape]:
     """A dict of {level: TensorShape} pairs for the model output."""
-    return self._output_specs
+    return self._output_specs  # pytype: disable=bad-return-type

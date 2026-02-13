@@ -1,13 +1,11 @@
 import click
 
-from adam.commands import extract_trailing_options
 from adam.commands.command import Command
 from adam.commands.command_helpers import ClusterOrPodCommandHelper
 from adam.commands.cql.completions_c import completions_c
 from adam.repl_state import ReplState, RequiredState
 from adam.utils_log import log
 from adam.utils_cassandra.pod_service import cassandra
-from adam.utils_context import Context
 
 class Cqlsh(Command):
     COMMAND = 'cql'
@@ -27,14 +25,17 @@ class Cqlsh(Command):
     def command(self):
         return Cqlsh.COMMAND
 
+    def backgrounable(self):
+        return True
+
     def run(self, cmd: str, state: ReplState):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with extract_trailing_options(args, '&') as (args, background):
+            with self.context(args) as (args, ctx):
                 with cassandra(state) as pods:
-                    pods.cql(args, ctx=self.context().copy(background=background, history=Context.PODS))
+                    pods.cql(args, ctx=ctx)
 
     def completion(self, state: ReplState) -> dict[str, any]:
         if state.device != state.C:
@@ -46,7 +47,7 @@ class Cqlsh(Command):
         return {}
 
     def help(self, state: ReplState) -> str:
-        return super().help(state, 'run cqlsh with queries', command='[cql] <cql-statement>;...', args='[&]')
+        return super().help(state, 'run cqlsh with queries', command='<cql-statement>;...')
 
 class CqlCommandHelper(click.Command):
     def get_help(self, ctx: click.Context):

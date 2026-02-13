@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import asyncio
 import math
 import time
 from datetime import datetime, timedelta
 
+import anyio
 import pytest
 
 from coredis import PureToken, Redis
+from coredis._concurrency import gather
 from tests.conftest import module_targets
 
 
@@ -137,7 +138,7 @@ class TestTimeseries:
     async def test_incrby(self, client: Redis, _s):
         for _ in range(100):
             assert await client.timeseries.incrby("ts1", 1)
-            await asyncio.sleep(0.001)
+            await anyio.sleep(0.001)
         assert 100 == (await client.timeseries.get("ts1"))[1]
 
         assert await client.timeseries.incrby("ts2", 1.5, timestamp=5)
@@ -170,7 +171,7 @@ class TestTimeseries:
     async def test_decrby(self, client: Redis, _s):
         for _ in range(100):
             assert await client.timeseries.decrby("ts1", 1)
-            await asyncio.sleep(0.001)
+            await anyio.sleep(0.001)
         assert -100 == (await client.timeseries.get("ts1"))[1]
 
         assert await client.timeseries.decrby("ts2", 1.5, timestamp=5)
@@ -229,6 +230,26 @@ class TestTimeseries:
         await client.timeseries.deleterule("ts1{a}", "ts3{a}")
         info = await client.timeseries.info("ts1{a}")
         assert not info[_s("rules")]
+
+    @pytest.mark.min_module_version("timeseries", "8.5")
+    async def test_count_all(self, client: Redis):
+        await client.timeseries.create("ts1{a}")
+        await client.timeseries.create("ts2{a}")
+        await client.timeseries.create("ts3{a}")
+        await client.timeseries.createrule("ts1{a}", "ts2{a}", PureToken.COUNTALL, 50)
+        await client.timeseries.createrule("ts1{a}", "ts3{a}", PureToken.COUNTNAN, 50)
+
+        await client.timeseries.add("ts1{a}", 10, 10)
+        await client.timeseries.add("ts1{a}", 20, math.nan)
+        await client.timeseries.add("ts1{a}", 30, 20)
+        await client.timeseries.add("ts1{a}", 40, 20)
+        await client.timeseries.add("ts1{a}", 50, 20)
+        assert ((0, 4.0), (50, 1.0)) == await client.timeseries.range(
+            "ts1{a}", 0, 50, aggregator=PureToken.COUNTALL, bucketduration=50
+        )
+
+        assert (0, 4.0) == await client.timeseries.get("ts2{a}")
+        assert (0, 1.0) == await client.timeseries.get("ts3{a}")
 
     async def test_del_range(self, client: Redis):
         try:
@@ -719,8 +740,10 @@ class TestTimeseries:
 
     @pytest.mark.parametrize("transaction", [True, False])
     async def test_pipeline(self, client: Redis, transaction: bool):
-        p = await client.pipeline(transaction=transaction)
-        p.timeseries.create("ts")
-        p.timeseries.add("ts", 1, 1)
-        p.timeseries.get("ts")
-        assert (True, 1, (1, 1.0)) == await p.execute()
+        async with client.pipeline(transaction=transaction) as p:
+            results = [
+                p.timeseries.create("ts"),
+                p.timeseries.add("ts", 1, 1),
+                p.timeseries.get("ts"),
+            ]
+        assert await gather(*results) == (True, 1, (1, 1.0))

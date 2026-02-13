@@ -94,7 +94,7 @@ def get_header_patterns(
     key: str,
 ) -> tuple[list[re.Pattern[str]] | None, list[re.Pattern[str]] | None]:
     """Get the configured header include/exclude patterns."""
-    from langgraph_api import config
+    from langgraph_api import config  # noqa: PLC0415
 
     if not config.HTTP_CONFIG:
         return None, None

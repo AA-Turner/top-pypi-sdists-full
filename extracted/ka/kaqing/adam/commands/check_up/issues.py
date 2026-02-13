@@ -1,10 +1,8 @@
 from adam.checks.check_result import CheckResult
 from adam.checks.check_utils import run_checks
-from adam.commands import extract_options
 from adam.commands.command import Command
 from adam.repl_state import ReplState
 from adam.utils_cassandra.cassandra_status import CassandraStatus
-from adam.utils_context import Context
 from adam.commands.check_up.utils_issues import IssuesUtils
 
 class Issues(Command):
@@ -30,17 +28,17 @@ class Issues(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            ctx = self.context(show_out=False)
-            results = run_checks(state.sts,
-                                    state.namespace,
-                                    state.pod,
-                                    status=CassandraStatus.snapshot(state, ctx=ctx),
-                                    ctx=ctx)
+            with self.context(args) as (_, ctx):
+                results = run_checks(state.sts,
+                                     state.namespace,
+                                     state.pod,
+                                     status=CassandraStatus.snapshot(state, ctx=ctx.copy(show_out=False)),
+                                     ctx=ctx.copy(show_out=False))
 
-            issues = CheckResult.collect_issues(results)
-            IssuesUtils.show_issues(issues, in_repl=state.in_repl)
+                issues = CheckResult.collect_issues(results)
+                IssuesUtils.show_issues(issues, in_repl=state.in_repl, ctx=ctx)
 
-            return issues if issues else 'issues'
+                return state
 
     def completion(self, state: ReplState):
         return super().completion(state)

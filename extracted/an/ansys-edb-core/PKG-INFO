@@ -1,21 +1,22 @@
 Metadata-Version: 2.4
 Name: ansys-edb-core
-Version: 0.2.5
+Version: 0.2.6
 Summary: A python wrapper for Ansys Edb service
 Author-email: "ANSYS, Inc." <pyansys.support@ansys.com>
 Maintainer-email: PyAnsys developers <pyansys.maintainers@ansys.com>
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 License-File: LICENSE
-Requires-Dist: ansys-api-edb==0.2.1
+Requires-Dist: ansys-api-edb==0.2.2
 Requires-Dist: protobuf>=3.19.3
 Requires-Dist: grpcio>=1.44.0
 Requires-Dist: Django>=4.2.16

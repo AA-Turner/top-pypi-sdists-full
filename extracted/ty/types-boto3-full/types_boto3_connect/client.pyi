@@ -667,6 +667,7 @@ from .type_defs import (
     UpdateTaskTemplateResponseTypeDef,
     UpdateTestCaseRequestTypeDef,
     UpdateTrafficDistributionRequestTypeDef,
+    UpdateUserConfigRequestTypeDef,
     UpdateUserHierarchyGroupNameRequestTypeDef,
     UpdateUserHierarchyRequestTypeDef,
     UpdateUserHierarchyStructureRequestTypeDef,
@@ -4225,6 +4226,17 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_traffic_distribution.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#update_traffic_distribution)
+        """
+
+    def update_user_config(
+        self, **kwargs: Unpack[UpdateUserConfigRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Updates the configuration settings for the specified user, including
+        per-channel auto-accept and after contact work (ACW) timeout settings.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_user_config.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#update_user_config)
         """
 
     def update_user_hierarchy(

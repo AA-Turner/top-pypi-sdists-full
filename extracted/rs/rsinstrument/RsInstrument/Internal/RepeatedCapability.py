@@ -16,6 +16,7 @@ VALUE_SKIP_HEADER = -3
 CMD_VALUE_SKIP_HEADER = "%SKIP_HEADER%"
 
 
+# noinspection PyTypeChecker
 class RepeatedCapability(object):
 	"""Represents Repeated Capability value and type"""
 

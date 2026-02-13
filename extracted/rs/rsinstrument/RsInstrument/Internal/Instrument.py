@@ -596,12 +596,49 @@ class Instrument(object):
 				self._log_end_segment()
 			return opc
 
+	def query_syst_error(self, include_code: bool = True, enable_log: bool = True) -> str | Tuple[int, str] | None:
+		"""Returns the last error in the instrument's error queue. If no error is present, the return value is None.
+			- If include_code is False, you get a string with message only.
+			- If include_code is True, you get a Tuple (code: int, message: str)"""
+		with self._lock:
+			log_info = 'Query system error'
+			if enable_log:
+				if self._start_time is None:
+					self._start_time = datetime.now()
+			try:
+				self.start_send_read_event('SYST:ERROR?', False)
+				error = self._session.query_syst_error()
+				self.end_send_read_event()
+				if error is not None:
+					if include_code:
+						entry = f"{error[0]},'{error[1]}'"
+					else:
+						error = error[1]
+						entry = error
+
+				# Log error as string
+				if enable_log:
+					if error is None:
+						self._log_info(log_info, 'No errors', 'SYST:ERROR?')
+					else:
+						self._log_info(log_info, f'Error detected - {entry}', 'SYST:ERROR?')
+
+			except RsInstrException as e:
+				# General errors: log the exception message
+				if enable_log:
+					self._log_exception(e, 'SYST:ERROR?', log_info, start_time=self._start_time, end_time=datetime.now())
+				raise
+
+			except VisaIOError as e:
+				e.source = 'query_syst_error'
+				raise e
+
+			return error
+
 	def query_all_syst_errors(self, include_codes: bool = True, enable_log: bool = True) -> List[str] | List[Tuple[int, str]] | None:
-		"""Returns all errors in the instrument's error queue. If no error is detected, the return value is None.
-		If include_codes is False:
-			- you get List of strings with messages.
-		If include_codes is True:
-			- you get List of Tuples (code, message)"""
+		"""Returns all errors in the instrument's error queue. If no error is present, the return value is None.
+			- If include_codes is False, you get List of strings with messages.
+			- If include_codes is True, you get List of Tuples (code, message)"""
 		with self._lock:
 			log_info = 'Query all system errors'
 			if enable_log:
@@ -613,11 +650,12 @@ class Instrument(object):
 				self.end_send_read_event()
 				if errors is not None:
 					if include_codes:
-						entries = [f"{x[1]},'{x[0]}'" for x in errors]
+						entries = [f"{x[0]},'{x[1]}'" for x in errors]
 					else:
 						errors = [x[1] for x in errors]
 						entries = errors
-				# Return errors as list of strings
+
+				# Log errors as list of strings
 				if enable_log:
 					if errors is None or len(errors) == 0:
 						self._log_info(log_info, 'No errors', 'SYST:ERROR?')
@@ -698,7 +736,7 @@ class Instrument(object):
 			self.visa_timeout = timeout
 		try:
 			with self._lock:
-				self.write(self._settings.cmd_reset, True)
+				self.write(self._settings.cmd_reset, block_callback=True)
 				self.query_opc()
 				self.clear_status()
 				self._log_start_segment()
@@ -708,7 +746,7 @@ class Instrument(object):
 			if old_tout > 0:
 				self.visa_timeout = old_tout
 
-	def write(self, cmd: str, block_callback: bool = False, log_info: str = 'Write') -> None:
+	def write(self, cmd: str, block_callback: bool = False, log_info: str = 'Write', block_check_status: bool = False) -> None:
 		"""Writes string command to the instrument."""
 		if self.each_cmd_as_query:
 			self.query_str(cmd, block_callback, log_info)
@@ -725,7 +763,8 @@ class Instrument(object):
 				if self.on_write_handler:
 					self.send_write_str_event(cmd, False)
 				self._log_info(log_info, cmd, cmd)
-				self.check_status()
+				if not block_check_status:
+					self.check_status()
 			except RsInstrException as e:
 				self._log_exception(e, cmd, log_info)
 				raise
@@ -774,6 +813,26 @@ class Instrument(object):
 			self.write_with_opc(cmd, timeout, log_info='Write structure with OPC')
 
 	# noinspection PyTypeChecker
+	def read_str(self, log_info: str = 'Read', block_check_status: bool = False) -> str:
+		"""Reads response from the instrument without sending any query.
+		The response is trimmed of any trailing LF characters and has no length limit."""
+		with self._lock:
+			try:
+				self._log_start_segment()
+				self.start_send_read_event("<No_Query>", False)
+				response = self._session.read_str()
+				self.end_send_read_event()
+				self._log_info(log_info, response, None)
+				if not block_check_status:
+					self.check_status()
+			except RsInstrException as e:
+				self._log_exception(e, None, log_info)
+				raise
+			finally:
+				self._log_end_segment()
+			return response
+
+	# noinspection PyTypeChecker
 	def query_str(self, query: str, block_callback: bool = False, log_info: str = 'Query') -> str:
 		"""Sends a query and reads response from the instrument.
 		The response is trimmed of any trailing LF characters and has no length limit."""
@@ -818,6 +877,24 @@ class Instrument(object):
 			finally:
 				self._log_end_segment()
 			return response
+
+	def read_all_bytes(self, log_info: str = 'Read all bytes') -> bytes:
+		"""Reads all the data of unknown length from the instrument as bytes."""
+		with StreamWriter.as_bin_var() as stream:
+			try:
+				self._log_start_segment()
+				self.start_send_read_event("Read", False)
+				self._session.read_all_bytes(stream)
+				self.end_send_read_event()
+				content = stream.content
+				self._log_info_var_stream(f'{log_info}, received', stream.binary, content, None)
+				self.check_status()
+			except RsInstrException as e:
+				self._log_exception(e, None, log_info)
+				raise
+			finally:
+				self._log_end_segment()
+			return content
 
 	# noinspection PyTypeChecker
 	def query_bin_block(self, query: str, log_info: str = 'Query binary block') -> bytes:
@@ -1014,6 +1091,10 @@ class Instrument(object):
 				string = 'True,False,0,1,1,True,true,false,true,false'
 			response = Conv.str_to_bool_list(string)
 			return response
+
+	def write_raw_bytes(self, data: bytes) -> None:
+		"""Writes raw bytes to the instrument, there is no adding of header or terminator."""
+		self._session.write_raw_bytes(data)
 
 	def write_bin_block(self, cmd: str, payload: bytes, log_info: str = 'Write binary block') -> None:
 		"""Writes all the payload as binary data block to the instrument.

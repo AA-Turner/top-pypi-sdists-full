@@ -24,6 +24,9 @@ from snowflake.snowpark.types import (
 # from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 # from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 
+# Package name for telemetry
+TELEMETRY_PACKAGE = "snowflake-telemetry-python"
+
 
 # DUPLICATED CODE from udtf_utils.py to avoid incorrect loading for stored procedure UDTF creation
 def process_dependencies_string_array(input_str: str) -> list[str]:
@@ -225,7 +228,9 @@ def create_pandas_udtf(
         + ["_DUMMY_PARTITION_KEY"],
         name="map_pandas_udtf",
         replace=True,
-        packages=process_udtf_packages(udtf_packages, custom_packages=["pandas"]),
+        packages=process_udtf_packages(
+            udtf_packages, custom_packages=["pandas", TELEMETRY_PACKAGE]
+        ),
         imports=process_dependencies_string_array(udtf_imports),
         is_permanent=False,
     )
@@ -263,7 +268,9 @@ def create_pandas_udtf_with_arrow(
         name="mapinarrow_udtf",
         replace=True,
         packages=process_udtf_packages(
-            udtf_packages, is_arrow_enabled=True, custom_packages=["pandas"]
+            udtf_packages,
+            is_arrow_enabled=True,
+            custom_packages=["pandas", TELEMETRY_PACKAGE],
         ),
         imports=process_dependencies_string_array(udtf_imports),
         is_permanent=False,
@@ -419,7 +426,9 @@ def create_cogroup_pandas_udtf(
         input_names=[VALUE_COL_NAME, SOURCE_COL_NAME],
         name=udtf_name,
         replace=True,
-        packages=process_udtf_packages(udtf_packages, custom_packages=["pandas"]),
+        packages=process_udtf_packages(
+            udtf_packages, custom_packages=["pandas", TELEMETRY_PACKAGE]
+        ),
         imports=process_dependencies_string_array(udtf_imports),
         is_permanent=False,
     )

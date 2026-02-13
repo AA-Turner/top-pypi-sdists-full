@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2023 M. Andersen and L. Vandenberghe.
+ * Copyright 2012-2026 M. Andersen and L. Vandenberghe.
  * Copyright 2010-2011 L. Vandenberghe.
  * Copyright 2004-2009 J. Dahl and L. Vandenberghe.
  *
@@ -176,20 +176,23 @@ static PyObject* solvesdp(PyObject *self, PyObject *args,
         goto done;
     }
 
-    if (opts && PyDict_Check(opts))
+    if (opts && PyDict_Check(opts)) {
+        Py_INCREF(opts);
         param = opts;
+    }
     else
         param = PyObject_GetAttrString(dsdp_module, "options");
     if (!param || !PyDict_Check(param)){
         PyErr_SetString(PyExc_AttributeError, "missing dsdp.options "
             " dictionary");
         t = NULL;
+        Py_XDECREF(param);
         goto done;
     }
     while (PyDict_Next(param, &pos, &key, &value))
 #if PY_MAJOR_VERSION >= 3
 	if (PyUnicode_Check(key)) {
-	    keystr = _PyUnicode_AsString(key);
+	    keystr = PyUnicode_AsUTF8(key);
 #else
         if ((keystr = PyString_AsString(key))){
 #endif

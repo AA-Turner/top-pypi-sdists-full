@@ -39,7 +39,10 @@ class TestAgentMetadataResponse(unittest.TestCase):
                 gcp_metadata = arthur_client.api_bindings.models.gcp_agent_metadata_response.GCPAgentMetadataResponse(
                     project_id = '', 
                     region = '', 
-                    resource_id = '', )
+                    resource_id = '', ),
+                service_names = [
+                    ''
+                    ]
             )
         else:
             return AgentMetadataResponse(

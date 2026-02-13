@@ -27,3 +27,5 @@ from snowflake.core.compute_pool._generated.models.compute_pool_instance_family 
 from snowflake.core.compute_pool._generated.models.error_response import ErrorResponse
 from snowflake.core.compute_pool._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.compute_pool._generated.models.success_response import SuccessResponse
+from snowflake.core.compute_pool._generated.models.tag_assignment import TagAssignment
+from snowflake.core.compute_pool._generated.models.tag_reference import TagReference

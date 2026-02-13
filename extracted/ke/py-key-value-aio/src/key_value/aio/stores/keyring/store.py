@@ -2,14 +2,14 @@
 
 import os
 
-from key_value.shared.errors.key_value import ValueTooLargeError
-from key_value.shared.utils.compound import compound_key
-from key_value.shared.utils.managed_entry import ManagedEntry
-from key_value.shared.utils.sanitization import HybridSanitizationStrategy, SanitizationStrategy
-from key_value.shared.utils.sanitize import ALPHANUMERIC_CHARACTERS
 from typing_extensions import override
 
 from key_value.aio.stores.base import BaseStore
+from key_value.shared.compound import compound_key
+from key_value.shared.errors import ValueTooLargeError
+from key_value.shared.managed_entry import ManagedEntry
+from key_value.shared.sanitization import HybridSanitizationStrategy, SanitizationStrategy
+from key_value.shared.sanitize import ALPHANUMERIC_CHARACTERS
 
 try:
     import keyring

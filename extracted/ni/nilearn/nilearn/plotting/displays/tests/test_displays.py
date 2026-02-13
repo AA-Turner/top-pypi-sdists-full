@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 from nibabel import Nifti1Image
 
+from nilearn.conftest import check_methods_docstring, check_obj_docstring
 from nilearn.datasets import load_mni152_template
 from nilearn.plotting.displays import (
     BaseAxes,
@@ -33,6 +34,11 @@ from nilearn.plotting.displays import (
     YZSlicer,
     ZProjector,
     ZSlicer,
+)
+from nilearn.plotting.displays._slicers import (
+    BaseSlicer,
+    BaseStackedSlicer,
+    _MultiDSlicer,
 )
 
 SLICER_KEYS = ["ortho", "tiled", "x", "y", "z", "yx", "yz", "mosaic", "xz"]
@@ -151,6 +157,8 @@ def cut_coords(name):
         return (0,) * 2
     if name in ["lyrz", "lyr", "lzr"]:
         return (0,)
+    if name in ["x", "y", "z"]:
+        return [0]
     return (0,) * 4 if name in ["lr", "l"] else (0,) * 3
 
 
@@ -185,11 +193,12 @@ def test_display_basics_projectors(display, name, img, cut_coords):
     display.add_overlay(img, cmap="gray")
     display.title(f"display mode is {name}")
     if name != "mosaic":
-        assert display.cut_coords == cut_coords
+        assert display.cut_coords == (None,) * len(cut_coords)
     assert isinstance(display.frame_axes, matplotlib.axes.Axes)
     display.close()
 
 
+@pytest.mark.thread_unsafe
 @pytest.mark.parametrize(
     "slicer", [XSlicer, YSlicer, ZSlicer, YXSlicer, YZSlicer, XZSlicer]
 )
@@ -203,6 +212,7 @@ def test_stacked_slicer(slicer, img, tmp_path):
     slicer.close()
 
 
+@pytest.mark.thread_unsafe
 @pytest.mark.parametrize("slicer", [OrthoSlicer, TiledSlicer, MosaicSlicer])
 def test_slicer_save_to_file(slicer, img, tmp_path):
     """Tests for saving to file with Ortho/Tiled/Mosaic slicers."""
@@ -230,6 +240,7 @@ def test_mosaic_slicer_integer_cut_coords(cut_coords, img):
     slicer.close()
 
 
+@pytest.mark.thread_unsafe
 @pytest.mark.parametrize("cut_coords", [(4, 5, 2), (1, 1, 1)])
 def test_mosaic_slicer_tuple_cut_coords(cut_coords, img):
     """Tests for MosaicSlicer with cut_coords provided as a tuple."""
@@ -241,6 +252,7 @@ def test_mosaic_slicer_tuple_cut_coords(cut_coords, img):
     slicer.close()
 
 
+@pytest.mark.thread_unsafe
 @pytest.mark.parametrize("cut_coords", [None, 5, (1, 1, 1)])
 def test_mosaic_slicer_img_none_false(cut_coords, img):
     """Tests for MosaicSlicer when img is ``None`` or ``False`` \
@@ -251,16 +263,25 @@ def test_mosaic_slicer_img_none_false(cut_coords, img):
     slicer.close()
 
 
-@pytest.mark.parametrize("cut_coords", [(5, 4), (1, 2, 3, 4)])
+@pytest.mark.parametrize(
+    "cut_coords",
+    [
+        (5, 4),
+        (1, 2, 3, 4),
+        {"x": [3, 5], "y": [3, 6]},
+        {"x": [3, 5], "y": [3, 6], "z": [1, 2], "k": [6, 8, 8]},
+        {"x": [3, 5], "y": [3, 6], "z": 7},
+    ],
+)
 def test_mosaic_slicer_wrong_inputs(cut_coords):
     """Tests that providing wrong inputs raises a ``ValueError``."""
     with pytest.raises(
-        ValueError, match="MosaicSlicer plotting expects a number, list"
+        ValueError, match="MosaicSlicer plotting expects a number, a list"
     ):
         MosaicSlicer.init_with_figure(img=None, cut_coords=cut_coords)
 
     with pytest.raises(
-        ValueError, match="MosaicSlicer plotting expects a number, list"
+        ValueError, match="MosaicSlicer plotting expects a number, a list"
     ):
         MosaicSlicer(img=None, cut_coords=cut_coords)
 
@@ -280,7 +301,13 @@ def expected_cuts(cut_coords):
 
 
 @pytest.mark.parametrize(
-    "cut_coords", [(1, 1, 1), 5, {"x": [10, 20], "y": [30, 40], "z": [15, 16]}]
+    "cut_coords",
+    [
+        (1, 1, 1),
+        5,
+        {"x": [10, 20], "y": [30, 40], "z": [15, 16]},
+        {"x": [10, 20, 20], "y": [30, 40, 40], "z": [15, 15, 16]},
+    ],
 )
 def test_demo_mosaic_slicer(cut_coords, img, expected_cuts):
     """Tests for MosaicSlicer with different cut_coords in constructor."""
@@ -290,6 +317,7 @@ def test_demo_mosaic_slicer(cut_coords, img, expected_cuts):
     slicer.close()
 
 
+@pytest.mark.thread_unsafe
 @pytest.mark.parametrize("projector", PROJECTORS)
 def test_projectors_basic(projector, img, tmp_path):
     """Basic tests for projectors."""
@@ -361,6 +389,7 @@ def test_add_markers_cut_coords_is_none():
     orthoslicer.close()
 
 
+@pytest.mark.thread_unsafe
 def test_annotations():
     """Tests for ``display.annotate()``.
 
@@ -554,6 +583,7 @@ def test_check_cut_coords_in_bounds_error(img_3d_rand_eye, slicer, cut_coords):
         (TiledSlicer, [6, 7, 9]),
         (TiledSlicer, [6, 9, 8]),
         (TiledSlicer, [9, 7, 8]),
+        (MosaicSlicer, {"x": [7, 6], "y": [4, 5, 6], "z": [1, 2, 3]}),
     ],
 )
 def test_slicer_cut_coords_out_of_bounds_warning(
@@ -561,7 +591,7 @@ def test_slicer_cut_coords_out_of_bounds_warning(
 ):
     """Test if nilearn.plotting.displays._slicers._check_cut_coords_in_bounds
     warns when at least one but not all of the elements of cut_coords is out of
-    bounds of the image for corresponding coordinate.
+    bounds of the image for corresponding coordinates.
     """
     # img_3d_rand_eye has bounds:
     # [(0.0, 6.0), (0.0, 7.0), (0.0, 8.0)]
@@ -619,3 +649,59 @@ def test_slicer_sanitize_cut_coords_error(slicer, cut_coords):
     """
     with pytest.raises(ValueError, match="cut_coords passed does not match"):
         slicer._sanitize_cut_coords(cut_coords)
+
+
+@pytest.mark.parametrize(
+    "slicer",
+    [
+        OrthoSlicer((2, 3, 4)),
+        TiledSlicer((3, 4, 5)),
+        XSlicer(1),
+        YSlicer(2),
+        ZSlicer(3),
+        XZSlicer((4, 5)),
+        YXSlicer((2, 3)),
+        YZSlicer((1, 2)),
+        MosaicSlicer((2, 3, 4)),
+    ],
+)
+def test_slicer_docstrings(slicer):
+    """Test if all slicers defined nilearn.plotting.displays._slicers have
+    complete docstrings.
+    """
+    check_obj_docstring(slicer)
+
+
+def test_slicer_base_class_docstrings():
+    """Test if base classes defined nilearn.plotting.displays._slicers have
+    complete docstrings for methods.
+    """
+    check_methods_docstring(BaseSlicer)
+    check_methods_docstring(_MultiDSlicer)
+    check_methods_docstring(BaseStackedSlicer)
+
+
+@pytest.mark.parametrize(
+    "projector",
+    [
+        OrthoProjector,
+        XProjector,
+        YProjector,
+        ZProjector,
+        XZProjector,
+        YXProjector,
+        YZProjector,
+        LYRZProjector,
+        LZRYProjector,
+        LZRProjector,
+        LYRProjector,
+        LRProjector,
+        LProjector,
+        RProjector,
+    ],
+)
+def test_projector_docstrings(projector):
+    """Test if all slicers defined nilearn.plotting.displays._projectors have
+    complete docstrings.
+    """
+    check_obj_docstring(projector((2, 3, 4)))

@@ -186,12 +186,13 @@ class NetworkRuleResourceBase(SchemaObjectReferenceMixin["NetworkRuleCollection"
         Parameters
         __________
         """
-        return self.collection._api.fetch_network_rule(
+        result = self.collection._api.fetch_network_rule(
             self.database.name,
             self.schema.name,
             self._identifier,
             async_req=False,
         )
+        return result
 
     @api_telemetry
     def fetch_async(

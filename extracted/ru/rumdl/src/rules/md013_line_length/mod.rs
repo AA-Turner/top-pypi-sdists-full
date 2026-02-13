@@ -3,15 +3,16 @@
 /// See [docs/md013.md](../../docs/md013.md) for full documentation, configuration, and examples.
 use crate::rule::{LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
 use crate::rule_config_serde::RuleConfig;
+use crate::utils::mkdocs_admonitions;
 use crate::utils::mkdocs_attr_list::is_standalone_attr_list;
 use crate::utils::mkdocs_snippets::is_snippet_block_delimiter;
+use crate::utils::mkdocs_tabs;
 use crate::utils::range_utils::LineIndex;
 use crate::utils::range_utils::calculate_excess_range;
-use crate::utils::regex_cache::{
-    IMAGE_REF_PATTERN, INLINE_LINK_REGEX as MARKDOWN_LINK_PATTERN, LINK_REF_PATTERN, URL_IN_TEXT, URL_PATTERN,
-};
+use crate::utils::regex_cache::{IMAGE_REF_PATTERN, LINK_REF_PATTERN, URL_PATTERN};
 use crate::utils::table_utils::TableUtils;
-use crate::utils::text_reflow::split_into_sentences;
+use crate::utils::text_reflow::{ReflowLengthMode, split_into_sentences};
+use pulldown_cmark::LinkType;
 use toml;
 
 mod helpers;
@@ -54,6 +55,15 @@ impl MD013LineLength {
         Self { config }
     }
 
+    /// Convert MD013 LengthMode to text_reflow ReflowLengthMode
+    fn reflow_length_mode(&self) -> ReflowLengthMode {
+        match self.config.length_mode {
+            LengthMode::Chars => ReflowLengthMode::Chars,
+            LengthMode::Visual => ReflowLengthMode::Visual,
+            LengthMode::Bytes => ReflowLengthMode::Bytes,
+        }
+    }
+
     fn should_ignore_line(
         &self,
         line: &str,
@@ -78,10 +88,8 @@ impl MD013LineLength {
             return true;
         }
 
-        // Only skip if the entire line is a link reference (quick check first)
-        if trimmed.starts_with('[') && trimmed.contains("]:") && LINK_REF_PATTERN.is_match(trimmed) {
-            return true;
-        }
+        // Note: link reference definitions are handled as always-exempt (even in strict mode)
+        // in the main check loop, so they don't need to be checked here.
 
         // Code blocks with long strings (only check if in code block)
         if ctx.line_info(current_line + 1).is_some_and(|info| info.in_code_block)
@@ -102,9 +110,11 @@ impl MD013LineLength {
             return true;
         }
 
-        // For sentence-per-line or normalize mode, never skip based on line length
+        // For sentence-per-line, semantic-line-breaks, or normalize mode, never skip based on line length
         if config.reflow
-            && (config.reflow_mode == ReflowMode::SentencePerLine || config.reflow_mode == ReflowMode::Normalize)
+            && (config.reflow_mode == ReflowMode::SentencePerLine
+                || config.reflow_mode == ReflowMode::SemanticLineBreaks
+                || config.reflow_mode == ReflowMode::Normalize)
         {
             return false;
         }
@@ -159,6 +169,7 @@ impl Rule for MD013LineLength {
                         "default" => ReflowMode::Default,
                         "normalize" => ReflowMode::Normalize,
                         "sentence-per-line" => ReflowMode::SentencePerLine,
+                        "semantic-line-breaks" => ReflowMode::SemanticLineBreaks,
                         _ => ReflowMode::default(),
                     };
                 }
@@ -175,7 +186,8 @@ impl Rule for MD013LineLength {
         if self.should_skip_with_config(ctx, &effective_config)
             && !(effective_config.reflow
                 && (effective_config.reflow_mode == ReflowMode::Normalize
-                    || effective_config.reflow_mode == ReflowMode::SentencePerLine))
+                    || effective_config.reflow_mode == ReflowMode::SentencePerLine
+                    || effective_config.reflow_mode == ReflowMode::SemanticLineBreaks))
         {
             return Ok(Vec::new());
         }
@@ -207,7 +219,8 @@ impl Rule for MD013LineLength {
         if candidate_lines.is_empty()
             && !(effective_config.reflow
                 && (effective_config.reflow_mode == ReflowMode::Normalize
-                    || effective_config.reflow_mode == ReflowMode::SentencePerLine))
+                    || effective_config.reflow_mode == ReflowMode::SentencePerLine
+                    || effective_config.reflow_mode == ReflowMode::SemanticLineBreaks))
         {
             return Ok(warnings);
         }
@@ -241,20 +254,54 @@ impl Rule for MD013LineLength {
             let line_number = line_idx + 1;
             let line = lines[line_idx];
 
-            // Calculate effective length excluding unbreakable URLs
+            // Calculate actual line length (used in warning messages)
             let effective_length = self.calculate_effective_length(line);
 
             // Use single line length limit for all content
             let line_limit = effective_config.line_length.get();
 
-            // Skip short lines immediately (double-check after effective length calculation)
-            if effective_length <= line_limit {
+            // In non-strict mode, forgive the trailing non-whitespace run.
+            // If the line only exceeds the limit because of a long token at the end
+            // (URL, link chain, identifier), it passes. This matches markdownlint's
+            // behavior: line.replace(/\S*$/u, "#")
+            let check_length = if effective_config.strict {
+                effective_length
+            } else {
+                match line.rfind(char::is_whitespace) {
+                    Some(pos) => {
+                        let ws_char = line[pos..].chars().next().unwrap();
+                        let prefix_end = pos + ws_char.len_utf8();
+                        self.calculate_string_length(&line[..prefix_end]) + 1
+                    }
+                    None => 1, // No whitespace — entire line is a single token
+                }
+            };
+
+            // Skip lines where the check length is within the limit
+            if check_length <= line_limit {
                 continue;
+            }
+
+            // Semantic link understanding: suppress when excess comes entirely from inline URLs
+            if !effective_config.strict {
+                let text_only_length = self.calculate_text_only_length(effective_length, line_number, ctx);
+                if text_only_length <= line_limit {
+                    continue;
+                }
             }
 
             // Skip mkdocstrings blocks (already handled by LintContext)
             if ctx.lines[line_idx].in_mkdocstrings {
                 continue;
+            }
+
+            // Link reference definitions are always exempt, even in strict mode.
+            // There's no way to shorten them without breaking the URL.
+            {
+                let trimmed = line.trim();
+                if trimmed.starts_with('[') && trimmed.contains("]:") && LINK_REF_PATTERN.is_match(trimmed) {
+                    continue;
+                }
             }
 
             // Skip various block types efficiently
@@ -271,7 +318,6 @@ impl Rule for MD013LineLength {
                     || (!effective_config.code_blocks
                         && ctx.line_info(line_number).is_some_and(|info| info.in_code_block))
                     || (!effective_config.tables && table_lines_set.contains(&line_number))
-                    || ctx.lines[line_number - 1].blockquote.is_some()
                     || ctx.line_info(line_number).is_some_and(|info| info.in_html_block)
                     || ctx.line_info(line_number).is_some_and(|info| info.in_html_comment)
                     || ctx.line_info(line_number).is_some_and(|info| info.in_esm_block)
@@ -333,6 +379,12 @@ impl Rule for MD013LineLength {
                     continue;
                 }
                 // Multiple sentences will be handled by paragraph-based reflow
+                continue;
+            }
+
+            // In semantic-line-breaks mode, skip per-line checks —
+            // all reflow is handled at the paragraph level with cascading splits
+            if effective_config.reflow_mode == ReflowMode::SemanticLineBreaks {
                 continue;
             }
 
@@ -457,6 +509,7 @@ impl MD013LineLength {
                     || info.in_esm_block
                     || info.in_jsx_expression
                     || info.in_mdx_comment
+                    || info.in_mkdocstrings
             });
 
             if should_skip_due_to_line_info
@@ -466,6 +519,8 @@ impl MD013LineLength {
                 || lines[i].trim().is_empty()
                 || is_horizontal_rule(lines[i].trim())
                 || is_template_directive_only(lines[i])
+                || (lines[i].trim().starts_with('[') && lines[i].contains("]:"))
+                || ctx.line_info(line_num).is_some_and(|info| info.is_div_marker)
             {
                 i += 1;
                 continue;
@@ -473,6 +528,13 @@ impl MD013LineLength {
 
             // Handle MkDocs container content (admonitions and tabs) with indent-preserving reflow
             if ctx.line_info(line_num).is_some_and(|info| info.in_mkdocs_container()) {
+                // Skip admonition/tab marker lines — only reflow their indented content
+                let current_line = lines[i];
+                if mkdocs_admonitions::is_admonition_start(current_line) || mkdocs_tabs::is_tab_marker(current_line) {
+                    i += 1;
+                    continue;
+                }
+
                 let container_start = i;
 
                 // Detect the actual indent level from the first content line
@@ -540,6 +602,14 @@ impl MD013LineLength {
                         let sentences = split_into_sentences(&paragraph_text);
                         sentences.len() > 1 || container_lines.len() > 1
                     }
+                    ReflowMode::SemanticLineBreaks => {
+                        let sentences = split_into_sentences(&paragraph_text);
+                        sentences.len() > 1
+                            || container_lines.len() > 1
+                            || container_lines
+                                .iter()
+                                .any(|line| self.calculate_effective_length(line) > config.line_length.get())
+                    }
                     ReflowMode::Default => container_lines
                         .iter()
                         .any(|line| self.calculate_effective_length(line) > config.line_length.get()),
@@ -570,7 +640,9 @@ impl MD013LineLength {
                     break_on_sentences: true,
                     preserve_breaks: false,
                     sentence_per_line: config.reflow_mode == ReflowMode::SentencePerLine,
+                    semantic_line_breaks: config.reflow_mode == ReflowMode::SemanticLineBreaks,
                     abbreviations: config.abbreviations_for_reflow(),
+                    length_mode: self.reflow_length_mode(),
                 };
                 let reflowed = crate::utils::text_reflow::reflow_line(&paragraph_text, &reflow_options);
 
@@ -648,6 +720,7 @@ impl MD013LineLength {
                     NestedListItem(String, usize), // full line content and original indent
                     SemanticLine(String),          // Lines starting with NOTE:, WARNING:, etc that should stay separate
                     SnippetLine(String),           // MkDocs Snippets delimiters (-8<-) that must stay on their own line
+                    DivMarker(String),             // Quarto/Pandoc div markers (::: opening or closing)
                     Empty,
                 }
 
@@ -743,9 +816,14 @@ impl MD013LineLength {
                             // See: https://github.com/rvben/rumdl/issues/76
                             let content = trim_preserving_hard_break(&line_info.content(ctx.content)[indent..]);
 
+                            // Check if this is a div marker (::: opening or closing)
+                            // These must be preserved on their own line, not merged into paragraphs
+                            if line_info.is_div_marker {
+                                list_item_lines.push(LineType::DivMarker(content));
+                            }
                             // Check if this is a fence marker (opening or closing)
                             // These should be treated as code block lines, not paragraph content
-                            if is_fence_marker(&content) {
+                            else if is_fence_marker(&content) {
                                 list_item_lines.push(LineType::CodeBlock(content, indent));
                             }
                             // Check if this is a semantic line (NOTE:, WARNING:, etc.)
@@ -789,6 +867,7 @@ impl MD013LineLength {
                     NestedList(Vec<(String, usize)>), // (content, indent) pairs for nested list items
                     SemanticLine(String), // Semantic markers like NOTE:, WARNING: that stay on their own line
                     SnippetLine(String),  // MkDocs Snippets delimiter that stays on its own line without extra spacing
+                    DivMarker(String),    // Quarto/Pandoc div marker (::: opening or closing) preserved on its own line
                     Html {
                         lines: Vec<String>,        // HTML content preserved exactly as-is
                         has_preceding_blank: bool, // Whether there was a blank line before this block
@@ -1118,6 +1197,35 @@ impl MD013LineLength {
                             blocks.push(Block::SnippetLine(content.clone()));
                             had_preceding_blank = false;
                         }
+                        LineType::DivMarker(content) => {
+                            // Div markers (::: opening or closing) are standalone structural delimiters
+                            // Flush any current block and add as separate block
+                            if in_code {
+                                blocks.push(Block::Code {
+                                    lines: current_code_block.clone(),
+                                    has_preceding_blank: code_block_has_preceding_blank,
+                                });
+                                current_code_block.clear();
+                                in_code = false;
+                            } else if in_nested_list {
+                                blocks.push(Block::NestedList(current_nested_list.clone()));
+                                current_nested_list.clear();
+                                in_nested_list = false;
+                            } else if in_html_block {
+                                blocks.push(Block::Html {
+                                    lines: current_html_block.clone(),
+                                    has_preceding_blank: html_block_has_preceding_blank,
+                                });
+                                current_html_block.clear();
+                                html_tag_stack.clear();
+                                in_html_block = false;
+                            } else if !current_paragraph.is_empty() {
+                                blocks.push(Block::Paragraph(current_paragraph.clone()));
+                                current_paragraph.clear();
+                            }
+                            blocks.push(Block::DivMarker(content.clone()));
+                            had_preceding_blank = false;
+                        }
                     }
                 }
 
@@ -1165,10 +1273,15 @@ impl MD013LineLength {
                     let has_code_blocks = blocks.iter().any(|b| matches!(b, Block::Code { .. }));
                     let has_semantic_lines = blocks.iter().any(|b| matches!(b, Block::SemanticLine(_)));
                     let has_snippet_lines = blocks.iter().any(|b| matches!(b, Block::SnippetLine(_)));
+                    let has_div_markers = blocks.iter().any(|b| matches!(b, Block::DivMarker(_)));
                     let has_paragraphs = blocks.iter().any(|b| matches!(b, Block::Paragraph(_)));
 
-                    // If we have nested lists, code blocks, semantic lines, or snippet lines but no paragraphs, don't normalize
-                    if (has_nested_lists || has_code_blocks || has_semantic_lines || has_snippet_lines)
+                    // If we have structural blocks but no paragraphs, don't normalize
+                    if (has_nested_lists
+                        || has_code_blocks
+                        || has_semantic_lines
+                        || has_snippet_lines
+                        || has_div_markers)
                         && !has_paragraphs
                     {
                         return false;
@@ -1208,9 +1321,15 @@ impl MD013LineLength {
                         let sentences = split_into_sentences(&combined_content);
                         sentences.len() > 1
                     }
+                    ReflowMode::SemanticLineBreaks => {
+                        let sentences = split_into_sentences(&combined_content);
+                        sentences.len() > 1
+                            || (list_start..i).any(|line_idx| {
+                                self.calculate_effective_length(lines[line_idx]) > config.line_length.get()
+                            })
+                    }
                     ReflowMode::Default => {
                         // In default mode, only reflow if any individual line exceeds limit
-                        // Check the original lines, not the combined content
                         (list_start..i)
                             .any(|line_idx| self.calculate_effective_length(lines[line_idx]) > config.line_length.get())
                     }
@@ -1238,7 +1357,9 @@ impl MD013LineLength {
                         break_on_sentences: true,
                         preserve_breaks: false,
                         sentence_per_line: config.reflow_mode == ReflowMode::SentencePerLine,
+                        semantic_line_breaks: config.reflow_mode == ReflowMode::SemanticLineBreaks,
                         abbreviations: config.abbreviations_for_reflow(),
+                        length_mode: self.reflow_length_mode(),
                     };
 
                     let mut result: Vec<String> = Vec::new();
@@ -1317,8 +1438,8 @@ impl MD013LineLength {
                                         Block::Code {
                                             has_preceding_blank, ..
                                         } => *has_preceding_blank,
-                                        Block::SnippetLine(_) => false, // No blank line before snippet delimiters
-                                        _ => true,                      // For all other blocks, add blank line
+                                        Block::SnippetLine(_) | Block::DivMarker(_) => false,
+                                        _ => true, // For all other blocks, add blank line
                                     };
                                     if should_add_blank {
                                         result.push(String::new());
@@ -1377,8 +1498,8 @@ impl MD013LineLength {
                                         Block::Code {
                                             has_preceding_blank, ..
                                         } => *has_preceding_blank,
-                                        Block::SnippetLine(_) => false, // No blank line before snippet delimiters
-                                        _ => true,                      // For all other blocks, add blank line
+                                        Block::SnippetLine(_) | Block::DivMarker(_) => false,
+                                        _ => true, // For all other blocks, add blank line
                                     };
                                     if should_add_blank {
                                         result.push(String::new());
@@ -1409,8 +1530,8 @@ impl MD013LineLength {
                                         Block::Code {
                                             has_preceding_blank, ..
                                         } => *has_preceding_blank,
-                                        Block::SnippetLine(_) => false, // No blank line before snippet delimiters
-                                        _ => true,                      // For all other blocks, add blank line
+                                        Block::SnippetLine(_) | Block::DivMarker(_) => false,
+                                        _ => true, // For all other blocks, add blank line
                                     };
                                     if should_add_blank {
                                         result.push(String::new());
@@ -1429,6 +1550,15 @@ impl MD013LineLength {
                                     result.push(format!("{expected_indent}{content}"));
                                 }
                                 // No blank lines added before or after snippet delimiters
+                            }
+                            Block::DivMarker(content) => {
+                                // Preserve div markers (::: opening or closing) as-is on their own line
+                                if is_first_block {
+                                    result.push(format!("{marker}{content}"));
+                                    is_first_block = false;
+                                } else {
+                                    result.push(format!("{expected_indent}{content}"));
+                                }
                             }
                             Block::Html {
                                 lines: html_lines,
@@ -1461,8 +1591,8 @@ impl MD013LineLength {
                                         Block::Html {
                                             has_preceding_blank, ..
                                         } => *has_preceding_blank,
-                                        Block::SnippetLine(_) => false, // No blank line before snippet delimiters
-                                        _ => true,                      // For all other blocks, add blank line
+                                        Block::SnippetLine(_) | Block::DivMarker(_) => false,
+                                        _ => true, // For all other blocks, add blank line
                                     };
                                     if should_add_blank {
                                         result.push(String::new());
@@ -1500,6 +1630,10 @@ impl MD013LineLength {
                                         "Paragraph should have one sentence per line (found {num_sentences} sentences across {num_lines} lines)"
                                     )
                                 }
+                            }
+                            ReflowMode::SemanticLineBreaks => {
+                                let num_sentences = split_into_sentences(&combined_content).len();
+                                format!("Paragraph should use semantic line breaks ({num_sentences} sentences)")
                             }
                             ReflowMode::Normalize => {
                                 let combined_length = self.calculate_effective_length(&full_line);
@@ -1574,6 +1708,7 @@ impl MD013LineLength {
                     || is_template_directive_only(next_line)
                     || is_standalone_attr_list(next_line)
                     || is_snippet_block_delimiter(next_line)
+                    || ctx.line_info(next_line_num).is_some_and(|info| info.is_div_marker)
                 {
                     break;
                 }
@@ -1643,6 +1778,15 @@ impl MD013LineLength {
                         false
                     }
                 }
+                ReflowMode::SemanticLineBreaks => {
+                    let sentences = split_into_sentences(&paragraph_text);
+                    // Reflow if multiple sentences, multiple lines, or any line exceeds limit
+                    sentences.len() > 1
+                        || paragraph_lines.len() > 1
+                        || paragraph_lines
+                            .iter()
+                            .any(|line| self.calculate_effective_length(line) > config.line_length.get())
+                }
                 ReflowMode::Default => {
                     // In default mode, only reflow if lines exceed limit
                     paragraph_lines
@@ -1692,7 +1836,9 @@ impl MD013LineLength {
                     break_on_sentences: true,
                     preserve_breaks: false,
                     sentence_per_line: config.reflow_mode == ReflowMode::SentencePerLine,
+                    semantic_line_breaks: config.reflow_mode == ReflowMode::SemanticLineBreaks,
                     abbreviations: config.abbreviations_for_reflow(),
+                    length_mode: self.reflow_length_mode(),
                 };
                 let mut reflowed = crate::utils::text_reflow::reflow_line(&paragraph_text, &reflow_options);
 
@@ -1727,7 +1873,7 @@ impl MD013LineLength {
                     // In sentence-per-line mode, report the entire paragraph
                     let (warning_line, warning_end_line) = match config.reflow_mode {
                         ReflowMode::Normalize => (paragraph_start + 1, end_line + 1),
-                        ReflowMode::SentencePerLine => {
+                        ReflowMode::SentencePerLine | ReflowMode::SemanticLineBreaks => {
                             // Highlight the entire paragraph that needs reformatting
                             (paragraph_start + 1, paragraph_start + paragraph_lines.len())
                         }
@@ -1762,6 +1908,12 @@ impl MD013LineLength {
                                     format!("Paragraph should have one sentence per line (found {num_sentences} sentences across {num_lines} lines)")
                                 }
                             },
+                            ReflowMode::SemanticLineBreaks => {
+                                let num_sentences = split_into_sentences(&paragraph_text).len();
+                                format!(
+                                    "Paragraph should use semantic line breaks ({num_sentences} sentences)"
+                                )
+                            },
                             ReflowMode::Default => format!("Line length exceeds {} characters", config.line_length.get()),
                         },
                         line: warning_line,
@@ -1790,54 +1942,87 @@ impl MD013LineLength {
         }
     }
 
-    /// Calculate effective line length excluding unbreakable URLs
+    /// Calculate effective line length
+    ///
+    /// Returns the actual display length of the line using the configured length mode.
     fn calculate_effective_length(&self, line: &str) -> usize {
-        if self.config.strict {
-            // In strict mode, count everything
-            return self.calculate_string_length(line);
-        }
+        self.calculate_string_length(line)
+    }
 
-        // Quick byte-level check: if line doesn't contain "http" or "[", it can't have URLs or markdown links
-        let bytes = line.as_bytes();
-        if !bytes.contains(&b'h') && !bytes.contains(&b'[') {
-            return self.calculate_string_length(line);
-        }
+    /// Calculate line length with inline link/image URLs removed.
+    ///
+    /// For each inline link `[text](url)` or image `![alt](url)` on the line,
+    /// computes the "savings" from removing the URL portion (keeping only `[text]`
+    /// or `![alt]`). Returns `effective_length - total_savings`.
+    ///
+    /// Handles nested constructs (e.g., `[![img](url)](url)`) by only counting the
+    /// outermost construct to avoid double-counting.
+    fn calculate_text_only_length(
+        &self,
+        effective_length: usize,
+        line_number: usize,
+        ctx: &crate::lint_context::LintContext,
+    ) -> usize {
+        let line_range = ctx.line_index.line_content_range(line_number);
+        let line_byte_end = line_range.end;
 
-        // More precise check for URLs and links
-        if !line.contains("http") && !line.contains('[') {
-            return self.calculate_string_length(line);
-        }
+        // Collect inline links/images on this line: (byte_offset, byte_end, text_only_display_len)
+        let mut constructs: Vec<(usize, usize, usize)> = Vec::new();
 
-        let mut effective_line = line.to_string();
-
-        // First handle markdown links to avoid double-counting URLs
-        // Pattern: [text](very-long-url) -> [text](url)
-        if line.contains('[') && line.contains("](") {
-            for cap in MARKDOWN_LINK_PATTERN.captures_iter(&effective_line.clone()) {
-                if let (Some(full_match), Some(text), Some(url)) = (cap.get(0), cap.get(1), cap.get(2))
-                    && url.as_str().len() > 15
-                {
-                    let replacement = format!("[{}](url)", text.as_str());
-                    effective_line = effective_line.replacen(full_match.as_str(), &replacement, 1);
-                }
+        for link in &ctx.links {
+            if link.line != line_number || link.is_reference {
+                continue;
             }
-        }
-
-        // Then replace bare URLs with a placeholder of reasonable length
-        // This allows lines with long URLs to pass if the rest of the content is reasonable
-        if effective_line.contains("http") {
-            for url_match in URL_IN_TEXT.find_iter(&effective_line.clone()) {
-                let url = url_match.as_str();
-                // Skip if this URL is already part of a markdown link we handled
-                if !effective_line.contains(&format!("({url})")) {
-                    // Replace URL with placeholder that represents a "reasonable" URL length
-                    // Using 15 chars as a reasonable URL placeholder (e.g., "https://ex.com")
-                    let placeholder = "x".repeat(15.min(url.len()));
-                    effective_line = effective_line.replacen(url, &placeholder, 1);
-                }
+            if !matches!(link.link_type, LinkType::Inline) {
+                continue;
             }
+            // Skip cross-line links
+            if link.byte_end > line_byte_end {
+                continue;
+            }
+            // `[text]` in configured length mode
+            let text_only_len = 2 + self.calculate_string_length(&link.text);
+            constructs.push((link.byte_offset, link.byte_end, text_only_len));
         }
 
-        self.calculate_string_length(&effective_line)
+        for image in &ctx.images {
+            if image.line != line_number || image.is_reference {
+                continue;
+            }
+            if !matches!(image.link_type, LinkType::Inline) {
+                continue;
+            }
+            // Skip cross-line images
+            if image.byte_end > line_byte_end {
+                continue;
+            }
+            // `![alt]` in configured length mode
+            let text_only_len = 3 + self.calculate_string_length(&image.alt_text);
+            constructs.push((image.byte_offset, image.byte_end, text_only_len));
+        }
+
+        if constructs.is_empty() {
+            return effective_length;
+        }
+
+        // Sort by byte offset to handle overlapping/nested constructs
+        constructs.sort_by_key(|&(start, _, _)| start);
+
+        let mut total_savings: usize = 0;
+        let mut last_end: usize = 0;
+
+        for (start, end, text_only_len) in &constructs {
+            // Skip constructs nested inside a previously counted one
+            if *start < last_end {
+                continue;
+            }
+            // Full construct length in configured length mode
+            let full_source = &ctx.content[*start..*end];
+            let full_len = self.calculate_string_length(full_source);
+            total_savings += full_len.saturating_sub(*text_only_len);
+            last_end = *end;
+        }
+
+        effective_length.saturating_sub(total_savings)
     }
 }

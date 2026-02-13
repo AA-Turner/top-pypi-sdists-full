@@ -182,6 +182,12 @@ class TestUnion(unittest.TestCase):
         with self.assertRaises(TypeError):
             loader.load({'a': 1}, Union[A, B])
 
+    def test_loadnewunion(self):
+        t = list[int] | str
+        assert load('ciao', t) == 'ciao'
+        assert load(['1', 1.0, 0], t) == [1, 1, 0]
+        assert load(('1', 1.0, 0), t) == [1, 1, 0]
+
 
 class TestFastIterableLoad(unittest.TestCase):
 

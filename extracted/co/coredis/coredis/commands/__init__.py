@@ -25,8 +25,6 @@ from coredis.typing import (
 # Command wrappers
 from .bitfield import BitFieldOperation
 from .function import Function, Library
-from .monitor import Monitor
-from .pubsub import ClusterPubSub, PubSub, ShardedPubSub
 from .request import CommandRequest, CommandResponseT
 from .script import Script
 
@@ -54,11 +52,7 @@ __all__ = [
     "CommandRequest",
     "CommandResponseT",
     "BitFieldOperation",
-    "ClusterPubSub",
     "Function",
     "Library",
-    "Monitor",
-    "PubSub",
     "Script",
-    "ShardedPubSub",
 ]

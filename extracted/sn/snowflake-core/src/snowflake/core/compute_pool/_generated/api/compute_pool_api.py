@@ -18,7 +18,7 @@ import tempfile
 
 from concurrent.futures import Future
 from datetime import date, datetime
-from typing import Iterable, Literal, Optional, Union, overload
+from typing import Iterable, List, Literal, Optional, Union, overload
 
 from dateutil.parser import parse
 from pydantic import Field, StrictBool, StrictStr, validate_call
@@ -33,6 +33,8 @@ from snowflake.core.compute_pool._generated import models
 from snowflake.core.compute_pool._generated.models.compute_pool import ComputePool
 from snowflake.core.compute_pool._generated.models.compute_pool_instance_family import ComputePoolInstanceFamily
 from snowflake.core.compute_pool._generated.models.success_response import SuccessResponse
+from snowflake.core.compute_pool._generated.models.tag_assignment import TagAssignment
+from snowflake.core.compute_pool._generated.models.tag_reference import TagReference
 from snowflake.core.exceptions import (  # noqa: F401
     _APITypeError,
     _APIValueError,
@@ -287,7 +289,7 @@ class ComputePoolApi:
         :param compute_pool: (required)
         :type compute_pool: ComputePool
         :param create_mode: Parameter allowing support for different modes of resource creation. Possible values include: - `errorIfExists`: Throws an error if you try to create a resource that already exists. - `orReplace`: Automatically replaces the existing resource with the current one. - `ifNotExists`: Creates a new resource when an alter is requested for a non-existent resource.
-        :type create_mode: Union[CreateMode, str]
+        :type create_mode: str
         :param initially_suspended: Specifies whether the compute pool is created initially in the suspended state.
         :type initially_suspended: bool
         :param async_req: Whether to execute the request asynchronously.
@@ -338,7 +340,7 @@ class ComputePoolApi:
         :param compute_pool: (required)
         :type compute_pool: ComputePool
         :param create_mode: Parameter allowing support for different modes of resource creation. Possible values include: - `errorIfExists`: Throws an error if you try to create a resource that already exists. - `orReplace`: Automatically replaces the existing resource with the current one. - `ifNotExists`: Creates a new resource when an alter is requested for a non-existent resource.
-        :type create_mode: Union[CreateMode, str]
+        :type create_mode: str
         :param initially_suspended: Specifies whether the compute pool is created initially in the suspended state.
         :type initially_suspended: bool
         :param async_req: Whether to execute the request asynchronously.
@@ -424,7 +426,7 @@ class ComputePoolApi:
             _header_params["Content-Type"] = _content_types_list
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "SuccessResponse",
@@ -630,7 +632,7 @@ class ComputePoolApi:
             _header_params["Content-Type"] = _content_types_list
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "SuccessResponse",
@@ -808,7 +810,7 @@ class ComputePoolApi:
         _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "ComputePool",
@@ -827,6 +829,229 @@ class ComputePoolApi:
         return self.api_client.call_api(
             self._root,
             "/api/v2/compute-pools/{name}",
+            "GET",
+            _path_params,
+            _query_params,
+            _header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            response_types_map=_response_types_map,
+            auth_settings=_auth_settings,
+            async_req=_params.get("async_req"),
+            _return_http_data_only=_params.get("_return_http_data_only"),
+            _preload_content=_params.get("_preload_content", True),
+            _request_timeout=_params.get("_request_timeout"),
+            collection_formats=_collection_formats,
+            _request_auth=_params.get("_request_auth"),
+            _deserialize_response_fn=self.deserialize,
+        )
+
+    @overload
+    def get_tags(
+        self,
+        name: Annotated[str, Field(strict=True, description="Identifier (i.e. name) for the resource.")],
+        with_lineage: Annotated[
+            Optional[StrictBool],
+            Field(
+                description="Parameter that specifies whether tag assignments inherited by the object from its ancestors in securable object hierarchy should be returned as well: - `true`: All tags assigned to this object should be returned, inheritance included. - `false`: Only tags explicitly assigned to this object should be returned."
+            ),
+        ] = None,
+        async_req: Literal[False] = False,
+        **kwargs,
+    ) -> Iterable[TagAssignment]: ...
+
+    @overload
+    def get_tags(
+        self,
+        name: Annotated[str, Field(strict=True, description="Identifier (i.e. name) for the resource.")],
+        with_lineage: Annotated[
+            Optional[StrictBool],
+            Field(
+                description="Parameter that specifies whether tag assignments inherited by the object from its ancestors in securable object hierarchy should be returned as well: - `true`: All tags assigned to this object should be returned, inheritance included. - `false`: Only tags explicitly assigned to this object should be returned."
+            ),
+        ] = None,
+        async_req: Literal[True] = True,
+        **kwargs,
+    ) -> Future[Iterable[TagAssignment]]: ...
+
+    @overload
+    def get_tags(
+        self,
+        name: Annotated[str, Field(strict=True, description="Identifier (i.e. name) for the resource.")],
+        with_lineage: Annotated[
+            Optional[StrictBool],
+            Field(
+                description="Parameter that specifies whether tag assignments inherited by the object from its ancestors in securable object hierarchy should be returned as well: - `true`: All tags assigned to this object should be returned, inheritance included. - `false`: Only tags explicitly assigned to this object should be returned."
+            ),
+        ] = None,
+        async_req: bool = False,
+        **kwargs,
+    ) -> Union[Iterable[TagAssignment], Future[Iterable[TagAssignment]]]: ...
+
+    @validate_call
+    def get_tags(
+        self,
+        name: Annotated[str, Field(strict=True, description="Identifier (i.e. name) for the resource.")],
+        with_lineage: Annotated[
+            Optional[StrictBool],
+            Field(
+                description="Parameter that specifies whether tag assignments inherited by the object from its ancestors in securable object hierarchy should be returned as well: - `true`: All tags assigned to this object should be returned, inheritance included. - `false`: Only tags explicitly assigned to this object should be returned."
+            ),
+        ] = None,
+        **kwargs,
+    ) -> Union[Iterable[TagAssignment], Future[Iterable[TagAssignment]]]:
+        r"""Get the tag assignments for a compute pool.  # noqa: E501
+
+        Returns all tags assigned to a compute pool. This operation requires an active warehouse.  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> future = api.get_tags(name, with_lineage, async_req=True)
+        >>> result = future.result()
+        :param name: Identifier (i.e. name) for the resource. (required)
+        :type name: str
+        :param with_lineage: Parameter that specifies whether tag assignments inherited by the object from its ancestors in securable object hierarchy should be returned as well: - `true`: All tags assigned to this object should be returned, inheritance included. - `false`: Only tags explicitly assigned to this object should be returned.
+        :type with_lineage: bool
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :type _preload_content: bool, optional
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns a Future object representing the execution of the method.
+        :rtype: Union[Iterable[TagAssignment], Future[Iterable[TagAssignment]]]
+        """
+        kwargs["_return_http_data_only"] = True
+        return self.get_tags_with_http_info(name, with_lineage, **kwargs)
+
+    @validate_call
+    def get_tags_with_http_info(
+        self,
+        name: Annotated[str, Field(strict=True, description="Identifier (i.e. name) for the resource.")],
+        with_lineage: Annotated[
+            Optional[StrictBool],
+            Field(
+                description="Parameter that specifies whether tag assignments inherited by the object from its ancestors in securable object hierarchy should be returned as well: - `true`: All tags assigned to this object should be returned, inheritance included. - `false`: Only tags explicitly assigned to this object should be returned."
+            ),
+        ] = None,
+        **kwargs,
+    ):
+        r"""Get the tag assignments for a compute pool.  # noqa: E501
+
+        Returns all tags assigned to a compute pool. This operation requires an active warehouse.  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> future = api.get_tags_with_http_info(name, with_lineage, async_req=True)
+        >>> result = future.result()
+        :param name: Identifier (i.e. name) for the resource. (required)
+        :type name: str
+        :param with_lineage: Parameter that specifies whether tag assignments inherited by the object from its ancestors in securable object hierarchy should be returned as well: - `true`: All tags assigned to this object should be returned, inheritance included. - `false`: Only tags explicitly assigned to this object should be returned.
+        :type with_lineage: bool
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :type _return_http_data_only: bool, optional
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :type _preload_content: bool, optional
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the authentication
+                              in the spec for a single request.
+        :type _request_auth: dict, optional
+        :type _content_type: string, optional: force content-type for the request
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns a Future object representing the execution of the method.
+        :rtype: tuple(Union[Iterable[TagAssignment], Future[Iterable[TagAssignment]]], status_code(int), headers(HTTPHeaderDict))
+        """
+        _params = locals()
+
+        _all_params = ["name", "with_lineage"]
+        _all_params.extend(
+            [
+                "async_req",
+                "_return_http_data_only",
+                "_preload_content",
+                "_request_timeout",
+                "_request_auth",
+                "_content_type",
+                "_headers",
+            ]
+        )
+
+        # validate the arguments
+        for _key, _val in _params["kwargs"].items():
+            if _key not in _all_params:
+                raise _APITypeError(f"Got an unexpected keyword argument '{_key}' to method get_tags")
+            _params[_key] = _val
+        del _params["kwargs"]
+
+        _collection_formats = {}
+
+        # process the path parameters
+        _path_params = {}
+
+        if _params["name"]:
+            _path_params["name"] = _params["name"]
+
+        # process the query parameters
+        _query_params = []
+
+        if _params.get("with_lineage") is not None:
+            _query_params.append(("withLineage", _params["with_lineage"]))
+
+        # process the header parameters
+        _header_params = dict(_params.get("_headers", {}))
+
+        # process the form parameters
+        _form_params = []
+        _files = {}
+
+        # process the body parameter
+        _body_params = None
+
+        # set the HTTP header `Accept`
+        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+
+        # authentication setting
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
+
+        _response_types_map = {
+            "200": "Iterable[TagAssignment]",
+            "202": "SuccessAcceptedResponse",
+            "400": "ErrorResponse",
+            "401": "ErrorResponse",
+            "403": "ErrorResponse",
+            "404": "ErrorResponse",
+            "405": "ErrorResponse",
+            "408": "ErrorResponse",
+            "409": "ErrorResponse",
+            "410": "ErrorResponse",
+            "429": "ErrorResponse",
+            "500": "ErrorResponse",
+            "503": "ErrorResponse",
+            "504": "ErrorResponse",
+        }
+
+        return self.api_client.call_api(
+            self._root,
+            "/api/v2/compute-pools/{name}:get-tags",
             "GET",
             _path_params,
             _query_params,
@@ -971,7 +1196,7 @@ class ComputePoolApi:
         _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "Iterable[ComputePoolInstanceFamily]",
@@ -1243,7 +1468,7 @@ class ComputePoolApi:
         _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "Iterable[ComputePool]",
@@ -1422,7 +1647,7 @@ class ComputePoolApi:
         _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "SuccessResponse",
@@ -1441,6 +1666,248 @@ class ComputePoolApi:
         return self.api_client.call_api(
             self._root,
             "/api/v2/compute-pools/{name}:resume",
+            "POST",
+            _path_params,
+            _query_params,
+            _header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            response_types_map=_response_types_map,
+            auth_settings=_auth_settings,
+            async_req=_params.get("async_req"),
+            _return_http_data_only=_params.get("_return_http_data_only"),
+            _preload_content=_params.get("_preload_content", True),
+            _request_timeout=_params.get("_request_timeout"),
+            collection_formats=_collection_formats,
+            _request_auth=_params.get("_request_auth"),
+            _deserialize_response_fn=self.deserialize,
+        )
+
+    @overload
+    def set_tags(
+        self,
+        name: Annotated[str, Field(strict=True, description="Identifier (i.e. name) for the resource.")],
+        tag_assignment: List[TagAssignment],
+        if_exists: Annotated[
+            Optional[StrictBool],
+            Field(
+                description="Parameter that specifies how to handle the request for a resource that does not exist: - `true`: The endpoint does not throw an error if the resource does not exist. It returns a 200 success response, but does not take any action on the resource. - `false`: The endpoint throws an error if the resource doesn't exist."
+            ),
+        ] = None,
+        async_req: Literal[False] = False,
+        **kwargs,
+    ) -> SuccessResponse: ...
+
+    @overload
+    def set_tags(
+        self,
+        name: Annotated[str, Field(strict=True, description="Identifier (i.e. name) for the resource.")],
+        tag_assignment: List[TagAssignment],
+        if_exists: Annotated[
+            Optional[StrictBool],
+            Field(
+                description="Parameter that specifies how to handle the request for a resource that does not exist: - `true`: The endpoint does not throw an error if the resource does not exist. It returns a 200 success response, but does not take any action on the resource. - `false`: The endpoint throws an error if the resource doesn't exist."
+            ),
+        ] = None,
+        async_req: Literal[True] = True,
+        **kwargs,
+    ) -> Future[SuccessResponse]: ...
+
+    @overload
+    def set_tags(
+        self,
+        name: Annotated[str, Field(strict=True, description="Identifier (i.e. name) for the resource.")],
+        tag_assignment: List[TagAssignment],
+        if_exists: Annotated[
+            Optional[StrictBool],
+            Field(
+                description="Parameter that specifies how to handle the request for a resource that does not exist: - `true`: The endpoint does not throw an error if the resource does not exist. It returns a 200 success response, but does not take any action on the resource. - `false`: The endpoint throws an error if the resource doesn't exist."
+            ),
+        ] = None,
+        async_req: bool = False,
+        **kwargs,
+    ) -> Union[SuccessResponse, Future[SuccessResponse]]: ...
+
+    @validate_call
+    def set_tags(
+        self,
+        name: Annotated[str, Field(strict=True, description="Identifier (i.e. name) for the resource.")],
+        tag_assignment: List[TagAssignment],
+        if_exists: Annotated[
+            Optional[StrictBool],
+            Field(
+                description="Parameter that specifies how to handle the request for a resource that does not exist: - `true`: The endpoint does not throw an error if the resource does not exist. It returns a 200 success response, but does not take any action on the resource. - `false`: The endpoint throws an error if the resource doesn't exist."
+            ),
+        ] = None,
+        **kwargs,
+    ) -> Union[SuccessResponse, Future[SuccessResponse]]:
+        r"""Set tags on a compute pool.  # noqa: E501
+
+        Set tags on a compute pool.  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> future = api.set_tags(name, tag_assignment, if_exists, async_req=True)
+        >>> result = future.result()
+        :param name: Identifier (i.e. name) for the resource. (required)
+        :type name: str
+        :param tag_assignment: (required)
+        :type tag_assignment: List[TagAssignment]
+        :param if_exists: Parameter that specifies how to handle the request for a resource that does not exist: - `true`: The endpoint does not throw an error if the resource does not exist. It returns a 200 success response, but does not take any action on the resource. - `false`: The endpoint throws an error if the resource doesn't exist.
+        :type if_exists: bool
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :type _preload_content: bool, optional
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns a Future object representing the execution of the method.
+        :rtype: Union[SuccessResponse, Future[SuccessResponse]]
+        """
+        kwargs["_return_http_data_only"] = True
+        return self.set_tags_with_http_info(name, tag_assignment, if_exists, **kwargs)
+
+    @validate_call
+    def set_tags_with_http_info(
+        self,
+        name: Annotated[str, Field(strict=True, description="Identifier (i.e. name) for the resource.")],
+        tag_assignment: List[TagAssignment],
+        if_exists: Annotated[
+            Optional[StrictBool],
+            Field(
+                description="Parameter that specifies how to handle the request for a resource that does not exist: - `true`: The endpoint does not throw an error if the resource does not exist. It returns a 200 success response, but does not take any action on the resource. - `false`: The endpoint throws an error if the resource doesn't exist."
+            ),
+        ] = None,
+        **kwargs,
+    ):
+        r"""Set tags on a compute pool.  # noqa: E501
+
+        Set tags on a compute pool.  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> future = api.set_tags_with_http_info(name, tag_assignment, if_exists, async_req=True)
+        >>> result = future.result()
+        :param name: Identifier (i.e. name) for the resource. (required)
+        :type name: str
+        :param tag_assignment: (required)
+        :type tag_assignment: List[TagAssignment]
+        :param if_exists: Parameter that specifies how to handle the request for a resource that does not exist: - `true`: The endpoint does not throw an error if the resource does not exist. It returns a 200 success response, but does not take any action on the resource. - `false`: The endpoint throws an error if the resource doesn't exist.
+        :type if_exists: bool
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :type _return_http_data_only: bool, optional
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :type _preload_content: bool, optional
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the authentication
+                              in the spec for a single request.
+        :type _request_auth: dict, optional
+        :type _content_type: string, optional: force content-type for the request
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns a Future object representing the execution of the method.
+        :rtype: tuple(Union[SuccessResponse, Future[SuccessResponse]], status_code(int), headers(HTTPHeaderDict))
+        """
+        _params = locals()
+
+        _all_params = ["name", "tag_assignment", "if_exists"]
+        _all_params.extend(
+            [
+                "async_req",
+                "_return_http_data_only",
+                "_preload_content",
+                "_request_timeout",
+                "_request_auth",
+                "_content_type",
+                "_headers",
+            ]
+        )
+
+        # validate the arguments
+        for _key, _val in _params["kwargs"].items():
+            if _key not in _all_params:
+                raise _APITypeError(f"Got an unexpected keyword argument '{_key}' to method set_tags")
+            _params[_key] = _val
+        del _params["kwargs"]
+
+        _collection_formats = {}
+
+        # process the path parameters
+        _path_params = {}
+
+        if _params["name"]:
+            _path_params["name"] = _params["name"]
+
+        # process the query parameters
+        _query_params = []
+
+        if _params.get("if_exists") is not None:
+            _query_params.append(("ifExists", _params["if_exists"]))
+
+        # process the header parameters
+        _header_params = dict(_params.get("_headers", {}))
+
+        # process the form parameters
+        _form_params = []
+        _files = {}
+
+        # process the body parameter
+        _body_params = None
+
+        if _params["tag_assignment"] is not None:
+            _body_params = _params["tag_assignment"]
+
+        # set the HTTP header `Accept`
+        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+
+        # set the HTTP header `Content-Type`
+        _content_types_list = _params.get(
+            "_content_type", self.api_client.select_header_content_type(["application/json"])
+        )
+        if _content_types_list:
+            _header_params["Content-Type"] = _content_types_list
+
+        # authentication setting
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
+
+        _response_types_map = {
+            "200": "SuccessResponse",
+            "202": "SuccessAcceptedResponse",
+            "400": "ErrorResponse",
+            "401": "ErrorResponse",
+            "403": "ErrorResponse",
+            "404": "ErrorResponse",
+            "405": "ErrorResponse",
+            "408": "ErrorResponse",
+            "409": "ErrorResponse",
+            "410": "ErrorResponse",
+            "429": "ErrorResponse",
+            "500": "ErrorResponse",
+            "503": "ErrorResponse",
+            "504": "ErrorResponse",
+        }
+
+        return self.api_client.call_api(
+            self._root,
+            "/api/v2/compute-pools/{name}:set-tags",
             "POST",
             _path_params,
             _query_params,
@@ -1603,7 +2070,7 @@ class ComputePoolApi:
         _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "SuccessResponse",
@@ -1785,7 +2252,7 @@ class ComputePoolApi:
         _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "SuccessResponse",
@@ -1964,7 +2431,7 @@ class ComputePoolApi:
         _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "SuccessResponse",
@@ -1983,6 +2450,248 @@ class ComputePoolApi:
         return self.api_client.call_api(
             self._root,
             "/api/v2/compute-pools/{name}:suspend",
+            "POST",
+            _path_params,
+            _query_params,
+            _header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            response_types_map=_response_types_map,
+            auth_settings=_auth_settings,
+            async_req=_params.get("async_req"),
+            _return_http_data_only=_params.get("_return_http_data_only"),
+            _preload_content=_params.get("_preload_content", True),
+            _request_timeout=_params.get("_request_timeout"),
+            collection_formats=_collection_formats,
+            _request_auth=_params.get("_request_auth"),
+            _deserialize_response_fn=self.deserialize,
+        )
+
+    @overload
+    def unset_tags(
+        self,
+        name: Annotated[str, Field(strict=True, description="Identifier (i.e. name) for the resource.")],
+        tag_reference: List[TagReference],
+        if_exists: Annotated[
+            Optional[StrictBool],
+            Field(
+                description="Parameter that specifies how to handle the request for a resource that does not exist: - `true`: The endpoint does not throw an error if the resource does not exist. It returns a 200 success response, but does not take any action on the resource. - `false`: The endpoint throws an error if the resource doesn't exist."
+            ),
+        ] = None,
+        async_req: Literal[False] = False,
+        **kwargs,
+    ) -> SuccessResponse: ...
+
+    @overload
+    def unset_tags(
+        self,
+        name: Annotated[str, Field(strict=True, description="Identifier (i.e. name) for the resource.")],
+        tag_reference: List[TagReference],
+        if_exists: Annotated[
+            Optional[StrictBool],
+            Field(
+                description="Parameter that specifies how to handle the request for a resource that does not exist: - `true`: The endpoint does not throw an error if the resource does not exist. It returns a 200 success response, but does not take any action on the resource. - `false`: The endpoint throws an error if the resource doesn't exist."
+            ),
+        ] = None,
+        async_req: Literal[True] = True,
+        **kwargs,
+    ) -> Future[SuccessResponse]: ...
+
+    @overload
+    def unset_tags(
+        self,
+        name: Annotated[str, Field(strict=True, description="Identifier (i.e. name) for the resource.")],
+        tag_reference: List[TagReference],
+        if_exists: Annotated[
+            Optional[StrictBool],
+            Field(
+                description="Parameter that specifies how to handle the request for a resource that does not exist: - `true`: The endpoint does not throw an error if the resource does not exist. It returns a 200 success response, but does not take any action on the resource. - `false`: The endpoint throws an error if the resource doesn't exist."
+            ),
+        ] = None,
+        async_req: bool = False,
+        **kwargs,
+    ) -> Union[SuccessResponse, Future[SuccessResponse]]: ...
+
+    @validate_call
+    def unset_tags(
+        self,
+        name: Annotated[str, Field(strict=True, description="Identifier (i.e. name) for the resource.")],
+        tag_reference: List[TagReference],
+        if_exists: Annotated[
+            Optional[StrictBool],
+            Field(
+                description="Parameter that specifies how to handle the request for a resource that does not exist: - `true`: The endpoint does not throw an error if the resource does not exist. It returns a 200 success response, but does not take any action on the resource. - `false`: The endpoint throws an error if the resource doesn't exist."
+            ),
+        ] = None,
+        **kwargs,
+    ) -> Union[SuccessResponse, Future[SuccessResponse]]:
+        r"""Unset tags from a compute pool.  # noqa: E501
+
+        Unset tags from a compute pool.  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> future = api.unset_tags(name, tag_reference, if_exists, async_req=True)
+        >>> result = future.result()
+        :param name: Identifier (i.e. name) for the resource. (required)
+        :type name: str
+        :param tag_reference: (required)
+        :type tag_reference: List[TagReference]
+        :param if_exists: Parameter that specifies how to handle the request for a resource that does not exist: - `true`: The endpoint does not throw an error if the resource does not exist. It returns a 200 success response, but does not take any action on the resource. - `false`: The endpoint throws an error if the resource doesn't exist.
+        :type if_exists: bool
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :type _preload_content: bool, optional
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns a Future object representing the execution of the method.
+        :rtype: Union[SuccessResponse, Future[SuccessResponse]]
+        """
+        kwargs["_return_http_data_only"] = True
+        return self.unset_tags_with_http_info(name, tag_reference, if_exists, **kwargs)
+
+    @validate_call
+    def unset_tags_with_http_info(
+        self,
+        name: Annotated[str, Field(strict=True, description="Identifier (i.e. name) for the resource.")],
+        tag_reference: List[TagReference],
+        if_exists: Annotated[
+            Optional[StrictBool],
+            Field(
+                description="Parameter that specifies how to handle the request for a resource that does not exist: - `true`: The endpoint does not throw an error if the resource does not exist. It returns a 200 success response, but does not take any action on the resource. - `false`: The endpoint throws an error if the resource doesn't exist."
+            ),
+        ] = None,
+        **kwargs,
+    ):
+        r"""Unset tags from a compute pool.  # noqa: E501
+
+        Unset tags from a compute pool.  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> future = api.unset_tags_with_http_info(name, tag_reference, if_exists, async_req=True)
+        >>> result = future.result()
+        :param name: Identifier (i.e. name) for the resource. (required)
+        :type name: str
+        :param tag_reference: (required)
+        :type tag_reference: List[TagReference]
+        :param if_exists: Parameter that specifies how to handle the request for a resource that does not exist: - `true`: The endpoint does not throw an error if the resource does not exist. It returns a 200 success response, but does not take any action on the resource. - `false`: The endpoint throws an error if the resource doesn't exist.
+        :type if_exists: bool
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :type _return_http_data_only: bool, optional
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :type _preload_content: bool, optional
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the authentication
+                              in the spec for a single request.
+        :type _request_auth: dict, optional
+        :type _content_type: string, optional: force content-type for the request
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns a Future object representing the execution of the method.
+        :rtype: tuple(Union[SuccessResponse, Future[SuccessResponse]], status_code(int), headers(HTTPHeaderDict))
+        """
+        _params = locals()
+
+        _all_params = ["name", "tag_reference", "if_exists"]
+        _all_params.extend(
+            [
+                "async_req",
+                "_return_http_data_only",
+                "_preload_content",
+                "_request_timeout",
+                "_request_auth",
+                "_content_type",
+                "_headers",
+            ]
+        )
+
+        # validate the arguments
+        for _key, _val in _params["kwargs"].items():
+            if _key not in _all_params:
+                raise _APITypeError(f"Got an unexpected keyword argument '{_key}' to method unset_tags")
+            _params[_key] = _val
+        del _params["kwargs"]
+
+        _collection_formats = {}
+
+        # process the path parameters
+        _path_params = {}
+
+        if _params["name"]:
+            _path_params["name"] = _params["name"]
+
+        # process the query parameters
+        _query_params = []
+
+        if _params.get("if_exists") is not None:
+            _query_params.append(("ifExists", _params["if_exists"]))
+
+        # process the header parameters
+        _header_params = dict(_params.get("_headers", {}))
+
+        # process the form parameters
+        _form_params = []
+        _files = {}
+
+        # process the body parameter
+        _body_params = None
+
+        if _params["tag_reference"] is not None:
+            _body_params = _params["tag_reference"]
+
+        # set the HTTP header `Accept`
+        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+
+        # set the HTTP header `Content-Type`
+        _content_types_list = _params.get(
+            "_content_type", self.api_client.select_header_content_type(["application/json"])
+        )
+        if _content_types_list:
+            _header_params["Content-Type"] = _content_types_list
+
+        # authentication setting
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
+
+        _response_types_map = {
+            "200": "SuccessResponse",
+            "202": "SuccessAcceptedResponse",
+            "400": "ErrorResponse",
+            "401": "ErrorResponse",
+            "403": "ErrorResponse",
+            "404": "ErrorResponse",
+            "405": "ErrorResponse",
+            "408": "ErrorResponse",
+            "409": "ErrorResponse",
+            "410": "ErrorResponse",
+            "429": "ErrorResponse",
+            "500": "ErrorResponse",
+            "503": "ErrorResponse",
+            "504": "ErrorResponse",
+        }
+
+        return self.api_client.call_api(
+            self._root,
+            "/api/v2/compute-pools/{name}:unset-tags",
             "POST",
             _path_params,
             _query_params,
@@ -2184,7 +2893,7 @@ class ComputePoolApi:
         _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
 
         # authentication setting
-        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+        _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
             "200": "SuccessResponse",

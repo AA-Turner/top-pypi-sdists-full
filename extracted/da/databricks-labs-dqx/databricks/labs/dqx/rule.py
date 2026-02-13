@@ -16,11 +16,20 @@ logger = logging.getLogger(__name__)
 
 
 CHECK_FUNC_REGISTRY: dict[str, str] = {}
+CHECK_FUNC_REGISTRY_ORIGINAL_COLUMNS_PRESELECTION: set[str] = set()
 
 
 def register_rule(rule_type: str) -> Callable:
     def wrapper(func: Callable) -> Callable:
         CHECK_FUNC_REGISTRY[func.__name__] = rule_type
+        return func
+
+    return wrapper
+
+
+def register_for_original_columns_preselection() -> Callable:
+    def wrapper(func: Callable) -> Callable:
+        CHECK_FUNC_REGISTRY_ORIGINAL_COLUMNS_PRESELECTION.add(func.__name__)
         return func
 
     return wrapper
@@ -297,7 +306,7 @@ class DQRule(abc.ABC, DQRuleTypeMixin, SingleColumnMixin, MultipleColumnsMixin):
         else:
             kwargs.pop("columns", None)  # Ensure required args aren't duplicated in kwargs
 
-        # Push down filter if supported
+        # Push down check filter as row_filter if supported by the check function
         if self.filter and "row_filter" in sig.parameters:
             kwargs["row_filter"] = self.filter
 

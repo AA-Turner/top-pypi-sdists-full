@@ -21,7 +21,7 @@ from typing import Any, Final, NamedTuple, Required, TypeAlias, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
-VERSION: Final = "2026.2.6"
+VERSION: Final = "2026.2.9"
 
 # Detect test speedup mode via environment
 _TEST_SPEEDUP: Final = (
@@ -1386,6 +1386,7 @@ class IntegrationIssueType(StrEnum):
     PING_PONG_MISMATCH = "ping_pong_mismatch"
     FETCH_DATA_FAILED = "fetch_data_failed"
     INCOMPLETE_DEVICE_DATA = "incomplete_device_data"
+    PARAMSET_INCONSISTENCY = "paramset_inconsistency"
 
 
 @unique

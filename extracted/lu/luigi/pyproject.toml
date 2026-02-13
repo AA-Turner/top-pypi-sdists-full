@@ -14,7 +14,7 @@ dependencies = [
   "python-dateutil>=2.7.5,<3",
   "tenacity>=8,<9",
   "tornado>=5.0,<7",
-  "python-daemon<2.2.0; sys_platform == 'win32'", # TODO: fix the sys_platform references for windows
+  "python-daemon<2.2.0; sys_platform == 'win32'",
   "python-daemon; sys_platform != 'win32'",
   "typing-extensions>=4.12.2",
 ]
@@ -123,7 +123,7 @@ lint = [
 
 postgres = [
   "pg8000>=1.23.0",
-  "psycopg2-binary<3.0",
+  "psycopg2<3.0",
 ]
 
 unixsocket = [

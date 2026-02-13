@@ -60,6 +60,11 @@ class AuthTestingServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetFeatureFlagTestEndpointRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetFeatureFlagTestEndpointResponse.FromString,
         )
+        self.GetTeamPermissionOnlyTestEndpoint = channel.unary_unary(
+            "/chalk.server.v1.AuthTestingService/GetTeamPermissionOnlyTestEndpoint",
+            request_serializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetTeamPermissionOnlyTestEndpointRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetTeamPermissionOnlyTestEndpointResponse.FromString,
+        )
 
 
 class AuthTestingServiceServicer(object):
@@ -119,6 +124,12 @@ class AuthTestingServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetTeamPermissionOnlyTestEndpoint(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_AuthTestingServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -166,6 +177,11 @@ def add_AuthTestingServiceServicer_to_server(servicer, server):
             servicer.GetFeatureFlagTestEndpoint,
             request_deserializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetFeatureFlagTestEndpointRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetFeatureFlagTestEndpointResponse.SerializeToString,
+        ),
+        "GetTeamPermissionOnlyTestEndpoint": grpc.unary_unary_rpc_method_handler(
+            servicer.GetTeamPermissionOnlyTestEndpoint,
+            request_deserializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetTeamPermissionOnlyTestEndpointRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetTeamPermissionOnlyTestEndpointResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.AuthTestingService", rpc_method_handlers)
@@ -427,6 +443,35 @@ class AuthTestingService(object):
             "/chalk.server.v1.AuthTestingService/GetFeatureFlagTestEndpoint",
             chalk_dot_server_dot_v1_dot_authtesting__pb2.GetFeatureFlagTestEndpointRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_authtesting__pb2.GetFeatureFlagTestEndpointResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetTeamPermissionOnlyTestEndpoint(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthTestingService/GetTeamPermissionOnlyTestEndpoint",
+            chalk_dot_server_dot_v1_dot_authtesting__pb2.GetTeamPermissionOnlyTestEndpointRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_authtesting__pb2.GetTeamPermissionOnlyTestEndpointResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -16,7 +16,7 @@ use chroma_segment::{
     spann_provider::SpannProvider,
     types::VectorSegmentWriter,
 };
-use chroma_sysdb::SysDb;
+use chroma_sysdb::sysdb::SysDb;
 use chroma_system::{
     wrap, ChannelError, ComponentContext, ComponentHandle, Dispatcher, Handler, Orchestrator,
     OrchestratorContext, PanicError, TaskError, TaskMessage, TaskResult,
@@ -68,6 +68,8 @@ pub enum LogFetchOrchestratorError {
     GetCollectionAndSegments(#[from] GetCollectionAndSegmentsError),
     #[error("Error creating hnsw writer: {0}")]
     HnswSegment(#[from] DistributedHNSWSegmentFromSegmentError),
+    #[error("Invalid database name")]
+    InvalidDatabaseName,
     #[error("Invariant violation: {}", .0)]
     InvariantViolation(&'static str),
     #[error("Error materializing logs: {0}")]
@@ -113,6 +115,7 @@ impl ChromaError for LogFetchOrchestratorError {
                 Self::FetchLog(e) => e.should_trace_error(),
                 Self::GetCollectionAndSegments(e) => e.should_trace_error(),
                 Self::HnswSegment(e) => e.should_trace_error(),
+                Self::InvalidDatabaseName => true,
                 Self::InvariantViolation(_) => true,
                 Self::MaterializeLogs(e) => e.should_trace_error(),
                 Self::MetadataSegment(e) => e.should_trace_error(),
@@ -152,6 +155,7 @@ pub(crate) struct Success {
 #[derive(Debug)]
 pub(crate) struct RequireCompactionOffsetRepair {
     pub job_id: JobId,
+    pub database_name: chroma_types::DatabaseName,
     pub witnessed_offset_in_sysdb: i64,
 }
 
@@ -194,9 +198,14 @@ impl Success {
 }
 
 impl RequireCompactionOffsetRepair {
-    pub fn new(job_id: JobId, witnessed_offset_in_sysdb: i64) -> Self {
+    pub fn new(
+        job_id: JobId,
+        database_name: chroma_types::DatabaseName,
+        witnessed_offset_in_sysdb: i64,
+    ) -> Self {
         Self {
             job_id,
+            database_name,
             witnessed_offset_in_sysdb,
         }
     }
@@ -223,6 +232,7 @@ impl From<RequireFunctionBackfill> for LogFetchOrchestratorResponse {
 #[derive(Debug)]
 pub(crate) struct LogFetchOrchestrator {
     collection_id: CollectionUuid,
+    database_name: chroma_types::DatabaseName,
     context: CompactionContext,
     dispatcher: ComponentHandle<Dispatcher>,
     result_channel: Option<Sender<Result<LogFetchOrchestratorResponse, LogFetchOrchestratorError>>>,
@@ -262,6 +272,7 @@ impl Orchestrator for LogFetchOrchestrator {
                 Box::new(GetCollectionAndSegmentsOperator {
                     sysdb: self.context.sysdb.clone(),
                     collection_id: self.collection_id,
+                    database_name: self.database_name.clone(),
                 }),
                 (),
                 ctx.receiver(),
@@ -279,6 +290,7 @@ impl LogFetchOrchestrator {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         collection_id: CollectionUuid,
+        database_name: chroma_types::DatabaseName,
         is_rebuild: bool,
         fetch_log_batch_size: u32,
         max_compaction_size: usize,
@@ -305,6 +317,7 @@ impl LogFetchOrchestrator {
         );
         LogFetchOrchestrator {
             collection_id,
+            database_name,
             context,
             dispatcher,
             result_channel: None,
@@ -447,6 +460,17 @@ impl Handler<TaskResult<GetCollectionAndSegmentsOutput, GetCollectionAndSegments
                     .clone(),
             )
         } else {
+            let database_name = match chroma_types::DatabaseName::new(collection.database.clone()) {
+                Some(name) => name,
+                None => {
+                    self.terminate_with_result(
+                        Err(LogFetchOrchestratorError::InvalidDatabaseName),
+                        ctx,
+                    )
+                    .await;
+                    return;
+                }
+            };
             wrap(
                 Box::new(FetchLogOperator {
                     log_client: self.context.log.clone(),
@@ -457,6 +481,7 @@ impl Handler<TaskResult<GetCollectionAndSegmentsOutput, GetCollectionAndSegments
                     maximum_fetch_count: Some(self.context.max_compaction_size as u32),
                     collection_uuid: collection.collection_id,
                     tenant: collection.tenant.clone(),
+                    database_name,
                 }),
                 (),
                 ctx.receiver(),
@@ -686,17 +711,33 @@ impl Handler<TaskResult<FetchLogOutput, FetchLogError>> for LogFetchOrchestrator
                 );
             }
             None => {
-                tracing::warn!("No logs were pulled from the log service, this can happen when the log compaction offset is behing the sysdb.");
                 let collection_info = match self.context.get_collection_info() {
                     Ok(info) => info,
                     Err(err) => {
+                        tracing::warn!(error =? err, "No logs were pulled from the log service, and get_collection_info returned an error.");
                         self.terminate_with_result(Err(err.into()), ctx).await;
                         return;
                     }
                 };
+                let database_name = match chroma_types::DatabaseName::new(
+                    collection_info.collection.database.clone(),
+                ) {
+                    Some(name) => name,
+                    None => {
+                        tracing::warn!("No logs were pulled from the log service, and the database name returned was invalid.");
+                        self.terminate_with_result(
+                            Err(LogFetchOrchestratorError::InvalidDatabaseName),
+                            ctx,
+                        )
+                        .await;
+                        return;
+                    }
+                };
+                tracing::warn!("No logs were pulled from the log service, this can happen when the log compaction offset is behind the sysdb.  Repairing.");
                 self.terminate_with_result(
                     Ok(RequireCompactionOffsetRepair::new(
                         collection_info.collection_id.into(),
+                        database_name,
                         collection_info.pulled_log_offset,
                     )
                     .into()),

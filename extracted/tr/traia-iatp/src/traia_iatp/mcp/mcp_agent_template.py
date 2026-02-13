@@ -541,8 +541,7 @@ def run_with_mcp_tools(
                 agents=agents,
                 tasks=tasks,
                 verbose=verbose,
-                process=process,
-                tracing=True if os.getenv("AGENTOPS_API_KEY") else False,
+                process=process
             )
             
             # Kickoff the crew with inputs

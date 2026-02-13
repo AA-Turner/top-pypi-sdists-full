@@ -887,6 +887,8 @@ class TestRepoDiffOperations:
                     "raw": "diff --git ...",
                     "bytes": 100,
                     "is_eof": True,
+                    "additions": 7,
+                    "deletions": 2,
                 },
                 {
                     "path": "new-file.py",
@@ -894,6 +896,8 @@ class TestRepoDiffOperations:
                     "raw": "diff --git ...",
                     "bytes": 200,
                     "is_eof": True,
+                    "additions": 3,
+                    "deletions": 0,
                 },
             ],
             "filtered_files": [],
@@ -914,6 +918,8 @@ class TestRepoDiffOperations:
             assert "stats" in result
             assert result["stats"]["additions"] == 10
             assert len(result["files"]) == 2
+            assert result["files"][0]["additions"] == 7
+            assert result["files"][0]["deletions"] == 2
 
     @pytest.mark.asyncio
     async def test_get_branch_diff_with_ephemeral(self, git_storage_options: dict) -> None:
@@ -1120,6 +1126,8 @@ class TestRepoDiffOperations:
                     "raw": "diff --git a/config.json b/config.json...",
                     "bytes": 150,
                     "is_eof": True,
+                    "additions": 3,
+                    "deletions": 1,
                 }
             ],
             "filtered_files": [],
@@ -1140,6 +1148,8 @@ class TestRepoDiffOperations:
             assert "stats" in result
             assert result["stats"]["files_changed"] == 1
             assert result["files"][0]["path"] == "config.json"
+            assert result["files"][0]["additions"] == 3
+            assert result["files"][0]["deletions"] == 1
 
     @pytest.mark.asyncio
     async def test_get_commit_diff_with_base_sha(self, git_storage_options: dict) -> None:

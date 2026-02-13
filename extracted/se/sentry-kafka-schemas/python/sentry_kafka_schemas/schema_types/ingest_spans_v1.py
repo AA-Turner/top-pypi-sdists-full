@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Union, Literal, Required, TypedDict
+from typing import Union, Literal, TypedDict, Any, Required, Dict, List
 
 
 class SpanEvent(TypedDict, total=False):

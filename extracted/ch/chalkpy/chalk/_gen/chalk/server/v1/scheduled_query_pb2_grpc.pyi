@@ -7,6 +7,16 @@ from abc import (
     ABCMeta,
     abstractmethod,
 )
+from chalk._gen.chalk.server.v1.scheduled_query_pb2 import (
+    GetActiveScheduledQueriesRequest,
+    GetActiveScheduledQueriesResponse,
+    GetScheduledQueryControlRequest,
+    GetScheduledQueryControlResponse,
+    GetScheduledQueryScheduleRequest,
+    GetScheduledQueryScheduleResponse,
+    UpdateScheduledQueryControlRequest,
+    UpdateScheduledQueryControlResponse,
+)
 from chalk._gen.chalk.server.v1.scheduled_query_run_pb2 import (
     GetScheduledQueryRunRequest,
     GetScheduledQueryRunResponse,
@@ -30,6 +40,22 @@ class ScheduledQueryServiceStub:
         GetScheduledQueryRunsRequest,
         GetScheduledQueryRunsResponse,
     ]
+    GetActiveScheduledQueries: UnaryUnaryMultiCallable[
+        GetActiveScheduledQueriesRequest,
+        GetActiveScheduledQueriesResponse,
+    ]
+    GetScheduledQueryControl: UnaryUnaryMultiCallable[
+        GetScheduledQueryControlRequest,
+        GetScheduledQueryControlResponse,
+    ]
+    UpdateScheduledQueryControl: UnaryUnaryMultiCallable[
+        UpdateScheduledQueryControlRequest,
+        UpdateScheduledQueryControlResponse,
+    ]
+    GetScheduledQuerySchedule: UnaryUnaryMultiCallable[
+        GetScheduledQueryScheduleRequest,
+        GetScheduledQueryScheduleResponse,
+    ]
 
 class ScheduledQueryServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -44,5 +70,29 @@ class ScheduledQueryServiceServicer(metaclass=ABCMeta):
         request: GetScheduledQueryRunsRequest,
         context: ServicerContext,
     ) -> GetScheduledQueryRunsResponse: ...
+    @abstractmethod
+    def GetActiveScheduledQueries(
+        self,
+        request: GetActiveScheduledQueriesRequest,
+        context: ServicerContext,
+    ) -> GetActiveScheduledQueriesResponse: ...
+    @abstractmethod
+    def GetScheduledQueryControl(
+        self,
+        request: GetScheduledQueryControlRequest,
+        context: ServicerContext,
+    ) -> GetScheduledQueryControlResponse: ...
+    @abstractmethod
+    def UpdateScheduledQueryControl(
+        self,
+        request: UpdateScheduledQueryControlRequest,
+        context: ServicerContext,
+    ) -> UpdateScheduledQueryControlResponse: ...
+    @abstractmethod
+    def GetScheduledQuerySchedule(
+        self,
+        request: GetScheduledQueryScheduleRequest,
+        context: ServicerContext,
+    ) -> GetScheduledQueryScheduleResponse: ...
 
 def add_ScheduledQueryServiceServicer_to_server(servicer: ScheduledQueryServiceServicer, server: Server) -> None: ...

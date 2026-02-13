@@ -40,6 +40,10 @@ class CreateFsuCollectionDetails(object):
     #: This constant has a value of "EXACC"
     SERVICE_TYPE_EXACC = "EXACC"
 
+    #: A constant which can be used with the service_type property of a CreateFsuCollectionDetails.
+    #: This constant has a value of "EXADBXS"
+    SERVICE_TYPE_EXADBXS = "EXADBXS"
+
     def __init__(self, **kwargs):
         """
         Initializes a new CreateFsuCollectionDetails object with values from keyword arguments. This class has the following subclasses and if you are using this class as input
@@ -63,7 +67,7 @@ class CreateFsuCollectionDetails(object):
 
         :param service_type:
             The value to assign to the service_type property of this CreateFsuCollectionDetails.
-            Allowed values for this property are: "EXACS", "EXACC"
+            Allowed values for this property are: "EXACS", "EXACC", "EXADBXS"
         :type service_type: str
 
         :param compartment_id:
@@ -193,7 +197,7 @@ class CreateFsuCollectionDetails(object):
         **[Required]** Gets the service_type of this CreateFsuCollectionDetails.
         Exadata service type for the target resource members.
 
-        Allowed values for this property are: "EXACS", "EXACC"
+        Allowed values for this property are: "EXACS", "EXACC", "EXADBXS"
 
 
         :return: The service_type of this CreateFsuCollectionDetails.
@@ -211,7 +215,7 @@ class CreateFsuCollectionDetails(object):
         :param service_type: The service_type of this CreateFsuCollectionDetails.
         :type: str
         """
-        allowed_values = ["EXACS", "EXACC"]
+        allowed_values = ["EXACS", "EXACC", "EXADBXS"]
         if not value_allowed_none_or_none_sentinel(service_type, allowed_values):
             raise ValueError(
                 f"Invalid value for `service_type`, must be None or one of {allowed_values}"

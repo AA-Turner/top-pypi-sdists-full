@@ -1,7 +1,7 @@
 import functools
 import time
 
-from worker_automate_hub.utils.toast import show_toast
+from worker_automate_hub.utils.toast import task_bar_toast
 
 
 def timeit(func):
@@ -19,7 +19,7 @@ def timeit(func):
         print(
             f"Função {func.__name__} executada em {end_time - start_time:.4f} segundos"
         )
-        show_toast("Info", f"Função {func.__name__} executada em {end_time - start_time:.4f} segundos")
+        # task_bar_toast("Info", f"Função {func.__name__} executada em {end_time - start_time:.4f} segundos", "Worker Automate Hub")
 
         return result
 

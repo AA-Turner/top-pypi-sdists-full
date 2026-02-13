@@ -15,12 +15,11 @@ from exponent.commands.utils import (
 from exponent.core.config import Settings
 from exponent.core.graphql.client import GraphQLClient
 from exponent.core.graphql.generated_client import (
-    ExponentModels,
     RepositoryInput,
     SandboxProvider,
 )
 from exponent.core.graphql.generated_client.create_cloud_chat_from_repository import (
-    CreateCloudChatFromRepositoryCreateCloudChatChat,
+    CreateCloudChatFromRepositoryCreateChatWithResourceConfigChat,
 )
 from exponent.core.graphql.generated_client.enable_cloud_repository import (
     EnableCloudRepositoryEnableCloudRepositoryEnableCloudRepositoriesResult,
@@ -128,7 +127,7 @@ async def list_github_repositories(
         "__typename": "GithubRepositories",
         "repositories": [
             {
-                "uuid": repo.uuid,
+                "uuid": str(repo.uuid),
                 "githubOrgName": repo.github_org_name,
                 "githubRepoName": repo.github_repo_name,
                 "createdAt": repo.created_at,
@@ -152,16 +151,16 @@ async def create_cloud_chat_from_repository(
 
     result = await graphql_client.create_cloud_chat_from_repository(repository_uuid=repository_uuid, provider=provider)
 
-    create_cloud_chat = result.create_cloud_chat
-    if isinstance(create_cloud_chat, CreateCloudChatFromRepositoryCreateCloudChatChat):
+    chat_result = result.create_chat_with_resource_config
+    if isinstance(chat_result, CreateCloudChatFromRepositoryCreateChatWithResourceConfigChat):
         return {
             "__typename": "Chat",
-            "chatUuid": create_cloud_chat.chat_uuid,
+            "chatUuid": str(chat_result.chat_uuid),
         }
     else:
         return {
-            "__typename": create_cloud_chat.typename__,
-            "message": create_cloud_chat.message if hasattr(create_cloud_chat, "message") else "Unknown error",
+            "__typename": chat_result.typename__,
+            "message": chat_result.message if hasattr(chat_result, "message") else "Unknown error",
         }
 
 
@@ -178,7 +177,6 @@ async def start_chat_turn_with_prompt(
         chat_uuid=chat_uuid,
         prompt=prompt,
         parent_uuid=None,
-        exponent_model=ExponentModels.PREMIUM,
         require_confirmation=False,
         read_only=False,
         depth_limit=20,
@@ -187,7 +185,7 @@ async def start_chat_turn_with_prompt(
     # Convert typed response to dict for backward compatibility
     return {
         "__typename": result.start_chat_turn.typename__,
-        "chatUuid": getattr(result.start_chat_turn, "chat_uuid", None),
+        "chatUuid": str(cu) if (cu := getattr(result.start_chat_turn, "chat_uuid", None)) else None,
         "message": getattr(result.start_chat_turn, "message", None),
     }
 

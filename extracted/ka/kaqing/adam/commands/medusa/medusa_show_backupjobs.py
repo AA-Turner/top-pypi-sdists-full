@@ -28,22 +28,23 @@ class MedusaShowBackupJobs(Command):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            ns = state.namespace
-            dc = StatefulSets.get_datacenter(state.sts, ns)
-            if not dc:
+            with self.context(args) as (args, ctx):
+                ns = state.namespace
+                dc = StatefulSets.get_datacenter(state.sts, ns)
+                if not dc:
+                    return state
+
+                with log_exc(lambda e: "Exception: MedusaShowBackupJobs failed: %s\n" % e):
+                    CustomResources.clear_caches()
+
+                    tabulize(CustomResources.medusa_show_backupjobs(dc, ns),
+                            lambda x: f"{x['metadata']['name']}\t{x['metadata']['creationTimestamp']}\t{x['status'].get('finishTime', '') if 'status' in x else 'unknown'}",
+                            header='NAME\tCREATED\tFINISHED',
+                            separator='\t',
+                            err=True,
+                            ctx=ctx)
+
                 return state
-
-            with log_exc(lambda e: "Exception: MedusaShowBackupJobs failed: %s\n" % e):
-                CustomResources.clear_caches()
-
-                tabulize(CustomResources.medusa_show_backupjobs(dc, ns),
-                         lambda x: f"{x['metadata']['name']}\t{x['metadata']['creationTimestamp']}\t{x['status'].get('finishTime', '') if 'status' in x else 'unknown'}",
-                         header='NAME\tCREATED\tFINISHED',
-                         separator='\t',
-                         err=True,
-                         ctx=self.context())
-
-            return state
 
     def completion(self, state: ReplState):
         return super().completion(state)

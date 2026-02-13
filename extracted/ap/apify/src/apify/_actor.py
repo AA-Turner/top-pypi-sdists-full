@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
+import warnings
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from functools import cached_property
@@ -45,6 +46,7 @@ if TYPE_CHECKING:
 
     from typing_extensions import Self
 
+    from crawlee._types import JsonSerializable
     from crawlee.proxy_configuration import _NewUrlFunction
 
     from apify._models import Webhook
@@ -94,6 +96,8 @@ class _ActorType:
     ```
     """
 
+    _ACTOR_STATE_KEY = 'APIFY_GLOBAL_STATE'
+
     def __init__(
         self,
         configuration: Configuration | None = None,
@@ -131,6 +135,9 @@ class _ActorType:
         # `__init__` method should not be considered final.
 
         self._apify_client: ApifyClientAsync | None = None
+
+        # Keep track of all used state stores to persist their values on exit
+        self._use_state_stores: set[str | None] = set()
 
         self._is_initialized = False
         """Whether any Actor instance is currently initialized."""
@@ -174,7 +181,7 @@ class _ActorType:
         self.log.debug('Configuration initialized')
 
         # Update the global Actor proxy to refer to this instance.
-        cast('Proxy', Actor).__wrapped__ = self
+        cast('Proxy', Actor).__wrapped__ = self  # ty: ignore[invalid-assignment]
         self._is_exiting = False
         self._was_final_persist_state_emitted = False
 
@@ -242,8 +249,15 @@ class _ActorType:
             await self.event_manager.__aexit__(None, None, None)
             await self._charging_manager_implementation.__aexit__(None, None, None)
 
-        await asyncio.wait_for(finalize(), self._cleanup_timeout.total_seconds())
-        self._is_initialized = False
+            # Persist Actor state
+            await self._save_actor_state()
+
+        try:
+            await asyncio.wait_for(finalize(), self._cleanup_timeout.total_seconds())
+        except TimeoutError:
+            self.log.exception('Actor cleanup timed out')
+        finally:
+            self._is_initialized = False
 
         if self._exit_process:
             sys.exit(self.exit_code)
@@ -827,7 +841,7 @@ class _ActorType:
         content_type: str | None = None,
         build: str | None = None,
         memory_mbytes: int | None = None,
-        timeout: timedelta | None | Literal['RemainingTime'] = None,
+        timeout: timedelta | None | Literal['inherit', 'RemainingTime'] = None,
         wait_for_finish: int | None = None,
         webhooks: list[Webhook] | None = None,
     ) -> ActorRun:
@@ -845,8 +859,8 @@ class _ActorType:
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
                 in the default run configuration for the Actor.
             timeout: Optional timeout for the run, in seconds. By default, the run uses timeout specified in
-                the default run configuration for the Actor. Using `RemainingTime` will set timeout of the other Actor
-                to the time remaining from this Actor timeout.
+                the default run configuration for the Actor. Using `inherit` or `RemainingTime` will set timeout of the
+                other Actor to the time remaining from this Actor timeout.
             wait_for_finish: The maximum number of seconds the server waits for the run to finish. By default,
                 it is 0, the maximum value is 300.
             webhooks: Optional ad-hoc webhooks (https://docs.apify.com/webhooks/ad-hoc-webhooks) associated with
@@ -867,14 +881,22 @@ class _ActorType:
         else:
             serialized_webhooks = None
 
-        if timeout == 'RemainingTime':
+        if timeout in {'inherit', 'RemainingTime'}:
+            if timeout == 'RemainingTime':
+                warnings.warn(
+                    '`RemainingTime` is deprecated and will be removed in version 4.0.0. Use `inherit` instead.',
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
             actor_start_timeout = self._get_remaining_time()
         elif timeout is None:
             actor_start_timeout = None
         elif isinstance(timeout, timedelta):
             actor_start_timeout = timeout
         else:
-            raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"RemainingTime"`, or a `timedelta`.')
+            raise ValueError(
+                f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, `"RemainingTime"`, or a `timedelta`.'
+            )
 
         api_result = await client.actor(actor_id).start(
             run_input=run_input,
@@ -931,7 +953,7 @@ class _ActorType:
         content_type: str | None = None,
         build: str | None = None,
         memory_mbytes: int | None = None,
-        timeout: timedelta | None | Literal['RemainingTime'] = None,
+        timeout: timedelta | None | Literal['inherit', 'RemainingTime'] = None,
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         logger: logging.Logger | None | Literal['default'] = 'default',
@@ -950,8 +972,8 @@ class _ActorType:
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
                 in the default run configuration for the Actor.
             timeout: Optional timeout for the run, in seconds. By default, the run uses timeout specified in
-                the default run configuration for the Actor. Using `RemainingTime` will set timeout of the other Actor
-                to the time remaining from this Actor timeout.
+                the default run configuration for the Actor. Using `inherit` or `RemainingTime` will set timeout of the
+                other Actor to the time remaining from this Actor timeout.
             webhooks: Optional webhooks (https://docs.apify.com/webhooks) associated with the Actor run, which can
                 be used to receive a notification, e.g. when the Actor finished or failed. If you already have
                 a webhook set up for the Actor, you do not have to add it again here.
@@ -975,14 +997,23 @@ class _ActorType:
         else:
             serialized_webhooks = None
 
-        if timeout == 'RemainingTime':
+        if timeout in {'inherit', 'RemainingTime'}:
+            if timeout == 'RemainingTime':
+                warnings.warn(
+                    '`RemainingTime` is deprecated and will be removed in version 4.0.0. Use `inherit` instead.',
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+
             actor_call_timeout = self._get_remaining_time()
         elif timeout is None:
             actor_call_timeout = None
         elif isinstance(timeout, timedelta):
             actor_call_timeout = timeout
         else:
-            raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"RemainingTime"`, or a `timedelta`.')
+            raise ValueError(
+                f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, `"RemainingTime"`, or a `timedelta`.'
+            )
 
         api_result = await client.actor(actor_id).call(
             run_input=run_input,
@@ -1004,7 +1035,7 @@ class _ActorType:
         *,
         build: str | None = None,
         memory_mbytes: int | None = None,
-        timeout: timedelta | None = None,
+        timeout: timedelta | None | Literal['inherit'] = None,
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         token: str | None = None,
@@ -1026,7 +1057,8 @@ class _ActorType:
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
                 in the default run configuration for the Actor.
             timeout: Optional timeout for the run, in seconds. By default, the run uses timeout specified in
-                the default run configuration for the Actor.
+                the default run configuration for the Actor. Using `inherit` will set timeout of the other Actor to the
+                time remaining from this Actor timeout.
             webhooks: Optional webhooks (https://docs.apify.com/webhooks) associated with the Actor run, which can
                 be used to receive a notification, e.g. when the Actor finished or failed. If you already have
                 a webhook set up for the Actor, you do not have to add it again here.
@@ -1047,11 +1079,20 @@ class _ActorType:
         else:
             serialized_webhooks = None
 
+        if timeout == 'inherit':
+            task_call_timeout = self._get_remaining_time()
+        elif timeout is None:
+            task_call_timeout = None
+        elif isinstance(timeout, timedelta):
+            task_call_timeout = timeout
+        else:
+            raise ValueError(f'Invalid timeout {timeout!r}: expected `None`, `"inherit"`, or a `timedelta`.')
+
         api_result = await client.task(task_id).call(
             task_input=task_input,
             build=build,
             memory_mbytes=memory_mbytes,
-            timeout_secs=int(timeout.total_seconds()) if timeout is not None else None,
+            timeout_secs=int(task_call_timeout.total_seconds()) if task_call_timeout is not None else None,
             webhooks=serialized_webhooks,
             wait_secs=int(wait.total_seconds()) if wait is not None else None,
         )
@@ -1296,6 +1337,36 @@ class _ActorType:
 
         return proxy_configuration
 
+    async def use_state(
+        self,
+        default_value: dict[str, JsonSerializable] | None = None,
+        key: str | None = None,
+        kvs_name: str | None = None,
+    ) -> dict[str, JsonSerializable]:
+        """Easily create and manage state values. All state values are automatically persisted.
+
+        Values can be modified by simply using the assignment operator.
+
+        Args:
+            default_value: The default value to initialize the state if it is not already set.
+            key: The key in the key-value store where the state is stored. If not provided, a default key is used.
+            kvs_name: The name of the key-value store where the state is stored. If not provided, the default
+                key-value store associated with the Actor run is used.
+
+        Returns:
+            The state dictionary with automatic persistence.
+        """
+        self._raise_if_not_initialized()
+
+        self._use_state_stores.add(kvs_name)
+        kvs = await self.open_key_value_store(name=kvs_name)
+        return await kvs.get_auto_saved_value(key or self._ACTOR_STATE_KEY, default_value)
+
+    async def _save_actor_state(self) -> None:
+        for kvs_name in self._use_state_stores:
+            store = await self.open_key_value_store(name=kvs_name)
+            await store.persist_autosaved_values()
+
     def _raise_if_not_initialized(self) -> None:
         if not self._is_initialized:
             raise RuntimeError('The Actor was not initialized!')
@@ -1321,7 +1392,7 @@ class _ActorType:
             return self.configuration.timeout_at - datetime.now(tz=timezone.utc)
 
         self.log.warning(
-            'Returning `None` instead of remaining time. Using `RemainingTime` argument is only possible when the Actor'
+            'Using `inherit` or `RemainingTime` argument is only possible when the Actor'
             ' is running on the Apify platform and when the timeout for the Actor run is set. '
             f'{self.is_at_home()=}, {self.configuration.timeout_at=}'
         )

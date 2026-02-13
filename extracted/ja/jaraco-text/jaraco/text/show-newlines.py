@@ -1,18 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-import autocommand
 import inflect
+import typer
 from more_itertools import always_iterable
 
 import jaraco.text
 
-if TYPE_CHECKING:
-    from _typeshed import FileDescriptorOrPath
 
-
-def report_newlines(filename: FileDescriptorOrPath) -> None:
+def report_newlines(input: typer.FileText) -> None:
     r"""
     Report the newlines in the indicated file.
 
@@ -26,7 +21,7 @@ def report_newlines(filename: FileDescriptorOrPath) -> None:
     >>> report_newlines(filename)
     newlines are ('\n', '\r\n')
     """
-    newlines = jaraco.text.read_newlines(filename)
+    newlines = jaraco.text.read_newlines(input)
     count = len(tuple(always_iterable(newlines)))
     engine = inflect.engine()
     print(
@@ -37,4 +32,4 @@ def report_newlines(filename: FileDescriptorOrPath) -> None:
     )
 
 
-autocommand.autocommand(__name__)(report_newlines)
+__name__ == '__main__' and typer.run(report_newlines)  # type: ignore[func-returns-value]

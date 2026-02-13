@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyproject-fmt
-Version: 2.14.2
+Version: 2.16.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
@@ -32,47 +32,10 @@ Apply a consistent format to your ``pyproject.toml`` file with comment support. 
 Recent Changes
 ~~~~~~~~~~~~~~~~
 
-- 🧪 test(coverage): increase coverage to 98% and fix bugs by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#194 <https://github.com/tox-dev/toml-fmt/pull/194>`_
-- Release pyproject-fmt 2.14.1 by `@gaborbernat <https://github.com/gaborbernat>`_
-- 🐛 fix(table): preserve table headers and reduce duplication by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#192 <https://github.com/tox-dev/toml-fmt/pull/192>`_
-- 🐛 fix(array): preserve comments with strings by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#191 <https://github.com/tox-dev/toml-fmt/pull/191>`_
-- 🧪 test: add idempotency tests for string wrapping by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#190 <https://github.com/tox-dev/toml-fmt/pull/190>`_
-- 🐛 fix(parser): handle comments with double quotes in arrays by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#189 <https://github.com/tox-dev/toml-fmt/pull/189>`_
-- 🐛 fix(array): sort by value not comment for entries with leading comments by
-  `@gaborbernat <https://github.com/gaborbernat>`_ in `#188 <https://github.com/tox-dev/toml-fmt/pull/188>`_
+- 🐛 fix(key): normalize literal key quotes to basic (#217) by `@gaborbernat <https://github.com/gaborbernat>`_ in
+  `#219 <https://github.com/tox-dev/toml-fmt/pull/219>`_
 - Update Rust dependencies by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#183 <https://github.com/tox-dev/toml-fmt/pull/183>`_
-- Update Python dependencies by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#178 <https://github.com/tox-dev/toml-fmt/pull/178>`_
-- ✨ feat(workspace): internalize toml-fmt-common as workspace member by `@gaborbernat <https://github.com/gaborbernat>`_
-  in `#170 <https://github.com/tox-dev/toml-fmt/pull/170>`_
-- ✨ feat(pyproject-fmt): add tool.uv section formatting by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#169 <https://github.com/tox-dev/toml-fmt/pull/169>`_
-- Release pyproject-fmt 2.14.0 by `@gaborbernat <https://github.com/gaborbernat>`_
-- ✨ feat(changelog): add --regenerate flag for full changelog rebuild by `@gaborbernat <https://github.com/gaborbernat>`_
-  in `#166 <https://github.com/tox-dev/toml-fmt/pull/166>`_
-- 🐛 fix(readme): use explicit UTF-8 encoding for file operations by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#165 <https://github.com/tox-dev/toml-fmt/pull/165>`_
-- Release pyproject-fmt 2.13.0 by `@gaborbernat <https://github.com/gaborbernat>`_
-- 📝 docs(formatting): restructure docs and fix array formatting behavior by
-  `@gaborbernat <https://github.com/gaborbernat>`_ in `#164 <https://github.com/tox-dev/toml-fmt/pull/164>`_
-- ♻️ refactor(parser): migrate from taplo to tombi by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#159 <https://github.com/tox-dev/toml-fmt/pull/159>`_
-- Fix expand_tables setting for deeply nested tables (#146) by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#160 <https://github.com/tox-dev/toml-fmt/pull/160>`_
-- Prefer double quotes, use single quotes to avoid escaping by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#162 <https://github.com/tox-dev/toml-fmt/pull/162>`_
-- Fix comment before table moving incorrectly when table has comments by `@gaborbernat <https://github.com/gaborbernat>`_
-  in `#158 <https://github.com/tox-dev/toml-fmt/pull/158>`_
-- Fix regex for SPDX license normalization by `@alexfikl <https://github.com/alexfikl>`_ in
-  `#156 <https://github.com/tox-dev/toml-fmt/pull/156>`_
-- Add tests to improve coverage for edge cases by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#155 <https://github.com/tox-dev/toml-fmt/pull/155>`_ <a id="2.14.1"></a>
+  `#218 <https://github.com/tox-dev/toml-fmt/pull/218>`_ <a id="2.15.3"></a>
 
 Philosophy
 ----------
@@ -159,6 +122,9 @@ The ``tool.pyproject-fmt`` table is used when present in the ``pyproject.toml`` 
 
     # List of tables to force collapse regardless of table_format or expand_tables settings
     collapse_tables = []
+
+    # List of key patterns to skip string wrapping (supports wildcards like *.parse or tool.bumpversion.*)
+    skip_wrap_for_keys = []
 
 If not set they will default to values from the CLI.
 
@@ -300,6 +266,31 @@ configured ``column_width``. For example:
 If any inline table exceeds ``column_width``, the array of tables remains in ``[[...]]`` format to maintain
 readability and TOML 1.0.0 compatibility (inline tables cannot span multiple lines).
 
+String wrapping
+---------------
+
+By default, the formatter wraps long strings that exceed the column width using line continuations. However, some strings such as regex patterns should not be wrapped because wrapping can break their functionality.
+
+You can configure which keys should skip string wrapping using the ``skip_wrap_for_keys`` option:
+
+.. code-block:: toml
+
+    [tool.pyproject-fmt]
+    skip_wrap_for_keys = ["*.parse", "*.regex", "tool.bumpversion.*"]
+
+Pattern matching
+~~~~~~~~~~~~~~~~
+
+The ``skip_wrap_for_keys`` option supports glob-like patterns:
+
+- **Exact match**: ``tool.bumpversion.parse`` matches only that specific key
+- **Wildcard suffix**: ``*.parse`` matches any key ending with ``.parse`` (e.g., ``tool.bumpversion.parse``, ``project.parse``)
+- **Wildcard prefix**: ``tool.bumpversion.*`` matches any key under ``tool.bumpversion`` (e.g., ``tool.bumpversion.parse``, ``tool.bumpversion.serialize``)
+- **Global wildcard**: ``*`` skips wrapping for all strings
+
+Examples: ``["*.parse", "*.regex"]`` to preserve regex fields, ``["tool.bumpversion.*"]`` for a specific tool section,
+or ``["*"]`` to skip all string wrapping.
+
 ``pyproject-fmt`` is an opinionated formatter, much like `black <https://github.com/psf/black>`_ is for Python code.
 The tool intentionally provides minimal configuration options because the goal is to establish a single standard format
 that all ``pyproject.toml`` files follow.
@@ -357,6 +348,32 @@ All strings use double quotes by default. Single quotes are only used when the v
     # After
     name = "my-package"
     description = 'He said "hello"'
+
+Key Quotes
+~~~~~~~~~~
+
+TOML keys using single-quoted (literal) strings are normalized to double-quoted (basic) strings with proper escaping.
+This ensures consistent formatting and deterministic key sorting regardless of the original quote style:
+
+.. code-block:: toml
+
+    # Before
+    lint.per-file-ignores.'tests/*' = ["S101"]
+    lint.per-file-ignores."src/*" = ["D100"]
+
+    # After
+    lint.per-file-ignores."tests/*" = ["S101"]
+    lint.per-file-ignores."src/*" = ["D100"]
+
+Backslashes and double quotes within literal keys are escaped during conversion:
+
+.. code-block:: toml
+
+    # Before
+    lint.per-file-ignores.'path\to\file' = ["E501"]
+
+    # After
+    lint.per-file-ignores."path\\to\\file" = ["E501"]
 
 Array Formatting
 ~~~~~~~~~~~~~~~~
@@ -722,6 +739,77 @@ The ``sources`` table entries are sorted alphabetically by package name:
 
 The ``[tool.uv.pip]`` subsection follows similar formatting rules, with arrays like ``extra``, ``no-binary-package``,
 ``no-build-package``, ``reinstall-package``, and ``upgrade-package`` sorted alphabetically.
+
+``[tool.coverage]``
+~~~~~~~~~~~~~~~~~~~
+
+**Key ordering:**
+
+Keys are reordered to follow coverage.py's workflow phases:
+
+1. **Run phase** (``run.*``): Data collection settings
+
+   - Source selection: ``source`` → ``source_pkgs`` → ``source_dirs``
+   - File filtering: ``include`` → ``omit``
+   - Measurement: ``branch`` → ``cover_pylib`` → ``timid``
+   - Execution context: ``command_line`` → ``concurrency`` → ``context`` → ``dynamic_context``
+   - Data management: ``data_file`` → ``parallel`` → ``relative_files``
+   - Extensions: ``plugins``
+   - Debugging: ``debug`` → ``debug_file`` → ``disable_warnings``
+   - Other: ``core`` → ``patch`` → ``sigterm``
+
+2. **Paths** (``paths.*``): Path mapping between source locations
+
+3. **Report phase** (``report.*``): General reporting
+
+   - Thresholds: ``fail_under`` → ``precision``
+   - File filtering: ``include`` → ``omit`` → ``include_namespace_packages``
+   - Line exclusion: ``exclude_lines`` → ``exclude_also``
+   - Partial branches: ``partial_branches`` → ``partial_also``
+   - Output control: ``skip_covered`` → ``skip_empty`` → ``show_missing``
+   - Formatting: ``format`` → ``sort``
+   - Error handling: ``ignore_errors``
+
+4. **Output formats** (after report):
+
+   - ``html.*``: ``directory`` → ``title`` → ``extra_css`` → ``show_contexts`` → ``skip_covered`` → ``skip_empty``
+   - ``json.*``: ``output`` → ``pretty_print`` → ``show_contexts``
+   - ``lcov.*``: ``output`` → ``line_checksums``
+   - ``xml.*``: ``output`` → ``package_depth``
+
+**Grouping principle:**
+
+Related options are grouped together:
+
+- File selection: ``include``/``omit`` are adjacent
+- Exclusion patterns: ``exclude_lines``/``exclude_also`` are adjacent
+- Partial branches: ``partial_branches``/``partial_also`` are adjacent
+- Skip options: ``skip_covered``/``skip_empty`` are adjacent
+
+**Sorted arrays:**
+
+Run phase:
+  ``source``, ``source_pkgs``, ``source_dirs``, ``include``, ``omit``, ``concurrency``, ``plugins``, ``debug``,
+  ``disable_warnings``
+
+Report phase:
+  ``include``, ``omit``, ``exclude_lines``, ``exclude_also``, ``partial_branches``, ``partial_also``
+
+.. code-block:: toml
+
+    # Before (alphabetical)
+    [tool.coverage]
+    report.exclude_also = ["if TYPE_CHECKING:"]
+    report.omit = ["tests/*"]
+    run.branch = true
+    run.omit = ["tests/*"]
+
+    # After (workflow order with groupings)
+    [tool.coverage]
+    run.branch = true
+    run.omit = ["tests/*"]
+    report.omit = ["tests/*"]
+    report.exclude_also = ["if TYPE_CHECKING:"]
 
 Other Tables
 ~~~~~~~~~~~~

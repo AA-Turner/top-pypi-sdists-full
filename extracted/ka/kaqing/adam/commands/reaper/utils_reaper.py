@@ -10,7 +10,7 @@ from adam.repl_state import ReplState
 from adam.utils import convert_seconds, epoch
 from adam.utils_color import Color
 from adam.utils_tabulize import tabulize
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.utils_k8s.k8s import port_forwarding
 from adam.utils_log import log2, wait_log
 
@@ -92,13 +92,13 @@ class Reapers:
 
         return None
 
-    def show_schedule(state: ReplState, schedule_id: str, ctx: Context = Context.NULL):
+    def show_schedule(state: ReplState, schedule_id: str, ctx = NULL):
         def filter(schedules: list[dict]):
             return [schedule for schedule in schedules if schedule['id'] == schedule_id]
 
         Reapers.show_schedules(state, filter, ctx=ctx)
 
-    def show_schedules(state: ReplState, filter: Callable[[list[dict]], dict] = None, ctx: Context = Context.NULL):
+    def show_schedules(state: ReplState, filter: Callable[[list[dict]], dict] = None, ctx = NULL):
         schedules = Reapers.list_schedules(state, filter=filter)
 
         # forced refresh of schedule list
@@ -210,7 +210,7 @@ class Reapers:
 
         return (leaf, auto == 'lazy')
 
-    def tabulize_runs(state: ReplState, response: dict, ctx: Context = Context.NULL) -> dict[str, any]:
+    def tabulize_runs(state: ReplState, response: dict, ctx = NULL) -> dict[str, any]:
         header = 'ID,START,DURATION,STATE,CLUSTER,KEYSPACE,TABLES,REPAIRED'
 
         def line(run):

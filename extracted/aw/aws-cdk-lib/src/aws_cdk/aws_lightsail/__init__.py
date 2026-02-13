@@ -74,6 +74,7 @@ from ..interfaces.aws_lightsail import (
     CertificateReference as _CertificateReference_8d2426bb,
     ContainerReference as _ContainerReference_57cb0931,
     DatabaseReference as _DatabaseReference_57470afa,
+    DatabaseSnapshotReference as _DatabaseSnapshotReference_8be4b487,
     DiskReference as _DiskReference_f2afb242,
     DiskSnapshotReference as _DiskSnapshotReference_61ae524e,
     DistributionReference as _DistributionReference_1f46b65d,
@@ -83,6 +84,7 @@ from ..interfaces.aws_lightsail import (
     ICertificateRef as _ICertificateRef_a38eb928,
     IContainerRef as _IContainerRef_448c22ea,
     IDatabaseRef as _IDatabaseRef_3bb9625f,
+    IDatabaseSnapshotRef as _IDatabaseSnapshotRef_cf879579,
     IDiskRef as _IDiskRef_07664287,
     IDiskSnapshotRef as _IDiskSnapshotRef_954b35e1,
     IDistributionRef as _IDistributionRef_512dbafd,
@@ -3938,6 +3940,479 @@ class CfnDatabaseProps:
 
     def __repr__(self) -> str:
         return "CfnDatabaseProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IDatabaseSnapshotRef_cf879579, _ITaggableV2_4e6798f8)
+class CfnDatabaseSnapshot(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lightsail.CfnDatabaseSnapshot",
+):
+    '''Resource Type definition for AWS::Lightsail::DatabaseSnapshot.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-databasesnapshot.html
+    :cloudformationResource: AWS::Lightsail::DatabaseSnapshot
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_lightsail as lightsail
+        
+        cfn_database_snapshot = lightsail.CfnDatabaseSnapshot(self, "MyCfnDatabaseSnapshot",
+            relational_database_name="relationalDatabaseName",
+            relational_database_snapshot_name="relationalDatabaseSnapshotName",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        relational_database_name: builtins.str,
+        relational_database_snapshot_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Lightsail::DatabaseSnapshot``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param relational_database_name: The name of the database on which to base your new snapshot.
+        :param relational_database_snapshot_name: The name for your new database snapshot.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9f15cc09ea29fe0bfb17cf8289f68feb40d147a3a74a9d56b05eb93ff30daceb)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDatabaseSnapshotProps(
+            relational_database_name=relational_database_name,
+            relational_database_snapshot_name=relational_database_snapshot_name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForDatabaseSnapshot")
+    @builtins.classmethod
+    def arn_for_database_snapshot(
+        cls,
+        resource: "_IDatabaseSnapshotRef_cf879579",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e7546ef760e5f65e77115b63836b15f5397f568e3b419fb8903316ae78f53c29)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDatabaseSnapshot", [resource]))
+
+    @jsii.member(jsii_name="isCfnDatabaseSnapshot")
+    @builtins.classmethod
+    def is_cfn_database_snapshot(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDatabaseSnapshot.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9114431a36f9d4cf2a7ef42746c1a96efe6ff3f9b8f888b7d788a1a33efeb650)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDatabaseSnapshot", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ddc9e647909e295efd0979df1f36381efc12c0fa5feeab055677d142469e812a)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__77673fc71dfd1867271a74506a684804d541ddfdc1d4c205f94338d206090ed7)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the database snapshot.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the database snapshot was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEngine")
+    def attr_engine(self) -> builtins.str:
+        '''The software of the database snapshot (for example, MySQL).
+
+        :cloudformationAttribute: Engine
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEngine"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEngineVersion")
+    def attr_engine_version(self) -> builtins.str:
+        '''The database engine version for the database snapshot (for example, 5.7.23).
+
+        :cloudformationAttribute: EngineVersion
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEngineVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFromRelationalDatabaseArn")
+    def attr_from_relational_database_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the database from which the database snapshot was created.
+
+        :cloudformationAttribute: FromRelationalDatabaseArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFromRelationalDatabaseArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFromRelationalDatabaseBlueprintId")
+    def attr_from_relational_database_blueprint_id(self) -> builtins.str:
+        '''The blueprint ID of the database from which the database snapshot was created.
+
+        A blueprint describes the major engine version of a database.
+
+        :cloudformationAttribute: FromRelationalDatabaseBlueprintId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFromRelationalDatabaseBlueprintId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFromRelationalDatabaseBundleId")
+    def attr_from_relational_database_bundle_id(self) -> builtins.str:
+        '''The bundle ID of the database from which the database snapshot was created.
+
+        :cloudformationAttribute: FromRelationalDatabaseBundleId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFromRelationalDatabaseBundleId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFromRelationalDatabaseName")
+    def attr_from_relational_database_name(self) -> builtins.str:
+        '''The name of the source database from which the database snapshot was created.
+
+        :cloudformationAttribute: FromRelationalDatabaseName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFromRelationalDatabaseName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLocation")
+    def attr_location(self) -> "_IResolvable_da3f097b":
+        '''The Region name and Availability Zone where the database snapshot is located.
+
+        :cloudformationAttribute: Location
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrLocation"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrName")
+    def attr_name(self) -> builtins.str:
+        '''The name of the database snapshot.
+
+        :cloudformationAttribute: Name
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResourceType")
+    def attr_resource_type(self) -> builtins.str:
+        '''The Lightsail resource type.
+
+        :cloudformationAttribute: ResourceType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResourceType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSizeInGb")
+    def attr_size_in_gb(self) -> jsii.Number:
+        '''The size of the disk in GB (for example, 32) for the database snapshot.
+
+        :cloudformationAttribute: SizeInGb
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrSizeInGb"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The state of the database snapshot.
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSupportCode")
+    def attr_support_code(self) -> builtins.str:
+        '''The support code for the database snapshot.
+
+        Include this code in your email to support when you have questions about a database snapshot in Lightsail. This code enables our support team to look up your Lightsail information more easily.
+
+        :cloudformationAttribute: SupportCode
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSupportCode"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="databaseSnapshotRef")
+    def database_snapshot_ref(self) -> "_DatabaseSnapshotReference_8be4b487":
+        '''A reference to a DatabaseSnapshot resource.'''
+        return typing.cast("_DatabaseSnapshotReference_8be4b487", jsii.get(self, "databaseSnapshotRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="relationalDatabaseName")
+    def relational_database_name(self) -> builtins.str:
+        '''The name of the database on which to base your new snapshot.'''
+        return typing.cast(builtins.str, jsii.get(self, "relationalDatabaseName"))
+
+    @relational_database_name.setter
+    def relational_database_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c8d6cffab7a7458a1a70dc3595443a06dd1eedd710f3a3cf7091449247ef90f7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "relationalDatabaseName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="relationalDatabaseSnapshotName")
+    def relational_database_snapshot_name(self) -> builtins.str:
+        '''The name for your new database snapshot.'''
+        return typing.cast(builtins.str, jsii.get(self, "relationalDatabaseSnapshotName"))
+
+    @relational_database_snapshot_name.setter
+    def relational_database_snapshot_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__45e6b2559f1d7fceaafc33ec40c3d900a6627f8292c7032de6a2a229d92c676f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "relationalDatabaseSnapshotName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b5a05779ff9ccb5cee8237eee549b232cc419e5023d9b389152270bcefb4bd0b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lightsail.CfnDatabaseSnapshot.LocationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "availability_zone": "availabilityZone",
+            "region_name": "regionName",
+        },
+    )
+    class LocationProperty:
+        def __init__(
+            self,
+            *,
+            availability_zone: typing.Optional[builtins.str] = None,
+            region_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The Region name and Availability Zone where the database snapshot is located.
+
+            :param availability_zone: The Availability Zone where the database snapshot was created.
+            :param region_name: The AWS Region where the database snapshot was created.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lightsail-databasesnapshot-location.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lightsail as lightsail
+                
+                location_property = lightsail.CfnDatabaseSnapshot.LocationProperty(
+                    availability_zone="availabilityZone",
+                    region_name="regionName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5715ff9a173a4ffbe4680955e1a5ccc3bcc339a1a10d8b80e7ac96f6de7ed723)
+                check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
+                check_type(argname="argument region_name", value=region_name, expected_type=type_hints["region_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if availability_zone is not None:
+                self._values["availability_zone"] = availability_zone
+            if region_name is not None:
+                self._values["region_name"] = region_name
+
+        @builtins.property
+        def availability_zone(self) -> typing.Optional[builtins.str]:
+            '''The Availability Zone where the database snapshot was created.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lightsail-databasesnapshot-location.html#cfn-lightsail-databasesnapshot-location-availabilityzone
+            '''
+            result = self._values.get("availability_zone")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def region_name(self) -> typing.Optional[builtins.str]:
+            '''The AWS Region where the database snapshot was created.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lightsail-databasesnapshot-location.html#cfn-lightsail-databasesnapshot-location-regionname
+            '''
+            result = self._values.get("region_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LocationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lightsail.CfnDatabaseSnapshotProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "relational_database_name": "relationalDatabaseName",
+        "relational_database_snapshot_name": "relationalDatabaseSnapshotName",
+        "tags": "tags",
+    },
+)
+class CfnDatabaseSnapshotProps:
+    def __init__(
+        self,
+        *,
+        relational_database_name: builtins.str,
+        relational_database_snapshot_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDatabaseSnapshot``.
+
+        :param relational_database_name: The name of the database on which to base your new snapshot.
+        :param relational_database_snapshot_name: The name for your new database snapshot.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-databasesnapshot.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lightsail as lightsail
+            
+            cfn_database_snapshot_props = lightsail.CfnDatabaseSnapshotProps(
+                relational_database_name="relationalDatabaseName",
+                relational_database_snapshot_name="relationalDatabaseSnapshotName",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__65b939cd9387f4ed91aac788e9a72b3333ea2f84a1cbe11919c84e228faf90bc)
+            check_type(argname="argument relational_database_name", value=relational_database_name, expected_type=type_hints["relational_database_name"])
+            check_type(argname="argument relational_database_snapshot_name", value=relational_database_snapshot_name, expected_type=type_hints["relational_database_snapshot_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "relational_database_name": relational_database_name,
+            "relational_database_snapshot_name": relational_database_snapshot_name,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def relational_database_name(self) -> builtins.str:
+        '''The name of the database on which to base your new snapshot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-databasesnapshot.html#cfn-lightsail-databasesnapshot-relationaldatabasename
+        '''
+        result = self._values.get("relational_database_name")
+        assert result is not None, "Required property 'relational_database_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def relational_database_snapshot_name(self) -> builtins.str:
+        '''The name for your new database snapshot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-databasesnapshot.html#cfn-lightsail-databasesnapshot-relationaldatabasesnapshotname
+        '''
+        result = self._values.get("relational_database_snapshot_name")
+        assert result is not None, "Required property 'relational_database_snapshot_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-databasesnapshot.html#cfn-lightsail-databasesnapshot-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDatabaseSnapshotProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -10446,6 +10921,8 @@ __all__ = [
     "CfnContainerProps",
     "CfnDatabase",
     "CfnDatabaseProps",
+    "CfnDatabaseSnapshot",
+    "CfnDatabaseSnapshotProps",
     "CfnDisk",
     "CfnDiskProps",
     "CfnDiskSnapshot",
@@ -11114,6 +11591,76 @@ def _typecheckingstub__54feeda1af4cae8d2e40338b603c7ff96c3a0d88fba114bb9b9549eac
     publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     relational_database_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDatabase.RelationalDatabaseParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     rotate_master_user_password: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9f15cc09ea29fe0bfb17cf8289f68feb40d147a3a74a9d56b05eb93ff30daceb(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    relational_database_name: builtins.str,
+    relational_database_snapshot_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e7546ef760e5f65e77115b63836b15f5397f568e3b419fb8903316ae78f53c29(
+    resource: _IDatabaseSnapshotRef_cf879579,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9114431a36f9d4cf2a7ef42746c1a96efe6ff3f9b8f888b7d788a1a33efeb650(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ddc9e647909e295efd0979df1f36381efc12c0fa5feeab055677d142469e812a(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__77673fc71dfd1867271a74506a684804d541ddfdc1d4c205f94338d206090ed7(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c8d6cffab7a7458a1a70dc3595443a06dd1eedd710f3a3cf7091449247ef90f7(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__45e6b2559f1d7fceaafc33ec40c3d900a6627f8292c7032de6a2a229d92c676f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b5a05779ff9ccb5cee8237eee549b232cc419e5023d9b389152270bcefb4bd0b(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5715ff9a173a4ffbe4680955e1a5ccc3bcc339a1a10d8b80e7ac96f6de7ed723(
+    *,
+    availability_zone: typing.Optional[builtins.str] = None,
+    region_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65b939cd9387f4ed91aac788e9a72b3333ea2f84a1cbe11919c84e228faf90bc(
+    *,
+    relational_database_name: builtins.str,
+    relational_database_snapshot_name: builtins.str,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

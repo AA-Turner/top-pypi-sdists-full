@@ -71,18 +71,12 @@ class HttpxHooks:
                 payment_response.accepts
             )
 
-            # The server sets the resource field in payment_requirements
-            # This is the authoritative requestPath for the signature
-            # The server knows what endpoint is being called and sets it correctly
-            print(f"📍 DEBUG: Request path from server resource field: '{selected_requirements.resource}'")
             logger.info(f"💳 Creating payment header for retry...")
 
             # Create signed payment header using CLIENT's account
-            # Use payment_requirements.resource (don't override)
             payment_header = self.client.create_payment_header(
                 selected_requirements, 
                 payment_response.d402_version
-                # No request_path parameter - uses payment_requirements.resource
             )
 
             # Mark as retry to avoid infinite loop

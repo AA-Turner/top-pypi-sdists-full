@@ -3,7 +3,7 @@ Type annotations for s3tables service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3tables/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -23,6 +23,8 @@ from typing import Union
 
 from .literals import (
     IcebergCompactionStrategyType,
+    IcebergNullOrderType,
+    IcebergSortDirectionType,
     JobStatusType,
     MaintenanceStatusType,
     ReplicationStatusType,
@@ -99,8 +101,12 @@ __all__ = (
     "GetTableStorageClassResponseTypeDef",
     "IcebergCompactionSettingsTypeDef",
     "IcebergMetadataTypeDef",
+    "IcebergPartitionFieldTypeDef",
+    "IcebergPartitionSpecTypeDef",
     "IcebergSchemaTypeDef",
     "IcebergSnapshotManagementSettingsTypeDef",
+    "IcebergSortFieldTypeDef",
+    "IcebergSortOrderTypeDef",
     "IcebergUnreferencedFileRemovalSettingsTypeDef",
     "LastSuccessfulReplicatedUpdateTypeDef",
     "ListNamespacesRequestPaginateTypeDef",
@@ -303,11 +309,18 @@ class IcebergCompactionSettingsTypeDef(TypedDict):
     targetFileSizeMB: NotRequired[int]
     strategy: NotRequired[IcebergCompactionStrategyType]
 
+class IcebergPartitionFieldTypeDef(TypedDict):
+    sourceId: int
+    transform: str
+    name: str
+    fieldId: NotRequired[int]
+
 SchemaFieldTypeDef = TypedDict(
     "SchemaFieldTypeDef",
     {
         "name": str,
         "type": str,
+        "id": NotRequired[int],
         "required": NotRequired[bool],
     },
 )
@@ -315,6 +328,12 @@ SchemaFieldTypeDef = TypedDict(
 class IcebergSnapshotManagementSettingsTypeDef(TypedDict):
     minSnapshotsToKeep: NotRequired[int]
     maxSnapshotAgeHours: NotRequired[int]
+
+class IcebergSortFieldTypeDef(TypedDict):
+    sourceId: int
+    transform: str
+    direction: IcebergSortDirectionType
+    nullOrder: IcebergNullOrderType
 
 class IcebergUnreferencedFileRemovalSettingsTypeDef(TypedDict):
     unreferencedDays: NotRequired[int]
@@ -560,12 +579,20 @@ class GetTableRecordExpirationJobStatusResponseTypeDef(TypedDict):
     metrics: TableRecordExpirationJobMetricsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class IcebergPartitionSpecTypeDef(TypedDict):
+    fields: Sequence[IcebergPartitionFieldTypeDef]
+    specId: NotRequired[int]
+
 class IcebergSchemaTypeDef(TypedDict):
     fields: Sequence[SchemaFieldTypeDef]
 
 class TableMaintenanceSettingsTypeDef(TypedDict):
     icebergCompaction: NotRequired[IcebergCompactionSettingsTypeDef]
     icebergSnapshotManagement: NotRequired[IcebergSnapshotManagementSettingsTypeDef]
+
+class IcebergSortOrderTypeDef(TypedDict):
+    orderId: int
+    fields: Sequence[IcebergSortFieldTypeDef]
 
 class TableBucketMaintenanceSettingsTypeDef(TypedDict):
     icebergUnreferencedFileRemoval: NotRequired[IcebergUnreferencedFileRemovalSettingsTypeDef]
@@ -631,13 +658,15 @@ class TableRecordExpirationConfigurationValueTypeDef(TypedDict):
     status: NotRequired[TableRecordExpirationStatusType]
     settings: NotRequired[TableRecordExpirationSettingsTypeDef]
 
-class IcebergMetadataTypeDef(TypedDict):
-    schema: IcebergSchemaTypeDef
-    properties: NotRequired[Mapping[str, str]]
-
 class TableMaintenanceConfigurationValueTypeDef(TypedDict):
     status: NotRequired[MaintenanceStatusType]
     settings: NotRequired[TableMaintenanceSettingsTypeDef]
+
+class IcebergMetadataTypeDef(TypedDict):
+    schema: IcebergSchemaTypeDef
+    partitionSpec: NotRequired[IcebergPartitionSpecTypeDef]
+    writeOrder: NotRequired[IcebergSortOrderTypeDef]
+    properties: NotRequired[Mapping[str, str]]
 
 class TableBucketMaintenanceConfigurationValueTypeDef(TypedDict):
     status: NotRequired[MaintenanceStatusType]
@@ -696,9 +725,6 @@ class PutTableRecordExpirationConfigurationRequestTypeDef(TypedDict):
     tableArn: str
     value: TableRecordExpirationConfigurationValueTypeDef
 
-class TableMetadataTypeDef(TypedDict):
-    iceberg: NotRequired[IcebergMetadataTypeDef]
-
 class GetTableMaintenanceConfigurationResponseTypeDef(TypedDict):
     tableARN: str
     configuration: dict[TableMaintenanceTypeType, TableMaintenanceConfigurationValueTypeDef]
@@ -714,6 +740,9 @@ PutTableMaintenanceConfigurationRequestTypeDef = TypedDict(
         "value": TableMaintenanceConfigurationValueTypeDef,
     },
 )
+
+class TableMetadataTypeDef(TypedDict):
+    iceberg: NotRequired[IcebergMetadataTypeDef]
 
 class GetTableBucketMaintenanceConfigurationResponseTypeDef(TypedDict):
     tableBucketARN: str

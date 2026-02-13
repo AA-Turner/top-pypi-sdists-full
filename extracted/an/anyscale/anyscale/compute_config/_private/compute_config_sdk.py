@@ -79,7 +79,7 @@ def _validate_no_tpu_on_vm_stack(
 
     if has_tpu or has_tpu_accel:
         raise ValueError(
-            f"Node group '{node_name}': TPU free pod shapes are not supported on VM stacks. "
+            f"Node group '{node_name}': TPUs are currently not supported on VMs. "
             f"For TPU workloads, please use a Kubernetes (GKE) cloud deployment, or switch to GPU resources."
         )
 

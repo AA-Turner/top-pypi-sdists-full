@@ -31,3 +31,5 @@ from snowflake.core.api_integration._generated.models.git_hook import GitHook
 from snowflake.core.api_integration._generated.models.google_cloud_hook import GoogleCloudHook
 from snowflake.core.api_integration._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.api_integration._generated.models.success_response import SuccessResponse
+from snowflake.core.api_integration._generated.models.tag_assignment import TagAssignment
+from snowflake.core.api_integration._generated.models.tag_reference import TagReference

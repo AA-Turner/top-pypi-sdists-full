@@ -1,7 +1,7 @@
 import unittest
 
 from collections import OrderedDict
-from datetime import date
+from datetime import date, time
 from io import StringIO
 from unittest import mock
 
@@ -313,6 +313,8 @@ class BackendTests:
         )
 
     def test_search_all_unindexed(self):
+        self.backend.add_bulk(models.UnindexedBook, models.UnindexedBook.objects.all())
+        self.backend.refresh_indexes()
         # There should be no index entries for UnindexedBook
         results = self.backend.search(MATCH_ALL, models.UnindexedBook)
         self.assertEqual(results.count(), 0)
@@ -410,6 +412,24 @@ class BackendTests:
             [r.title for r in results],
             [
                 "Learning Python",
+            ],
+        )
+
+    def test_autocomplete_hyphenated_term(self):
+        book = models.Book.objects.create(
+            title="Poseidon-1234ABC",
+            number_of_pages=350,
+            publication_date=date(1961, 11, 10),
+        )
+        self.backend.add(book)
+        self.backend.get_index_for_model(models.Book).refresh()
+
+        results = self.backend.autocomplete("poseidon-1234", models.Book)
+
+        self.assertCountEqual(
+            [r.title for r in results],
+            [
+                "Poseidon-1234ABC",
             ],
         )
 
@@ -722,6 +742,39 @@ class BackendTests:
         )
         self.assertEqual(len(results), 2)
 
+    def test_search_with_time_filter(self):
+        results = self.backend.search(
+            "yoga", models.Meeting.objects.filter(start_time=time(8, 0))
+        )
+        self.assertEqual(len(results), 1)
+
+    def test_search_with_time_lt_filter(self):
+        results = self.backend.search(
+            "yoga", models.Meeting.objects.filter(start_time__lt=time(12, 0))
+        )
+        self.assertEqual(len(results), 1)
+
+    def test_search_with_time_range_filter(self):
+        results = self.backend.search(
+            "yoga",
+            models.Meeting.objects.filter(start_time__range=(time(7, 0), time(9, 0))),
+        )
+        self.assertEqual(len(results), 1)
+
+    def test_search_with_time_in_filter(self):
+        results = self.backend.search(
+            "yoga",
+            models.Meeting.objects.filter(start_time__in=(time(7, 0), time(8, 0))),
+        )
+        self.assertEqual(len(results), 1)
+
+    def test_child_model_with_id_filter(self):
+        learning_python = models.ProgrammingGuide.objects.get(title="Learning Python")
+        results = self.backend.search(
+            "Python", models.ProgrammingGuide.objects.filter(id=learning_python.id)
+        )
+        self.assertEqual(set(results), {learning_python})
+
     # ORDER BY RELEVANCE
 
     def test_order_by_relevance_match_all(self):
@@ -817,6 +870,21 @@ class BackendTests:
             [
                 "JavaScript: The Definitive Guide",
                 "JavaScript: The good parts",
+            ],
+        )
+
+    def test_order_by_time(self):
+        results = self.backend.search(
+            "yoga",
+            models.Meeting.objects.order_by("start_time"),
+            order_by_relevance=False,
+        )
+
+        self.assertEqual(
+            [r.name for r in results],
+            [
+                "Breakfast yoga",
+                "Evening yoga",
             ],
         )
 
@@ -1319,9 +1387,14 @@ class BackendTests:
         results = self.backend.search("Fifty Shades", models.Book)
         self.assertEqual(results.count(), 3)
 
+    def test_add_bulk_empty_list(self):
+        self.backend.add_bulk(models.Book, [])
+
 
 @override_settings(
-    MODELSEARCH_BACKENDS={"default": {"BACKEND": "modelsearch.backends.database"}}
+    MODELSEARCH_BACKENDS={
+        "default": {"BACKEND": "modelsearch.backends.database"},
+    }
 )
 class TestBackendLoader(TestCase):
     @mock.patch("modelsearch.backends.database.connection")
@@ -1468,6 +1541,19 @@ class TestBackendLoader(TestCase):
             InvalidSearchBackendError,
             get_search_backend,
             backend="modelsearch.backends.doesntexist",
+        )
+
+    @override_settings(
+        MODELSEARCH_BACKENDS={
+            "default": {"BACKEND": "modelsearch.backends.database"},
+            "nonexistent": {"BACKEND": "modelsearch.backends.doesnotexist"},
+        }
+    )
+    def test_nonexistent_backend_import_from_config(self):
+        self.assertRaises(
+            InvalidSearchBackendError,
+            get_search_backend,
+            backend="nonexistent",
         )
 
     def test_invalid_backend_import(self):

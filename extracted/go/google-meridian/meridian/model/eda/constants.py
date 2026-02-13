@@ -1,4 +1,4 @@
-# Copyright 2025 The Meridian Authors.
+# Copyright 2026 The Meridian Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,6 +46,9 @@ EXTREME_CORRELATION_WITH = 'extreme_correlation_with'
 TIME_AND_GEO_AGGREGATION = 'times and geos'
 TIME_AGGREGATION = 'times'
 PRIOR_CONTRIBUTION = 'prior_contribution'
+
+DEFAULT_PRIOR_N_DRAW = 500
+DEFAULT_PRIOR_SEED = 0
 
 ##### EDA Plotting properties #####
 CORRELATION_RED = '#d73027'

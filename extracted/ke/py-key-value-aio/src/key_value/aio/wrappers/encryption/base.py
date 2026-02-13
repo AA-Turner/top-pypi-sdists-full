@@ -3,12 +3,11 @@ import json
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any, SupportsFloat
 
-from key_value.shared.errors.key_value import SerializationError
-from key_value.shared.errors.wrappers.encryption import CorruptedDataError, DecryptionError, EncryptionError
 from typing_extensions import override
 
 from key_value.aio.protocols.key_value import AsyncKeyValue
 from key_value.aio.wrappers.base import BaseWrapper
+from key_value.shared.errors import CorruptedDataError, DecryptionError, EncryptionError, SerializationError
 
 _ENCRYPTED_DATA_KEY = "__encrypted_data__"
 _ENCRYPTION_VERSION_KEY = "__encryption_version__"
@@ -126,7 +125,7 @@ class BaseEncryptionWrapper(BaseWrapper):
 
             json_str: str = json_bytes.decode(encoding="utf-8")
 
-            return json.loads(json_str)  # type: ignore[no-any-return]
+            return json.loads(json_str)
         except CorruptedDataError:
             if self.raise_on_decryption_error:
                 raise

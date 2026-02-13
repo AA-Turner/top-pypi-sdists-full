@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flytekitplugins-pod
-Version: 1.16.12
+Version: 1.16.13
 Summary: Flytekit plugin to support K8s Pod tasks
 Author: flyteorg
 Author-email: admin@flyte.org

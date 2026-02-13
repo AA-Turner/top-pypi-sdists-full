@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: osxphotos
-Version: 0.75.2
+Version: 0.75.3
 Summary: Export photos from Apple's macOS Photos app and query the Photos library database to access metadata about images.
 Home-page: https://github.com/RhetTbull/
 Download-URL: https://github.com/RhetTbull/osxphotos

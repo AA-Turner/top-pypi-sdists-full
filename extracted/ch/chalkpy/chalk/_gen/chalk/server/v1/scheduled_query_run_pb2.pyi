@@ -1,5 +1,6 @@
 from chalk._gen.chalk.server.v1 import offline_queries_pb2 as _offline_queries_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
+from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -220,6 +221,16 @@ class ScheduledQuerySchedule(_message.Message):
         "num_shards",
         "num_workers",
     )
+    class PlannerOptionsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _struct_pb2.Value
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+        ) -> None: ...
+
     ID_FIELD_NUMBER: _ClassVar[int]
     CRON_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -247,14 +258,14 @@ class ScheduledQuerySchedule(_message.Message):
     filename: str
     created_at: _timestamp_pb2.Timestamp
     updated_at: _timestamp_pb2.Timestamp
-    output: str
+    output: _containers.RepeatedScalarFieldContainer[str]
     max_samples: int
     recompute_features: str
     lower_bound: _timestamp_pb2.Timestamp
     upper_bound: _timestamp_pb2.Timestamp
-    tags: str
-    required_resolver_tags: str
-    planner_options: str
+    tags: _containers.RepeatedScalarFieldContainer[str]
+    required_resolver_tags: _containers.RepeatedScalarFieldContainer[str]
+    planner_options: _containers.MessageMap[str, _struct_pb2.Value]
     dataset_name: str
     num_shards: int
     num_workers: int
@@ -268,14 +279,14 @@ class ScheduledQuerySchedule(_message.Message):
         filename: _Optional[str] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
-        output: _Optional[str] = ...,
+        output: _Optional[_Iterable[str]] = ...,
         max_samples: _Optional[int] = ...,
         recompute_features: _Optional[str] = ...,
         lower_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         upper_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
-        tags: _Optional[str] = ...,
-        required_resolver_tags: _Optional[str] = ...,
-        planner_options: _Optional[str] = ...,
+        tags: _Optional[_Iterable[str]] = ...,
+        required_resolver_tags: _Optional[_Iterable[str]] = ...,
+        planner_options: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
         dataset_name: _Optional[str] = ...,
         num_shards: _Optional[int] = ...,
         num_workers: _Optional[int] = ...,

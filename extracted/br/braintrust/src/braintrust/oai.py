@@ -9,7 +9,7 @@ from wrapt import wrap_function_wrapper
 
 from .logger import Attachment, Span, start_span
 from .span_types import SpanTypeAttribute
-from .util import merge_dicts
+from .util import is_numeric, merge_dicts
 
 X_LEGACY_CACHED_HEADER = "x-cached"
 X_CACHED_HEADER = "x-bt-cached"
@@ -795,7 +795,7 @@ class ResponsesV1Wrapper(NamedWrapper):
         return ResponseWrapper(self.__responses.with_raw_response.create, None).create(*args, **kwargs)
 
     def parse(self, *args: Any, **kwargs: Any) -> Any:
-        return ResponseWrapper(self.__responses.parse, None, "openai.responses.parse").create(*args, **kwargs)
+        return ResponseWrapper(self.__responses.with_raw_response.parse, None, "openai.responses.parse").create(*args, **kwargs)
 
 
 class AsyncResponsesV1Wrapper(NamedWrapper):
@@ -808,7 +808,7 @@ class AsyncResponsesV1Wrapper(NamedWrapper):
         return AsyncResponseWrapper(response)
 
     async def parse(self, *args: Any, **kwargs: Any) -> Any:
-        response = await ResponseWrapper(None, self.__responses.parse, "openai.responses.parse").acreate(*args, **kwargs)
+        response = await ResponseWrapper(None, self.__responses.with_raw_response.parse, "openai.responses.parse").acreate(*args, **kwargs)
         return AsyncResponseWrapper(response)
 
 
@@ -929,17 +929,14 @@ def _parse_metrics_from_usage(usage: Any) -> dict[str, Any]:
             raw_prefix = oai_name[: -len("_tokens_details")]
             prefix = TOKEN_PREFIX_MAP.get(raw_prefix, raw_prefix)
             for k, v in value.items():
-                if _is_numeric(v):
+                if is_numeric(v):
                     metrics[f"{prefix}_{k}"] = v
-        elif _is_numeric(value):
+        elif is_numeric(value):
             name = TOKEN_NAME_MAP.get(oai_name, oai_name)
             metrics[name] = value
 
     return metrics
 
-
-def _is_numeric(v):
-    return isinstance(v, (int, float, complex)) and not isinstance(v, bool)
 
 
 def prettify_params(params: dict[str, Any]) -> dict[str, Any]:

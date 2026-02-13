@@ -22,7 +22,7 @@ classifiers = [
 description = "Read and write Apple Numbers spreadsheets"
 name = "numbers-parser"
 readme = "README.md"
-version = "4.18.1"
+version = "4.18.2"
 
 [project.urls]
 repository = "https://github.com/masaccio/numbers-parser"
@@ -56,7 +56,10 @@ docs = [
     "sphinx-toolbox>=3.5",
     "sphinx-nefertiti>=0.7",
     "sphinx-markdown-builder>=0.6",
-    "sphinx-copybutton>=0.5",
+    "sphinx-copybutton>=0.5.2",
+    # Security updates
+    "urllib3>=2.6.0",
+    "filelock>=3.20.1"
 ]
 bootstrap = [
     "rich>=14.0",
@@ -84,10 +87,10 @@ omit = ["src/numbers_parser/generated/*.py"]
 
 [tool.coverage.html]
 directory = "coverage_html_report"
-show_contexts = true
+show_contexts = false
 
 [tool.pytest.ini_options]
-addopts = "--cov=src/numbers_parser --cov-report=html --cov-report=term-missing:skip-covered --cov-context=test"
+addopts = "--cov=src/numbers_parser --cov-report=html --cov-report=term-missing:skip-covered"
 
 [tool.tox]
 requires = ["tox>=4.0"]

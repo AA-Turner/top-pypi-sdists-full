@@ -14,6 +14,7 @@ import json
 from typing import Any, cast
 
 from onelogin.saml2.auth import OneLogin_Saml2_Auth
+from onelogin.saml2.errors import OneLogin_Saml2_Error
 from onelogin.saml2.settings import OneLogin_Saml2_Settings
 
 from social_core.exceptions import (
@@ -277,7 +278,9 @@ class SAMLAuth(BaseAuth):
 
     def get_idp(self, idp_name: str | None) -> SAMLIdentityProvider:
         """Given the name of an IdP, get a SAMLIdentityProvider instance"""
-        enabled_idps: dict[str, dict] = self.setting("ENABLED_IDPS")
+        enabled_idps: dict[str, dict] = cast(
+            "dict[str, dict]", self.setting("ENABLED_IDPS")
+        )
         if idp_name is None:
             # RelayState was missing, perhaps an IdP initiated flow
             if len(enabled_idps) != 1:
@@ -367,8 +370,8 @@ class SAMLAuth(BaseAuth):
         authenticate the user"""
         try:
             idp_name = self.strategy.request_data()["idp"]
-        except KeyError:
-            raise AuthMissingParameter(self, "idp")
+        except KeyError as error:
+            raise AuthMissingParameter(self, "idp") from error
         auth = self._create_saml_auth(idp=self.get_idp(idp_name))
         # Below, return_to sets the RelayState, which can contain
         # arbitrary data.  We use it to store the specific SAML IdP
@@ -441,7 +444,10 @@ class SAMLAuth(BaseAuth):
 
         idp = self.get_idp(idp_name)
         auth = self._create_saml_auth(idp)
-        auth.process_response()
+        try:
+            auth.process_response()
+        except OneLogin_Saml2_Error as error:
+            raise AuthFailed(self, f"SAML login failed: {error}") from error
         errors = auth.get_errors()
         if errors or not auth.is_authenticated():
             reason = auth.get_last_error_reason()

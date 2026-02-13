@@ -1,7 +1,7 @@
 from io import StringIO
 from json import dumps as json_dumps
 import pathlib
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import click
 from rich.console import Console
@@ -23,6 +23,7 @@ from anyscale.controllers.schedule_controller import ScheduleController
 from anyscale.schedule.models import (
     JobConfig,
     ScheduleConfig,
+    ScheduleSortField,
     ScheduleState,
     ScheduleStatus,
 )
@@ -30,6 +31,41 @@ from anyscale.util import get_endpoint, validate_non_negative_arg
 
 
 log = BlockLogger()  # CLI Logger
+
+
+def _parse_sort_option(sort_str: Optional[str]) -> Tuple[Optional[str], str]:
+    """Parse sort string like '-created_at' into (field, order).
+
+    Args:
+        sort_str: Sort option string. Prefix with '-' for descending order.
+
+    Returns:
+        Tuple of (sort_field, sort_order) where sort_order is "ASC" or "DESC".
+
+    Raises:
+        click.BadParameter: If the sort field is not valid.
+    """
+    if not sort_str:
+        return None, "ASC"
+
+    # Build case-insensitive map of allowed fields
+    allowed = {f.value.lower(): f.value for f in ScheduleSortField.__members__.values()}
+
+    # Detect leading '-' for descending
+    if sort_str.startswith("-"):
+        raw = sort_str[1:]
+        order = "DESC"
+    else:
+        raw = sort_str
+        order = "ASC"
+
+    key = raw.lower()
+    if key not in allowed:
+        raise click.BadParameter(
+            f"Invalid sort field '{raw}'. Allowed: {', '.join(allowed.values())}",
+            param_hint="'--sort'",
+        )
+    return allowed[key], order
 
 
 @click.group("schedule", help="Create and manage Anyscale Schedules.")
@@ -187,6 +223,7 @@ def _print_schedule_list_diagnostics(  # noqa: PLR0913
     interactive: bool,
     page_size: int,
     effective_max: Optional[int],
+    sort: Optional[str] = None,
 ) -> None:
     """Prints diagnostic information for the list command."""
     stderr.print("[bold]Listing schedules with:[/]")
@@ -196,20 +233,13 @@ def _print_schedule_list_diagnostics(  # noqa: PLR0913
     stderr.print(f"• cloud           = {cloud or '<any>'}")
     stderr.print(f"• creator_id      = {creator_id or '<any>'}")
     stderr.print(f"• include_all     = {include_all_users}")
+    stderr.print(f"• sort            = {sort or '-created_at'}")
     stderr.print(f"• mode            = {'interactive' if interactive else 'batch'}")
     stderr.print(f"• per-page limit  = {page_size}")
     stderr.print(f"• max-items total = {effective_max if effective_max else 'all'}")
     stderr.print(f"\nView your Schedules in the UI at {get_endpoint('/schedules')}\n")
 
 
-# TODO(praneethkaturi): Add --sort option for schedule list.
-# Requires backend changes:
-#   - backend/server/experimental_cron/cron_jobs_base_model.py (add ScheduleSortField enum)
-#   - backend/server/experimental_cron/cron_jobs_router.py (add sort query params)
-#   - backend/server/experimental_cron/cron_jobs_dao.py (dynamic sorting)
-# And SDK changes:
-#   - frontend/cli/anyscale/schedule/_private/schedule_sdk.py
-#   - frontend/cli/anyscale/schedule/commands.py
 @schedule_cli.command(
     name="list", cls=AnyscaleCommand, example=command_examples.SCHEDULE_LIST_EXAMPLE
 )
@@ -260,6 +290,16 @@ def _print_schedule_list_diagnostics(  # noqa: PLR0913
     callback=validate_page_size,
 )
 @click.option(
+    "--sort",
+    required=False,
+    default=None,
+    help=(
+        "Sort by field. Prefix with '-' for descending order. Defaults to -created_at. "
+        f"Allowed: {', '.join(f.value for f in ScheduleSortField.__members__.values())}. "
+        "Only with --v2."
+    ),
+)
+@click.option(
     "--json",
     "-j",
     "json_output",
@@ -287,6 +327,7 @@ def list(  # noqa: A001 PLR0913
     creator_id: Optional[str] = None,
     max_items: Optional[int] = None,
     page_size: Optional[int] = None,
+    sort: Optional[str] = None,
     json_output: bool = False,
     interactive: bool = True,
     include_all_users: bool = False,
@@ -303,6 +344,10 @@ def list(  # noqa: A001 PLR0913
 
         # Apply defaults for v2-only options
         effective_page_size = page_size if page_size is not None else 10
+        effective_sort = sort if sort is not None else "-created_at"
+
+        # Parse sort option
+        sort_field, sort_order = _parse_sort_option(effective_sort)
 
         # Compute effective max_items for non-interactive mode
         effective_max = max_items
@@ -323,6 +368,7 @@ def list(  # noqa: A001 PLR0913
                 interactive=interactive,
                 page_size=effective_page_size,
                 effective_max=effective_max if not interactive else None,
+                sort=effective_sort,
             )
 
         iterator = anyscale.schedule.list(
@@ -334,6 +380,8 @@ def list(  # noqa: A001 PLR0913
             include_all_users=include_all_users,
             page_size=effective_page_size,
             max_items=effective_max if not interactive else None,
+            sort_field=sort_field,
+            sort_order=sort_order,
         )
 
         console = Console()
@@ -362,6 +410,7 @@ def list(  # noqa: A001 PLR0913
                 creator_id,
                 max_items is not None,
                 page_size is not None,
+                sort is not None,
                 json_output,
                 include_all_users,
                 not interactive,
@@ -369,7 +418,7 @@ def list(  # noqa: A001 PLR0913
         ):
             click.echo(
                 "ERROR: Options --project, --cloud, --creator-id, --max-items, "
-                "--page-size, --json, --include-all-users, and --no-interactive require --v2 flag.\n"
+                "--page-size, --sort, --json, --include-all-users, and --no-interactive require --v2 flag.\n"
                 "Use: anyscale schedule list --v2 [options]",
                 err=True,
             )

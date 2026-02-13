@@ -1,14 +1,13 @@
 import click
 
-from adam.commands import extract_trailing_options, validate_args
+from adam.commands import validate_args
 from adam.commands.command import Command
 from adam.commands.intermediate_command import IntermediateCommand
 from adam.commands.postgres.postgres_databases import pg_path
 from adam.commands.postgres.completions_p import psql0_completions, completions_p
+from adam.commands.postgres.postgres_ls import PostgresLs
+from adam.commands.postgres.postgres_preview import PostgresPreview
 from adam.commands.postgres.utils_postgres import pg_table_names, postgres
-from adam.utils_context import Context
-from .postgres_ls import PostgresLs
-from .postgres_preview import PostgresPreview
 from adam.repl_state import ReplState
 from adam.utils import ExecResult
 from adam.utils_log import log, log2, log_timing
@@ -28,12 +27,15 @@ class Postgres(IntermediateCommand):
     def command(self):
         return Postgres.COMMAND
 
+    def backgrounable(self):
+        return True
+
     def run(self, cmd: str, state: ReplState):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
 
         with self.validate(args, state) as (args, state):
-            with extract_trailing_options(args, '&') as (args, background):
+            with self.context(args) as (args, ctx):
                 with validate_args(args, state, name='SQL statement') as sql:
                     if not state.pg_path:
                         if state.in_repl:
@@ -45,11 +47,11 @@ class Postgres(IntermediateCommand):
 
                     r: ExecResult = None
                     with postgres(state) as pod:
-                        r = pod.sql(args, ctx=Context.new(cmd, background, show_out=True, history=Context.PODS))
+                        r = pod.sql(args, ctx=ctx)
 
-                    if not background and r:
-                        log(r.stdout)
-                        log2(r.stderr)
+                    if not ctx.background and r:
+                        ctx.log(r.stdout)
+                        ctx.log2(r.stderr)
 
                     return state
 
@@ -71,7 +73,7 @@ class Postgres(IntermediateCommand):
         return {}
 
     def help(self, state: ReplState):
-        return super().help(state, 'run queries on Postgres databases', command='[pg] <sql-statements>')
+        return super().help(state, 'run queries on Postgres databases', command='<sql-statements>')
 
 class PostgresCommandHelper(click.Command):
     def get_help(self, ctx: click.Context):

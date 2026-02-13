@@ -9,6 +9,7 @@ class Command(Enum):
     SUBSET = 'SUBSET'
     COMMIT = 'COMMIT'
     DETECT_FLAKE = 'DETECT_FLAKE'
+    GATE = 'GATE'
 
     def display_name(self):
         return self.value.lower().replace('_', ' ')

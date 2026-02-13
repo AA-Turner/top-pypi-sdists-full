@@ -14,7 +14,7 @@ def compute_shader_support_get() -> bool:
     :return: True when supported, False when not supported.
     """
 
-def extensions_get() -> tuple[str]:
+def extensions_get() -> tuple[str, ...]:
     """Get supported extensions in the current context.
 
     :return: Extensions.

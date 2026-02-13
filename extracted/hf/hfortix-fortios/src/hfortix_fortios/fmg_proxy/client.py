@@ -275,6 +275,16 @@ class FortiManagerProxy:
         max_retries: int = 3,
         circuit_breaker_threshold: int = 5,
         circuit_breaker_timeout: float = 60.0,
+        # NEW: Rate limiting enforcement parameters
+        rate_limit: bool = False,
+        rate_limit_strategy: str = "queue",
+        rate_limit_max_requests: int = 100,
+        rate_limit_window_seconds: float = 60.0,
+        rate_limit_queue_size: int = 100,
+        rate_limit_queue_timeout: float = 30.0,
+        rate_limit_queue_overflow: str = "block",
+        circuit_breaker: bool = False,
+        circuit_breaker_half_open_calls: int = 3,
     ):
         """
         Initialize FortiManager proxy client.
@@ -290,6 +300,15 @@ class FortiManagerProxy:
             max_retries: Maximum retry attempts on transient failures
             circuit_breaker_threshold: Failures before opening circuit breaker
             circuit_breaker_timeout: Seconds before retrying after circuit opens
+            rate_limit: Enable rate limiting enforcement (default: False)
+            rate_limit_strategy: 'queue' or 'reject' (default: 'queue')
+            rate_limit_max_requests: Max requests per window (default: 100)
+            rate_limit_window_seconds: Time window in seconds (default: 60.0)
+            rate_limit_queue_size: Max queue size (default: 100)
+            rate_limit_queue_timeout: Max wait time in queue (default: 30.0)
+            rate_limit_queue_overflow: 'block' or 'drop' on overflow (default: 'block')
+            circuit_breaker: Enable circuit breaker (default: False)
+            circuit_breaker_half_open_calls: Calls to test in half-open state (default: 3)
         """
         # Build URL from host and port
         url = f"https://{host}:{port}" if port != 443 else f"https://{host}"
@@ -309,6 +328,16 @@ class FortiManagerProxy:
             max_retries=max_retries,
             circuit_breaker_threshold=circuit_breaker_threshold,
             circuit_breaker_timeout=circuit_breaker_timeout,
+            # NEW: Pass rate limiting parameters
+            rate_limit=rate_limit,
+            rate_limit_strategy=rate_limit_strategy,
+            rate_limit_max_requests=rate_limit_max_requests,
+            rate_limit_window_seconds=rate_limit_window_seconds,
+            rate_limit_queue_size=rate_limit_queue_size,
+            rate_limit_queue_timeout=rate_limit_queue_timeout,
+            rate_limit_queue_overflow=rate_limit_queue_overflow,
+            circuit_breaker=circuit_breaker,
+            circuit_breaker_half_open_calls=circuit_breaker_half_open_calls,
         )
         self._default_adom = adom
     

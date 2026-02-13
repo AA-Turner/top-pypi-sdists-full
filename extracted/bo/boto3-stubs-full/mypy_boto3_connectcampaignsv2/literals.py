@@ -64,7 +64,11 @@ DayOfWeekType = Literal[
 ]
 EncryptionTypeType = Literal["KMS"]
 EventTypeType = Literal[
-    "Campaign-Email", "Campaign-Orchestration", "Campaign-SMS", "Campaign-Telephony"
+    "Campaign-Email",
+    "Campaign-Orchestration",
+    "Campaign-SMS",
+    "Campaign-Telephony",
+    "Campaign-WhatsApp",
 ]
 ExternalCampaignTypeType = Literal["JOURNEY", "MANAGED"]
 FailureCodeType = Literal["BufferLimitExceeded", "InvalidInput", "RequestThrottled", "UnknownError"]

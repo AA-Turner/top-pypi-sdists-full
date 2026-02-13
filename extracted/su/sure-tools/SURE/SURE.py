@@ -226,7 +226,7 @@ class SURE(nn.Module):
     def predict_cluster(self, xs, batch_size=1024, show_progress=True):
         return self.engine.predict_cluster(xs, batch_size=batch_size, show_progress=show_progress)
     
-    def predict(self, xs, cs_list, ps, batch_size=1024, show_progress=True):
+    def predict(self, xs, cs_list, ps, fs_list=None, batch_size=1024, show_progress=True):
         """
         Generate gene expression prediction from given cell data and covariates.
         This function can be used for simulating cells' transcription profiles at new conditions.
@@ -237,7 +237,7 @@ class SURE(nn.Module):
         :param batch_size: Data size per batch
         :param show_progress: Toggle on or off message output
         """
-        return self.engine.predict(xs, cs_list, ps, batch_size, show_progress)
+        return self.engine.predict(xs, cs_list, ps, fs_list, batch_size, show_progress)
     
     def preprocess(self, xs, threshold=0):
         return self.engine.preprocess(xs=xs, threshold=threshold) 

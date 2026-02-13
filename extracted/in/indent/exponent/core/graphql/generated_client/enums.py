@@ -4,9 +4,22 @@
 from enum import Enum
 
 
-class ExponentModels(str, Enum):
-    BASE = "BASE"
-    PREMIUM = "PREMIUM"
+class AgentSubtype(str, Enum):
+    CODING_AGENT = "CODING_AGENT"
+    SRE_AGENT = "SRE_AGENT"
+
+
+class ChatMode(str, Enum):
+    DEFAULT = "DEFAULT"
+    CLI = "CLI"
+    CLOUD = "CLOUD"
+    CLOUD_SETUP = "CLOUD_SETUP"
+    CLOUD_SETUP_AUTO = "CLOUD_SETUP_AUTO"
+    CODEBASE = "CODEBASE"
+    DATABASE = "DATABASE"
+    WORKFLOW = "WORKFLOW"
+    PLAYGROUND = "PLAYGROUND"
+    ONCALL = "ONCALL"
 
 
 class ModelName(str, Enum):

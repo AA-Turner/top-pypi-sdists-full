@@ -11,11 +11,13 @@ import asyncio
 import logging
 import os
 import tempfile
+import time
 from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from praisonaiagents import Agent
 
+from praisonai.bots._protocol_mixin import ChatCommandMixin
 from praisonaiagents.bots import (
     BotConfig,
     BotMessage,
@@ -25,11 +27,13 @@ from praisonaiagents.bots import (
 )
 
 from .media import split_media_from_output, is_audio_file
+from ._commands import format_status, format_help
+from ._session import BotSessionManager
 
 logger = logging.getLogger(__name__)
 
 
-class TelegramBot:
+class TelegramBot(ChatCommandMixin):
     """Telegram bot runtime for PraisonAI agents.
     
     Connects an agent to Telegram, handling messages, commands,
@@ -74,6 +78,8 @@ class TelegramBot:
         
         self._message_handlers: List[Callable] = []
         self._command_handlers: Dict[str, Callable] = {}
+        self._started_at: Optional[float] = None
+        self._session: BotSessionManager = BotSessionManager()
         
         # Audio capabilities (set by BotCapabilities)
         self._stt_enabled: bool = False
@@ -121,6 +127,7 @@ class TelegramBot:
             )
         
         self._application = Application.builder().token(self._token).build()
+        self._started_at = time.time()
         
         bot_info = await self._application.bot.get_me()
         self._bot_user = BotUser(
@@ -164,8 +171,9 @@ class TelegramBot:
                 if self.config.typing_indicator:
                     await update.message.chat.send_action("typing")
                 
+                user_id = str(update.message.from_user.id) if update.message.from_user else "unknown"
                 try:
-                    response = self._agent.chat(message_text)
+                    response = await self._session.chat(self._agent, user_id, message_text)
                     await self._send_response_with_media(
                         update.message.chat_id,
                         response,
@@ -196,6 +204,27 @@ class TelegramBot:
                 except Exception as e:
                     logger.error(f"Command handler error: {e}")
         
+        async def handle_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            if not update.message:
+                return
+            await update.message.reply_text(self._format_status())
+        
+        async def handle_new(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            if not update.message:
+                return
+            user_id = str(update.message.from_user.id) if update.message.from_user else "unknown"
+            self._session.reset(user_id)
+            await update.message.reply_text("Session reset. Starting fresh conversation.")
+        
+        async def handle_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            if not update.message:
+                return
+            await update.message.reply_text(self._format_help())
+        
+        self._application.add_handler(CommandHandler("status", handle_status))
+        self._application.add_handler(CommandHandler("new", handle_new))
+        self._application.add_handler(CommandHandler("help", handle_help))
+        
         for command in self._command_handlers:
             self._application.add_handler(CommandHandler(command, handle_command))
         
@@ -219,20 +248,44 @@ class TelegramBot:
                 webhook_url=f"{self.config.webhook_url}{self.config.webhook_path}",
             )
         else:
-            await self._application.run_polling(
+            # Use low-level API to avoid event-loop conflicts with run_polling().
+            # run_polling() tries to manage its own event loop lifecycle which
+            # conflicts with asyncio.run() or any shared event loop (e.g. gateway).
+            await self._application.initialize()
+            await self._application.start()
+            await self._application.updater.start_polling(
                 poll_interval=self.config.polling_interval,
             )
+            
+            # Block until stop() is called
+            self._stop_event = asyncio.Event()
+            try:
+                await self._stop_event.wait()
+            except asyncio.CancelledError:
+                pass
+            finally:
+                await self._application.updater.stop()
+                await self._application.stop()
+                await self._application.shutdown()
+                self._is_running = False
     
     async def stop(self) -> None:
         """Stop the Telegram bot."""
         if not self._is_running:
             return
         
-        self._is_running = False
-        
-        if self._application:
-            await self._application.stop()
-            await self._application.shutdown()
+        # Signal the stop event so the start() loop exits cleanly
+        if hasattr(self, '_stop_event') and self._stop_event:
+            self._stop_event.set()
+        else:
+            # Fallback for webhook mode or direct stop
+            self._is_running = False
+            if self._application:
+                try:
+                    await self._application.stop()
+                    await self._application.shutdown()
+                except Exception as e:
+                    logger.warning(f"Error during stop: {e}")
         
         logger.info("Telegram bot stopped")
     
@@ -465,6 +518,15 @@ class TelegramBot:
             )
         except Exception:
             return None
+    
+    def _format_status(self) -> str:
+        """Format /status response."""
+        return format_status(self._agent, self.platform, self._started_at, self._is_running)
+    
+    def _format_help(self) -> str:
+        """Format /help response."""
+        extra = {cmd: "Custom command" for cmd in self._command_handlers}
+        return format_help(self._agent, self.platform, extra)
     
     def _convert_update_to_message(self, update, override_text: Optional[str] = None) -> BotMessage:
         """Convert Telegram Update to BotMessage."""

@@ -1,11 +1,7 @@
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import (
     Any,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Union,
 )
 
 from exasol.error import _exa_error
@@ -23,7 +19,7 @@ from exasol.error._internal_errors import (
 @dataclass(frozen=True)
 class Parameter:
     value: str
-    description: Union[None, str]
+    description: None | str
 
 
 class Error:
@@ -31,8 +27,8 @@ class Error:
         self,
         code: str,
         message: str,
-        mitigations: Union[str, Iterable[str]],
-        parameters: Dict[str, Union[str, Parameter]],
+        mitigations: str | Iterable[str],
+        parameters: dict[str, str | Parameter],
     ) -> None:
         builder = _exa_error.ExaError.message_builder(code)
         builder.message(message)
@@ -43,7 +39,7 @@ class Error:
         for k, v in parameters.items():
             name = k
             value = v
-            description: Optional[str] = ""
+            description: str | None = ""
             if isinstance(v, Parameter):
                 value = v.value
                 description = v.description
@@ -94,12 +90,22 @@ class Error:
 
         return output[:-1]
 
+    def __eq__(self, other: Any) -> bool:
+        def atts(builder: ErrorMessageBuilder):
+            return (
+                builder._error_code,
+                builder._message_builder,
+                builder._parameter_dict,
+            )
+
+        return isinstance(other, Error) and atts(self._error) == atts(other._error)
+
 
 def ExaError(
     code: str,
     message: str,
-    mitigations: Union[str, List[str]],
-    parameters: Dict[str, Union[str, Parameter]],
+    mitigations: str | list[str],
+    parameters: dict[str, str | Parameter],
 ) -> Error:
     """Create a new ExaError.
 
@@ -137,7 +143,7 @@ def ExaError(
         )
 
 
-def _create_error_code_definitions(version=None) -> Dict[str, Any]:
+def _create_error_code_definitions(version=None) -> dict[str, Any]:
     from exasol.error.version import VERSION
 
     version = version or VERSION

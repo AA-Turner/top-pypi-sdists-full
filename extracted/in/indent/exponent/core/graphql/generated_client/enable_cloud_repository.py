@@ -11,22 +11,13 @@ from .base_model import BaseModel
 class EnableCloudRepository(BaseModel):
     enable_cloud_repository: Union[
         "EnableCloudRepositoryEnableCloudRepositoryInputValidationError",
-        "EnableCloudRepositoryEnableCloudRepositoryNotFoundError",
         "EnableCloudRepositoryEnableCloudRepositoryCloudSessionError",
         "EnableCloudRepositoryEnableCloudRepositoryEnableCloudRepositoriesResult",
-        "EnableCloudRepositoryEnableCloudRepositoryUnauthenticatedError",
     ] = Field(alias="enableCloudRepository", discriminator="typename__")
 
 
 class EnableCloudRepositoryEnableCloudRepositoryInputValidationError(BaseModel):
     typename__: Literal["InputValidationError"] = Field(alias="__typename")
-
-
-class EnableCloudRepositoryEnableCloudRepositoryNotFoundError(BaseModel):
-    typename__: Literal["NotFoundError"] = Field(alias="__typename")
-    resource_type: str = Field(alias="resourceType")
-    resource_id: Optional[str] = Field(alias="resourceId")
-    message: str
 
 
 class EnableCloudRepositoryEnableCloudRepositoryCloudSessionError(BaseModel):
@@ -63,11 +54,6 @@ class EnableCloudRepositoryEnableCloudRepositoryEnableCloudRepositoriesResultRes
     build_ref: str = Field(alias="buildRef")
     created_at: Any = Field(alias="createdAt")
     updated_at: Any = Field(alias="updatedAt")
-
-
-class EnableCloudRepositoryEnableCloudRepositoryUnauthenticatedError(BaseModel):
-    typename__: Literal["UnauthenticatedError"] = Field(alias="__typename")
-    message: str
 
 
 EnableCloudRepository.model_rebuild()

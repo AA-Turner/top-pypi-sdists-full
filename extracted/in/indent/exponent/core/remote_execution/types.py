@@ -54,36 +54,7 @@ class SlackWorkflowInput(BaseModel):
     message_text: str | None = None
 
 
-class SlackPlanApprovalWorkflowInput(BaseModel):
-    discriminator: Literal["slack_plan_approval"] = "slack_plan_approval"
-    channel_id: str
-    thread_ts: str
-    slack_url: str
-    channel_name: str
-    message_ts: str
-
-
-class LearnFromPrWorkflowInput(BaseModel):
-    repo_owner: str
-    repo_name: str
-    pr_number: int
-
-
-class SentryWorkflowInput(BaseModel):
-    """Deprecated but kept for backcompat with existing DB rows."""
-
-    title: str
-    issue_id: str
-    permalink: str
-
-
-WorkflowInput = (
-    PrReviewWorkflowInput
-    | SlackWorkflowInput
-    | SentryWorkflowInput
-    | SlackPlanApprovalWorkflowInput
-    | LearnFromPrWorkflowInput
-)
+WorkflowInput = PrReviewWorkflowInput | SlackWorkflowInput
 
 
 class WorkflowTriggerRequest(BaseModel):

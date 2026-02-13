@@ -16,6 +16,10 @@ DEFAULT_IR_URL = (
     "sfengineering-ss-lprpr-test2.registry.snowflakecomputing.com/"
     + f"{TEST_IMAGE_REPO_DATABASE.lower()}/{TEST_IMAGE_REPO_SCHEMA.lower()}/{TEST_IMAGE_REPO.lower()}"
 )
+TEST_SHARED_TAG_DATABASE = "TEST_SHARED_TAG_DATABASE"
+TEST_SHARED_TAG_SCHEMA = "TEST_SHARED_TAG_SCHEMA"
+TEST_SHARED_TAG_NAME = "TEST_SHARED_TAG_NAME"
+TEST_SHARED_TAG_VALUE = "TEST_SHARED_TAG_VALUE"
 
 
 class Tuple_database(NamedTuple):

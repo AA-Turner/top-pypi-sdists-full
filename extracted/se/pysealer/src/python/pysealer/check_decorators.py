@@ -45,7 +45,7 @@ def check_decorators(file_path: str) -> Dict[str, dict]:
     try:
         public_key = get_public_key()
     except (FileNotFoundError, ValueError) as e:
-        raise RuntimeError(f"Cannot verify decorators: {e}. Please run 'pysealer init' first.")
+        raise RuntimeError(f"Cannot verify decorators: {e}")
     
     # Dictionary to store results
     results = {}

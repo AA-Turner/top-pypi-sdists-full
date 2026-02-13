@@ -2503,6 +2503,38 @@ class CfnDBInstance(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForDBInstance")
+    @builtins.classmethod
+    def arn_for_db_instance(cls, resource: "_IDBInstanceRef_41253090") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0522997504e371454cf7c320b0b1fb2c534d20b30a49acff9ae70e0bdfe57d34)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDBInstance", [resource]))
+
+    @jsii.member(jsii_name="fromDBInstanceId")
+    @builtins.classmethod
+    def from_db_instance_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        db_instance_id: builtins.str,
+    ) -> "_IDBInstanceRef_41253090":
+        '''Creates a new IDBInstanceRef from a dbInstanceId.
+
+        :param scope: -
+        :param id: -
+        :param db_instance_id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__017ba3d5ee2fc2a088dc1f5c6ba707e6ec36a5268be9cdbfaa64a093f32f1a4d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument db_instance_id", value=db_instance_id, expected_type=type_hints["db_instance_id"])
+        return typing.cast("_IDBInstanceRef_41253090", jsii.sinvoke(cls, "fromDBInstanceId", [scope, id, db_instance_id]))
+
     @jsii.member(jsii_name="isCfnDBInstance")
     @builtins.classmethod
     def is_cfn_db_instance(cls, x: typing.Any) -> builtins.bool:
@@ -7011,6 +7043,20 @@ def _typecheckingstub__04a2ef738116d21f3bef48c2f9d0cccb18afe06fe39e0db6ce75d1bdd
     enable_performance_insights: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     preferred_maintenance_window: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0522997504e371454cf7c320b0b1fb2c534d20b30a49acff9ae70e0bdfe57d34(
+    resource: _IDBInstanceRef_41253090,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__017ba3d5ee2fc2a088dc1f5c6ba707e6ec36a5268be9cdbfaa64a093f32f1a4d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    db_instance_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

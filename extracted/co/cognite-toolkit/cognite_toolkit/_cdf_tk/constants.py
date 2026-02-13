@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal, TypeAlias
 
@@ -75,8 +76,8 @@ _CLEAN_PATTERN = re.compile(r"[\W_]+")
 # This is used to detect environment variables in a string.
 ENV_VAR_PATTERN = re.compile(r"\$\{([^}]+)\}")
 
-HINT_LEAD_TEXT = "[bold blue]HINT[/bold blue] "
-HINT_LEAD_TEXT_LEN = 5
+HINT_LEAD_TEXT = "  :bulb: [bold blue]HINT[/bold blue] "
+HINT_LEAD_TEXT_LEN = 8
 EnvType: TypeAlias = Literal["dev", "test", "staging", "qa", "prod"]
 USE_SENTRY = "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lower() == "true"
 SPACE_FORMAT_PATTERN = r"^[a-zA-Z][a-zA-Z0-9_-]{0,41}[a-zA-Z0-9]?$"
@@ -163,13 +164,13 @@ CDF_UNIT_SPACE = "cdf_cdm_units"
 
 
 # Container properties that are read-only in DMS needs to be handled with extra care, as this aspect is not currently exposed by the API.
-READONLY_CONTAINER_PROPERTIES = {
-    ContainerId(space="cdf_cdm", external_id="CogniteAsset"): {
+READONLY_CONTAINER_PROPERTIES: Mapping[tuple[str, str], set[str]] = {
+    ("cdf_cdm", "CogniteAsset"): {
         "assetHierarchy_path_last_updated_time",
         "assetHierarchy_path",
         "assetHierarchy_root",
     },
-    ContainerId(space="cdf_cdm", external_id="CogniteFile"): {"isUploaded", "uploadedTime"},
+    ("cdf_cdm", "CogniteFile"): {"isUploaded", "uploadedTime"},
 }
 
 # Data Plugin Constants

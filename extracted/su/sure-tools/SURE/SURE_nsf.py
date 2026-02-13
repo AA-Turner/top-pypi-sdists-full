@@ -645,7 +645,7 @@ class SURENF(nn.Module):
         zs = self.get_cell_embedding(xs, batch_size=batch_size, show_progress=show_progress)
         return self.kmeans.predict(zs)
     
-    def predict(self, xs, cs_list, ps, batch_size=1024, show_progress=True):
+    def predict(self, xs, cs_list, ps, fs_list=None, batch_size=1024, show_progress=True):
         """
         Generate gene expression prediction from given cell data and covariates.
         This function can be used for simulating cells' transcription profiles at new conditions.
@@ -663,6 +663,9 @@ class SURENF(nn.Module):
             cs = convert_to_tensor(cs, dtype=self.dtype, device='cpu')
         if ps is not None:
             ps = convert_to_tensor(ps, dtype=self.dtype, device='cpu')
+        if fs_list is not None:
+            fs = np.hstack(fs_list)
+            fs = convert_to_tensor(fs, dtype=self.dtype, device='cpu')
         
         dataset = CustomDataset(xs)
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
@@ -671,7 +674,7 @@ class SURENF(nn.Module):
         with tqdm(total=len(dataloader), disable=not show_progress, desc='', unit='batch') as pbar:
             for X_batch, idx in dataloader:
                 X_batch = X_batch.to(self.get_device())
-                library_size = torch.sum(X_batch, 1)
+                library_size = torch.sum(X_batch, 1, keepdim=True)
                 
                 z_basal = self._get_cell_embedding(X_batch)
                 
@@ -691,6 +694,13 @@ class SURENF(nn.Module):
                     zps = torch.zeros_like(z_basal)
                     
                 zfs = torch.zeros_like(z_basal)
+                if fs_list is not None:
+                    F_batch = fs[idx].to(self.get_device())
+                    shift = 0
+                    for i, covariate_size in enumerate(self.covariate_sizes):
+                        F_batch_i = F_batch[:, shift:(shift+covariate_size)]
+                        zfs += self.covariate_effects[i](F_batch_i)
+                        shift += covariate_size
                 
                 log_mu = self.decoder_log_mu(z_basal+zcs+zps+zfs)
                 if self.loss_func == 'bernoulli':

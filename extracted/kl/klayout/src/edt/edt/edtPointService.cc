@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -124,7 +124,7 @@ PointService::do_mouse_click (const db::DPoint &p)
 }
 
 void
-PointService::do_finish_edit ()
+PointService::do_finish_edit (bool /*accept*/)
 {
   deliver_shape (get_point ());
   commit_recent ();

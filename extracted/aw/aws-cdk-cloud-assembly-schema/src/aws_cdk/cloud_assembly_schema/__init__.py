@@ -91,6 +91,7 @@ from ._jsii import *
     jsii_struct_bases=[],
     name_mapping={
         "type": "type",
+        "additional_metadata_file": "additionalMetadataFile",
         "dependencies": "dependencies",
         "display_name": "displayName",
         "environment": "environment",
@@ -103,6 +104,7 @@ class ArtifactManifest:
         self,
         *,
         type: "ArtifactType",
+        additional_metadata_file: typing.Optional[builtins.str] = None,
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
@@ -112,15 +114,17 @@ class ArtifactManifest:
         '''A manifest for a single artifact within the cloud assembly.
 
         :param type: The type of artifact.
+        :param additional_metadata_file: A file with additional metadata entries. The schema of this file is exactly the same as the type of the ``metadata`` field. In other words, that file contains an object mapping construct paths to arrays of metadata entries. Default: - no additional metadata
         :param dependencies: IDs of artifacts that must be deployed before this artifact. Default: - no dependencies.
         :param display_name: A string that can be shown to a user to uniquely identify this artifact inside a cloud assembly tree. Is used by the CLI to present a list of stacks to the user in a way that makes sense to them. Even though the property name "display name" doesn't imply it, this field is used to select stacks as well, so all stacks should have a unique display name. Default: - no display name
         :param environment: The environment into which this artifact is deployed. Default: - no envrionment.
-        :param metadata: Associated metadata. Default: - no metadata.
+        :param metadata: Associated metadata. Metadata can be stored directly in the assembly manifest, as well as in a separate file (see ``additionalMetadataFile``). It should prefer to be stored in the additional file, as that will reduce the size of the assembly manifest in cases of a lot of metdata (which CDK does emit by default). Default: - no metadata.
         :param properties: The set of properties for this artifact (depends on type). Default: - no properties.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8929e1c8fa42a2da90248ef476a9635f914a58bd1f9f1e211137b8ee50724a63)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument additional_metadata_file", value=additional_metadata_file, expected_type=type_hints["additional_metadata_file"])
             check_type(argname="argument dependencies", value=dependencies, expected_type=type_hints["dependencies"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
@@ -129,6 +133,8 @@ class ArtifactManifest:
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "type": type,
         }
+        if additional_metadata_file is not None:
+            self._values["additional_metadata_file"] = additional_metadata_file
         if dependencies is not None:
             self._values["dependencies"] = dependencies
         if display_name is not None:
@@ -146,6 +152,19 @@ class ArtifactManifest:
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast("ArtifactType", result)
+
+    @builtins.property
+    def additional_metadata_file(self) -> typing.Optional[builtins.str]:
+        '''A file with additional metadata entries.
+
+        The schema of this file is exactly the same as the type of the ``metadata`` field.
+        In other words, that file contains an object mapping construct paths to arrays
+        of metadata entries.
+
+        :default: - no additional metadata
+        '''
+        result = self._values.get("additional_metadata_file")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def dependencies(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -184,6 +203,11 @@ class ArtifactManifest:
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, typing.List["MetadataEntry"]]]:
         '''Associated metadata.
+
+        Metadata can be stored directly in the assembly manifest, as well as in a
+        separate file (see ``additionalMetadataFile``). It should prefer to be stored
+        in the additional file, as that will reduce the size of the assembly
+        manifest in cases of a lot of metdata (which CDK does emit by default).
 
         :default: - no metadata.
         '''
@@ -7665,6 +7689,7 @@ publication.publish()
 def _typecheckingstub__8929e1c8fa42a2da90248ef476a9635f914a58bd1f9f1e211137b8ee50724a63(
     *,
     type: ArtifactType,
+    additional_metadata_file: typing.Optional[builtins.str] = None,
     dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,

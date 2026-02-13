@@ -5,27 +5,27 @@ from `sys.argv[0]`. This is the foundation for pyrig's dynamic command discovery
 system, allowing shared commands to adapt behavior based on the invoking project.
 
 These utilities are used internally by pyrig's CLI infrastructure
-(``pyrig.dev.cli.cli``) and are available for shared commands that need to know
+(``pyrig.rig.cli.cli``) and are available for shared commands that need to know
 which project invoked them.
 
 Example:
     A shared ``version`` command that displays the invoking project's version::
 
-        from pyrig.src.cli import get_project_name_from_argv
-        from importlib.metadata import version as get_version
+        from pyrig.src.cli import project_name_from_argv
+        from importlib.metadata import version as version
 
         def version() -> None:
-            project_name = get_project_name_from_argv()
-            print(f"{project_name} version {get_version(project_name)}")
+            project_name = project_name_from_argv()
+            print(f"{project_name} version {version(project_name)}")
 """
 
 import sys
 from pathlib import Path
 
-from pyrig.src.modules.package import get_pkg_name_from_project_name
+from pyrig.src.modules.package import package_name_from_project_name
 
 
-def get_project_name_from_argv() -> str:
+def project_name_from_argv() -> str:
     """Extract the project name from the command-line invocation.
 
     Extracts the basename of `sys.argv[0]`, which contains the console script
@@ -38,19 +38,19 @@ def get_project_name_from_argv() -> str:
 
     Example:
         >>> # When invoked as: uv run my-project build
-        >>> get_project_name_from_argv()
+        >>> project_name_from_argv()
         'my-project'
 
     See Also:
-        get_pkg_name_from_argv: Converts the result to a Python package name.
+        package_name_from_argv: Converts the result to a Python package name.
     """
     return Path(sys.argv[0]).name
 
 
-def get_pkg_name_from_argv() -> str:
+def package_name_from_argv() -> str:
     """Extract the Python package name from the command-line invocation.
 
-    Combines `get_project_name_from_argv` with hyphen-to-underscore conversion
+    Combines `project_name_from_argv` with hyphen-to-underscore conversion
     to produce a valid Python package name. This is used by pyrig's CLI command
     discovery to locate the invoking package's modules (e.g., subcommands).
 
@@ -60,12 +60,12 @@ def get_pkg_name_from_argv() -> str:
 
     Example:
         >>> # When invoked as: uv run my-project build
-        >>> get_pkg_name_from_argv()
+        >>> package_name_from_argv()
         'my_project'
 
     See Also:
-        get_project_name_from_argv: Returns the raw project name without conversion.
-        pyrig.src.modules.package.get_pkg_name_from_project_name: conversion function.
+        project_name_from_argv: Returns the raw project name without conversion.
+        pyrig.src.modules.package.package_name_from_project_name: conversion function.
     """
-    project_name = get_project_name_from_argv()
-    return get_pkg_name_from_project_name(project_name)
+    project_name = project_name_from_argv()
+    return package_name_from_project_name(project_name)

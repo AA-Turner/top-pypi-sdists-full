@@ -12,6 +12,8 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     ArchiveEnvironmentResponse,
     ArchiveProjectRequest,
     ArchiveProjectResponse,
+    CreateCustomRoleRequest,
+    CreateCustomRoleResponse,
     CreateEnvironmentRequest,
     CreateEnvironmentResponse,
     CreateProjectRequest,
@@ -24,6 +26,8 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     CreateVectorDBConfigurationResponse,
     DeactivateUserRequest,
     DeactivateUserResponse,
+    DeleteCustomRoleRequest,
+    DeleteCustomRoleResponse,
     DeleteServiceTokenRequest,
     DeleteServiceTokenResponse,
     ExpireTeamInviteRequest,
@@ -40,6 +44,8 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     GetEnvResponse,
     GetEnvironmentsRequest,
     GetEnvironmentsResponse,
+    GetProjectRequest,
+    GetProjectResponse,
     GetTeamPermissionsRequest,
     GetTeamPermissionsResponse,
     GetTeamRequest,
@@ -52,6 +58,8 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     ListTeamInvitesResponse,
     ReactivateUserRequest,
     ReactivateUserResponse,
+    UpdateCustomRoleRequest,
+    UpdateCustomRoleResponse,
     UpdateEnvironmentRequest,
     UpdateEnvironmentResponse,
     UpdateProjectRequest,
@@ -184,6 +192,22 @@ class TeamServiceStub:
     ReactivateUser: UnaryUnaryMultiCallable[
         ReactivateUserRequest,
         ReactivateUserResponse,
+    ]
+    CreateCustomRole: UnaryUnaryMultiCallable[
+        CreateCustomRoleRequest,
+        CreateCustomRoleResponse,
+    ]
+    DeleteCustomRole: UnaryUnaryMultiCallable[
+        DeleteCustomRoleRequest,
+        DeleteCustomRoleResponse,
+    ]
+    UpdateCustomRole: UnaryUnaryMultiCallable[
+        UpdateCustomRoleRequest,
+        UpdateCustomRoleResponse,
+    ]
+    GetProject: UnaryUnaryMultiCallable[
+        GetProjectRequest,
+        GetProjectResponse,
     ]
 
 class TeamServiceServicer(metaclass=ABCMeta):
@@ -354,5 +378,29 @@ class TeamServiceServicer(metaclass=ABCMeta):
         request: ReactivateUserRequest,
         context: ServicerContext,
     ) -> ReactivateUserResponse: ...
+    @abstractmethod
+    def CreateCustomRole(
+        self,
+        request: CreateCustomRoleRequest,
+        context: ServicerContext,
+    ) -> CreateCustomRoleResponse: ...
+    @abstractmethod
+    def DeleteCustomRole(
+        self,
+        request: DeleteCustomRoleRequest,
+        context: ServicerContext,
+    ) -> DeleteCustomRoleResponse: ...
+    @abstractmethod
+    def UpdateCustomRole(
+        self,
+        request: UpdateCustomRoleRequest,
+        context: ServicerContext,
+    ) -> UpdateCustomRoleResponse: ...
+    @abstractmethod
+    def GetProject(
+        self,
+        request: GetProjectRequest,
+        context: ServicerContext,
+    ) -> GetProjectResponse: ...
 
 def add_TeamServiceServicer_to_server(servicer: TeamServiceServicer, server: Server) -> None: ...

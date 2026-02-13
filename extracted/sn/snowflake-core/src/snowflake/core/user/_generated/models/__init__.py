@@ -22,6 +22,8 @@ from snowflake.core.user._generated.models.grant import Grant
 from snowflake.core.user._generated.models.securable import Securable
 from snowflake.core.user._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.user._generated.models.success_response import SuccessResponse
+from snowflake.core.user._generated.models.tag_assignment import TagAssignment
+from snowflake.core.user._generated.models.tag_reference import TagReference
 from snowflake.core.user._generated.models.user import User
 
 __all__ = [
@@ -31,5 +33,7 @@ __all__ = [
     "Securable",
     "SuccessAcceptedResponse",
     "SuccessResponse",
+    "TagAssignment",
+    "TagReference",
     "User",
 ]

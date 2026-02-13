@@ -11,17 +11,13 @@ from tests.conftest import server_deprecation_warning, targets
 
 @targets(
     "redis_basic",
-    "redis_basic_resp2",
-    "redis_basic_blocking",
     "redis_basic_raw",
     "redis_cluster",
-    "redis_cluster_blocking",
     "redis_cluster_raw",
     "redis_cached",
     "redis_cluster_cached",
     "dragonfly",
     "valkey",
-    "redict",
 )
 class TestString:
     async def test_append(self, client, _s):
@@ -114,7 +110,6 @@ class TestString:
         with pytest.raises(CommandSyntaxError):
             await client.getex("a", ex=1, px=1)
 
-    @pytest.mark.min_server_version("7.0.0")
     @pytest.mark.nodragonfly
     async def test_lcs(self, client, _s):
         await client.mset({"a{fu}": "abcdefg", "b{fu}": "abdefg"})
@@ -225,7 +220,6 @@ class TestString:
         assert await client.set("a", "2", get=True) == _s("1")
         assert await client.set("a", "3", condition=PureToken.XX, get=True) == _s("2")
 
-    @pytest.mark.min_server_version("7.0.0")
     async def test_set_get_nx(self, client, _s):
         assert await client.set("a", "1")
         assert await client.set("a", "2", condition=PureToken.NX, get=True) == _s("1")

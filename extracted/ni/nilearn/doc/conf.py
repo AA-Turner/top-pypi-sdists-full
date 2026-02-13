@@ -37,6 +37,21 @@ linkcode_resolve = make_linkcode_resolve
 # We also add the directory just above to enable local imports of nilearn
 sys.path.insert(0, str(Path("..").absolute()))
 
+# -- Plotly Configuration ----------------------------------------------------
+
+try:
+    import plotly.io as pio
+
+    pio.renderers.default = "sphinx_gallery"
+except ImportError:
+    import warnings
+
+    warnings.warn(
+        stacklevel=2,
+        message="Plotly is not installed. Plotly figures will not be shown.",
+        category=UserWarning,
+    )
+
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
@@ -213,6 +228,7 @@ linkcheck_ignore = [
     r"https://rrid.site/data/record.*",
     r"https://sites.wustl.edu/oasisbrains.*",
     r"https://www.cambridge.org/be/universitypress.*",
+    r"../../_static/notebook_reports_.*",
     "http://brainomics.cea.fr/localizer/",
     "https://childmind.org/science/global-open-science/healthy-brain-network/",
     "https://digicosme.cnrs.fr/en/digicosme-paris-saclay-english/",
@@ -222,6 +238,7 @@ linkcheck_ignore = [
     "https://pages.saclay.inria.fr/bertrand.thirion/",
     "https://pages.stern.nyu.edu/~wgreene/Text/econometricanalysis.htm",
     "https://surfer.nmr.mgh.harvard.edu/",
+    "https://www.gin.cnrs.fr/en/tools/aal",
 ]
 
 linkcheck_exclude_documents = [r".*/sg_execution_times.rst"]

@@ -5,13 +5,13 @@ import numpy.typing as npt
 import bpy.types
 
 def load_image(
-    imagepath,
+    imagepath: str,
     dirname: str = "",
     place_holder: bool = False,
     recursive: bool = False,
     ncase_cmp: bool = True,
-    convert_callback: typing.Any | None = None,
-    verbose=False,
+    convert_callback: None | collections.abc.Callable[str, str] | None = None,
+    verbose: bool = False,
     relpath: None | str | None = None,
     check_existing: bool = False,
     force_reload: bool = False,
@@ -19,6 +19,8 @@ def load_image(
     """Return an image from the file path with options to search multiple paths
     and return a placeholder if its not found.
 
+        :param imagepath: The image filename
+    If a path precedes it, this will be searched as well.
         :param dirname: is the directory where the image may be located - any file at
     the end will be ignored.
         :param place_holder: if True a new place holder image will be created.
@@ -32,6 +34,7 @@ def load_image(
     the CONVERT_CALLBACK can take the path for a GIF (for example),
     convert it to a PNG and return the PNGs path.
     For formats blender can read, simply return the path that is given.
+        :param verbose: If True, print extra information when searching for the image.
         :param relpath: If not None, make the file relative to this path.
         :param check_existing: If true,
     returns already loaded image data-block if possible

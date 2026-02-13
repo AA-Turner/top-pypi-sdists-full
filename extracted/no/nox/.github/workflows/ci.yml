@@ -35,7 +35,7 @@ jobs:
           - os: macos-15-intel
             python-version: "3.12"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Set up non-default Pythons
@@ -53,7 +53,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
       - name: Set up Miniconda
         uses: conda-incubator/setup-miniconda@v3
-        if: matrix.python-version == '3.13'
+        if: matrix.python-version == '3.14'
         with:
           auto-update-conda: true
           python-version: ${{ matrix.python-version }}
@@ -66,10 +66,10 @@ jobs:
       - name: Run min-version tests on ${{ matrix.os }}
         run: nox --session minimums --force-python="${{ matrix.python-version }}" -- --full-trace
       - name: Run Conda tests
-        if: matrix.python-version == '3.13'
+        if: matrix.python-version == '3.14'
         run: nox --session "conda_tests" -- --full-trace
       - name: Save coverage report
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-${{ github.job }}-${{ strategy.job-index }}
           path: .coverage.*
@@ -80,7 +80,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Set up Python 3.12
@@ -92,7 +92,7 @@ jobs:
       - name: Install Nox-under-test
         run:  uv pip install --system .
       - name: Download individual coverage reports
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: coverage-*
           merge-multiple: true
@@ -104,7 +104,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Set up Python 3.12
@@ -119,7 +119,7 @@ jobs:
   docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Set up Python 3.12

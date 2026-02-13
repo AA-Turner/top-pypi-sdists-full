@@ -203,7 +203,7 @@ class MulticloudResourcesClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.0/multicloud/list_multicloud_resources.py.html>`__ to see an example of how to use list_multicloud_resources API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/multicloud/list_multicloud_resources.py.html>`__ to see an example of how to use list_multicloud_resources API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriptionServiceName', 'subscriptionId']

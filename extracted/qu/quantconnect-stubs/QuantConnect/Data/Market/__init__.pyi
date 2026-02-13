@@ -227,11 +227,10 @@ class Delisting(QuantConnect.Data.BaseData):
         ...
 
 
-class Greeks(System.Object, metaclass=abc.ABCMeta):
+class Greeks(System.Object):
     """Defines the greeks"""
 
     @property
-    @abc.abstractmethod
     def delta(self) -> float:
         """
         Gets the delta.
@@ -241,8 +240,11 @@ class Greeks(System.Object, metaclass=abc.ABCMeta):
         """
         ...
 
+    @delta.setter
+    def delta(self, value: float) -> None:
+        ...
+
     @property
-    @abc.abstractmethod
     def gamma(self) -> float:
         """
         Gets the gamma.
@@ -252,8 +254,11 @@ class Greeks(System.Object, metaclass=abc.ABCMeta):
         """
         ...
 
+    @gamma.setter
+    def gamma(self, value: float) -> None:
+        ...
+
     @property
-    @abc.abstractmethod
     def vega(self) -> float:
         """
         Gets the vega.
@@ -263,8 +268,11 @@ class Greeks(System.Object, metaclass=abc.ABCMeta):
         """
         ...
 
+    @vega.setter
+    def vega(self, value: float) -> None:
+        ...
+
     @property
-    @abc.abstractmethod
     def theta(self) -> float:
         """
         Gets the theta.
@@ -274,8 +282,11 @@ class Greeks(System.Object, metaclass=abc.ABCMeta):
         """
         ...
 
+    @theta.setter
+    def theta(self, value: float) -> None:
+        ...
+
     @property
-    @abc.abstractmethod
     def rho(self) -> float:
         """
         Gets the rho.
@@ -285,8 +296,11 @@ class Greeks(System.Object, metaclass=abc.ABCMeta):
         """
         ...
 
+    @rho.setter
+    def rho(self, value: float) -> None:
+        ...
+
     @property
-    @abc.abstractmethod
     def Lambda(self) -> float:
         """
         Gets the lambda.
@@ -295,6 +309,10 @@ class Greeks(System.Object, metaclass=abc.ABCMeta):
         underlying's price, a measure of leverage. Sometimes referred to as gearing.
         (∂V/∂S ✕ S/V)
         """
+        ...
+
+    @Lambda.setter
+    def Lambda(self, value: float) -> None:
         ...
 
     @property
@@ -308,6 +326,10 @@ class Greeks(System.Object, metaclass=abc.ABCMeta):
         """
         ...
 
+    @lambda_.setter
+    def lambda_(self, value: float) -> None:
+        ...
+
     @property
     def theta_per_day(self) -> float:
         """
@@ -316,6 +338,20 @@ class Greeks(System.Object, metaclass=abc.ABCMeta):
         Theta measures the rate of change of the option value with respect to changes in
         time. This is commonly known as the 'time decay.' (∂V/∂τ)
         """
+        ...
+
+    @theta_per_day.setter
+    def theta_per_day(self, value: float) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the Greeks class."""
+        ...
+
+    @overload
+    def __init__(self, delta: float, gamma: float, vega: float, theta: float, rho: float, _lambda: float) -> None:
+        """Initializes a new instance of the Greeks class with specified values."""
         ...
 
 

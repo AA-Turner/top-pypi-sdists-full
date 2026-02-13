@@ -3,7 +3,7 @@
 from typing import List, Tuple
 import threading
 
-from ..Internal import Core
+from ..Internal.Core import Core
 from ..Internal.ContextManagers import InstrErrorSuppressor, VisaTimeoutSuppressor
 from ..Internal import Conversions as Conv
 from ..Internal.ScpiLogger import ScpiLogger
@@ -482,7 +482,7 @@ class Utilities:
 		return VisaTimeoutSuppressor(self._core.io, visa_tout_ms)
 
 	def sync_from(self, source: 'Utilities') -> None:
-		"""Synchronises these Utils with the source."""
+		"""Synchronizes these Utils with the source."""
 		self.logger.sync_from(source.logger)
 		self.assign_lock(source.get_lock())
 		self.bin_float_numbers_format = source.bin_float_numbers_format

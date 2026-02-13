@@ -22,8 +22,8 @@ from collections import defaultdict
 from dataclasses import asdict
 from functools import cached_property
 from os import PathLike
-from typing import (TYPE_CHECKING, BinaryIO, Dict, Sequence, TextIO, Tuple,
-                    Union)
+from typing import (TYPE_CHECKING, BinaryIO, Dict, Optional, Sequence, TextIO,
+                    Tuple)
 
 from .adapter import (fp_or_f_obj_or_f_content_to_content,
                       fp_or_f_obj_or_stream_to_stream)
@@ -37,7 +37,6 @@ from .hooks import trigger_widget_hooks
 from .middleware.dropdown import Dropdown
 from .middleware.signature import Signature
 from .middleware.text import Text
-from .raw import RawText, RawTypes
 from .template import (build_widgets, create_annotations, get_metadata,
                        set_metadata, update_widget_keys)
 from .types import PdfArray
@@ -50,6 +49,7 @@ from .widgets import CheckBoxField, ImageField, RadioGroup, SignatureField
 if TYPE_CHECKING:
     from .annotations import AnnotationTypes
     from .assets.blank import BlankPage
+    from .raw import RawTypes
     from .widgets import FieldTypes
 
 
@@ -85,7 +85,7 @@ class PdfWrapper:
 
     def __init__(
         self,
-        template: Union[bytes, str, BinaryIO, BlankPage] = b"",
+        template: bytes | str | BinaryIO | BlankPage = b"",
         **kwargs,
     ) -> None:
         """
@@ -94,7 +94,7 @@ class PdfWrapper:
         Initializes a new `PdfWrapper` object with the given template PDF and optional keyword arguments.
 
         Args:
-            template (Union[bytes, str, BinaryIO, BlankPage]): The template PDF, provided as either:
+            template (bytes | str | BinaryIO | BlankPage): The template PDF, provided as either:
                 - bytes: The raw PDF data as a byte string.
                 - str: The file path to the PDF.
                 - BinaryIO: An open file-like object containing the PDF data.
@@ -108,7 +108,7 @@ class PdfWrapper:
         super().__init__()
         self._stream = fp_or_f_obj_or_stream_to_stream(template)
         self.widgets = {}
-        self.title: str = None
+        self.title: Optional[str] = None
         self._metadata = (
             get_metadata(self._read()) if kwargs.get("preserve_metadata") else {}
         )
@@ -127,7 +127,7 @@ class PdfWrapper:
 
         self._init_helper()
 
-    def __add__(self, other: Union[PdfWrapper, Sequence[PdfWrapper]]) -> PdfWrapper:
+    def __add__(self, other: PdfWrapper | Sequence[PdfWrapper]) -> PdfWrapper:
         """
         Merges PDF wrappers together, creating a new `PdfWrapper` containing the combined content.
 
@@ -136,7 +136,7 @@ class PdfWrapper:
         form being merged.
 
         Args:
-            other (Union[PdfWrapper, Sequence[PdfWrapper]]): The other `PdfWrapper` object or
+            other (PdfWrapper | Sequence[PdfWrapper]): The other `PdfWrapper` object or
                 a sequence of `PdfWrapper` objects to merge with.
 
         Returns:
@@ -223,7 +223,7 @@ class PdfWrapper:
         font_register_events_len = len(self._font_register_events)
         for i in range(font_register_events_len):
             event = self._font_register_events[i]
-            self.register_font(event[0], event[1], False)
+            self.register_font(event[0], event[1])
         self._font_register_events = self._font_register_events[
             font_register_events_len:
         ]
@@ -259,7 +259,7 @@ class PdfWrapper:
 
         Returns:
             dict: A dictionary where keys are form field names (str) and values are
-                  their corresponding data (Union[str, bool, int, None]).
+                  their corresponding data (str | bool | int | None).
         """
 
         return {key: value.value for key, value in self.widgets.items()}
@@ -278,12 +278,12 @@ class PdfWrapper:
         return {key: value.sample_value for key, value in self.widgets.items()}
 
     @property
-    def version(self) -> Union[str, None]:
+    def version(self) -> str | None:
         """
         Returns the PDF version of the underlying PDF document.
 
         Returns:
-            Union[str, None]: The PDF version as a string, or None if the version cannot be determined.
+            str | None: The PDF version as a string, or None if the version cannot be determined.
         """
 
         for each in VERSION_IDENTIFIERS:
@@ -316,6 +316,7 @@ class PdfWrapper:
 
         result = [
             self.__class__(
+                # Case: Single watermark PDF, extracting a specific page to the first output page.
                 copy_watermark_widgets(each, self._read(), None, i),
                 **{param: getattr(self, param) for param, _ in self.USER_PARAMS},
             )
@@ -331,23 +332,23 @@ class PdfWrapper:
         return PdfArray(result)
 
     @property
-    def on_open_javascript(self) -> Union[str, None]:
+    def on_open_javascript(self) -> str | None:
         """
         Returns the JavaScript script that executes when the PDF is opened.
 
         Returns:
-            Union[str, None]: The JavaScript script, or None if no script is set.
+            str | None: The JavaScript script, or None if no script is set.
         """
 
         return self._on_open_javascript
 
     @on_open_javascript.setter
-    def on_open_javascript(self, value: Union[str, TextIO]) -> None:
+    def on_open_javascript(self, value: str | TextIO) -> None:
         """
         Sets the JavaScript script that executes when the PDF is opened.
 
         Args:
-            value (Union[str, TextIO]): The JavaScript script, provided as either:
+            value (str | TextIO): The JavaScript script, provided as either:
                 - str: The JavaScript code as a string, or a file path to a .js file.
                 - TextIO: An open file-like object containing the JavaScript code.
         """
@@ -421,12 +422,12 @@ class PdfWrapper:
 
         return self._stream
 
-    def write(self, dest: Union[str, BinaryIO]) -> PdfWrapper:
+    def write(self, dest: str | BinaryIO) -> PdfWrapper:
         """
         Writes the PDF to a file.
 
         Args:
-            dest (Union[str, BinaryIO]): The destination to write the PDF to.
+            dest (str | BinaryIO): The destination to write the PDF to.
                 Can be a file path (str) or a file-like object (BinaryIO).
 
         Returns:
@@ -475,6 +476,7 @@ class PdfWrapper:
         """
 
         stream_with_widgets = self._read()
+        # Case: Single watermark PDF, mapping pages 1:1 to output pages.
         self._stream = copy_watermark_widgets(
             generate_coordinate_grid(
                 remove_all_widgets(self._read()),
@@ -492,14 +494,14 @@ class PdfWrapper:
 
     def fill(
         self,
-        data: Dict[str, Union[str, bool, int, BinaryIO, bytes]],
+        data: Dict[str, str | bool | int | BinaryIO | bytes],
         **kwargs,
     ) -> PdfWrapper:
         """
         Fills the PDF form with data from a dictionary.
 
         Args:
-            data (Dict[str, Union[str, bool, int, BinaryIO, bytes]]): A dictionary where keys
+            data (Dict[str, str | bool | int | BinaryIO | bytes]): A dictionary where keys
                 are form field names and values are the data to fill the fields with.
                 Values can be strings, booleans, integers, file-like objects, or bytes.
             **kwargs: Additional keyword arguments:
@@ -525,6 +527,7 @@ class PdfWrapper:
             keys_to_copy = [
                 k for k, v in self.widgets.items() if not isinstance(v, Signature)
             ]  # only copy non-image fields
+            # Case: Single watermark PDF, mapping pages 1:1 to output pages.
             filled_stream = copy_watermark_widgets(
                 remove_all_widgets(image_drawn_stream),
                 filled_stream,
@@ -641,6 +644,7 @@ class PdfWrapper:
             )
 
         watermarks = getattr(widget_class, "bulk_watermarks")(widgets, self._read())
+        # Case: List of watermark PDFs, each corresponding to an output page.
         self._stream = copy_watermark_widgets(
             self._read(),
             watermarks,
@@ -763,6 +767,7 @@ class PdfWrapper:
 
         stream_with_widgets = self._read()
         self._stream = merge_watermarks_with_pdf(self._read(), watermarks)
+        # Case: Single watermark PDF, mapping pages 1:1 to output pages.
         self._stream = copy_watermark_widgets(
             remove_all_widgets(self._read()), stream_with_widgets, None, None
         )
@@ -774,20 +779,17 @@ class PdfWrapper:
     def register_font(
         self,
         font_name: str,
-        ttf_file: Union[bytes, str, BinaryIO],
-        first_time: bool = True,
+        ttf_file: bytes | str | BinaryIO,
     ) -> PdfWrapper:
         """
         Registers a custom font for use in the PDF.
 
         Args:
             font_name (str): The name of the font. This name will be used to reference the font when drawing text.
-            ttf_file (Union[bytes, str, BinaryIO]): The TTF file data, provided as either:
+            ttf_file (bytes | str | BinaryIO): The TTF file data, provided as either:
                 - bytes: The raw TTF file data as a byte string.
                 - str: The file path to the TTF file.
                 - BinaryIO: An open file-like object containing the TTF file data.
-            first_time (bool): Whether this is the first time the font is being registered (default: True).
-                If True and `need_appearances` is enabled, a blank text string is drawn to ensure the font is properly embedded in the PDF.
 
         Returns:
             PdfWrapper: The `PdfWrapper` object, allowing for method chaining.
@@ -796,10 +798,8 @@ class PdfWrapper:
         ttf_file = fp_or_f_obj_or_stream_to_stream(ttf_file)
 
         if register_font(font_name, ttf_file) if ttf_file is not None else False:
-            if first_time and getattr(self, "need_appearances"):
-                self.draw([RawText(" ", 1, 0, 0, font=font_name)])
             self._stream, new_font_name = register_font_acroform(
-                self._read(), ttf_file, getattr(self, "need_appearances")
+                self._read(), font_name, ttf_file, getattr(self, "need_appearances")
             )
             self._available_fonts[font_name] = new_font_name
             self._font_register_events.append((font_name, ttf_file))

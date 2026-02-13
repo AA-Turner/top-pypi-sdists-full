@@ -19237,15 +19237,17 @@ class persistent_compute_api_SubscriptionOptions(ConjureBeanType):
         return {
             'min_delay': ConjureFieldDefinition('minDelay', persistent_compute_api_Milliseconds),
             'allow_appends': ConjureFieldDefinition('allowAppends', OptionalTypeWrapper[bool]),
-            'result_configuration': ConjureFieldDefinition('resultConfiguration', OptionalTypeWrapper[persistent_compute_api_ResultConfiguration])
+            'result_configuration': ConjureFieldDefinition('resultConfiguration', OptionalTypeWrapper[persistent_compute_api_ResultConfiguration]),
+            'use_flink': ConjureFieldDefinition('useFlink', OptionalTypeWrapper[bool])
         }
 
-    __slots__: List[str] = ['_min_delay', '_allow_appends', '_result_configuration']
+    __slots__: List[str] = ['_min_delay', '_allow_appends', '_result_configuration', '_use_flink']
 
-    def __init__(self, min_delay: int, allow_appends: Optional[bool] = None, result_configuration: Optional["persistent_compute_api_ResultConfiguration"] = None) -> None:
+    def __init__(self, min_delay: int, allow_appends: Optional[bool] = None, result_configuration: Optional["persistent_compute_api_ResultConfiguration"] = None, use_flink: Optional[bool] = None) -> None:
         self._min_delay = min_delay
         self._allow_appends = allow_appends
         self._result_configuration = result_configuration
+        self._use_flink = use_flink
 
     @builtins.property
     def min_delay(self) -> int:
@@ -19267,10 +19269,17 @@ implement support.
 
     @builtins.property
     def result_configuration(self) -> Optional["persistent_compute_api_ResultConfiguration"]:
-        """Defines the results that are sent for this subscription. If not set, falls back to the behavior 
+        """Defines the results that are sent for this subscription. If not set, falls back to the behavior
 defined by `allowAppends`.
         """
         return self._result_configuration
+
+    @builtins.property
+    def use_flink(self) -> Optional[bool]:
+        """If true and server has Flink enabled, use Flink-based streaming computation.
+Defaults to false if not specified.
+        """
+        return self._use_flink
 
 
 persistent_compute_api_SubscriptionOptions.__name__ = "SubscriptionOptions"
@@ -31174,6 +31183,43 @@ scout_chartdefinition_api_Geo3dOrientationVisitor.__qualname__ = "Geo3dOrientati
 scout_chartdefinition_api_Geo3dOrientationVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
+class scout_chartdefinition_api_Geo3dOrientationEulerAngles(ConjureBeanType):
+    """Orientation specified as Euler angles yaw/pitch/roll in degrees.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'yaw': ConjureFieldDefinition('yaw', scout_chartdefinition_api_VariableStaticOrChannel),
+            'pitch': ConjureFieldDefinition('pitch', scout_chartdefinition_api_VariableStaticOrChannel),
+            'roll': ConjureFieldDefinition('roll', scout_chartdefinition_api_VariableStaticOrChannel)
+        }
+
+    __slots__: List[str] = ['_yaw', '_pitch', '_roll']
+
+    def __init__(self, pitch: "scout_chartdefinition_api_VariableStaticOrChannel", roll: "scout_chartdefinition_api_VariableStaticOrChannel", yaw: "scout_chartdefinition_api_VariableStaticOrChannel") -> None:
+        self._yaw = yaw
+        self._pitch = pitch
+        self._roll = roll
+
+    @builtins.property
+    def yaw(self) -> "scout_chartdefinition_api_VariableStaticOrChannel":
+        return self._yaw
+
+    @builtins.property
+    def pitch(self) -> "scout_chartdefinition_api_VariableStaticOrChannel":
+        return self._pitch
+
+    @builtins.property
+    def roll(self) -> "scout_chartdefinition_api_VariableStaticOrChannel":
+        return self._roll
+
+
+scout_chartdefinition_api_Geo3dOrientationEulerAngles.__name__ = "Geo3dOrientationEulerAngles"
+scout_chartdefinition_api_Geo3dOrientationEulerAngles.__qualname__ = "Geo3dOrientationEulerAngles"
+scout_chartdefinition_api_Geo3dOrientationEulerAngles.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
 class scout_chartdefinition_api_Geo3dOrientationPrincipalAxes(ConjureBeanType):
 
     @builtins.classmethod
@@ -31207,102 +31253,6 @@ class scout_chartdefinition_api_Geo3dOrientationPrincipalAxes(ConjureBeanType):
 scout_chartdefinition_api_Geo3dOrientationPrincipalAxes.__name__ = "Geo3dOrientationPrincipalAxes"
 scout_chartdefinition_api_Geo3dOrientationPrincipalAxes.__qualname__ = "Geo3dOrientationPrincipalAxes"
 scout_chartdefinition_api_Geo3dOrientationPrincipalAxes.__module__ = "nominal_api.scout_chartdefinition_api"
-
-
-class scout_chartdefinition_api_Geo3dOrientationStatic(ConjureUnionType):
-    _principal_axes: Optional["scout_chartdefinition_api_Geo3dOrientationStaticPrincipalAxes"] = None
-
-    @builtins.classmethod
-    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'principal_axes': ConjureFieldDefinition('principalAxes', scout_chartdefinition_api_Geo3dOrientationStaticPrincipalAxes)
-        }
-
-    def __init__(
-            self,
-            principal_axes: Optional["scout_chartdefinition_api_Geo3dOrientationStaticPrincipalAxes"] = None,
-            type_of_union: Optional[str] = None
-            ) -> None:
-        if type_of_union is None:
-            if (principal_axes is not None) != 1:
-                raise ValueError('a union must contain a single member')
-
-            if principal_axes is not None:
-                self._principal_axes = principal_axes
-                self._type = 'principalAxes'
-
-        elif type_of_union == 'principalAxes':
-            if principal_axes is None:
-                raise ValueError('a union value must not be None')
-            self._principal_axes = principal_axes
-            self._type = 'principalAxes'
-
-    @builtins.property
-    def principal_axes(self) -> Optional["scout_chartdefinition_api_Geo3dOrientationStaticPrincipalAxes"]:
-        return self._principal_axes
-
-    def accept(self, visitor) -> Any:
-        if not isinstance(visitor, scout_chartdefinition_api_Geo3dOrientationStaticVisitor):
-            raise ValueError('{} is not an instance of scout_chartdefinition_api_Geo3dOrientationStaticVisitor'.format(visitor.__class__.__name__))
-        if self._type == 'principalAxes' and self.principal_axes is not None:
-            return visitor._principal_axes(self.principal_axes)
-
-
-scout_chartdefinition_api_Geo3dOrientationStatic.__name__ = "Geo3dOrientationStatic"
-scout_chartdefinition_api_Geo3dOrientationStatic.__qualname__ = "Geo3dOrientationStatic"
-scout_chartdefinition_api_Geo3dOrientationStatic.__module__ = "nominal_api.scout_chartdefinition_api"
-
-
-class scout_chartdefinition_api_Geo3dOrientationStaticVisitor:
-
-    @abstractmethod
-    def _principal_axes(self, principal_axes: "scout_chartdefinition_api_Geo3dOrientationStaticPrincipalAxes") -> Any:
-        pass
-
-
-scout_chartdefinition_api_Geo3dOrientationStaticVisitor.__name__ = "Geo3dOrientationStaticVisitor"
-scout_chartdefinition_api_Geo3dOrientationStaticVisitor.__qualname__ = "Geo3dOrientationStaticVisitor"
-scout_chartdefinition_api_Geo3dOrientationStaticVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
-
-
-class scout_chartdefinition_api_Geo3dOrientationStaticPrincipalAxes(ConjureBeanType):
-    """Orientation specified as heading/pitch/roll in WGS84.
-Heading is clockwise with respect to north.
-    """
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'heading': ConjureFieldDefinition('heading', float),
-            'pitch': ConjureFieldDefinition('pitch', float),
-            'roll': ConjureFieldDefinition('roll', float)
-        }
-
-    __slots__: List[str] = ['_heading', '_pitch', '_roll']
-
-    def __init__(self, heading: float, pitch: float, roll: float) -> None:
-        self._heading = heading
-        self._pitch = pitch
-        self._roll = roll
-
-    @builtins.property
-    def heading(self) -> float:
-        """Clockwise angle with respect to north (a.k.a. yaw).
-        """
-        return self._heading
-
-    @builtins.property
-    def pitch(self) -> float:
-        return self._pitch
-
-    @builtins.property
-    def roll(self) -> float:
-        return self._roll
-
-
-scout_chartdefinition_api_Geo3dOrientationStaticPrincipalAxes.__name__ = "Geo3dOrientationStaticPrincipalAxes"
-scout_chartdefinition_api_Geo3dOrientationStaticPrincipalAxes.__qualname__ = "Geo3dOrientationStaticPrincipalAxes"
-scout_chartdefinition_api_Geo3dOrientationStaticPrincipalAxes.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_Geo3dPosition(ConjureUnionType):
@@ -31453,7 +31403,7 @@ scout_chartdefinition_api_Geo3dPositionWgs84.__module__ = "nominal_api.scout_cha
 
 
 class scout_chartdefinition_api_Geo3dSensor(ConjureBeanType):
-    """A 3D sensor configuration for rendering/animating sensors in a 3D scene.
+    """Sensor configuration for 3D scene.
     """
 
     @builtins.classmethod
@@ -31463,17 +31413,19 @@ class scout_chartdefinition_api_Geo3dSensor(ConjureBeanType):
             'enabled': ConjureFieldDefinition('enabled', OptionalTypeWrapper[bool]),
             'name': ConjureFieldDefinition('name', OptionalTypeWrapper[str]),
             'orientation': ConjureFieldDefinition('orientation', OptionalTypeWrapper[scout_chartdefinition_api_Geo3dSensorOrientationConfig]),
-            'color': ConjureFieldDefinition('color', OptionalTypeWrapper[scout_api_HexColor])
+            'color': ConjureFieldDefinition('color', OptionalTypeWrapper[scout_api_HexColor]),
+            'shape': ConjureFieldDefinition('shape', OptionalTypeWrapper[scout_chartdefinition_api_Geo3dSensorShape])
         }
 
-    __slots__: List[str] = ['_sensor_id', '_enabled', '_name', '_orientation', '_color']
+    __slots__: List[str] = ['_sensor_id', '_enabled', '_name', '_orientation', '_color', '_shape']
 
-    def __init__(self, sensor_id: str, color: Optional[str] = None, enabled: Optional[bool] = None, name: Optional[str] = None, orientation: Optional["scout_chartdefinition_api_Geo3dSensorOrientationConfig"] = None) -> None:
+    def __init__(self, sensor_id: str, color: Optional[str] = None, enabled: Optional[bool] = None, name: Optional[str] = None, orientation: Optional["scout_chartdefinition_api_Geo3dSensorOrientationConfig"] = None, shape: Optional["scout_chartdefinition_api_Geo3dSensorShape"] = None) -> None:
         self._sensor_id = sensor_id
         self._enabled = enabled
         self._name = name
         self._orientation = orientation
         self._color = color
+        self._shape = shape
 
     @builtins.property
     def sensor_id(self) -> str:
@@ -31501,6 +31453,12 @@ class scout_chartdefinition_api_Geo3dSensor(ConjureBeanType):
         """
         return self._color
 
+    @builtins.property
+    def shape(self) -> Optional["scout_chartdefinition_api_Geo3dSensorShape"]:
+        """The shape of the sensor.
+        """
+        return self._shape
+
 
 scout_chartdefinition_api_Geo3dSensor.__name__ = "Geo3dSensor"
 scout_chartdefinition_api_Geo3dSensor.__qualname__ = "Geo3dSensor"
@@ -31508,40 +31466,34 @@ scout_chartdefinition_api_Geo3dSensor.__module__ = "nominal_api.scout_chartdefin
 
 
 class scout_chartdefinition_api_Geo3dSensorOrientationConfig(ConjureUnionType):
-    """Orientation configuration for a sensor.
+    """Sensor orientation configuration.
     """
-    _static: Optional["scout_chartdefinition_api_Geo3dOrientationStatic"] = None
-    _channel: Optional["scout_chartdefinition_api_Geo3dOrientation"] = None
+    _euler_angles: Optional["scout_chartdefinition_api_Geo3dOrientationEulerAngles"] = None
     _nadir: Optional["scout_chartdefinition_api_Geo3dSensorOrientationNadir"] = None
     _zenith: Optional["scout_chartdefinition_api_Geo3dSensorOrientationZenith"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'static': ConjureFieldDefinition('static', scout_chartdefinition_api_Geo3dOrientationStatic),
-            'channel': ConjureFieldDefinition('channel', scout_chartdefinition_api_Geo3dOrientation),
+            'euler_angles': ConjureFieldDefinition('eulerAngles', scout_chartdefinition_api_Geo3dOrientationEulerAngles),
             'nadir': ConjureFieldDefinition('nadir', scout_chartdefinition_api_Geo3dSensorOrientationNadir),
             'zenith': ConjureFieldDefinition('zenith', scout_chartdefinition_api_Geo3dSensorOrientationZenith)
         }
 
     def __init__(
             self,
-            static: Optional["scout_chartdefinition_api_Geo3dOrientationStatic"] = None,
-            channel: Optional["scout_chartdefinition_api_Geo3dOrientation"] = None,
+            euler_angles: Optional["scout_chartdefinition_api_Geo3dOrientationEulerAngles"] = None,
             nadir: Optional["scout_chartdefinition_api_Geo3dSensorOrientationNadir"] = None,
             zenith: Optional["scout_chartdefinition_api_Geo3dSensorOrientationZenith"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (static is not None) + (channel is not None) + (nadir is not None) + (zenith is not None) != 1:
+            if (euler_angles is not None) + (nadir is not None) + (zenith is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
-            if static is not None:
-                self._static = static
-                self._type = 'static'
-            if channel is not None:
-                self._channel = channel
-                self._type = 'channel'
+            if euler_angles is not None:
+                self._euler_angles = euler_angles
+                self._type = 'eulerAngles'
             if nadir is not None:
                 self._nadir = nadir
                 self._type = 'nadir'
@@ -31549,16 +31501,11 @@ class scout_chartdefinition_api_Geo3dSensorOrientationConfig(ConjureUnionType):
                 self._zenith = zenith
                 self._type = 'zenith'
 
-        elif type_of_union == 'static':
-            if static is None:
+        elif type_of_union == 'eulerAngles':
+            if euler_angles is None:
                 raise ValueError('a union value must not be None')
-            self._static = static
-            self._type = 'static'
-        elif type_of_union == 'channel':
-            if channel is None:
-                raise ValueError('a union value must not be None')
-            self._channel = channel
-            self._type = 'channel'
+            self._euler_angles = euler_angles
+            self._type = 'eulerAngles'
         elif type_of_union == 'nadir':
             if nadir is None:
                 raise ValueError('a union value must not be None')
@@ -31571,12 +31518,8 @@ class scout_chartdefinition_api_Geo3dSensorOrientationConfig(ConjureUnionType):
             self._type = 'zenith'
 
     @builtins.property
-    def static(self) -> Optional["scout_chartdefinition_api_Geo3dOrientationStatic"]:
-        return self._static
-
-    @builtins.property
-    def channel(self) -> Optional["scout_chartdefinition_api_Geo3dOrientation"]:
-        return self._channel
+    def euler_angles(self) -> Optional["scout_chartdefinition_api_Geo3dOrientationEulerAngles"]:
+        return self._euler_angles
 
     @builtins.property
     def nadir(self) -> Optional["scout_chartdefinition_api_Geo3dSensorOrientationNadir"]:
@@ -31589,10 +31532,8 @@ class scout_chartdefinition_api_Geo3dSensorOrientationConfig(ConjureUnionType):
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_chartdefinition_api_Geo3dSensorOrientationConfigVisitor):
             raise ValueError('{} is not an instance of scout_chartdefinition_api_Geo3dSensorOrientationConfigVisitor'.format(visitor.__class__.__name__))
-        if self._type == 'static' and self.static is not None:
-            return visitor._static(self.static)
-        if self._type == 'channel' and self.channel is not None:
-            return visitor._channel(self.channel)
+        if self._type == 'eulerAngles' and self.euler_angles is not None:
+            return visitor._euler_angles(self.euler_angles)
         if self._type == 'nadir' and self.nadir is not None:
             return visitor._nadir(self.nadir)
         if self._type == 'zenith' and self.zenith is not None:
@@ -31607,11 +31548,7 @@ scout_chartdefinition_api_Geo3dSensorOrientationConfig.__module__ = "nominal_api
 class scout_chartdefinition_api_Geo3dSensorOrientationConfigVisitor:
 
     @abstractmethod
-    def _static(self, static: "scout_chartdefinition_api_Geo3dOrientationStatic") -> Any:
-        pass
-
-    @abstractmethod
-    def _channel(self, channel: "scout_chartdefinition_api_Geo3dOrientation") -> Any:
+    def _euler_angles(self, euler_angles: "scout_chartdefinition_api_Geo3dOrientationEulerAngles") -> Any:
         pass
 
     @abstractmethod
@@ -31658,6 +31595,292 @@ class scout_chartdefinition_api_Geo3dSensorOrientationZenith(ConjureBeanType):
 scout_chartdefinition_api_Geo3dSensorOrientationZenith.__name__ = "Geo3dSensorOrientationZenith"
 scout_chartdefinition_api_Geo3dSensorOrientationZenith.__qualname__ = "Geo3dSensorOrientationZenith"
 scout_chartdefinition_api_Geo3dSensorOrientationZenith.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dSensorShape(ConjureUnionType):
+    """Sensor shape configuration.
+    """
+    _conic: Optional["scout_chartdefinition_api_Geo3dSensorShapeConic"] = None
+    _rectangular: Optional["scout_chartdefinition_api_Geo3dSensorShapeRectangular"] = None
+    _spherical: Optional["scout_chartdefinition_api_Geo3dSensorShapeSpherical"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'conic': ConjureFieldDefinition('conic', scout_chartdefinition_api_Geo3dSensorShapeConic),
+            'rectangular': ConjureFieldDefinition('rectangular', scout_chartdefinition_api_Geo3dSensorShapeRectangular),
+            'spherical': ConjureFieldDefinition('spherical', scout_chartdefinition_api_Geo3dSensorShapeSpherical)
+        }
+
+    def __init__(
+            self,
+            conic: Optional["scout_chartdefinition_api_Geo3dSensorShapeConic"] = None,
+            rectangular: Optional["scout_chartdefinition_api_Geo3dSensorShapeRectangular"] = None,
+            spherical: Optional["scout_chartdefinition_api_Geo3dSensorShapeSpherical"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (conic is not None) + (rectangular is not None) + (spherical is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if conic is not None:
+                self._conic = conic
+                self._type = 'conic'
+            if rectangular is not None:
+                self._rectangular = rectangular
+                self._type = 'rectangular'
+            if spherical is not None:
+                self._spherical = spherical
+                self._type = 'spherical'
+
+        elif type_of_union == 'conic':
+            if conic is None:
+                raise ValueError('a union value must not be None')
+            self._conic = conic
+            self._type = 'conic'
+        elif type_of_union == 'rectangular':
+            if rectangular is None:
+                raise ValueError('a union value must not be None')
+            self._rectangular = rectangular
+            self._type = 'rectangular'
+        elif type_of_union == 'spherical':
+            if spherical is None:
+                raise ValueError('a union value must not be None')
+            self._spherical = spherical
+            self._type = 'spherical'
+
+    @builtins.property
+    def conic(self) -> Optional["scout_chartdefinition_api_Geo3dSensorShapeConic"]:
+        return self._conic
+
+    @builtins.property
+    def rectangular(self) -> Optional["scout_chartdefinition_api_Geo3dSensorShapeRectangular"]:
+        return self._rectangular
+
+    @builtins.property
+    def spherical(self) -> Optional["scout_chartdefinition_api_Geo3dSensorShapeSpherical"]:
+        return self._spherical
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_Geo3dSensorShapeVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_Geo3dSensorShapeVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'conic' and self.conic is not None:
+            return visitor._conic(self.conic)
+        if self._type == 'rectangular' and self.rectangular is not None:
+            return visitor._rectangular(self.rectangular)
+        if self._type == 'spherical' and self.spherical is not None:
+            return visitor._spherical(self.spherical)
+
+
+scout_chartdefinition_api_Geo3dSensorShape.__name__ = "Geo3dSensorShape"
+scout_chartdefinition_api_Geo3dSensorShape.__qualname__ = "Geo3dSensorShape"
+scout_chartdefinition_api_Geo3dSensorShape.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dSensorShapeVisitor:
+
+    @abstractmethod
+    def _conic(self, conic: "scout_chartdefinition_api_Geo3dSensorShapeConic") -> Any:
+        pass
+
+    @abstractmethod
+    def _rectangular(self, rectangular: "scout_chartdefinition_api_Geo3dSensorShapeRectangular") -> Any:
+        pass
+
+    @abstractmethod
+    def _spherical(self, spherical: "scout_chartdefinition_api_Geo3dSensorShapeSpherical") -> Any:
+        pass
+
+
+scout_chartdefinition_api_Geo3dSensorShapeVisitor.__name__ = "Geo3dSensorShapeVisitor"
+scout_chartdefinition_api_Geo3dSensorShapeVisitor.__qualname__ = "Geo3dSensorShapeVisitor"
+scout_chartdefinition_api_Geo3dSensorShapeVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dSensorShapeConic(ConjureBeanType):
+    """A conic (cone) sensor volume.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'aperture': ConjureFieldDefinition('aperture', scout_chartdefinition_api_Geo3dSensorShapeConicAperture),
+            'length': ConjureFieldDefinition('length', scout_chartdefinition_api_VariableStaticOrChannel)
+        }
+
+    __slots__: List[str] = ['_aperture', '_length']
+
+    def __init__(self, aperture: "scout_chartdefinition_api_Geo3dSensorShapeConicAperture", length: "scout_chartdefinition_api_VariableStaticOrChannel") -> None:
+        self._aperture = aperture
+        self._length = length
+
+    @builtins.property
+    def aperture(self) -> "scout_chartdefinition_api_Geo3dSensorShapeConicAperture":
+        """An angle or a length representing the cone's width at its end.
+        """
+        return self._aperture
+
+    @builtins.property
+    def length(self) -> "scout_chartdefinition_api_VariableStaticOrChannel":
+        """Length for the projection, in meters.
+        """
+        return self._length
+
+
+scout_chartdefinition_api_Geo3dSensorShapeConic.__name__ = "Geo3dSensorShapeConic"
+scout_chartdefinition_api_Geo3dSensorShapeConic.__qualname__ = "Geo3dSensorShapeConic"
+scout_chartdefinition_api_Geo3dSensorShapeConic.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dSensorShapeConicAperture(ConjureUnionType):
+    _radius: Optional["scout_chartdefinition_api_VariableStaticOrChannel"] = None
+    _angle: Optional["scout_chartdefinition_api_VariableStaticOrChannel"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'radius': ConjureFieldDefinition('radius', scout_chartdefinition_api_VariableStaticOrChannel),
+            'angle': ConjureFieldDefinition('angle', scout_chartdefinition_api_VariableStaticOrChannel)
+        }
+
+    def __init__(
+            self,
+            radius: Optional["scout_chartdefinition_api_VariableStaticOrChannel"] = None,
+            angle: Optional["scout_chartdefinition_api_VariableStaticOrChannel"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (radius is not None) + (angle is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if radius is not None:
+                self._radius = radius
+                self._type = 'radius'
+            if angle is not None:
+                self._angle = angle
+                self._type = 'angle'
+
+        elif type_of_union == 'radius':
+            if radius is None:
+                raise ValueError('a union value must not be None')
+            self._radius = radius
+            self._type = 'radius'
+        elif type_of_union == 'angle':
+            if angle is None:
+                raise ValueError('a union value must not be None')
+            self._angle = angle
+            self._type = 'angle'
+
+    @builtins.property
+    def radius(self) -> Optional["scout_chartdefinition_api_VariableStaticOrChannel"]:
+        """Radius, in meters.
+        """
+        return self._radius
+
+    @builtins.property
+    def angle(self) -> Optional["scout_chartdefinition_api_VariableStaticOrChannel"]:
+        """Angle between its center and outer edge, in degrees.
+        """
+        return self._angle
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_Geo3dSensorShapeConicApertureVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_Geo3dSensorShapeConicApertureVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'radius' and self.radius is not None:
+            return visitor._radius(self.radius)
+        if self._type == 'angle' and self.angle is not None:
+            return visitor._angle(self.angle)
+
+
+scout_chartdefinition_api_Geo3dSensorShapeConicAperture.__name__ = "Geo3dSensorShapeConicAperture"
+scout_chartdefinition_api_Geo3dSensorShapeConicAperture.__qualname__ = "Geo3dSensorShapeConicAperture"
+scout_chartdefinition_api_Geo3dSensorShapeConicAperture.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dSensorShapeConicApertureVisitor:
+
+    @abstractmethod
+    def _radius(self, radius: "scout_chartdefinition_api_VariableStaticOrChannel") -> Any:
+        pass
+
+    @abstractmethod
+    def _angle(self, angle: "scout_chartdefinition_api_VariableStaticOrChannel") -> Any:
+        pass
+
+
+scout_chartdefinition_api_Geo3dSensorShapeConicApertureVisitor.__name__ = "Geo3dSensorShapeConicApertureVisitor"
+scout_chartdefinition_api_Geo3dSensorShapeConicApertureVisitor.__qualname__ = "Geo3dSensorShapeConicApertureVisitor"
+scout_chartdefinition_api_Geo3dSensorShapeConicApertureVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dSensorShapeRectangular(ConjureBeanType):
+    """A rectangular frustum sensor volume.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'width': ConjureFieldDefinition('width', scout_chartdefinition_api_VariableStaticOrChannel),
+            'height': ConjureFieldDefinition('height', scout_chartdefinition_api_VariableStaticOrChannel),
+            'length': ConjureFieldDefinition('length', scout_chartdefinition_api_VariableStaticOrChannel)
+        }
+
+    __slots__: List[str] = ['_width', '_height', '_length']
+
+    def __init__(self, height: "scout_chartdefinition_api_VariableStaticOrChannel", length: "scout_chartdefinition_api_VariableStaticOrChannel", width: "scout_chartdefinition_api_VariableStaticOrChannel") -> None:
+        self._width = width
+        self._height = height
+        self._length = length
+
+    @builtins.property
+    def width(self) -> "scout_chartdefinition_api_VariableStaticOrChannel":
+        """Width, in meters.
+        """
+        return self._width
+
+    @builtins.property
+    def height(self) -> "scout_chartdefinition_api_VariableStaticOrChannel":
+        """Height, in meters.
+        """
+        return self._height
+
+    @builtins.property
+    def length(self) -> "scout_chartdefinition_api_VariableStaticOrChannel":
+        """Length for the projection, in meters.
+        """
+        return self._length
+
+
+scout_chartdefinition_api_Geo3dSensorShapeRectangular.__name__ = "Geo3dSensorShapeRectangular"
+scout_chartdefinition_api_Geo3dSensorShapeRectangular.__qualname__ = "Geo3dSensorShapeRectangular"
+scout_chartdefinition_api_Geo3dSensorShapeRectangular.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dSensorShapeSpherical(ConjureBeanType):
+    """A spherical sensor volume.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'radius': ConjureFieldDefinition('radius', scout_chartdefinition_api_VariableStaticOrChannel)
+        }
+
+    __slots__: List[str] = ['_radius']
+
+    def __init__(self, radius: "scout_chartdefinition_api_VariableStaticOrChannel") -> None:
+        self._radius = radius
+
+    @builtins.property
+    def radius(self) -> "scout_chartdefinition_api_VariableStaticOrChannel":
+        """Radius of the sphere, in meters.
+        """
+        return self._radius
+
+
+scout_chartdefinition_api_Geo3dSensorShapeSpherical.__name__ = "Geo3dSensorShapeSpherical"
+scout_chartdefinition_api_Geo3dSensorShapeSpherical.__qualname__ = "Geo3dSensorShapeSpherical"
+scout_chartdefinition_api_Geo3dSensorShapeSpherical.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_GeoAdditionalTileset(ConjureEnumType):
@@ -31811,19 +32034,19 @@ class scout_chartdefinition_api_GeoPlot3d(ConjureBeanType):
             'visualization_options': ConjureFieldDefinition('visualizationOptions', scout_chartdefinition_api_GeoPlot3dVisualizationOptions),
             'position': ConjureFieldDefinition('position', scout_chartdefinition_api_Geo3dPosition),
             'orientation': ConjureFieldDefinition('orientation', scout_chartdefinition_api_Geo3dOrientation),
-            'sensors': ConjureFieldDefinition('sensors', OptionalTypeWrapper[List[scout_chartdefinition_api_Geo3dSensor]])
+            'plot_sensors': ConjureFieldDefinition('plotSensors', OptionalTypeWrapper[List[scout_chartdefinition_api_Geo3dSensor]])
         }
 
-    __slots__: List[str] = ['_plot_id', '_enabled', '_label', '_visualization_options', '_position', '_orientation', '_sensors']
+    __slots__: List[str] = ['_plot_id', '_enabled', '_label', '_visualization_options', '_position', '_orientation', '_plot_sensors']
 
-    def __init__(self, orientation: "scout_chartdefinition_api_Geo3dOrientation", plot_id: str, position: "scout_chartdefinition_api_Geo3dPosition", visualization_options: "scout_chartdefinition_api_GeoPlot3dVisualizationOptions", enabled: Optional[bool] = None, label: Optional[str] = None, sensors: Optional[List["scout_chartdefinition_api_Geo3dSensor"]] = None) -> None:
+    def __init__(self, orientation: "scout_chartdefinition_api_Geo3dOrientation", plot_id: str, position: "scout_chartdefinition_api_Geo3dPosition", visualization_options: "scout_chartdefinition_api_GeoPlot3dVisualizationOptions", enabled: Optional[bool] = None, label: Optional[str] = None, plot_sensors: Optional[List["scout_chartdefinition_api_Geo3dSensor"]] = None) -> None:
         self._plot_id = plot_id
         self._enabled = enabled
         self._label = label
         self._visualization_options = visualization_options
         self._position = position
         self._orientation = orientation
-        self._sensors = sensors
+        self._plot_sensors = plot_sensors
 
     @builtins.property
     def plot_id(self) -> str:
@@ -31850,8 +32073,8 @@ class scout_chartdefinition_api_GeoPlot3d(ConjureBeanType):
         return self._orientation
 
     @builtins.property
-    def sensors(self) -> Optional[List["scout_chartdefinition_api_Geo3dSensor"]]:
-        return self._sensors
+    def plot_sensors(self) -> Optional[List["scout_chartdefinition_api_Geo3dSensor"]]:
+        return self._plot_sensors
 
 
 scout_chartdefinition_api_GeoPlot3d.__name__ = "GeoPlot3d"
@@ -36581,6 +36804,64 @@ class scout_chartdefinition_api_ValueToColorMapVisitor:
 scout_chartdefinition_api_ValueToColorMapVisitor.__name__ = "ValueToColorMapVisitor"
 scout_chartdefinition_api_ValueToColorMapVisitor.__qualname__ = "ValueToColorMapVisitor"
 scout_chartdefinition_api_ValueToColorMapVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_VariableStaticOrChannel(ConjureUnionType):
+    """Variable to store either a static numerical value or channel string name.
+    """
+    _static_numeric: Optional[float] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'static_numeric': ConjureFieldDefinition('staticNumeric', float)
+        }
+
+    def __init__(
+            self,
+            static_numeric: Optional[float] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (static_numeric is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if static_numeric is not None:
+                self._static_numeric = static_numeric
+                self._type = 'staticNumeric'
+
+        elif type_of_union == 'staticNumeric':
+            if static_numeric is None:
+                raise ValueError('a union value must not be None')
+            self._static_numeric = static_numeric
+            self._type = 'staticNumeric'
+
+    @builtins.property
+    def static_numeric(self) -> Optional[float]:
+        return self._static_numeric
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_VariableStaticOrChannelVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_VariableStaticOrChannelVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'staticNumeric' and self.static_numeric is not None:
+            return visitor._static_numeric(self.static_numeric)
+
+
+scout_chartdefinition_api_VariableStaticOrChannel.__name__ = "VariableStaticOrChannel"
+scout_chartdefinition_api_VariableStaticOrChannel.__qualname__ = "VariableStaticOrChannel"
+scout_chartdefinition_api_VariableStaticOrChannel.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_VariableStaticOrChannelVisitor:
+
+    @abstractmethod
+    def _static_numeric(self, static_numeric: float) -> Any:
+        pass
+
+
+scout_chartdefinition_api_VariableStaticOrChannelVisitor.__name__ = "VariableStaticOrChannelVisitor"
+scout_chartdefinition_api_VariableStaticOrChannelVisitor.__qualname__ = "VariableStaticOrChannelVisitor"
+scout_chartdefinition_api_VariableStaticOrChannelVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_VideoPanelDataSource(ConjureBeanType):
@@ -45597,6 +45878,167 @@ scout_compute_api_Bode.__qualname__ = "Bode"
 scout_compute_api_Bode.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_BooleanSeries(ConjureUnionType):
+    _greater_than: Optional["scout_compute_api_GreaterThanSeries"] = None
+    _less_than: Optional["scout_compute_api_LessThanSeries"] = None
+    _equal_to: Optional["scout_compute_api_EqualToSeries"] = None
+    _not_equal_to: Optional["scout_compute_api_NotEqualToSeries"] = None
+    _greater_than_or_equal_to: Optional["scout_compute_api_GreaterThanOrEqualToSeries"] = None
+    _less_than_or_equal_to: Optional["scout_compute_api_LessThanOrEqualToSeries"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'greater_than': ConjureFieldDefinition('greaterThan', scout_compute_api_GreaterThanSeries),
+            'less_than': ConjureFieldDefinition('lessThan', scout_compute_api_LessThanSeries),
+            'equal_to': ConjureFieldDefinition('equalTo', scout_compute_api_EqualToSeries),
+            'not_equal_to': ConjureFieldDefinition('notEqualTo', scout_compute_api_NotEqualToSeries),
+            'greater_than_or_equal_to': ConjureFieldDefinition('greaterThanOrEqualTo', scout_compute_api_GreaterThanOrEqualToSeries),
+            'less_than_or_equal_to': ConjureFieldDefinition('lessThanOrEqualTo', scout_compute_api_LessThanOrEqualToSeries)
+        }
+
+    def __init__(
+            self,
+            greater_than: Optional["scout_compute_api_GreaterThanSeries"] = None,
+            less_than: Optional["scout_compute_api_LessThanSeries"] = None,
+            equal_to: Optional["scout_compute_api_EqualToSeries"] = None,
+            not_equal_to: Optional["scout_compute_api_NotEqualToSeries"] = None,
+            greater_than_or_equal_to: Optional["scout_compute_api_GreaterThanOrEqualToSeries"] = None,
+            less_than_or_equal_to: Optional["scout_compute_api_LessThanOrEqualToSeries"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (greater_than is not None) + (less_than is not None) + (equal_to is not None) + (not_equal_to is not None) + (greater_than_or_equal_to is not None) + (less_than_or_equal_to is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if greater_than is not None:
+                self._greater_than = greater_than
+                self._type = 'greaterThan'
+            if less_than is not None:
+                self._less_than = less_than
+                self._type = 'lessThan'
+            if equal_to is not None:
+                self._equal_to = equal_to
+                self._type = 'equalTo'
+            if not_equal_to is not None:
+                self._not_equal_to = not_equal_to
+                self._type = 'notEqualTo'
+            if greater_than_or_equal_to is not None:
+                self._greater_than_or_equal_to = greater_than_or_equal_to
+                self._type = 'greaterThanOrEqualTo'
+            if less_than_or_equal_to is not None:
+                self._less_than_or_equal_to = less_than_or_equal_to
+                self._type = 'lessThanOrEqualTo'
+
+        elif type_of_union == 'greaterThan':
+            if greater_than is None:
+                raise ValueError('a union value must not be None')
+            self._greater_than = greater_than
+            self._type = 'greaterThan'
+        elif type_of_union == 'lessThan':
+            if less_than is None:
+                raise ValueError('a union value must not be None')
+            self._less_than = less_than
+            self._type = 'lessThan'
+        elif type_of_union == 'equalTo':
+            if equal_to is None:
+                raise ValueError('a union value must not be None')
+            self._equal_to = equal_to
+            self._type = 'equalTo'
+        elif type_of_union == 'notEqualTo':
+            if not_equal_to is None:
+                raise ValueError('a union value must not be None')
+            self._not_equal_to = not_equal_to
+            self._type = 'notEqualTo'
+        elif type_of_union == 'greaterThanOrEqualTo':
+            if greater_than_or_equal_to is None:
+                raise ValueError('a union value must not be None')
+            self._greater_than_or_equal_to = greater_than_or_equal_to
+            self._type = 'greaterThanOrEqualTo'
+        elif type_of_union == 'lessThanOrEqualTo':
+            if less_than_or_equal_to is None:
+                raise ValueError('a union value must not be None')
+            self._less_than_or_equal_to = less_than_or_equal_to
+            self._type = 'lessThanOrEqualTo'
+
+    @builtins.property
+    def greater_than(self) -> Optional["scout_compute_api_GreaterThanSeries"]:
+        return self._greater_than
+
+    @builtins.property
+    def less_than(self) -> Optional["scout_compute_api_LessThanSeries"]:
+        return self._less_than
+
+    @builtins.property
+    def equal_to(self) -> Optional["scout_compute_api_EqualToSeries"]:
+        return self._equal_to
+
+    @builtins.property
+    def not_equal_to(self) -> Optional["scout_compute_api_NotEqualToSeries"]:
+        return self._not_equal_to
+
+    @builtins.property
+    def greater_than_or_equal_to(self) -> Optional["scout_compute_api_GreaterThanOrEqualToSeries"]:
+        return self._greater_than_or_equal_to
+
+    @builtins.property
+    def less_than_or_equal_to(self) -> Optional["scout_compute_api_LessThanOrEqualToSeries"]:
+        return self._less_than_or_equal_to
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_api_BooleanSeriesVisitor):
+            raise ValueError('{} is not an instance of scout_compute_api_BooleanSeriesVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'greaterThan' and self.greater_than is not None:
+            return visitor._greater_than(self.greater_than)
+        if self._type == 'lessThan' and self.less_than is not None:
+            return visitor._less_than(self.less_than)
+        if self._type == 'equalTo' and self.equal_to is not None:
+            return visitor._equal_to(self.equal_to)
+        if self._type == 'notEqualTo' and self.not_equal_to is not None:
+            return visitor._not_equal_to(self.not_equal_to)
+        if self._type == 'greaterThanOrEqualTo' and self.greater_than_or_equal_to is not None:
+            return visitor._greater_than_or_equal_to(self.greater_than_or_equal_to)
+        if self._type == 'lessThanOrEqualTo' and self.less_than_or_equal_to is not None:
+            return visitor._less_than_or_equal_to(self.less_than_or_equal_to)
+
+
+scout_compute_api_BooleanSeries.__name__ = "BooleanSeries"
+scout_compute_api_BooleanSeries.__qualname__ = "BooleanSeries"
+scout_compute_api_BooleanSeries.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_BooleanSeriesVisitor:
+
+    @abstractmethod
+    def _greater_than(self, greater_than: "scout_compute_api_GreaterThanSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _less_than(self, less_than: "scout_compute_api_LessThanSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _equal_to(self, equal_to: "scout_compute_api_EqualToSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _not_equal_to(self, not_equal_to: "scout_compute_api_NotEqualToSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _greater_than_or_equal_to(self, greater_than_or_equal_to: "scout_compute_api_GreaterThanOrEqualToSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _less_than_or_equal_to(self, less_than_or_equal_to: "scout_compute_api_LessThanOrEqualToSeries") -> Any:
+        pass
+
+
+scout_compute_api_BooleanSeriesVisitor.__name__ = "BooleanSeriesVisitor"
+scout_compute_api_BooleanSeriesVisitor.__qualname__ = "BooleanSeriesVisitor"
+scout_compute_api_BooleanSeriesVisitor.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_BucketedCartesian3dPlot(ConjureBeanType):
 
     @builtins.classmethod
@@ -46655,6 +47097,7 @@ scout_compute_api_ComputableNodeVisitor.__module__ = "nominal_api.scout_compute_
 
 
 class scout_compute_api_ComputeNode(ConjureUnionType):
+    _boolean: Optional["scout_compute_api_BooleanSeries"] = None
     _enum: Optional["scout_compute_api_EnumSeries"] = None
     _numeric: Optional["scout_compute_api_NumericSeries"] = None
     _log: Optional["scout_compute_api_LogSeries"] = None
@@ -46667,6 +47110,7 @@ class scout_compute_api_ComputeNode(ConjureUnionType):
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
+            'boolean': ConjureFieldDefinition('boolean', scout_compute_api_BooleanSeries),
             'enum': ConjureFieldDefinition('enum', scout_compute_api_EnumSeries),
             'numeric': ConjureFieldDefinition('numeric', scout_compute_api_NumericSeries),
             'log': ConjureFieldDefinition('log', scout_compute_api_LogSeries),
@@ -46679,6 +47123,7 @@ class scout_compute_api_ComputeNode(ConjureUnionType):
 
     def __init__(
             self,
+            boolean: Optional["scout_compute_api_BooleanSeries"] = None,
             enum: Optional["scout_compute_api_EnumSeries"] = None,
             numeric: Optional["scout_compute_api_NumericSeries"] = None,
             log: Optional["scout_compute_api_LogSeries"] = None,
@@ -46690,9 +47135,12 @@ class scout_compute_api_ComputeNode(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (enum is not None) + (numeric is not None) + (log is not None) + (ranges is not None) + (array is not None) + (struct is not None) + (curve_fit is not None) + (raw is not None) != 1:
+            if (boolean is not None) + (enum is not None) + (numeric is not None) + (log is not None) + (ranges is not None) + (array is not None) + (struct is not None) + (curve_fit is not None) + (raw is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
+            if boolean is not None:
+                self._boolean = boolean
+                self._type = 'boolean'
             if enum is not None:
                 self._enum = enum
                 self._type = 'enum'
@@ -46718,6 +47166,11 @@ class scout_compute_api_ComputeNode(ConjureUnionType):
                 self._raw = raw
                 self._type = 'raw'
 
+        elif type_of_union == 'boolean':
+            if boolean is None:
+                raise ValueError('a union value must not be None')
+            self._boolean = boolean
+            self._type = 'boolean'
         elif type_of_union == 'enum':
             if enum is None:
                 raise ValueError('a union value must not be None')
@@ -46760,6 +47213,10 @@ class scout_compute_api_ComputeNode(ConjureUnionType):
             self._type = 'raw'
 
     @builtins.property
+    def boolean(self) -> Optional["scout_compute_api_BooleanSeries"]:
+        return self._boolean
+
+    @builtins.property
     def enum(self) -> Optional["scout_compute_api_EnumSeries"]:
         return self._enum
 
@@ -46794,6 +47251,8 @@ class scout_compute_api_ComputeNode(ConjureUnionType):
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_ComputeNodeVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_ComputeNodeVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'boolean' and self.boolean is not None:
+            return visitor._boolean(self.boolean)
         if self._type == 'enum' and self.enum is not None:
             return visitor._enum(self.enum)
         if self._type == 'numeric' and self.numeric is not None:
@@ -46818,6 +47277,10 @@ scout_compute_api_ComputeNode.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_ComputeNodeVisitor:
+
+    @abstractmethod
+    def _boolean(self, boolean: "scout_compute_api_BooleanSeries") -> Any:
+        pass
 
     @abstractmethod
     def _enum(self, enum: "scout_compute_api_EnumSeries") -> Any:
@@ -46906,16 +47369,18 @@ class scout_compute_api_ComputeNodeRequest(ConjureBeanType):
             'node': ConjureFieldDefinition('node', scout_compute_api_ComputableNode),
             'start': ConjureFieldDefinition('start', api_Timestamp),
             'end': ConjureFieldDefinition('end', api_Timestamp),
-            'context': ConjureFieldDefinition('context', scout_compute_api_Context)
+            'context': ConjureFieldDefinition('context', scout_compute_api_Context),
+            'source_rid': ConjureFieldDefinition('sourceRid', OptionalTypeWrapper[str])
         }
 
-    __slots__: List[str] = ['_node', '_start', '_end', '_context']
+    __slots__: List[str] = ['_node', '_start', '_end', '_context', '_source_rid']
 
-    def __init__(self, context: "scout_compute_api_Context", end: "api_Timestamp", node: "scout_compute_api_ComputableNode", start: "api_Timestamp") -> None:
+    def __init__(self, context: "scout_compute_api_Context", end: "api_Timestamp", node: "scout_compute_api_ComputableNode", start: "api_Timestamp", source_rid: Optional[str] = None) -> None:
         self._node = node
         self._start = start
         self._end = end
         self._context = context
+        self._source_rid = source_rid
 
     @builtins.property
     def node(self) -> "scout_compute_api_ComputableNode":
@@ -46932,6 +47397,13 @@ class scout_compute_api_ComputeNodeRequest(ConjureBeanType):
     @builtins.property
     def context(self) -> "scout_compute_api_Context":
         return self._context
+
+    @builtins.property
+    def source_rid(self) -> Optional[str]:
+        """Optional RID identifying the resource that initiated this query (e.g. workbook/notebook RID, checklist RID).
+Used for observability only — trusted as-is, no permission checks are performed on this value.
+        """
+        return self._source_rid
 
 
 scout_compute_api_ComputeNodeRequest.__name__ = "ComputeNodeRequest"
@@ -50314,6 +50786,45 @@ scout_compute_api_EnumUnionSeries.__qualname__ = "EnumUnionSeries"
 scout_compute_api_EnumUnionSeries.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_EqualToSeries(ConjureBeanType):
+    """Compares two numeric series point-wise, producing 1 where left == right and 0 otherwise.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_api_NumericSeries),
+            'right': ConjureFieldDefinition('right', scout_compute_api_NumericSeries),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', OptionalTypeWrapper[scout_compute_api_InterpolationConfiguration])
+        }
+
+    __slots__: List[str] = ['_left', '_right', '_interpolation_configuration']
+
+    def __init__(self, left: "scout_compute_api_NumericSeries", right: "scout_compute_api_NumericSeries", interpolation_configuration: Optional["scout_compute_api_InterpolationConfiguration"] = None) -> None:
+        self._left = left
+        self._right = right
+        self._interpolation_configuration = interpolation_configuration
+
+    @builtins.property
+    def left(self) -> "scout_compute_api_NumericSeries":
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_api_NumericSeries":
+        return self._right
+
+    @builtins.property
+    def interpolation_configuration(self) -> Optional["scout_compute_api_InterpolationConfiguration"]:
+        """Defaults to forward fill interpolation with a 1s interpolation radius
+        """
+        return self._interpolation_configuration
+
+
+scout_compute_api_EqualToSeries.__name__ = "EqualToSeries"
+scout_compute_api_EqualToSeries.__qualname__ = "EqualToSeries"
+scout_compute_api_EqualToSeries.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_EqualityOperator(ConjureEnumType):
 
     ALL_EQUAL = 'ALL_EQUAL'
@@ -51614,6 +52125,84 @@ scout_compute_api_FunctionVariables.__qualname__ = "FunctionVariables"
 scout_compute_api_FunctionVariables.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_GreaterThanOrEqualToSeries(ConjureBeanType):
+    """Compares two numeric series point-wise, producing 1 where left >= right and 0 otherwise.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_api_NumericSeries),
+            'right': ConjureFieldDefinition('right', scout_compute_api_NumericSeries),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', OptionalTypeWrapper[scout_compute_api_InterpolationConfiguration])
+        }
+
+    __slots__: List[str] = ['_left', '_right', '_interpolation_configuration']
+
+    def __init__(self, left: "scout_compute_api_NumericSeries", right: "scout_compute_api_NumericSeries", interpolation_configuration: Optional["scout_compute_api_InterpolationConfiguration"] = None) -> None:
+        self._left = left
+        self._right = right
+        self._interpolation_configuration = interpolation_configuration
+
+    @builtins.property
+    def left(self) -> "scout_compute_api_NumericSeries":
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_api_NumericSeries":
+        return self._right
+
+    @builtins.property
+    def interpolation_configuration(self) -> Optional["scout_compute_api_InterpolationConfiguration"]:
+        """Defaults to forward fill interpolation with a 1s interpolation radius
+        """
+        return self._interpolation_configuration
+
+
+scout_compute_api_GreaterThanOrEqualToSeries.__name__ = "GreaterThanOrEqualToSeries"
+scout_compute_api_GreaterThanOrEqualToSeries.__qualname__ = "GreaterThanOrEqualToSeries"
+scout_compute_api_GreaterThanOrEqualToSeries.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_GreaterThanSeries(ConjureBeanType):
+    """Compares two numeric series point-wise, producing 1 where left > right and 0 otherwise.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_api_NumericSeries),
+            'right': ConjureFieldDefinition('right', scout_compute_api_NumericSeries),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', OptionalTypeWrapper[scout_compute_api_InterpolationConfiguration])
+        }
+
+    __slots__: List[str] = ['_left', '_right', '_interpolation_configuration']
+
+    def __init__(self, left: "scout_compute_api_NumericSeries", right: "scout_compute_api_NumericSeries", interpolation_configuration: Optional["scout_compute_api_InterpolationConfiguration"] = None) -> None:
+        self._left = left
+        self._right = right
+        self._interpolation_configuration = interpolation_configuration
+
+    @builtins.property
+    def left(self) -> "scout_compute_api_NumericSeries":
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_api_NumericSeries":
+        return self._right
+
+    @builtins.property
+    def interpolation_configuration(self) -> Optional["scout_compute_api_InterpolationConfiguration"]:
+        """Defaults to forward fill interpolation with a 1s interpolation radius
+        """
+        return self._interpolation_configuration
+
+
+scout_compute_api_GreaterThanSeries.__name__ = "GreaterThanSeries"
+scout_compute_api_GreaterThanSeries.__qualname__ = "GreaterThanSeries"
+scout_compute_api_GreaterThanSeries.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_GroupedComputeNodeResponse(ConjureBeanType):
 
     @builtins.classmethod
@@ -52110,6 +52699,84 @@ class scout_compute_api_LatLongPoint(ConjureBeanType):
 scout_compute_api_LatLongPoint.__name__ = "LatLongPoint"
 scout_compute_api_LatLongPoint.__qualname__ = "LatLongPoint"
 scout_compute_api_LatLongPoint.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_LessThanOrEqualToSeries(ConjureBeanType):
+    """Compares two numeric series point-wise, producing 1 where left <= right and 0 otherwise.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_api_NumericSeries),
+            'right': ConjureFieldDefinition('right', scout_compute_api_NumericSeries),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', OptionalTypeWrapper[scout_compute_api_InterpolationConfiguration])
+        }
+
+    __slots__: List[str] = ['_left', '_right', '_interpolation_configuration']
+
+    def __init__(self, left: "scout_compute_api_NumericSeries", right: "scout_compute_api_NumericSeries", interpolation_configuration: Optional["scout_compute_api_InterpolationConfiguration"] = None) -> None:
+        self._left = left
+        self._right = right
+        self._interpolation_configuration = interpolation_configuration
+
+    @builtins.property
+    def left(self) -> "scout_compute_api_NumericSeries":
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_api_NumericSeries":
+        return self._right
+
+    @builtins.property
+    def interpolation_configuration(self) -> Optional["scout_compute_api_InterpolationConfiguration"]:
+        """Defaults to forward fill interpolation with a 1s interpolation radius
+        """
+        return self._interpolation_configuration
+
+
+scout_compute_api_LessThanOrEqualToSeries.__name__ = "LessThanOrEqualToSeries"
+scout_compute_api_LessThanOrEqualToSeries.__qualname__ = "LessThanOrEqualToSeries"
+scout_compute_api_LessThanOrEqualToSeries.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_LessThanSeries(ConjureBeanType):
+    """Compares two numeric series point-wise, producing 1 where left < right and 0 otherwise.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_api_NumericSeries),
+            'right': ConjureFieldDefinition('right', scout_compute_api_NumericSeries),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', OptionalTypeWrapper[scout_compute_api_InterpolationConfiguration])
+        }
+
+    __slots__: List[str] = ['_left', '_right', '_interpolation_configuration']
+
+    def __init__(self, left: "scout_compute_api_NumericSeries", right: "scout_compute_api_NumericSeries", interpolation_configuration: Optional["scout_compute_api_InterpolationConfiguration"] = None) -> None:
+        self._left = left
+        self._right = right
+        self._interpolation_configuration = interpolation_configuration
+
+    @builtins.property
+    def left(self) -> "scout_compute_api_NumericSeries":
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_api_NumericSeries":
+        return self._right
+
+    @builtins.property
+    def interpolation_configuration(self) -> Optional["scout_compute_api_InterpolationConfiguration"]:
+        """Defaults to forward fill interpolation with a 1s interpolation radius
+        """
+        return self._interpolation_configuration
+
+
+scout_compute_api_LessThanSeries.__name__ = "LessThanSeries"
+scout_compute_api_LessThanSeries.__qualname__ = "LessThanSeries"
+scout_compute_api_LessThanSeries.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_LiteralRange(ConjureBeanType):
@@ -53095,6 +53762,45 @@ class scout_compute_api_NegativeValueConfigurationVisitor:
 scout_compute_api_NegativeValueConfigurationVisitor.__name__ = "NegativeValueConfigurationVisitor"
 scout_compute_api_NegativeValueConfigurationVisitor.__qualname__ = "NegativeValueConfigurationVisitor"
 scout_compute_api_NegativeValueConfigurationVisitor.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_NotEqualToSeries(ConjureBeanType):
+    """Compares two numeric series point-wise, producing 1 where left != right and 0 otherwise.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_api_NumericSeries),
+            'right': ConjureFieldDefinition('right', scout_compute_api_NumericSeries),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', OptionalTypeWrapper[scout_compute_api_InterpolationConfiguration])
+        }
+
+    __slots__: List[str] = ['_left', '_right', '_interpolation_configuration']
+
+    def __init__(self, left: "scout_compute_api_NumericSeries", right: "scout_compute_api_NumericSeries", interpolation_configuration: Optional["scout_compute_api_InterpolationConfiguration"] = None) -> None:
+        self._left = left
+        self._right = right
+        self._interpolation_configuration = interpolation_configuration
+
+    @builtins.property
+    def left(self) -> "scout_compute_api_NumericSeries":
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_api_NumericSeries":
+        return self._right
+
+    @builtins.property
+    def interpolation_configuration(self) -> Optional["scout_compute_api_InterpolationConfiguration"]:
+        """Defaults to forward fill interpolation with a 1s interpolation radius
+        """
+        return self._interpolation_configuration
+
+
+scout_compute_api_NotEqualToSeries.__name__ = "NotEqualToSeries"
+scout_compute_api_NotEqualToSeries.__qualname__ = "NotEqualToSeries"
+scout_compute_api_NotEqualToSeries.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_NotRanges(ConjureBeanType):
@@ -55409,16 +56115,18 @@ class scout_compute_api_ParameterizedComputeNodeRequest(ConjureBeanType):
             'start': ConjureFieldDefinition('start', api_Timestamp),
             'end': ConjureFieldDefinition('end', api_Timestamp),
             'context': ConjureFieldDefinition('context', scout_compute_api_Context),
+            'source_rid': ConjureFieldDefinition('sourceRid', OptionalTypeWrapper[str]),
             'parameterized_context': ConjureFieldDefinition('parameterizedContext', scout_compute_api_ParameterizedContext)
         }
 
-    __slots__: List[str] = ['_node', '_start', '_end', '_context', '_parameterized_context']
+    __slots__: List[str] = ['_node', '_start', '_end', '_context', '_source_rid', '_parameterized_context']
 
-    def __init__(self, context: "scout_compute_api_Context", end: "api_Timestamp", node: "scout_compute_api_ComputableNode", parameterized_context: "scout_compute_api_ParameterizedContext", start: "api_Timestamp") -> None:
+    def __init__(self, context: "scout_compute_api_Context", end: "api_Timestamp", node: "scout_compute_api_ComputableNode", parameterized_context: "scout_compute_api_ParameterizedContext", start: "api_Timestamp", source_rid: Optional[str] = None) -> None:
         self._node = node
         self._start = start
         self._end = end
         self._context = context
+        self._source_rid = source_rid
         self._parameterized_context = parameterized_context
 
     @builtins.property
@@ -55436,6 +56144,13 @@ class scout_compute_api_ParameterizedComputeNodeRequest(ConjureBeanType):
     @builtins.property
     def context(self) -> "scout_compute_api_Context":
         return self._context
+
+    @builtins.property
+    def source_rid(self) -> Optional[str]:
+        """Optional RID identifying the resource that initiated this query (e.g. workbook/notebook RID, checklist RID).
+Used for observability only — trusted as-is, no permission checks are performed on this value.
+        """
+        return self._source_rid
 
     @builtins.property
     def parameterized_context(self) -> "scout_compute_api_ParameterizedContext":
@@ -55943,6 +56658,32 @@ may also rescale the magnitude of the output in order to ensure the density of t
 scout_compute_api_Psd.__name__ = "Psd"
 scout_compute_api_Psd.__qualname__ = "Psd"
 scout_compute_api_Psd.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_QuerySource(ConjureEnumType):
+    """Identifies where a compute query originated from. Used for observability (perf metrics, ClickHouse log_comment)
+    """
+
+    WORKBOOK = 'WORKBOOK'
+    '''WORKBOOK'''
+    CHECKLIST = 'CHECKLIST'
+    '''CHECKLIST'''
+    STREAMING_CHECKLIST = 'STREAMING_CHECKLIST'
+    '''STREAMING_CHECKLIST'''
+    EXPORT = 'EXPORT'
+    '''EXPORT'''
+    PERSISTENT_COMPUTE = 'PERSISTENT_COMPUTE'
+    '''PERSISTENT_COMPUTE'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_compute_api_QuerySource.__name__ = "QuerySource"
+scout_compute_api_QuerySource.__qualname__ = "QuerySource"
+scout_compute_api_QuerySource.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_Range(ConjureBeanType):
@@ -57976,6 +58717,7 @@ scout_compute_api_SelectValueVisitor.__module__ = "nominal_api.scout_compute_api
 
 class scout_compute_api_Series(ConjureUnionType):
     _raw: Optional["scout_compute_api_Reference"] = None
+    _boolean: Optional["scout_compute_api_BooleanSeries"] = None
     _enum: Optional["scout_compute_api_EnumSeries"] = None
     _numeric: Optional["scout_compute_api_NumericSeries"] = None
     _log: Optional["scout_compute_api_LogSeries"] = None
@@ -57986,6 +58728,7 @@ class scout_compute_api_Series(ConjureUnionType):
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'raw': ConjureFieldDefinition('raw', scout_compute_api_Reference),
+            'boolean': ConjureFieldDefinition('boolean', scout_compute_api_BooleanSeries),
             'enum': ConjureFieldDefinition('enum', scout_compute_api_EnumSeries),
             'numeric': ConjureFieldDefinition('numeric', scout_compute_api_NumericSeries),
             'log': ConjureFieldDefinition('log', scout_compute_api_LogSeries),
@@ -57996,6 +58739,7 @@ class scout_compute_api_Series(ConjureUnionType):
     def __init__(
             self,
             raw: Optional["scout_compute_api_Reference"] = None,
+            boolean: Optional["scout_compute_api_BooleanSeries"] = None,
             enum: Optional["scout_compute_api_EnumSeries"] = None,
             numeric: Optional["scout_compute_api_NumericSeries"] = None,
             log: Optional["scout_compute_api_LogSeries"] = None,
@@ -58004,12 +58748,15 @@ class scout_compute_api_Series(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (raw is not None) + (enum is not None) + (numeric is not None) + (log is not None) + (array is not None) + (struct is not None) != 1:
+            if (raw is not None) + (boolean is not None) + (enum is not None) + (numeric is not None) + (log is not None) + (array is not None) + (struct is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if raw is not None:
                 self._raw = raw
                 self._type = 'raw'
+            if boolean is not None:
+                self._boolean = boolean
+                self._type = 'boolean'
             if enum is not None:
                 self._enum = enum
                 self._type = 'enum'
@@ -58031,6 +58778,11 @@ class scout_compute_api_Series(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._raw = raw
             self._type = 'raw'
+        elif type_of_union == 'boolean':
+            if boolean is None:
+                raise ValueError('a union value must not be None')
+            self._boolean = boolean
+            self._type = 'boolean'
         elif type_of_union == 'enum':
             if enum is None:
                 raise ValueError('a union value must not be None')
@@ -58062,6 +58814,10 @@ class scout_compute_api_Series(ConjureUnionType):
         return self._raw
 
     @builtins.property
+    def boolean(self) -> Optional["scout_compute_api_BooleanSeries"]:
+        return self._boolean
+
+    @builtins.property
     def enum(self) -> Optional["scout_compute_api_EnumSeries"]:
         return self._enum
 
@@ -58086,6 +58842,8 @@ class scout_compute_api_Series(ConjureUnionType):
             raise ValueError('{} is not an instance of scout_compute_api_SeriesVisitor'.format(visitor.__class__.__name__))
         if self._type == 'raw' and self.raw is not None:
             return visitor._raw(self.raw)
+        if self._type == 'boolean' and self.boolean is not None:
+            return visitor._boolean(self.boolean)
         if self._type == 'enum' and self.enum is not None:
             return visitor._enum(self.enum)
         if self._type == 'numeric' and self.numeric is not None:
@@ -58107,6 +58865,10 @@ class scout_compute_api_SeriesVisitor:
 
     @abstractmethod
     def _raw(self, raw: "scout_compute_api_Reference") -> Any:
+        pass
+
+    @abstractmethod
+    def _boolean(self, boolean: "scout_compute_api_BooleanSeries") -> Any:
         pass
 
     @abstractmethod
@@ -63179,6 +63941,167 @@ scout_compute_resolved_api_BodeNode.__qualname__ = "BodeNode"
 scout_compute_resolved_api_BodeNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
+class scout_compute_resolved_api_BooleanSeriesNode(ConjureUnionType):
+    _greater_than: Optional["scout_compute_resolved_api_GreaterThanSeriesNode"] = None
+    _less_than: Optional["scout_compute_resolved_api_LessThanSeriesNode"] = None
+    _equal_to: Optional["scout_compute_resolved_api_EqualToSeriesNode"] = None
+    _not_equal_to: Optional["scout_compute_resolved_api_NotEqualToSeriesNode"] = None
+    _greater_than_or_equal_to: Optional["scout_compute_resolved_api_GreaterThanOrEqualToSeriesNode"] = None
+    _less_than_or_equal_to: Optional["scout_compute_resolved_api_LessThanOrEqualToSeriesNode"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'greater_than': ConjureFieldDefinition('greaterThan', scout_compute_resolved_api_GreaterThanSeriesNode),
+            'less_than': ConjureFieldDefinition('lessThan', scout_compute_resolved_api_LessThanSeriesNode),
+            'equal_to': ConjureFieldDefinition('equalTo', scout_compute_resolved_api_EqualToSeriesNode),
+            'not_equal_to': ConjureFieldDefinition('notEqualTo', scout_compute_resolved_api_NotEqualToSeriesNode),
+            'greater_than_or_equal_to': ConjureFieldDefinition('greaterThanOrEqualTo', scout_compute_resolved_api_GreaterThanOrEqualToSeriesNode),
+            'less_than_or_equal_to': ConjureFieldDefinition('lessThanOrEqualTo', scout_compute_resolved_api_LessThanOrEqualToSeriesNode)
+        }
+
+    def __init__(
+            self,
+            greater_than: Optional["scout_compute_resolved_api_GreaterThanSeriesNode"] = None,
+            less_than: Optional["scout_compute_resolved_api_LessThanSeriesNode"] = None,
+            equal_to: Optional["scout_compute_resolved_api_EqualToSeriesNode"] = None,
+            not_equal_to: Optional["scout_compute_resolved_api_NotEqualToSeriesNode"] = None,
+            greater_than_or_equal_to: Optional["scout_compute_resolved_api_GreaterThanOrEqualToSeriesNode"] = None,
+            less_than_or_equal_to: Optional["scout_compute_resolved_api_LessThanOrEqualToSeriesNode"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (greater_than is not None) + (less_than is not None) + (equal_to is not None) + (not_equal_to is not None) + (greater_than_or_equal_to is not None) + (less_than_or_equal_to is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if greater_than is not None:
+                self._greater_than = greater_than
+                self._type = 'greaterThan'
+            if less_than is not None:
+                self._less_than = less_than
+                self._type = 'lessThan'
+            if equal_to is not None:
+                self._equal_to = equal_to
+                self._type = 'equalTo'
+            if not_equal_to is not None:
+                self._not_equal_to = not_equal_to
+                self._type = 'notEqualTo'
+            if greater_than_or_equal_to is not None:
+                self._greater_than_or_equal_to = greater_than_or_equal_to
+                self._type = 'greaterThanOrEqualTo'
+            if less_than_or_equal_to is not None:
+                self._less_than_or_equal_to = less_than_or_equal_to
+                self._type = 'lessThanOrEqualTo'
+
+        elif type_of_union == 'greaterThan':
+            if greater_than is None:
+                raise ValueError('a union value must not be None')
+            self._greater_than = greater_than
+            self._type = 'greaterThan'
+        elif type_of_union == 'lessThan':
+            if less_than is None:
+                raise ValueError('a union value must not be None')
+            self._less_than = less_than
+            self._type = 'lessThan'
+        elif type_of_union == 'equalTo':
+            if equal_to is None:
+                raise ValueError('a union value must not be None')
+            self._equal_to = equal_to
+            self._type = 'equalTo'
+        elif type_of_union == 'notEqualTo':
+            if not_equal_to is None:
+                raise ValueError('a union value must not be None')
+            self._not_equal_to = not_equal_to
+            self._type = 'notEqualTo'
+        elif type_of_union == 'greaterThanOrEqualTo':
+            if greater_than_or_equal_to is None:
+                raise ValueError('a union value must not be None')
+            self._greater_than_or_equal_to = greater_than_or_equal_to
+            self._type = 'greaterThanOrEqualTo'
+        elif type_of_union == 'lessThanOrEqualTo':
+            if less_than_or_equal_to is None:
+                raise ValueError('a union value must not be None')
+            self._less_than_or_equal_to = less_than_or_equal_to
+            self._type = 'lessThanOrEqualTo'
+
+    @builtins.property
+    def greater_than(self) -> Optional["scout_compute_resolved_api_GreaterThanSeriesNode"]:
+        return self._greater_than
+
+    @builtins.property
+    def less_than(self) -> Optional["scout_compute_resolved_api_LessThanSeriesNode"]:
+        return self._less_than
+
+    @builtins.property
+    def equal_to(self) -> Optional["scout_compute_resolved_api_EqualToSeriesNode"]:
+        return self._equal_to
+
+    @builtins.property
+    def not_equal_to(self) -> Optional["scout_compute_resolved_api_NotEqualToSeriesNode"]:
+        return self._not_equal_to
+
+    @builtins.property
+    def greater_than_or_equal_to(self) -> Optional["scout_compute_resolved_api_GreaterThanOrEqualToSeriesNode"]:
+        return self._greater_than_or_equal_to
+
+    @builtins.property
+    def less_than_or_equal_to(self) -> Optional["scout_compute_resolved_api_LessThanOrEqualToSeriesNode"]:
+        return self._less_than_or_equal_to
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_resolved_api_BooleanSeriesNodeVisitor):
+            raise ValueError('{} is not an instance of scout_compute_resolved_api_BooleanSeriesNodeVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'greaterThan' and self.greater_than is not None:
+            return visitor._greater_than(self.greater_than)
+        if self._type == 'lessThan' and self.less_than is not None:
+            return visitor._less_than(self.less_than)
+        if self._type == 'equalTo' and self.equal_to is not None:
+            return visitor._equal_to(self.equal_to)
+        if self._type == 'notEqualTo' and self.not_equal_to is not None:
+            return visitor._not_equal_to(self.not_equal_to)
+        if self._type == 'greaterThanOrEqualTo' and self.greater_than_or_equal_to is not None:
+            return visitor._greater_than_or_equal_to(self.greater_than_or_equal_to)
+        if self._type == 'lessThanOrEqualTo' and self.less_than_or_equal_to is not None:
+            return visitor._less_than_or_equal_to(self.less_than_or_equal_to)
+
+
+scout_compute_resolved_api_BooleanSeriesNode.__name__ = "BooleanSeriesNode"
+scout_compute_resolved_api_BooleanSeriesNode.__qualname__ = "BooleanSeriesNode"
+scout_compute_resolved_api_BooleanSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_BooleanSeriesNodeVisitor:
+
+    @abstractmethod
+    def _greater_than(self, greater_than: "scout_compute_resolved_api_GreaterThanSeriesNode") -> Any:
+        pass
+
+    @abstractmethod
+    def _less_than(self, less_than: "scout_compute_resolved_api_LessThanSeriesNode") -> Any:
+        pass
+
+    @abstractmethod
+    def _equal_to(self, equal_to: "scout_compute_resolved_api_EqualToSeriesNode") -> Any:
+        pass
+
+    @abstractmethod
+    def _not_equal_to(self, not_equal_to: "scout_compute_resolved_api_NotEqualToSeriesNode") -> Any:
+        pass
+
+    @abstractmethod
+    def _greater_than_or_equal_to(self, greater_than_or_equal_to: "scout_compute_resolved_api_GreaterThanOrEqualToSeriesNode") -> Any:
+        pass
+
+    @abstractmethod
+    def _less_than_or_equal_to(self, less_than_or_equal_to: "scout_compute_resolved_api_LessThanOrEqualToSeriesNode") -> Any:
+        pass
+
+
+scout_compute_resolved_api_BooleanSeriesNodeVisitor.__name__ = "BooleanSeriesNodeVisitor"
+scout_compute_resolved_api_BooleanSeriesNodeVisitor.__qualname__ = "BooleanSeriesNodeVisitor"
+scout_compute_resolved_api_BooleanSeriesNodeVisitor.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
 class scout_compute_resolved_api_Cartesian3dBounds(ConjureBeanType):
 
     @builtins.classmethod
@@ -64513,6 +65436,41 @@ scout_compute_resolved_api_EnumUnionSeriesNode.__qualname__ = "EnumUnionSeriesNo
 scout_compute_resolved_api_EnumUnionSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
+class scout_compute_resolved_api_EqualToSeriesNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_resolved_api_NumericSeriesNode),
+            'right': ConjureFieldDefinition('right', scout_compute_resolved_api_NumericSeriesNode),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', scout_compute_resolved_api_InterpolationConfiguration)
+        }
+
+    __slots__: List[str] = ['_left', '_right', '_interpolation_configuration']
+
+    def __init__(self, interpolation_configuration: "scout_compute_resolved_api_InterpolationConfiguration", left: "scout_compute_resolved_api_NumericSeriesNode", right: "scout_compute_resolved_api_NumericSeriesNode") -> None:
+        self._left = left
+        self._right = right
+        self._interpolation_configuration = interpolation_configuration
+
+    @builtins.property
+    def left(self) -> "scout_compute_resolved_api_NumericSeriesNode":
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_resolved_api_NumericSeriesNode":
+        return self._right
+
+    @builtins.property
+    def interpolation_configuration(self) -> "scout_compute_resolved_api_InterpolationConfiguration":
+        return self._interpolation_configuration
+
+
+scout_compute_resolved_api_EqualToSeriesNode.__name__ = "EqualToSeriesNode"
+scout_compute_resolved_api_EqualToSeriesNode.__qualname__ = "EqualToSeriesNode"
+scout_compute_resolved_api_EqualToSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
 class scout_compute_resolved_api_ExponentialCurve(ConjureBeanType):
 
     @builtins.classmethod
@@ -64989,6 +65947,76 @@ scout_compute_resolved_api_FrequencyDomainNodeV2Visitor.__qualname__ = "Frequenc
 scout_compute_resolved_api_FrequencyDomainNodeV2Visitor.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
+class scout_compute_resolved_api_GreaterThanOrEqualToSeriesNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_resolved_api_NumericSeriesNode),
+            'right': ConjureFieldDefinition('right', scout_compute_resolved_api_NumericSeriesNode),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', scout_compute_resolved_api_InterpolationConfiguration)
+        }
+
+    __slots__: List[str] = ['_left', '_right', '_interpolation_configuration']
+
+    def __init__(self, interpolation_configuration: "scout_compute_resolved_api_InterpolationConfiguration", left: "scout_compute_resolved_api_NumericSeriesNode", right: "scout_compute_resolved_api_NumericSeriesNode") -> None:
+        self._left = left
+        self._right = right
+        self._interpolation_configuration = interpolation_configuration
+
+    @builtins.property
+    def left(self) -> "scout_compute_resolved_api_NumericSeriesNode":
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_resolved_api_NumericSeriesNode":
+        return self._right
+
+    @builtins.property
+    def interpolation_configuration(self) -> "scout_compute_resolved_api_InterpolationConfiguration":
+        return self._interpolation_configuration
+
+
+scout_compute_resolved_api_GreaterThanOrEqualToSeriesNode.__name__ = "GreaterThanOrEqualToSeriesNode"
+scout_compute_resolved_api_GreaterThanOrEqualToSeriesNode.__qualname__ = "GreaterThanOrEqualToSeriesNode"
+scout_compute_resolved_api_GreaterThanOrEqualToSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_GreaterThanSeriesNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_resolved_api_NumericSeriesNode),
+            'right': ConjureFieldDefinition('right', scout_compute_resolved_api_NumericSeriesNode),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', scout_compute_resolved_api_InterpolationConfiguration)
+        }
+
+    __slots__: List[str] = ['_left', '_right', '_interpolation_configuration']
+
+    def __init__(self, interpolation_configuration: "scout_compute_resolved_api_InterpolationConfiguration", left: "scout_compute_resolved_api_NumericSeriesNode", right: "scout_compute_resolved_api_NumericSeriesNode") -> None:
+        self._left = left
+        self._right = right
+        self._interpolation_configuration = interpolation_configuration
+
+    @builtins.property
+    def left(self) -> "scout_compute_resolved_api_NumericSeriesNode":
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_resolved_api_NumericSeriesNode":
+        return self._right
+
+    @builtins.property
+    def interpolation_configuration(self) -> "scout_compute_resolved_api_InterpolationConfiguration":
+        return self._interpolation_configuration
+
+
+scout_compute_resolved_api_GreaterThanSeriesNode.__name__ = "GreaterThanSeriesNode"
+scout_compute_resolved_api_GreaterThanSeriesNode.__qualname__ = "GreaterThanSeriesNode"
+scout_compute_resolved_api_GreaterThanSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
 class scout_compute_resolved_api_HighPassConfiguration(ConjureBeanType):
 
     @builtins.classmethod
@@ -65201,6 +66229,76 @@ class scout_compute_resolved_api_IntersectRangesNode(ConjureBeanType):
 scout_compute_resolved_api_IntersectRangesNode.__name__ = "IntersectRangesNode"
 scout_compute_resolved_api_IntersectRangesNode.__qualname__ = "IntersectRangesNode"
 scout_compute_resolved_api_IntersectRangesNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_LessThanOrEqualToSeriesNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_resolved_api_NumericSeriesNode),
+            'right': ConjureFieldDefinition('right', scout_compute_resolved_api_NumericSeriesNode),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', scout_compute_resolved_api_InterpolationConfiguration)
+        }
+
+    __slots__: List[str] = ['_left', '_right', '_interpolation_configuration']
+
+    def __init__(self, interpolation_configuration: "scout_compute_resolved_api_InterpolationConfiguration", left: "scout_compute_resolved_api_NumericSeriesNode", right: "scout_compute_resolved_api_NumericSeriesNode") -> None:
+        self._left = left
+        self._right = right
+        self._interpolation_configuration = interpolation_configuration
+
+    @builtins.property
+    def left(self) -> "scout_compute_resolved_api_NumericSeriesNode":
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_resolved_api_NumericSeriesNode":
+        return self._right
+
+    @builtins.property
+    def interpolation_configuration(self) -> "scout_compute_resolved_api_InterpolationConfiguration":
+        return self._interpolation_configuration
+
+
+scout_compute_resolved_api_LessThanOrEqualToSeriesNode.__name__ = "LessThanOrEqualToSeriesNode"
+scout_compute_resolved_api_LessThanOrEqualToSeriesNode.__qualname__ = "LessThanOrEqualToSeriesNode"
+scout_compute_resolved_api_LessThanOrEqualToSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_LessThanSeriesNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_resolved_api_NumericSeriesNode),
+            'right': ConjureFieldDefinition('right', scout_compute_resolved_api_NumericSeriesNode),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', scout_compute_resolved_api_InterpolationConfiguration)
+        }
+
+    __slots__: List[str] = ['_left', '_right', '_interpolation_configuration']
+
+    def __init__(self, interpolation_configuration: "scout_compute_resolved_api_InterpolationConfiguration", left: "scout_compute_resolved_api_NumericSeriesNode", right: "scout_compute_resolved_api_NumericSeriesNode") -> None:
+        self._left = left
+        self._right = right
+        self._interpolation_configuration = interpolation_configuration
+
+    @builtins.property
+    def left(self) -> "scout_compute_resolved_api_NumericSeriesNode":
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_resolved_api_NumericSeriesNode":
+        return self._right
+
+    @builtins.property
+    def interpolation_configuration(self) -> "scout_compute_resolved_api_InterpolationConfiguration":
+        return self._interpolation_configuration
+
+
+scout_compute_resolved_api_LessThanSeriesNode.__name__ = "LessThanSeriesNode"
+scout_compute_resolved_api_LessThanSeriesNode.__qualname__ = "LessThanSeriesNode"
+scout_compute_resolved_api_LessThanSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
 class scout_compute_resolved_api_LiteralEnumSeriesNode(ConjureBeanType):
@@ -65698,6 +66796,41 @@ class scout_compute_resolved_api_NominalStorageLocator(ConjureBeanType):
 scout_compute_resolved_api_NominalStorageLocator.__name__ = "NominalStorageLocator"
 scout_compute_resolved_api_NominalStorageLocator.__qualname__ = "NominalStorageLocator"
 scout_compute_resolved_api_NominalStorageLocator.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_NotEqualToSeriesNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_resolved_api_NumericSeriesNode),
+            'right': ConjureFieldDefinition('right', scout_compute_resolved_api_NumericSeriesNode),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', scout_compute_resolved_api_InterpolationConfiguration)
+        }
+
+    __slots__: List[str] = ['_left', '_right', '_interpolation_configuration']
+
+    def __init__(self, interpolation_configuration: "scout_compute_resolved_api_InterpolationConfiguration", left: "scout_compute_resolved_api_NumericSeriesNode", right: "scout_compute_resolved_api_NumericSeriesNode") -> None:
+        self._left = left
+        self._right = right
+        self._interpolation_configuration = interpolation_configuration
+
+    @builtins.property
+    def left(self) -> "scout_compute_resolved_api_NumericSeriesNode":
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_resolved_api_NumericSeriesNode":
+        return self._right
+
+    @builtins.property
+    def interpolation_configuration(self) -> "scout_compute_resolved_api_InterpolationConfiguration":
+        return self._interpolation_configuration
+
+
+scout_compute_resolved_api_NotEqualToSeriesNode.__name__ = "NotEqualToSeriesNode"
+scout_compute_resolved_api_NotEqualToSeriesNode.__qualname__ = "NotEqualToSeriesNode"
+scout_compute_resolved_api_NotEqualToSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
 class scout_compute_resolved_api_NotRangesNode(ConjureBeanType):
@@ -68734,6 +69867,7 @@ scout_compute_resolved_api_SeriesCrossoverRangesNode.__module__ = "nominal_api.s
 
 class scout_compute_resolved_api_SeriesNode(ConjureUnionType):
     _raw: Optional["scout_compute_resolved_api_RawUntypedSeriesNode"] = None
+    _boolean: Optional["scout_compute_resolved_api_BooleanSeriesNode"] = None
     _enum: Optional["scout_compute_resolved_api_EnumSeriesNode"] = None
     _numeric: Optional["scout_compute_resolved_api_NumericSeriesNode"] = None
     _log: Optional["scout_compute_resolved_api_LogSeriesNode"] = None
@@ -68744,6 +69878,7 @@ class scout_compute_resolved_api_SeriesNode(ConjureUnionType):
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'raw': ConjureFieldDefinition('raw', scout_compute_resolved_api_RawUntypedSeriesNode),
+            'boolean': ConjureFieldDefinition('boolean', scout_compute_resolved_api_BooleanSeriesNode),
             'enum': ConjureFieldDefinition('enum', scout_compute_resolved_api_EnumSeriesNode),
             'numeric': ConjureFieldDefinition('numeric', scout_compute_resolved_api_NumericSeriesNode),
             'log': ConjureFieldDefinition('log', scout_compute_resolved_api_LogSeriesNode),
@@ -68754,6 +69889,7 @@ class scout_compute_resolved_api_SeriesNode(ConjureUnionType):
     def __init__(
             self,
             raw: Optional["scout_compute_resolved_api_RawUntypedSeriesNode"] = None,
+            boolean: Optional["scout_compute_resolved_api_BooleanSeriesNode"] = None,
             enum: Optional["scout_compute_resolved_api_EnumSeriesNode"] = None,
             numeric: Optional["scout_compute_resolved_api_NumericSeriesNode"] = None,
             log: Optional["scout_compute_resolved_api_LogSeriesNode"] = None,
@@ -68762,12 +69898,15 @@ class scout_compute_resolved_api_SeriesNode(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (raw is not None) + (enum is not None) + (numeric is not None) + (log is not None) + (array is not None) + (struct is not None) != 1:
+            if (raw is not None) + (boolean is not None) + (enum is not None) + (numeric is not None) + (log is not None) + (array is not None) + (struct is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if raw is not None:
                 self._raw = raw
                 self._type = 'raw'
+            if boolean is not None:
+                self._boolean = boolean
+                self._type = 'boolean'
             if enum is not None:
                 self._enum = enum
                 self._type = 'enum'
@@ -68789,6 +69928,11 @@ class scout_compute_resolved_api_SeriesNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._raw = raw
             self._type = 'raw'
+        elif type_of_union == 'boolean':
+            if boolean is None:
+                raise ValueError('a union value must not be None')
+            self._boolean = boolean
+            self._type = 'boolean'
         elif type_of_union == 'enum':
             if enum is None:
                 raise ValueError('a union value must not be None')
@@ -68820,6 +69964,10 @@ class scout_compute_resolved_api_SeriesNode(ConjureUnionType):
         return self._raw
 
     @builtins.property
+    def boolean(self) -> Optional["scout_compute_resolved_api_BooleanSeriesNode"]:
+        return self._boolean
+
+    @builtins.property
     def enum(self) -> Optional["scout_compute_resolved_api_EnumSeriesNode"]:
         return self._enum
 
@@ -68844,6 +69992,8 @@ class scout_compute_resolved_api_SeriesNode(ConjureUnionType):
             raise ValueError('{} is not an instance of scout_compute_resolved_api_SeriesNodeVisitor'.format(visitor.__class__.__name__))
         if self._type == 'raw' and self.raw is not None:
             return visitor._raw(self.raw)
+        if self._type == 'boolean' and self.boolean is not None:
+            return visitor._boolean(self.boolean)
         if self._type == 'enum' and self.enum is not None:
             return visitor._enum(self.enum)
         if self._type == 'numeric' and self.numeric is not None:
@@ -68865,6 +70015,10 @@ class scout_compute_resolved_api_SeriesNodeVisitor:
 
     @abstractmethod
     def _raw(self, raw: "scout_compute_resolved_api_RawUntypedSeriesNode") -> Any:
+        pass
+
+    @abstractmethod
+    def _boolean(self, boolean: "scout_compute_resolved_api_BooleanSeriesNode") -> Any:
         pass
 
     @abstractmethod
@@ -76354,6 +77508,44 @@ Nominal connections which have their tags automatically indexed in the underlyin
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), scout_datasource_connection_api_ListConnectionsResponse, self._return_none_for_unknown_union_types)
 
+    def list_connections_by_nominal_data_source(self, auth_header: str, nominal_data_source_rids: List[str] = None, workspaces: List[str] = None, next_page_token: Optional[str] = None, page_size: Optional[int] = None) -> "scout_datasource_connection_api_ListConnectionsResponse":
+        """Lists connections that reference the specified Nominal data sources, with pagination.
+Only returns connections within the caller's organization.
+        """
+        nominal_data_source_rids = nominal_data_source_rids if nominal_data_source_rids is not None else []
+        workspaces = workspaces if workspaces is not None else []
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+            'nominalDataSourceRids': _conjure_encoder.default(nominal_data_source_rids),
+            'workspaces': _conjure_encoder.default(workspaces),
+            'pageSize': _conjure_encoder.default(page_size),
+            'nextPageToken': _conjure_encoder.default(next_page_token),
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = None
+
+        _path = '/data-source/connection/v2/connections/by-datasource'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'GET',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_datasource_connection_api_ListConnectionsResponse, self._return_none_for_unknown_union_types)
+
     def archive_connection(self, auth_header: str, rid: str) -> None:
         """Archives a connection, which simply tags the connection for a client to filter.
         """
@@ -79291,7 +80483,7 @@ class scout_integrations_api_AlertMessageFields(ConjureBeanType):
             'alert_url': ConjureFieldDefinition('alertUrl', OptionalTypeWrapper[str]),
             'event_type': ConjureFieldDefinition('eventType', event_EventType),
             'priority': ConjureFieldDefinition('priority', scout_api_Priority),
-            'labels': ConjureFieldDefinition('labels', List[str]),
+            'labels': ConjureFieldDefinition('labels', List[api_Label]),
             'alert_type': ConjureFieldDefinition('alertType', scout_integrations_api_AlertType)
         }
 
@@ -79610,6 +80802,89 @@ scout_integrations_api_CreatePagerDutyIntegrationDetails.__qualname__ = "CreateP
 scout_integrations_api_CreatePagerDutyIntegrationDetails.__module__ = "nominal_api.scout_integrations_api"
 
 
+class scout_integrations_api_CreateSecureWebhookIntegrationRequest(ConjureBeanType):
+    """Configuration for creating an advanced webhook integration. Signing key is generated by the server.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'name': ConjureFieldDefinition('name', str),
+            'description': ConjureFieldDefinition('description', OptionalTypeWrapper[str]),
+            'workspace': ConjureFieldDefinition('workspace', OptionalTypeWrapper[api_rids_WorkspaceRid]),
+            'integration': ConjureFieldDefinition('integration', scout_integrations_api_SecureWebhookIntegration)
+        }
+
+    __slots__: List[str] = ['_name', '_description', '_workspace', '_integration']
+
+    def __init__(self, integration: "scout_integrations_api_SecureWebhookIntegration", name: str, description: Optional[str] = None, workspace: Optional[str] = None) -> None:
+        self._name = name
+        self._description = description
+        self._workspace = workspace
+        self._integration = integration
+
+    @builtins.property
+    def name(self) -> str:
+        return self._name
+
+    @builtins.property
+    def description(self) -> Optional[str]:
+        return self._description
+
+    @builtins.property
+    def workspace(self) -> Optional[str]:
+        """The workspace in which to create the integration. If not provided, the integration will be created in the default workspace for
+the user's organization, if the default workspace for the organization is configured.
+        """
+        return self._workspace
+
+    @builtins.property
+    def integration(self) -> "scout_integrations_api_SecureWebhookIntegration":
+        return self._integration
+
+
+scout_integrations_api_CreateSecureWebhookIntegrationRequest.__name__ = "CreateSecureWebhookIntegrationRequest"
+scout_integrations_api_CreateSecureWebhookIntegrationRequest.__qualname__ = "CreateSecureWebhookIntegrationRequest"
+scout_integrations_api_CreateSecureWebhookIntegrationRequest.__module__ = "nominal_api.scout_integrations_api"
+
+
+class scout_integrations_api_CreateSecureWebhookIntegrationResponse(ConjureBeanType):
+    """Response returned when creating a webhook integration.
+Contains the full integration object and the server-generated HMAC signing key.
+The signing key is only returned at creation time — store it securely.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'integration': ConjureFieldDefinition('integration', scout_integrations_api_Integration),
+            'signing_key': ConjureFieldDefinition('signingKey', str)
+        }
+
+    __slots__: List[str] = ['_integration', '_signing_key']
+
+    def __init__(self, integration: "scout_integrations_api_Integration", signing_key: str) -> None:
+        self._integration = integration
+        self._signing_key = signing_key
+
+    @builtins.property
+    def integration(self) -> "scout_integrations_api_Integration":
+        return self._integration
+
+    @builtins.property
+    def signing_key(self) -> str:
+        """Server-generated HMAC-SHA256 signing key (256-bit, base64-encoded).
+Store this securely in your secrets manager (e.g., AWS Secrets Manager, HashiCorp Vault).
+This key cannot be retrieved again - if you lose it, use rotateSecureWebhookIntegrationSigningKey to generate a new one.
+        """
+        return self._signing_key
+
+
+scout_integrations_api_CreateSecureWebhookIntegrationResponse.__name__ = "CreateSecureWebhookIntegrationResponse"
+scout_integrations_api_CreateSecureWebhookIntegrationResponse.__qualname__ = "CreateSecureWebhookIntegrationResponse"
+scout_integrations_api_CreateSecureWebhookIntegrationResponse.__module__ = "nominal_api.scout_integrations_api"
+
+
 class scout_integrations_api_CreateSimpleWebhookDetails(ConjureBeanType):
 
     @builtins.classmethod
@@ -79744,6 +81019,7 @@ class scout_integrations_api_IntegrationDetails(ConjureUnionType):
     _slack_webhook_integration: Optional["scout_integrations_api_SlackWebhookIntegration"] = None
     _opsgenie_integration: Optional["scout_integrations_api_OpsgenieIntegration"] = None
     _simple_webhook_integration: Optional["scout_integrations_api_SimpleWebhookIntegration"] = None
+    _secure_webhook_integration: Optional["scout_integrations_api_SecureWebhookIntegration"] = None
     _teams_webhook_integration: Optional["scout_integrations_api_TeamsWebhookIntegration"] = None
     _pager_duty_integration: Optional["scout_integrations_api_PagerDutyIntegration"] = None
 
@@ -79753,6 +81029,7 @@ class scout_integrations_api_IntegrationDetails(ConjureUnionType):
             'slack_webhook_integration': ConjureFieldDefinition('slackWebhookIntegration', scout_integrations_api_SlackWebhookIntegration),
             'opsgenie_integration': ConjureFieldDefinition('opsgenieIntegration', scout_integrations_api_OpsgenieIntegration),
             'simple_webhook_integration': ConjureFieldDefinition('simpleWebhookIntegration', scout_integrations_api_SimpleWebhookIntegration),
+            'secure_webhook_integration': ConjureFieldDefinition('secureWebhookIntegration', scout_integrations_api_SecureWebhookIntegration),
             'teams_webhook_integration': ConjureFieldDefinition('teamsWebhookIntegration', scout_integrations_api_TeamsWebhookIntegration),
             'pager_duty_integration': ConjureFieldDefinition('pagerDutyIntegration', scout_integrations_api_PagerDutyIntegration)
         }
@@ -79762,12 +81039,13 @@ class scout_integrations_api_IntegrationDetails(ConjureUnionType):
             slack_webhook_integration: Optional["scout_integrations_api_SlackWebhookIntegration"] = None,
             opsgenie_integration: Optional["scout_integrations_api_OpsgenieIntegration"] = None,
             simple_webhook_integration: Optional["scout_integrations_api_SimpleWebhookIntegration"] = None,
+            secure_webhook_integration: Optional["scout_integrations_api_SecureWebhookIntegration"] = None,
             teams_webhook_integration: Optional["scout_integrations_api_TeamsWebhookIntegration"] = None,
             pager_duty_integration: Optional["scout_integrations_api_PagerDutyIntegration"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (slack_webhook_integration is not None) + (opsgenie_integration is not None) + (simple_webhook_integration is not None) + (teams_webhook_integration is not None) + (pager_duty_integration is not None) != 1:
+            if (slack_webhook_integration is not None) + (opsgenie_integration is not None) + (simple_webhook_integration is not None) + (secure_webhook_integration is not None) + (teams_webhook_integration is not None) + (pager_duty_integration is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if slack_webhook_integration is not None:
@@ -79779,6 +81057,9 @@ class scout_integrations_api_IntegrationDetails(ConjureUnionType):
             if simple_webhook_integration is not None:
                 self._simple_webhook_integration = simple_webhook_integration
                 self._type = 'simpleWebhookIntegration'
+            if secure_webhook_integration is not None:
+                self._secure_webhook_integration = secure_webhook_integration
+                self._type = 'secureWebhookIntegration'
             if teams_webhook_integration is not None:
                 self._teams_webhook_integration = teams_webhook_integration
                 self._type = 'teamsWebhookIntegration'
@@ -79801,6 +81082,11 @@ class scout_integrations_api_IntegrationDetails(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._simple_webhook_integration = simple_webhook_integration
             self._type = 'simpleWebhookIntegration'
+        elif type_of_union == 'secureWebhookIntegration':
+            if secure_webhook_integration is None:
+                raise ValueError('a union value must not be None')
+            self._secure_webhook_integration = secure_webhook_integration
+            self._type = 'secureWebhookIntegration'
         elif type_of_union == 'teamsWebhookIntegration':
             if teams_webhook_integration is None:
                 raise ValueError('a union value must not be None')
@@ -79825,6 +81111,10 @@ class scout_integrations_api_IntegrationDetails(ConjureUnionType):
         return self._simple_webhook_integration
 
     @builtins.property
+    def secure_webhook_integration(self) -> Optional["scout_integrations_api_SecureWebhookIntegration"]:
+        return self._secure_webhook_integration
+
+    @builtins.property
     def teams_webhook_integration(self) -> Optional["scout_integrations_api_TeamsWebhookIntegration"]:
         return self._teams_webhook_integration
 
@@ -79841,6 +81131,8 @@ class scout_integrations_api_IntegrationDetails(ConjureUnionType):
             return visitor._opsgenie_integration(self.opsgenie_integration)
         if self._type == 'simpleWebhookIntegration' and self.simple_webhook_integration is not None:
             return visitor._simple_webhook_integration(self.simple_webhook_integration)
+        if self._type == 'secureWebhookIntegration' and self.secure_webhook_integration is not None:
+            return visitor._secure_webhook_integration(self.secure_webhook_integration)
         if self._type == 'teamsWebhookIntegration' and self.teams_webhook_integration is not None:
             return visitor._teams_webhook_integration(self.teams_webhook_integration)
         if self._type == 'pagerDutyIntegration' and self.pager_duty_integration is not None:
@@ -79864,6 +81156,10 @@ class scout_integrations_api_IntegrationDetailsVisitor:
 
     @abstractmethod
     def _simple_webhook_integration(self, simple_webhook_integration: "scout_integrations_api_SimpleWebhookIntegration") -> Any:
+        pass
+
+    @abstractmethod
+    def _secure_webhook_integration(self, secure_webhook_integration: "scout_integrations_api_SecureWebhookIntegration") -> Any:
         pass
 
     @abstractmethod
@@ -79980,6 +81276,40 @@ class scout_integrations_api_IntegrationsService(Service):
 
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), scout_integrations_api_Integration, self._return_none_for_unknown_union_types)
+
+    def create_secure_webhook_integration(self, auth_header: str, request: "scout_integrations_api_CreateSecureWebhookIntegrationRequest") -> "scout_integrations_api_CreateSecureWebhookIntegrationResponse":
+        """Creates a new webhook integration with HMAC signing.
+Returns the integration and the server-generated signing key.
+The signing key is only returned once — store it securely.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v2/integrations/internal/webhook'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_integrations_api_CreateSecureWebhookIntegrationResponse, self._return_none_for_unknown_union_types)
 
     def delete_integration(self, auth_header: str, integration_rid: str) -> None:
         """Deletes an integration by archiving.
@@ -80174,6 +81504,40 @@ Intended to allow changing webhooks or rotating API keys.
             json=_json)
 
         return
+
+    def rotate_secure_webhook_integration_signing_key(self, auth_header: str, integration_rid: str) -> "scout_integrations_api_RotateWebhookSigningKeyResponse":
+        """Rotates the HMAC signing key for a webhook integration.
+The old key is immediately invalidated and a new key is generated and returned.
+This is the only way to retrieve the signing key after initial creation.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+            'integrationRid': quote(str(_conjure_encoder.default(integration_rid)), safe=''),
+        }
+
+        _json: Any = None
+
+        _path = '/scout/v2/integrations/internal/{integrationRid}/rotate-signing-key'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_integrations_api_RotateWebhookSigningKeyResponse, self._return_none_for_unknown_union_types)
 
 
 scout_integrations_api_IntegrationsService.__name__ = "IntegrationsService"
@@ -80424,7 +81788,7 @@ class scout_integrations_api_ResolutionFailureMessageFields(ConjureBeanType):
             'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid),
             'unresolved_checks': ConjureFieldDefinition('unresolvedChecks', int),
             'total_checks': ConjureFieldDefinition('totalChecks', int),
-            'labels': ConjureFieldDefinition('labels', List[str])
+            'labels': ConjureFieldDefinition('labels', List[api_Label])
         }
 
     __slots__: List[str] = ['_checklist_title', '_asset_title', '_checklist_rid', '_asset_rid', '_unresolved_checks', '_total_checks', '_labels']
@@ -80472,6 +81836,85 @@ class scout_integrations_api_ResolutionFailureMessageFields(ConjureBeanType):
 scout_integrations_api_ResolutionFailureMessageFields.__name__ = "ResolutionFailureMessageFields"
 scout_integrations_api_ResolutionFailureMessageFields.__qualname__ = "ResolutionFailureMessageFields"
 scout_integrations_api_ResolutionFailureMessageFields.__module__ = "nominal_api.scout_integrations_api"
+
+
+class scout_integrations_api_RotateWebhookSigningKeyResponse(ConjureBeanType):
+    """Response when rotating a webhook integration's signing key.
+This is the only way to retrieve the signing key after initial creation.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'signing_key': ConjureFieldDefinition('signingKey', str)
+        }
+
+    __slots__: List[str] = ['_signing_key']
+
+    def __init__(self, signing_key: str) -> None:
+        self._signing_key = signing_key
+
+    @builtins.property
+    def signing_key(self) -> str:
+        """New HMAC-SHA256 signing key (256-bit, base64-encoded). The old key is immediately invalidated.
+Store this securely - update your application configuration with the new key before the next webhook delivery.
+        """
+        return self._signing_key
+
+
+scout_integrations_api_RotateWebhookSigningKeyResponse.__name__ = "RotateWebhookSigningKeyResponse"
+scout_integrations_api_RotateWebhookSigningKeyResponse.__qualname__ = "RotateWebhookSigningKeyResponse"
+scout_integrations_api_RotateWebhookSigningKeyResponse.__module__ = "nominal_api.scout_integrations_api"
+
+
+class scout_integrations_api_SecureWebhookIntegration(ConjureBeanType):
+    """Advanced webhook integration with HMAC signing, custom headers, and configurable defaults.
+
+Server-side validation enforces:
+- URL must use HTTPS protocol
+- customHeaders blocklist (see customHeaders field documentation)
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'url': ConjureFieldDefinition('url', str),
+            'custom_headers': ConjureFieldDefinition('customHeaders', Dict[str, str]),
+            'delivery_config': ConjureFieldDefinition('deliveryConfig', scout_integrations_api_WebhookDeliveryConfig)
+        }
+
+    __slots__: List[str] = ['_url', '_custom_headers', '_delivery_config']
+
+    def __init__(self, custom_headers: Dict[str, str], delivery_config: "scout_integrations_api_WebhookDeliveryConfig", url: str) -> None:
+        self._url = url
+        self._custom_headers = custom_headers
+        self._delivery_config = delivery_config
+
+    @builtins.property
+    def url(self) -> str:
+        """Webhook URL (must be HTTPS)
+        """
+        return self._url
+
+    @builtins.property
+    def custom_headers(self) -> Dict[str, str]:
+        """Additional HTTP headers to include in all webhook requests.
+Server-side validation rejects security-sensitive headers to prevent credential leakage:
+Authorization, Cookie, X-API-Key, X-Auth-Token, Proxy-Authorization, and any header starting with X-Nominal-.
+Validation returns clear error messages for blocked headers.
+        """
+        return self._custom_headers
+
+    @builtins.property
+    def delivery_config(self) -> "scout_integrations_api_WebhookDeliveryConfig":
+        """Retry and timeout configuration for webhook delivery attempts
+        """
+        return self._delivery_config
+
+
+scout_integrations_api_SecureWebhookIntegration.__name__ = "SecureWebhookIntegration"
+scout_integrations_api_SecureWebhookIntegration.__qualname__ = "SecureWebhookIntegration"
+scout_integrations_api_SecureWebhookIntegration.__module__ = "nominal_api.scout_integrations_api"
 
 
 class scout_integrations_api_SendMessageRequest(ConjureBeanType):
@@ -80626,6 +82069,7 @@ scout_integrations_api_TeamsWebhookIntegration.__module__ = "nominal_api.scout_i
 
 class scout_integrations_api_UpdateIntegrationDetails(ConjureUnionType):
     _simple_webhook: Optional["scout_integrations_api_UpdateSimpleWebhookDetails"] = None
+    _secure_webhook_integration: Optional["scout_integrations_api_UpdateSecureWebhookIntegrationDetails"] = None
     _opsgenie_integration: Optional["scout_integrations_api_UpdateOpsgenieIntegrationDetails"] = None
     _teams_webhook: Optional["scout_integrations_api_UpdateTeamsWebhookIntegrationDetails"] = None
     _pager_duty: Optional["scout_integrations_api_UpdatePagerDutyIntegrationDetails"] = None
@@ -80634,6 +82078,7 @@ class scout_integrations_api_UpdateIntegrationDetails(ConjureUnionType):
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'simple_webhook': ConjureFieldDefinition('simpleWebhook', scout_integrations_api_UpdateSimpleWebhookDetails),
+            'secure_webhook_integration': ConjureFieldDefinition('secureWebhookIntegration', scout_integrations_api_UpdateSecureWebhookIntegrationDetails),
             'opsgenie_integration': ConjureFieldDefinition('opsgenieIntegration', scout_integrations_api_UpdateOpsgenieIntegrationDetails),
             'teams_webhook': ConjureFieldDefinition('teamsWebhook', scout_integrations_api_UpdateTeamsWebhookIntegrationDetails),
             'pager_duty': ConjureFieldDefinition('pagerDuty', scout_integrations_api_UpdatePagerDutyIntegrationDetails)
@@ -80642,18 +82087,22 @@ class scout_integrations_api_UpdateIntegrationDetails(ConjureUnionType):
     def __init__(
             self,
             simple_webhook: Optional["scout_integrations_api_UpdateSimpleWebhookDetails"] = None,
+            secure_webhook_integration: Optional["scout_integrations_api_UpdateSecureWebhookIntegrationDetails"] = None,
             opsgenie_integration: Optional["scout_integrations_api_UpdateOpsgenieIntegrationDetails"] = None,
             teams_webhook: Optional["scout_integrations_api_UpdateTeamsWebhookIntegrationDetails"] = None,
             pager_duty: Optional["scout_integrations_api_UpdatePagerDutyIntegrationDetails"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (simple_webhook is not None) + (opsgenie_integration is not None) + (teams_webhook is not None) + (pager_duty is not None) != 1:
+            if (simple_webhook is not None) + (secure_webhook_integration is not None) + (opsgenie_integration is not None) + (teams_webhook is not None) + (pager_duty is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if simple_webhook is not None:
                 self._simple_webhook = simple_webhook
                 self._type = 'simpleWebhook'
+            if secure_webhook_integration is not None:
+                self._secure_webhook_integration = secure_webhook_integration
+                self._type = 'secureWebhookIntegration'
             if opsgenie_integration is not None:
                 self._opsgenie_integration = opsgenie_integration
                 self._type = 'opsgenieIntegration'
@@ -80669,6 +82118,11 @@ class scout_integrations_api_UpdateIntegrationDetails(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._simple_webhook = simple_webhook
             self._type = 'simpleWebhook'
+        elif type_of_union == 'secureWebhookIntegration':
+            if secure_webhook_integration is None:
+                raise ValueError('a union value must not be None')
+            self._secure_webhook_integration = secure_webhook_integration
+            self._type = 'secureWebhookIntegration'
         elif type_of_union == 'opsgenieIntegration':
             if opsgenie_integration is None:
                 raise ValueError('a union value must not be None')
@@ -80690,6 +82144,10 @@ class scout_integrations_api_UpdateIntegrationDetails(ConjureUnionType):
         return self._simple_webhook
 
     @builtins.property
+    def secure_webhook_integration(self) -> Optional["scout_integrations_api_UpdateSecureWebhookIntegrationDetails"]:
+        return self._secure_webhook_integration
+
+    @builtins.property
     def opsgenie_integration(self) -> Optional["scout_integrations_api_UpdateOpsgenieIntegrationDetails"]:
         return self._opsgenie_integration
 
@@ -80706,6 +82164,8 @@ class scout_integrations_api_UpdateIntegrationDetails(ConjureUnionType):
             raise ValueError('{} is not an instance of scout_integrations_api_UpdateIntegrationDetailsVisitor'.format(visitor.__class__.__name__))
         if self._type == 'simpleWebhook' and self.simple_webhook is not None:
             return visitor._simple_webhook(self.simple_webhook)
+        if self._type == 'secureWebhookIntegration' and self.secure_webhook_integration is not None:
+            return visitor._secure_webhook_integration(self.secure_webhook_integration)
         if self._type == 'opsgenieIntegration' and self.opsgenie_integration is not None:
             return visitor._opsgenie_integration(self.opsgenie_integration)
         if self._type == 'teamsWebhook' and self.teams_webhook is not None:
@@ -80723,6 +82183,10 @@ class scout_integrations_api_UpdateIntegrationDetailsVisitor:
 
     @abstractmethod
     def _simple_webhook(self, simple_webhook: "scout_integrations_api_UpdateSimpleWebhookDetails") -> Any:
+        pass
+
+    @abstractmethod
+    def _secure_webhook_integration(self, secure_webhook_integration: "scout_integrations_api_UpdateSecureWebhookIntegrationDetails") -> Any:
         pass
 
     @abstractmethod
@@ -80850,6 +82314,55 @@ scout_integrations_api_UpdatePagerDutyIntegrationDetails.__qualname__ = "UpdateP
 scout_integrations_api_UpdatePagerDutyIntegrationDetails.__module__ = "nominal_api.scout_integrations_api"
 
 
+class scout_integrations_api_UpdateSecureWebhookIntegrationDetails(ConjureBeanType):
+    """Configuration for updating an advanced webhook integration.
+This is a full replacement update - all fields must be provided.
+Optional retry/timeout fields not provided will be reset to server defaults.
+Note: To rotate the signing key, use the rotateSecureWebhookIntegrationSigningKey endpoint instead.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'url': ConjureFieldDefinition('url', str),
+            'custom_headers': ConjureFieldDefinition('customHeaders', Dict[str, str]),
+            'delivery_config': ConjureFieldDefinition('deliveryConfig', scout_integrations_api_WebhookDeliveryConfig)
+        }
+
+    __slots__: List[str] = ['_url', '_custom_headers', '_delivery_config']
+
+    def __init__(self, custom_headers: Dict[str, str], delivery_config: "scout_integrations_api_WebhookDeliveryConfig", url: str) -> None:
+        self._url = url
+        self._custom_headers = custom_headers
+        self._delivery_config = delivery_config
+
+    @builtins.property
+    def url(self) -> str:
+        """Webhook URL (must be HTTPS)
+        """
+        return self._url
+
+    @builtins.property
+    def custom_headers(self) -> Dict[str, str]:
+        """Additional HTTP headers to include in all webhook requests.
+Server-side validation rejects security-sensitive headers to prevent credential leakage:
+Authorization, Cookie, X-API-Key, X-Auth-Token, Proxy-Authorization, and any header starting with X-Nominal-.
+Validation returns clear error messages for blocked headers.
+        """
+        return self._custom_headers
+
+    @builtins.property
+    def delivery_config(self) -> "scout_integrations_api_WebhookDeliveryConfig":
+        """Retry and timeout configuration for webhook delivery attempts
+        """
+        return self._delivery_config
+
+
+scout_integrations_api_UpdateSecureWebhookIntegrationDetails.__name__ = "UpdateSecureWebhookIntegrationDetails"
+scout_integrations_api_UpdateSecureWebhookIntegrationDetails.__qualname__ = "UpdateSecureWebhookIntegrationDetails"
+scout_integrations_api_UpdateSecureWebhookIntegrationDetails.__module__ = "nominal_api.scout_integrations_api"
+
+
 class scout_integrations_api_UpdateSimpleWebhookDetails(ConjureBeanType):
 
     @builtins.classmethod
@@ -80894,6 +82407,77 @@ class scout_integrations_api_UpdateTeamsWebhookIntegrationDetails(ConjureBeanTyp
 scout_integrations_api_UpdateTeamsWebhookIntegrationDetails.__name__ = "UpdateTeamsWebhookIntegrationDetails"
 scout_integrations_api_UpdateTeamsWebhookIntegrationDetails.__qualname__ = "UpdateTeamsWebhookIntegrationDetails"
 scout_integrations_api_UpdateTeamsWebhookIntegrationDetails.__module__ = "nominal_api.scout_integrations_api"
+
+
+class scout_integrations_api_WebhookDeliveryConfig(ConjureBeanType):
+    """Retry parameters serve as integration-level defaults that can be overridden at runtime.
+
+Server-side validation enforces:
+- defaultRequestTimeoutSeconds maximum of 120
+- defaultMaxRetryIntervalSeconds must be >= defaultRetryIntervalSeconds when both are provided
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'default_request_timeout_seconds': ConjureFieldDefinition('defaultRequestTimeoutSeconds', OptionalTypeWrapper[int]),
+            'default_max_retries': ConjureFieldDefinition('defaultMaxRetries', OptionalTypeWrapper[int]),
+            'default_retry_interval_seconds': ConjureFieldDefinition('defaultRetryIntervalSeconds', OptionalTypeWrapper[int]),
+            'default_exponential_backoff': ConjureFieldDefinition('defaultExponentialBackoff', OptionalTypeWrapper[bool]),
+            'default_max_retry_interval_seconds': ConjureFieldDefinition('defaultMaxRetryIntervalSeconds', OptionalTypeWrapper[int]),
+            'default_delivery_timeout_seconds': ConjureFieldDefinition('defaultDeliveryTimeoutSeconds', OptionalTypeWrapper[int])
+        }
+
+    __slots__: List[str] = ['_default_request_timeout_seconds', '_default_max_retries', '_default_retry_interval_seconds', '_default_exponential_backoff', '_default_max_retry_interval_seconds', '_default_delivery_timeout_seconds']
+
+    def __init__(self, default_delivery_timeout_seconds: Optional[int] = None, default_exponential_backoff: Optional[bool] = None, default_max_retries: Optional[int] = None, default_max_retry_interval_seconds: Optional[int] = None, default_request_timeout_seconds: Optional[int] = None, default_retry_interval_seconds: Optional[int] = None) -> None:
+        self._default_request_timeout_seconds = default_request_timeout_seconds
+        self._default_max_retries = default_max_retries
+        self._default_retry_interval_seconds = default_retry_interval_seconds
+        self._default_exponential_backoff = default_exponential_backoff
+        self._default_max_retry_interval_seconds = default_max_retry_interval_seconds
+        self._default_delivery_timeout_seconds = default_delivery_timeout_seconds
+
+    @builtins.property
+    def default_request_timeout_seconds(self) -> Optional[int]:
+        """Default HTTP request timeout in seconds (server default 10, range 5-120)
+        """
+        return self._default_request_timeout_seconds
+
+    @builtins.property
+    def default_max_retries(self) -> Optional[int]:
+        """Default maximum delivery attempts before failing (server default 3, range 0-10)
+        """
+        return self._default_max_retries
+
+    @builtins.property
+    def default_retry_interval_seconds(self) -> Optional[int]:
+        """Default initial interval between retry attempts in seconds (server default 15, range 5-300)
+        """
+        return self._default_retry_interval_seconds
+
+    @builtins.property
+    def default_exponential_backoff(self) -> Optional[bool]:
+        """Whether to apply exponential backoff to retry intervals (server default true)
+        """
+        return self._default_exponential_backoff
+
+    @builtins.property
+    def default_max_retry_interval_seconds(self) -> Optional[int]:
+        """Default maximum interval between retries when using exponential backoff in seconds (server default 300, range 5-3600)
+        """
+        return self._default_max_retry_interval_seconds
+
+    @builtins.property
+    def default_delivery_timeout_seconds(self) -> Optional[int]:
+        """Default overall delivery timeout in seconds before giving up (server default 600, range 10-86400)
+        """
+        return self._default_delivery_timeout_seconds
+
+
+scout_integrations_api_WebhookDeliveryConfig.__name__ = "WebhookDeliveryConfig"
+scout_integrations_api_WebhookDeliveryConfig.__qualname__ = "WebhookDeliveryConfig"
+scout_integrations_api_WebhookDeliveryConfig.__module__ = "nominal_api.scout_integrations_api"
 
 
 class scout_internal_search_api_BooleanField(ConjureBeanType):
@@ -92744,7 +94328,7 @@ Enforces read permission on the video.
         _decoder = ConjureDecoder()
         return None if _response.status_code == 204 else _decoder.decode(_response.json(), OptionalTypeWrapper[scout_video_api_GenerateWhepStreamResponse], self._return_none_for_unknown_union_types)
 
-    def upload_segment_from_media_mtx(self, auth_header: str, body: Any, content_length: int, duration: str, file_path: str, stream_path: str) -> None:
+    def upload_segment_from_media_mtx(self, auth_header: str, body: Any, content_length: int, duration: str, file_path: str, min_timestamp_nanos: int, min_timestamp_seconds: int, stream_path: str) -> None:
         """MediaMTX segment upload endpoint. Receives video segments from MediaMTX hooks.
 Validates JWT and logs session. Future: create video segments from uploaded files.
         """
@@ -92761,6 +94345,8 @@ Validates JWT and logs session. Future: create video segments from uploaded file
             'streamPath': _conjure_encoder.default(stream_path),
             'filePath': _conjure_encoder.default(file_path),
             'duration': _conjure_encoder.default(duration),
+            'minTimestampSeconds': _conjure_encoder.default(min_timestamp_seconds),
+            'minTimestampNanos': _conjure_encoder.default(min_timestamp_nanos),
         }
 
         _path_params: Dict[str, str] = {

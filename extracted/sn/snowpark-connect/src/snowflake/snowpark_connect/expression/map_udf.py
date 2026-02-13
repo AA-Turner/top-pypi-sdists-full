@@ -7,7 +7,7 @@ import pyspark.sql.connect.proto.types_pb2 as types_proto
 
 import snowflake.snowpark.functions as snowpark_fn
 from snowflake import snowpark
-from snowflake.snowpark.types import ArrayType, MapType, StructType, VariantType
+from snowflake.snowpark.types import MapType, StructType, VariantType
 from snowflake.snowpark_connect.column_name_handler import ColumnNameMap
 from snowflake.snowpark_connect.config import global_config
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
@@ -21,6 +21,8 @@ from snowflake.snowpark_connect.utils.external_udxf_cache import (
     get_external_udf_from_cache,
 )
 from snowflake.snowpark_connect.utils.java_stored_procedure import create_java_udf
+from snowflake.snowpark_connect.utils.java_udaf_utils import JavaUdaf
+from snowflake.snowpark_connect.utils.jvm_udf_utils import to_json
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 from snowflake.snowpark_connect.utils.udf_helper import (
     SnowparkUDF,
@@ -153,7 +155,8 @@ def register_udf(
         "resource_constraint": _get_resource_constraint(),
     }
 
-    if require_creating_udf_in_sproc(udf_proto):
+    use_sproc = require_creating_udf_in_sproc(udf_proto)
+    if use_sproc:
         return process_udf_in_sproc(**kwargs)
     else:
         udf_processor = ProcessCommonInlineUserDefinedFunction(**kwargs)
@@ -167,6 +170,7 @@ def register_udf(
             original_return_type=original_return_type,
             cast_to_original_return_type=is_scala_udf
             or udf._return_type == VariantType(),
+            attach_schema_json=is_scala_udf and not isinstance(udf, JavaUdaf),
         )
         session._udfs[udf_proto.function_name.lower()] = udf
         # scala udfs can be also accessed using `udf.name`
@@ -216,31 +220,38 @@ def map_common_inline_user_defined_udf(
             "original_return_type": original_return_type,
             "resource_constraint": _get_resource_constraint(),
         }
-        if require_creating_udf_in_sproc(udf_proto):
+        use_sproc = require_creating_udf_in_sproc(udf_proto)
+        if use_sproc:
             snowpark_udf = process_udf_in_sproc(**kwargs)
         else:
             udf_processor = ProcessCommonInlineUserDefinedFunction(**kwargs)
             udf = udf_processor.create_udf()
+            is_scala_udf = udf_proto.WhichOneof("function") == "scalar_scala_udf"
+
             snowpark_udf = SnowparkUDF(
                 name=udf.name,
                 input_types=udf._input_types,
                 return_type=udf._return_type,
                 original_return_type=original_return_type,
+                attach_schema_json=is_scala_udf and not isinstance(udf, JavaUdaf),
             )
         return snowpark_udf
 
     snowpark_udf = get_snowpark_udf(udf_proto)
     # Determine if we need to cast the result back to the original type
     is_scala_udf = udf_proto.WhichOneof("function") == "scalar_scala_udf"
-
-    # For structured types (arrays, structs, maps), use to_variant instead of cast
-    # to ensure proper conversion to VARIANT type for Scala UDFS
     converted_args = []
     for tc in snowpark_udf_typed_args:
-        if is_scala_udf and isinstance(tc.typ, (ArrayType, StructType, MapType)):
-            converted_args.append(snowpark_fn.to_variant(tc.col))
+        if is_scala_udf:
+            converted_args.append(snowpark_fn.cast(tc.col, VariantType()))
         else:
             converted_args.append(tc.col)
+
+    if snowpark_udf.attach_schema_json:
+        schema_json = to_json(
+            [t.typ for t in snowpark_udf_typed_args], escape_quotes=False
+        )
+        converted_args.append(snowpark_fn.lit(schema_json))
 
     udf_call_expr = snowpark_fn.call_udf(snowpark_udf.name, *converted_args)
 

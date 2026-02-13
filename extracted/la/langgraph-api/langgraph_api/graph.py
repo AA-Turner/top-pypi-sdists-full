@@ -11,7 +11,7 @@ import warnings
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from itertools import filterfalse
-from typing import Any, NamedTuple, TypeGuard, cast
+from typing import Any, NamedTuple, TypeGuard
 from uuid import UUID, uuid5
 
 import orjson
@@ -26,6 +26,14 @@ from starlette.exceptions import HTTPException
 
 from langgraph_api import config as lg_api_config
 from langgraph_api import timing
+from langgraph_api._factory_utils import (
+    AccessContext,
+    build_server_runtime,
+    classify_factory,
+    invoke_factory,
+    is_factory,
+    is_for_execution,
+)
 from langgraph_api.feature_flags import (
     IS_POSTGRES_OR_GRPC_BACKEND,
     USE_RUNTIME_CONTEXT_API,
@@ -45,7 +53,7 @@ GraphValue = Pregel | GraphFactory | GraphFactoryFromConfig
 
 GRAPHS: dict[str, GraphValue] = {}
 NAMESPACE_GRAPH = UUID("6ba7b821-9dad-11d1-80b4-00c04fd430c8")
-FACTORY_ACCEPTS_CONFIG: dict[str, bool] = {}
+SYSTEM_ASSISTANT_IDS: set[str] = set()
 
 
 async def register_graph(
@@ -56,18 +64,19 @@ async def register_graph(
     description: str | None = None,
 ) -> None:
     """Register a graph."""
-    from langgraph_runtime.database import connect
+    from langgraph_runtime.database import connect  # noqa: PLC0415
 
     if IS_POSTGRES_OR_GRPC_BACKEND:
-        from langgraph_api.grpc.ops import Assistants
+        from langgraph_api.grpc.ops import Assistants  # noqa: PLC0415
     else:
-        from langgraph_runtime.ops import Assistants
+        from langgraph_runtime.ops import Assistants  # noqa: PLC0415
 
     GRAPHS[graph_id] = graph
+    SYSTEM_ASSISTANT_IDS.add(str(uuid5(NAMESPACE_GRAPH, graph_id)))
     if callable(graph):
-        FACTORY_ACCEPTS_CONFIG[graph_id] = len(inspect.signature(graph).parameters) > 0
+        classify_factory(graph, graph_id)
 
-    from langgraph_runtime.retry import retry_db
+    from langgraph_runtime.retry import retry_db  # noqa: PLC0415
 
     @retry_db
     async def register_graph_db():
@@ -170,66 +179,46 @@ def is_js_graph(graph_id: str) -> TypeGuard[BaseRemotePregel]:
     return graph_id in GRAPHS and isinstance(GRAPHS[graph_id], BaseRemotePregel)
 
 
-def is_factory(
-    value: GraphValue, graph_id: str
-) -> TypeGuard[GraphFactoryFromConfig | GraphFactory]:
-    return graph_id in FACTORY_ACCEPTS_CONFIG
-
-
-def factory_accepts_config(
-    value: GraphValue, graph_id: str
-) -> TypeGuard[GraphFactoryFromConfig]:
-    return FACTORY_ACCEPTS_CONFIG.get(graph_id, False)
-
-
 @asynccontextmanager
 async def get_graph(
     graph_id: str,
     config: Config,
     *,
     checkpointer: BaseCheckpointSaver | None = None,
-    store: BaseStore | None = None,
-    is_for_execution: bool = True,
+    store: BaseStore,
+    access_context: AccessContext,
 ) -> AsyncIterator[Pregel]:
     """Return the runnable."""
-    from langgraph_api.utils import config as lg_config
-    from langgraph_api.utils import merge_auth
+    from langgraph_api.utils import config as lg_config  # noqa: PLC0415
+    from langgraph_api.utils import merge_auth  # noqa: PLC0415
 
     assert_graph_exists(graph_id)
     value = GRAPHS[graph_id]
-    if is_factory(value, graph_id):
+    if is_factory(graph_id):
         config = lg_config.ensure_config(config)
-        config["configurable"]["__is_for_execution__"] = is_for_execution
         config = merge_auth(config)
+        server_runtime = build_server_runtime(access_context, store)
+        if USE_RUNTIME_CONTEXT_API:
+            from langgraph._internal._constants import (  # noqa: PLC0415
+                CONFIG_KEY_RUNTIME,
+            )
 
-        if store is not None:
-            if USE_RUNTIME_CONTEXT_API:
-                from langgraph._internal._constants import CONFIG_KEY_RUNTIME
-                from langgraph.runtime import Runtime
+            config["configurable"][CONFIG_KEY_RUNTIME] = server_runtime
+        elif store is not None:
+            from langgraph.constants import CONFIG_KEY_STORE  # noqa: PLC0415
 
-                runtime = config["configurable"].get(CONFIG_KEY_RUNTIME)
-                if runtime is None:
-                    patched_runtime = Runtime(store=store)
-                elif isinstance(runtime, dict):
-                    patched_runtime = Runtime(**(runtime | {"store": store}))
-                elif runtime.store is None:
-                    patched_runtime = cast("Runtime", runtime).override(store=store)
-                else:
-                    patched_runtime = runtime
-
-                config["configurable"][CONFIG_KEY_RUNTIME] = patched_runtime
-            else:
-                from langgraph.constants import CONFIG_KEY_STORE
-
-                if not config["configurable"].get(CONFIG_KEY_STORE):
-                    config["configurable"][CONFIG_KEY_STORE] = store
+            config["configurable"].setdefault(CONFIG_KEY_STORE, store)
 
         if checkpointer is not None and not config["configurable"].get(
             CONFIG_KEY_CHECKPOINTER
         ):
             config["configurable"][CONFIG_KEY_CHECKPOINTER] = checkpointer
+        config["configurable"]["__is_for_execution__"] = is_for_execution(
+            access_context
+        )
         var_child_runnable_config.set(config)
-        value = value(config) if factory_accepts_config(value, graph_id) else value()
+
+        value = invoke_factory(value, graph_id, config, server_runtime)
     try:
         async with _generate_graph(value, graph_id) as graph_obj:
             if isinstance(graph_obj, StateGraph):
@@ -237,7 +226,7 @@ async def get_graph(
             if not isinstance(graph_obj, Pregel | BaseRemotePregel):
                 raise HTTPException(
                     status_code=424,
-                    detail=f"Graph '{graph_id}' is not valid. Review graph registration.",
+                    detail=f"Graph '{graph_id}' is not valid. Review graph registration. {graph_obj}",
                 )
             update = {
                 "checkpointer": checkpointer,
@@ -426,9 +415,7 @@ async def collect_graphs_from_env(register: bool = False) -> None:
                 "To run your JS graphs, either use the LangGraph Studio application "
                 "or run `langgraph up` to start the server in a Docker container."
             )
-        import sys
-
-        from langgraph_api.js.remote import (
+        from langgraph_api.js.remote import (  # noqa: PLC0415
             RemotePregel,
             run_js_http_process,
             run_js_process,
@@ -595,13 +582,7 @@ def _graph_from_spec(spec: GraphSpec) -> GraphValue:
                 f"2. The variable name in your config matches the export name{suggestion}"
             ) from e
         if callable(graph):
-            sig = inspect.signature(graph)
-            if not sig.parameters:
-                pass
-            elif len(sig.parameters) != 1:
-                raise ValueError(
-                    f"Graph factory function '{spec.variable}' in module '{spec.path}' must take exactly one argument, a RunnableConfig"
-                )
+            classify_factory(graph, spec.id)
         elif isinstance(graph, StateGraph):
             graph = graph.compile()
         elif isinstance(graph, Pregel):
@@ -658,7 +639,7 @@ def _graph_from_spec(spec: GraphSpec) -> GraphValue:
 @functools.lru_cache(maxsize=1)
 def _get_init_embeddings() -> Callable[[str, ...], "Embeddings"] | None:
     try:
-        from langchain.embeddings import (  # type: ignore[unresolved-import]
+        from langchain.embeddings import (  # type: ignore[unresolved-import]  # noqa: PLC0415
             init_embeddings,
         )
 
@@ -689,8 +670,8 @@ def resolve_embeddings(index_config: dict) -> "Embeddings":
     Raises:
         ValueError: If embeddings cannot be loaded from the config
     """
-    from langchain_core.embeddings import Embeddings
-    from langgraph.store.base import ensure_embeddings
+    from langchain_core.embeddings import Embeddings  # noqa: PLC0415
+    from langgraph.store.base import ensure_embeddings  # noqa: PLC0415
 
     embed = index_config["embed"]
     if isinstance(embed, Embeddings):

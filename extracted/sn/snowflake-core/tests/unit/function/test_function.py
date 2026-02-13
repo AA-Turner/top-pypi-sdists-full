@@ -7,6 +7,8 @@ import pytest
 
 from snowflake.core import PollingOperation
 from snowflake.core.function import FunctionResource, ServiceFunction
+from snowflake.core.function._generated import TagAssignment, TagReference
+from snowflake.core.tag import TagValue
 from snowflake.core.version import __version__ as VERSION
 
 from ...utils import BASE_URL, extra_params, mock_http_response
@@ -140,3 +142,78 @@ def test_execute_function(fake_root, function):
         assert isinstance(op, PollingOperation)
         op.result()
     mocked_request.assert_called_with(*args, **kwargs)
+
+
+def test_set_tags(fake_root, function, tag):
+    args = (
+        fake_root,
+        "POST",
+        BASE_URL + f"/databases/my_db/schemas/my_schema/functions/{quote('my_fn()')}:set-tags",
+    )
+    tags = {tag: TagValue(value="value")}
+    kwargs = extra_params(
+        body=[
+            TagAssignment(
+                tag_value=v.value, tag_name=k.name, tag_schema=k.schema.name, tag_database=k.database.name
+            ).to_dict()
+            for k, v in tags.items()
+        ]
+    )
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        function.set_tags(tags)
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        op = function.set_tags_async(tags)
+        assert isinstance(op, PollingOperation)
+        op.result()
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+
+def test_unset_tags(fake_root, function, tag):
+    args = (
+        fake_root,
+        "POST",
+        BASE_URL + f"/databases/my_db/schemas/my_schema/functions/{quote('my_fn()')}:unset-tags",
+    )
+    tag_resources = {tag}
+    kwargs = extra_params(
+        body=[
+            TagReference(
+                tag_name=tag_res.name, tag_schema=tag_res.schema.name, tag_database=tag_res.database.name
+            ).to_dict()
+            for tag_res in tag_resources
+        ]
+    )
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        function.unset_tags(tag_resources)
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        op = function.unset_tags_async(tag_resources)
+        assert isinstance(op, PollingOperation)
+        op.result()
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+
+def test_get_tags(fake_root, function):
+    args = (
+        fake_root,
+        "GET",
+        BASE_URL + f"/databases/my_db/schemas/my_schema/functions/{quote('my_fn()')}:get-tags",
+    )
+    kwargs = extra_params()
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        mocked_request.return_value = mock_http_response()
+        assert function.get_tags() == {}
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        mocked_request.return_value = mock_http_response()
+        op = function.get_tags_async()
+        assert isinstance(op, PollingOperation)
+        assert op.result() == {}
+    mocked_request.assert_called_once_with(*args, **kwargs)

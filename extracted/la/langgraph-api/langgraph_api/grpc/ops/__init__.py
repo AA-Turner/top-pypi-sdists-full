@@ -44,7 +44,7 @@ GRPC_STATUS_TO_HTTP_STATUS = {
 
 def map_if_exists(if_exists: str) -> Any:
     """Map if_exists string to protobuf OnConflictBehavior."""
-    from langgraph_grpc_common.proto import core_api_pb2 as pb
+    from langgraph_grpc_common.proto import core_api_pb2 as pb  # noqa: PLC0415
 
     if if_exists == "do_nothing":
         return pb.OnConflictBehavior.DO_NOTHING
@@ -108,7 +108,7 @@ def exception_to_struct(exception: BaseException | None) -> Struct | None:
     """Convert an exception to a protobuf Struct."""
     if exception is None:
         return None
-    import orjson
+    import orjson  # noqa: PLC0415
 
     try:
         payload = orjson.loads(json_dumpb(exception))
@@ -119,7 +119,7 @@ def exception_to_struct(exception: BaseException | None) -> Struct | None:
 
 def _map_sort_order(sort_order: str | None) -> Any:
     """Map string sort_order to protobuf enum."""
-    from langgraph_grpc_common.proto import core_api_pb2 as pb
+    from langgraph_grpc_common.proto import core_api_pb2 as pb  # noqa: PLC0415
 
     if sort_order and sort_order.upper() == "ASC":
         return pb.SortOrder.ASC
@@ -366,6 +366,32 @@ class Authenticated:
     resource: str = "assistants"
 
     @classmethod
+    async def _event_filters(
+        cls, ctx: Any, action: str, value: Any
+    ) -> dict[str, Any] | None:
+        """Handle authentication event; return filters as a raw dict (pre-proto conversion)."""
+        # Get auth context if not provided
+        if ctx is None:
+            ctx = get_auth_ctx()
+
+        # If still no context, no auth filters needed
+        if ctx is None:
+            return {}
+
+        # Create auth context for the handler
+        from langgraph_sdk import Auth  # noqa: PLC0415
+
+        auth_ctx = Auth.types.AuthContext(
+            resource=cls.resource,
+            action=action,
+            user=ctx.user,
+            permissions=ctx.permissions,
+        )
+
+        # Call the auth system to get filters
+        return await auth_handle_event(auth_ctx, value)
+
+    @classmethod
     async def handle_event(
         cls,
         ctx: Any,  # Auth context
@@ -382,28 +408,7 @@ class Authenticated:
         Returns:
             List of AuthFilter proto messages, empty list if no filters
         """
-        # Get auth context if not provided
-        if ctx is None:
-            ctx = get_auth_ctx()
-
-        # If still no context, no auth filters needed
-        if ctx is None:
-            return []
-
-        # Create auth context for the handler
-        from langgraph_sdk import Auth
-
-        auth_ctx = Auth.types.AuthContext(
-            resource=cls.resource,
-            action=action,
-            user=ctx.user,
-            permissions=ctx.permissions,
-        )
-
-        # Call the auth system to get filters
-        filters = await auth_handle_event(auth_ctx, value)
-
-        # Convert Python filters to gRPC proto format
+        filters = await cls._event_filters(ctx, action, value)
         return _filters_to_proto(filters)
 
 

@@ -7,20 +7,22 @@ from gql.transport.httpx import HTTPXAsyncTransport
 from gql.transport.websockets import WebsocketsTransport
 
 from exponent.core.graphql.generated_client import (
-    ChatConfig,
+    ChatConfigInput,
     ChatInput,
+    ChatMode,
+    ChatResourceConfigInput,
     Chats,
     CreateCloudChatFromRepository,
     EnableCloudRepository,
-    ExponentModels,
     GithubRepositories,
     HaltChatStream,
     IndentGraphQLClient,
-    Prompt,
+    PromptInput,
     RebuildCloudRepository,
     RefreshApiKey,
     ReportSandboxInfo,
     RepositoryInput,
+    RepositoryResourceConfigInput,
     SandboxProvider,
     SetLoginComplete,
     StartChatTurn,
@@ -58,7 +60,16 @@ class GraphQLClient:
         self, repository_uuid: str, provider: SandboxProvider | None = None
     ) -> CreateCloudChatFromRepository:
         return await self._typed_client.create_cloud_chat_from_repository(
-            repository_uuid=uuid.UUID(repository_uuid), provider=provider
+            resource_config=ChatResourceConfigInput(
+                mode=ChatMode.CLOUD,
+                repositories=[
+                    RepositoryResourceConfigInput(  # ty: ignore[missing-argument]
+                        repository_uuid=uuid.UUID(repository_uuid),  # ty: ignore[unknown-argument]
+                        is_primary=True,
+                    )
+                ],
+                sandbox_provider=provider,
+            ),
         )
 
     async def enable_cloud_repository(self, repositories: list[RepositoryInput]) -> EnableCloudRepository:
@@ -88,21 +99,19 @@ class GraphQLClient:
         self,
         chat_uuid: str,
         prompt: str,
-        parent_uuid: str | None = None,
-        exponent_model: ExponentModels = ExponentModels.PREMIUM,
+        parent_uuid: uuid.UUID | None = None,
         require_confirmation: bool = False,
         read_only: bool = False,
         depth_limit: int = 20,
     ) -> StartChatTurn:
         """Start a chat turn with proper typing."""
         chat_input = ChatInput(
-            prompt=Prompt(message=prompt, attachments=[]),
+            prompt_input=PromptInput(message=prompt, attachments=[]),
         )
         # ty doesn't understand Pydantic's Field(alias=...) mechanism, so it expects
         # the alias name (chatUuid) instead of the field name (chat_uuid). Both work at runtime.
-        chat_config = ChatConfig(  # ty: ignore[missing-argument]
+        chat_config = ChatConfigInput(  # ty: ignore[missing-argument]
             chat_uuid=chat_uuid,  # ty: ignore[unknown-argument]
-            exponent_model=exponent_model,
             require_confirmation=require_confirmation,
             read_only=read_only,
             depth_limit=depth_limit,

@@ -695,7 +695,7 @@ class FunctionManager(Generic[K], KnowledgeBasePlugin, collections.abc.Mapping[K
             self._function_map = FunctionDict(self, key_types=self.function_address_types)
 
         self.function_addrs_set: set = set()
-        self.callgraph = networkx.MultiDiGraph()
+        self.callgraph: networkx.MultiDiGraph[int] = networkx.MultiDiGraph()
 
         # Registers used for passing arguments around
         self._arg_registers = kb._project.arch.argument_registers
@@ -1098,8 +1098,7 @@ class FunctionManager(Generic[K], KnowledgeBasePlugin, collections.abc.Mapping[K
                     self._old_func_name_to_addrs.get(old_name, set()).discard(k)
         else:
             raise ValueError(
-                f"FunctionManager.__delitem__ only accepts the following address types: "
-                f"{self.function_address_types}"
+                f"FunctionManager.__delitem__ only accepts the following address types: {self.function_address_types}"
             )
 
     def __len__(self):

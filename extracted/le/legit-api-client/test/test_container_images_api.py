@@ -40,6 +40,13 @@ class TestContainerImagesApi(unittest.TestCase):
         """
         pass
 
+    def test_api_v10_containers_container_name_versions_digest_sbom_get(self) -> None:
+        """Test case for api_v10_containers_container_name_versions_digest_sbom_get
+
+        Download Container Image Version SBOM
+        """
+        pass
+
     def test_api_v10_containers_get(self) -> None:
         """Test case for api_v10_containers_get
 

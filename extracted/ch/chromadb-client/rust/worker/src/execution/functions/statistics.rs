@@ -164,7 +164,7 @@ impl StatisticsValue {
     }
 
     /// Convert MetadataValue to a vector of StatisticsValue.
-    /// Returns a vector because sparse vectors expand to multiple values.
+    /// Returns a vector because sparse vectors and arrays expand to multiple values.
     fn from_metadata_value(value: &MetadataValue) -> Vec<StatisticsValue> {
         match value {
             MetadataValue::Bool(b) => vec![StatisticsValue::Bool(*b)],
@@ -189,6 +189,18 @@ impl StatisticsValue {
                         .collect()
                 }
             }
+            // Array types expand to multiple statistics values
+            MetadataValue::BoolArray(arr) => {
+                arr.iter().map(|b| StatisticsValue::Bool(*b)).collect()
+            }
+            MetadataValue::IntArray(arr) => arr.iter().map(|i| StatisticsValue::Int(*i)).collect(),
+            MetadataValue::FloatArray(arr) => {
+                arr.iter().map(|f| StatisticsValue::Float(*f)).collect()
+            }
+            MetadataValue::StringArray(arr) => arr
+                .iter()
+                .map(|s| StatisticsValue::Str(s.clone()))
+                .collect(),
         }
     }
 }
@@ -493,7 +505,7 @@ mod tests {
         types::{materialize_logs, MaterializeLogsResult},
     };
     use chroma_types::{
-        Chunk, LogRecord, Operation, OperationRecord, SparseVector, UpdateMetadata,
+        Chunk, DatabaseName, LogRecord, Operation, OperationRecord, SparseVector, UpdateMetadata,
         UpdateMetadataValue,
     };
 
@@ -1226,11 +1238,14 @@ mod tests {
         // Create input collection
         let collection_name = format!("test_statistics_{}", uuid::Uuid::new_v4());
         let collection_id = CollectionUuid::new();
+        let database_name =
+            chroma_types::DatabaseName::new(test_segments.collection.database.clone())
+                .expect("database name should be valid");
 
         sysdb
             .create_collection(
                 test_segments.collection.tenant,
-                test_segments.collection.database,
+                database_name,
                 collection_id,
                 collection_name,
                 vec![
@@ -1254,6 +1269,7 @@ mod tests {
         sysdb
             .flush_compaction(
                 tenant.clone(),
+                DatabaseName::new(db.clone()).expect("database name should be valid"),
                 collection_id,
                 -1,
                 0,
@@ -1336,9 +1352,12 @@ mod tests {
             .await
             .unwrap();
 
+        let database_name = DatabaseName::new(test_segments.collection.database.clone())
+            .expect("database name should be valid");
         Box::pin(compact::compact(
             system.clone(),
             collection_id,
+            database_name,
             false,
             50,
             1000,
@@ -1380,7 +1399,7 @@ mod tests {
 
         // Read statistics from output collection
         let output_info = sysdb
-            .get_collection_with_segments(output_collection_id)
+            .get_collection_with_segments(None, output_collection_id)
             .await
             .expect("Should get output collection");
         let reader = Box::pin(RecordSegmentReader::from_segment(

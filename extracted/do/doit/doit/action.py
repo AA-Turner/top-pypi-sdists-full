@@ -24,7 +24,7 @@ def normalize_callable(ref):
 
 
 # Actions
-class BaseAction(object):
+class BaseAction:
     """Base class for all actions"""
 
     # must implement:
@@ -218,7 +218,11 @@ class CmdAction(BaseAction):
         if capture_io:
             p_out = p_err = subprocess.PIPE
         else:
-            p_out = p_err = None
+            if capture_io is False:
+                p_out = out
+                p_err = err
+            else:  # None
+                p_out = p_err = open(os.devnull, "w")
 
         # spawn task process
         process = subprocess.Popen(
@@ -328,7 +332,7 @@ class CmdAction(BaseAction):
 
 
 
-class Writer(object):
+class Writer:
     """Write to N streams.
 
     This is used on python-actions to allow the stream to be output to terminal
@@ -453,6 +457,14 @@ class PythonAction(BaseAction):
             if err:
                 err_writer.add_writer(err, is_original=True)
             sys.stderr = err_writer
+        else:
+            if out:
+                old_stdout = sys.stdout
+                sys.stdout = out
+            if err:
+                old_stderr = sys.stderr
+                sys.stderr = err
+
 
         kwargs = self._prepare_kwargs()
 
@@ -473,6 +485,11 @@ class PythonAction(BaseAction):
                 sys.stderr = old_stderr
                 self.out = output.getvalue()
                 self.err = errput.getvalue()
+            else:
+                if out:
+                    sys.stdout = old_stdout
+                if err:
+                    sys.stderr = old_stderr
 
         # if callable returns false. Task failed
         if returned_value is False:

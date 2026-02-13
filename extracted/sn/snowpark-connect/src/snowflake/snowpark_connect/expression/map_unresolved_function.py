@@ -134,6 +134,7 @@ from snowflake.snowpark_connect.utils.context import (
     resolving_lambda_function,
     set_is_aggregate_function,
 )
+from snowflake.snowpark_connect.utils.jvm_udf_utils import to_json
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
@@ -672,10 +673,13 @@ def map_unresolved_function(
         case func_name if func_name.lower() in session._udfs:
             # In Spark, UDFs can override built-in functions
             udf = session._udfs[func_name.lower()]
-            result_exp = snowpark_fn.call_udf(
-                udf.name,
-                *(snowpark_fn.cast(arg, VariantType()) for arg in snowpark_args),
-            )
+            udf_args = [snowpark_fn.cast(arg, VariantType()) for arg in snowpark_args]
+            if udf.attach_schema_json:
+                schema_json = to_json(
+                    [t.typ for t in snowpark_typed_args], escape_quotes=False
+                )
+                udf_args.append(snowpark_fn.lit(schema_json))
+            result_exp = snowpark_fn.call_udf(udf.name, *udf_args)
             if udf.cast_to_original_return_type:
                 result_exp = snowpark_fn.cast(result_exp, udf.original_return_type)
                 result_type = udf.original_return_type
@@ -8176,7 +8180,7 @@ def map_unresolved_function(
                     return [input]
 
                 if not input:
-                    return []
+                    return [""]
 
                 # A default of -1 is passed in PySpark, but RE needs it to be 0 to provide all splits.
                 # In PySpark, the limit also indicates the max size of the resulting array, but in RE

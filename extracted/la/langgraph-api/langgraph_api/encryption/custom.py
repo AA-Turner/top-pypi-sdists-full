@@ -129,7 +129,7 @@ def _load_encryption_obj(path: str) -> Encryption:
                 f"Could not find encrypt '{callable_name}' in module: {module_name}"
             )
         # Import Encryption at runtime only when needed (avoids requiring SDK 0.2.14)
-        from langgraph_sdk import Encryption as EncryptionClass
+        from langgraph_sdk import Encryption as EncryptionClass  # noqa: PLC0415
 
         if not isinstance(loaded_encrypt, EncryptionClass):
             raise ValueError(
@@ -188,7 +188,9 @@ class JsonEncryptionWrapper:
         Returns:
             Async encryptor function, or None if custom has no encryptor
         """
-        from langgraph_api.encryption.aes_json import EncryptionKeyError
+        from langgraph_api.encryption.aes_json import (  # noqa: PLC0415
+            EncryptionKeyError,
+        )
 
         custom_encryptor = self._custom.get_json_encryptor(model_type)
         if custom_encryptor is None:
@@ -211,7 +213,9 @@ class JsonEncryptionWrapper:
                     )
 
                 # Add encryption context marker with user's context
-                from langgraph_api.encryption.context import get_encryption_context
+                from langgraph_api.encryption.context import (  # noqa: PLC0415
+                    get_encryption_context,
+                )
 
                 encrypted[ENCRYPTION_CONTEXT_KEY] = (
                     ctx.metadata if ctx and ctx.metadata else get_encryption_context()
@@ -235,7 +239,7 @@ class JsonEncryptionWrapper:
         Returns:
             Async decryptor function (always returns a function for routing)
         """
-        from langgraph_api.encryption.aes_json import (
+        from langgraph_api.encryption.aes_json import (  # noqa: PLC0415
             DecryptorMissingError,
             EncryptionRoutingError,
             has_any_aes_encrypted_values,

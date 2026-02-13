@@ -1,0 +1,115 @@
+from rich_toolkit.input import Input
+from rich_toolkit.styles import MinimalStyle
+
+
+style = MinimalStyle()
+
+
+def test_shows_placeholder_when_not_done():
+    input = Input(placeholder="Enter name")
+    assert style.render_input_value(input, done=False) == "[placeholder]Enter name[/]"
+
+
+def test_shows_empty_when_done_and_no_text():
+    input = Input(placeholder="Enter name")
+    assert style.render_input_value(input, done=True) == "[result][/]"
+
+
+def test_shows_typed_text():
+    input = Input(placeholder="Enter name")
+    input.text = "hello"
+    assert style.render_input_value(input, done=False) == "[text]hello[/]"
+
+
+def test_shows_typed_text_as_result_when_done():
+    input = Input(placeholder="Enter name")
+    input.text = "hello"
+    assert style.render_input_value(input, done=True) == "[result]hello[/]"
+
+
+def test_shows_default_as_placeholder_when_not_done():
+    input = Input(default="my-app", default_as_placeholder=True)
+    assert style.render_input_value(input, done=False) == "[placeholder]my-app[/]"
+
+
+def test_shows_default_as_result_when_done():
+    input = Input(default="my-app", default_as_placeholder=True)
+    assert style.render_input_value(input, done=True) == "[result]my-app[/]"
+
+
+def test_shows_cancelled_placeholder():
+    input = Input(placeholder="Enter name")
+    input._cancelled = True
+    result = style.render_input_value(input, done=False)
+    assert result == ""
+
+
+def test_shows_cancelled_with_text():
+    input = Input(placeholder="Enter name")
+    input.text = "hello"
+    input._cancelled = True
+    result = style.render_input_value(input, done=False)
+    assert result == "[placeholder.cancelled]hello[/]"
+
+
+def test_shows_cancelled_with_default():
+    input = Input(default="my-app", default_as_placeholder=True)
+    input._cancelled = True
+    result = style.render_input_value(input, done=False)
+    assert result == ""
+
+
+def test_cancelled_and_done_shows_cancelled():
+    input = Input(placeholder="Enter name")
+    input.text = "hello"
+    input._cancelled = True
+    result = style.render_input_value(input, done=True)
+    assert result == "[placeholder.cancelled]hello[/]"
+
+
+def test_shows_placeholder_over_default_when_both_provided():
+    input = Input(
+        placeholder="Enter name", default="my-app", default_as_placeholder=True
+    )
+    assert style.render_input_value(input, done=False) == "[placeholder]Enter name[/]"
+
+
+def test_shows_default_as_result_when_both_provided_and_done():
+    input = Input(
+        placeholder="Enter name", default="my-app", default_as_placeholder=True
+    )
+    assert style.render_input_value(input, done=True) == "[result]my-app[/]"
+
+
+def test_password_masks_text():
+    input = Input(password=True)
+    input.text = "secret"
+    assert style.render_input_value(input, done=False) == "[text]******[/]"
+
+
+def test_password_shows_placeholder_when_empty():
+    input = Input(password=True, placeholder="Enter password")
+    result = style.render_input_value(input, done=False)
+    assert result == "[placeholder]Enter password[/]"
+
+
+def test_value_sets_initial_text():
+    input = Input(value="initial")
+    assert input.text == "initial"
+    assert style.render_input_value(input, done=False) == "[text]initial[/]"
+
+
+def test_value_sets_cursor_at_end():
+    input = Input(value="hello")
+    assert input._cursor_index == 5
+
+
+def test_value_shown_as_result_when_done():
+    input = Input(value="initial")
+    assert style.render_input_value(input, done=True) == "[result]initial[/]"
+
+
+def test_value_takes_precedence_over_default():
+    input = Input(value="typed", default="fallback")
+    assert input.text == "typed"
+    assert input.value == "typed"

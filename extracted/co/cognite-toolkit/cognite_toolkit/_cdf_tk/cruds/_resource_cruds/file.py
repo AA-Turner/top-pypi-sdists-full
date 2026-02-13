@@ -22,14 +22,15 @@ from cognite.client.data_classes.capabilities import (
     DataModelInstancesAcl,
     FilesAcl,
 )
-from cognite.client.data_classes.data_modeling import NodeApplyResultList, NodeId, ViewId
+from cognite.client.data_classes.data_modeling import NodeApplyResultList, NodeId
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils._time import convert_data_modelling_timestamp
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.request_classes.filters import ClassicFilter
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference, ViewReference
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataRequest, FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalOrExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId, InternalOrExternalId, NameId
 from cognite_toolkit._cdf_tk.client.resource_classes.legacy.extendable_cognite_file import (
     ExtendableCogniteFile,
     ExtendableCogniteFileApply,
@@ -104,16 +105,16 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if "dataSetExternalId" in item:
-            yield DataSetsCRUD, item["dataSetExternalId"]
+            yield DataSetsCRUD, ExternalId(external_id=item["dataSetExternalId"])
         if "securityCategoryNames" in item:
             for security_category in item["securityCategoryNames"]:
-                yield SecurityCategoryCRUD, security_category
+                yield SecurityCategoryCRUD, NameId(name=security_category)
         if "labels" in item:
             for label in item["labels"]:
                 if isinstance(label, dict):
-                    yield LabelCRUD, label["externalId"]
+                    yield LabelCRUD, ExternalId(external_id=label["externalId"])
                 elif isinstance(label, str):
-                    yield LabelCRUD, label
+                    yield LabelCRUD, ExternalId(external_id=label)
         for asset_external_id in item.get("assetExternalIds", []):
             yield AssetCRUD, ExternalId(external_id=asset_external_id)
 
@@ -157,7 +158,7 @@ class FileMetadataCRUD(ResourceContainerCRUD[ExternalId, FileMetadataRequest, Fi
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[FileMetadataResponse]:
         filter_ = ClassicFilter.from_asset_subtree_and_data_sets(data_set_id=data_set_external_id)
         for files in self.client.tool.filemetadata.iterate(filter=filter_, limit=None):
@@ -297,7 +298,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, ExtendableCogniteFileApply, 
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[ExtendableCogniteFile]:
         # We do not have a way to know the source of the file, so we cannot filter on that.
         return []
@@ -328,7 +329,7 @@ class CogniteFileCRUD(ResourceContainerCRUD[NodeId, ExtendableCogniteFileApply, 
         DatasetLoader and identifier of that dataset.
         """
         if "space" in item:
-            yield SpaceCRUD, item["space"]
+            yield SpaceCRUD, SpaceReference(space=item["space"])
         if "nodeSource" in item:
-            if in_dict(("space", "externalId", "type"), item["nodeSource"]):
-                yield ViewCRUD, ViewId.load(item["nodeSource"])
+            if in_dict(("space", "externalId", "version", "type"), item["nodeSource"]):
+                yield ViewCRUD, ViewReference.model_validate(item["nodeSource"])

@@ -7,7 +7,14 @@ from dataclasses import dataclass
 
 from pyspark.sql.connect.proto.expressions_pb2 import CommonInlineUserDefinedFunction
 
-from snowflake.snowpark.types import ArrayType, MapType, StructType, VariantType
+from snowflake.snowpark.types import (
+    ArrayType,
+    DataType,
+    MapType,
+    StructType,
+    VariantType,
+)
+from snowflake.snowpark_connect.config import get_scala_version
 from snowflake.snowpark_connect.resources_initializer import (
     ensure_scala_udf_jars_uploaded,
 )
@@ -22,6 +29,7 @@ from snowflake.snowpark_connect.utils.jvm_udf_utils import (
     Signature,
     build_jvm_udxf_imports,
     map_type_to_java_type,
+    to_json,
 )
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
@@ -55,6 +63,7 @@ public class OutputRow {
 
 public class JavaUdtfHandler {
     private final static String OPERATION_FILE = "__operation_file__";
+    private final static String SCHEMA_JSON = "__schema_json__";
     private static Object operation = null;
     private static boolean hasGroupState = false;
     private static UdfPacket udfPacket = null;
@@ -103,17 +112,15 @@ public class JavaUdtfHandler {
             scalaResultIterator = ((scala.collection.Iterable<Object>) scalaResult).iterator();
         }
 
-        java.util.Iterator<Variant> javaResult = new java.util.Iterator<Variant>() {
-            public boolean hasNext() { return scalaResultIterator.hasNext(); }
-            public Variant next() {
-                return com.snowflake.sas.scala.Utils$.MODULE$.toVariant(scalaResultIterator.next(), udfPacket);
-            }
-        };
+        List<OutputRow> results = new ArrayList<>();
+        while (scalaResultIterator.hasNext()) {
+            Variant v = com.snowflake.sas.scala.Utils$.MODULE$.toVariant(scalaResultIterator.next(), udfPacket);
+            results.add(new OutputRow(v));
+        }
 
         accumulatedValues.clear();
 
-        return StreamSupport.stream(Spliterators.spliteratorUnknownSize(javaResult, Spliterator.ORDERED), false)
-                .map(i -> new OutputRow(i));
+        return results.stream();
   }
 }
 """
@@ -144,6 +151,7 @@ public class OutputRow {
 
 public class JavaUdtfHandler {
     private final static String OPERATION_FILE = "__operation_file__";
+    private final static String SCHEMA_JSON = "__schema_json__";
     private static Object operation = null;
     private static UdfPacket udfPacket = null;
 
@@ -195,18 +203,16 @@ public class JavaUdtfHandler {
             scalaResultIterator = ((scala.collection.Iterable<Object>) scalaResult).iterator();
         }
 
-        java.util.Iterator<Variant> javaResult = new java.util.Iterator<Variant>() {
-            public boolean hasNext() { return scalaResultIterator.hasNext(); }
-            public Variant next() {
-                return com.snowflake.sas.scala.Utils$.MODULE$.toVariant(scalaResultIterator.next(), udfPacket);
-            }
-        };
+        List<OutputRow> results = new ArrayList<>();
+        while (scalaResultIterator.hasNext()) {
+            Variant v = com.snowflake.sas.scala.Utils$.MODULE$.toVariant(scalaResultIterator.next(), udfPacket);
+            results.add(new OutputRow(v));
+        }
 
         accumulatedValues1.clear();
         accumulatedValues2.clear();
 
-        return StreamSupport.stream(Spliterators.spliteratorUnknownSize(javaResult, Spliterator.ORDERED), false)
-                .map(i -> new OutputRow(i));
+        return results.stream();
   }
 }
 """
@@ -249,13 +255,31 @@ GROUP_STATE_CREATION_WITH_INITIAL = """
 """
 
 SCALA_INPUT_VARIANT = """
-Object mappedInput = com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, input, 0);
+Object mappedInput = com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, input, 0, SCHEMA_JSON);
 
 java.util.Iterator<Object> javaInput = Arrays.asList(mappedInput).iterator();
 scala.collection.Iterator<Object> scalaInput = new scala.collection.AbstractIterator<Object>() {
     public boolean hasNext() { return javaInput.hasNext(); }
     public Object next() { return javaInput.next(); }
 };
+"""
+
+MAP_PARTITIONS_BUILD_ITERATOR_VARIANT = """
+        java.util.Iterator<Object> javaIterator = accumulatedInputs.stream()
+            .map(v -> com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, v, 0, SCHEMA_JSON))
+            .iterator();
+        scala.collection.Iterator<Object> scalaInput = new scala.collection.AbstractIterator<Object>() {
+            public boolean hasNext() { return javaIterator.hasNext(); }
+            public Object next() { return javaIterator.next(); }
+        };
+"""
+
+MAP_PARTITIONS_BUILD_ITERATOR_SIMPLE = """
+        java.util.Iterator<__iterator_type__> javaIterator = accumulatedInputs.iterator();
+        scala.collection.Iterator<__iterator_type__> scalaInput = new scala.collection.AbstractIterator<__iterator_type__>() {
+            public boolean hasNext() { return javaIterator.hasNext(); }
+            public __iterator_type__ next() { return javaIterator.next(); }
+        };
 """
 
 SCALA_INPUT_SIMPLE_TYPE = """
@@ -292,20 +316,27 @@ public class OutputRow {
 
 public class JavaUdtfHandler {
     private final static String OPERATION_FILE = "__operation_file__";
+    private final static String SCHEMA_JSON = "__schema_json__";
     private static scala.Function1<scala.collection.Iterator<__iterator_type__>, scala.collection.Iterator<Object>> operation = null;
     private static UdfPacket udfPacket = null;
-
+__instance_fields__
   public static Class getOutputClass() { return OutputRow.class; }
 
     private static void loadOperation() throws IOException, ClassNotFoundException {
         if (operation != null) {
-            return; // Already loaded
+            return;
         }
-
         udfPacket = com.snowflake.sas.scala.Utils$.MODULE$.deserializeUdfPacket(OPERATION_FILE);
         operation = (scala.Function1<scala.collection.Iterator<__iterator_type__>, scala.collection.Iterator<Object>>) udfPacket.function();
     }
 
+__process_method__
+
+__end_partition_method__
+}
+"""
+
+FLATMAP_PROCESS_METHOD = """
   public Stream<OutputRow> process(__input_type__ input) throws IOException, ClassNotFoundException {
         loadOperation();
 
@@ -323,59 +354,108 @@ public class JavaUdtfHandler {
         return StreamSupport.stream(Spliterators.spliteratorUnknownSize(javaResult, Spliterator.ORDERED), false)
                 .map(i -> new OutputRow(i));
   }
+"""
 
+FLATMAP_END_PARTITION_METHOD = """
   public Stream<OutputRow> endPartition() {
     return Stream.empty();
   }
-}
+"""
+
+MAP_PARTITIONS_INSTANCE_FIELDS = """
+    private List<__input_type__> accumulatedInputs = new ArrayList<>();
+"""
+
+MAP_PARTITIONS_PROCESS_METHOD = """
+  public Stream<OutputRow> process(__input_type__ input) throws IOException, ClassNotFoundException {
+        loadOperation();
+        accumulatedInputs.add(input);
+        return Stream.empty();
+  }
+"""
+
+MAP_PARTITIONS_END_PARTITION_METHOD = """
+  public Stream<OutputRow> endPartition() throws IOException, ClassNotFoundException {
+        if (accumulatedInputs.isEmpty()) {
+            return Stream.empty();
+        }
+
+        loadOperation();
+
+        __build_iterator__
+
+        scala.collection.Iterator<Object> scalaResult = operation.apply(scalaInput);
+
+        List<OutputRow> results = new ArrayList<>();
+        while (scalaResult.hasNext()) {
+            Variant v = com.snowflake.sas.scala.Utils$.MODULE$.toVariant(scalaResult.next(), udfPacket);
+            results.add(new OutputRow(v));
+        }
+
+        accumulatedInputs.clear();
+
+        return results.stream();
+  }
 """
 
 
 @dataclass(frozen=True)
 class JavaUDTFDef:
     """
-    Complete definition for creating a Java UDTF in Snowflake.
+    Definition for creating a Java UDTF in Snowflake for both flatMap (per-row)
+    and mapPartitions (batch) semantics.
 
-    Contains all the information needed to generate the CREATE FUNCTION SQL statement
-    and the Java code body for the UDTF.
+    When batch_mode=False (flatMap): each row is wrapped in a 1-element iterator
+    and the function is applied per row in process().
 
-    Attributes:
-        name: UDTF name
-        signature: SQL signature (for Snowflake function definition)
-        java_signature: Java signature (for Java code generation)
-        imports: List of JAR files to import
-        null_handling: Null handling behavior (defaults to RETURNS_NULL_ON_NULL_INPUT)
+    When batch_mode=True (mapPartitions): rows are accumulated in process() and
+    the function is applied to the full iterator in endPartition().
     """
 
     name: str
     signature: Signature
     java_signature: Signature
     imports: list[str]
+    schema_json: str
+    batch_mode: bool = False
     null_handling: NullHandling = NullHandling.RETURNS_NULL_ON_NULL_INPUT
 
     def _gen_body_java(self) -> str:
-        returns_variant = self.signature.returns.data_type == "VARIANT"
-        return_type = (
-            "Variant" if returns_variant else self.java_signature.returns.data_type
-        )
-
         is_variant_input = self.java_signature.params[0].data_type.lower() == "variant"
-
-        scala_input_template = (
-            SCALA_INPUT_VARIANT if is_variant_input else SCALA_INPUT_SIMPLE_TYPE
-        )
-
         iterator_type = (
             "Object" if is_variant_input else self.java_signature.params[0].data_type
         )
 
+        if self.batch_mode:
+            instance_fields = MAP_PARTITIONS_INSTANCE_FIELDS
+            build_iterator = (
+                MAP_PARTITIONS_BUILD_ITERATOR_VARIANT
+                if is_variant_input
+                else MAP_PARTITIONS_BUILD_ITERATOR_SIMPLE
+            )
+            process_method = MAP_PARTITIONS_PROCESS_METHOD
+            end_partition_method = MAP_PARTITIONS_END_PARTITION_METHOD.replace(
+                "__build_iterator__", build_iterator
+            )
+        else:
+            instance_fields = ""
+            scala_input = (
+                SCALA_INPUT_VARIANT if is_variant_input else SCALA_INPUT_SIMPLE_TYPE
+            )
+            process_method = FLATMAP_PROCESS_METHOD.replace(
+                "__scala_input__", scala_input
+            )
+            end_partition_method = FLATMAP_END_PARTITION_METHOD
+
         return (
             UDTF_TEMPLATE.replace("__operation_file__", self.imports[0].split("/")[-1])
-            .replace("__scala_input__", scala_input_template)
+            .replace("__instance_fields__", instance_fields)
+            .replace("__process_method__", process_method)
+            .replace("__end_partition_method__", end_partition_method)
             .replace("__iterator_type__", iterator_type)
             .replace("__input_type__", self.java_signature.params[0].data_type)
-            .replace("__return_type__", return_type)
             .replace("__java_udtf_prefix__", JAVA_UDTF_PREFIX)
+            .replace("__schema_json__", self.schema_json)
         )
 
     def to_create_function_sql(self) -> str:
@@ -384,10 +464,8 @@ class JavaUDTFDef:
         )
 
         def quote_single(s: str) -> str:
-            """Helper function to wrap strings in single quotes for SQL."""
             return "'" + s + "'"
 
-        # Handler and imports
         imports_sql = f"IMPORTS = ({', '.join(quote_single(x) for x in self.imports)})"
 
         return f"""
@@ -395,7 +473,7 @@ create or replace function {self.name}({args})
 returns table ({JAVA_UDTF_PREFIX}C1 VARIANT)
 language java
 runtime_version = 17
-PACKAGES = ('com.snowflake:snowpark:latest')
+PACKAGES = ('com.snowflake:snowpark_{get_scala_version()}:latest')
 {imports_sql}
 handler='JavaUdtfHandler'
 as
@@ -404,37 +482,31 @@ $$
 $$;"""
 
 
-def create_java_udtf_for_scala_flatmap_handling(
+def create_java_udtf(
     udf_proto: CommonInlineUserDefinedFunction,
+    arg_types: list[DataType] | None,
+    batch_mode: bool,
 ) -> str:
     ensure_scala_udf_jars_uploaded()
 
-    return_type = proto_to_snowpark_type(udf_proto.scalar_scala_udf.outputType)
-
     session = get_or_create_snowpark_session()
-
-    return_type_java = map_type_to_java_type(return_type)
-    sql_return_type = map_type_to_snowflake_type(return_type)
 
     java_input_params: list[Param] = []
     sql_input_params: list[Param] = []
-    for i, input_type_proto in enumerate(udf_proto.scalar_scala_udf.inputTypes):
-        input_type = proto_to_snowpark_type(input_type_proto)
-
+    for i, _ in enumerate(udf_proto.scalar_scala_udf.inputTypes):
         param_name = "arg" + str(i)
+        java_input_params.append(Param(param_name, "Variant"))
+        sql_input_params.append(Param(param_name, "Variant"))
 
-        if isinstance(input_type, (ArrayType, MapType, VariantType)):
-            java_type = "Variant"
-            snowflake_type = "Variant"
-        else:
-            java_type = map_type_to_java_type(input_type)
-            snowflake_type = map_type_to_snowflake_type(input_type)
+    return_type = proto_to_snowpark_type(udf_proto.scalar_scala_udf.outputType)
+    return_type_java = map_type_to_java_type(return_type)
+    sql_return_type = map_type_to_snowflake_type(return_type)
 
-        java_input_params.append(Param(param_name, java_type))
-        sql_input_params.append(Param(param_name, snowflake_type))
-
+    name_prefix = "MP_" if batch_mode else ""
     udtf_name = (
-        JAVA_UDTF_PREFIX + hashlib.md5(udf_proto.scalar_scala_udf.payload).hexdigest()
+        JAVA_UDTF_PREFIX
+        + name_prefix
+        + hashlib.md5(udf_proto.scalar_scala_udf.payload).hexdigest()
     )
 
     imports = build_jvm_udxf_imports(
@@ -442,6 +514,8 @@ def create_java_udtf_for_scala_flatmap_handling(
         udf_proto.scalar_scala_udf.payload,
         udtf_name,
     )
+
+    schema_json = to_json(arg_types)
 
     udtf = JavaUDTFDef(
         name=udtf_name,
@@ -452,10 +526,13 @@ def create_java_udtf_for_scala_flatmap_handling(
         java_signature=Signature(
             params=java_input_params, returns=ReturnType(return_type_java)
         ),
+        schema_json=schema_json,
+        batch_mode=batch_mode,
     )
 
+    mode_label = "map_partitions" if batch_mode else "flatmap"
     sql = udtf.to_create_function_sql()
-    logger.info(f"Creating Java UDTF for flatmap: {sql}")
+    logger.info(f"Creating Java UDTF for {mode_label}: {sql}")
     session.sql(sql).collect()
 
     return udtf_name
@@ -478,18 +555,19 @@ class JavaGroupMapUDTFDef:
     imports: list[str]
     is_variant_key: bool
     is_variant_value: bool
+    schema_json: str = "[]"
     has_initial_state: bool = False
 
     def _gen_body_java(self) -> str:
         if self.is_variant_key:
-            key_conversion = "Object scalaKey = com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, currentKey, 0);"
+            key_conversion = "Object scalaKey = com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, currentKey, 0, SCHEMA_JSON);"
         else:
             key_conversion = "Object scalaKey = currentKey;"
 
         if self.is_variant_value:
             value_iterator_conversion = """
         java.util.Iterator<Object> javaIterator = accumulatedValues.stream()
-            .map(v -> com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, v, 1))
+            .map(v -> com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, v, 1, SCHEMA_JSON))
             .iterator();
         scala.collection.Iterator<Object> scalaIterator = new scala.collection.AbstractIterator<Object>() {
             public boolean hasNext() { return javaIterator.hasNext(); }
@@ -523,6 +601,7 @@ class JavaGroupMapUDTFDef:
             .replace("__key_conversion__", key_conversion)
             .replace("__value_iterator_conversion__", value_iterator_conversion)
             .replace("__java_udtf_prefix__", JAVA_UDTF_PREFIX)
+            .replace("__schema_json__", self.schema_json)
         )
 
     def to_create_function_sql(self) -> str:
@@ -541,7 +620,7 @@ create or replace function {self.name}({params})
 returns table ({JAVA_UDTF_PREFIX}C1 VARIANT)
 language java
 runtime_version = 17
-PACKAGES = ('com.snowflake:snowpark:latest')
+PACKAGES = ('com.snowflake:snowpark_{get_scala_version()}:latest')
 {imports_sql}
 handler='JavaUdtfHandler'
 as
@@ -606,6 +685,8 @@ def create_java_udtf_for_scala_group_map_handling(
         udtf_name,
     )
 
+    schema_json = to_json([key_type, value_type])
+
     udtf = JavaGroupMapUDTFDef(
         name=udtf_name,
         key_type_java=key_type_java,
@@ -615,6 +696,7 @@ def create_java_udtf_for_scala_group_map_handling(
         imports=imports,
         is_variant_key=is_variant_key,
         is_variant_value=is_variant_value,
+        schema_json=schema_json,
         has_initial_state=has_initial_state,
     )
 
@@ -647,17 +729,18 @@ class JavaCoGroupMapUDTFDef:
     imports: list[str]
     is_variant_key: bool
     is_variant_value: bool
+    schema_json: str = "[]"
 
     def _gen_body_java(self) -> str:
         if self.is_variant_key:
-            key_conversion = "Object scalaKey = com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, currentKey, 0);"
+            key_conversion = "Object scalaKey = com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, currentKey, 0, SCHEMA_JSON);"
         else:
             key_conversion = "Object scalaKey = currentKey;"
 
         if self.is_variant_value:
             value1_iterator_conversion = """
         java.util.Iterator<Object> javaIterator1 = accumulatedValues1.stream()
-            .map(v -> com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, v, 1))
+            .map(v -> com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, v, 1, SCHEMA_JSON))
             .iterator();
         scala.collection.Iterator<Object> scalaIterator1 = new scala.collection.AbstractIterator<Object>() {
             public boolean hasNext() { return javaIterator1.hasNext(); }
@@ -665,7 +748,7 @@ class JavaCoGroupMapUDTFDef:
         };"""
             value2_iterator_conversion = """
         java.util.Iterator<Object> javaIterator2 = accumulatedValues2.stream()
-            .map(v -> com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, v, 2))
+            .map(v -> com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, v, 2, SCHEMA_JSON))
             .iterator();
         scala.collection.Iterator<Object> scalaIterator2 = new scala.collection.AbstractIterator<Object>() {
             public boolean hasNext() { return javaIterator2.hasNext(); }
@@ -699,6 +782,7 @@ class JavaCoGroupMapUDTFDef:
             .replace("__value1_iterator_conversion__", value1_iterator_conversion)
             .replace("__value2_iterator_conversion__", value2_iterator_conversion)
             .replace("__java_udtf_prefix__", JAVA_UDTF_PREFIX)
+            .replace("__schema_json__", self.schema_json)
         )
 
     def to_create_function_sql(self) -> str:
@@ -714,7 +798,7 @@ create or replace function {self.name}({params})
 returns table ({JAVA_UDTF_PREFIX}C1 VARIANT)
 language java
 runtime_version = 17
-PACKAGES = ('com.snowflake:snowpark:latest')
+PACKAGES = ('com.snowflake:snowpark_{get_scala_version()}:latest')
 {imports_sql}
 handler='JavaUdtfHandler'
 as
@@ -781,6 +865,8 @@ def create_java_udtf_for_scala_co_group_map_handling(
         udtf_name,
     )
 
+    schema_json = to_json([key_type, value1_type, value2_type])
+
     udtf = JavaCoGroupMapUDTFDef(
         name=udtf_name,
         key_type_java=key_type_java,
@@ -790,6 +876,7 @@ def create_java_udtf_for_scala_co_group_map_handling(
         imports=imports,
         is_variant_key=is_variant_key,
         is_variant_value=is_variant_value,
+        schema_json=schema_json,
     )
 
     sql = udtf.to_create_function_sql()

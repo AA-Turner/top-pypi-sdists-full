@@ -9,14 +9,15 @@ from robocop.linter import sonar_qube
 from robocop.linter.rules import Rule, RuleSeverity, VisitorChecker
 
 if TYPE_CHECKING:
-    from robot.parsing.model import Statement
+    from robot.parsing import File
+    from robot.parsing.model.statements import LibraryImport, ResourceImport
 
 
 class WrongImportOrderRule(Rule):
     """
     Built-in imports placed after custom imports.
 
-    To make code more readable it needs to be more consistent. That's why it is recommended to group known, built-in
+    To make code more readable, it needs to be more consistent. That's why it is recommended to group known, built-in
     import before custom imports.
 
     Example of rule violation:
@@ -41,9 +42,9 @@ class WrongImportOrderRule(Rule):
 
 class BuiltinImportsNotSortedRule(Rule):
     """
-    Built-in imports are not sorted in a alphabetical order.
+    Built-in imports are not sorted in alphabetical order.
 
-    To increase readability sort the imports in a alphabetical order.
+    To increase readability, sort the imports in alphabetical order.
 
     Example of rule violation:
 
@@ -68,7 +69,7 @@ class NonBuiltinImportsNotSortedRule(Rule):
     """
     Custom imports are not sorted in alphabetical order.
 
-    To increase readability sort the imports in alphabetical order. Beware that depending on your code, some of the
+    To increase readability, sort the imports in alphabetical order. Beware that depending on your code, some of the
     custom imports may be depending on each other and the order of the imports.
 
     Example of rule violation:
@@ -94,10 +95,10 @@ class NonBuiltinImportsNotSortedRule(Rule):
 
 class ResourcesImportsNotSortedRule(Rule):
     """
-    Resources imports are not sorted in a alphabetical order.
+    Resources imports are not sorted in alphabetical order.
 
-    To increase readability sort the resources imports in a alphabetical order. Beware that depending on your code,
-    some of the imports may be depending on each other and the order of the imports.
+    To increase readability, sort the resources imports in a alphabetical order. Beware that depending on your code,
+    some imports may depend on each other and the order of the imports.
 
     Example of rule violation:
 
@@ -127,18 +128,18 @@ class SettingsOrderChecker(VisitorChecker):
     non_builtin_imports_not_sorted: NonBuiltinImportsNotSortedRule
     resources_imports_not_sorted: ResourcesImportsNotSortedRule
 
-    def __init__(self):
-        self.libraries = []
-        self.non_builtin_libraries = []
-        self.resources = []
+    def __init__(self) -> None:
+        self.libraries: list[LibraryImport] = []
+        self.non_builtin_libraries: list[LibraryImport] = []
+        self.resources: list[ResourceImport] = []
         super().__init__()
 
-    def visit_File(self, node) -> None:  # noqa: N802
+    def visit_File(self, node: File) -> None:  # noqa: N802
         self.libraries = []
         self.resources = []
         self.generic_visit(node)
-        built_in_libs = []
-        non_builtin_libs = []
+        built_in_libs: list[LibraryImport] = []
+        non_builtin_libs: list[LibraryImport] = []
 
         for library in self.libraries:
             if library.name in STDLIBS:
@@ -195,12 +196,12 @@ class SettingsOrderChecker(VisitorChecker):
                 )
             previous = resource
 
-    def visit_LibraryImport(self, node) -> None:  # noqa: N802
+    def visit_LibraryImport(self, node: LibraryImport) -> None:  # noqa: N802
         if not node.name:
             return
         self.libraries.append(node)
 
-    def visit_ResourceImport(self, node: type[Statement]) -> None:  # noqa: N802
+    def visit_ResourceImport(self, node: ResourceImport) -> None:  # noqa: N802
         if not node.name:
             return
         self.resources.append(node)

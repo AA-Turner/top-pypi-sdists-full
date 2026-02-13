@@ -8,6 +8,12 @@ if t.TYPE_CHECKING:
     from typing_extensions import Self
 
 
+# NOTE: keep in sync with the definition in docs (`docs/api/motd_parsing.rst`)
+# the autodocs plugin does not support type aliases yet, so those have to be
+# defined manually in docs
+ParsedMotdComponent: t.TypeAlias = "Formatting | MinecraftColor | WebColor | TranslationTag | str"
+
+
 class Formatting(Enum):
     """Enum for Formatting codes.
 
@@ -53,6 +59,17 @@ class MinecraftColor(Enum):
 
     # Only for bedrock
     MINECOIN_GOLD = "g"
+    MATERIAL_QUARTZ = "h"
+    MATERIAL_IRON = "i"
+    MATERIAL_NETHERITE = "j"
+    MATERIAL_REDSTONE = "m"
+    MATERIAL_COPPER = "n"
+    MATERIAL_GOLD = "p"
+    MATERIAL_EMERALD = "q"
+    MATERIAL_DIAMOND = "s"
+    MATERIAL_LAPIS = "t"
+    MATERIAL_AMETHYST = "u"
+    MATERIAL_RESIN = "v"
 
 
 @dataclass(frozen=True)
@@ -68,18 +85,18 @@ class WebColor:
     rgb: tuple[int, int, int]
 
     @classmethod
-    def from_hex(cls, hex: str) -> Self:
+    def from_hex(cls, hex: str) -> Self:  # noqa: A002 # shadowing a hex builtin
         """Construct web color using hex color string.
 
         :raises ValueError: Invalid hex color string.
         :returns: New :class:`WebColor` instance.
         """
-        hex = hex.lstrip("#")
+        hex = hex.lstrip("#")  # noqa: A001 # shadowing a hex builtin
 
         if len(hex) not in (3, 6):
             raise ValueError(f"Got too long/short hex color: {'#' + hex!r}")
         if len(hex) == 3:
-            hex = "{0}{0}{1}{1}{2}{2}".format(*hex)
+            hex = "{0}{0}{1}{1}{2}{2}".format(*hex)  # noqa: A001 # shadowing a hex builtin
 
         try:
             rgb = t.cast("tuple[int, int, int]", tuple(int(hex[i : i + 2], 16) for i in (0, 2, 4)))
@@ -97,7 +114,7 @@ class WebColor:
         """
         cls._check_rgb(rgb)
 
-        hex = "#{:02x}{:02x}{:02x}".format(*rgb)
+        hex = "#{:02x}{:02x}{:02x}".format(*rgb)  # noqa: A001 # shadowing a hex builtin
         return cls(hex, rgb)
 
     @staticmethod
@@ -121,6 +138,3 @@ class TranslationTag:
     """
 
     id: str
-
-
-ParsedMotdComponent: t.TypeAlias = "Formatting | MinecraftColor | WebColor | TranslationTag | str"

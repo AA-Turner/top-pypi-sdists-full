@@ -99,7 +99,6 @@ class ExecutionUtils:
     def create_sagemaker_search_expression_for_training(
         domain_identifier: str,
         project_identifier: str,
-        datazone_environment_id: str,
         start_time_after: Optional[int] = None,
         name_contains: Optional[str] = None,
         search_status: Optional[str] = None,

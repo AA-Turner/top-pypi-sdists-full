@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -83,6 +83,14 @@ public:
    *  @brief Menu command handler
    */
   virtual void menu_activated (const std::string & /*symbol*/)
+  {
+    // .. this implementation does nothing ..
+  }
+
+  /**
+   *  @brief Generic function call
+   */
+  virtual void function (const std::string & /*symbol*/, const std::string & /*args*/)
   {
     // .. this implementation does nothing ..
   }
@@ -250,6 +258,7 @@ protected:
   //  capture the configuration events so we can change the value of the configuration actions
   virtual bool configure (const std::string &name, const std::string &value);
   virtual void config_finalize ();
+  virtual void function (const std::string &symbol, const std::string &args);
 
 private:
   Dispatcher (const Dispatcher &);

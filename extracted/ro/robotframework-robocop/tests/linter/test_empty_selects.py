@@ -1,12 +1,8 @@
-from pathlib import Path
-
 import pytest
 
 from robocop.linter.rules import RuleSeverity
 from robocop.run import check_files
 from tests import working_directory
-
-TEST_DIR = Path(__file__).parent / "test_data" / "example_test"
 
 
 def test_no_files_selected(tmp_path, capsys):
@@ -27,7 +23,7 @@ def test_no_files_selected_silent(tmp_path, capsys):
 
 
 @pytest.mark.parametrize(
-    "config",
+    "test_config",
     [
         {"select": ["X"]},  # select non-existing rule only
         {"select": ["could-be-test-tags"], "threshold": RuleSeverity.ERROR},  # rule is info, so it will be filtered
@@ -35,25 +31,28 @@ def test_no_files_selected_silent(tmp_path, capsys):
         {"select": ["replace-set-variable-with-var"], "target_version": 4},  # rule available from 7
     ],
 )
-def test_select_empty_rule_set_from_cli(config, capsys):
-    with working_directory(TEST_DIR):
-        ret = check_files(**config, ignore_file_config=True, return_result=True)
+def test_select_empty_rule_set_from_cli(tmp_path, test_config, capsys):
+    (tmp_path / "test.robot").write_text("*** Settings ***\n")
+    with working_directory(tmp_path):
+        ret = check_files(**test_config, ignore_file_config=True, return_result=True)
     out, _ = capsys.readouterr()
     expected = (
         "No rule selected with the existing configuration from the cli . "
-        "Please check if all rules from --select exist and there is no conflicting filter option.\n"
+        "Please check if all rules from --select exist and there is no conflicting filter option.\nNo issues found.\n"
     )
     assert not ret
     assert out == expected
 
 
-def test_select_empty_rule_set_from_config_file(capsys):
-    with working_directory(TEST_DIR):
+def test_select_empty_rule_set_from_config_file(tmp_path, capsys):
+    (tmp_path / "test.robot").write_text("*** Settings ***\n")
+    (tmp_path / "pyproject.toml").write_text("[tool.robocop.lint]\nselect = ['X']\n")
+    with working_directory(tmp_path):
         ret = check_files(ignore_file_config=False, return_result=True)
     out, _ = capsys.readouterr()
     expected = (
-        f"No rule selected with the existing configuration from the {TEST_DIR / 'pyproject.toml'} . "
-        "Please check if all rules from --select exist and there is no conflicting filter option.\n"
+        f"No rule selected with the existing configuration from the {tmp_path / 'pyproject.toml'} . "
+        "Please check if all rules from --select exist and there is no conflicting filter option.\nNo issues found.\n"
     )
     assert not ret
     assert out == expected

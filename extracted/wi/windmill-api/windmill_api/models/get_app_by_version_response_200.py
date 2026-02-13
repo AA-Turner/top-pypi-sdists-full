@@ -11,7 +11,6 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.get_app_by_version_response_200_extra_perms import GetAppByVersionResponse200ExtraPerms
     from ..models.get_app_by_version_response_200_policy import GetAppByVersionResponse200Policy
-    from ..models.get_app_by_version_response_200_value import GetAppByVersionResponse200Value
 
 
 T = TypeVar("T", bound="GetAppByVersionResponse200")
@@ -28,7 +27,7 @@ class GetAppByVersionResponse200:
         versions (List[int]):
         created_by (str):
         created_at (datetime.datetime):
-        value (GetAppByVersionResponse200Value):
+        value (Any):
         policy (GetAppByVersionResponse200Policy):
         execution_mode (GetAppByVersionResponse200ExecutionMode):
         extra_perms (GetAppByVersionResponse200ExtraPerms):
@@ -44,7 +43,7 @@ class GetAppByVersionResponse200:
     versions: List[int]
     created_by: str
     created_at: datetime.datetime
-    value: "GetAppByVersionResponse200Value"
+    value: Any
     policy: "GetAppByVersionResponse200Policy"
     execution_mode: GetAppByVersionResponse200ExecutionMode
     extra_perms: "GetAppByVersionResponse200ExtraPerms"
@@ -63,8 +62,7 @@ class GetAppByVersionResponse200:
         created_by = self.created_by
         created_at = self.created_at.isoformat()
 
-        value = self.value.to_dict()
-
+        value = self.value
         policy = self.policy.to_dict()
 
         execution_mode = self.execution_mode.value
@@ -104,7 +102,6 @@ class GetAppByVersionResponse200:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.get_app_by_version_response_200_extra_perms import GetAppByVersionResponse200ExtraPerms
         from ..models.get_app_by_version_response_200_policy import GetAppByVersionResponse200Policy
-        from ..models.get_app_by_version_response_200_value import GetAppByVersionResponse200Value
 
         d = src_dict.copy()
         id = d.pop("id")
@@ -121,7 +118,7 @@ class GetAppByVersionResponse200:
 
         created_at = isoparse(d.pop("created_at"))
 
-        value = GetAppByVersionResponse200Value.from_dict(d.pop("value"))
+        value = d.pop("value")
 
         policy = GetAppByVersionResponse200Policy.from_dict(d.pop("policy"))
 

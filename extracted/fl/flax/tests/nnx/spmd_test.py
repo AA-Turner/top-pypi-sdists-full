@@ -139,7 +139,7 @@ class TestSPMD(parameterized.TestCase):
           4,
           kernel_init=nnx.with_metadata(
             nnx.initializers.lecun_normal(),
-            sharding_names=('din', 'dout'),
+            out_sharding=('din', 'dout'),
             nickname=('in', 'out'),
             on_add_axis=lambda _, idx, name: kadds.append((idx, name)),
             on_remove_axis=lambda _, idx, name: kremoves.append((idx, name)),
@@ -160,7 +160,7 @@ class TestSPMD(parameterized.TestCase):
         x = self.linear(x)
         # test sharding layer axes is not present inside scan
         test.assertEqual(self.linear.kernel.shape, (4, 4))
-        test.assertEqual(self.linear.kernel.sharding_names, ('din', 'dout'))
+        test.assertEqual(self.linear.kernel.out_sharding, ('din', 'dout'))
         # at least a remove_axis was already called to remove the layer axis
         test.assertEqual(kremoves[-1], (0, 'layers'))
         test.assertEqual(bremoves[-1], (0, 'layers'))
@@ -175,7 +175,7 @@ class TestSPMD(parameterized.TestCase):
     with jax.set_mesh(mesh):
       m = MLP(rngs=nnx.Rngs(0))
     self.assertEqual(m.linear.kernel.shape, (5, 4, 4))
-    self.assertEqual(m.linear.kernel.sharding_names, ('layers', 'din', 'dout'))
+    self.assertEqual(m.linear.kernel.out_sharding, ('layers', 'din', 'dout'))
     self.assertEqual(m.linear.kernel.nickname, ('nick', 'in', 'out'))
     self.assertEqual(m.linear.bias.shape, (5, 4))
     # One add_axis called to add the `nnx.vmap` dimension
@@ -205,7 +205,7 @@ class TestSPMD(parameterized.TestCase):
       with jax.set_mesh(mesh):
         w = nnx.Param(
           rngs.lecun_normal()((4, 8)),
-          sharding_names=(None, 'model'))
+          out_sharding=(None, 'model'))
         if use_eager_sharding:
           assert has_sharding_spec(w)
         else:
@@ -225,6 +225,16 @@ class TestSPMD(parameterized.TestCase):
         assert 'float32[2@X,4]' in str(jax.typeof(layer(sharded_array)))
         assert 'float32[2@X,4@Y]' in str(jax.typeof(layer(sharded_array, out_sharding=P("X", "Y"))))
 
+  def test_out_sharding_embed(self):
+    mesh = jax.make_mesh((2, 2), ("X", "Y"), axis_types=(AxisType.Explicit, AxisType.Explicit))
+    with jax.set_mesh(mesh):
+      emb = nnx.Embed(num_embeddings=8, features=4, rngs=nnx.Rngs(0))
+      emb = reshard(emb, P("X"))
+      sharded_array = reshard(jnp.arange(4), P("Y"))
+      self.assertRaises(Exception, emb, sharded_array)
+      self.assertEqual('float32[4@X,4]',
+        str(jax.typeof(emb(sharded_array, out_sharding=P("X")))))
+
   def test_out_sharding_conv(self):
     mesh = jax.make_mesh((2, 2), ("X", "Y"), axis_types=(AxisType.Explicit, AxisType.Explicit))
     with jax.set_mesh(mesh):
@@ -242,6 +252,24 @@ class TestSPMD(parameterized.TestCase):
       layer = nnx.Embed(num_embeddings=10, features=4, rngs=nnx.Rngs(0))
       assert 'float32[2@X,10]' in str(jax.typeof(layer.attend(sharded_array)))
       assert 'float32[2@X,10@Y]' in str(jax.typeof(layer.attend(sharded_array, out_sharding=P("X", "Y"))))
+
+  def test_out_sharding_dropout(self):
+    mesh = jax.make_mesh((2, 2), ("X", "Y"), axis_types=(AxisType.Explicit, AxisType.Explicit))
+    with jax.set_mesh(mesh):
+      replicated_array = jnp.arange(8).reshape(2, 4).astype(jnp.float32)
+      sharded_array = reshard(replicated_array, P("X", None))
+      layers = [
+        nnx.Dropout(rate=0.5, rngs=nnx.Rngs(0)),
+        nnx.Dropout(rate=0.5, broadcast_dims=(1,), rngs=nnx.Rngs(0)),
+      ]
+      for layer in layers:
+        assert 'float32[2@X,4]' in str(jax.typeof(layer(sharded_array)))
+
+        @jax.jit
+        def func(x, rngs):
+          return layer(x, rngs=rngs)
+
+        assert 'float32[2@X,4]' in str(jax.typeof(func(sharded_array, nnx.Rngs(0))))
 
   @parameterized.product(use_hijax=[True, False])
   def test_logical_rules(self, use_hijax):
@@ -319,13 +347,13 @@ class TestSPMD(parameterized.TestCase):
       with self.assertRaises(ValueError):
         nnx.Variable(
           jnp.ones((4, 4)),
-          sharding_names=('row', 'col'),
+          out_sharding=('row', 'col'),
           mesh=mesh,
         )
     else:
       v = nnx.Variable(
         jnp.ones((4, 4)),
-        sharding_names=('row', 'col'),
+        out_sharding=('row', 'col'),
         mesh=mesh,
       )
       self.assertEqual(v.sharding.mesh, mesh)

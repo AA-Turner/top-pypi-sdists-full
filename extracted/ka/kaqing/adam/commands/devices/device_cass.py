@@ -9,7 +9,7 @@ from adam.utils_log import log2, log_timing, wait_log
 from adam.utils_cassandra.cassandra_status import CassandraStatus
 from adam.utils_cassandra.pod_service import cassandra
 from adam.utils_tabulize import tabulize
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.utils_k8s.custom_resources import CustomResources
 from adam.utils_k8s.kube_context import KubeContext
 from adam.utils_k8s.statefulsets import StatefulSets
@@ -52,7 +52,7 @@ class DeviceCass(Command, Device):
     def default_container(self, _: ReplState) -> str:
         return 'cassandra'
 
-    def ls(self, cmd: str, state: ReplState, ctx: Context = Context.NULL):
+    def ls(self, cmd: str, state: ReplState, ctx = NULL):
         if state.pod:
             return self.bash(state, state, cmd.split(' '))
         elif state.sts and state.namespace:
@@ -69,7 +69,7 @@ class DeviceCass(Command, Device):
         else:
             return {cmd: {n: None for n in StatefulSets.list_sts_names()}}
 
-    def show_statefulsets(self, ctx: Context = Context.NULL):
+    def show_statefulsets(self, ctx = NULL):
         ss = StatefulSets.list_sts_names()
         if len(ss) == 0:
             log2('No Cassandra clusters found.')
@@ -155,23 +155,23 @@ class DeviceCass(Command, Device):
                 else:
                     wait_log(f'Moving to the only Cassandra cluster: {state.sts}@{state.namespace}...')
 
-    def show_tables(self, state: ReplState, ctx: Context = Context.NULL):
+    def show_tables(self, state: ReplState, ctx = NULL):
         tabulize(cassandra_table_names(state),
                  separator=',',
                  ctx=ctx.copy(show_out=True))
 
-    def show_table_preview(self, state: ReplState, table: str, rows: int, ctx: Context = Context.NULL):
+    def show_table_preview(self, state: ReplState, table: str, rows: int, ctx = NULL):
         with cassandra(state) as pods:
             pods.cql(f'select * from {table} limit {rows}', use_single_quotes=True, on_any=True, ctx=ctx.copy(show_out=True))
 
     def bash_target_changed(self, s0: ReplState, s1: ReplState):
         return s0.sts != s1.sts or s0.pod != s1.pod
 
-    def exec_no_dir(self, command: str, state: ReplState, ctx: Context = Context.NULL):
+    def exec_no_dir(self, command: str, state: ReplState, ctx = NULL):
         with cassandra(state) as pods:
             return pods.exec(command, action='bash', shell='bash', ctx=ctx.copy(show_out=True))
 
-    def exec_with_dir(self, command: str, session_just_created: bool, state: ReplState, ctx: Context = Context.NULL):
+    def exec_with_dir(self, command: str, session_just_created: bool, state: ReplState, ctx = NULL):
         with cassandra(state) as pods:
             return pods.exec(command, action='bash', shell='bash', ctx=ctx.copy(show_out=not session_just_created))
 

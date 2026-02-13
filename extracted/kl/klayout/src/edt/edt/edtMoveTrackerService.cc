@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -128,6 +128,13 @@ MoveTrackerService::move_transform (const db::DPoint & /*pu*/, db::DFTrans /*tr*
 
 void  
 MoveTrackerService::end_move (const db::DPoint & /*p*/, lay::angle_constraint_type /*ac*/)
+{
+  call_editor_hooks (m_editor_hooks, &edt::EditorHooks::commit_edit);
+  move_cancel (); // formally this functionality fits here
+}
+
+void
+MoveTrackerService::end_move (const db::DVector & /*v*/)
 {
   call_editor_hooks (m_editor_hooks, &edt::EditorHooks::commit_edit);
   move_cancel (); // formally this functionality fits here

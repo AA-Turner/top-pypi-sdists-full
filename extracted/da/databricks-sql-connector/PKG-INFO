@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: databricks-sql-connector
-Version: 4.2.4
+Version: 4.2.5
 Summary: Databricks SQL Connector for Python
 License: Apache-2.0
 License-File: LICENSE

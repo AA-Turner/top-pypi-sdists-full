@@ -34,6 +34,11 @@ class ModelGroupManagementServiceStub(object):
                 request_serializer=qwak_dot_model__group_dot_model__group__pb2.GetModelGroupSystemPullImageSecretRequest.SerializeToString,
                 response_deserializer=qwak_dot_model__group_dot_model__group__pb2.SystemPullSecretInfoNamesResponse.FromString,
                 )
+        self.MigrateAccountSystemSecrets = channel.unary_unary(
+                '/qwak.model_groups.management.ModelGroupManagementService/MigrateAccountSystemSecrets',
+                request_serializer=qwak_dot_model__group_dot_model__group__pb2.MigrateAccountSystemSecretsRequest.SerializeToString,
+                response_deserializer=qwak_dot_model__group_dot_model__group__pb2.MigrateAccountSystemSecretsResponse.FromString,
+                )
 
 
 class ModelGroupManagementServiceServicer(object):
@@ -67,6 +72,13 @@ class ModelGroupManagementServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def MigrateAccountSystemSecrets(self, request, context):
+        """* Migrates the model group pull secret (PULL_SECRET_MODEL_REPO_FORMAT) from legacy to account store. Requires service token. 
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_ModelGroupManagementServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -89,6 +101,11 @@ def add_ModelGroupManagementServiceServicer_to_server(servicer, server):
                     servicer.GetModelGroupSystemPullImageSecret,
                     request_deserializer=qwak_dot_model__group_dot_model__group__pb2.GetModelGroupSystemPullImageSecretRequest.FromString,
                     response_serializer=qwak_dot_model__group_dot_model__group__pb2.SystemPullSecretInfoNamesResponse.SerializeToString,
+            ),
+            'MigrateAccountSystemSecrets': grpc.unary_unary_rpc_method_handler(
+                    servicer.MigrateAccountSystemSecrets,
+                    request_deserializer=qwak_dot_model__group_dot_model__group__pb2.MigrateAccountSystemSecretsRequest.FromString,
+                    response_serializer=qwak_dot_model__group_dot_model__group__pb2.MigrateAccountSystemSecretsResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -165,5 +182,22 @@ class ModelGroupManagementService(object):
         return grpc.experimental.unary_unary(request, target, '/qwak.model_groups.management.ModelGroupManagementService/GetModelGroupSystemPullImageSecret',
             qwak_dot_model__group_dot_model__group__pb2.GetModelGroupSystemPullImageSecretRequest.SerializeToString,
             qwak_dot_model__group_dot_model__group__pb2.SystemPullSecretInfoNamesResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def MigrateAccountSystemSecrets(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/qwak.model_groups.management.ModelGroupManagementService/MigrateAccountSystemSecrets',
+            qwak_dot_model__group_dot_model__group__pb2.MigrateAccountSystemSecretsRequest.SerializeToString,
+            qwak_dot_model__group_dot_model__group__pb2.MigrateAccountSystemSecretsResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

@@ -1,11 +1,11 @@
 from collections.abc import Mapping, Sequence
 from typing import Any, SupportsFloat
 
-from key_value.shared.utils.managed_entry import dump_to_json, load_from_json
 from typing_extensions import override
 
 from key_value.aio.protocols.key_value import AsyncKeyValue
 from key_value.aio.wrappers.base import BaseWrapper
+from key_value.shared.managed_entry import dump_to_json, load_from_json
 
 
 class DefaultValueWrapper(BaseWrapper):

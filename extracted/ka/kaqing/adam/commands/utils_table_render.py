@@ -4,7 +4,7 @@ from typing import List
 from adam.checks.check_utils import run_checks
 from adam.columns.columns import Columns, collect_checks
 from adam.utils_cassandra.cassandra_status import CassandraStatus
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.commands.check_up.utils_issues import IssuesUtils
 from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.statefulsets import StatefulSets
@@ -13,7 +13,7 @@ from adam.utils import SORT, duration
 from adam.utils_log import log2
 from adam.utils_tabulize import tabulize
 
-def show_pods_simple(state: ReplState, pods: List[client.V1Pod], ctx: Context = Context.NULL):
+def show_pods_simple(state: ReplState, pods: List[client.V1Pod], ctx = NULL):
     if len(pods) == 0:
         log2('No pods found.')
         return
@@ -31,7 +31,7 @@ def show_pods_simple(state: ReplState, pods: List[client.V1Pod], ctx: Context = 
              header='POD_NAME READY POD_STATUS',
              ctx=ctx.copy(show_out=True))
 
-def show_pods(state: ReplState, pods: List[client.V1Pod], ns: str, show_namespace = True, show_host_id = True, ctx: Context = Context.NULL):
+def show_pods(state: ReplState, pods: List[client.V1Pod], ns: str, show_namespace = True, show_host_id = True, ctx = NULL):
     if len(pods) == 0:
         log2('No pods found.')
         return
@@ -57,7 +57,7 @@ def show_pods(state: ReplState, pods: List[client.V1Pod], ns: str, show_namespac
              header='HOST_ID POD_NAME READY POD_STATUS' if show_host_id else 'POD_NAME READY POD_STATUS',
              ctx=ctx.copy(show_out=True))
 
-def show_rollout(sts: str, ns: str, ctx: Context = Context.NULL):
+def show_rollout(sts: str, ns: str, ctx = NULL):
     restarted, rollingout = StatefulSets.restarted_at(sts, ns)
     if restarted:
         d = duration(restarted)
@@ -66,7 +66,7 @@ def show_rollout(sts: str, ns: str, ctx: Context = Context.NULL):
         else:
             ctx.log2(f'Cluster has completed rollout {d} ago.')
 
-def show_table(state: ReplState, pods: list[str], cols: str, header: str, find_issues = True, ctx: Context = Context.NULL):
+def show_table(state: ReplState, pods: list[str], cols: str, header: str, find_issues = True, ctx = NULL):
     columns = Columns.create_columns(cols)
 
     status: CassandraStatus = CassandraStatus.snapshot(state, ctx=ctx)

@@ -744,6 +744,8 @@ class RepoImpl:
                         "raw": f["raw"],
                         "bytes": f["bytes"],
                         "is_eof": f["is_eof"],
+                        "additions": f.get("additions", 0),
+                        "deletions": f.get("deletions", 0),
                     }
                 )
 
@@ -822,6 +824,8 @@ class RepoImpl:
                         "raw": f["raw"],
                         "bytes": f["bytes"],
                         "is_eof": f["is_eof"],
+                        "additions": f.get("additions", 0),
+                        "deletions": f.get("deletions", 0),
                     }
                 )
 

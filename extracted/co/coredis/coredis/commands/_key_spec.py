@@ -475,6 +475,7 @@ class KeySpec:
         b"FT.CONFIG GET": lambda args: (args[1],),
         b"FT.CONFIG SET": lambda args: (args[1],),
         b"FT.SEARCH": lambda args: (args[1],),
+        b"FT.HYBRID": lambda args: (args[1],),
         b"FT.AGGREGATE": lambda args: (args[1],),
         b"FT.CURSOR GET": lambda args: (args[1],),
         b"FT.CURSOR DEL": lambda args: (args[1],),
@@ -489,14 +490,6 @@ class KeySpec:
         b"FT.SUGDEL": lambda args: (args[1],),
         b"FT.SUGGET": lambda args: (args[1],),
         b"FT.SUGLEN": lambda args: (args[1],),
-        b"GRAPH.QUERY": lambda args: (args[1],),
-        b"GRAPH.DELETE": lambda args: (args[1],),
-        b"GRAPH.EXPLAIN": lambda args: (args[1],),
-        b"GRAPH.PROFILE": lambda args: (args[1],),
-        b"GRAPH.SLOWLOG": lambda args: (args[1],),
-        b"GRAPH.CONSTRAINT CREATE": lambda args: (args[1],),
-        b"GRAPH.CONSTRAINT DROP": lambda args: (args[1],),
-        b"GRAPH.RO_QUERY": lambda args: (args[1],),
     }
 
     @classmethod

@@ -1,6 +1,6 @@
 import copy
 from typing import Iterable
-from prompt_toolkit.completion import CompleteEvent, Completer, Completion, NestedCompleter, WordCompleter
+from prompt_toolkit.completion import CompleteEvent, Completer, Completion, WordCompleter
 from prompt_toolkit.document import Document
 
 from adam.utils_repl.repl_completer import ReplCompleter
@@ -14,7 +14,6 @@ class SetCompleter(Completer):
         if options:
             opts = ReplCompleter.from_nested_dict(options)
             self.options = opts.options
-            # print('SEAN options', len(self.options))
         self.ignore_case = ignore_case
 
     def __repr__(self) -> str:

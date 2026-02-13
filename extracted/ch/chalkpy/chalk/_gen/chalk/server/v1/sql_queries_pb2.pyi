@@ -156,3 +156,15 @@ class GetSqlQueryResponse(_message.Message):
     QUERY_FIELD_NUMBER: _ClassVar[int]
     query: SqlQuery
     def __init__(self, query: _Optional[_Union[SqlQuery, _Mapping]] = ...) -> None: ...
+
+class GetSqlQuerySignedUrlsRequest(_message.Message):
+    __slots__ = ("query_id",)
+    QUERY_ID_FIELD_NUMBER: _ClassVar[int]
+    query_id: str
+    def __init__(self, query_id: _Optional[str] = ...) -> None: ...
+
+class GetSqlQuerySignedUrlsResponse(_message.Message):
+    __slots__ = ("signed_result_urls",)
+    SIGNED_RESULT_URLS_FIELD_NUMBER: _ClassVar[int]
+    signed_result_urls: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, signed_result_urls: _Optional[_Iterable[str]] = ...) -> None: ...

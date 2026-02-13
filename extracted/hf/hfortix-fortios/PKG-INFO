@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hfortix-fortios
-Version: 0.5.159
+Version: 0.5.162
 Summary: Type-safe Python client for FortiGate automation and FortiOS REST API - 1,348+ endpoints with async support and atomic transactions
 Author-email: "Herman W. Jacobsen" <herman@wjacobsen.fo>
 Maintainer-email: "Herman W. Jacobsen" <herman@wjacobsen.fo>
@@ -36,8 +36,8 @@ Classifier: Framework :: Pydantic
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: hfortix-core>=0.5.154
-Requires-Dist: hfortix>=0.5.154
+Requires-Dist: hfortix-core>=0.5.161
+Requires-Dist: hfortix>=0.5.161
 Requires-Dist: pydantic>=2.0
 Requires-Dist: httpx>=0.24.0
 Provides-Extra: minimal

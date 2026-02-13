@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: find_libpython
-Version: 0.5.0
+Version: 0.5.1
 Summary: Finds the libpython associated with your environment, wherever it may be hiding
 Author: Takafumi Arakaki
 Maintainer-email: Kaleb Barrett <dev.ktbarrett@gmail.com>

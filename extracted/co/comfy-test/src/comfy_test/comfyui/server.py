@@ -68,6 +68,11 @@ class ComfyUIServer:
         """Get server base URL."""
         return f"http://127.0.0.1:{self.port}"
 
+    @property
+    def pid(self) -> int | None:
+        """Get server process PID, or None if not running."""
+        return self._process.pid if self._process else None
+
     def add_log_listener(self, callback: Callable[[str], None]) -> None:
         """Add an extra log listener for server output."""
         self._extra_log_listeners.append(callback)

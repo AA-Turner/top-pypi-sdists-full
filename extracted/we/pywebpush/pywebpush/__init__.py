@@ -34,11 +34,11 @@ class WebPushException(Exception):
 
     """
 
-    def __init__(self, message, response=None):
+    def __init__(self, message, response=None) -> None:
         self.message = message
         self.response = response
 
-    def __str__(self):
+    def __str__(self) -> str:
         extra = ""
         if self.response is not None:
             try:
@@ -46,8 +46,8 @@ class WebPushException(Exception):
                     self.response.text,
                 )
             except AttributeError:
-                extra = ", Response {}".format(self.response)
-        return "WebPushException: {}{}".format(self.message, extra)
+                extra = f", Response {self.response}"
+        return f"WebPushException: {self.message}{extra}"
 
 
 class NoData(Exception):
@@ -57,12 +57,12 @@ class NoData(Exception):
 class CaseInsensitiveDict(dict):
     """A dictionary that has case-insensitive keys"""
 
-    def __init__(self, data={}, **kwargs):
+    def __init__(self, data={}, **kwargs) -> None:
         for key in data:
             dict.__setitem__(self, key.lower(), data[key])
         self.update(kwargs)
 
-    def __contains__(self, key):
+    def __contains__(self, key) -> bool:
         return dict.__contains__(self, key.lower())
 
     def __setitem__(self, key, value):
@@ -80,7 +80,7 @@ class CaseInsensitiveDict(dict):
         except KeyError:
             return default
 
-    def update(self, data):
+    def update(self, data) -> None:
         for key in data:
             self.__setitem__(key, data[key])
 
@@ -137,7 +137,7 @@ class WebPusher:
         requests_session: Union[None, requests.Session] = None,
         aiohttp_session: Union[None, aiohttp.client.ClientSession] = None,
         verbose: bool = False,
-    ):
+    ) -> None:
         """Initialize using the info provided by the client PushSubscription
         object (See
         https://developer.mozilla.org/en-US/docs/Web/API/PushManager/subscribe)
@@ -173,7 +173,7 @@ class WebPusher:
             )
             for k in ["p256dh", "auth"]:
                 if keys.get(k) is None:
-                    raise WebPushException("Missing keys value: {}".format(k))
+                    raise WebPushException(f"Missing keys value: {k}")
                 if isinstance(keys[k], str):
                     keys[k] = bytes(cast(str, keys[k]).encode("utf8"))
             receiver_raw = base64.urlsafe_b64decode(
@@ -186,11 +186,11 @@ class WebPusher:
                 self._repad(cast(bytes, keys["auth"]))
             )
 
-    def verb(self, msg: str, *args, **kwargs):
+    def verb(self, msg: str, *args, **kwargs) -> None:
         if self.verbose:
             logging.info(msg.format(*args, **kwargs))
 
-    def _repad(self, data: bytes):
+    def _repad(self, data: bytes) -> bytes:
         """Add base64 padding to the end of a string, if required"""
         return data + b"===="[: len(data) % 4]
 
@@ -226,7 +226,7 @@ class WebPusher:
         if content_encoding == "aesgcm":
             self.verb("Generating salt for aesgcm...")
             salt = os.urandom(16)
-            logging.debug("Salt: {}".format(salt))
+            logging.debug(f"Salt: {salt}")
         # The server key is an ephemeral ECDH key used only for this
         # transaction
         server_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
@@ -266,7 +266,7 @@ class WebPusher:
                 reply["salt"] = base64.urlsafe_b64encode(salt).strip(b"=")
         return reply
 
-    def as_curl(self, endpoint: str, encoded_data: bytes, headers: Dict[str, str]):
+    def as_curl(self, endpoint: str, encoded_data: bytes, headers: Dict[str, str]) -> str:
         """Return the send as a curl command.
 
         Useful for debugging. This will write out the encoded data to a local
@@ -282,7 +282,7 @@ class WebPusher:
 
         """
         header_list = [
-            '-H "{}: {}" \\ \n'.format(key.lower(), val) for key, val in headers.items()
+            f'-H "{key.lower()}: {val}" \\ \n' for key, val in headers.items()
         ]
         data = ""
         if encoded_data:
@@ -292,7 +292,7 @@ class WebPusher:
         if "content-length" not in headers:
             self.verb("Generating content-length header...")
             header_list.append(
-                '-H "content-length: {}" \\ \n'.format(len(encoded_data))
+                f'-H "content-length: {len(encoded_data)}" \\ \n'
             )
         return """curl -vX POST {url} \\\n{headers}{data}""".format(
             url=endpoint, headers="".join(header_list), data=data
@@ -488,7 +488,7 @@ def webpush(
             logging.info("Generating VAPID headers...")
         if not vapid_claims.get("aud"):
             url = urlparse(cast(str, subscription_info.get("endpoint")))
-            aud = "{}://{}".format(url.scheme, url.netloc)
+            aud = f"{url.scheme}://{url.netloc}"
             vapid_claims["aud"] = aud
         # Remember, passed structures are mutable in python.
         # It's possible that a previously set `exp` field is no longer valid.
@@ -509,17 +509,17 @@ def webpush(
             # Presume that key from file is handled correctly by
             # py_vapid.
             if verbose:
-                logging.info("Reading VAPID key from file {}".format(vapid_private_key))
+                logging.info(f"Reading VAPID key from file {vapid_private_key}")
             vv = Vapid.from_file(private_key_file=vapid_private_key)  # pragma no cover
         else:
             if verbose:
                 logging.info("Reading VAPID key from arguments")
             vv = Vapid.from_string(private_key=vapid_private_key)
         if verbose:
-            logging.info("\t claims: {}".format(vapid_claims))
+            logging.info(f"\t claims: {vapid_claims}")
         vapid_headers = vv.sign(vapid_claims)
         if verbose:
-            logging.info("\t headers: {}".format(vapid_headers))
+            logging.info(f"\t headers: {vapid_headers}")
         headers.update(vapid_headers)
 
     response = WebPusher(
@@ -625,7 +625,7 @@ async def webpush_async(
             logging.info("Generating VAPID headers...")
         if not vapid_claims.get("aud"):
             url = urlparse(cast(str, subscription_info.get("endpoint")))
-            aud = "{}://{}".format(url.scheme, url.netloc)
+            aud = f"{url.scheme}://{url.netloc}"
             vapid_claims["aud"] = aud
         # Remember, passed structures are mutable in python.
         # It's possible that a previously set `exp` field is no longer valid.
@@ -648,17 +648,17 @@ async def webpush_async(
             # Presume that key from file is handled correctly by
             # py_vapid.
             if verbose:
-                logging.info("Reading VAPID key from file {}".format(vapid_private_key))
+                logging.info(f"Reading VAPID key from file {vapid_private_key}")
             vv = Vapid.from_file(private_key_file=vapid_private_key)  # pragma no cover
         else:
             if verbose:
                 logging.info("Reading VAPID key from arguments")
             vv = Vapid.from_string(private_key=vapid_private_key)
         if verbose:
-            logging.info("\t claims: {}".format(vapid_claims))
+            logging.info(f"\t claims: {vapid_claims}")
         vapid_headers = vv.sign(vapid_claims)
         if verbose:
-            logging.info("\t headers: {}".format(vapid_headers))
+            logging.info(f"\t headers: {vapid_headers}")
         headers.update(vapid_headers)
 
     response = await WebPusher(

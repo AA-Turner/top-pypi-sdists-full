@@ -120,11 +120,7 @@ class ExecutionClient:
 class ExecutionConfig(BaseClientConfig):
     local: Optional[bool] = False
     local_execution_client: Optional[ExecutionClient] = None
-    sagemaker_user_home: Optional[str] = None
     domain_identifier: Optional[str] = None
     project_identifier: Optional[str] = None
-    datazone_stage: Optional[str] = None
-    datazone_endpoint: Optional[str] = None
-    datazone_environment_id: Optional[str] = None
     datazone_domain_region: Optional[str] = None
     project_s3_path: Optional[str] = None

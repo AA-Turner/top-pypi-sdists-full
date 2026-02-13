@@ -356,6 +356,11 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         """The execution model"""
         ...
 
+    @property
+    def default_order_properties(self) -> QuantConnect.Interfaces.IOrderProperties:
+        """Gets the default order properties"""
+        ...
+
     def __init__(self, module_name: str) -> None:
         """
         AlgorithmPythonWrapper constructor.

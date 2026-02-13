@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flyteidl
-Version: 1.16.3
+Version: 1.16.4
 Summary: IDL for Flyte Platform
 Author-email: Flyte Contributors <admin@flyte.org>
 License: Apache-2.0
@@ -13,12 +13,13 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: <3.13,>=3.8
+Requires-Python: <3.14,>=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE

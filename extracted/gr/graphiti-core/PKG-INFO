@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: graphiti-core
-Version: 0.26.3
+Version: 0.27.1
 Summary: A temporal graph building library
 Project-URL: Homepage, https://help.getzep.com/graphiti/graphiti/overview
 Project-URL: Repository, https://github.com/getzep/graphiti
@@ -46,7 +46,7 @@ Requires-Dist: voyageai>=0.2.3; extra == 'dev'
 Provides-Extra: falkordb
 Requires-Dist: falkordb<2.0.0,>=1.1.2; extra == 'falkordb'
 Provides-Extra: google-genai
-Requires-Dist: google-genai>=1.8.0; extra == 'google-genai'
+Requires-Dist: google-genai>=1.62.0; extra == 'google-genai'
 Provides-Extra: groq
 Requires-Dist: groq>=0.2.0; extra == 'groq'
 Provides-Extra: kuzu

@@ -40,6 +40,11 @@ class BenchmarkServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_benchmark__pb2.GetResultFileUrlsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_benchmark__pb2.GetResultFileUrlsResponse.FromString,
         )
+        self.KillBenchmark = channel.unary_unary(
+            "/chalk.server.v1.BenchmarkService/KillBenchmark",
+            request_serializer=chalk_dot_server_dot_v1_dot_benchmark__pb2.KillBenchmarkRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_benchmark__pb2.KillBenchmarkResponse.FromString,
+        )
 
 
 class BenchmarkServiceServicer(object):
@@ -75,6 +80,12 @@ class BenchmarkServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def KillBenchmark(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_BenchmarkServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -102,6 +113,11 @@ def add_BenchmarkServiceServicer_to_server(servicer, server):
             servicer.GetResultFileUrls,
             request_deserializer=chalk_dot_server_dot_v1_dot_benchmark__pb2.GetResultFileUrlsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_benchmark__pb2.GetResultFileUrlsResponse.SerializeToString,
+        ),
+        "KillBenchmark": grpc.unary_unary_rpc_method_handler(
+            servicer.KillBenchmark,
+            request_deserializer=chalk_dot_server_dot_v1_dot_benchmark__pb2.KillBenchmarkRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_benchmark__pb2.KillBenchmarkResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.BenchmarkService", rpc_method_handlers)
@@ -247,6 +263,35 @@ class BenchmarkService(object):
             "/chalk.server.v1.BenchmarkService/GetResultFileUrls",
             chalk_dot_server_dot_v1_dot_benchmark__pb2.GetResultFileUrlsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_benchmark__pb2.GetResultFileUrlsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def KillBenchmark(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BenchmarkService/KillBenchmark",
+            chalk_dot_server_dot_v1_dot_benchmark__pb2.KillBenchmarkRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_benchmark__pb2.KillBenchmarkResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import cast
 
+from tortoise.fields.base import DB_DEFAULT_NOT_SET
 from tortoise.fields.relational import (
     BackwardFKRelation,
     BackwardOneToOneRelation,
@@ -125,6 +126,14 @@ class SqliteSchemaEditor(SqliteQuotingMixin, BaseSchemaEditor):
             )
             unique_field = field.unique and not field.pk
 
+        if field.has_db_default():
+            if hasattr(field.db_default, "get_sql"):
+                field_definition += f" DEFAULT {field.db_default.get_sql(dialect=self.DIALECT)}"
+            else:
+                db_val = field.to_db_value(field.db_default, model)
+                escaped = self._escape_default_value(db_val)
+                field_definition += f" DEFAULT {escaped}"
+
         await self._run_sql(
             self.ADD_FIELD_TEMPLATE.format(table=qualified_table, definition=field_definition)
         )
@@ -178,6 +187,8 @@ class SqliteSchemaEditor(SqliteQuotingMixin, BaseSchemaEditor):
             and old_field.null == new_field.null
             and old_field.unique == new_field.unique
             and old_field.index == new_field.index
+            and getattr(old_field, "db_default", DB_DEFAULT_NOT_SET)
+            == getattr(new_field, "db_default", DB_DEFAULT_NOT_SET)
             and not old_field.pk
             and not new_field.pk
         ):
@@ -309,6 +320,14 @@ class SqliteSchemaEditor(SqliteQuotingMixin, BaseSchemaEditor):
                     is_pk=actual_field.pk,
                     comment="",
                 )
+
+            if actual_field.has_db_default():
+                if hasattr(actual_field.db_default, "get_sql"):
+                    field_def += f" DEFAULT {actual_field.db_default.get_sql(dialect=self.DIALECT)}"
+                else:
+                    db_val = actual_field.to_db_value(actual_field.db_default, model)
+                    escaped = self._escape_default_value(db_val)
+                    field_def += f" DEFAULT {escaped}"
 
             field_definitions.append(field_def)
 

@@ -60,11 +60,12 @@ class TestJIT(parameterized.TestCase):
     self.assertIs(m, m_out)
     self.assertIsInstance(m2, jax.Ref)
 
-  def test_simple_double_call(self):
+  @parameterized.parameters(True, False)
+  def test_simple_double_call(self, graph_mode):
     n = 0
     m = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
 
-    @nnx.jit
+    @nnx.jit(graph=graph_mode)
     def f(m: nnx.Linear, x: jnp.ndarray) -> jnp.ndarray:
       nonlocal n
       n += 1
@@ -107,7 +108,8 @@ class TestJIT(parameterized.TestCase):
     m = Foo(2, 3, rngs=nnx.Rngs(0))
     assert n == 1
 
-  def test_jit_on_call(self):
+  @parameterized.parameters(True, False)
+  def test_jit_on_call(self, graph_mode):
     n = 0
 
     class Foo(nnx.Module):
@@ -117,7 +119,7 @@ class TestJIT(parameterized.TestCase):
         self.din = din
         self.dout = dout
 
-      @nnx.jit
+      @nnx.jit(graph=graph_mode)
       def __call__(self, x: jax.Array) -> jax.Array:
         nonlocal n
         n += 1
@@ -191,7 +193,8 @@ class TestJIT(parameterized.TestCase):
     assert m.a is a
     assert m.b is b
 
-  def test_jit_custom_vjp(self):
+  @parameterized.parameters(True, False)
+  def test_jit_custom_vjp(self, graph_mode):
     @nnx.custom_vjp
     def f(x, y):
       return jnp.sin(x) * y
@@ -205,7 +208,7 @@ class TestJIT(parameterized.TestCase):
 
     f.defvjp(f_fwd, f_bwd)
 
-    nnx_out = nnx.jit(f)(jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0]))
+    nnx_out = nnx.jit(f, graph=graph_mode)(jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0]))
     jax_out = jax.jit(f)(jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0]))
     assert (nnx_out == jax_out).all()
 
@@ -406,12 +409,13 @@ class TestJIT(parameterized.TestCase):
     cached_m2 = cached_f(m)
     self.assertIs(cached_m, cached_m2)
 
-  def test_jit_wrapped(self):
+  @parameterized.parameters(True, False)
+  def test_jit_wrapped(self, graph_mode):
     class Foo(nnx.Module):
       def __init__(self, *, rngs: nnx.Rngs):
         self.count = nnx.Variable(jnp.array(0))
 
-      @nnx.jit
+      @nnx.jit(graph=graph_mode)
       def __call__(self, x: jax.Array) -> jax.Array:
         self.count[...] += 1
         return x * 2
@@ -419,7 +423,7 @@ class TestJIT(parameterized.TestCase):
     m = Foo(rngs=nnx.Rngs(0))
     x = jnp.array(3.0)
 
-    @nnx.jit
+    @nnx.jit(graph=graph_mode)
     def f(m: nnx.Linear, x):
       return m(x)
 
@@ -437,10 +441,12 @@ class TestJIT(parameterized.TestCase):
     self.assertEqual(m.count[...], 2)
 
   @parameterized.parameters(
-    {'static_argnums': (2,), 'static_argnames': None},
-    {'static_argnums': None, 'static_argnames': ('use_relu',)},
+    {'graph_mode': True, 'static_argnums': (2,), 'static_argnames': None},
+    {'graph_mode': True, 'static_argnums': None, 'static_argnames': ('use_relu',)},
+    {'graph_mode': False, 'static_argnums': (2,), 'static_argnames': None},
+    {'graph_mode': False, 'static_argnums': None, 'static_argnames': ('use_relu',)},
   )
-  def test_jit_static_args_with_shardings(self, static_argnums, static_argnames):
+  def test_jit_static_args_with_shardings(self, graph_mode, static_argnums, static_argnames):
     """Test static arguments work correctly with in_shardings."""
     n_devices = jax.local_device_count()
     devices = mesh_utils.create_device_mesh((n_devices,))
@@ -456,7 +462,8 @@ class TestJIT(parameterized.TestCase):
     x_sharding = jax.sharding.NamedSharding(mesh, jax.sharding.PartitionSpec('data'))
 
     f = nnx.jit(fn, in_shardings=(x_sharding, None),
-                static_argnums=static_argnums, static_argnames=static_argnames)
+                static_argnums=static_argnums, static_argnames=static_argnames,
+                graph=graph_mode)
     y_relu = f(x, 0.5, True)
     y_no_relu = f(x, 0.5, False)
     self.assertNotEqual(y_relu, y_no_relu)
@@ -502,6 +509,187 @@ class TestJIT(parameterized.TestCase):
     self.assertEqual(m.kernel.sharding.spec, jax.sharding.PartitionSpec("a", "b"))
 
 
+class TestTreeJIT(parameterized.TestCase):
+  def test_tree_jit_basic(self):
+    m = nnx.Dict(a=nnx.Param(jnp.array(1)))
+
+    @nnx.jit(graph=False)
+    def g(m: nnx.Dict):
+      m.a[...] = 2
+      return 1.0
+
+    out = g(m)
+
+    assert m.a[...] == 2
+    assert out == 1.0
+
+  def test_tree_jit_module(self):
+    m = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
+
+    @nnx.jit(graph=False)
+    def f(m, x):
+      return m(x)
+
+    x = jnp.ones((1, 2))
+    y = f(m, x)
+    self.assertEqual(y.shape, (1, 3))
+
+  def test_tree_jit_variable_update(self):
+    class Foo(nnx.Module):
+      def __init__(self):
+        self.count = nnx.Variable(jnp.array(0))
+
+      @nnx.jit(graph=False)
+      def __call__(self, x):
+        self.count[...] += 1
+        return x * 2
+
+    m = Foo()
+    y = m(jnp.array(3.0))
+    np.testing.assert_allclose(y, 6.0)
+    self.assertEqual(m.count[...], 1)
+    y = m(jnp.array(3.0))
+    self.assertEqual(m.count[...], 2)
+
+  def test_tree_jit_no_retrace(self):
+    n = 0
+    m = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
+
+    @nnx.jit(graph=False)
+    def f(m, x):
+      nonlocal n
+      n += 1
+      return m(x)
+
+    x = jnp.ones((1, 2))
+    y = f(m, x)
+    self.assertEqual(n, 1)
+    self.assertEqual(y.shape, (1, 3))
+
+    y = f(m, x)
+    self.assertEqual(n, 1)
+    self.assertEqual(y.shape, (1, 3))
+
+  def test_tree_jit_static_argnums(self):
+    @nnx.jit(graph=False, static_argnums=(1,))
+    def f(x, use_relu):
+      if use_relu:
+        return jnp.maximum(x, 0)
+      return x
+
+    x = jnp.array([-1.0, 2.0])
+    y_relu = f(x, True)
+    np.testing.assert_allclose(y_relu, jnp.array([0.0, 2.0]))
+    y_no_relu = f(x, False)
+    np.testing.assert_allclose(y_no_relu, x)
+
+  def test_tree_jit_no_input_output_aliasing(self):
+    v = nnx.Param(jnp.array(1.0))
+
+    @nnx.jit(graph=False)
+    def f(v):
+      return v
+
+    with self.assertRaisesRegex(ValueError, 'same instance'):
+      f(v)
+
+  def test_tree_jit_no_shared_variable_refs(self):
+    v = nnx.Param(jnp.array(1.0))
+
+    @nnx.jit(graph=False)
+    def f(v1, v2):
+      v1[...] += 1
+      return None
+
+    with self.assertRaisesRegex(ValueError, 'already seen'):
+      f(v, v)
+
+  def test_tree_jit_new_variable_output_ok(self):
+    @nnx.jit(graph=False)
+    def f(x):
+      return nnx.Param(x + 1)
+
+    v = f(jnp.array(1.0))
+    self.assertIsInstance(v, nnx.Param)
+    np.testing.assert_allclose(v[...], 2.0)
+
+  def test_tree_jit_donate_argnums_unchanged_var(self):
+    v = nnx.Param(jnp.array(1.0))
+
+    @nnx.jit(graph=False, donate_argnums=(0,))
+    def f(v):
+      return v[...] + 1.0
+
+    out = f(v)
+    np.testing.assert_allclose(out, 2.0)
+    np.testing.assert_allclose(v[...], 1.0)
+
+    out = f(v)
+    np.testing.assert_allclose(out, 2.0)
+    np.testing.assert_allclose(v[...], 1.0)
+
+  def test_tree_jit_donate_argnums_module(self):
+    m = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
+    original_kernel = jnp.copy(m.kernel[...])
+
+    @nnx.jit(graph=False, donate_argnums=(0,))
+    def f(m, x):
+      return m(x)
+
+    x = jnp.ones((1, 2))
+    y = f(m, x)
+    self.assertEqual(y.shape, (1, 3))
+    np.testing.assert_allclose(m.kernel[...], original_kernel)
+
+    y = f(m, x)
+    self.assertEqual(y.shape, (1, 3))
+    np.testing.assert_allclose(m.kernel[...], original_kernel)
+
+  def test_tree_jit_donate_argnums_with_mutation(self):
+    v = nnx.Param(jnp.array(0.0))
+
+    @nnx.jit(graph=False, donate_argnums=(0,))
+    def f(v):
+      v[...] += 1.0
+      return None
+
+    f(v)
+    np.testing.assert_allclose(v[...], 1.0)
+    f(v)
+    np.testing.assert_allclose(v[...], 2.0)
+
+  def test_tree_jit_donate_argnames(self):
+    v = nnx.Param(jnp.array(1.0))
+
+    @nnx.jit(graph=False, donate_argnames=('v',))
+    def f(v):
+      return v[...] + 1.0
+
+    out = f(v=v)
+    np.testing.assert_allclose(out, 2.0)
+    np.testing.assert_allclose(v[...], 1.0)
+
+    out = f(v=v)
+    np.testing.assert_allclose(out, 2.0)
+    np.testing.assert_allclose(v[...], 1.0)
+
+  def test_tree_jit_donate_selective(self):
+    donated = nnx.Param(jnp.array(1.0))
+    not_donated = nnx.Param(jnp.array(2.0))
+
+    @nnx.jit(graph=False, donate_argnums=(0,))
+    def f(donated, not_donated):
+      return donated[...] + not_donated[...]
+
+    out = f(donated, not_donated)
+    np.testing.assert_allclose(out, 3.0)
+    np.testing.assert_allclose(donated[...], 1.0)
+    np.testing.assert_allclose(not_donated[...], 2.0)
+
+    out = f(donated, not_donated)
+    np.testing.assert_allclose(out, 3.0)
+
+
 class TestEvalShape(absltest.TestCase):
   def test_eval_shape(self):
     abs_model = nnx.eval_shape(lambda: nnx.Linear(1, 2, rngs=nnx.Rngs(0)))
@@ -515,7 +703,7 @@ class TestEvalShape(absltest.TestCase):
     self.assertIsInstance(abs_model.kernel.get_value(), jax.ShapeDtypeStruct)
     self.assertEqual(abs_model.kernel.shape, (1, 2))
 
-class TestShardMap(absltest.TestCase):
+class TestShardMap(parameterized.TestCase):
   def test_basic_shardmap(self):
     n_devices = jax.local_device_count()
     devices = mesh_utils.create_device_mesh((n_devices,))
@@ -544,7 +732,8 @@ class TestShardMap(absltest.TestCase):
 
     self.assertIsInstance(m.kernel.sharding, jax.sharding.NamedSharding)
 
-  def test_basic_shardmap_variables(self):
+  @parameterized.parameters(True, False)
+  def test_basic_shardmap_variables(self, graph):
     n_devices = jax.local_device_count()
     devices = mesh_utils.create_device_mesh((n_devices,))
     mesh = jax.sharding.Mesh(devices, ('a',))
@@ -557,7 +746,7 @@ class TestShardMap(absltest.TestCase):
 
     self.assertNotIsInstance(w.sharding, jax.sharding.NamedSharding)
 
-    @nnx.shard_map(mesh=mesh, in_specs=(P(None, 'a'), P(), P()), out_specs=None)
+    @nnx.shard_map(mesh=mesh, in_specs=(P(None, 'a'), P(), P()), out_specs=None, graph=graph)
     def f(w, b, count):
       count[...] += 1
       self.assertEqual(w.shape, (16, 32 // n_devices))
@@ -565,8 +754,9 @@ class TestShardMap(absltest.TestCase):
 
     f(w, b, count)
 
-    self.assertIsInstance(w.sharding, jax.sharding.NamedSharding)
-    self.assertIsInstance(b.sharding, jax.sharding.NamedSharding)
+    if graph:
+      self.assertIsInstance(w.sharding, jax.sharding.NamedSharding)
+      self.assertIsInstance(b.sharding, jax.sharding.NamedSharding)
     self.assertEqual(count[...], 1)
 
   def test_from_state(self):
@@ -599,17 +789,25 @@ class TestShardMap(absltest.TestCase):
     self.assertIsInstance(m.kernel.sharding, jax.sharding.NamedSharding)
     self.assertIsInstance(m.bias.sharding, jax.sharding.NamedSharding)
 
-  def test_simple_data_parallel(self):
+  @parameterized.parameters(True, False)
+  def test_simple_data_parallel(self, graph):
     P = jax.sharding.PartitionSpec
     n_devices = jax.local_device_count()
 
     mesh = jax.sharding.Mesh(jax.local_devices(), ('data',))
 
-    m = nnx.Linear(2, 3, rngs=nnx.Rngs(0))
+    with jax.set_mesh(mesh):
+      m = nnx.Linear(
+          in_features=2,
+          out_features=3,
+          kernel_metadata={'sharding_names': jax.P(None)},
+          bias_metadata={'sharding_names': jax.P(None)},
+          rngs=nnx.Rngs(0),
+    )
     x = jnp.ones((32, 2))
 
     @nnx.shard_map(
-      mesh=mesh, in_specs=(P(None), P('data')), out_specs=P('data')
+      mesh=mesh, in_specs=(P(None), P('data')), out_specs=P('data'), graph=graph
     )
     def f(m, x):
       self.assertEqual(x.shape, (32 // n_devices, 2))
@@ -656,6 +854,57 @@ class TestShardMap(absltest.TestCase):
       return jax.lax.psum(y, 'model')
 
     y = f(m, x)
+
+  @parameterized.parameters(True, False)
+  def test_shardmap_with_sharding_names(self, graph):
+    n_devices = jax.local_device_count()
+    P = jax.sharding.PartitionSpec
+    mesh = jax.sharding.Mesh(jax.local_devices(), ('data',))
+
+    with jax.set_mesh(mesh):
+      w = nnx.Param(jnp.ones((8, 4)), sharding_names=('data', None))
+      b = nnx.Param(jnp.ones((4,)), sharding_names=(None,))
+
+    self.assertIsInstance(w.get_raw_value().sharding, jax.sharding.NamedSharding)
+    self.assertEqual(w.out_sharding, ('data', None))
+    self.assertEqual(b.out_sharding, (None,))
+
+    @nnx.shard_map(
+      mesh=mesh, in_specs=(P('data', None), P(None)), out_specs=P('data', None),
+      graph=graph,
+    )
+    def f(w, b):
+      self.assertEqual(w.shape, (8 // n_devices, 4))
+      self.assertEqual(b.shape, (4,))
+      return w + b[None]
+
+    y = f(w, b)
+    self.assertEqual(y.shape, (8, 4))
+    self.assertIsInstance(y.sharding, jax.sharding.NamedSharding)
+
+  @parameterized.parameters(True, False)
+  def test_shardmap_sharding_names_mutation(self, graph):
+    n_devices = jax.local_device_count()
+    P = jax.sharding.PartitionSpec
+    mesh = jax.sharding.Mesh(jax.local_devices(), ('data',))
+
+    with jax.set_mesh(mesh):
+      w = nnx.Param(jnp.zeros((8, 4)), sharding_names=('data', None))
+      count = nnx.BatchStat(jnp.array(0))
+
+    @nnx.shard_map(
+      mesh=mesh, in_specs=(P('data', None), P()), out_specs=P('data', None),
+      graph=graph,
+    )
+    def f(w, count):
+      count[...] += 1
+      self.assertEqual(w.shape, (8 // n_devices, 4))
+      return w + 1.0
+
+    y = f(w, count)
+    self.assertEqual(count[...], 1)
+    self.assertEqual(y.shape, (8, 4))
+    np.testing.assert_allclose(w[...], jnp.zeros((8, 4)))
 
 
 class TestGrad(parameterized.TestCase):
@@ -1671,7 +1920,7 @@ class TestScan(absltest.TestCase):
 
     assert y.shape == (1, 3)
 
-  def test_complex_set_mode(self):
+  def test_complex_view(self):
     state_axes = nnx.StateAxes({(nnx.Param, nnx.RngState): 0, ...: None})
 
     class MLP(nnx.Module):
@@ -1692,7 +1941,7 @@ class TestScan(absltest.TestCase):
         return x, None
 
     module = MLP(rngs=nnx.Rngs(0))
-    new_module = nnx.set_mode(module, deterministic=False, use_running_average=False)
+    new_module = nnx.view(module, deterministic=False, use_running_average=False)
 
     assert new_module.linear.kernel.shape == (5, 3, 3)
     assert new_module.linear.bias.shape == (5, 3)
@@ -1736,7 +1985,7 @@ class TestScan(absltest.TestCase):
 
     assert y.shape == (1, 3)
 
-  def test_complex_broadcast_dropout_set_mode(self):
+  def test_complex_broadcast_dropout_view(self):
     state_axes = nnx.StateAxes({(nnx.Param, 'params'): 0, ...: None})
 
     class MLP(nnx.Module):
@@ -1758,7 +2007,7 @@ class TestScan(absltest.TestCase):
         return x, None
 
     module = MLP(rngs=nnx.Rngs(params=0, dropout=1))
-    new_module = nnx.set_mode(module, deterministic=False, use_running_average=False)
+    new_module = nnx.view(module, deterministic=False, use_running_average=False)
 
     assert new_module.linear.kernel.shape == (5, 3, 3)
     assert new_module.linear.bias.shape == (5, 3)
@@ -1804,7 +2053,7 @@ class TestScan(absltest.TestCase):
     assert y.shape == (1, 3)
     assert out is None
 
-  def test_complex_decorator_set_mode(self):
+  def test_complex_decorator_view(self):
     state_axes = nnx.StateAxes({(nnx.Param, nnx.RngState): 0, ...: None})
 
     class Block(nnx.Module):
@@ -1826,7 +2075,7 @@ class TestScan(absltest.TestCase):
         return x, None
 
     module = Block(rngs=nnx.Rngs(0))
-    new_module = nnx.set_mode(module, deterministic=False, use_running_average=False)
+    new_module = nnx.view(module, deterministic=False, use_running_average=False)
 
     assert new_module.d == 3
     assert new_module.linear.kernel.shape == (5, 3, 3)
@@ -1856,10 +2105,10 @@ class TestScan(absltest.TestCase):
           3,
           3,
           kernel_init=nnx.with_metadata(
-            nnx.initializers.lecun_normal(), sharding_names=('din', 'dout')
+            nnx.initializers.lecun_normal(), out_sharding=('din', 'dout')
           ),
           bias_init=nnx.with_metadata(
-            nnx.initializers.zeros_init(), sharding_names=('dout',)
+            nnx.initializers.zeros_init(), out_sharding=('dout',)
           ),
           rngs=rngs,
         )
@@ -1871,9 +2120,9 @@ class TestScan(absltest.TestCase):
         x = self.linear(x)
         # test sharding layer axes is not present inside scan
         test.assertEqual(self.linear.kernel.shape, (3, 3))
-        test.assertEqual(self.linear.kernel.sharding_names, ('din', 'dout'))
+        test.assertEqual(self.linear.kernel.out_sharding, ('din', 'dout'))
         test.assertEqual(self.linear.bias.shape, (3,))
-        test.assertEqual(self.linear.bias.sharding_names, ('dout',))
+        test.assertEqual(self.linear.bias.out_sharding, ('dout',))
         return x, None
 
     mesh = jax.make_mesh((1, 1, 1), ('layers', 'din', 'dout'), axis_types=(jax.sharding.AxisType.Auto,) * len(('layers', 'din', 'dout')))
@@ -1882,9 +2131,9 @@ class TestScan(absltest.TestCase):
 
     # test sharding layers axes is set
     self.assertEqual(m.linear.kernel.shape, (5, 3, 3))
-    self.assertEqual(m.linear.kernel.sharding_names, ('layers', 'din', 'dout'))
+    self.assertEqual(m.linear.kernel.out_sharding, ('layers', 'din', 'dout'))
     self.assertEqual(m.linear.bias.shape, (5, 3))
-    self.assertEqual(m.linear.bias.sharding_names, ('layers', 'dout'))
+    self.assertEqual(m.linear.bias.out_sharding, ('layers', 'dout'))
 
     x = jnp.ones((1, 3))
     with jax.set_mesh(mesh):
@@ -1892,9 +2141,9 @@ class TestScan(absltest.TestCase):
 
     # test sharding axes is preserved
     self.assertEqual(m.linear.kernel.shape, (5, 3, 3))
-    self.assertEqual(m.linear.kernel.sharding_names, ('layers', 'din', 'dout'))
+    self.assertEqual(m.linear.kernel.out_sharding, ('layers', 'din', 'dout'))
     self.assertEqual(m.linear.bias.shape, (5, 3))
-    self.assertEqual(m.linear.bias.sharding_names, ('layers', 'dout'))
+    self.assertEqual(m.linear.bias.out_sharding, ('layers', 'dout'))
 
   def test_cache_tracing_simple(self):
     n = 0
@@ -2723,7 +2972,7 @@ class TestVmap(absltest.TestCase):
     with jax.set_mesh(mesh):
       m = create_block(nnx.Rngs(0))
     self.assertEqual(m.kernel.shape, (5, 16, 32))
-    self.assertEqual(m.kernel.sharding_names, ('c', 'a', 'b'))
+    self.assertEqual(m.kernel.out_sharding, ('c', 'a', 'b'))
 
   def test_state_axes_from_state(self):
     class Model(nnx.Module):

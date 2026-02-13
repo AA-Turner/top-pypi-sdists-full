@@ -1,27 +1,23 @@
 from __future__ import annotations
 
-import asyncio
-
+import anyio
 import pytest
 
 from coredis import PureToken
+from coredis._concurrency import gather
 from coredis.exceptions import CommandSyntaxError, DataError
 from tests.conftest import server_deprecation_warning, targets
 
 
 @targets(
     "redis_basic",
-    "redis_basic_resp2",
-    "redis_basic_blocking",
     "redis_basic_raw",
     "redis_cluster",
-    "redis_cluster_blocking",
     "redis_cluster_raw",
     "redis_cached",
     "redis_cluster_cached",
     "dragonfly",
     "valkey",
-    "redict",
 )
 class TestSortedSet:
     async def test_zadd(self, client, _s):
@@ -84,7 +80,6 @@ class TestSortedSet:
         assert (await client.zdiff(["a{foo}", "b{foo}"])) == (_s("a3"),)
         assert (await client.zdiff(["a{foo}", "b{foo}"], withscores=True)) == ((_s("a3"), 3.0),)
 
-    @pytest.mark.nodragonfly
     async def test_zdiffstore(self, client, _s):
         await client.zadd("a{foo}", dict(a1=1, a2=2, a3=3))
         await client.zadd("b{foo}", dict(a1=1, a2=2))
@@ -194,7 +189,6 @@ class TestSortedSet:
             (_s("a1"), 23),
         )
 
-    @pytest.mark.min_server_version("7.0.0")
     async def test_zintercard(self, client, _s):
         await client.zadd("a{foo}", dict(a1=1, a2=1, a3=1))
         await client.zadd("b{foo}", dict(a3=2, a4=2, a5=2))
@@ -357,7 +351,6 @@ class TestSortedSet:
         with pytest.raises(CommandSyntaxError):
             await client.zrange("a{foo}", 0, 1, offset=1)
 
-    @pytest.mark.nodragonfly
     async def test_zrangestore(self, client, _s):
         await client.zadd("a{foo}", dict(a1=1, a2=2, a3=3))
         assert await client.zrangestore("b{foo}", "a{foo}", 0, 1)
@@ -389,7 +382,6 @@ class TestSortedSet:
         )
         assert await client.zrange("b{foo}", 0, -1) == (_s("a2"),)
 
-    @pytest.mark.nodragonfly
     async def test_zrangebylex(self, client, _s):
         await client.zadd("a{foo}", dict(a=0, b=0, c=0, d=0, e=0, f=0, g=0))
         with server_deprecation_warning("Use :meth:`zrange`", client, "6.2"):
@@ -412,7 +404,6 @@ class TestSortedSet:
                 _s("e"),
             )
 
-    @pytest.mark.nodragonfly
     async def test_zrevrangebylex(self, client, _s):
         await client.zadd("a{foo}", dict(a=0, b=0, c=0, d=0, e=0, f=0, g=0))
         with server_deprecation_warning("Use :meth:`zrange`", client, "6.2"):
@@ -477,7 +468,6 @@ class TestSortedSet:
         assert await client.zrank("a{foo}", "a2") == 1
         assert await client.zrank("a{foo}", "a6") is None
 
-    @pytest.mark.min_server_version("7.1.240")
     async def test_zrank_with_score(self, client, _s):
         await client.zadd("a{foo}", dict(a1=1, a2=2, a3=3, a4=4, a5=5))
         assert await client.zrank("a{foo}", "a1", withscore=True) == (0, 1.0)
@@ -585,7 +575,6 @@ class TestSortedSet:
         assert await client.zrevrank("a{foo}", "a2") == 3
         assert await client.zrevrank("a{foo}", "a6") is None
 
-    @pytest.mark.min_server_version("7.1.240")
     async def test_zrevrank_with_score(self, client, _s):
         await client.zadd("a{foo}", dict(a1=1, a2=2, a3=3, a4=4, a5=5))
         assert await client.zrevrank("a{foo}", "a1", withscore=True) == (4, 1.0)
@@ -683,8 +672,6 @@ class TestSortedSet:
             (_s("a1"), 23),
         )
 
-    @pytest.mark.min_server_version("7.0.0")
-    @pytest.mark.nodragonfly
     async def test_zmpop(self, client, _s):
         await client.zadd("a{foo}", dict(a1=1, a2=2, a3=3))
         await client.zadd("b{foo}", dict(a1=4, a2=5, a3=6))
@@ -698,7 +685,6 @@ class TestSortedSet:
         assert result[0] == _s("b{foo}")
         assert result[1] == ((_s("a3"), 6.0),)
 
-    @pytest.mark.min_server_version("7.0.0")
     @pytest.mark.nocluster
     @pytest.mark.nodragonfly
     async def test_bzmpop(self, client, cloner, _s):
@@ -717,13 +703,13 @@ class TestSortedSet:
 
         async def _delayadd():
             clone = await cloner(client)
-            await asyncio.sleep(0.1)
-            return await clone.zadd("a{foo}", dict(a1=42))
+            async with clone:
+                await anyio.sleep(0.1)
+                return await clone.zadd("a{foo}", dict(a1=42))
 
-        result = await asyncio.gather(client.bzmpop(["a{foo}"], 1, PureToken.MIN), _delayadd())
+        result = await gather(client.bzmpop(["a{foo}"], 1, PureToken.MIN), _delayadd())
         assert result[0][1] == ((_s("a1"), 42.0),)
 
-    @pytest.mark.nodragonfly
     async def test_zmscore(self, client, _s):
         with pytest.raises(DataError):
             await client.zmscore("invalid_key", [])

@@ -64,14 +64,9 @@ from aiohomematic.model.support import convert_value
 from aiohomematic.property_decorators import DelegatedProperty
 from aiohomematic.store.dynamic import CommandTracker, PingPongTracker
 from aiohomematic.store.types import IncidentSeverity, IncidentType
-from aiohomematic.support import (
-    LogContextMixin,
-    extract_exc_args,
-    get_device_address,
-    is_channel_address,
-    is_paramset_key,
-    supports_rx_mode,
-)
+from aiohomematic.support import extract_exc_args, supports_rx_mode
+from aiohomematic.support.address import get_device_address, is_channel_address, is_paramset_key
+from aiohomematic.support.mixins import LogContextMixin
 
 if TYPE_CHECKING:
     from aiohomematic.client.config import InterfaceConfig
@@ -279,7 +274,7 @@ class InterfaceClient(ClientProtocol, LogContextMixin):
             return None
         return await self._backend.create_backup_and_download(max_wait_time=max_wait_time, poll_interval=poll_interval)
 
-    async def deinitialize_proxy(self) -> ProxyInitState:
+    async def deinit_proxy(self) -> ProxyInitState:
         """De-initialize the proxy."""
         if not self._backend.capabilities.rpc_callback:
             self._state_machine.transition_to(target=ClientState.DISCONNECTED, reason="no callback support")
@@ -644,7 +639,7 @@ class InterfaceClient(ClientProtocol, LogContextMixin):
             )
             raise
 
-    async def initialize_proxy(self) -> ProxyInitState:
+    async def init_proxy(self) -> ProxyInitState:
         """Initialize the proxy."""
         self._state_machine.transition_to(target=ClientState.CONNECTING)
         if not self._backend.capabilities.rpc_callback:
@@ -860,13 +855,13 @@ class InterfaceClient(ClientProtocol, LogContextMixin):
             if is_link_call:
                 return set()
 
-            # Store the sent values and write temporary values for UI feedback
+            # Store the sent values and write unconfirmed values for UI feedback
             dpk_values = self._last_value_send_tracker.add_put_paramset(
                 channel_address=channel_address,
                 paramset_key=ParamsetKey(paramset_key_or_link_address),
                 values=checked_values,
             )
-            self._write_temporary_value(dpk_values=dpk_values)
+            self._write_unconfirmed_value(dpk_values=dpk_values)
 
             # Schedule master paramset polling for BidCos interfaces
             if (
@@ -932,7 +927,7 @@ class InterfaceClient(ClientProtocol, LogContextMixin):
             )
             await asyncio.sleep(delay)
 
-            if await self.reinitialize_proxy() == ProxyInitState.INIT_SUCCESS:
+            if await self.reinit_proxy() == ProxyInitState.INIT_SUCCESS:
                 self.reset_circuit_breakers()
                 self._reconnect_attempts = 0
                 self._connection_error_count = 0
@@ -946,10 +941,10 @@ class InterfaceClient(ClientProtocol, LogContextMixin):
             self._reconnect_attempts += 1
         return False
 
-    async def reinitialize_proxy(self) -> ProxyInitState:
+    async def reinit_proxy(self) -> ProxyInitState:
         """Reinitialize proxy."""
-        await self.deinitialize_proxy()
-        return await self.initialize_proxy()
+        await self.deinit_proxy()
+        return await self.init_proxy()
 
     async def remove_link(self, *, sender_address: str, receiver_address: str) -> None:
         """Remove a link between two devices."""
@@ -1070,11 +1065,11 @@ class InterfaceClient(ClientProtocol, LogContextMixin):
             else:
                 await self._backend.set_value(channel_address=channel_address, parameter=parameter, value=checked_value)
 
-            # Store the sent value and write temporary value for UI feedback
+            # Store the sent value and write unconfirmed value for UI feedback
             dpk_values = self._last_value_send_tracker.add_set_value(
                 channel_address=channel_address, parameter=parameter, value=checked_value
             )
-            self._write_temporary_value(dpk_values=dpk_values)
+            self._write_unconfirmed_value(dpk_values=dpk_values)
 
             if wait_for_callback is not None and (
                 device := self._central.device_coordinator.get_device(
@@ -1435,14 +1430,14 @@ class InterfaceClient(ClientProtocol, LogContextMixin):
             device=device, dpk_values=dpk_values, wait_for_callback=wait_for_callback
         )
 
-    def _write_temporary_value(self, *, dpk_values: set[DP_KEY_VALUE]) -> None:
-        """Write temporary values to polling data points for immediate UI feedback."""
+    def _write_unconfirmed_value(self, *, dpk_values: set[DP_KEY_VALUE]) -> None:
+        """Write unconfirmed values to polling data points for immediate UI feedback."""
         for dpk, value in dpk_values:
             if (
-                data_point := self._central.get_generic_data_point(
+                data_point := self._central.query_facade.get_generic_data_point(
                     channel_address=dpk.channel_address,
                     parameter=dpk.parameter,
                     paramset_key=dpk.paramset_key,
                 )
             ) and data_point.requires_polling:
-                data_point.write_temporary_value(value=value, write_at=datetime.now())
+                data_point.write_unconfirmed_value(value=value, write_at=datetime.now())

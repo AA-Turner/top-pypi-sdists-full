@@ -9,7 +9,15 @@ import asyncio
 import json
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Callable, Iterator, Literal, TypeAlias, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Iterator,
+    Literal,
+    TypeAlias,
+    cast,
+)
 
 from ibm_watsonx_ai.helpers import DataConnection
 from ibm_watsonx_ai.metanames import TrainingConfigurationMetaNames
@@ -27,6 +35,7 @@ logging.getLogger("lomond").setLevel(logging.CRITICAL)
 ListType: TypeAlias = list
 
 if TYPE_CHECKING:
+    from httpx import Response
     from pandas import DataFrame
 
     from ibm_watsonx_ai import APIClient
@@ -39,6 +48,22 @@ class Training(WMLResource):
 
     def __init__(self, client: APIClient) -> None:
         WMLResource.__init__(self, __name__, client)
+
+    @staticmethod
+    def _get_status_process_response(details: dict, training_id: str) -> dict:
+        """Helper method for `(a)get_status` methods.
+        Return training status retrieved from details.
+        """
+        if details is not None:
+            return WMLResource._get_required_element_from_dict(
+                details, "details", ["entity", "status"], dict
+            )
+        else:
+            raise WMLClientError(
+                "Getting trained model status failed. Unable to get model details for training_id: '{}'.".format(
+                    training_id
+                )
+            )
 
     def get_status(self, training_id: str | None = None, **kwargs: Any) -> dict:
         """Get the status of a created training.
@@ -66,16 +91,7 @@ class Training(WMLResource):
             training_id, _internal=True, _is_fine_tuning=_is_fine_tuning
         )
 
-        if details is not None:
-            return WMLResource._get_required_element_from_dict(
-                details, "details", ["entity", "status"], dict
-            )
-        else:
-            raise WMLClientError(
-                "Getting trained model status failed. Unable to get model details for training_id: '{}'.".format(
-                    training_id
-                )
-            )
+        return self._get_status_process_response(details, training_id)
 
     async def aget_status(self, training_id: str, **kwargs: Any) -> dict:
         """Get the status of a created training asynchronously.
@@ -100,15 +116,46 @@ class Training(WMLResource):
             training_id, _internal=True, _is_fine_tuning=_is_fine_tuning
         )
 
-        if details is not None:
-            return WMLResource._get_required_element_from_dict(
-                details, "details", ["entity", "status"], dict
+        return self._get_status_process_response(details, training_id)
+
+    @staticmethod
+    def _get_details_prepare_query_params(
+        training_type: str | None = None,
+        state: str | None = None,
+        tag_value: str | list[str] | None = None,
+        training_definition_id: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Helper method for `(a)get_details` methods.
+        Return query parameters for a request to get training details.
+        """
+        query_params: dict | None = {
+            param_name: param_value
+            for param_name, param_value in (
+                ("type", training_type),
+                ("state", state),
+                ("tag.value", tag_value),
+                ("training_definition_id", training_definition_id),
+            )
+            if param_value is not None
+        }
+        # note: If query params is an empty dict convert it back to None value
+        query_params = query_params or None
+
+        return query_params
+
+    def _get_url(self, is_fine_tuning: bool, training_id: str | None = None) -> str:
+        """Return proper URL for a request based on `is_fine_tuning`."""
+        if training_id is None:
+            return (
+                self._client._href_definitions.get_fine_tunings_href()
+                if is_fine_tuning
+                else self._client._href_definitions.get_trainings_href()
             )
         else:
-            raise WMLClientError(
-                "Getting trained model status failed. Unable to get model details for training_id: '{}'.".format(
-                    training_id
-                )
+            return (
+                self._client._href_definitions.get_fine_tuning_href(training_id)
+                if is_fine_tuning
+                else self._client._href_definitions.get_training_href(training_id)
             )
 
     def get_details(
@@ -176,31 +223,17 @@ class Training(WMLResource):
         training_id = _get_id_from_deprecated_uid(
             kwargs, training_id, "training", can_be_none=True
         )
-        _is_fine_tuning = kwargs.get("_is_fine_tuning", False)
 
-        # For CP4D, check if either spce or project ID is set
+        # For CP4D, check if either space or project ID is set
         self._client._check_if_either_is_set()
         Training._validate_type(training_id, "training_id", str, False)
 
-        url = (
-            self._client._href_definitions.get_fine_tunings_href()
-            if _is_fine_tuning
-            else self._client._href_definitions.get_trainings_href()
-        )
+        url = self._get_url(kwargs.get("_is_fine_tuning", False))
 
         if training_id is None:
-            query_params: dict | None = {
-                param_name: param_value
-                for param_name, param_value in (
-                    ("type", training_type),
-                    ("state", state),
-                    ("tag.value", tag_value),
-                    ("training_definition_id", training_definition_id),
-                )
-                if param_value is not None
-            }
-            # note: If query params is an empty dict convert it back to None value
-            query_params = query_params if query_params != {} else None
+            query_params = self._get_details_prepare_query_params(
+                training_type, state, tag_value, training_definition_id
+            )
 
             return self._get_artifact_details(
                 base_url=url,
@@ -276,31 +309,16 @@ class Training(WMLResource):
                 training_runs_details.extend(entry)
 
         """
-        _is_fine_tuning = kwargs.get("_is_fine_tuning", False)
-
-        # For CP4D, check if either spce or project ID is set
+        # For CP4D, check if either space or project ID is set
         self._client._check_if_either_is_set()
         Training._validate_type(training_id, "training_id", str, False)
 
-        url = (
-            self._client._href_definitions.get_fine_tunings_href()
-            if _is_fine_tuning
-            else self._client._href_definitions.get_trainings_href()
-        )
+        url = self._get_url(kwargs.get("_is_fine_tuning", False))
 
         if training_id is None:
-            query_params: dict | None = {
-                param_name: param_value
-                for param_name, param_value in (
-                    ("type", training_type),
-                    ("state", state),
-                    ("tag.value", tag_value),
-                    ("training_definition_id", training_definition_id),
-                )
-                if param_value is not None
-            }
-            # note: If query params is an empty dict convert it back to None value
-            query_params = query_params if query_params != {} else None
+            query_params = self._get_details_prepare_query_params(
+                training_type, state, tag_value, training_definition_id
+            )
 
             return await self._aget_artifact_details(  # type: ignore[call-overload]
                 base_url=url,
@@ -334,7 +352,7 @@ class Training(WMLResource):
             run_url = client.training.get_href(training_details)
         """
 
-        Training._validate_type(training_details, "training_details", object, True)
+        Training._validate_type(training_details, "training_details", dict, True)
         if "id" in training_details.get("metadata", {}):
             training_id = WMLResource._get_required_element_from_dict(
                 training_details, "training_details", ["metadata", "id"], str
@@ -366,10 +384,141 @@ class Training(WMLResource):
             training_id = client.training.get_id(training_details)
 
         """
-        Training._validate_type(training_details, "training_details", object, True)
+        Training._validate_type(training_details, "training_details", dict, True)
         return WMLResource._get_required_element_from_dict(
             training_details, "training_details", ["metadata", "id"], str
         )
+
+    def _run_validate(self, meta_props: dict, asynchronous: bool) -> None:
+        """Helper method for `(a)run` methods.
+        Validate `meta_props` and `asynchronous` passed to `(a)run` method.
+        Also, check if either space or project ID is set.
+        """
+        # For CP4D, check if either space or project ID is set
+        self._client._check_if_either_is_set()
+
+        Training._validate_type(meta_props, "meta_props", dict, True)
+        Training._validate_type(asynchronous, "asynchronous", bool, True)
+
+        self.ConfigurationMetaNames._validate(meta_props)
+
+    def _get_training_configuration_meta(self, meta_props: dict) -> dict:
+        """Helper method for `(a)run` methods.
+        Return training configuration metadata for a request to run training.
+        """
+        training_configuration_metadata = {
+            "training_data_references": meta_props[
+                self.ConfigurationMetaNames.TRAINING_DATA_REFERENCES
+            ],
+            "results_reference": meta_props[
+                self.ConfigurationMetaNames.TRAINING_RESULTS_REFERENCE
+            ],
+        }
+
+        if self.ConfigurationMetaNames.TEST_DATA_REFERENCES in meta_props:
+            training_configuration_metadata["test_data_references"] = meta_props[
+                self.ConfigurationMetaNames.TEST_DATA_REFERENCES
+            ]
+
+        if self.ConfigurationMetaNames.TEST_OUTPUT_DATA in meta_props:
+            training_configuration_metadata["test_output_data"] = meta_props[
+                self.ConfigurationMetaNames.TEST_OUTPUT_DATA
+            ]
+
+        if self.ConfigurationMetaNames.TAGS in meta_props:
+            training_configuration_metadata["tags"] = meta_props[
+                self.ConfigurationMetaNames.TAGS
+            ]
+
+        if self.ConfigurationMetaNames.PROMPT_TUNING in meta_props:
+            training_configuration_metadata["prompt_tuning"] = meta_props[
+                self.ConfigurationMetaNames.PROMPT_TUNING
+            ]
+
+        if self.ConfigurationMetaNames.FINE_TUNING in meta_props:
+            training_configuration_metadata["parameters"] = meta_props[
+                self.ConfigurationMetaNames.FINE_TUNING
+            ]
+
+        if self.ConfigurationMetaNames.AUTO_UPDATE_MODEL in meta_props:
+            training_configuration_metadata["auto_update_model"] = meta_props[
+                self.ConfigurationMetaNames.AUTO_UPDATE_MODEL
+            ]
+
+        # TODO remove when training service starts copying such data on their own
+
+        training_configuration_metadata["name"] = meta_props[
+            self.ConfigurationMetaNames.NAME
+        ]
+        training_configuration_metadata["description"] = meta_props[
+            self.ConfigurationMetaNames.DESCRIPTION
+        ]
+
+        if self.ConfigurationMetaNames.PIPELINE in meta_props:
+            training_configuration_metadata["pipeline"] = meta_props[
+                self.ConfigurationMetaNames.PIPELINE
+            ]
+        if self.ConfigurationMetaNames.EXPERIMENT in meta_props:
+            training_configuration_metadata["experiment"] = meta_props[
+                self.ConfigurationMetaNames.EXPERIMENT
+            ]
+        if self.ConfigurationMetaNames.MODEL_DEFINITION in meta_props:
+            training_configuration_metadata["model_definition"] = meta_props[
+                self.ConfigurationMetaNames.MODEL_DEFINITION
+            ]
+        if self.ConfigurationMetaNames.SPACE_UID in meta_props:
+            training_configuration_metadata["space_id"] = meta_props[
+                self.ConfigurationMetaNames.SPACE_UID
+            ]
+        if "type" in meta_props:
+            training_configuration_metadata["type"] = meta_props["type"]
+
+        # _check_if_either_is_set is performed on the beginning of processing function call
+        if self._client.default_space_id is not None:
+            training_configuration_metadata["space_id"] = self._client.default_space_id
+        else:
+            training_configuration_metadata["project_id"] = (
+                self._client.default_project_id
+            )
+
+        return training_configuration_metadata
+
+    def _run_prepare_query_params(self) -> dict:
+        """Helper method for `(a)run` methods.
+        Return query parameters for training run.
+        """
+        params = self._client._params()
+        if "space_id" in params.keys():
+            params.pop("space_id")
+        if "project_id" in params.keys():
+            params.pop("project_id")
+
+        if self._client.ICP_PLATFORM_SPACES:
+            if "userfs" in params.keys():
+                params.pop("userfs")
+
+        return params
+
+    def _print_final_training_result(
+        self, state: str, status: dict, trained_model_id: str, run_details: dict
+    ) -> None:
+        """Helper method for `(a)run` methods.
+        Print final training result.
+        """
+        if "completed" in state:
+            print(
+                "\nTraining of '{}' finished successfully.".format(
+                    str(trained_model_id)
+                )
+            )
+        else:
+            print(
+                "\nTraining of '{}' failed with status: '{}'.".format(
+                    trained_model_id, str(status)
+                )
+            )
+
+        self._logger.debug("Response({}): {}".format(state, run_details))
 
     def run(self, meta_props: dict, asynchronous: bool = True, **kwargs: Any) -> dict:
         """Create a new Machine Learning training.
@@ -450,106 +599,19 @@ class Training(WMLResource):
             }
 
         """
-        # For CP4D, check if either spce or project ID is set
-        self._client._check_if_either_is_set()
-        Training._validate_type(meta_props, "meta_props", object, True)
-        Training._validate_type(asynchronous, "asynchronous", bool, True)
-        _is_fine_tuning = kwargs.get("_is_fine_tuning", False)
+        self._run_validate(meta_props, asynchronous)
 
-        self.ConfigurationMetaNames._validate(meta_props)
-        training_configuration_metadata = {
-            "training_data_references": meta_props[
-                self.ConfigurationMetaNames.TRAINING_DATA_REFERENCES
-            ],
-            "results_reference": meta_props[
-                self.ConfigurationMetaNames.TRAINING_RESULTS_REFERENCE
-            ],
-        }
-
-        if self.ConfigurationMetaNames.TEST_DATA_REFERENCES in meta_props:
-            training_configuration_metadata["test_data_references"] = meta_props[
-                self.ConfigurationMetaNames.TEST_DATA_REFERENCES
-            ]
-
-        if self.ConfigurationMetaNames.TEST_OUTPUT_DATA in meta_props:
-            training_configuration_metadata["test_output_data"] = meta_props[
-                self.ConfigurationMetaNames.TEST_OUTPUT_DATA
-            ]
-
-        if self.ConfigurationMetaNames.TAGS in meta_props:
-            training_configuration_metadata["tags"] = meta_props[
-                self.ConfigurationMetaNames.TAGS
-            ]
-
-        if self.ConfigurationMetaNames.PROMPT_TUNING in meta_props:
-            training_configuration_metadata["prompt_tuning"] = meta_props[
-                self.ConfigurationMetaNames.PROMPT_TUNING
-            ]
-
-        if self.ConfigurationMetaNames.FINE_TUNING in meta_props:
-            training_configuration_metadata["parameters"] = meta_props[
-                self.ConfigurationMetaNames.FINE_TUNING
-            ]
-
-        if self.ConfigurationMetaNames.AUTO_UPDATE_MODEL in meta_props:
-            training_configuration_metadata["auto_update_model"] = meta_props[
-                self.ConfigurationMetaNames.AUTO_UPDATE_MODEL
-            ]
-
-        # TODO remove when training service starts copying such data on their own
-
-        training_configuration_metadata["name"] = meta_props[
-            self.ConfigurationMetaNames.NAME
-        ]
-        training_configuration_metadata["description"] = meta_props[
-            self.ConfigurationMetaNames.DESCRIPTION
-        ]
-
-        if self.ConfigurationMetaNames.PIPELINE in meta_props:
-            training_configuration_metadata["pipeline"] = meta_props[
-                self.ConfigurationMetaNames.PIPELINE
-            ]
-        if self.ConfigurationMetaNames.EXPERIMENT in meta_props:
-            training_configuration_metadata["experiment"] = meta_props[
-                self.ConfigurationMetaNames.EXPERIMENT
-            ]
-        if self.ConfigurationMetaNames.MODEL_DEFINITION in meta_props:
-            training_configuration_metadata["model_definition"] = meta_props[
-                self.ConfigurationMetaNames.MODEL_DEFINITION
-            ]
-        if self.ConfigurationMetaNames.SPACE_UID in meta_props:
-            training_configuration_metadata["space_id"] = meta_props[
-                self.ConfigurationMetaNames.SPACE_UID
-            ]
-        if "type" in meta_props:
-            training_configuration_metadata["type"] = meta_props["type"]
-
-        # _check_if_either_is_set is performed on the beginning of processing function call
-        if self._client.default_space_id is not None:
-            training_configuration_metadata["space_id"] = self._client.default_space_id
-        else:
-            training_configuration_metadata["project_id"] = (
-                self._client.default_project_id
-            )
-
-        train_endpoint = (
-            self._client._href_definitions.get_fine_tunings_href()
-            if _is_fine_tuning
-            else self._client._href_definitions.get_trainings_href()
+        training_configuration_metadata = self._get_training_configuration_meta(
+            meta_props
         )
 
-        params = self._client._params()
-        if "space_id" in params.keys():
-            params.pop("space_id")
-        if "project_id" in params.keys():
-            params.pop("project_id")
+        _is_fine_tuning = kwargs.get("_is_fine_tuning", False)
+        url = self._get_url(_is_fine_tuning)
 
-        if self._client.ICP_PLATFORM_SPACES:
-            if "userfs" in params.keys():
-                params.pop("userfs")
+        params = self._run_prepare_query_params()
 
         response_train_post = self._client.httpx_client.post(
-            url=train_endpoint,
+            url=url,
             json=training_configuration_metadata,
             params=params,
             headers=self._client._get_headers(),
@@ -576,20 +638,10 @@ class Training(WMLResource):
                     state = status["state"]
                     status_logger.log_state(state)
 
-            if "completed" in state:
-                print(
-                    "\nTraining of '{}' finished successfully.".format(
-                        str(trained_model_id)
-                    )
-                )
-            else:
-                print(
-                    "\nTraining of '{}' failed with status: '{}'.".format(
-                        trained_model_id, str(status)
-                    )
-                )
+            self._print_final_training_result(
+                state, status, trained_model_id, run_details
+            )
 
-            self._logger.debug("Response({}): {}".format(state, run_details))
             return self.get_details(
                 trained_model_id, _internal=True, _is_fine_tuning=_is_fine_tuning
             )
@@ -675,106 +727,19 @@ class Training(WMLResource):
             }
 
         """
-        # For CP4D, check if either spce or project ID is set
-        self._client._check_if_either_is_set()
-        Training._validate_type(meta_props, "meta_props", object, True)
-        Training._validate_type(asynchronous, "asynchronous", bool, True)
-        _is_fine_tuning = kwargs.get("_is_fine_tuning", False)
+        self._run_validate(meta_props, asynchronous)
 
-        self.ConfigurationMetaNames._validate(meta_props)
-        training_configuration_metadata = {
-            "training_data_references": meta_props[
-                self.ConfigurationMetaNames.TRAINING_DATA_REFERENCES
-            ],
-            "results_reference": meta_props[
-                self.ConfigurationMetaNames.TRAINING_RESULTS_REFERENCE
-            ],
-        }
-
-        if self.ConfigurationMetaNames.TEST_DATA_REFERENCES in meta_props:
-            training_configuration_metadata["test_data_references"] = meta_props[
-                self.ConfigurationMetaNames.TEST_DATA_REFERENCES
-            ]
-
-        if self.ConfigurationMetaNames.TEST_OUTPUT_DATA in meta_props:
-            training_configuration_metadata["test_output_data"] = meta_props[
-                self.ConfigurationMetaNames.TEST_OUTPUT_DATA
-            ]
-
-        if self.ConfigurationMetaNames.TAGS in meta_props:
-            training_configuration_metadata["tags"] = meta_props[
-                self.ConfigurationMetaNames.TAGS
-            ]
-
-        if self.ConfigurationMetaNames.PROMPT_TUNING in meta_props:
-            training_configuration_metadata["prompt_tuning"] = meta_props[
-                self.ConfigurationMetaNames.PROMPT_TUNING
-            ]
-
-        if self.ConfigurationMetaNames.FINE_TUNING in meta_props:
-            training_configuration_metadata["parameters"] = meta_props[
-                self.ConfigurationMetaNames.FINE_TUNING
-            ]
-
-        if self.ConfigurationMetaNames.AUTO_UPDATE_MODEL in meta_props:
-            training_configuration_metadata["auto_update_model"] = meta_props[
-                self.ConfigurationMetaNames.AUTO_UPDATE_MODEL
-            ]
-
-        # TODO remove when training service starts copying such data on their own
-
-        training_configuration_metadata["name"] = meta_props[
-            self.ConfigurationMetaNames.NAME
-        ]
-        training_configuration_metadata["description"] = meta_props[
-            self.ConfigurationMetaNames.DESCRIPTION
-        ]
-
-        if self.ConfigurationMetaNames.PIPELINE in meta_props:
-            training_configuration_metadata["pipeline"] = meta_props[
-                self.ConfigurationMetaNames.PIPELINE
-            ]
-        if self.ConfigurationMetaNames.EXPERIMENT in meta_props:
-            training_configuration_metadata["experiment"] = meta_props[
-                self.ConfigurationMetaNames.EXPERIMENT
-            ]
-        if self.ConfigurationMetaNames.MODEL_DEFINITION in meta_props:
-            training_configuration_metadata["model_definition"] = meta_props[
-                self.ConfigurationMetaNames.MODEL_DEFINITION
-            ]
-        if self.ConfigurationMetaNames.SPACE_UID in meta_props:
-            training_configuration_metadata["space_id"] = meta_props[
-                self.ConfigurationMetaNames.SPACE_UID
-            ]
-        if "type" in meta_props:
-            training_configuration_metadata["type"] = meta_props["type"]
-
-        # _check_if_either_is_set is performed on the beginning of processing function call
-        if self._client.default_space_id is not None:
-            training_configuration_metadata["space_id"] = self._client.default_space_id
-        else:
-            training_configuration_metadata["project_id"] = (
-                self._client.default_project_id
-            )
-
-        train_endpoint = (
-            self._client._href_definitions.get_fine_tunings_href()
-            if _is_fine_tuning
-            else self._client._href_definitions.get_trainings_href()
+        training_configuration_metadata = self._get_training_configuration_meta(
+            meta_props
         )
 
-        params = self._client._params()
-        if "space_id" in params.keys():
-            params.pop("space_id")
-        if "project_id" in params.keys():
-            params.pop("project_id")
+        _is_fine_tuning = kwargs.get("_is_fine_tuning", False)
+        url = self._get_url(_is_fine_tuning)
 
-        if self._client.ICP_PLATFORM_SPACES:
-            if "userfs" in params.keys():
-                params.pop("userfs")
+        params = self._run_prepare_query_params()
 
         response_train_post = await self._client.async_httpx_client.post(
-            url=train_endpoint,
+            url=url,
             json=training_configuration_metadata,
             params=params,
             headers=await self._client._aget_headers(),
@@ -803,20 +768,10 @@ class Training(WMLResource):
                     state = status["state"]
                     status_logger.log_state(state)
 
-            if "completed" in state:
-                print(
-                    "\nTraining of '{}' finished successfully.".format(
-                        str(trained_model_id)
-                    )
-                )
-            else:
-                print(
-                    "\nTraining of '{}' failed with status: '{}'.".format(
-                        trained_model_id, str(status)
-                    )
-                )
+            self._print_final_training_result(
+                state, status, trained_model_id, run_details
+            )
 
-            self._logger.debug("Response({}): {}".format(state, run_details))
             return await self.aget_details(
                 trained_model_id, _internal=True, _is_fine_tuning=_is_fine_tuning
             )
@@ -854,7 +809,7 @@ class Training(WMLResource):
             ):
                 training_runs_df.extend(entry)
         """
-        # For CP4D, check if either spce or project ID is set
+        # For CP4D, check if either space or project ID is set
         self._client._check_if_either_is_set()
 
         def preprocess_details(details: dict) -> DataFrame | ListType:
@@ -913,7 +868,7 @@ class Training(WMLResource):
             kwargs, training_id, "training", can_be_none=False
         )
 
-        # For CP4D, check if either spce or project ID is set
+        # For CP4D, check if either space or project ID is set
         if self._client.ICP_PLATFORM_SPACES:
             raise WMLClientError(
                 "This method is not supported for IBM Cloud Pak® for Data. "
@@ -1017,6 +972,37 @@ class Training(WMLResource):
         else:
             self._logger.debug("state is not completed")
 
+    def _cancel_prepare_query_params(self, hard_delete: bool) -> dict:
+        """Helper method for `(a)cancel` methods.
+        Return query parameters for cancelling training run.
+        """
+        params = self._client._params()
+
+        if hard_delete is True:
+            params.update({"hard_delete": "true"})
+
+        return params
+
+    def _cancel_process_response(self, response: Response) -> Literal["SUCCESS"]:
+        """Helper method for `(a)cancel` methods.
+        Return training status retrieved from details.
+        """
+        if (
+            response.status_code == 400
+            and response.text is not None
+            and "Job already completed with state" in response.text
+        ):
+            print(
+                "Job is not running currently. Please use 'hard_delete=True' parameter to force delete"
+                " completed or canceled training runs."
+            )
+            return "SUCCESS"
+        else:
+            return cast(
+                Literal["SUCCESS"],
+                self._handle_response(204, "trained model deletion", response, False),
+            )
+
     def cancel(
         self,
         training_id: str | None = None,
@@ -1051,20 +1037,13 @@ class Training(WMLResource):
         )
         _is_fine_tuning = kwargs.get("_is_fine_tuning", False)
 
-        # For CP4D, check if either spce or project ID is set
+        # For CP4D, check if either space or project ID is set
         self._client._check_if_either_is_set()
         Training._validate_type(training_id, "training_id", str, True)
 
-        params = self._client._params()
+        params = self._cancel_prepare_query_params(hard_delete)
 
-        if hard_delete is True:
-            params.update({"hard_delete": "true"})
-
-        train_endpoint = (
-            self._client._href_definitions.get_fine_tuning_href(training_id)
-            if _is_fine_tuning
-            else self._client._href_definitions.get_training_href(training_id)
-        )
+        train_endpoint = self._get_url(_is_fine_tuning, training_id)
 
         response_delete = self._client.httpx_client.delete(
             url=train_endpoint,
@@ -1072,23 +1051,7 @@ class Training(WMLResource):
             params=params,
         )
 
-        if (
-            response_delete.status_code == 400
-            and response_delete.text is not None
-            and "Job already completed with state" in response_delete.text
-        ):
-            print(
-                "Job is not running currently. Please use 'hard_delete=True' parameter to force delete"
-                " completed or canceled training runs."
-            )
-            return "SUCCESS"
-        else:
-            return cast(
-                Literal["SUCCESS"],
-                self._handle_response(
-                    204, "trained model deletion", response_delete, False
-                ),
-            )
+        return self._cancel_process_response(response_delete)
 
     async def acancel(
         self, training_id: str, hard_delete: bool = False, **kwargs: Any
@@ -1118,20 +1081,13 @@ class Training(WMLResource):
         """
         _is_fine_tuning = kwargs.get("_is_fine_tuning", False)
 
-        # For CP4D, check if either spce or project ID is set
+        # For CP4D, check if either space or project ID is set
         self._client._check_if_either_is_set()
         Training._validate_type(training_id, "training_id", str, True)
 
-        params = self._client._params()
+        params = self._cancel_prepare_query_params(hard_delete)
 
-        if hard_delete is True:
-            params["hard_delete"] = "true"
-
-        train_endpoint = (
-            self._client._href_definitions.get_fine_tuning_href(training_id)
-            if _is_fine_tuning
-            else self._client._href_definitions.get_training_href(training_id)
-        )
+        train_endpoint = self._get_url(_is_fine_tuning, training_id)
 
         response_delete = await self._client.async_httpx_client.delete(
             url=train_endpoint,
@@ -1139,23 +1095,7 @@ class Training(WMLResource):
             params=params,
         )
 
-        if (
-            response_delete.status_code == 400
-            and response_delete.text is not None
-            and "Job already completed with state" in response_delete.text
-        ):
-            print(
-                "Job is not running currently. Please use 'hard_delete=True' parameter to force delete"
-                " completed or canceled training runs."
-            )
-            return "SUCCESS"
-        else:
-            return cast(
-                Literal["SUCCESS"],
-                self._handle_response(
-                    204, "trained model deletion", response_delete, False
-                ),
-            )
+        return self._cancel_process_response(response_delete)
 
     def _prepare_connection_to_results_file(
         self, run_details: dict, results_file_key: str
@@ -1175,6 +1115,39 @@ class Training(WMLResource):
 
         return results_conn
 
+    def _print_result_if_finished(self, run_details: dict, training_id: str) -> bool:
+        """Helper method for `(a)monitor_logs` methods.
+        Check training state and print result if training is finished. If so, return `True`, otherwise return `False`.
+        """
+        state = run_details["entity"]["status"]["state"]
+
+        print_text_header_h1(
+            "Log monitor started for training run: " + str(training_id)
+        )
+
+        if state in {"completed", "error", "failed", "canceled"}:
+            results_conn = self._prepare_connection_to_results_file(
+                run_details, "training_log"
+            )
+            result = results_conn.read(raw=True, binary=True)
+            print(cast(bytes, result).decode("utf-8"))
+
+            return True
+
+        return False
+
+    @staticmethod
+    def _print_not_found_msg_if_404(exception: Exception) -> bool:
+        """Helper method for `(a)monitor_logs` and `(a)monitor_metrics` methods.
+        Check if '404' present in exception. If so, print message and return `True`, otherwise return `False`.
+        """
+        if "404" in str(exception.args[1]):
+            print(
+                "Could not find the training run details for the given training run id."
+            )
+            return True
+        return False
+
     def monitor_logs(self, training_id: str | None = None, **kwargs: Any) -> None:
         """Print the logs of a training created.
 
@@ -1191,33 +1164,17 @@ class Training(WMLResource):
         training_id = _get_id_from_deprecated_uid(
             kwargs, training_id, "training", can_be_none=False
         )
-
         Training._validate_type(training_id, "training_id", str, True)
 
         try:
             run_details = self.get_details(training_id, _internal=True)
         except ApiRequestFailure as ex:
-            if "404" in str(ex.args[1]):
-                print(
-                    "Could not find the training run details for the given training run id."
-                )
+            if self._print_not_found_msg_if_404(ex):
                 return
             else:
                 raise ex
 
-        print_text_header_h1(
-            "Log monitor started for training run: " + str(training_id)
-        )
-
-        status = run_details["entity"]["status"]["state"]
-
-        if status in {"completed", "error", "failed", "canceled"}:
-            results_conn = self._prepare_connection_to_results_file(
-                run_details, "training_log"
-            )
-            result = results_conn.read(raw=True, binary=True)
-            print(cast(bytes, result).decode("utf-8"))
-        else:
+        if not self._print_result_if_finished(run_details, training_id):
             self._monitor_connection(
                 training_id,
                 token=self._client.token,
@@ -1239,33 +1196,17 @@ class Training(WMLResource):
             await client.training.amonitor_logs(training_id)
 
         """
-
         Training._validate_type(training_id, "training_id", str, True)
 
         try:
             run_details = await self.aget_details(training_id, _internal=True)
         except ApiRequestFailure as ex:
-            if "404" in str(ex.args[1]):
-                print(
-                    "Could not find the training run details for the given training run id."
-                )
+            if self._print_not_found_msg_if_404(ex):
                 return
             else:
                 raise ex
 
-        status = run_details["entity"]["status"]["state"]
-
-        print_text_header_h1(
-            "Log monitor started for training run: " + str(training_id)
-        )
-
-        if status in {"completed", "error", "failed", "canceled"}:
-            results_conn = self._prepare_connection_to_results_file(
-                run_details, "training_log"
-            )
-            result = results_conn.read(raw=True, binary=True)
-            print(cast(bytes, result).decode("utf-8"))  # in the future will be async
-        else:
+        if not self._print_result_if_finished(run_details, training_id):
             self._monitor_connection(
                 training_id,
                 token=await self._client._auth_method.aget_token(),
@@ -1386,10 +1327,7 @@ class Training(WMLResource):
         try:
             run_details = self.get_details(training_id, _internal=True)
         except ApiRequestFailure as ex:
-            if "404" in str(ex.args[1]):
-                print(
-                    "Could not find the training run details for the given training run id. "
-                )
+            if self._print_not_found_msg_if_404(ex):
                 return
             else:
                 raise ex
@@ -1412,17 +1350,15 @@ class Training(WMLResource):
         try:
             run_details = await self.aget_details(training_id, _internal=True)
         except ApiRequestFailure as ex:
-            if "404" in str(ex.args[1]):
-                print(
-                    "Could not find the training run details for the given training run id. "
-                )
+            if self._print_not_found_msg_if_404(ex):
                 return
             else:
                 raise ex
 
         self._monitor_metrics(training_id, run_details)
 
-    def _get_metrics_from_details(self, run_details: dict) -> ListType[dict]:
+    @staticmethod
+    def _get_metrics_from_details(run_details: dict) -> ListType[dict]:
         status = get_from_json(run_details, ["entity", "status"])
         if "metrics" in status:
             return status["metrics"]
@@ -1480,6 +1416,29 @@ class Training(WMLResource):
 
         return self._get_metrics_from_details(await self.aget_details(training_id))
 
+    def _get_experiment_asset_id_to_delete(
+        self, tags: ListType[str], training_details: dict, trainings_with_tags: dict
+    ) -> str | None:
+        """Helper method for `(a)delete` methods.
+        Return the experiment asset id unless there are still other trainings assigned to it. If so, return `None`.
+        """
+        experiment_asset_id: str | None = None
+
+        if trainings_with_tags["resources"]:
+            return experiment_asset_id
+
+        if tags[0] == "autoai" or tags[0].startswith("dsx-project"):
+            experiment_asset_id = training_details["entity"]["pipeline"]["id"]
+        elif tags[0] == "prompt_tuning":
+            experiment_asset_id = tags[1].split(".", maxsplit=1)[1]
+        else:
+            self._logger.warning(
+                "Unknown training type, skipping asset deletion. Training details: %s",
+                training_details,
+            )
+
+        return experiment_asset_id
+
     def delete(self, training_id: str) -> None:
         """Delete a training run. If the experiment asset exists and contains only this training, delete the asset.
 
@@ -1503,18 +1462,11 @@ class Training(WMLResource):
 
         # Delete the asset unless there are still other trainings assigned to it
         trainings_with_tags = self.get_details(tag_value=tags)
-        if trainings_with_tags["resources"]:
-            return
-
-        if tags[0] == "autoai" or tags[0].startswith("dsx-project"):
-            experiment_asset_id = training_details["entity"]["pipeline"]["id"]
-        elif tags[0] == "prompt_tuning":
-            experiment_asset_id = tags[1].split(".", maxsplit=1)[1]
-        else:
-            self._logger.warning(
-                "Unknown training type, skipping asset deletion. Training details: %s",
-                training_details,
+        if (
+            experiment_asset_id := self._get_experiment_asset_id_to_delete(
+                tags, training_details, trainings_with_tags
             )
+        ) is None:
             return
 
         self._client.repository.delete(experiment_asset_id)
@@ -1542,18 +1494,11 @@ class Training(WMLResource):
 
         # Delete the asset unless there are still other trainings assigned to it
         trainings_with_tags = await self.aget_details(tag_value=tags)
-        if trainings_with_tags["resources"]:
-            return
-
-        if tags[0] == "autoai" or tags[0].startswith("dsx-project"):
-            experiment_asset_id = training_details["entity"]["pipeline"]["id"]
-        elif tags[0] == "prompt_tuning":
-            experiment_asset_id = tags[1].split(".", maxsplit=1)[1]
-        else:
-            self._logger.warning(
-                "Unknown training type, skipping asset deletion. Training details: %s",
-                training_details,
+        if (
+            experiment_asset_id := self._get_experiment_asset_id_to_delete(
+                tags, training_details, trainings_with_tags
             )
+        ) is None:
             return
 
         await self._client.repository.adelete(experiment_asset_id)

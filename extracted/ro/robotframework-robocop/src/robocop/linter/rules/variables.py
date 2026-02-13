@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from robocop.linter import sonar_qube
 from robocop.linter.rules import Rule, RuleParam, RuleSeverity
 
@@ -163,7 +165,7 @@ class VariableOverwrittenBeforeUsageRule(Rule):
 
 class NoGlobalVariableRule(Rule):
     """
-    Global variable defined outside ``*** Variables ***`` section.
+    Global variable defined outside the ``*** Variables ***`` section.
 
     Setting or updating global variables in a test/keyword often leads to hard-to-understand
     code. In most cases, you're better off using local variables.
@@ -478,9 +480,9 @@ class OverwritingReservedVariableRule(Rule):
     Variable overwrites reserved variable.
 
     Overwriting reserved variables may bring unexpected results.
-    For example, overwriting variable with name ``${LOG_LEVEL}`` can break Robot Framework logging.
+    For example, overwriting a variable with the name ``${LOG_LEVEL}`` can break Robot Framework logging.
     See the full list of reserved variables at
-    `Robot Framework User Guide <https://robotframework.org/robotframework/latest/RobotFrameworkUserGuide.html#automatic-variables>`_
+    [Robot Framework User Guide](https://robotframework.org/robotframework/latest/RobotFrameworkUserGuide.html#automatic-variables).
 
     """
 

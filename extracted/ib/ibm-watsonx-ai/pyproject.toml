@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ibm_watsonx_ai"
-version = "1.5.1"
+version = "1.5.2"
 requires-python = ">=3.11,<3.14"
 authors = [
   {name = "IBM"}
@@ -177,7 +177,7 @@ dev_autoai_rt25_1 = [
     "numpy>=2.0.2,<2.1; python_version == '3.12'",
     "onnxruntime==1.21.*; python_version == '3.12'",
     "onnxruntime-extensions<0.14; python_version == '3.12'",
-    "pandas==2.3.*; python_version == '3.12'",
+    "pandas==2.2.*; python_version == '3.12'",
     "pyarrow; python_version == '3.12'",
     "python-docx; python_version == '3.12'",
     "python-pptx; python_version == '3.12'",

@@ -2,7 +2,7 @@
 """
 The `annotations` package provides classes representing various types of PDF annotations.
 
-It defines `AnnotationTypes` as a Union of all supported annotation types, allowing for
+It defines `AnnotationTypes` as a collection of all supported annotation types, allowing for
 flexible type hinting when working with different annotation configurations.
 
 Classes within this package encapsulate the properties and behaviors of individual
@@ -10,11 +10,20 @@ annotations, facilitating their creation and manipulation within PDF documents.
 """
 
 from dataclasses import dataclass
-from typing import Union
 
+from .link import LinkAnnotation
 from .text import TextAnnotation
+from .text_markup import (HighlightAnnotation, SquigglyAnnotation,
+                          StrikeOutAnnotation, UnderlineAnnotation)
 
-AnnotationTypes = Union[TextAnnotation]
+AnnotationTypes = (
+    TextAnnotation
+    | LinkAnnotation
+    | HighlightAnnotation
+    | UnderlineAnnotation
+    | SquigglyAnnotation
+    | StrikeOutAnnotation
+)
 
 
 @dataclass
@@ -27,3 +36,8 @@ class Annotations:
     """
 
     TextAnnotation = TextAnnotation
+    LinkAnnotation = LinkAnnotation
+    HighlightAnnotation = HighlightAnnotation
+    UnderlineAnnotation = UnderlineAnnotation
+    SquigglyAnnotation = SquigglyAnnotation
+    StrikeOutAnnotation = StrikeOutAnnotation

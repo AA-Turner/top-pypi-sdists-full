@@ -16,7 +16,7 @@ import random
 import tempfile
 
 
-def shuffle_in_memory(filename_in, filename_out):
+def shuffle_in_memory(filename_in: str, filename_out: str) -> None:
     """
     Shuffle a file, line-by-line
     """
@@ -29,7 +29,13 @@ def shuffle_in_memory(filename_in, filename_out):
         fp.writelines(lines)
 
 
-def shuffle(filename_in, filename_out, memory_limit, file_split_count, depth=0):
+def shuffle(
+    filename_in: str,
+    filename_out: str,
+    memory_limit: int,
+    file_split_count: int,
+    depth: int = 0,
+) -> None:
     """
     Shuffle a file, recursively if needed.
     """
@@ -41,26 +47,31 @@ def shuffle(filename_in, filename_out, memory_limit, file_split_count, depth=0):
             tempfile.NamedTemporaryFile("w+", delete=False)
             for i in range(file_split_count)
         ]
-        for line in open(filename_in):
-            random_index = random.randint(0, len(temp_files) - 1)
-            temp_files[random_index].write(line)
+        try:
+            with open(filename_in) as fp_in:
+                for line in fp_in:
+                    random_index = random.randint(0, len(temp_files) - 1)
+                    temp_files[random_index].write(line)
 
-        # Now we shuffle each smaller file
-        for temp_file in temp_files:
-            temp_file.close()
-            shuffle(
-                temp_file.name,
-                temp_file.name,
-                memory_limit,
-                file_split_count,
-                depth + 1,
-            )
+            # Now we shuffle each smaller file
+            for temp_file in temp_files:
+                temp_file.close()
+                shuffle(
+                    temp_file.name,
+                    temp_file.name,
+                    memory_limit,
+                    file_split_count,
+                    depth + 1,
+                )
 
-        # And merge back in place of the original
-        merge_files(temp_files, filename_out)
+            # And merge back in place of the original
+            merge_files(temp_files, filename_out)
+        finally:
+            for temp_file in temp_files:
+                os.unlink(temp_file.name)
 
 
-def merge_files(temp_files, filename_out):
+def merge_files(temp_files, filename_out: str) -> None:
     """
     Merge a list of file names into a single
     output filename.

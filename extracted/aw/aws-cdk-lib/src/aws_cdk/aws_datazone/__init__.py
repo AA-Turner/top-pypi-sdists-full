@@ -6733,9 +6733,12 @@ class CfnEnvironment(
             project_identifier="projectIdentifier",
         
             # the properties below are optional
+            deployment_order=123,
             description="description",
             environment_account_identifier="environmentAccountIdentifier",
             environment_account_region="environmentAccountRegion",
+            environment_blueprint_identifier="environmentBlueprintIdentifier",
+            environment_configuration_id="environmentConfigurationId",
             environment_profile_identifier="environmentProfileIdentifier",
             environment_role_arn="environmentRoleArn",
             glossary_terms=["glossaryTerms"],
@@ -6754,9 +6757,12 @@ class CfnEnvironment(
         domain_identifier: builtins.str,
         name: builtins.str,
         project_identifier: builtins.str,
+        deployment_order: typing.Optional[jsii.Number] = None,
         description: typing.Optional[builtins.str] = None,
         environment_account_identifier: typing.Optional[builtins.str] = None,
         environment_account_region: typing.Optional[builtins.str] = None,
+        environment_blueprint_identifier: typing.Optional[builtins.str] = None,
+        environment_configuration_id: typing.Optional[builtins.str] = None,
         environment_profile_identifier: typing.Optional[builtins.str] = None,
         environment_role_arn: typing.Optional[builtins.str] = None,
         glossary_terms: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -6769,9 +6775,12 @@ class CfnEnvironment(
         :param domain_identifier: The identifier of the Amazon DataZone domain in which the environment is created.
         :param name: The name of the Amazon DataZone environment.
         :param project_identifier: The identifier of the Amazon DataZone project in which this environment is created.
+        :param deployment_order: The deployment order for the environment.
         :param description: The description of the environment.
         :param environment_account_identifier: The identifier of the AWS account in which an environment exists.
         :param environment_account_region: The AWS Region in which an environment exists.
+        :param environment_blueprint_identifier: The identifier of the environment blueprint.
+        :param environment_configuration_id: The identifier of the environment configuration.
         :param environment_profile_identifier: The identifier of the environment profile that is used to create this Amazon DataZone environment.
         :param environment_role_arn: The ARN of the environment role.
         :param glossary_terms: The glossary terms that can be used in this Amazon DataZone environment.
@@ -6785,9 +6794,12 @@ class CfnEnvironment(
             domain_identifier=domain_identifier,
             name=name,
             project_identifier=project_identifier,
+            deployment_order=deployment_order,
             description=description,
             environment_account_identifier=environment_account_identifier,
             environment_account_region=environment_account_region,
+            environment_blueprint_identifier=environment_blueprint_identifier,
+            environment_configuration_id=environment_configuration_id,
             environment_profile_identifier=environment_profile_identifier,
             environment_role_arn=environment_role_arn,
             glossary_terms=glossary_terms,
@@ -7008,6 +7020,19 @@ class CfnEnvironment(
         jsii.set(self, "projectIdentifier", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="deploymentOrder")
+    def deployment_order(self) -> typing.Optional[jsii.Number]:
+        '''The deployment order for the environment.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "deploymentOrder"))
+
+    @deployment_order.setter
+    def deployment_order(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7634de5915d37252fc9b2cdb730f2397e11202e7f4db299624faba56b2c89611)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deploymentOrder", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the environment.'''
@@ -7048,6 +7073,38 @@ class CfnEnvironment(
             type_hints = typing.get_type_hints(_typecheckingstub__4c559df95e35a94ccf1ae460803faf8ff00fc715c3ad0b7cfafb1b92c2258564)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "environmentAccountRegion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="environmentBlueprintIdentifier")
+    def environment_blueprint_identifier(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the environment blueprint.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "environmentBlueprintIdentifier"))
+
+    @environment_blueprint_identifier.setter
+    def environment_blueprint_identifier(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1516c4e832b5aed64b8c5130448cb7ebb3810461eed6e11daa7b3a1ad5f162e9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "environmentBlueprintIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="environmentConfigurationId")
+    def environment_configuration_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the environment configuration.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "environmentConfigurationId"))
+
+    @environment_configuration_id.setter
+    def environment_configuration_id(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ab463aaddd2b565d2016608d693f2b5f12e27dea8cd2c8094f3ce9fb894b1f74)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "environmentConfigurationId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="environmentProfileIdentifier")
@@ -8912,9 +8969,12 @@ class CfnEnvironmentProfileProps:
         "domain_identifier": "domainIdentifier",
         "name": "name",
         "project_identifier": "projectIdentifier",
+        "deployment_order": "deploymentOrder",
         "description": "description",
         "environment_account_identifier": "environmentAccountIdentifier",
         "environment_account_region": "environmentAccountRegion",
+        "environment_blueprint_identifier": "environmentBlueprintIdentifier",
+        "environment_configuration_id": "environmentConfigurationId",
         "environment_profile_identifier": "environmentProfileIdentifier",
         "environment_role_arn": "environmentRoleArn",
         "glossary_terms": "glossaryTerms",
@@ -8928,9 +8988,12 @@ class CfnEnvironmentProps:
         domain_identifier: builtins.str,
         name: builtins.str,
         project_identifier: builtins.str,
+        deployment_order: typing.Optional[jsii.Number] = None,
         description: typing.Optional[builtins.str] = None,
         environment_account_identifier: typing.Optional[builtins.str] = None,
         environment_account_region: typing.Optional[builtins.str] = None,
+        environment_blueprint_identifier: typing.Optional[builtins.str] = None,
+        environment_configuration_id: typing.Optional[builtins.str] = None,
         environment_profile_identifier: typing.Optional[builtins.str] = None,
         environment_role_arn: typing.Optional[builtins.str] = None,
         glossary_terms: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -8941,9 +9004,12 @@ class CfnEnvironmentProps:
         :param domain_identifier: The identifier of the Amazon DataZone domain in which the environment is created.
         :param name: The name of the Amazon DataZone environment.
         :param project_identifier: The identifier of the Amazon DataZone project in which this environment is created.
+        :param deployment_order: The deployment order for the environment.
         :param description: The description of the environment.
         :param environment_account_identifier: The identifier of the AWS account in which an environment exists.
         :param environment_account_region: The AWS Region in which an environment exists.
+        :param environment_blueprint_identifier: The identifier of the environment blueprint.
+        :param environment_configuration_id: The identifier of the environment configuration.
         :param environment_profile_identifier: The identifier of the environment profile that is used to create this Amazon DataZone environment.
         :param environment_role_arn: The ARN of the environment role.
         :param glossary_terms: The glossary terms that can be used in this Amazon DataZone environment.
@@ -8964,9 +9030,12 @@ class CfnEnvironmentProps:
                 project_identifier="projectIdentifier",
             
                 # the properties below are optional
+                deployment_order=123,
                 description="description",
                 environment_account_identifier="environmentAccountIdentifier",
                 environment_account_region="environmentAccountRegion",
+                environment_blueprint_identifier="environmentBlueprintIdentifier",
+                environment_configuration_id="environmentConfigurationId",
                 environment_profile_identifier="environmentProfileIdentifier",
                 environment_role_arn="environmentRoleArn",
                 glossary_terms=["glossaryTerms"],
@@ -8981,9 +9050,12 @@ class CfnEnvironmentProps:
             check_type(argname="argument domain_identifier", value=domain_identifier, expected_type=type_hints["domain_identifier"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument project_identifier", value=project_identifier, expected_type=type_hints["project_identifier"])
+            check_type(argname="argument deployment_order", value=deployment_order, expected_type=type_hints["deployment_order"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument environment_account_identifier", value=environment_account_identifier, expected_type=type_hints["environment_account_identifier"])
             check_type(argname="argument environment_account_region", value=environment_account_region, expected_type=type_hints["environment_account_region"])
+            check_type(argname="argument environment_blueprint_identifier", value=environment_blueprint_identifier, expected_type=type_hints["environment_blueprint_identifier"])
+            check_type(argname="argument environment_configuration_id", value=environment_configuration_id, expected_type=type_hints["environment_configuration_id"])
             check_type(argname="argument environment_profile_identifier", value=environment_profile_identifier, expected_type=type_hints["environment_profile_identifier"])
             check_type(argname="argument environment_role_arn", value=environment_role_arn, expected_type=type_hints["environment_role_arn"])
             check_type(argname="argument glossary_terms", value=glossary_terms, expected_type=type_hints["glossary_terms"])
@@ -8993,12 +9065,18 @@ class CfnEnvironmentProps:
             "name": name,
             "project_identifier": project_identifier,
         }
+        if deployment_order is not None:
+            self._values["deployment_order"] = deployment_order
         if description is not None:
             self._values["description"] = description
         if environment_account_identifier is not None:
             self._values["environment_account_identifier"] = environment_account_identifier
         if environment_account_region is not None:
             self._values["environment_account_region"] = environment_account_region
+        if environment_blueprint_identifier is not None:
+            self._values["environment_blueprint_identifier"] = environment_blueprint_identifier
+        if environment_configuration_id is not None:
+            self._values["environment_configuration_id"] = environment_configuration_id
         if environment_profile_identifier is not None:
             self._values["environment_profile_identifier"] = environment_profile_identifier
         if environment_role_arn is not None:
@@ -9039,6 +9117,15 @@ class CfnEnvironmentProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def deployment_order(self) -> typing.Optional[jsii.Number]:
+        '''The deployment order for the environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-environment.html#cfn-datazone-environment-deploymentorder
+        '''
+        result = self._values.get("deployment_order")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the environment.
 
@@ -9063,6 +9150,24 @@ class CfnEnvironmentProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-environment.html#cfn-datazone-environment-environmentaccountregion
         '''
         result = self._values.get("environment_account_region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def environment_blueprint_identifier(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the environment blueprint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-environment.html#cfn-datazone-environment-environmentblueprintidentifier
+        '''
+        result = self._values.get("environment_blueprint_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def environment_configuration_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the environment configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-environment.html#cfn-datazone-environment-environmentconfigurationid
+        '''
+        result = self._values.get("environment_configuration_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -16390,9 +16495,12 @@ def _typecheckingstub__b9dbab782927b08354bbafa4881abe3f775c9141395be836e6450777f
     domain_identifier: builtins.str,
     name: builtins.str,
     project_identifier: builtins.str,
+    deployment_order: typing.Optional[jsii.Number] = None,
     description: typing.Optional[builtins.str] = None,
     environment_account_identifier: typing.Optional[builtins.str] = None,
     environment_account_region: typing.Optional[builtins.str] = None,
+    environment_blueprint_identifier: typing.Optional[builtins.str] = None,
+    environment_configuration_id: typing.Optional[builtins.str] = None,
     environment_profile_identifier: typing.Optional[builtins.str] = None,
     environment_role_arn: typing.Optional[builtins.str] = None,
     glossary_terms: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -16443,6 +16551,12 @@ def _typecheckingstub__baefbe7e97d72065b3b2c6be4e97a54bf9298376bb60dcac92eb71913
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7634de5915d37252fc9b2cdb730f2397e11202e7f4db299624faba56b2c89611(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__00e90ff4028654f7f45c97804aa061515407ac2ce2e55a21a1a4e4ff76fefd60(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -16456,6 +16570,18 @@ def _typecheckingstub__43f5514f896b52007434785f6106a995073e27bf964e663b740911090
     pass
 
 def _typecheckingstub__4c559df95e35a94ccf1ae460803faf8ff00fc715c3ad0b7cfafb1b92c2258564(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1516c4e832b5aed64b8c5130448cb7ebb3810461eed6e11daa7b3a1ad5f162e9(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ab463aaddd2b565d2016608d693f2b5f12e27dea8cd2c8094f3ce9fb894b1f74(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -16816,9 +16942,12 @@ def _typecheckingstub__52cb17aae6cf0b0cbeef010a71f7f53573517f0a8e973b5881ae34c16
     domain_identifier: builtins.str,
     name: builtins.str,
     project_identifier: builtins.str,
+    deployment_order: typing.Optional[jsii.Number] = None,
     description: typing.Optional[builtins.str] = None,
     environment_account_identifier: typing.Optional[builtins.str] = None,
     environment_account_region: typing.Optional[builtins.str] = None,
+    environment_blueprint_identifier: typing.Optional[builtins.str] = None,
+    environment_configuration_id: typing.Optional[builtins.str] = None,
     environment_profile_identifier: typing.Optional[builtins.str] = None,
     environment_role_arn: typing.Optional[builtins.str] = None,
     glossary_terms: typing.Optional[typing.Sequence[builtins.str]] = None,

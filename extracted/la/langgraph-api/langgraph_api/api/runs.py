@@ -10,12 +10,16 @@ from starlette.responses import Response, StreamingResponse
 
 from langgraph_api import config
 from langgraph_api.asyncio import ValueEvent
+from langgraph_api.encryption.context import get_encryption_context
 from langgraph_api.encryption.middleware import (
     decrypt_response,
     decrypt_responses,
     encrypt_request,
 )
-from langgraph_api.encryption.shared import using_aes_encryption
+from langgraph_api.encryption.shared import (
+    BLOB_ENCRYPTION_CONTEXT_KEY,
+    using_aes_encryption,
+)
 from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
 from langgraph_api.graph import _validate_assistant_id
 from langgraph_api.models.run import create_valid_run
@@ -60,6 +64,29 @@ else:
 
 
 logger = structlog.stdlib.get_logger(__name__)
+
+
+def parse_stream_mode_param(stream_mode_param: str | None) -> list[str]:
+    """Parse stream_mode query parameter. We use this to support the query param format used by the SDK.
+
+    Supports:
+    - Single values: "values" -> ["values"]
+    - JSON arrays: '["values","messages-tuple","updates"]' -> ["values", "messages-tuple", "updates"]
+    - Empty/None: None -> []
+    """
+    if not stream_mode_param:
+        return []
+
+    # Try to parse as JSON array first
+    if stream_mode_param.startswith("["):
+        try:
+            parsed = orjson.loads(stream_mode_param)
+            if isinstance(parsed, list):
+                return parsed
+        except (orjson.JSONDecodeError, ValueError):
+            pass
+    # Single value
+    return [stream_mode_param]
 
 
 # Type alias for stream handlers (GrpcStreamHandler or ContextQueue).
@@ -539,7 +566,10 @@ async def join_run_stream(request: ApiRequest):
     cancel_on_disconnect = cancel_on_disconnect_str.lower() in {"true", "yes", "1"}
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     validate_uuid(run_id, "Invalid run ID: must be a UUID")
-    stream_mode = request.query_params.get("stream_mode") or []
+
+    stream_mode_param = request.query_params.get("stream_mode")
+    stream_mode = parse_stream_mode_param(stream_mode_param)
+
     last_event_id = request.headers.get("last-event-id") or None
 
     async def body():
@@ -688,8 +718,16 @@ async def create_cron(request: ApiRequest):
         await validate_webhook_url_or_raise(str(webhook))
     _validate_assistant_id(payload.get("assistant_id"))
 
+    # Store encryption context at payload root so cron scheduler can extract it
+    # regardless of which fields (metadata, input, config, context) are present.
+    # Use a separate variable to avoid shadowing the typed payload.
+    enc_ctx = get_encryption_context()
+    payload_for_encryption: dict = (
+        {**payload, BLOB_ENCRYPTION_CONTEXT_KEY: enc_ctx} if enc_ctx else payload
+    )
+
     encrypted_payload = await encrypt_request(
-        payload,
+        payload_for_encryption,
         "cron",
         CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
     )
@@ -724,8 +762,16 @@ async def create_thread_cron(request: ApiRequest):
         await validate_webhook_url_or_raise(str(webhook))
     _validate_assistant_id(payload.get("assistant_id"))
 
+    # Store encryption context at payload root so cron scheduler can extract it
+    # regardless of which fields (metadata, input, config, context) are present.
+    # Use a separate variable to avoid shadowing the typed payload.
+    enc_ctx = get_encryption_context()
+    payload_for_encryption: dict = (
+        {**payload, BLOB_ENCRYPTION_CONTEXT_KEY: enc_ctx} if enc_ctx else payload
+    )
+
     encrypted_payload = await encrypt_request(
-        payload,
+        payload_for_encryption,
         "cron",
         CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
     )

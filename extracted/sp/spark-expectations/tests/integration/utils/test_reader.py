@@ -60,6 +60,8 @@ def fixture_product_rules_schema():
             StructField("query_dq_delimiter", StringType(), True),
             StructField("enable_querydq_custom_output", BooleanType(), True),
             StructField("priority", StringType(), False),
+            StructField("id_hash", StringType(), True),
+            StructField("expectation_hash", StringType(), True),
         ]
     )
 
@@ -191,6 +193,27 @@ def fixture_product_rules_pipe():
                 "spark.expectations.notifications.email.smtp.host": "smtp.mail.com",
                 "spark.expectations.notifications.email.smtp.port": 587,
                 "spark.expectations.notifications.email.smtp.password": "password",
+                "spark.expectations.notifications.email.from": "sender@mail.com",
+                "spark.expectations.notifications.email.to.other.mail.com": "recipient@mail.com",
+                "spark.expectations.notifications.email.subject": "Test email",
+                "spark.expectations.notifications.slack.enabled": False,
+                "spark.expectations.notifications.slack.webhook.url": "",
+                "spark.expectations.notifications.teams.enabled": False,
+                "spark.expectations.notifications.teams.webhook.url": "",
+                "spark.expectations.notifications.pagerduty.enabled": False,
+                "spark.expectations.notifications.pagerduty.integration.key": "",
+                "spark.expectations.notifications.pagerduty.webhook.url": "",
+            },
+            None,
+        ),
+        (
+            {
+                "spark.expectations.notifications.email.smtp.server.auth": True,
+                "spark.expectations.notifications.email.enabled": True,
+                "spark.expectations.notifications.email.smtp.host": "smtp.mail.com",
+                "spark.expectations.notifications.email.smtp.port": 587,
+                "spark.expectations.notifications.email.smtp.password": "password",
+                "spark.expectations.notifications.smtp.user.name": "smtp_user@mail.com",
                 "spark.expectations.notifications.email.from": "sender@mail.com",
                 "spark.expectations.notifications.email.to.other.mail.com": "recipient@mail.com",
                 "spark.expectations.notifications.email.subject": "Test email",
@@ -358,6 +381,12 @@ def test_set_notification_param(notification, expected_result):
                 mock_context.set_smtp_creds_dict.assert_called_once_with(
                     notification.get("spark.expectations.notifications.smtp.creds.dict")
                 )
+            if notification.get("spark.expectations.notifications.smtp.user.name"):
+                mock_context.set_mail_smtp_user_name.assert_called_once_with(
+                    notification.get("spark.expectations.notifications.smtp.user.name")
+                )
+            else:
+                mock_context.set_mail_smtp_user_name.assert_not_called()
         if notification.get("spark.expectations.notifications.slack.enabled"):
             mock_context.set_enable_slack.assert_called_once_with(
                 notification.get("spark.expectations.notifications.slack.enabled")
@@ -457,6 +486,8 @@ def test_get_rules_dlt(product_id, table_name, tag, expected_output, mocker, _fi
                         "enable_error_drop_alert": True,
                         "error_drop_threshold": 10,
                         "priority": "medium",
+                        "id_hash": "null",
+                        "expectation_hash": "null",
                     },
                     {
                         "product_id": "product1",
@@ -473,6 +504,8 @@ def test_get_rules_dlt(product_id, table_name, tag, expected_output, mocker, _fi
                         "enable_error_drop_alert": False,
                         "error_drop_threshold": 0,
                         "priority": "medium",
+                        "id_hash": "null",
+                        "expectation_hash": "null",
                     },
                     {
                         "action_if_failed": "ignore",
@@ -489,6 +522,8 @@ def test_get_rules_dlt(product_id, table_name, tag, expected_output, mocker, _fi
                         "table_name": "table1",
                         "tag": "tag3",
                         "priority": "medium",
+                        "id_hash": "null",
+                        "expectation_hash": "null",
                     },
                 ],
                 "agg_dq_rules": [
@@ -507,6 +542,8 @@ def test_get_rules_dlt(product_id, table_name, tag, expected_output, mocker, _fi
                         "enable_error_drop_alert": False,
                         "error_drop_threshold": 0,
                         "priority": "medium",
+                        "id_hash": "null",
+                        "expectation_hash": "null",
                     },
                     {
                         "action_if_failed": "ignore",
@@ -523,6 +560,8 @@ def test_get_rules_dlt(product_id, table_name, tag, expected_output, mocker, _fi
                         "table_name": "table1",
                         "tag": "tag10",
                         "priority": "medium",
+                        "id_hash": "null",
+                        "expectation_hash": "null",
                     },
                 ],
                 "query_dq_rules": [
@@ -543,6 +582,8 @@ def test_get_rules_dlt(product_id, table_name, tag, expected_output, mocker, _fi
                         "expectation_source_f1": "expectation13a",
                         "error_drop_threshold": 0,
                         "priority": "medium",
+                        "id_hash": "null",
+                        "expectation_hash": "null",
                     },
                     {
                         "product_id": "product1",
@@ -561,6 +602,8 @@ def test_get_rules_dlt(product_id, table_name, tag, expected_output, mocker, _fi
                         "expectation_source_f1": "expectation13a",
                         "error_drop_threshold": 0,
                         "priority": "medium",
+                        "id_hash": "null",
+                        "expectation_hash": "null",
                     },
                     {
                         "product_id": "product1",
@@ -579,6 +622,8 @@ def test_get_rules_dlt(product_id, table_name, tag, expected_output, mocker, _fi
                         "expectation_source_f1": "expectation13a",
                         "error_drop_threshold": 0,
                         "priority": "medium",
+                        "id_hash": "null",
+                        "expectation_hash": "null",
                     },
                     {
                         "product_id": "product1",
@@ -597,6 +642,8 @@ def test_get_rules_dlt(product_id, table_name, tag, expected_output, mocker, _fi
                         "expectation_source_f1": "expectation13a",
                         "error_drop_threshold": 0,
                         "priority": "medium",
+                        "id_hash": "null",
+                        "expectation_hash": "null",
                     },
                 ],
             },
@@ -679,7 +726,7 @@ def test_get_rules_from_table_exception(_fixture_reader):
 
 
 def test_set_notification_param_missing_dq_obs_alert_flag():
-    """Test set_notification_param when se_dq_obs_alert_flag is False - covers lines 82-83 in reader.py"""
+    """Test set_notification_param when se_dq_obs_alert_flag is False"""
     from spark_expectations.config.user_config import Constants as user_config
     
     mock_context = Mock(spec=SparkExpectationsContext)
@@ -702,7 +749,7 @@ def test_set_notification_param_missing_dq_obs_alert_flag():
 
 
 def test_set_notification_param_zoom_missing_webhook():
-    """Test set_notification_param when zoom is enabled but webhook URL is missing - covers line 179 in reader.py"""
+    """Test set_notification_param when zoom is enabled but webhook URL is missing"""
     from spark_expectations.config.user_config import Constants as user_config
     
     mock_context = Mock(spec=SparkExpectationsContext)
@@ -724,7 +771,7 @@ def test_set_notification_param_zoom_missing_webhook():
 
 
 def test_set_notification_param_smtp_auth_no_password():
-    """Test set_notification_param SMTP auth without password - covers lines 140 in reader.py"""
+    """Test set_notification_param SMTP auth without password"""
     from spark_expectations.config.user_config import Constants as user_config
     
     mock_context = Mock(spec=SparkExpectationsContext)
@@ -782,7 +829,7 @@ def test_process_rules_df_custom_output_enabled():
 
 
 def test_set_notification_param_obs_dq_report_positive():
-    """Test set_notification_param with complete obs DQ report configuration - covers lines 63-78"""
+    """Test set_notification_param with complete obs DQ report configuration"""
     from spark_expectations.config.user_config import Constants as user_config
     
     mock_context = Mock(spec=SparkExpectationsContext)
@@ -812,7 +859,7 @@ def test_set_notification_param_obs_dq_report_positive():
 
 
 def test_set_notification_param_zoom_complete():
-    """Test set_notification_param with complete zoom configuration - covers lines 173-177"""
+    """Test set_notification_param with complete zoom configuration"""
     from spark_expectations.config.user_config import Constants as user_config
     
     mock_context = Mock(spec=SparkExpectationsContext)

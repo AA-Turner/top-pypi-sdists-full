@@ -65,7 +65,7 @@ class DbFsuCollectionSummary(FsuCollectionSummary):
 
         :param service_type:
             The value to assign to the service_type property of this DbFsuCollectionSummary.
-            Allowed values for this property are: "EXACS", "EXACC", 'UNKNOWN_ENUM_VALUE'.
+            Allowed values for this property are: "EXACS", "EXACC", "EXADBXS", 'UNKNOWN_ENUM_VALUE'.
             Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type service_type: str
 

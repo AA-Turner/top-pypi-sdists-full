@@ -642,6 +642,42 @@ class GetBindingClusterGatewayResponse(_message.Message):
     cluster_gateway_id: str
     def __init__(self, cluster_id: _Optional[str] = ..., cluster_gateway_id: _Optional[str] = ...) -> None: ...
 
+class CreateBindingPrivateGatewayRequest(_message.Message):
+    __slots__ = ("cluster_id", "private_gateway_id")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    PRIVATE_GATEWAY_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    private_gateway_id: str
+    def __init__(self, cluster_id: _Optional[str] = ..., private_gateway_id: _Optional[str] = ...) -> None: ...
+
+class CreateBindingPrivateGatewayResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class DeleteBindingPrivateGatewayRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class DeleteBindingPrivateGatewayResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetBindingPrivateGatewayRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class GetBindingPrivateGatewayResponse(_message.Message):
+    __slots__ = ("cluster_id", "private_gateway_id")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    PRIVATE_GATEWAY_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    private_gateway_id: str
+    def __init__(self, cluster_id: _Optional[str] = ..., private_gateway_id: _Optional[str] = ...) -> None: ...
+
 class CreateBindingClusterBackgroundPersistenceDeploymentRequest(_message.Message):
     __slots__ = ("cluster_id", "background_persistence_deployment_id")
     CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]

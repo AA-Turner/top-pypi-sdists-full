@@ -1,4 +1,4 @@
-# pylint: disable=too-many-arguments, too-many-locals, invalid-name, fixme, too-many-lines
+# pylint: disable=too-many-arguments, too-many-locals, fixme, too-many-lines
 """Scikit-Learn Wrapper interface for XGBoost."""
 
 import collections
@@ -55,7 +55,7 @@ from .core import (
     Booster,
     DMatrix,
     Metric,
-    Objective,
+    PlainObj,
     QuantileDMatrix,
     XGBoostError,
     _deprecate_positional_args,
@@ -104,7 +104,7 @@ class _SklObjWProto(Protocol):
         self,
         y_true: ArrayLike,
         y_pred: ArrayLike,
-        sample_weight: Optional[ArrayLike],
+        sample_weight: Optional[ArrayLike] = None,
     ) -> Tuple[ArrayLike, ArrayLike]: ...
 
 
@@ -112,7 +112,7 @@ _SklObjProto = Callable[[ArrayLike, ArrayLike], Tuple[np.ndarray, np.ndarray]]
 SklObjective = Optional[Union[str, _SklObjWProto, _SklObjProto]]
 
 
-def _objective_decorator(func: Union[_SklObjWProto, _SklObjProto]) -> Objective:
+def _objective_decorator(func: Union[_SklObjWProto, _SklObjProto]) -> PlainObj:
     """Decorate an objective function
 
     Converts an objective function using the typical sklearn metrics
@@ -595,12 +595,10 @@ def xgboost_model_doc(
         return __doc[item]
 
     def adddoc(cls: TDoc) -> TDoc:
-        doc = [
-            """
+        doc = ["""
 Parameters
 ----------
-"""
-        ]
+"""]
         if extra_parameters:
             doc.append(extra_parameters)
         doc.extend([get_doc(i) for i in items])
@@ -1058,7 +1056,7 @@ class XGBModel(XGBModelBase):
         #                     XGBRegressor -> XGBModel -> BaseEstimator
         #                                     XGBModel -> BaseEstimator
         #
-        params = super().get_params(deep)
+        params = super().get_params(deep)  # pylint: disable=no-member
         cp = copy.copy(self)
         # If the immediate parent defines get_params(), use that.
         if callable(getattr(cp.__class__.__bases__[0], "get_params", None)):
@@ -1282,7 +1280,7 @@ class XGBModel(XGBModelBase):
         base_margin_eval_set: Optional[Sequence[ArrayLike]] = None,
         feature_weights: Optional[ArrayLike] = None,
     ) -> "XGBModel":
-        # pylint: disable=invalid-name,attribute-defined-outside-init
+        # pylint: disable=attribute-defined-outside-init
         """Fit gradient boosting model.
 
         Note that calling ``fit()`` multiple times will cause the model object to be
@@ -1362,7 +1360,7 @@ class XGBModel(XGBModelBase):
             )
 
             if callable(self.objective):
-                obj: Optional[Objective] = _objective_decorator(self.objective)
+                obj: Optional[PlainObj] = _objective_decorator(self.objective)
                 params["objective"] = "reg:squarederror"
             else:
                 obj = None
@@ -1697,7 +1695,7 @@ def _cls_predict_proba(n_classes: int, prediction: PredtT, vstack: Callable) -> 
 """,
 )
 class XGBClassifier(XGBClassifierBase, XGBModel):
-    # pylint: disable=missing-docstring,invalid-name,too-many-instance-attributes
+    # pylint: disable=missing-docstring,too-many-instance-attributes
     @_deprecate_positional_args
     def __init__(
         self,
@@ -1768,7 +1766,7 @@ class XGBClassifier(XGBClassifierBase, XGBModel):
             params = self.get_xgb_params()
 
             if callable(self.objective):
-                obj: Optional[Objective] = _objective_decorator(self.objective)
+                obj: Optional[PlainObj] = _objective_decorator(self.objective)
                 # Use default value. Is it really not used ?
                 params["objective"] = "binary:logistic"
             else:
@@ -2145,7 +2143,7 @@ See :doc:`Learning to Rank </tutorials/learning_to_rank>` for an introducion.
         :py:meth:`fit` for more info.""",
 )
 class XGBRanker(XGBRankerMixIn, XGBModel):
-    # pylint: disable=missing-docstring,too-many-arguments,invalid-name
+    # pylint: disable=missing-docstring,too-many-arguments
     @_deprecate_positional_args
     def __init__(self, *, objective: str = "rank:ndcg", **kwargs: Any):
         super().__init__(objective=objective, **kwargs)

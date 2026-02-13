@@ -265,6 +265,42 @@ class CommandParameterValue(AWSProperty):
     }
 
 
+class CommandParameterValueNumberRange(AWSProperty):
+    """
+    `CommandParameterValueNumberRange <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-commandparametervaluenumberrange.html>`__
+    """
+
+    props: PropsDictType = {
+        "Max": (str, True),
+        "Min": (str, True),
+    }
+
+
+class CommandParameterValueComparisonOperand(AWSProperty):
+    """
+    `CommandParameterValueComparisonOperand <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-commandparametervaluecomparisonoperand.html>`__
+    """
+
+    props: PropsDictType = {
+        "Number": (str, False),
+        "NumberRange": (CommandParameterValueNumberRange, False),
+        "Numbers": ([str], False),
+        "String": (str, False),
+        "Strings": ([str], False),
+    }
+
+
+class CommandParameterValueCondition(AWSProperty):
+    """
+    `CommandParameterValueCondition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-commandparametervaluecondition.html>`__
+    """
+
+    props: PropsDictType = {
+        "ComparisonOperator": (str, True),
+        "Operand": (CommandParameterValueComparisonOperand, True),
+    }
+
+
 class CommandParameter(AWSProperty):
     """
     `CommandParameter <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-commandparameter.html>`__
@@ -274,7 +310,9 @@ class CommandParameter(AWSProperty):
         "DefaultValue": (CommandParameterValue, False),
         "Description": (str, False),
         "Name": (str, True),
+        "Type": (str, False),
         "Value": (CommandParameterValue, False),
+        "ValueConditions": ([CommandParameterValueCondition], False),
     }
 
 
@@ -286,6 +324,26 @@ class CommandPayload(AWSProperty):
     props: PropsDictType = {
         "Content": (str, False),
         "ContentType": (str, False),
+    }
+
+
+class AwsJsonSubstitutionCommandPreprocessorConfig(AWSProperty):
+    """
+    `AwsJsonSubstitutionCommandPreprocessorConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-awsjsonsubstitutioncommandpreprocessorconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "OutputFormat": (str, True),
+    }
+
+
+class CommandPreprocessor(AWSProperty):
+    """
+    `CommandPreprocessor <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-command-commandpreprocessor.html>`__
+    """
+
+    props: PropsDictType = {
+        "AwsJsonSubstitution": (AwsJsonSubstitutionCommandPreprocessorConfig, False),
     }
 
 
@@ -306,7 +364,9 @@ class Command(AWSObject):
         "MandatoryParameters": ([CommandParameter], False),
         "Namespace": (str, False),
         "Payload": (CommandPayload, False),
+        "PayloadTemplate": (str, False),
         "PendingDeletion": (boolean, False),
+        "Preprocessor": (CommandPreprocessor, False),
         "RoleArn": (str, False),
         "Tags": (Tags, False),
     }
@@ -589,6 +649,18 @@ class JobTemplate(AWSObject):
     }
 
 
+class EventConfiguration(AWSProperty):
+    """
+    `EventConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-logging-eventconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "EventType": (str, True),
+        "LogDestination": (str, False),
+        "LogLevel": (str, False),
+    }
+
+
 class Logging(AWSObject):
     """
     `Logging <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-logging.html>`__
@@ -599,6 +671,7 @@ class Logging(AWSObject):
     props: PropsDictType = {
         "AccountId": (str, True),
         "DefaultLogLevel": (str, True),
+        "EventConfigurations": ([EventConfiguration], False),
         "RoleArn": (str, True),
     }
 
@@ -1212,6 +1285,18 @@ class FirehoseAction(AWSProperty):
     }
 
 
+class BatchConfig(AWSProperty):
+    """
+    `BatchConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicrule-batchconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "MaxBatchOpenMs": (integer, False),
+        "MaxBatchSize": (integer, False),
+        "MaxBatchSizeBytes": (integer, False),
+    }
+
+
 class HttpActionHeader(AWSProperty):
     """
     `HttpActionHeader <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicrule-httpactionheader.html>`__
@@ -1252,7 +1337,9 @@ class HttpAction(AWSProperty):
 
     props: PropsDictType = {
         "Auth": (HttpAuthorization, False),
+        "BatchConfig": (BatchConfig, False),
         "ConfirmationUrl": (str, False),
+        "EnableBatching": (boolean, False),
         "Headers": ([HttpActionHeader], False),
         "Url": (str, True),
     }

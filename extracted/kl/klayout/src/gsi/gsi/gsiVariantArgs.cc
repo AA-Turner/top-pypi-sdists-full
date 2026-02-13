@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -72,6 +72,24 @@ struct test_arg_func<gsi::VariantType>
   void operator () (bool *ret, const tl::Variant & /*arg*/, const gsi::ArgType & /*atype*/, bool /*loose*/, bool /*object_substitution*/)
   {
     *ret = true;
+  }
+};
+
+template <>
+struct test_arg_func<gsi::StringType>
+{
+  void operator () (bool *ret, const tl::Variant &arg, const gsi::ArgType & /*atype*/, bool /*loose*/, bool /*object_substitution*/)
+  {
+    *ret = arg.is_a_string ();
+  }
+};
+
+template <>
+struct test_arg_func<gsi::ByteArrayType>
+{
+  void operator () (bool *ret, const tl::Variant &arg, const gsi::ArgType & /*atype*/, bool /*loose*/, bool /*object_substitution*/)
+  {
+    *ret = arg.is_a_bytearray ();
   }
 };
 

@@ -26,3 +26,5 @@ from snowflake.core.pipe._generated.models.error_response import ErrorResponse
 from snowflake.core.pipe._generated.models.pipe import Pipe
 from snowflake.core.pipe._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.pipe._generated.models.success_response import SuccessResponse
+from snowflake.core.pipe._generated.models.tag_assignment import TagAssignment
+from snowflake.core.pipe._generated.models.tag_reference import TagReference

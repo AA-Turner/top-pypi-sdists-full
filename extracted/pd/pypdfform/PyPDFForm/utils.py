@@ -18,7 +18,7 @@ from functools import lru_cache
 from io import BytesIO
 from secrets import choice
 from string import ascii_letters, digits, punctuation
-from typing import Any, BinaryIO, List, Union
+from typing import Any, BinaryIO, List
 
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import ArrayObject, DictionaryObject, NameObject
@@ -208,7 +208,31 @@ def merge_two_pdfs(pdf: bytes, other: bytes) -> bytes:
     return result.read()
 
 
-def find_pattern_match(pattern: dict, widget: Union[dict, DictionaryObject]) -> bool:
+def _is_value_match(pattern_value: Any, widget_value: Any) -> bool:
+    """
+    Checks if a widget value matches a pattern value.
+
+    Args:
+        pattern_value (Any): The value from the pattern.
+        widget_value (Any): The value from the widget.
+
+    Returns:
+        bool: True if it matches, False otherwise.
+    """
+    if isinstance(pattern_value, dict) and isinstance(
+        widget_value, (dict, DictionaryObject)
+    ):
+        return find_pattern_match(pattern_value, widget_value)
+
+    if isinstance(pattern_value, tuple):
+        if widget_value in pattern_value:
+            return True
+        return SLASH in pattern_value and widget_value.startswith(SLASH)
+
+    return pattern_value == widget_value
+
+
+def find_pattern_match(pattern: dict, widget: dict | DictionaryObject) -> bool:
     """
     Recursively finds a pattern match within a PDF widget (annotation dictionary).
 
@@ -218,35 +242,22 @@ def find_pattern_match(pattern: dict, widget: Union[dict, DictionaryObject]) -> 
 
     Args:
         pattern (dict): The pattern to search for, represented as a dictionary.
-        widget (Union[dict, DictionaryObject]): The widget to search within, which
+        widget (dict | DictionaryObject): The widget to search within, which
             can be a dictionary or a DictionaryObject.
 
     Returns:
         bool: True if a match is found, False otherwise.
     """
     for key, value in widget.items():
-        result = False
-        if key in pattern:
-            value = value.get_object()
-            if isinstance(pattern[key], dict) and isinstance(
-                value, (dict, DictionaryObject)
-            ):
-                result = find_pattern_match(pattern[key], value)
-            else:
-                if isinstance(pattern[key], tuple):
-                    result = value in pattern[key]
-                    if not result and SLASH in pattern[key] and value.startswith(SLASH):
-                        result = True
-                else:
-                    result = pattern[key] == value
-        if result:
-            return result
+        if key in pattern and _is_value_match(pattern[key], value.get_object()):
+            return True
+
     return False
 
 
 def traverse_pattern(
-    pattern: dict, widget: Union[dict, DictionaryObject]
-) -> Union[str, list, None]:
+    pattern: dict, widget: dict | DictionaryObject
+) -> str | list | None:
     """
     Recursively traverses a pattern within a PDF widget (annotation dictionary) and returns the value.
 
@@ -256,11 +267,11 @@ def traverse_pattern(
 
     Args:
         pattern (dict): The pattern to traverse, represented as a dictionary.
-        widget (Union[dict, DictionaryObject]): The widget to traverse within, which
+        widget (dict | DictionaryObject): The widget to traverse within, which
             can be a dictionary or a DictionaryObject.
 
     Returns:
-        Union[str, list, None]: The value found, or None if not found.
+        str | list | None: The value found, or None if not found.
     """
     for key, value in widget.items():
         result = None
@@ -279,10 +290,10 @@ def traverse_pattern(
 
 
 def extract_widget_property(
-    widget: Union[dict, DictionaryObject],
+    widget: dict | DictionaryObject,
     patterns: list,
     default_value: Any,
-    func_before_return: Union[Callable, None],
+    func_before_return: Callable | None,
 ) -> Any:
     """
     Extracts a specific property from a PDF widget based on a list of patterns.
@@ -292,11 +303,11 @@ def extract_widget_property(
     extracted and returned. If no match is found, a default value is returned.
 
     Args:
-        widget (Union[dict, DictionaryObject]): The widget to extract the property from.
+        widget (dict | DictionaryObject): The widget to extract the property from.
         patterns (list): A list of patterns to search for. Each pattern should be a
             dictionary representing the structure of the property to extract.
         default_value (Any): The default value to return if no pattern is found.
-        func_before_return (Union[Callable, None]): An optional function to call before
+        func_before_return (Callable | None): An optional function to call before
             returning the extracted value. This can be used to perform additional
             processing or formatting on the value.
 

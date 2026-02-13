@@ -142,7 +142,7 @@ class PullFundsAuthorization(BaseModel):
     Authorization data for payment header (wire format).
     
     This structure is sent in the payment header and includes fields for:
-    - EIP-712 signature: wallet, provider, token, amount, deadline, requestPath
+    - EIP-712 signature: wallet, provider, token, amount, deadline
     - Transport metadata: valid_after, valid_before (for payment window)
     
     Note: Only some fields are signed (see IATPWallet.sol PULL_FUNDS_FOR_SETTLEMENT_TYPEHASH)
@@ -152,7 +152,6 @@ class PullFundsAuthorization(BaseModel):
     value: str  # Payment amount
     valid_after: str = Field(alias="validAfter")  # Not in signature (transport only)
     valid_before: str = Field(alias="validBefore")  # Maps to 'deadline' in signature
-    request_path: str = Field(alias="requestPath")  # API path (signed)
 
     model_config = ConfigDict(
         alias_generator=to_camel,

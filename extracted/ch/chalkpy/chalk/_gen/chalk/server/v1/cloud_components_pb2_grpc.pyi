@@ -14,6 +14,8 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     CreateBindingClusterGatewayResponse,
     CreateBindingClusterTelemetryDeploymentRequest,
     CreateBindingClusterTelemetryDeploymentResponse,
+    CreateBindingPrivateGatewayRequest,
+    CreateBindingPrivateGatewayResponse,
     CreateCloudComponentClusterRequest,
     CreateCloudComponentClusterResponse,
     CreateCloudComponentStorageRequest,
@@ -26,6 +28,8 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     DeleteBindingClusterGatewayResponse,
     DeleteBindingClusterTelemetryDeploymentRequest,
     DeleteBindingClusterTelemetryDeploymentResponse,
+    DeleteBindingPrivateGatewayRequest,
+    DeleteBindingPrivateGatewayResponse,
     DeleteCloudComponentClusterRequest,
     DeleteCloudComponentClusterResponse,
     DeleteCloudComponentStorageRequest,
@@ -38,6 +42,8 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     GetBindingClusterGatewayResponse,
     GetBindingClusterTelemetryDeploymentRequest,
     GetBindingClusterTelemetryDeploymentResponse,
+    GetBindingPrivateGatewayRequest,
+    GetBindingPrivateGatewayResponse,
     GetCloudComponentClusterRequest,
     GetCloudComponentClusterResponse,
     GetCloudComponentStorageRequest,
@@ -131,6 +137,18 @@ class CloudComponentsServiceStub:
     DeleteBindingClusterGateway: UnaryUnaryMultiCallable[
         DeleteBindingClusterGatewayRequest,
         DeleteBindingClusterGatewayResponse,
+    ]
+    CreateBindingPrivateGateway: UnaryUnaryMultiCallable[
+        CreateBindingPrivateGatewayRequest,
+        CreateBindingPrivateGatewayResponse,
+    ]
+    GetBindingPrivateGateway: UnaryUnaryMultiCallable[
+        GetBindingPrivateGatewayRequest,
+        GetBindingPrivateGatewayResponse,
+    ]
+    DeleteBindingPrivateGateway: UnaryUnaryMultiCallable[
+        DeleteBindingPrivateGatewayRequest,
+        DeleteBindingPrivateGatewayResponse,
     ]
     CreateBindingClusterBackgroundPersistenceDeployment: UnaryUnaryMultiCallable[
         CreateBindingClusterBackgroundPersistenceDeploymentRequest,
@@ -260,6 +278,24 @@ class CloudComponentsServiceServicer(metaclass=ABCMeta):
         request: DeleteBindingClusterGatewayRequest,
         context: ServicerContext,
     ) -> DeleteBindingClusterGatewayResponse: ...
+    @abstractmethod
+    def CreateBindingPrivateGateway(
+        self,
+        request: CreateBindingPrivateGatewayRequest,
+        context: ServicerContext,
+    ) -> CreateBindingPrivateGatewayResponse: ...
+    @abstractmethod
+    def GetBindingPrivateGateway(
+        self,
+        request: GetBindingPrivateGatewayRequest,
+        context: ServicerContext,
+    ) -> GetBindingPrivateGatewayResponse: ...
+    @abstractmethod
+    def DeleteBindingPrivateGateway(
+        self,
+        request: DeleteBindingPrivateGatewayRequest,
+        context: ServicerContext,
+    ) -> DeleteBindingPrivateGatewayResponse: ...
     @abstractmethod
     def CreateBindingClusterBackgroundPersistenceDeployment(
         self,

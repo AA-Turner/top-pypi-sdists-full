@@ -2,7 +2,7 @@ from setuptools import setup, find_packages, find_namespace_packages
 
 setup(
     name="ob-project-utils",
-    version="0.2.17",
+    version="0.2.18",
     packages=find_packages()
     + find_namespace_packages(include=["metaflow_extensions.*"]),
     entry_points={

@@ -31,26 +31,29 @@ requires-python = ">=3.9"
 "Issues" = "https://github.com/scylladb/python-driver/issues"
 
 [project.optional-dependencies]
-graph = ['gremlinpython==3.7.4']
-cle = ['cryptography>=35.0']
+graph = ['gremlinpython>=3.7.4,<4']
+cle = ['cryptography>=42.0']
 compress-lz4 = ['lz4']
 compress-snappy = ['python-snappy']
+auth-kerberos = [
+    'kerberos; platform_system != "Windows"',
+    'winkerberos; platform_system == "Windows"',
+]
 
 [dependency-groups]
 dev = [
     "pytest~=8.0",
     "PyYAML",
-    "pytz",
-    "scales",
     "pure-sasl",
     "twisted[tls]",
     "gevent",
     "eventlet>=0.33.3",
-    "cython",
-    "packaging",
+    "cython>=3.2",
+    "packaging>=25.0",
     "futurist",
-    "asynctest",
     "pyyaml",
+    "numpy",
+    "objgraph",
     "ccm @ git+https://git@github.com/scylladb/scylla-ccm.git@master",
 ]
 
@@ -75,7 +78,7 @@ version = { attr = "cassandra.__version__" }                  # any module attri
 readme = { file = "README.rst", content-type = "text/x-rst" }
 
 [build-system]
-requires = ["setuptools>=42", "Cython"]
+requires = ["setuptools>=70", "Cython"]
 
 build-backend = "setuptools.build_meta"
 

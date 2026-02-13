@@ -2,6 +2,7 @@
 # Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
 #
 
+import json
 from dataclasses import dataclass
 from enum import Enum
 from typing import List, Union
@@ -79,6 +80,11 @@ class Signature:
 
     params: List[Param]
     returns: ReturnType
+
+
+def to_json(types: list[snowpark_type.DataType], escape_quotes: bool = True) -> str:
+    result = json.dumps([t.json_value() for t in types])
+    return result.replace('"', '\\"') if escape_quotes else result
 
 
 def build_jvm_udxf_imports(

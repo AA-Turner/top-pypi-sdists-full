@@ -132,6 +132,7 @@ from .logging_messages import (
     API_QUERY_ERROR_INFO,
     API_QUERY_INVALID_QUERY_EXPRESSION_EXCEPTION,
     API_QUERY_MISSING_QUERY_EXPRESSION_EXCEPTION,
+    API_SET_PROJECT_OWNER_UNSUPPORTED_BACKEND_VERSION_ERROR,
     API_UPDATE_CACHE_DEPRECATED_WARNING,
     API_UPDATE_REGISTRY_MODEL_VERSION_DEPRECATED_WARNING,
     API_USE_CACHE_NOT_SUPPORTED_EXCEPTION,
@@ -2082,7 +2083,7 @@ class APIExperiment(CommonExperiment):
 
         Args:
             asset_type (str):Type of asset to return. Can be
-                "all", "image", "histogram_combined_3d", "video", or "audio".
+                "all", "source_code", "image", "histogram_combined_3d", "video", or "audio".
             timeout (int): Timeout in seconds.
 
         Returns:
@@ -5616,6 +5617,39 @@ class API(object):
         results = self._client.update_project_by_id(
             project_id, new_project_name, description, public
         )
+        if self._check_results(results):
+            return results.json()
+
+    def set_project_owner(self, project_id, user_name):
+        """
+        Update the owner of a project by project_id.
+
+        Args:
+            project_id (str): project id
+            user_name (str): username of the new owner
+
+        Note:
+            This operation requires workspace admin privileges.
+
+        Example:
+            ```python
+            import comet_ml
+
+            comet_ml.login()
+            api = comet_ml.API()
+
+            api.set_project_owner("2627523253623", "newowner")
+            ```
+        """
+        current_backend_version = self._client.get_api_backend_version()
+        check_result = self.config.has_api_owner_set_enabled(current_backend_version)
+        if not check_result.feature_supported:
+            raise CometException(
+                API_SET_PROJECT_OWNER_UNSUPPORTED_BACKEND_VERSION_ERROR
+                % check_result.min_backend_version_supported
+            )
+
+        results = self._client.set_project_owner(project_id, user_name)
         if self._check_results(results):
             return results.json()
 

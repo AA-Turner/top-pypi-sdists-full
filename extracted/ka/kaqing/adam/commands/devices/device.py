@@ -2,7 +2,7 @@ from abc import abstractmethod
 
 from adam.commands.command import Command
 from adam.config import Config
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.utils_k8s.pod_exec_result import PodExecResult
 from adam.repl_state import BashSession, ReplState
 from adam.utils_log import log2
@@ -31,7 +31,7 @@ class Device:
         return None
 
     @abstractmethod
-    def ls(self, cmd: str, state: ReplState, ctx: Context = Context.NULL):
+    def ls(self, cmd: str, state: ReplState, ctx = NULL):
         pass
 
     def ls_completion(self, cmd: str, state: ReplState, default: dict = {}):
@@ -56,7 +56,7 @@ class Device:
     def enter(self, state: ReplState):
         pass
 
-    def preview(self, table: str, state: ReplState, ctx: Context = Context.NULL):
+    def preview(self, table: str, state: ReplState, ctx = NULL):
         if not table:
             if state.in_repl:
                 log2('Table is required.')
@@ -77,14 +77,14 @@ class Device:
         return state
 
     @abstractmethod
-    def show_tables(self, state: ReplState, ctx: Context = Context.NULL):
+    def show_tables(self, state: ReplState, ctx = NULL):
         pass
 
     @abstractmethod
-    def show_table_preview(self, state: ReplState, table: str, rows: int, ctx: Context = Context.NULL):
+    def show_table_preview(self, state: ReplState, table: str, rows: int, ctx = NULL):
         pass
 
-    def bash(self, s0: ReplState, s1: ReplState, args: list[str], ctx: Context = Context.NULL):
+    def bash(self, s0: ReplState, s1: ReplState, args: list[str], ctx = NULL):
         if s1.in_repl:
             if self.bash_target_changed(s0, s1):
                 r = self._exec_with_dir(s1, args, ctx=ctx)
@@ -102,7 +102,7 @@ class Device:
 
             return s1
 
-    def _exec_with_dir(self, state: ReplState, args: list[str], ctx: Context = Context.NULL) -> list[PodExecResult]:
+    def _exec_with_dir(self, state: ReplState, args: list[str], ctx = NULL) -> list[PodExecResult]:
         session_just_created = False
         if not args:
             session_just_created = True
@@ -126,18 +126,18 @@ class Device:
         pass
 
     @abstractmethod
-    def exec_no_dir(self, command: str, state: ReplState, ctx: Context = Context.NULL):
+    def exec_no_dir(self, command: str, state: ReplState, ctx = NULL):
         pass
 
     @abstractmethod
-    def exec_with_dir(self, command: str, session_just_created: bool, state: ReplState, ctx: Context = Context.NULL):
+    def exec_with_dir(self, command: str, session_just_created: bool, state: ReplState, ctx = NULL):
         pass
 
     def bash_completion(self, cmd: str, state: ReplState, default: dict = {}):
         return default
 
     def files(self, state: ReplState):
-        r: PodExecResult = Pods.exec(self.default_pod(state), self.default_container(state), state.namespace, f'find -maxdepth 1 -type f', shell='bash', ctx=Context.NULL)
+        r: PodExecResult = Pods.exec(self.default_pod(state), self.default_container(state), state.namespace, f'find -maxdepth 1 -type f', shell='bash', ctx=NULL)
 
         log_files = []
         for line in r.stdout.split('\n'):

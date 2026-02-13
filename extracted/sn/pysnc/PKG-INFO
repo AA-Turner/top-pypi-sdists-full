@@ -1,7 +1,8 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.1
 Name: pysnc
-Version: 1.2.0
+Version: 1.2.1
 Summary: Python SNC (REST) API
+Home-page: https://github.com/ServiceNow/PySNC
 License: MIT
 Keywords: servicenow,snc
 Author: Matthew Gill
@@ -15,17 +16,17 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.9
 Provides-Extra: asyncio
 Provides-Extra: oauth
 Requires-Dist: asyncio (>=4.0.0,<5.0.0) ; extra == "asyncio"
-Requires-Dist: certifi (>=2024.7.4,<2025.0.0)
+Requires-Dist: certifi (>=2026.1.4,<2027.0.0)
 Requires-Dist: httpx (>=0.28.1,<0.29.0) ; extra == "asyncio"
-Requires-Dist: requests (>=2.32)
-Requires-Dist: requests-oauthlib (>=1.2.0) ; extra == "oauth"
-Requires-Dist: urllib3 (>=2.5)
+Requires-Dist: requests (>=2.32.5,<3.0.0)
+Requires-Dist: requests-oauthlib (>=2.0.0,<3.0.0) ; extra == "oauth"
+Requires-Dist: urllib3 (>=2.6.3,<3.0.0)
 Project-URL: Documentation, https://servicenow.github.io/PySNC/
 Project-URL: Repository, https://github.com/ServiceNow/PySNC
 Description-Content-Type: text/markdown

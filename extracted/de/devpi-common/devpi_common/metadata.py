@@ -153,6 +153,9 @@ class Version(str):
     _cmpstr: str
     _cmpval: LegacyVersion | PackagingVersion
 
+    def __hash__(self):
+        return hash(self.cmpval)
+
     def __eq__(self, other):
         if not isinstance(other, Version):
             raise NotImplementedError
@@ -209,7 +212,7 @@ class BasenameMeta(CompareMixin):
         # essentially uses this to validate parsed links
         basename = getattr(obj, "basename", obj)
         if not isinstance(basename, str):
-            raise ValueError("need object with basename attribute")
+            raise ValueError("need object with basename attribute")  # noqa: TRY004 - can't change API
         assert "/" not in basename, (obj, basename)
         name, version, ext = splitbasename(basename, checkarch=False)
         self.name = name

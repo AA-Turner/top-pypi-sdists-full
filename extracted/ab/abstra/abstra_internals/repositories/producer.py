@@ -1,3 +1,4 @@
+import json
 import threading
 import time
 from abc import ABC, abstractmethod
@@ -16,15 +17,20 @@ from abstra_internals.controllers.execution.connection_protocol import (
 )
 from abstra_internals.entities.execution_context import ClientContext
 from abstra_internals.environment import (
+    PROCESS_TIMEOUT_SECONDS,
     RABBITMQ_CONNECTION_TIMEOUT_SECONDS,
     RABBITMQ_DEFAUT_EXCHANGE,
     RABBITMQ_EXECUTION_QUEUE,
     RABBITMQ_RETRY_INITIAL_DELAY_SECONDS,
     RABBITMQ_RETRY_MAX_ATTEMPTS,
+    WORKER_LOG_TO_QUEUE,
 )
 from abstra_internals.logger import AbstraLogger
+from abstra_internals.utils import serialize
 from abstra_internals.utils.rabbitmq_connection import RabbitMQConnection
 from abstra_internals.utils.serializable import Serializable
+
+CONSUMER_INACTIVITY_TIMEOUT = 600  # 10 minutes
 
 
 class PreExecution(Serializable):
@@ -50,6 +56,11 @@ class ProducerRepository(ABC):
     @abstractmethod
     def enqueue_fire_and_forget(self, stage_id: str, context: ClientContext) -> None:
         raise NotImplementedError()
+
+    def consume_and_forward(self, conn: ConnectionProtocol, stage_id: str) -> None:
+        """Start background consumer to forward worker messages to BroadcastController.
+        Default: closes the connection (local editor uses file watchers)."""
+        conn.close()
 
 
 class LocalProducerRepository(ProducerRepository):
@@ -194,7 +205,17 @@ class RabbitMQProducerRepository(ProducerRepository):
     def enqueue_fire_and_forget(self, stage_id: str, context: ClientContext) -> None:
         conn = self.enqueue(stage_id, context)
 
-        def wait_and_close():
+        if WORKER_LOG_TO_QUEUE:
+            AbstraLogger.warning(
+                f"[Server] ABSTRA_WORKER_LOG_TO_QUEUE=true, keeping connection open "
+                f"to receive worker logs (stage_id={stage_id})"
+            )
+            self.consume_and_forward(conn, stage_id)
+        else:
+            self._wait_and_close(conn, stage_id)
+
+    def _wait_and_close(self, conn: ConnectionProtocol, stage_id: str) -> None:
+        def target():
             try:
                 if conn.poll(timeout=60.0):
                     conn.recv()
@@ -210,8 +231,73 @@ class RabbitMQProducerRepository(ProducerRepository):
             finally:
                 conn.close()
 
-        thread = threading.Thread(target=wait_and_close, daemon=True)
-        thread.start()
+        threading.Thread(target=target, daemon=True).start()
+
+    def consume_and_forward(self, conn: ConnectionProtocol, stage_id: str) -> None:
+        def target():
+            from abstra_internals.controllers.execution.execution_stdio import (
+                BroadcastController,
+            )
+
+            try:
+                deadline = time.time() + PROCESS_TIMEOUT_SECONDS + 300
+                last_message_time = time.time()
+
+                while time.time() < deadline:
+                    if time.time() - last_message_time > CONSUMER_INACTIVITY_TIMEOUT:
+                        AbstraLogger.warning(
+                            f"[consume_and_forward] No message for {CONSUMER_INACTIVITY_TIMEOUT}s, "
+                            f"disconnecting (stage_id={stage_id})"
+                        )
+                        break
+
+                    if conn.poll(timeout=1.0):
+                        msg = conn.recv()
+                        last_message_time = time.time()
+
+                        if isinstance(msg, dict):
+                            msg_type = msg.get("type")
+                            if msg_type in ("stdio", "task"):
+                                BroadcastController.broadcast(msg=serialize(msg))
+                                continue
+                            if msg_type == "stdio_batch":
+                                for item in msg.get("payload", []):
+                                    individual = {"type": "stdio", "payload": item}
+                                    BroadcastController.broadcast(
+                                        msg=serialize(individual)
+                                    )
+                                continue
+
+                        if isinstance(msg, str):
+                            try:
+                                parsed = json.loads(msg)
+                                if parsed.get("type") == "execution:ended":
+                                    execution_id = parsed.get("execution_id")
+                                    if execution_id:
+                                        BroadcastController.broadcast(
+                                            msg=serialize(
+                                                {
+                                                    "type": "execution:update",
+                                                    "payload": {
+                                                        "execution_id": execution_id,
+                                                    },
+                                                }
+                                            )
+                                        )
+                                    break
+                            except (json.JSONDecodeError, AttributeError):
+                                pass
+
+                    if hasattr(conn, "closed") and conn.closed:
+                        break
+            except Exception as e:
+                AbstraLogger.error(
+                    f"[consume_and_forward] Error (stage_id={stage_id}): {e}"
+                )
+            finally:
+                conn.close()
+
+        threading.Thread(target=target, daemon=True).start()
 
 
 class ProductionProducerRepository(RabbitMQProducerRepository):

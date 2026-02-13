@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: TikTokApi
-Version: 7.2.1
+Version: 7.2.2
 Summary: The Unofficial TikTok API Wrapper in Python 3.
 Home-page: https://github.com/davidteather/tiktok-api
 Download-URL: https://github.com/davidteather/TikTok-Api/tarball/main
@@ -72,6 +72,14 @@ These sponsors have paid to be placed here or are my own affiliate links which I
         <b></b>
         <div>
          <b>TikHub API</b> offers 700+ endpoints for fetching and analyzing data from 14+ social media platforms<br>including videos, users, comments, shops, products, and trends — all in one place.
+        </div>
+    </a>
+    <br>
+    <a href="https://getlate.dev/?utm_source=github&utm_medium=readme&utm_campaign=tiktok_api" target="_blank">
+        <img src="https://raw.githubusercontent.com/davidteather/TikTok-Api/main/imgs/late.png" width="100" alt="Late">
+        <b></b>
+        <div>
+         <b>Late</b> — Ship social media features in an hour, not months. A single API that replaces 13 platform integrations so you can focus on building your product.
         </div>
     </a>
     <br>

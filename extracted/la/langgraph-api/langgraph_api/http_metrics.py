@@ -71,7 +71,9 @@ class HTTPMetricsCollector:
 
         try:
             if config.LANGGRAPH_METRICS_ENABLED:
-                from langgraph_api.self_hosted_metrics import record_http_request
+                from langgraph_api.self_hosted_metrics import (  # noqa: PLC0415
+                    record_http_request,
+                )
 
                 record_http_request(method, route_path, status, latency_seconds)
         except Exception:

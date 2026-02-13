@@ -2,7 +2,7 @@
 /*
 
   KLayout Layout Viewer
-  Copyright (C) 2006-2025 Matthias Koefferlein
+  Copyright (C) 2006-2026 Matthias Koefferlein
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -164,6 +164,7 @@ private:
   db::Point read_point ();
   void read_message_entry (db::LogEntryData &data);
   bool read_message_cell (std::string &cell_name);
+  bool read_message_net (std::string &net_name);
   bool read_message_geometry (db::DPolygon &polygon);
   bool read_message_cat (std::string &category_name, std::string &category_description);
 };

@@ -1,0 +1,12 @@
+[build-system]
+requires = [
+    "setuptools", "wheel", "cython>=3.0.9"
+]
+build-backend = "setuptools.build_meta"
+
+[tool.cibuildwheel]
+enable = ["cpython-freethreading"]
+build = "cp38-* cp39-* cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*"
+
+[tool.cibuildwheel.linux]
+archs = ["x86_64", "i686"]

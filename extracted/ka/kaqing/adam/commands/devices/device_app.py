@@ -7,7 +7,7 @@ from adam.config import Config
 from adam.repl_state import ReplState
 from adam.utils_log import wait_log
 from adam.utils_tabulize import tabulize
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.utils_k8s.app_pods import AppPods
 from adam.utils_k8s.ingresses import Ingresses
 
@@ -49,7 +49,7 @@ class DeviceApp(Command, Device):
     def default_container(self, state: ReplState) -> str:
         return Config().get('app.container-name', 'c3-server')
 
-    def ls(self, cmd: str, state: ReplState, ctx: Context = Context.NULL):
+    def ls(self, cmd: str, state: ReplState, ctx = NULL):
         if state.app_pod:
             return self.bash(state, state, cmd.split(' '))
         elif state.app_app:
@@ -161,11 +161,11 @@ class DeviceApp(Command, Device):
     def bash_target_changed(self, s0: ReplState, s1: ReplState):
         return s0.app_env != s1.app_env or s0.app_app != s1.app_app or s0.app_pod != s1.app_pod
 
-    def exec_no_dir(self, command: str, state: ReplState, ctx: Context = Context.NULL):
+    def exec_no_dir(self, command: str, state: ReplState, ctx = NULL):
         with app(state) as pods:
             return pods.exec(command, ctx=ctx.copy(show_out=True))
 
-    def exec_with_dir(self, command: str, session_just_created: bool, state: ReplState, ctx: Context = Context.NULL):
+    def exec_with_dir(self, command: str, session_just_created: bool, state: ReplState, ctx = NULL):
         with app(state) as pods:
             return pods.exec(command, ctx=ctx.copy(show_out=not session_just_created))
 

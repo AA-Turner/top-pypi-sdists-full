@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from botocore.client import BaseClient
 from botocore.exceptions import ClientError
@@ -43,6 +43,7 @@ class Catalog:
         domain_id: str,
         project_id: str,
         glue_api: BaseClient,
+        datazone_api: Optional[BaseClient] = None,
     ):
         """
         Initializes a new Catalog instance.
@@ -56,6 +57,7 @@ class Catalog:
             domain_id (str): The ID of the domain this catalog belongs to.
             project_id (str): The ID of the project this catalog belongs to.
             glue_api (BaseClient): The Glue API client used for database operations.
+            datazone_api (Optional[BaseClient]): The DataZone API client for environment queries.
         """
         self.name = name
         self.id = id
@@ -66,6 +68,7 @@ class Catalog:
         self.domain_id = domain_id
         self.project_id = project_id
         self._glue_api = glue_api
+        self._datazone_api = datazone_api
 
     def database(self, name: str) -> Database:
         """
@@ -92,10 +95,41 @@ class Catalog:
         except Exception as e:
             raise RuntimeError(f"Encountered an error getting database '{name}'", e)
 
+    def _get_project_default_database_name(self) -> Optional[str]:
+        """Get the project's default database name from environment provisioned resources."""
+        if not self._datazone_api:
+            return None
+
+        try:
+            environments = self._datazone_api.list_environments(
+                domainIdentifier=self.domain_id, projectIdentifier=self.project_id
+            )
+
+            for env in environments.get("items", []):
+                if "database" in env.get("name", "").lower():
+                    env_details = self._datazone_api.get_environment(
+                        domainIdentifier=self.domain_id, identifier=env["id"]
+                    )
+
+                    for resource in env_details.get("provisionedResources", []):
+                        if resource.get("name") == "glueDBName":
+                            return resource.get("value")
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "")
+            if error_code not in ["ResourceNotFoundException", "AccessDeniedException"]:
+                raise RuntimeError(
+                    f"Failed to retrieve project default database: {AWSClientException(e)}"
+                )
+
+        return None
+
     @property
     def databases(self) -> List[Database]:
         """
         Retrieves a list of all databases in the catalog.
+
+        In SMUS mode: Project default database is returned first.
+        In Express mode: All databases sorted alphabetically.
 
         Returns:
             List[Database]: A list of Database objects.
@@ -116,6 +150,18 @@ class Catalog:
                             glue_api=self._glue_api,
                         )
                     )
+
+            # Move project default database to index 0 if it exists (SMUS only)
+            default_db_name = self._get_project_default_database_name()
+            if default_db_name:
+                project_db_index = next(
+                    (i for i, db in enumerate(connection_databases) if db.name == default_db_name),
+                    -1,
+                )
+                if project_db_index > 0:
+                    project_db = connection_databases.pop(project_db_index)
+                    connection_databases.insert(0, project_db)
+
             return connection_databases
         except ClientError as e:
             raise RuntimeError("Encountered an error listing databases", AWSClientException(e))

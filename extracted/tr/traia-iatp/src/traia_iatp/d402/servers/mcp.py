@@ -156,11 +156,12 @@ async def settle_payment(
         
         logger.info("🔐 Starting payment settlement process...")
         
-        # Serialize output to JSON and hash it
+        # Serialize output to JSON and hash it (bytes32)
         output_json = json.dumps(output_data, sort_keys=True, separators=(',', ':'))
-        output_hash = Web3.keccak(text=output_json).hex()
+        output_hash_bytes = Web3.keccak(text=output_json)
+        output_hash = f"0x{output_hash_bytes.hex()}"  # bytes32 with 0x prefix
         logger.info(f"📊 Output data serialized: {len(output_json)} bytes")
-        logger.info(f"🔑 Output hash calculated: {output_hash}")
+        logger.info(f"🔑 Output hash calculated (bytes32): {output_hash}")
         logger.info(f"   First 1000 chars of output: {output_json[:1000]}")
         
         # Step 2: Get payment_uuid from context (from facilitator verify response)

@@ -1,11 +1,7 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar
+from typing import Any, Dict, List, Type, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-
-if TYPE_CHECKING:
-    from ..models.list_global_settings_response_200_item_value import ListGlobalSettingsResponse200ItemValue
-
 
 T = TypeVar("T", bound="ListGlobalSettingsResponse200Item")
 
@@ -15,16 +11,16 @@ class ListGlobalSettingsResponse200Item:
     """
     Attributes:
         name (str):
-        value (ListGlobalSettingsResponse200ItemValue):
+        value (Any):
     """
 
     name: str
-    value: "ListGlobalSettingsResponse200ItemValue"
+    value: Any
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         name = self.name
-        value = self.value.to_dict()
+        value = self.value
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -39,12 +35,10 @@ class ListGlobalSettingsResponse200Item:
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
-        from ..models.list_global_settings_response_200_item_value import ListGlobalSettingsResponse200ItemValue
-
         d = src_dict.copy()
         name = d.pop("name")
 
-        value = ListGlobalSettingsResponse200ItemValue.from_dict(d.pop("value"))
+        value = d.pop("value")
 
         list_global_settings_response_200_item = cls(
             name=name,

@@ -29,6 +29,7 @@ class AlertArgs:
                  notify_on_ok: Optional[pulumi.Input[_builtins.bool]] = None,
                  owner_user_name: Optional[pulumi.Input[_builtins.str]] = None,
                  parent_path: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input['AlertProviderConfigArgs']] = None,
                  seconds_to_retrigger: Optional[pulumi.Input[_builtins.int]] = None):
         """
         The set of arguments for constructing a Alert resource.
@@ -40,6 +41,7 @@ class AlertArgs:
         :param pulumi.Input[_builtins.bool] notify_on_ok: Whether to notify alert subscribers when alert returns back to normal.
         :param pulumi.Input[_builtins.str] owner_user_name: Alert owner's username.
         :param pulumi.Input[_builtins.str] parent_path: The path to a workspace folder containing the alert. The default is the user's home folder.  If changed, the alert will be recreated.
+        :param pulumi.Input['AlertProviderConfigArgs'] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.int] seconds_to_retrigger: Number of seconds an alert must wait after being triggered to rearm itself. After rearming, it can be triggered again. If 0 or not specified, the alert will not be triggered again.
         """
         pulumi.set(__self__, "condition", condition)
@@ -55,6 +57,8 @@ class AlertArgs:
             pulumi.set(__self__, "owner_user_name", owner_user_name)
         if parent_path is not None:
             pulumi.set(__self__, "parent_path", parent_path)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
         if seconds_to_retrigger is not None:
             pulumi.set(__self__, "seconds_to_retrigger", seconds_to_retrigger)
 
@@ -155,6 +159,18 @@ class AlertArgs:
         pulumi.set(self, "parent_path", value)
 
     @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional[pulumi.Input['AlertProviderConfigArgs']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
+
+    @provider_config.setter
+    def provider_config(self, value: Optional[pulumi.Input['AlertProviderConfigArgs']]):
+        pulumi.set(self, "provider_config", value)
+
+    @_builtins.property
     @pulumi.getter(name="secondsToRetrigger")
     def seconds_to_retrigger(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
@@ -179,6 +195,7 @@ class _AlertState:
                  notify_on_ok: Optional[pulumi.Input[_builtins.bool]] = None,
                  owner_user_name: Optional[pulumi.Input[_builtins.str]] = None,
                  parent_path: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input['AlertProviderConfigArgs']] = None,
                  query_id: Optional[pulumi.Input[_builtins.str]] = None,
                  seconds_to_retrigger: Optional[pulumi.Input[_builtins.int]] = None,
                  state: Optional[pulumi.Input[_builtins.str]] = None,
@@ -195,6 +212,7 @@ class _AlertState:
         :param pulumi.Input[_builtins.bool] notify_on_ok: Whether to notify alert subscribers when alert returns back to normal.
         :param pulumi.Input[_builtins.str] owner_user_name: Alert owner's username.
         :param pulumi.Input[_builtins.str] parent_path: The path to a workspace folder containing the alert. The default is the user's home folder.  If changed, the alert will be recreated.
+        :param pulumi.Input['AlertProviderConfigArgs'] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] query_id: ID of the query evaluated by the alert.
         :param pulumi.Input[_builtins.int] seconds_to_retrigger: Number of seconds an alert must wait after being triggered to rearm itself. After rearming, it can be triggered again. If 0 or not specified, the alert will not be triggered again.
         :param pulumi.Input[_builtins.str] state: Current state of the alert's trigger status (`UNKNOWN`, `OK`, `TRIGGERED`). This field is set to `UNKNOWN` if the alert has not yet been evaluated or ran into an error during the last evaluation.
@@ -219,6 +237,8 @@ class _AlertState:
             pulumi.set(__self__, "owner_user_name", owner_user_name)
         if parent_path is not None:
             pulumi.set(__self__, "parent_path", parent_path)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
         if query_id is not None:
             pulumi.set(__self__, "query_id", query_id)
         if seconds_to_retrigger is not None:
@@ -339,6 +359,18 @@ class _AlertState:
         pulumi.set(self, "parent_path", value)
 
     @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional[pulumi.Input['AlertProviderConfigArgs']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
+
+    @provider_config.setter
+    def provider_config(self, value: Optional[pulumi.Input['AlertProviderConfigArgs']]):
+        pulumi.set(self, "provider_config", value)
+
+    @_builtins.property
     @pulumi.getter(name="queryId")
     def query_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -412,31 +444,147 @@ class Alert(pulumi.CustomResource):
                  notify_on_ok: Optional[pulumi.Input[_builtins.bool]] = None,
                  owner_user_name: Optional[pulumi.Input[_builtins.str]] = None,
                  parent_path: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input[Union['AlertProviderConfigArgs', 'AlertProviderConfigArgsDict']]] = None,
                  query_id: Optional[pulumi.Input[_builtins.str]] = None,
                  seconds_to_retrigger: Optional[pulumi.Input[_builtins.int]] = None,
                  __props__=None):
         """
-        ## Import
+        This resource allows you to manage [Databricks SQL Alerts](https://docs.databricks.com/en/sql/user/alerts/index.html).  It supersedes SqlAlert resource - see migration guide below for more details.
 
-        This resource can be imported using alert ID:
+        > This resource can only be used with a workspace-level provider!
 
-        hcl
+        ## Example Usage
 
-        import {
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
 
-          to = databricks_alert.this
-
-          id = "<alert-id>"
-
-        }
-
-        Alternatively, when using `terraform` version 1.4 or earlier, import using the `pulumi import` command:
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/alert:Alert this <alert-id>
+        shared_dir = databricks.Directory("shared_dir", path="/Shared/Queries")
+        # This will be replaced with new databricks_query resource
+        this = databricks.Query("this",
+            warehouse_id=example["id"],
+            display_name="My Query Name",
+            query_text="SELECT 42 as value",
+            parent_path=shared_dir.path)
+        alert = databricks.Alert("alert",
+            query_id=this.id,
+            display_name="TF new alert",
+            parent_path=shared_dir.path,
+            condition={
+                "op": "GREATER_THAN",
+                "operand": {
+                    "column": {
+                        "name": "value",
+                    },
+                },
+                "threshold": {
+                    "value": {
+                        "double_value": 42,
+                    },
+                },
+            })
         ```
+
+        ## Migrating from `SqlAlert` resource
+
+        Under the hood, the new resource uses the same data as the `SqlAlert`, but is exposed via a different API. This means that we can migrate existing alerts without recreating them.
+
+        > It's also recommended to migrate to the `Query` resource - see Query for more details.
+
+        This operation is done in few steps:
+
+        * Record the ID of existing `SqlAlert`, for example, by executing the `terraform state show databricks_sql_alert.alert` command.
+        * Create the code for the new implementation by performing the following changes:
+          * the `name` attribute is now named `display_name`
+          * the `parent` (if exists) is renamed to `parent_path` attribute and should be converted from `folders/object_id` to the actual path.
+          * the `options` block is converted into the `condition` block with the following changes:
+            * the value of the `op` attribute should be converted from a mathematical operator into a string name, like, `>` is becoming `GREATER_THAN`, `==` is becoming `EQUAL`, etc.
+            * the `column` attribute is becoming the `operand` block
+            * the `value` attribute is becoming the `threshold` block.  **Please note that the old implementation always used strings so you may have changes after import if you use `double_value` or `bool_value` inside the block.**
+          * the `rearm` attribute is renamed to `seconds_to_retrigger`.
+
+        For example, if we have the original `SqlAlert` defined as:
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        alert = databricks.SqlAlert("alert",
+            query_id=this["id"],
+            name="My Alert",
+            parent=f"folders/{shared_dir['objectId']}",
+            options={
+                "column": "value",
+                "op": ">",
+                "value": "42",
+                "muted": False,
+            })
+        ```
+
+        we'll have a new resource defined as:
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        alert = databricks.Alert("alert",
+            query_id=this["id"],
+            display_name="My Alert",
+            parent_path=shared_dir["path"],
+            condition={
+                "op": "GREATER_THAN",
+                "operand": {
+                    "column": {
+                        "name": "value",
+                    },
+                },
+                "threshold": {
+                    "value": {
+                        "double_value": 42,
+                    },
+                },
+            })
+        ```
+
+        ## Access Control
+
+        Permissions can control which groups or individual users can *Manage*, *Edit*, *Run* or *View* individual alerts.
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        alert_usage = databricks.Permissions("alert_usage",
+            sql_alert_id=alert["id"],
+            access_controls=[{
+                "group_name": "users",
+                "permission_level": "CAN_RUN",
+            }])
+        ```
+
+        ## Access Control
+
+        Permissions can control which groups or individual users can *Manage*, *Edit*, *Run* or *View* individual alerts.
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        alert_usage = databricks.Permissions("alert_usage",
+            sql_alert_id=alert["id"],
+            access_controls=[{
+                "group_name": "users",
+                "permission_level": "CAN_RUN",
+            }])
+        ```
+
+        ## Related Resources
+
+        The following resources are often used in the same context:
+
+        * Query to manage [Databricks SQL Queries](https://docs.databricks.com/sql/user/queries/index.html).
+        * SqlEndpoint to manage [Databricks SQL Endpoints](https://docs.databricks.com/sql/admin/sql-endpoints.html).
+        * Directory to manage directories in [Databricks Workpace](https://docs.databricks.com/workspace/workspace-objects.html).
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -447,6 +595,7 @@ class Alert(pulumi.CustomResource):
         :param pulumi.Input[_builtins.bool] notify_on_ok: Whether to notify alert subscribers when alert returns back to normal.
         :param pulumi.Input[_builtins.str] owner_user_name: Alert owner's username.
         :param pulumi.Input[_builtins.str] parent_path: The path to a workspace folder containing the alert. The default is the user's home folder.  If changed, the alert will be recreated.
+        :param pulumi.Input[Union['AlertProviderConfigArgs', 'AlertProviderConfigArgsDict']] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] query_id: ID of the query evaluated by the alert.
         :param pulumi.Input[_builtins.int] seconds_to_retrigger: Number of seconds an alert must wait after being triggered to rearm itself. After rearming, it can be triggered again. If 0 or not specified, the alert will not be triggered again.
         """
@@ -457,27 +606,142 @@ class Alert(pulumi.CustomResource):
                  args: AlertArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        ## Import
+        This resource allows you to manage [Databricks SQL Alerts](https://docs.databricks.com/en/sql/user/alerts/index.html).  It supersedes SqlAlert resource - see migration guide below for more details.
 
-        This resource can be imported using alert ID:
+        > This resource can only be used with a workspace-level provider!
 
-        hcl
+        ## Example Usage
 
-        import {
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
 
-          to = databricks_alert.this
-
-          id = "<alert-id>"
-
-        }
-
-        Alternatively, when using `terraform` version 1.4 or earlier, import using the `pulumi import` command:
-
-        bash
-
-        ```sh
-        $ pulumi import databricks:index/alert:Alert this <alert-id>
+        shared_dir = databricks.Directory("shared_dir", path="/Shared/Queries")
+        # This will be replaced with new databricks_query resource
+        this = databricks.Query("this",
+            warehouse_id=example["id"],
+            display_name="My Query Name",
+            query_text="SELECT 42 as value",
+            parent_path=shared_dir.path)
+        alert = databricks.Alert("alert",
+            query_id=this.id,
+            display_name="TF new alert",
+            parent_path=shared_dir.path,
+            condition={
+                "op": "GREATER_THAN",
+                "operand": {
+                    "column": {
+                        "name": "value",
+                    },
+                },
+                "threshold": {
+                    "value": {
+                        "double_value": 42,
+                    },
+                },
+            })
         ```
+
+        ## Migrating from `SqlAlert` resource
+
+        Under the hood, the new resource uses the same data as the `SqlAlert`, but is exposed via a different API. This means that we can migrate existing alerts without recreating them.
+
+        > It's also recommended to migrate to the `Query` resource - see Query for more details.
+
+        This operation is done in few steps:
+
+        * Record the ID of existing `SqlAlert`, for example, by executing the `terraform state show databricks_sql_alert.alert` command.
+        * Create the code for the new implementation by performing the following changes:
+          * the `name` attribute is now named `display_name`
+          * the `parent` (if exists) is renamed to `parent_path` attribute and should be converted from `folders/object_id` to the actual path.
+          * the `options` block is converted into the `condition` block with the following changes:
+            * the value of the `op` attribute should be converted from a mathematical operator into a string name, like, `>` is becoming `GREATER_THAN`, `==` is becoming `EQUAL`, etc.
+            * the `column` attribute is becoming the `operand` block
+            * the `value` attribute is becoming the `threshold` block.  **Please note that the old implementation always used strings so you may have changes after import if you use `double_value` or `bool_value` inside the block.**
+          * the `rearm` attribute is renamed to `seconds_to_retrigger`.
+
+        For example, if we have the original `SqlAlert` defined as:
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        alert = databricks.SqlAlert("alert",
+            query_id=this["id"],
+            name="My Alert",
+            parent=f"folders/{shared_dir['objectId']}",
+            options={
+                "column": "value",
+                "op": ">",
+                "value": "42",
+                "muted": False,
+            })
+        ```
+
+        we'll have a new resource defined as:
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        alert = databricks.Alert("alert",
+            query_id=this["id"],
+            display_name="My Alert",
+            parent_path=shared_dir["path"],
+            condition={
+                "op": "GREATER_THAN",
+                "operand": {
+                    "column": {
+                        "name": "value",
+                    },
+                },
+                "threshold": {
+                    "value": {
+                        "double_value": 42,
+                    },
+                },
+            })
+        ```
+
+        ## Access Control
+
+        Permissions can control which groups or individual users can *Manage*, *Edit*, *Run* or *View* individual alerts.
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        alert_usage = databricks.Permissions("alert_usage",
+            sql_alert_id=alert["id"],
+            access_controls=[{
+                "group_name": "users",
+                "permission_level": "CAN_RUN",
+            }])
+        ```
+
+        ## Access Control
+
+        Permissions can control which groups or individual users can *Manage*, *Edit*, *Run* or *View* individual alerts.
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        alert_usage = databricks.Permissions("alert_usage",
+            sql_alert_id=alert["id"],
+            access_controls=[{
+                "group_name": "users",
+                "permission_level": "CAN_RUN",
+            }])
+        ```
+
+        ## Related Resources
+
+        The following resources are often used in the same context:
+
+        * Query to manage [Databricks SQL Queries](https://docs.databricks.com/sql/user/queries/index.html).
+        * SqlEndpoint to manage [Databricks SQL Endpoints](https://docs.databricks.com/sql/admin/sql-endpoints.html).
+        * Directory to manage directories in [Databricks Workpace](https://docs.databricks.com/workspace/workspace-objects.html).
 
         :param str resource_name: The name of the resource.
         :param AlertArgs args: The arguments to use to populate this resource's properties.
@@ -501,6 +765,7 @@ class Alert(pulumi.CustomResource):
                  notify_on_ok: Optional[pulumi.Input[_builtins.bool]] = None,
                  owner_user_name: Optional[pulumi.Input[_builtins.str]] = None,
                  parent_path: Optional[pulumi.Input[_builtins.str]] = None,
+                 provider_config: Optional[pulumi.Input[Union['AlertProviderConfigArgs', 'AlertProviderConfigArgsDict']]] = None,
                  query_id: Optional[pulumi.Input[_builtins.str]] = None,
                  seconds_to_retrigger: Optional[pulumi.Input[_builtins.int]] = None,
                  __props__=None):
@@ -523,6 +788,7 @@ class Alert(pulumi.CustomResource):
             __props__.__dict__["notify_on_ok"] = notify_on_ok
             __props__.__dict__["owner_user_name"] = owner_user_name
             __props__.__dict__["parent_path"] = parent_path
+            __props__.__dict__["provider_config"] = provider_config
             if query_id is None and not opts.urn:
                 raise TypeError("Missing required property 'query_id'")
             __props__.__dict__["query_id"] = query_id
@@ -551,6 +817,7 @@ class Alert(pulumi.CustomResource):
             notify_on_ok: Optional[pulumi.Input[_builtins.bool]] = None,
             owner_user_name: Optional[pulumi.Input[_builtins.str]] = None,
             parent_path: Optional[pulumi.Input[_builtins.str]] = None,
+            provider_config: Optional[pulumi.Input[Union['AlertProviderConfigArgs', 'AlertProviderConfigArgsDict']]] = None,
             query_id: Optional[pulumi.Input[_builtins.str]] = None,
             seconds_to_retrigger: Optional[pulumi.Input[_builtins.int]] = None,
             state: Optional[pulumi.Input[_builtins.str]] = None,
@@ -572,6 +839,7 @@ class Alert(pulumi.CustomResource):
         :param pulumi.Input[_builtins.bool] notify_on_ok: Whether to notify alert subscribers when alert returns back to normal.
         :param pulumi.Input[_builtins.str] owner_user_name: Alert owner's username.
         :param pulumi.Input[_builtins.str] parent_path: The path to a workspace folder containing the alert. The default is the user's home folder.  If changed, the alert will be recreated.
+        :param pulumi.Input[Union['AlertProviderConfigArgs', 'AlertProviderConfigArgsDict']] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param pulumi.Input[_builtins.str] query_id: ID of the query evaluated by the alert.
         :param pulumi.Input[_builtins.int] seconds_to_retrigger: Number of seconds an alert must wait after being triggered to rearm itself. After rearming, it can be triggered again. If 0 or not specified, the alert will not be triggered again.
         :param pulumi.Input[_builtins.str] state: Current state of the alert's trigger status (`UNKNOWN`, `OK`, `TRIGGERED`). This field is set to `UNKNOWN` if the alert has not yet been evaluated or ran into an error during the last evaluation.
@@ -591,6 +859,7 @@ class Alert(pulumi.CustomResource):
         __props__.__dict__["notify_on_ok"] = notify_on_ok
         __props__.__dict__["owner_user_name"] = owner_user_name
         __props__.__dict__["parent_path"] = parent_path
+        __props__.__dict__["provider_config"] = provider_config
         __props__.__dict__["query_id"] = query_id
         __props__.__dict__["seconds_to_retrigger"] = seconds_to_retrigger
         __props__.__dict__["state"] = state
@@ -669,6 +938,14 @@ class Alert(pulumi.CustomResource):
         The path to a workspace folder containing the alert. The default is the user's home folder.  If changed, the alert will be recreated.
         """
         return pulumi.get(self, "parent_path")
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> pulumi.Output[Optional['outputs.AlertProviderConfig']]:
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
 
     @_builtins.property
     @pulumi.getter(name="queryId")

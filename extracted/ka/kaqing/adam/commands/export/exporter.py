@@ -10,17 +10,18 @@ from adam.commands.export.export_sessions import ExportSessions
 from adam.commands.export.importer import Importer
 from adam.commands.export.importer_athena import AthenaImporter
 from adam.commands.export.importer_sqlite import SqliteImporter
-from adam.commands.export.utils_export import ExportSpec, ExportTableStatus, ExportTableSpec, ImportSpec, csv_dir, fs_exec, state_with_pod, table_log_dir
+from adam.commands.export.utils_export import ExportSpec, ExportTableStatus, ExportTableSpec, ImportSpec, fs_exec, state_with_pod, remote_export_table_log_dir
 from adam.config import Config
 from adam.repl_state import ReplState
+from adam.directories import Directories
 from adam.utils_log import debug, log, log2, ing, log_exc
 from adam.utils_cassandra.cassandra_nodes import CassandraNodes
 from adam.utils_concurrent import offload, parallelize
-from adam.utils_context import Context
+from adam.utils_context import NULL
 from adam.utils_k8s.pod_files import PodFiles
 
 class Exporter:
-    def export_tables(args: list[str], state: ReplState, export_only: bool = False, max_workers = 0, ctx: Context = Context.NULL) -> ExportExecResult:
+    def export_tables(args: list[str], state: ReplState, export_only: bool = False, max_workers = 0, ctx = NULL) -> ExportExecResult:
         if export_only:
             ctx.log2('export-only for testing')
 
@@ -70,7 +71,7 @@ class Exporter:
 
         return spec
 
-    def import_session(spec_str: str, state: ReplState, max_workers = 0, ctx: Context = Context.NULL) -> ExportExecResult:
+    def import_session(spec_str: str, state: ReplState, max_workers = 0, ctx = NULL) -> ExportExecResult:
         import_spec: ImportSpec = None
         with log_exc(True):
             import_spec = Exporter.import_spec(spec_str, state)
@@ -142,7 +143,7 @@ class Exporter:
 
         return spec
 
-    def _export_tables(spec: ExportSpec, state: ReplState, export_only = False, max_workers = 0, export_state = None, ctx: Context = Context.NULL) -> ExportExecResult:
+    def _export_tables(spec: ExportSpec, state: ReplState, export_only = False, max_workers = 0, export_state = None, ctx = NULL) -> ExportExecResult:
         if not spec.keyspace:
             spec.keyspace = f'{state.namespace}_db'
 
@@ -153,7 +154,7 @@ class Exporter:
             max_workers = Config().action_workers(f'export.{spec.importer}', 8)
 
         if export_state == 'init':
-            CassandraNodes.exec(state.pod, state.namespace, f'rm -rf {csv_dir()}/{spec.session}_*', shell='bash', ctx=ctx)
+            CassandraNodes.exec(state.pod, state.namespace, f'rm -rf {Directories.export_csv_dir()}/{spec.session}_*', shell='bash', ctx=ctx.copy(show_out=False))
 
         action = f'[{spec.session}] Triggering export of'
         if export_state == 'init':
@@ -191,12 +192,12 @@ class Exporter:
                      multi_tables = True,
                      consistency: str = None,
                      export_state=None,
-                     ctx: Context = Context.NULL):
+                     ctx = NULL):
         status: ExportTableStatus = None
 
         table, target_table, columns = Exporter.resove_table_n_columns(spec, state, include_ks_in_target=False, importer=importer, ctx=ctx)
 
-        table_log_base = f'{table_log_dir(state.pod, state.namespace)}/{session}_{spec.keyspace}.{target_table}.log'
+        table_log_base = f'{remote_export_table_log_dir(state.pod, state.namespace)}/{session}_{spec.keyspace}.{target_table}.log'
         create_db = not state.export_session
 
         if export_state == 'init':
@@ -253,8 +254,8 @@ class Exporter:
         except:
             traceback.print_exc()
 
-    def create_table_log(spec: ExportTableSpec, state: ReplState, session: str, table: str, target_table: str, ctx: Context = Context.NULL):
-        dir = table_log_dir(state.pod, state.namespace)
+    def create_table_log(spec: ExportTableSpec, state: ReplState, session: str, table: str, target_table: str, ctx = NULL):
+        dir = remote_export_table_log_dir(state.pod, state.namespace)
         log_file = f'{dir}/{session}_{spec.keyspace}.{target_table}.log'
 
         cmd = f'rm -f {log_file}* && mkdir -p {dir} && touch {log_file}'
@@ -270,12 +271,12 @@ class Exporter:
                       columns: str,
                       multi_tables = True,
                       consistency: str = None,
-                      ctx: Context = Context.NULL):
+                      ctx = NULL):
         db = f'{session}_{target_table}'
 
-        CassandraNodes.exec(state.pod, state.namespace, f'mkdir -p {csv_dir()}/{db}', shell='bash', ctx=ctx)
-        csv_file = f'{csv_dir()}/{db}/{table}.csv'
-        table_log_file = f'{table_log_dir(state.pod, state.namespace)}/{session}_{spec.keyspace}.{target_table}.log'
+        CassandraNodes.exec(state.pod, state.namespace, f'mkdir -p {Directories.export_csv_dir()}/{db}', shell='bash', ctx=ctx)
+        csv_file = f'{Directories.export_csv_dir()}/{db}/{table}.csv'
+        table_log_file = f'{remote_export_table_log_dir(state.pod, state.namespace)}/{session}_{spec.keyspace}.{target_table}.log'
 
         suppress_ing_log = ctx.debug or multi_tables
         queries = []
@@ -290,8 +291,8 @@ class Exporter:
 
         return table_log_file
 
-    def rename_to_pending_import(spec: ExportTableSpec, state: ReplState, session: str, target_table: str, ctx: Context = Context.NULL):
-        log_file = f'{table_log_dir(state.pod, state.namespace)}/{session}_{spec.keyspace}.{target_table}.log'
+    def rename_to_pending_import(spec: ExportTableSpec, state: ReplState, session: str, target_table: str, ctx = NULL):
+        log_file = f'{remote_export_table_log_dir(state.pod, state.namespace)}/{session}_{spec.keyspace}.{target_table}.log'
         to = f'{log_file}.pending_import'
 
         cmd =f'mv {log_file} {to}'
@@ -308,11 +309,11 @@ class Exporter:
                         columns: str,
                         multi_tables = True,
                         create_db = False,
-                        ctx: Context = Context.NULL):
+                        ctx = NULL):
         im = AthenaImporter() if importer == 'athena' else SqliteImporter()
         return im.import_from_csv(state, session if session else state.export_session, spec.keyspace, table, target_table, columns, multi_tables, create_db, ctx=ctx)
 
-    def resove_table_n_columns(spec: ExportTableSpec, state: ReplState, include_ks_in_target = False, importer = 'sqlite', ctx: Context = Context.NULL):
+    def resove_table_n_columns(spec: ExportTableSpec, state: ReplState, include_ks_in_target = False, importer = 'sqlite', ctx = NULL):
         table = spec.table
         columns = spec.columns
         if not columns:
@@ -337,7 +338,20 @@ class Exporter:
         return table, target_table, columns
 
 class ExportTableContext:
-    def __init__(self, spec: ExportTableSpec, state: ReplState, session: str, importer: str, export_only = False, multi_tables = True, table: str = None, target_table: str = None, columns: str = None, create_db = False, table_log: str = None, status: ExportTableStatus = None, ctx: Context = None):
+    def __init__(self,
+                 spec: ExportTableSpec,
+                 state: ReplState,
+                 session: str,
+                 importer: str,
+                 export_only = False,
+                 multi_tables = True,
+                 table: str = None,
+                 target_table: str = None,
+                 columns: str = None,
+                 create_db = False,
+                 table_log: str = None,
+                 status: ExportTableStatus = None,
+                 ctx = NULL):
         self.spec = spec
         self.state = state
         self.session = session
@@ -356,7 +370,7 @@ class ExportService:
     def __init__(self, handler: 'ExporterHandler'):
         self.handler = handler
 
-    def export(self, args: list[str], export_only=False, ctx: Context = Context.NULL) -> ExportExecResult:
+    def export(self, args: list[str], export_only=False, ctx = NULL) -> ExportExecResult:
         with state_with_pod(self.handler.state) as state:
             # --export-only for testing only
             r: ExportExecResult = Exporter.export_tables(args, state, export_only=export_only, ctx=ctx)
@@ -367,7 +381,7 @@ class ExportService:
 
             return r
 
-    def import_session(self, spec_str: str, ctx: Context = Context.NULL):
+    def import_session(self, spec_str: str, ctx = NULL):
         state = self.handler.state
 
         r: ExportExecResult = Exporter.import_session(spec_str, state, ctx=ctx)

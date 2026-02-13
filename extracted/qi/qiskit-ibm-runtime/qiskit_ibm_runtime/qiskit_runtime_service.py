@@ -343,8 +343,9 @@ class QiskitRuntimeService:
                 filtered_groups, key=lambda d: plans.index(d["plan"])
             )
         else:
-            # if plans_preference is not set, prioritize free and trial plans
-            ordered_pricing_types = ["free", "trial", "paygo", "paid", "subscription"]
+            # If plans_preference is not set, prioritize free and trial plans.
+            # Note that `unknown` is not returned by the API but by `CloudAccount.list_instances()`
+            ordered_pricing_types = ["free", "trial", "paygo", "paid", "subscription", "unknown"]
             self._backend_instance_groups = sorted(
                 self._backend_instance_groups,
                 key=lambda d: ordered_pricing_types.index(d["pricing_type"]),
@@ -716,11 +717,20 @@ class QiskitRuntimeService:
         try:
             if backend_name in self._backend_configs:
                 config = self._backend_configs[backend_name]
+
+                fractional_gates = {"rzz", "rx"}
+
                 # if cached config does not match use_fractional_gates
                 # or calibration_id is passed in
                 if (
-                    (use_fractional_gates and "rzz" not in config.basis_gates)
-                    or (not use_fractional_gates and "rzz" in config.basis_gates)
+                    (
+                        use_fractional_gates
+                        and not any(fg in config.basis_gates for fg in fractional_gates)
+                    )
+                    or (
+                        not use_fractional_gates
+                        and any(fg in config.basis_gates for fg in fractional_gates)
+                    )
                     or calibration_id
                 ):
                     config = configuration_from_server_data(

@@ -3,9 +3,8 @@
 #
 import pytest
 
-from tests.utils import random_string
-
 from snowflake.core.image_repository import ImageRepository
+from tests.utils import random_string
 
 
 def test_iter(image_repositories):

@@ -30,6 +30,16 @@ class CreateDatasetRunItemRequest(pydantic_v1.BaseModel):
     traceId should always be provided. For compatibility with older SDK versions it can also be inferred from the provided observationId.
     """
 
+    dataset_version: typing.Optional[dt.datetime] = pydantic_v1.Field(
+        alias="datasetVersion", default=None
+    )
+    """
+    ISO 8601 timestamp (RFC 3339, Section 5.6) in UTC (e.g., "2026-01-21T14:35:42Z").
+    Specifies the dataset version to use for this experiment run. 
+    If provided, the experiment will use dataset items as they existed at or before this timestamp.
+    If not provided, uses the latest version of dataset items.
+    """
+
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {
             "by_alias": True,

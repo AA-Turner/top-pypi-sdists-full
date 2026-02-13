@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.18.1+obcheckpoint(0.2.10);ob(v1)                                                  #
-# Generated on 2026-02-03T01:51:07.135637                                                            #
+# MF version: 2.19.19.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-02-11T23:40:09.087455                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,24 +9,24 @@ from __future__ import annotations
 
 from . import test_unbounded_foreach_decorator as test_unbounded_foreach_decorator
 from .test_unbounded_foreach_decorator import InternalTestUnboundedForeachInput as InternalTestUnboundedForeachInput
-from . import aws as aws
-from . import cards as cards
+from . import secrets as secrets
 from . import parallel_decorator as parallel_decorator
 from . import timeout_decorator as timeout_decorator
+from . import pypi as pypi
+from . import catch_decorator as catch_decorator
+from . import cards as cards
+from . import argo as argo
+from . import retry_decorator as retry_decorator
+from . import resources_decorator as resources_decorator
+from . import kubernetes as kubernetes
+from . import aws as aws
 from . import datatools as datatools
 from . import gcp as gcp
 from . import storage_executor as storage_executor
-from . import argo as argo
 from . import frameworks as frameworks
-from . import catch_decorator as catch_decorator
-from . import pypi as pypi
 from . import environment_decorator as environment_decorator
-from . import retry_decorator as retry_decorator
-from . import secrets as secrets
-from . import resources_decorator as resources_decorator
-from . import kubernetes as kubernetes
-from . import events_decorator as events_decorator
 from . import project_decorator as project_decorator
+from . import events_decorator as events_decorator
 from . import exit_hook as exit_hook
 from . import airflow as airflow
 from . import uv as uv

@@ -4,22 +4,26 @@ requires = ["setuptools>=78.0.2"]
 
 [dependency-groups]
 dev = [
-  "coverage==7.13.0",
+  "coverage==7.13.4",
   "flake8==7.3.0",
   "google-auth-stubs==0.3.0",
   "mypy==1.19.1",
-  "pyright==1.1.407",
+  "pyright==1.1.408",
   "pytest-cov==7.0.0",
   "pytest-github-actions-annotate-failures==0.3.0",
   "pytest-profiling==1.8.1",
   "pytest-xdist==3.8.0",
   "pytest==9.0.2",
   "responses==0.25.8",
-  "ty==0.0.3",
+  "ty==0.0.15",
   "types-defusedxml==0.7.0.20250822",
   "types-oauthlib==3.3.0.20250822",
   "types-requests-oauthlib==2.0.0.20250809",
-  "types-requests==2.32.4.20250913"
+  "types-requests==2.32.4.20260107",
+  {include-group = "pylint"}
+]
+pylint = [
+  "pylint==4.0.4"
 ]
 
 [project]
@@ -43,7 +47,7 @@ classifiers = [
 dependencies = [
   "defusedxml>=0.7.1",
   "oauthlib>=3.3.1",
-  "PyJWT[crypto]>=2.10.1",
+  "PyJWT[crypto]>=2.11.0",
   "python3-openid>=3.2.0",
   "requests-oauthlib>=2.0.0",
   "requests>=2.32.5"
@@ -55,7 +59,7 @@ license-files = ["LICENSE"]
 name = "social-auth-core"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "4.8.3"
+version = "4.8.5"
 
 [project.optional-dependencies]
 all = [
@@ -73,25 +77,25 @@ azuread = [
 # This is present until pip implements supports for PEP 735
 # see https://github.com/pypa/pip/issues/12963
 dev = [
-  "coverage==7.13.0",
+  "coverage==7.13.4",
   "flake8==7.3.0",
   "google-auth-stubs==0.3.0",
   "mypy==1.19.1",
-  "pyright==1.1.407",
+  "pyright==1.1.408",
   "pytest-cov==7.0.0",
   "pytest-github-actions-annotate-failures==0.3.0",
   "pytest-profiling==1.8.1",
   "pytest-xdist==3.8.0",
   "pytest==9.0.2",
   "responses==0.25.8",
-  "ty==0.0.3",
+  "ty==0.0.15",
   "types-defusedxml==0.7.0.20250822",
   "types-oauthlib==3.3.0.20250822",
   "types-requests-oauthlib==2.0.0.20250809",
-  "types-requests==2.32.4.20250913"
+  "types-requests==2.32.4.20260107"
 ]
 google-onetap = [
-  "google-auth>=2.40.0,<2.46"
+  "google-auth>=2.40.0,<2.49"
 ]
 saml = [
   "python3-saml>=1.16.0"
@@ -130,6 +134,30 @@ module = [
   "shopify.*"
 ]
 
+[tool.pylint.main]
+disable = [
+  "abstract-method",  # TODO
+  "arguments-differ",  # TODO
+  "duplicate-code",  # TODO
+  "fixme",
+  "invalid-name",  # TODO
+  "keyword-arg-before-vararg",  # TODO
+  "line-too-long",
+  "missing-class-docstring",
+  "missing-function-docstring",
+  "missing-module-docstring",
+  "no-member",  # TODO
+  "too-few-public-methods",
+  "too-many-ancestors",
+  "too-many-arguments",
+  "too-many-branches",
+  "too-many-instance-attributes",
+  "too-many-locals",
+  "too-many-positional-arguments",  # TODO
+  "too-many-public-methods",
+  "unused-argument"
+]
+
 [tool.pyright]
 executionEnvironments = [
   {reportMissingImports = "none", root = "social_core/backends/gae.py"}
@@ -157,7 +185,6 @@ ignore = [
   "ARG001",  # TODO: Unused function argument (mostly for API compatibility)
   "ARG002",  # TODO: Unused method argument (mostly for API compatibility)
   "ARG003",  # TODO: Unused class method argument
-  "B904",  # TODO: use raise from
   "COM",  # CONFIG: No trailing commas
   "D",  # TODO: Missing documentation
   "D203",  # CONFIG: incompatible with D211
@@ -183,7 +210,6 @@ ignore = [
   "TD002",  # CONFIG: no detailed TODO documentation is required
   "TD003",  # CONFIG: no detailed TODO documentation is required
   "TRY003",  # TODO: Avoid specifying long messages outside the exception class
-  "TRY301",  # TODO: Abstract `raise` to an inner function
   'ISC001'  # CONFIG: formatter
 ]
 select = ["ALL"]

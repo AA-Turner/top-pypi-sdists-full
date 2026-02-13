@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from langchain_core.runnables.config import RunnableConfig
     from langgraph.types import (
         All,
-        Durability,  # type: ignore[unresolved-import]
+        Durability,
         StreamMode,
     )
 

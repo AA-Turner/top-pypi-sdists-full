@@ -1965,6 +1965,7 @@ class CfnCollaboration(
                 allow_joins_on_columns_with_different_names=False,
                 preserve_nulls=False
             ),
+            is_metrics_enabled=False,
             job_log_status="jobLogStatus",
             members=[cleanrooms.CfnCollaboration.MemberSpecificationProperty(
                 account_id="accountId",
@@ -2020,6 +2021,7 @@ class CfnCollaboration(
         creator_ml_member_abilities: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCollaboration.MLMemberAbilitiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         creator_payment_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCollaboration.PaymentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         data_encryption_metadata: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCollaboration.DataEncryptionMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        is_metrics_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         job_log_status: typing.Optional[builtins.str] = None,
         members: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCollaboration.MemberSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2039,6 +2041,7 @@ class CfnCollaboration(
         :param creator_ml_member_abilities: The ML member abilities for a collaboration member.
         :param creator_payment_configuration: An object representing the collaboration member's payment responsibilities set by the collaboration creator.
         :param data_encryption_metadata: The settings for client-side encryption for cryptographic computing.
+        :param is_metrics_enabled: 
         :param job_log_status: An indicator as to whether job logging has been enabled or disabled for the collaboration. When ``ENABLED`` , AWS Clean Rooms logs details about jobs run within this collaboration and those logs can be viewed in Amazon CloudWatch Logs. The default value is ``DISABLED`` .
         :param members: A list of initial members, not including the creator. This list is immutable.
         :param tags: An optional label that you can assign to a resource when you create it. Each tag consists of a key and an optional value, both of which you define. When you use tagging, you can also use tag-based access control in IAM policies to control access to this resource.
@@ -2059,6 +2062,7 @@ class CfnCollaboration(
             creator_ml_member_abilities=creator_ml_member_abilities,
             creator_payment_configuration=creator_payment_configuration,
             data_encryption_metadata=data_encryption_metadata,
+            is_metrics_enabled=is_metrics_enabled,
             job_log_status=job_log_status,
             members=members,
             tags=tags,
@@ -2327,6 +2331,23 @@ class CfnCollaboration(
             type_hints = typing.get_type_hints(_typecheckingstub__a86b18a30aac6a5afc1830c4adb282d4f0f3199f7c3d3ce99ffb24dad829a6eb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataEncryptionMetadata", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="isMetricsEnabled")
+    def is_metrics_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "isMetricsEnabled"))
+
+    @is_metrics_enabled.setter
+    def is_metrics_enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2ef4879bf81c382044fb85b6497c6ce2c8f1091d6f33fa14926b54f0db03f0fa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "isMetricsEnabled", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="jobLogStatus")
@@ -3233,6 +3254,7 @@ class CfnCollaboration(
         "creator_ml_member_abilities": "creatorMlMemberAbilities",
         "creator_payment_configuration": "creatorPaymentConfiguration",
         "data_encryption_metadata": "dataEncryptionMetadata",
+        "is_metrics_enabled": "isMetricsEnabled",
         "job_log_status": "jobLogStatus",
         "members": "members",
         "tags": "tags",
@@ -3253,6 +3275,7 @@ class CfnCollaborationProps:
         creator_ml_member_abilities: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCollaboration.MLMemberAbilitiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         creator_payment_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCollaboration.PaymentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         data_encryption_metadata: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCollaboration.DataEncryptionMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        is_metrics_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         job_log_status: typing.Optional[builtins.str] = None,
         members: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCollaboration.MemberSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3270,6 +3293,7 @@ class CfnCollaborationProps:
         :param creator_ml_member_abilities: The ML member abilities for a collaboration member.
         :param creator_payment_configuration: An object representing the collaboration member's payment responsibilities set by the collaboration creator.
         :param data_encryption_metadata: The settings for client-side encryption for cryptographic computing.
+        :param is_metrics_enabled: 
         :param job_log_status: An indicator as to whether job logging has been enabled or disabled for the collaboration. When ``ENABLED`` , AWS Clean Rooms logs details about jobs run within this collaboration and those logs can be viewed in Amazon CloudWatch Logs. The default value is ``DISABLED`` .
         :param members: A list of initial members, not including the creator. This list is immutable.
         :param tags: An optional label that you can assign to a resource when you create it. Each tag consists of a key and an optional value, both of which you define. When you use tagging, you can also use tag-based access control in IAM policies to control access to this resource.
@@ -3325,6 +3349,7 @@ class CfnCollaborationProps:
                     allow_joins_on_columns_with_different_names=False,
                     preserve_nulls=False
                 ),
+                is_metrics_enabled=False,
                 job_log_status="jobLogStatus",
                 members=[cleanrooms.CfnCollaboration.MemberSpecificationProperty(
                     account_id="accountId",
@@ -3376,6 +3401,7 @@ class CfnCollaborationProps:
             check_type(argname="argument creator_ml_member_abilities", value=creator_ml_member_abilities, expected_type=type_hints["creator_ml_member_abilities"])
             check_type(argname="argument creator_payment_configuration", value=creator_payment_configuration, expected_type=type_hints["creator_payment_configuration"])
             check_type(argname="argument data_encryption_metadata", value=data_encryption_metadata, expected_type=type_hints["data_encryption_metadata"])
+            check_type(argname="argument is_metrics_enabled", value=is_metrics_enabled, expected_type=type_hints["is_metrics_enabled"])
             check_type(argname="argument job_log_status", value=job_log_status, expected_type=type_hints["job_log_status"])
             check_type(argname="argument members", value=members, expected_type=type_hints["members"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -3399,6 +3425,8 @@ class CfnCollaborationProps:
             self._values["creator_payment_configuration"] = creator_payment_configuration
         if data_encryption_metadata is not None:
             self._values["data_encryption_metadata"] = data_encryption_metadata
+        if is_metrics_enabled is not None:
+            self._values["is_metrics_enabled"] = is_metrics_enabled
         if job_log_status is not None:
             self._values["job_log_status"] = job_log_status
         if members is not None:
@@ -3526,6 +3554,16 @@ class CfnCollaborationProps:
         '''
         result = self._values.get("data_encryption_metadata")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCollaboration.DataEncryptionMetadataProperty"]], result)
+
+    @builtins.property
+    def is_metrics_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanrooms-collaboration.html#cfn-cleanrooms-collaboration-ismetricsenabled
+        '''
+        result = self._values.get("is_metrics_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def job_log_status(self) -> typing.Optional[builtins.str]:
@@ -8243,6 +8281,7 @@ class CfnMembership(
                 # the properties below are optional
                 role_arn="roleArn"
             ),
+            is_metrics_enabled=False,
             job_log_status="jobLogStatus",
             payment_configuration=cleanrooms.CfnMembership.MembershipPaymentConfigurationProperty(
                 query_compute=cleanrooms.CfnMembership.MembershipQueryComputePaymentConfigProperty(
@@ -8281,6 +8320,7 @@ class CfnMembership(
         query_log_status: builtins.str,
         default_job_result_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMembership.MembershipProtectedJobResultConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         default_result_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMembership.MembershipProtectedQueryResultConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        is_metrics_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         job_log_status: typing.Optional[builtins.str] = None,
         payment_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMembership.MembershipPaymentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -8293,6 +8333,7 @@ class CfnMembership(
         :param query_log_status: An indicator as to whether query logging has been enabled or disabled for the membership. When ``ENABLED`` , AWS Clean Rooms logs details about queries run within this collaboration and those logs can be viewed in Amazon CloudWatch Logs. The default value is ``DISABLED`` .
         :param default_job_result_configuration: The default job result configuration for the membership.
         :param default_result_configuration: The default protected query result configuration as specified by the member who can receive results.
+        :param is_metrics_enabled: 
         :param job_log_status: An indicator as to whether job logging has been enabled or disabled for the collaboration. When ``ENABLED`` , AWS Clean Rooms logs details about jobs run within this collaboration and those logs can be viewed in Amazon CloudWatch Logs. The default value is ``DISABLED`` .
         :param payment_configuration: The payment responsibilities accepted by the collaboration member.
         :param tags: An optional label that you can assign to a resource when you create it. Each tag consists of a key and an optional value, both of which you define. When you use tagging, you can also use tag-based access control in IAM policies to control access to this resource.
@@ -8306,6 +8347,7 @@ class CfnMembership(
             query_log_status=query_log_status,
             default_job_result_configuration=default_job_result_configuration,
             default_result_configuration=default_result_configuration,
+            is_metrics_enabled=is_metrics_enabled,
             job_log_status=job_log_status,
             payment_configuration=payment_configuration,
             tags=tags,
@@ -8488,6 +8530,23 @@ class CfnMembership(
             type_hints = typing.get_type_hints(_typecheckingstub__ad055649202ffbf3de067877d88fa96b564e1efb0b59d9afaceb04f351ce0c65)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "defaultResultConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="isMetricsEnabled")
+    def is_metrics_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "isMetricsEnabled"))
+
+    @is_metrics_enabled.setter
+    def is_metrics_enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e5b9c2494d7800d1d408f13f323a83d676c239a2790564e2bcb1cf6acb9da03f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "isMetricsEnabled", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="jobLogStatus")
@@ -9556,6 +9615,7 @@ class CfnMembership(
         "query_log_status": "queryLogStatus",
         "default_job_result_configuration": "defaultJobResultConfiguration",
         "default_result_configuration": "defaultResultConfiguration",
+        "is_metrics_enabled": "isMetricsEnabled",
         "job_log_status": "jobLogStatus",
         "payment_configuration": "paymentConfiguration",
         "tags": "tags",
@@ -9569,6 +9629,7 @@ class CfnMembershipProps:
         query_log_status: builtins.str,
         default_job_result_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMembership.MembershipProtectedJobResultConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         default_result_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMembership.MembershipProtectedQueryResultConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        is_metrics_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         job_log_status: typing.Optional[builtins.str] = None,
         payment_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMembership.MembershipPaymentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -9579,6 +9640,7 @@ class CfnMembershipProps:
         :param query_log_status: An indicator as to whether query logging has been enabled or disabled for the membership. When ``ENABLED`` , AWS Clean Rooms logs details about queries run within this collaboration and those logs can be viewed in Amazon CloudWatch Logs. The default value is ``DISABLED`` .
         :param default_job_result_configuration: The default job result configuration for the membership.
         :param default_result_configuration: The default protected query result configuration as specified by the member who can receive results.
+        :param is_metrics_enabled: 
         :param job_log_status: An indicator as to whether job logging has been enabled or disabled for the collaboration. When ``ENABLED`` , AWS Clean Rooms logs details about jobs run within this collaboration and those logs can be viewed in Amazon CloudWatch Logs. The default value is ``DISABLED`` .
         :param payment_configuration: The payment responsibilities accepted by the collaboration member.
         :param tags: An optional label that you can assign to a resource when you create it. Each tag consists of a key and an optional value, both of which you define. When you use tagging, you can also use tag-based access control in IAM policies to control access to this resource.
@@ -9624,6 +9686,7 @@ class CfnMembershipProps:
                     # the properties below are optional
                     role_arn="roleArn"
                 ),
+                is_metrics_enabled=False,
                 job_log_status="jobLogStatus",
                 payment_configuration=cleanrooms.CfnMembership.MembershipPaymentConfigurationProperty(
                     query_compute=cleanrooms.CfnMembership.MembershipQueryComputePaymentConfigProperty(
@@ -9658,6 +9721,7 @@ class CfnMembershipProps:
             check_type(argname="argument query_log_status", value=query_log_status, expected_type=type_hints["query_log_status"])
             check_type(argname="argument default_job_result_configuration", value=default_job_result_configuration, expected_type=type_hints["default_job_result_configuration"])
             check_type(argname="argument default_result_configuration", value=default_result_configuration, expected_type=type_hints["default_result_configuration"])
+            check_type(argname="argument is_metrics_enabled", value=is_metrics_enabled, expected_type=type_hints["is_metrics_enabled"])
             check_type(argname="argument job_log_status", value=job_log_status, expected_type=type_hints["job_log_status"])
             check_type(argname="argument payment_configuration", value=payment_configuration, expected_type=type_hints["payment_configuration"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -9669,6 +9733,8 @@ class CfnMembershipProps:
             self._values["default_job_result_configuration"] = default_job_result_configuration
         if default_result_configuration is not None:
             self._values["default_result_configuration"] = default_result_configuration
+        if is_metrics_enabled is not None:
+            self._values["is_metrics_enabled"] = is_metrics_enabled
         if job_log_status is not None:
             self._values["job_log_status"] = job_log_status
         if payment_configuration is not None:
@@ -9719,6 +9785,16 @@ class CfnMembershipProps:
         '''
         result = self._values.get("default_result_configuration")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMembership.MembershipProtectedQueryResultConfigurationProperty"]], result)
+
+    @builtins.property
+    def is_metrics_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanrooms-membership.html#cfn-cleanrooms-membership-ismetricsenabled
+        '''
+        result = self._values.get("is_metrics_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def job_log_status(self) -> typing.Optional[builtins.str]:
@@ -10659,6 +10735,7 @@ def _typecheckingstub__a8995527da9ce4212caf3c1fdf601e4947c02ff1e364e92811ac8635b
     creator_ml_member_abilities: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.MLMemberAbilitiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     creator_payment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.PaymentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     data_encryption_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.DataEncryptionMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    is_metrics_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     job_log_status: typing.Optional[builtins.str] = None,
     members: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.MemberSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -10752,6 +10829,12 @@ def _typecheckingstub__991360bdd6af4d5b428da7f242ab1cc46f2a619a380ffdff6e2434a3e
 
 def _typecheckingstub__a86b18a30aac6a5afc1830c4adb282d4f0f3199f7c3d3ce99ffb24dad829a6eb(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCollaboration.DataEncryptionMetadataProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ef4879bf81c382044fb85b6497c6ce2c8f1091d6f33fa14926b54f0db03f0fa(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10868,6 +10951,7 @@ def _typecheckingstub__2049291a9933df94c4258b33838a3aa8100d0214a4519c3d84e6d70ed
     creator_ml_member_abilities: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.MLMemberAbilitiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     creator_payment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.PaymentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     data_encryption_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.DataEncryptionMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    is_metrics_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     job_log_status: typing.Optional[builtins.str] = None,
     members: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollaboration.MemberSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -11491,6 +11575,7 @@ def _typecheckingstub__74d43efdc8d8359f9de6878ad0f2d25ff79e584d96e5ca863178e6f14
     query_log_status: builtins.str,
     default_job_result_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMembership.MembershipProtectedJobResultConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     default_result_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMembership.MembershipProtectedQueryResultConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    is_metrics_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     job_log_status: typing.Optional[builtins.str] = None,
     payment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMembership.MembershipPaymentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -11542,6 +11627,12 @@ def _typecheckingstub__fae73e4481dcc5cfeba1d7ce37a48095412d812d6a76939d24017d3e5
 
 def _typecheckingstub__ad055649202ffbf3de067877d88fa96b564e1efb0b59d9afaceb04f351ce0c65(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMembership.MembershipProtectedQueryResultConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5b9c2494d7800d1d408f13f323a83d676c239a2790564e2bcb1cf6acb9da03f(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11671,6 +11762,7 @@ def _typecheckingstub__2a7030966bdb99200cf7aff97662a2ef1e02754d2c014bc030475065e
     query_log_status: builtins.str,
     default_job_result_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMembership.MembershipProtectedJobResultConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     default_result_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMembership.MembershipProtectedQueryResultConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    is_metrics_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     job_log_status: typing.Optional[builtins.str] = None,
     payment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMembership.MembershipPaymentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,

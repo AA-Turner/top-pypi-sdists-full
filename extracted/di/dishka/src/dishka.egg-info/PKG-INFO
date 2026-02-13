@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: dishka
-Version: 1.7.2
+Version: 1.8.0
 Summary: Cute DI framework with scopes and agreeable API
 Author-email: Andrey Tikhonov <17@itishka.org>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Source, https://github.com/reagento/dishka
 Project-URL: Homepage, https://github.com/reagento/dishka
 Project-URL: Documentation, https://dishka.readthedocs.io/en/stable/
@@ -16,7 +16,6 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Typing :: Typed
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown

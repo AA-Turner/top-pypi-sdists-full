@@ -11,6 +11,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import (
     APMConfigRequest,
     APMConfigResponse,
 )
+from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import SpaceReference
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling._instance import InstanceSlimDefinition
 from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
@@ -111,25 +112,25 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[APMConfigResponse]:
         raise NotImplementedError(f"Iteration over {self.display_name} is not supported.")
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
         if isinstance(app_data_space_id := item.get("appDataSpaceId"), str):
-            yield SpaceCRUD, app_data_space_id
+            yield SpaceCRUD, SpaceReference(space=app_data_space_id)
         if isinstance(customer_data_space_id := item.get("customerDataSpaceId"), str):
-            yield SpaceCRUD, customer_data_space_id
+            yield SpaceCRUD, SpaceReference(space=customer_data_space_id)
         for config in cls._get_root_location_configurations(item) or []:
             if isinstance(asset_external_id := config.get("assetExternalId"), str):
                 yield AssetCRUD, ExternalId(external_id=asset_external_id)
             if isinstance(data_set_external_id := config.get("dataSetExternalId"), str):
-                yield DataSetsCRUD, data_set_external_id
+                yield DataSetsCRUD, ExternalId(external_id=data_set_external_id)
             if isinstance(app_data_instance_space := config.get("appDataInstanceSpace"), str):
-                yield SpaceCRUD, app_data_instance_space
+                yield SpaceCRUD, SpaceReference(space=app_data_instance_space)
             if isinstance(source_data_instance_space := config.get("sourceDataInstanceSpace"), str):
-                yield SpaceCRUD, source_data_instance_space
+                yield SpaceCRUD, SpaceReference(space=source_data_instance_space)
             for key in cls._group_keys:
                 for group in config.get(key, []):
                     if isinstance(group, str):
@@ -143,13 +144,13 @@ class InfieldV1CRUD(ResourceCRUD[ExternalId, APMConfigRequest, APMConfigResponse
                     continue
                 for data_set_external_id in filter_.get("dataSetExternalIds", []):
                     if isinstance(data_set_external_id, str):
-                        yield DataSetsCRUD, data_set_external_id
+                        yield DataSetsCRUD, ExternalId(external_id=data_set_external_id)
                 for asset_external_id in filter_.get("assetSubtreeExternalIds", []):
                     if isinstance(asset_external_id, str):
                         yield AssetCRUD, ExternalId(external_id=asset_external_id)
                 if app_data_instance_space := filter_.get("appDataInstanceSpace"):
                     if isinstance(app_data_instance_space, str):
-                        yield SpaceCRUD, app_data_instance_space
+                        yield SpaceCRUD, SpaceReference(space=app_data_instance_space)
 
     def safe_read(self, filepath: Path | str) -> str:
         # The customerDataSpaceVersion is a string, but the user often writes it as an int.
@@ -308,7 +309,7 @@ class InFieldLocationConfigCRUD(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[InFieldLocationConfigResponse]:
         raise NotImplementedError(f"Iteration over {self.display_name} is not supported.")
 
@@ -402,7 +403,7 @@ class InFieldCDMLocationConfigCRUD(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
-        parent_ids: list[Hashable] | None = None,
+        parent_ids: Sequence[Hashable] | None = None,
     ) -> Iterable[InFieldCDMLocationConfigResponse]:
         raise NotImplementedError(f"Iteration over {self.display_name} is not supported.")
 

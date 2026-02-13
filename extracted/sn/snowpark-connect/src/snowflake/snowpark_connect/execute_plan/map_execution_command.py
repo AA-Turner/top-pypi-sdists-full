@@ -5,7 +5,6 @@
 import pyspark.sql.connect.proto.base_pb2 as proto_base
 import pyspark.sql.connect.proto.relations_pb2 as relation_proto
 
-from snowflake.snowpark_connect.constants import SERVER_SIDE_SESSION_ID
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.execute_plan.utils import pandas_to_arrow_batches_bytes
@@ -17,6 +16,7 @@ from snowflake.snowpark_connect.relation.read.metadata_utils import (
     without_internal_columns,
 )
 from snowflake.snowpark_connect.relation.write.map_write import map_write, map_write_v2
+from snowflake.snowpark_connect.utils.request_utils import get_or_generate_operation_id
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
@@ -81,7 +81,7 @@ def map_execution_command(
                 )
             return proto_base.ExecutePlanResponse(
                 session_id=request.session_id,
-                operation_id=SERVER_SIDE_SESSION_ID,
+                operation_id=get_or_generate_operation_id(request),
                 sql_command_result=proto_base.ExecutePlanResponse.SqlCommandResult(
                     relation=relation
                 ),

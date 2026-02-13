@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from threading import Thread
+from urllib.parse import urlparse
 
 import click
 import httpx
@@ -361,8 +362,6 @@ class ContinuousRunner:
             self.deployment_name = deployment_name
         else:
             # Try to extract from URL like "https://foo-bar.staging.langgraph.app"
-            from urllib.parse import urlparse
-
             parsed = urlparse(base_url)
             self.deployment_name = parsed.hostname or "unknown"
 

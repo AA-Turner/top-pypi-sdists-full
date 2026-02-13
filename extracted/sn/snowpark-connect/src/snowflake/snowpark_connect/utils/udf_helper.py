@@ -47,6 +47,7 @@ class SnowparkUDF(NamedTuple):
     input_types: list[DataType]
     original_return_type: DataType | None
     cast_to_original_return_type: bool = False
+    attach_schema_json: bool = False
 
 
 def require_creating_udf_in_sproc(
@@ -64,15 +65,20 @@ def require_creating_udf_in_sproc(
       to provide the correct execution runtime.
     * Testing: When the `snowpark.connect.test.force_create_sproc` config is enabled.
     """
-    return udf_proto.WhichOneof("function") == "python_udf" and (
+    is_python_udf = udf_proto.WhichOneof("function") == "python_udf"
+    client_python_ver = udf_proto.python_udf.python_ver if is_python_udf else None
+    server_python_ver = f"{sys.version_info.major}.{sys.version_info.minor}"
+
+    result = (
         is_force_create_sproc_enabled()
         or tcm.TCM_MODE
         or (
-            udf_proto.python_udf.python_ver is not None
-            and f"{sys.version_info.major}.{sys.version_info.minor}"
-            != udf_proto.python_udf.python_ver
+            is_python_udf
+            and client_python_ver is not None
+            and server_python_ver != client_python_ver
         )
     )
+    return result
 
 
 def process_udf_in_sproc(
@@ -180,7 +186,7 @@ CREATE OR REPLACE TEMPORARY PROCEDURE {sproc_name}(
 RETURNS STRING
 LANGUAGE PYTHON
 RUNTIME_VERSION = '{python_version}'
-PACKAGES = ('pyspark>=3.5.0,<4', 'cloudpickle', 'snowflake-snowpark-python==1.32.0', 'grpcio>=1.48.1')
+PACKAGES = ('pyspark>=3.5.0,<4', 'cloudpickle', 'snowflake-snowpark-python==1.32.0', 'grpcio>=1.48.1', 'snowflake-telemetry-python')
 HANDLER = 'create'
 EXECUTE AS CALLER
 AS $$

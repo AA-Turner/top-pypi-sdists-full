@@ -91,10 +91,14 @@ def resolve_agent_alias(name: str | None) -> str | None:
 # The config dict contains: agent_name, cicd_runner, is_adk, is_adk_live, is_a2a
 # =============================================================================
 
+
 # Helper: exclude service.tf only for adk_live + agent_engine combination
-_exclude_adk_live_agent_engine = lambda c: not (
-    c.get("agent_name") == "adk_live" and c.get("deployment_target") == "agent_engine"
-)
+def _exclude_adk_live_agent_engine(c: dict) -> bool:
+    return not (
+        c.get("agent_name") == "adk_live"
+        and c.get("deployment_target") == "agent_engine"
+    )
+
 
 CONDITIONAL_FILES = {
     # CI/CD runner conditional files (base_template)
@@ -169,6 +173,93 @@ def apply_conditional_files(
             logging.debug(f"Conditional file '{rel_path}' condition True, keeping")
 
 
+def _add_dependencies_interactively(
+    project_path: pathlib.Path,
+    dependencies: list[str],
+    success_message: str,
+    auto_approve: bool = False,
+) -> bool:
+    """Helper function to interactively add dependencies using uv add.
+
+    Args:
+        project_path: Path to the project directory
+        dependencies: List of dependencies to install
+        success_message: Message to show upon success
+        auto_approve: Whether to skip confirmation and auto-install
+
+    Returns:
+        True if dependencies were added successfully, False otherwise
+    """
+    if not dependencies:
+        return True
+
+    console = Console()
+    deps_str = " ".join(f"'{dep}'" for dep in dependencies)
+
+    should_add = True
+    if not auto_approve:
+        should_add = Confirm.ask(
+            "\n? Add these dependencies automatically?", default=True
+        )
+
+    if not should_add:
+        console.print("\n⚠️  Skipped dependency installation.", style="yellow")
+        console.print("   To add them manually later, run:", style="dim")
+        console.print(f"       cd {project_path.name}", style="dim")
+        console.print(f"       uv add {deps_str}\n", style="dim")
+        return False
+
+    # Run uv add
+    try:
+        if auto_approve:
+            console.print(
+                f"✓ Auto-installing dependencies: {', '.join(dependencies)}",
+                style="bold cyan",
+            )
+        else:
+            console.print(f"\n✓ Running: uv add {deps_str}", style="bold cyan")
+
+        # Run uv add in the project directory
+        cmd = ["uv", "add", *dependencies]
+        result = subprocess.run(
+            cmd,
+            cwd=project_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        # Show success message
+        if not auto_approve:
+            # Show a summary line from uv output
+            output_lines = result.stderr.strip().split("\n")
+            for line in output_lines:
+                if "Resolved" in line or "Installed" in line:
+                    console.print(f"  {line}", style="dim")
+                    break
+
+        console.print(f"✓ {success_message}\n", style="bold green")
+        return True
+
+    except subprocess.CalledProcessError as e:
+        console.print(
+            f"\n✗ Failed to add dependencies: {e.stderr.strip()}", style="bold red"
+        )
+        console.print("  You can add them manually:", style="yellow")
+        console.print(f"      cd {project_path.name}", style="dim")
+        console.print(f"      uv add {deps_str}\n", style="dim")
+        return False
+    except FileNotFoundError:
+        console.print(
+            "\n✗ uv command not found. Please install uv first.", style="bold red"
+        )
+        console.print("  Install from: https://docs.astral.sh/uv/", style="dim")
+        console.print("\n  To add dependencies manually:", style="yellow")
+        console.print(f"      cd {project_path.name}", style="dim")
+        console.print(f"      uv add {deps_str}\n", style="dim")
+        return False
+
+
 def add_base_template_dependencies_interactively(
     project_path: pathlib.Path,
     base_dependencies: list[str],
@@ -191,9 +282,6 @@ def add_base_template_dependencies_interactively(
 
     console = Console()
 
-    # Construct dependency string once for reuse
-    deps_str = " ".join(f"'{dep}'" for dep in base_dependencies)
-
     # Show what dependencies will be added
     console.print(
         f"\n✓ Base template override: Using '{base_template_name}' as foundation",
@@ -203,69 +291,41 @@ def add_base_template_dependencies_interactively(
     for dep in base_dependencies:
         console.print(f"    • {dep}", style="yellow")
 
-    # Ask for confirmation unless auto-approve
-    should_add = True
+    return _add_dependencies_interactively(
+        project_path=project_path,
+        dependencies=base_dependencies,
+        success_message="Dependencies added successfully",
+        auto_approve=auto_approve,
+    )
+
+
+def add_bq_analytics_dependencies(
+    project_path: pathlib.Path,
+    auto_approve: bool = False,
+) -> bool:
+    """Add BigQuery Agent Analytics Plugin dependencies using uv add.
+
+    Args:
+        project_path: Path to the project directory
+        auto_approve: Whether to skip confirmation and auto-install
+
+    Returns:
+        True if dependencies were added successfully, False otherwise
+    """
+    dependencies = ["google-adk[bigquery-analytics]>=1.21.0"]
+
     if not auto_approve:
-        should_add = Confirm.ask(
-            "\n? Add these dependencies automatically?", default=True
-        )
-
-    if not should_add:
-        console.print("\n⚠️  Skipped dependency installation.", style="yellow")
-        console.print("   To add them manually later, run:", style="dim")
-        console.print(f"       cd {project_path.name}", style="dim")
-        console.print(f"       uv add {deps_str}\n", style="dim")
-        return False
-
-    # Run uv add
-    try:
-        if auto_approve:
-            console.print(
-                f"✓ Auto-installing dependencies: {', '.join(base_dependencies)}",
-                style="bold cyan",
-            )
-        else:
-            console.print(f"\n✓ Running: uv add {deps_str}", style="bold cyan")
-
-        # Run uv add in the project directory
-        cmd = ["uv", "add", *base_dependencies]
-        result = subprocess.run(
-            cmd,
-            cwd=project_path,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-
-        # Show success message
-        if not auto_approve:
-            # Show a summary line from uv output
-            output_lines = result.stderr.strip().split("\n")
-            for line in output_lines:
-                if "Resolved" in line or "Installed" in line:
-                    console.print(f"  {line}", style="dim")
-                    break
-
-        console.print("✓ Dependencies added successfully\n", style="bold green")
-        return True
-
-    except subprocess.CalledProcessError as e:
+        console = Console()
         console.print(
-            f"\n✗ Failed to add dependencies: {e.stderr.strip()}", style="bold red"
+            "\nℹ️  Adding BigQuery Agent Analytics Plugin dependencies...", style="cyan"
         )
-        console.print("  You can add them manually:", style="yellow")
-        console.print(f"      cd {project_path.name}", style="dim")
-        console.print(f"      uv add {deps_str}\n", style="dim")
-        return False
-    except FileNotFoundError:
-        console.print(
-            "\n✗ uv command not found. Please install uv first.", style="bold red"
-        )
-        console.print("  Install from: https://docs.astral.sh/uv/", style="dim")
-        console.print("\n  To add dependencies manually:", style="yellow")
-        console.print(f"      cd {project_path.name}", style="dim")
-        console.print(f"      uv add {deps_str}\n", style="dim")
-        return False
+
+    return _add_dependencies_interactively(
+        project_path=project_path,
+        dependencies=dependencies,
+        success_message="BQ Analytics dependencies added successfully",
+        auto_approve=auto_approve,
+    )
 
 
 def validate_agent_directory_name(
@@ -355,8 +415,8 @@ def get_overwrite_folders(agent_directory: str) -> list[str]:
 
 
 TEMPLATE_CONFIG_FILE = "templateconfig.yaml"
-DEPLOYMENT_TARGETS = ["cloud_run", "agent_engine"]
-SUPPORTED_LANGUAGES = ["python", "go", "java"]
+DEPLOYMENT_TARGETS = ["cloud_run", "agent_engine", "none"]
+SUPPORTED_LANGUAGES = ["python", "go", "java", "typescript"]
 DEFAULT_FRONTEND = "None"
 
 
@@ -407,6 +467,7 @@ def get_available_agents(deployment_target: str | None = None) -> dict:
         "langgraph": 4,  # displayed as "custom_a2a"
         "adk_go": 0,
         "adk_java": 0,
+        "adk_ts": 0,
     }
 
     agents_list = []
@@ -458,11 +519,12 @@ def get_available_agents(deployment_target: str | None = None) -> dict:
                 except Exception as e:
                     logging.warning(f"Could not load agent from {agent_dir}: {e}")
 
-    # Define group order by language: Python, Go, Java, Other
+    # Define group order by language: Python, Go, Java, TypeScript, Other
     GROUP_ORDER = {
         "python": 0,
         "go": 1,
         "java": 2,
+        "typescript": 3,
     }
 
     def sort_key(agent: dict) -> tuple:
@@ -565,6 +627,10 @@ def prompt_deployment_target(
         "cloud_run": {
             "display_name": "cloud_run",
             "description": "GCP serverless containers",
+        },
+        "none": {
+            "display_name": "none",
+            "description": "No Cloud deployment",
         },
     }
 
@@ -958,6 +1024,7 @@ def process_template(
     remote_spec: Any | None = None,
     google_api_key: str | None = None,
     google_cloud_project: str | None = None,
+    bq_analytics: bool = False,
 ) -> None:
     """Process the template directory and create a new project.
 
@@ -978,6 +1045,7 @@ def process_template(
         agent_garden: Whether this deployment is from Agent Garden
         google_api_key: Optional Google AI Studio API key to generate .env file
         google_cloud_project: Optional GCP project ID to populate .env file
+        bq_analytics: Whether to include BigQuery Agent Analytics Plugin
     """
     logging.debug(f"Processing template from {template_dir}")
     logging.debug(f"Project name: {project_name}")
@@ -1294,7 +1362,7 @@ def process_template(
             frontend_type = settings.get("frontend_type", DEFAULT_FRONTEND)
             tags = settings.get("tags", ["None"])
 
-            # Load adk-cheatsheet.md and llm.txt for injection
+            # Load adk-cheatsheet.md for injection
             adk_cheatsheet_path = (
                 pathlib.Path(__file__).parent.parent.parent
                 / "resources"
@@ -1303,12 +1371,6 @@ def process_template(
             )
             with open(adk_cheatsheet_path, encoding="utf-8") as md_file:
                 adk_cheatsheet_content = md_file.read()
-
-            llm_txt_path = (
-                pathlib.Path(__file__).parent.parent.parent.parent / "llm.txt"
-            )
-            with open(llm_txt_path, encoding="utf-8") as txt_file:
-                llm_txt_content = txt_file.read()
 
             # Generate Java package variables if language is Java
             java_vars = (
@@ -1329,6 +1391,9 @@ def process_template(
                 "is_adk": "adk" in tags,
                 "is_adk_live": "adk_live" in tags,
                 "is_a2a": "a2a" in tags,
+                "requires_data_ingestion": settings.get(
+                    "requires_data_ingestion", False
+                ),
                 "language": language,
                 "deployment_target": deployment_target or "",
                 "cicd_runner": cicd_runner or "google_cloud_build",
@@ -1346,21 +1411,15 @@ def process_template(
                 "use_google_api_key": bool(google_api_key),
                 "google_cloud_project": google_cloud_project or "your-gcp-project-id",
                 "adk_cheatsheet": adk_cheatsheet_content,
-                "llm_txt": llm_txt_content,
                 # Java package variables (only populated for Java projects)
                 "java_package": java_vars.get("java_package", ""),
                 "java_package_path": java_vars.get("java_package_path", ""),
+                "bq_analytics": bq_analytics,
                 "_copy_without_render": [
                     "*.ipynb",  # Don't render notebooks
-                    "*.json",  # Don't render JSON files
-                    "*.tsx",  # Don't render TypeScript React files
-                    "*.ts",  # Don't render TypeScript files
-                    "*.jsx",  # Don't render JavaScript React files
-                    "*.js",  # Don't render JavaScript files
-                    "*.css",  # Don't render CSS files
                     "*.sum",  # Don't render Go sum files
                     "e2e/**/*",  # Don't render Go e2e test files (contain Go {{ }} syntax)
-                    "frontend/**/*",  # Don't render frontend directory recursively
+                    "frontend/**/*",  # Don't render frontend directory (covers all JS/TS/CSS/JSON files)
                     "notebooks/*",  # Don't render notebooks directory
                     ".git/*",  # Don't render git directory
                     "__pycache__/*",  # Don't render cache
@@ -1368,6 +1427,7 @@ def process_template(
                     ".pytest_cache/*",
                     ".venv/*",
                     "**/.venv/*",  # Don't render .venv at any depth
+                    "node_modules/**/*",  # Don't render node_modules (TS/JS deps contain {{ }} syntax)
                     "*templates.py",  # Don't render templates files
                     "Makefile",  # Don't render Makefile - handled by render_and_merge_makefiles
                 ],
@@ -1771,7 +1831,7 @@ def process_template(
                     if remote_uv_lock.exists():
                         shutil.copy2(remote_uv_lock, final_destination / "uv.lock")
                         logging.debug("Used uv.lock from remote template")
-                elif deployment_target:
+                elif deployment_target and deployment_target != "none":
                     # For local templates, use the existing logic
                     lock_path = (
                         pathlib.Path(__file__).parent.parent.parent

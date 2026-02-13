@@ -108,6 +108,10 @@ class SparkExpectationsReader:
                         raise SparkExpectationsMiscException(
                             "SMTP password is not set or secret dict for its retrieval is not provided"
                         )
+                    # Set SMTP username if provided and non-empty (falls back to mail_from in email plugin if not set)
+                    _smtp_user_name = _notification_dict.get(user_config.se_notifications_smtp_user_name)
+                    if _smtp_user_name is not None and str(_smtp_user_name).strip() != "":
+                        self._context.set_mail_smtp_user_name(str(_smtp_user_name).strip())
                 if (
                     _notification_dict.get(user_config.se_notifications_enable_custom_email_body)
                     and _notification_dict.get(user_config.se_notifications_email_custom_body)
@@ -279,7 +283,6 @@ class SparkExpectationsReader:
         """
         try:
             self._context.set_final_table_name(target_table)
-            self._context.set_error_table_name(f"{target_table}_error")
             self._context.set_table_name(target_table)
             self._context.set_env(os.environ.get("SPARKEXPECTATIONS_ENV"))
 
@@ -287,6 +290,9 @@ class SparkExpectationsReader:
             self._context.reset_num_dq_rules()
             self._context.reset_num_row_dq_rules()
             self._context.reset_num_query_dq_rules()
+            
+            if not self._context.get_error_table_name_user_specified:
+                self._context.set_error_table_name(f"{target_table}_error", user_specified=False)
 
             if params is not None:
                 rules_df = reduce(
@@ -337,6 +343,8 @@ class SparkExpectationsReader:
                         "error_drop_threshold": row["error_drop_threshold"],
                         # TODO Rules table "priority" column should be required when we start leveraging it for notifications. For now, setting a default value.
                         "priority": row["priority"] if "priority" in row else "medium",
+                        "id_hash": row["id_hash"] if "id_hash" in row else None,
+                        "expectation_hash": row["expectation_hash"] if "expectation_hash" in row else None,
                     }
 
                     if row["rule_type"] == self._context.get_query_dq_rule_type_name:

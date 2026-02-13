@@ -74,6 +74,26 @@ class CapacityReservationSpecification(AWSProperty):
     }
 
 
+class RetentionTriggers(AWSProperty):
+    """
+    `RetentionTriggers <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-retentiontriggers.html>`__
+    """
+
+    props: PropsDictType = {
+        "TerminateHookAbandon": (str, False),
+    }
+
+
+class InstanceLifecyclePolicy(AWSProperty):
+    """
+    `InstanceLifecyclePolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-instancelifecyclepolicy.html>`__
+    """
+
+    props: PropsDictType = {
+        "RetentionTriggers": (RetentionTriggers, False),
+    }
+
+
 class InstanceMaintenancePolicy(AWSProperty):
     """
     `InstanceMaintenancePolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscaling-autoscalinggroup-instancemaintenancepolicy.html>`__
@@ -311,6 +331,7 @@ class LaunchTemplateOverrides(AWSProperty):
     """
 
     props: PropsDictType = {
+        "ImageId": (str, False),
         "InstanceRequirements": (InstanceRequirements, False),
         "InstanceType": (str, False),
         "LaunchTemplateSpecification": (LaunchTemplateSpecification, False),
@@ -379,11 +400,13 @@ class AutoScalingGroup(AWSObject):
         "Context": (str, False),
         "Cooldown": (str, False),
         "DefaultInstanceWarmup": (integer, False),
+        "DeletionProtection": (str, False),
         "DesiredCapacity": (str, False),
         "DesiredCapacityType": (str, False),
         "HealthCheckGracePeriod": (integer, False),
         "HealthCheckType": (str, False),
         "InstanceId": (str, False),
+        "InstanceLifecyclePolicy": (InstanceLifecyclePolicy, False),
         "InstanceMaintenancePolicy": (InstanceMaintenancePolicy, False),
         "LaunchConfigurationName": (str, False),
         "LaunchTemplate": (LaunchTemplateSpecification, False),

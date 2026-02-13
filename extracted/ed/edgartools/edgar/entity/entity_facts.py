@@ -8,7 +8,6 @@ analytics and AI-ready interfaces.
 import warnings
 from collections import defaultdict
 from datetime import date
-from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Union as TypingUnion
 
 if TYPE_CHECKING:
@@ -61,13 +60,13 @@ def download_company_facts_from_sec(cik: int) -> Dict[str, Any]:
             raise
 
 
-def load_company_facts_from_local(cik: int) -> Optional[Dict[str, Any]]:
+def load_company_facts_from_local(cik: int) -> Dict[str, Any]:
     """
     Load company facts from local data
     """
     company_facts_dir = get_edgar_data_directory() / "companyfacts"
     if not company_facts_dir.exists():
-        return None
+        raise NoCompanyFactsFound(cik=cik)
     cik_int = int(cik) if isinstance(cik, str) else cik
     company_facts_file = company_facts_dir / f"CIK{cik_int:010}.json"
     if not company_facts_file.exists():
@@ -76,7 +75,9 @@ def load_company_facts_from_local(cik: int) -> Optional[Dict[str, Any]]:
     return json.loads(company_facts_file.read_text())
 
 
-@lru_cache(maxsize=32)
+_company_facts_cache: Dict[int, 'EntityFacts'] = {}
+
+
 def get_company_facts(cik: int):
     """
     Get company facts for a given CIK.
@@ -90,12 +91,26 @@ def get_company_facts(cik: int):
     Raises:
         NoCompanyFactsFound: If no facts are found for the given CIK
     """
+    cached = _company_facts_cache.get(cik)
+    if cached is not None:
+        return cached
+
     if is_using_local_storage():
         company_facts_json = load_company_facts_from_local(cik)
     else:
         company_facts_json = download_company_facts_from_sec(cik)
+    if not company_facts_json:
+        warnings.warn(
+            f"Could not retrieve company facts for CIK {cik}. "
+            "This is likely a network issue — check your connection to data.sec.gov and try again.",
+            stacklevel=2,
+        )
+        return None
     from edgar.entity.parser import EntityFactsParser
-    return EntityFactsParser.parse_company_facts(company_facts_json)
+    result = EntityFactsParser.parse_company_facts(company_facts_json)
+    if result is not None:
+        _company_facts_cache[cik] = result
+    return result
 
 
 class EntityFacts:
@@ -744,7 +759,6 @@ class EntityFacts:
             period=period,
             unit=unit,
             fallback_calculation=self._calculate_revenue_from_components,
-            strict_unit_match=True,
             annual=annual
         )
 
@@ -997,15 +1011,15 @@ class EntityFacts:
 
         for concept in group.synonyms:
             synonyms_tried.append(concept)
-            # Try both with and without namespace prefix
-            for concept_variant in [concept, f'us-gaap:{concept}']:
+            # Try with all known taxonomy prefixes
+            for concept_variant in [concept, f'us-gaap:{concept}', f'ifrs-full:{concept}']:
                 fact = self.get_fact(concept_variant, period)
                 if fact and fact.numeric_value is not None:
                     unit_result = UnitNormalizer.get_normalized_value(
                         fact=fact,
                         target_unit=target_unit,
                         apply_scale=True,
-                        strict_unit_match=False
+                        strict_unit_match=unit is not None  # Strict when user explicitly specifies unit
                     )
 
                     if unit_result.success:
@@ -1051,8 +1065,8 @@ class EntityFacts:
 
         found_tags = []
         for tag in group.synonyms:
-            # Check if tag exists in facts
-            for variant in [tag, f'us-gaap:{tag}']:
+            # Check if tag exists in facts (try all known taxonomy prefixes)
+            for variant in [tag, f'us-gaap:{tag}', f'ifrs-full:{tag}']:
                 fact = self.get_fact(variant)
                 if fact is not None:
                     found_tags.append(tag)
@@ -1664,7 +1678,7 @@ class EntityFacts:
                                       unit: Optional[str] = None,
                                       fallback_calculation: Optional[Callable] = None,
                                       return_detailed: bool = False,
-                                      strict_unit_match: bool = False,
+                                      strict_unit_match: Optional[bool] = None,
                                       annual: bool = True) -> Optional[float]:
         """
         Core method for retrieving standardized concept values with enhanced unit handling.
@@ -1676,6 +1690,7 @@ class EntityFacts:
             fallback_calculation: Optional function to calculate value from components
             return_detailed: If True, return UnitResult instead of just value
             strict_unit_match: If True, require exact unit match. If False, allow compatible units.
+                              If None (default), uses strict matching when unit is explicitly provided.
             annual: If True and period is None, prefer annual (FY) facts. Falls back to most
                    recent if no annual facts available. Default: True
 
@@ -1687,10 +1702,14 @@ class EntityFacts:
         # Default to USD if no unit specified
         target_unit = unit or 'USD'
 
+        # Use strict matching when the caller explicitly specified a unit
+        if strict_unit_match is None:
+            strict_unit_match = unit is not None
+
         # Try each concept variant in priority order
         for concept in concept_variants:
-            # Try both with and without namespace prefix
-            for concept_variant in [concept, f'us-gaap:{concept}']:
+            # Try with all known taxonomy prefixes
+            for concept_variant in [concept, f'us-gaap:{concept}', f'ifrs-full:{concept}']:
                 # Use annual fact if requested and no specific period provided
                 if annual and period is None:
                     fact = self.get_annual_fact(concept_variant)

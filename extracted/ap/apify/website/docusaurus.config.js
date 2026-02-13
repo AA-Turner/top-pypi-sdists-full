@@ -1,4 +1,4 @@
-const path = require('path');
+const { join, resolve } = require('node:path');
 
 const { config } = require('@apify/docs-theme');
 
@@ -66,7 +66,7 @@ module.exports = {
                     title: 'SDK for Python',
                     items: [
                         {
-                            to: 'docs/overview/introduction',
+                            to: 'docs/overview',
                             label: 'Docs',
                             position: 'left',
                             activeBaseRegex: '/docs(?!/changelog)',
@@ -125,8 +125,8 @@ module.exports = {
                 routeBasePath: 'reference',
                 python: true,
                 pythonOptions: {
-                    pythonModulePath: path.join(__dirname, '../src/apify'),
-                    moduleShortcutsPath: path.join(__dirname, '/module_shortcuts.json'),
+                    pythonModulePath: join(__dirname, '../src/apify'),
+                    moduleShortcutsPath: join(__dirname, '/module_shortcuts.json'),
                 },
                 reexports: [
                     // Storages
@@ -264,6 +264,13 @@ module.exports = {
             },
         ],
         [
+            resolve(__dirname, 'src/plugins/docusaurus-plugin-segment'),
+            {
+                writeKey: process.env.SEGMENT_TOKEN,
+                allowedInDev: false,
+            },
+        ],
+        [
             '@signalwire/docusaurus-plugin-llms-txt',
             {
                 content: {
@@ -283,6 +290,13 @@ module.exports = {
         tableOfContents: {
             ...config.themeConfig.tableOfContents,
             maxHeadingLevel: 5,
+        },
+        footer: {
+            ...config.themeConfig.footer,
+            logo: {
+                ...config.themeConfig.footer.logo,
+                href: 'docs/overview',
+            },
         },
         image: 'https://docs.apify.com/sdk/python/img/docs-og.png',
     },

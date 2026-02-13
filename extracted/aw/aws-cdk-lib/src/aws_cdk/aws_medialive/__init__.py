@@ -9711,8 +9711,6 @@ class CfnChannel(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_medialive as medialive
                 
-                # pipeline_locking_settings: Any
-                
                 global_configuration_property = medialive.CfnChannel.GlobalConfigurationProperty(
                     initial_audio_gain=123,
                     input_end_action="inputEndAction",
@@ -9733,7 +9731,9 @@ class CfnChannel(
                             custom_epoch="customEpoch",
                             jam_sync_time="jamSyncTime"
                         ),
-                        pipeline_locking_settings=pipeline_locking_settings
+                        pipeline_locking_settings=medialive.CfnChannel.PipelineLockingSettingsProperty(
+                            pipeline_locking_method="pipelineLockingMethod"
+                        )
                     ),
                     output_timing_source="outputTimingSource",
                     support_low_framerate_inputs="supportLowFramerateInputs"
@@ -20087,7 +20087,7 @@ class CfnChannel(
             self,
             *,
             epoch_locking_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.EpochLockingSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            pipeline_locking_settings: typing.Any = None,
+            pipeline_locking_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.PipelineLockingSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param epoch_locking_settings: 
@@ -20102,14 +20102,14 @@ class CfnChannel(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_medialive as medialive
                 
-                # pipeline_locking_settings: Any
-                
                 output_locking_settings_property = medialive.CfnChannel.OutputLockingSettingsProperty(
                     epoch_locking_settings=medialive.CfnChannel.EpochLockingSettingsProperty(
                         custom_epoch="customEpoch",
                         jam_sync_time="jamSyncTime"
                     ),
-                    pipeline_locking_settings=pipeline_locking_settings
+                    pipeline_locking_settings=medialive.CfnChannel.PipelineLockingSettingsProperty(
+                        pipeline_locking_method="pipelineLockingMethod"
+                    )
                 )
             '''
             if __debug__:
@@ -20133,12 +20133,14 @@ class CfnChannel(
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.EpochLockingSettingsProperty"]], result)
 
         @builtins.property
-        def pipeline_locking_settings(self) -> typing.Any:
+        def pipeline_locking_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.PipelineLockingSettingsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputlockingsettings.html#cfn-medialive-channel-outputlockingsettings-pipelinelockingsettings
             '''
             result = self._values.get("pipeline_locking_settings")
-            return typing.cast(typing.Any, result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.PipelineLockingSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -21147,6 +21149,59 @@ class CfnChannel(
 
         def __repr__(self) -> str:
             return "PassThroughSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.PipelineLockingSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"pipeline_locking_method": "pipelineLockingMethod"},
+    )
+    class PipelineLockingSettingsProperty:
+        def __init__(
+            self,
+            *,
+            pipeline_locking_method: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param pipeline_locking_method: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-pipelinelockingsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                pipeline_locking_settings_property = medialive.CfnChannel.PipelineLockingSettingsProperty(
+                    pipeline_locking_method="pipelineLockingMethod"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__2f1e948036e67357b7bd1db61646b8f0a9ce253ff1ecd646fd36aad60030c5d6)
+                check_type(argname="argument pipeline_locking_method", value=pipeline_locking_method, expected_type=type_hints["pipeline_locking_method"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if pipeline_locking_method is not None:
+                self._values["pipeline_locking_method"] = pipeline_locking_method
+
+        @builtins.property
+        def pipeline_locking_method(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-pipelinelockingsettings.html#cfn-medialive-channel-pipelinelockingsettings-pipelinelockingmethod
+            '''
+            result = self._values.get("pipeline_locking_method")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PipelineLockingSettingsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -35856,7 +35911,7 @@ def _typecheckingstub__d9a83db324046f2d43b5ec241310d3cc50795f2e43fe0806f8d04b7c3
 def _typecheckingstub__91d4fff7a9a1aba5da0f0ac1b509a8ddbcfbb4e071e4401a2dcf97e150353724(
     *,
     epoch_locking_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.EpochLockingSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    pipeline_locking_settings: typing.Any = None,
+    pipeline_locking_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.PipelineLockingSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -35884,6 +35939,13 @@ def _typecheckingstub__f51710b013df89803afb3f2517730a72a64c710d2e8f52fa7b934290b
     rtmp_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.RtmpOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     srt_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.SrtOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     udp_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.UdpOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f1e948036e67357b7bd1db61646b8f0a9ce253ff1ecd646fd36aad60030c5d6(
+    *,
+    pipeline_locking_method: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -6,10 +6,10 @@ from langgraph_runtime_inmem.database import connect
 
 
 def get_internal_routes():
-    from langgraph_api.config import MIGRATIONS_PATH
+    from langgraph_api.config import MIGRATIONS_PATH  # noqa: PLC0415
 
     try:
-        from langgraph_api.middleware import http_logger
+        from langgraph_api.middleware import http_logger  # noqa: PLC0415
 
         http_logger.PATHS_IGNORE.add("/internal/truncate")
     except ImportError:
@@ -18,11 +18,11 @@ def get_internal_routes():
     if "__inmem" not in MIGRATIONS_PATH:
         # not in a testing mode.
         return []
-    from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
+    from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute  # noqa: PLC0415
 
     async def truncate(request: ApiRequest):
         """Truncate all inmem data (for testing)."""
-        from langgraph_runtime.checkpoint import Checkpointer
+        from langgraph_runtime.checkpoint import Checkpointer  # noqa: PLC0415
 
         await asyncio.to_thread(Checkpointer().clear)
         async with connect() as conn:

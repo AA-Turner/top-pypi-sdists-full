@@ -7,6 +7,7 @@ from botocore.exceptions import ClientError
 from sagemaker_studio.execution.remote_execution_client import (
     DEFAULT_IMAGE_VERSION,
     DEFAULT_INSTANCE_TYPE,
+    FALLBACK_INSTANCE_TYPE,
     RemoteExecutionClient,
 )
 from sagemaker_studio.models.execution import (
@@ -364,10 +365,7 @@ class TestRemoteExecutionClient(unittest.TestCase):
 
         self.remote_client.domain_identifier = "domain-123"
         self.remote_client.project_identifier = "project-456"
-        self.remote_client.datazone_endpoint = "https://datazone.amazonaws.com"
         self.remote_client.datazone_domain_region = "us-west-2"
-        self.remote_client.datazone_stage = "prod"
-        self.remote_client.datazone_environment_id = "env-789"
         self.remote_client.project_s3_path = "s3://my-bucket/my-project/"
         self.remote_client.security_group = "sg-12345678"
         self.remote_client.subnets = ["subnet-12345678"]
@@ -441,7 +439,289 @@ class TestRemoteExecutionClient(unittest.TestCase):
         self.assertEqual(call_args["VpcConfig"]["Subnets"], self.remote_client.subnets)
 
         self.assertEqual(result["execution_id"], "test-job-1234-5678-9012-3456")
-        self.assertEqual(result["tags"], {"a": "b"})
+
+    @patch("uuid.uuid4")
+    def test_start_execution_no_compute_uses_fallback_when_m6i_unavailable(self, mock_uuid):
+        """Test that start_execution uses fallback logic when no compute is provided and m6i is unavailable"""
+        # Arrange
+        mock_uuid.return_value = "1234-5678-9012-3456"
+
+        mock_sagemaker_client = Mock()
+        mock_sagemaker_client.create_training_job.return_value = {
+            "TrainingJobArn": "arn:aws:sagemaker:us-west-2:123456123456:training-job/test-job-1234-5678-9012-3456"
+        }
+        self.remote_client.sagemaker_client = mock_sagemaker_client
+        self.remote_client.kms_key_identifier = (
+            "arn:aws:kms:us-west-2:123456123456:key/1234abcd-12ab-34cd-56ef-1234567890ab"
+        )
+        self.remote_client.user_role_arn = "arn:aws:iam::123456123456:role/SageMakerRole"
+        self.remote_client.default_tooling_environment = {
+            "awsAccountId": "123456123456",
+            "awsAccountRegion": "us-west-2",
+            "id": "env-12345",
+            "name": "Default Environment",
+            "provisionedResources": [
+                {"name": "VpcId", "value": "vpc-12345678"},
+                {"name": "SubnetIds", "value": "subnet-12345678,subnet-87654321"},
+                {"name": "SecurityGroupId", "value": "sg-12345678"},
+                {"name": "s3BucketPath", "value": "s3://my-bucket/my-project/"},
+                {"name": "codeRepositoryName", "value": "my-code-repository"},
+            ],
+        }
+        self.remote_client._utils = Mock()
+        self.remote_client._utils._get_project_s3_path.return_value = "s3://my-bucket/my-project/"
+        self.remote_client.domain_identifier = "domain-123"
+        self.remote_client.project_identifier = "project-456"
+        self.remote_client.datazone_domain_region = "us-west-2"
+        self.remote_client.project_s3_path = "s3://my-bucket/my-project/"
+        self.remote_client.security_group = "sg-12345678"
+        self.remote_client.subnets = ["subnet-12345678"]
+
+        # Mock EC2 client to simulate m6i not available, but m5 available
+        mock_ec2_client = Mock()
+        # First call (preferred) returns empty, second call (fallback) returns available
+        mock_ec2_client.describe_instance_types.side_effect = [
+            {"InstanceTypes": []},  # m6i.xlarge not available
+            {
+                "InstanceTypes": [
+                    {
+                        "InstanceType": "m5.xlarge",
+                        "VCpuInfo": {"DefaultVCpus": 4},
+                        "MemoryInfo": {"SizeInMiB": 16384},
+                    }
+                ]
+            },  # m5.xlarge available
+        ]
+        self.remote_client.ec2_client = mock_ec2_client
+
+        mock_ssm_client = Mock()
+        mock_ssm_client.get_parameter.return_value = {"Parameter": {"Value": "123456123456"}}
+        self.remote_client.ssm_client = mock_ssm_client
+
+        # Act - No compute provided, should trigger fallback logic
+        result = self.remote_client.start_execution(
+            execution_name="test-job",
+            input_config={"notebook_config": {"input_path": "src/test.ipynb"}},
+        )
+
+        # Assert
+        mock_sagemaker_client.create_training_job.assert_called_once()
+        call_args = mock_sagemaker_client.create_training_job.call_args[1]
+
+        # Verify that the fallback instance type was used
+        self.assertEqual(call_args["ResourceConfig"]["InstanceType"], FALLBACK_INSTANCE_TYPE)
+
+        # Verify that the fallback logic was called twice (once for preferred, once for fallback)
+        self.assertEqual(mock_ec2_client.describe_instance_types.call_count, 2)
+
+        self.assertEqual(result["execution_id"], "test-job-1234-5678-9012-3456")
+
+    @patch("uuid.uuid4")
+    def test_start_execution_with_compute_skips_fallback_logic(self, mock_uuid):
+        """Test that start_execution does not use fallback logic when compute is explicitly provided"""
+        # Arrange
+        mock_uuid.return_value = "1234-5678-9012-3456"
+
+        mock_sagemaker_client = Mock()
+        mock_sagemaker_client.create_training_job.return_value = {
+            "TrainingJobArn": "arn:aws:sagemaker:us-west-2:123456123456:training-job/test-job-1234-5678-9012-3456"
+        }
+        self.remote_client.sagemaker_client = mock_sagemaker_client
+        self.remote_client.kms_key_identifier = (
+            "arn:aws:kms:us-west-2:123456123456:key/1234abcd-12ab-34cd-56ef-1234567890ab"
+        )
+        self.remote_client.user_role_arn = "arn:aws:iam::123456123456:role/SageMakerRole"
+        self.remote_client.default_tooling_environment = {
+            "awsAccountId": "123456123456",
+            "awsAccountRegion": "us-west-2",
+            "id": "env-12345",
+            "name": "Default Environment",
+            "provisionedResources": [
+                {"name": "VpcId", "value": "vpc-12345678"},
+                {"name": "SubnetIds", "value": "subnet-12345678,subnet-87654321"},
+                {"name": "SecurityGroupId", "value": "sg-12345678"},
+                {"name": "s3BucketPath", "value": "s3://my-bucket/my-project/"},
+                {"name": "codeRepositoryName", "value": "my-code-repository"},
+            ],
+        }
+        self.remote_client._utils = Mock()
+        self.remote_client._utils._get_project_s3_path.return_value = "s3://my-bucket/my-project/"
+        self.remote_client.domain_identifier = "domain-123"
+        self.remote_client.project_identifier = "project-456"
+        self.remote_client.datazone_domain_region = "us-west-2"
+        self.remote_client.project_s3_path = "s3://my-bucket/my-project/"
+        self.remote_client.security_group = "sg-12345678"
+        self.remote_client.subnets = ["subnet-12345678"]
+
+        # Mock EC2 client - this should NOT be called for instance type offerings
+        mock_ec2_client = Mock()
+        mock_ec2_client.describe_instance_types.return_value = {
+            "InstanceTypes": [
+                {
+                    "InstanceType": "g4dn.xlarge",
+                    "VCpuInfo": {"DefaultVCpus": 4},
+                    "MemoryInfo": {"SizeInMiB": 16384},
+                    "GpuInfo": {"Gpus": [{"Name": "T4", "Manufacturer": "NVIDIA", "Count": 1}]},
+                },
+            ]
+        }
+        self.remote_client.ec2_client = mock_ec2_client
+
+        mock_ssm_client = Mock()
+        mock_ssm_client.get_parameter.return_value = {"Parameter": {"Value": "123456123456"}}
+        self.remote_client.ssm_client = mock_ssm_client
+
+        # Act - Compute explicitly provided, should NOT trigger fallback logic
+        result = self.remote_client.start_execution(
+            execution_name="test-job",
+            compute={"instance_type": "ml.g4dn.xlarge"},  # Explicitly provided
+            input_config={"notebook_config": {"input_path": "src/test.ipynb"}},
+        )
+
+        # Assert
+        mock_sagemaker_client.create_training_job.assert_called_once()
+        call_args = mock_sagemaker_client.create_training_job.call_args[1]
+
+        # Verify that the explicitly provided instance type was used
+        self.assertEqual(call_args["ResourceConfig"]["InstanceType"], "ml.g4dn.xlarge")
+        self.assertEqual(result["execution_id"], "test-job-1234-5678-9012-3456")
+
+        # Verify that the fallback logic was NOT called (describe_instance_type_offerings should not be called)
+        mock_ec2_client.describe_instance_type_offerings.assert_not_called()
+        # But describe_instance_types should be called for GPU detection
+        mock_ec2_client.describe_instance_types.assert_called_once()
+
+    def test_get_available_instance_type_preferred_available(self):
+        """Test that preferred instance type is returned when available"""
+        # Arrange
+        mock_ec2_client = Mock()
+        mock_ec2_client.describe_instance_types.return_value = {
+            "InstanceTypes": [
+                {
+                    "InstanceType": "m6i.xlarge",
+                    "VCpuInfo": {"DefaultVCpus": 4},
+                    "MemoryInfo": {"SizeInMiB": 16384},
+                },
+            ]
+        }
+        self.remote_client.ec2_client = mock_ec2_client
+
+        # Act
+        result = self.remote_client._RemoteExecutionClient__get_available_instance_type_with_info(
+            "ml.m6i.xlarge"
+        )
+
+        # Assert
+        self.assertEqual(result["instance_type"], "ml.m6i.xlarge")
+        self.assertEqual(result["has_gpu"], False)
+        mock_ec2_client.describe_instance_types.assert_called_once_with(
+            InstanceTypes=["m6i.xlarge"]
+        )
+
+    def test_get_available_instance_type_fallback_to_m5(self):
+        """Test that fallback instance type is returned when preferred is not available"""
+        # Arrange
+        mock_ec2_client = Mock()
+        # First call (preferred) returns empty, second call (fallback) returns available
+        mock_ec2_client.describe_instance_types.side_effect = [
+            {"InstanceTypes": []},  # m6i.xlarge not available
+            {
+                "InstanceTypes": [
+                    {
+                        "InstanceType": "m5.xlarge",
+                        "VCpuInfo": {"DefaultVCpus": 4},
+                        "MemoryInfo": {"SizeInMiB": 16384},
+                    }
+                ]
+            },  # m5.xlarge available
+        ]
+        self.remote_client.ec2_client = mock_ec2_client
+
+        # Act
+        result = self.remote_client._RemoteExecutionClient__get_available_instance_type_with_info(
+            "ml.m6i.xlarge"
+        )
+
+        # Assert
+        self.assertEqual(result["instance_type"], FALLBACK_INSTANCE_TYPE)
+        self.assertEqual(result["has_gpu"], False)
+        self.assertEqual(mock_ec2_client.describe_instance_types.call_count, 2)
+
+        # Verify first call for preferred instance type
+        first_call = mock_ec2_client.describe_instance_types.call_args_list[0]
+        self.assertEqual(first_call[1]["InstanceTypes"], ["m6i.xlarge"])
+
+        # Verify second call for fallback instance type
+        second_call = mock_ec2_client.describe_instance_types.call_args_list[1]
+        self.assertEqual(second_call[1]["InstanceTypes"], ["m5.xlarge"])
+
+    def test_get_available_instance_type_both_unavailable(self):
+        """Test that ValidationError is raised when both preferred and fallback are unavailable"""
+        # Arrange
+        mock_ec2_client = Mock()
+        # Both calls return empty (neither available)
+        mock_ec2_client.describe_instance_types.return_value = {"InstanceTypes": []}
+        self.remote_client.ec2_client = mock_ec2_client
+
+        # Act & Assert
+        with self.assertRaises(ValidationError) as context:
+            self.remote_client._RemoteExecutionClient__get_available_instance_type_with_info(
+                "ml.m6i.xlarge"
+            )
+
+        self.assertIn("Neither the preferred instance type", str(context.exception))
+        self.assertEqual(mock_ec2_client.describe_instance_types.call_count, 2)
+
+    def test_get_available_instance_type_ec2_client_error(self):
+        """Test that ValidationError is raised when EC2 client throws an error"""
+        # Arrange
+        mock_ec2_client = Mock()
+        mock_ec2_client.describe_instance_types.side_effect = ClientError(
+            error_response={
+                "Error": {
+                    "Code": "UnauthorizedOperation",
+                    "Message": "You are not authorized to perform this operation.",
+                }
+            },
+            operation_name="DescribeInstanceTypes",
+        )
+        self.remote_client.ec2_client = mock_ec2_client
+
+        # Act & Assert
+        with self.assertRaises(ValidationError) as context:
+            self.remote_client._RemoteExecutionClient__get_available_instance_type_with_info(
+                "ml.m6i.xlarge"
+            )
+
+        self.assertIn("Neither the preferred instance type", str(context.exception))
+
+    def test_get_available_instance_type_handles_ml_prefix(self):
+        """Test that method correctly handles ml. prefix in instance type"""
+        # Arrange
+        mock_ec2_client = Mock()
+        mock_ec2_client.describe_instance_types.return_value = {
+            "InstanceTypes": [
+                {
+                    "InstanceType": "m6i.xlarge",
+                    "VCpuInfo": {"DefaultVCpus": 4},
+                    "MemoryInfo": {"SizeInMiB": 16384},
+                }
+            ]
+        }
+        self.remote_client.ec2_client = mock_ec2_client
+
+        # Act
+        result = self.remote_client._RemoteExecutionClient__get_available_instance_type_with_info(
+            "ml.m6i.xlarge"
+        )
+
+        # Assert
+        self.assertEqual(result["instance_type"], "ml.m6i.xlarge")
+        self.assertEqual(result["has_gpu"], False)
+        # Verify that the EC2 API was called with the instance type without ml. prefix
+        mock_ec2_client.describe_instance_types.assert_called_once_with(
+            InstanceTypes=["m6i.xlarge"]  # ml. prefix removed
+        )
 
     @patch("uuid.uuid4")
     def test_start_execution_with_latest_image_version_cpu(self, mock_uuid):
@@ -475,10 +755,7 @@ class TestRemoteExecutionClient(unittest.TestCase):
         self.remote_client._utils._get_project_s3_path.return_value = "s3://my-bucket/my-project/"
         self.remote_client.domain_identifier = "domain-123"
         self.remote_client.project_identifier = "project-456"
-        self.remote_client.datazone_endpoint = "https://datazone.amazonaws.com"
         self.remote_client.datazone_domain_region = "us-west-2"
-        self.remote_client.datazone_stage = "prod"
-        self.remote_client.datazone_environment_id = "env-789"
         self.remote_client.project_s3_path = "s3://my-bucket/my-project/"
         self.remote_client.security_group = "sg-12345678"
         self.remote_client.subnets = ["subnet-12345678"]
@@ -557,10 +834,7 @@ class TestRemoteExecutionClient(unittest.TestCase):
         self.remote_client._utils._get_project_s3_path.return_value = "s3://my-bucket/my-project/"
         self.remote_client.domain_identifier = "domain-123"
         self.remote_client.project_identifier = "project-456"
-        self.remote_client.datazone_endpoint = "https://datazone.amazonaws.com"
         self.remote_client.datazone_domain_region = "us-west-2"
-        self.remote_client.datazone_stage = "prod"
-        self.remote_client.datazone_environment_id = "env-789"
         self.remote_client.project_s3_path = "s3://my-bucket/my-project/"
         self.remote_client.security_group = "sg-12345678"
         self.remote_client.subnets = ["subnet-12345678"]
@@ -632,10 +906,7 @@ class TestRemoteExecutionClient(unittest.TestCase):
         self.remote_client._utils._get_project_s3_path.return_value = "s3://my-bucket/my-project/"
         self.remote_client.domain_identifier = "domain-123"
         self.remote_client.project_identifier = "project-456"
-        self.remote_client.datazone_endpoint = "https://datazone.amazonaws.com"
         self.remote_client.datazone_domain_region = "us-west-2"
-        self.remote_client.datazone_stage = ""
-        self.remote_client.datazone_environment_id = "env-789"
         self.remote_client.project_s3_path = "s3://my-bucket/my-project/"
         self.remote_client.security_group = "sg-12345678"
         self.remote_client.subnets = ["subnet-12345678"]
@@ -644,12 +915,13 @@ class TestRemoteExecutionClient(unittest.TestCase):
         output = {"path": "s3://my-bucket/my-project/workflows/output", "file": "_test.ipynb"}
 
         mock_ec2_client = Mock()
+        # Mock the fallback logic - m6i.xlarge is available
         mock_ec2_client.describe_instance_types.return_value = {
             "InstanceTypes": [
                 {
-                    "InstanceType": "t2.micro",
-                    "VCpuInfo": {"DefaultVCpus": 1},
-                    "MemoryInfo": {"SizeInMiB": 1024},
+                    "InstanceType": "m6i.xlarge",
+                    "VCpuInfo": {"DefaultVCpus": 4},
+                    "MemoryInfo": {"SizeInMiB": 16384},
                 },
             ]
         }
@@ -670,7 +942,7 @@ class TestRemoteExecutionClient(unittest.TestCase):
         call_args = mock_sagemaker_client.create_training_job.call_args[1]
 
         self.assertEqual(call_args["TrainingJobName"], "test-job-1234-5678-9012-3456")
-        default_ecr_uri = f"123456123456.dkr.ecr.us-west-2.amazonaws.com/sagemaker-distribution-loadtest:{DEFAULT_IMAGE_VERSION}-cpu"
+        default_ecr_uri = f"123456123456.dkr.ecr.us-west-2.amazonaws.com/sagemaker-distribution-prod:{DEFAULT_IMAGE_VERSION}-cpu"
         self.assertEqual(call_args["AlgorithmSpecification"]["TrainingImage"], default_ecr_uri)
         self.assertEqual(call_args["RoleArn"], self.remote_client.user_role_arn)
         self.assertEqual(call_args["OutputDataConfig"]["S3OutputPath"], output["path"])

@@ -370,6 +370,8 @@ async def do_file_data(
     if isinstance(file, str):  # url1;url2
         if ';' in file:
             return file.split(';')
+        elif '|' in file:
+            return file.split('|')
 
         return file
 
@@ -592,7 +594,11 @@ if __name__ == '__main__':
     image = "https://kimi-web-img.moonshot.cn/img/www.vhv.rs/50fef4f80227d1d7d2ae212599fc4a3d2fa91c81.png"
 
     image = "https://cdnzjzai.m.nengshuohuihua.com/banana/refer/202602/02/20260202152544761374.jpeg?auth_key=1770017144-86e367a61b7a46a7894a1072dfe8a539-0-060089b876fb3c713bdafcfbb16ac844"
-    print(guess_mime_type(image))
-    arun(to_image(image))
+    # print(guess_mime_type(image))
+    # arun(to_image(image))
 
     # arun(to_url(image, content_type="image/jpeg"))
+
+    url = "https://ark-common-storage-prod-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-0/2104716667/0/20260212/02177089914238900000000000000000000ffffac183fc8d5d6cf.mp4%3FX-Tos-Algorithm=TOS4-HMAC-SHA256&X-Tos-Credential=AKLTYWJkZTExNjA1ZDUyNDc3YzhjNTM5OGIyNjBhNDcyOTQ%252F20260212%252Fcn-beijing%252Ftos%252Frequest&X-Tos-Date=20260212T123107Z&X-Tos-Expires=86400&X-Tos-Signature=065ea666a698224b237f7c0be0e31cc01a9ff7bd99caf0f90b1123095cf23cd4&X-Tos-SignedHeaders=host?X-Tos-Algorithm=TOS4-HMAC-SHA256&X-Tos-Credential=AKLTMjgxMzUwNzliYzdlNDE4MTllYjJjZGVlOWQ3N2M1ZDY%2F20260212%2Fcn-beijing%2Ftos%2Frequest&X-Tos-Date=20260212T135308Z&X-Tos-Expires=604800&X-Tos-Signature=b982ef2fb2b2acffe10192a0412781ee57b3fdaa26af6fccbbe8cb40022dd22f&X-Tos-SignedHeaders=host"
+
+    arun(to_url(url, content_type="video/mp4"))

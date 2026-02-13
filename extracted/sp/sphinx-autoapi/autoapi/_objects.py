@@ -264,6 +264,14 @@ class PythonFunction(PythonObject):
         show_annotations = autodoc_typehints != "none" and not (
             autodoc_typehints == "description" and not self.obj["overloads"]
         )
+
+        self.type_params: str = (
+            _format_args(self.obj["type_params"], show_annotations)
+            if "type_params" in self.obj
+            else ""
+        )
+        """The :pep:`695` type parameters of this object, formatted as a string."""
+
         self.args: str = _format_args(self.obj["args"], show_annotations)
         """The arguments to this object, formatted as a string."""
 
@@ -280,7 +288,7 @@ class PythonFunction(PythonObject):
 
         Can be only be: async.
         """
-        self.overloads: list[tuple[str, str]] = [
+        self.overloads: list[tuple[str, str | None]] = [
             (_format_args(args), return_annotation)
             for args, return_annotation in self.obj["overloads"]
         ]
@@ -352,7 +360,11 @@ class PythonData(PythonObject):
         """
 
     def is_type_alias(self):
-        return self.annotation in ("TypeAlias", "typing.TypeAlias")
+        return self.annotation in (
+            "TypeAlias",
+            "typing.TypeAlias",
+            "typing_extensions.TypeAlias",
+        )
 
 
 class PythonAttribute(PythonData):
@@ -428,6 +440,11 @@ class PythonClass(PythonObject):
 
         self.bases: list[str] = self.obj["bases"]
         """The fully qualified names of all base classes."""
+
+        self.type_params: str = (
+            _format_args(self.obj["type_params"]) if "type_params" in self.obj else ""
+        )
+        """The :pep:`695` type parameters of this class, formatted as a string."""
 
         self._docstring_resolved: bool = False
 

@@ -38,14 +38,14 @@ class BaseStyle:
         "result": "white",
         "progress": "on #893AE3",
         "error": "red",
-        "cancelled": "red",
+        "cancelled": "red italic",
         # is there a way to make nested styles?
         # like label.active uses active style if not set?
         "active": "green",
         "title.error": "white",
         "title.cancelled": "white",
         "placeholder": "grey62",
-        "placeholder.cancelled": "grey62 strike",
+        "placeholder.cancelled": "indian_red strike",
     }
 
     _should_show_progress_title = True
@@ -107,10 +107,26 @@ class BaseStyle:
 
         return colors
 
+    def _count_label_lines(self, label: str, decoration_width: int = 0) -> int:
+        available_width = self.console.width - decoration_width
+        if available_width <= 0:
+            return 1
+        renderable = Text.from_markup(label) if isinstance(label, str) else label
+        lines = self.console.render_lines(
+            renderable,
+            self.console.options.update_width(available_width),
+            pad=False,
+        )
+        return len(lines)
+
     def get_cursor_offset_for_element(
         self, element: Element, parent: Optional[Element] = None
     ) -> CursorOffset:
-        return element.cursor_offset
+        offset = element.cursor_offset
+        if isinstance(element, Input) and not element.inline and element.label:
+            label_lines = self._count_label_lines(element.label)
+            return CursorOffset(top=label_lines + 1, left=offset.left)
+        return offset
 
     def render_element(
         self,
@@ -220,19 +236,21 @@ class BaseStyle:
             contents.append(text)
 
         if validation_message := self.render_validation_message(element):
-            contents.append(validation_message)
+            contents.extend(validation_message)
 
         # TODO: do we need this?
         element._height = len(contents)
 
         return Group(*contents)
 
-    def render_validation_message(self, element: Union[Input, Menu]) -> Optional[str]:
+    def render_validation_message(
+        self, element: Union[Input, Menu]
+    ) -> Optional[list[RenderableType]]:
         if element._cancelled:
-            return "[cancelled]Cancelled.[/]"
+            return [Text(""), "[cancelled]Cancelled.[/]"]
 
         if element.valid is False:
-            return f"[error]{element.validation_message}[/]"
+            return [Text(""), f"[error]{element.validation_message}[/]"]
 
         return None
 
@@ -246,23 +264,33 @@ class BaseStyle:
     ) -> RenderableType:
         text = input.text
 
-        # Check if this is a password field and mask it
         if isinstance(input, Input) and input.password and text:
             text = "*" * len(text)
 
+        if input._cancelled:
+            if not text:
+                return ""
+
+            return f"[placeholder.cancelled]{text}[/]"
+
+        if done:
+            if (
+                not text
+                and isinstance(input, Input)
+                and input.default_as_placeholder
+                and input.default
+            ):
+                text = input.default
+
+            return f"[result]{text}[/]"
+
         if not text:
-            placeholder = ""
+            placeholder = input.placeholder if isinstance(input, Input) else ""
 
-            if isinstance(input, Input):
-                placeholder = input.placeholder
-
-                if input.default_as_placeholder and input.default:
-                    return f"[placeholder]{input.default}[/]"
-
-            if input._cancelled:
-                return f"[placeholder.cancelled]{placeholder}[/]"
-            elif not done:
-                return f"[placeholder]{placeholder}[/]"
+            # Use zero-width space when placeholder is empty to prevent
+            # the line from being stripped as a trailing blank line
+            placeholder = placeholder or "\u200b"
+            return f"[placeholder]{placeholder}[/]"
 
         return f"[text]{text}[/]"
 
@@ -409,8 +437,7 @@ class BaseStyle:
         content.append(menu)
 
         if message := self.render_validation_message(element):
-            content.append(Text(""))
-            content.append(message)
+            content.extend(message)
 
         return Group(*content)
 

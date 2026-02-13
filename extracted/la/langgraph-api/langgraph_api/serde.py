@@ -23,6 +23,13 @@ import cloudpickle
 import orjson
 import structlog
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+from langgraph.errors import (
+    EmptyInputError,
+    GraphBubbleUp,
+    InvalidUpdateError,
+    TaskNotFound,
+)
+from starlette.exceptions import HTTPException
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -78,7 +85,29 @@ def default(obj):
     ):
         return obj._asdict()
     elif isinstance(obj, BaseException):
-        return {"error": type(obj).__name__, "message": str(obj)}
+        if isinstance(
+            obj,
+            (
+                # Python builtins
+                ValueError,
+                TypeError,
+                KeyError,
+                AttributeError,
+                RuntimeError,
+                RecursionError,
+                TimeoutError,
+                # LangGraph DSL errors (GraphRecursionError ⊂ RecursionError,
+                # GraphInterrupt/ParentCommand ⊂ GraphBubbleUp)
+                InvalidUpdateError,
+                GraphBubbleUp,
+                EmptyInputError,
+                TaskNotFound,
+                # HTTP errors (e.g. auth failures during streaming)
+                HTTPException,
+            ),
+        ):
+            return {"error": type(obj).__name__, "message": str(obj)}
+        return {"error": type(obj).__name__, "message": "An internal error occurred"}
     elif isinstance(obj, (set, frozenset, deque)):
         return list(obj)
     elif isinstance(obj, (timezone, ZoneInfo)):
@@ -189,7 +218,7 @@ class Serializer(JsonPlusSerializer):
         __unpack_ext_hook__: Callable[[int, bytes], Any] | None = None,
         pickle_fallback: bool | None = None,
     ):
-        from langgraph_api.config import SERDE
+        from langgraph_api.config import SERDE  # noqa: PLC0415
 
         allowed_json_modules: list[tuple[str, ...]] | Literal[True] | None = None
         if SERDE and "allowed_json_modules" in SERDE:

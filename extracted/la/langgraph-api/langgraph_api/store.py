@@ -33,7 +33,7 @@ async def get_store() -> BaseStore:
             return store
         return STORE_STACK.store
     else:
-        from langgraph_runtime.store import Store
+        from langgraph_runtime.store import Store  # noqa: PLC0415
 
         return Store()
 

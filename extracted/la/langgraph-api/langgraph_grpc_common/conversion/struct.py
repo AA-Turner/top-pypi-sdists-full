@@ -11,8 +11,14 @@ def struct_from_dict(d: Mapping[str, Any]) -> struct_pb2.Struct:
     return s
 
 
+def _default_serializer(obj: Any) -> Any:
+    if hasattr(obj, "__dict__"):
+        return obj.__dict__
+    raise TypeError(f"Type is not JSON serializable: {type(obj).__name__}")
+
+
 def raw_map_from_dict(d: Mapping[str, Any]) -> Mapping[str, bytes]:
-    return {k: orjson.dumps(v) for k, v in d.items()}
+    return {k: orjson.dumps(v, default=_default_serializer) for k, v in d.items()}
 
 
 def dict_from_raw_map(m: Mapping[str, bytes]) -> dict[str, Any]:

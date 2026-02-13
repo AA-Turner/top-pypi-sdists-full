@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.18.1+obcheckpoint(0.2.10);ob(v1)                                                  #
-# Generated on 2026-02-03T01:51:07.242660                                                            #
+# MF version: 2.19.19.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-02-11T23:40:09.203362                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -108,6 +108,8 @@ class BatchDecorator(metaflow.decorators.StepDecorator, metaclass=type):
         List of strings containing options for the chosen log driver. The configurable values
         depend on the `log driver` chosen. Validation of these options is not supported yet.
         Example: [`awslogs-group:aws/batch/job`]
+    privileged: bool, default False
+        Control whether the task can run as a privileged process on AWS Batch
     """
     def init(self):
         ...

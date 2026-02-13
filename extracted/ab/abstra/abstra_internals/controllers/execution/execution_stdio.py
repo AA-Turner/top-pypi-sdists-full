@@ -10,7 +10,7 @@ from abstra_internals.controllers.sdk.sdk_context import (
 )
 from abstra_internals.entities.execution import Execution
 from abstra_internals.env_masker import GLOBAL_MASKER
-from abstra_internals.environment import IS_PRODUCTION
+from abstra_internals.environment import IS_PRODUCTION, WORKER_LOG_TO_QUEUE
 from abstra_internals.interface.sdk.user_exceptions import ExecutionNotFound
 from abstra_internals.logger import AbstraLogger
 
@@ -96,6 +96,35 @@ class BroadcastController:
         self.execution_logs_repository.insert_stdio(
             execution.id, execution.stage_id, std_type, text
         )
+
+        if WORKER_LOG_TO_QUEUE:
+            self._send_stdio_via_queue(execution, std_type, text)
+
+    def _send_stdio_via_queue(
+        self,
+        execution: Execution,
+        std_type: Literal["stderr", "stdout"],
+        text: str,
+    ):
+        from abstra_internals.controllers.execution.execution_conn import (
+            get_stdio_buffer,
+        )
+
+        buffer = get_stdio_buffer()
+        if buffer is None:
+            return
+
+        try:
+            buffer.add(
+                {
+                    "type": std_type,
+                    "log": text,
+                    "execution_id": execution.id,
+                    "stage_id": execution.stage_id,
+                }
+            )
+        except Exception:
+            pass
 
     def mask(self, raw: str) -> str:
         if IS_PRODUCTION:

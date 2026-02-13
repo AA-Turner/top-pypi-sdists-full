@@ -19,7 +19,6 @@ from snowflake.snowpark._internal.analyzer.snowflake_plan import PlanQueryType
 from snowflake.snowpark._internal.utils import (
     create_or_update_statement_params_with_query_tag,
 )
-from snowflake.snowpark_connect.constants import SERVER_SIDE_SESSION_ID
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
@@ -36,6 +35,7 @@ from snowflake.snowpark_connect.type_mapping import (
     SnowparkToArrowMapper,
     snowpark_to_proto_type,
 )
+from snowflake.snowpark_connect.utils.request_utils import get_or_generate_operation_id
 
 QueryResult = namedtuple("QueryResult", ["query_id", "arrow_schema", "spark_schema"])
 
@@ -45,7 +45,7 @@ def _build_execute_plan_response(
 ):
     return proto_base.ExecutePlanResponse(
         session_id=request.session_id,
-        operation_id=SERVER_SIDE_SESSION_ID,
+        operation_id=get_or_generate_operation_id(request),
         arrow_batch=proto_base.ExecutePlanResponse.ArrowBatch(
             row_count=row_count,
             data=data_bytes,

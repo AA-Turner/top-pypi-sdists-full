@@ -94,7 +94,7 @@ async def handle_event(
         return
 
     if auth == "js":
-        from langgraph_api.js.remote import handle_js_auth_event
+        from langgraph_api.js.remote import handle_js_auth_event  # noqa: PLC0415
 
         return await handle_js_auth_event(ctx, value)
 
@@ -216,7 +216,7 @@ def _get_custom_auth_middleware(
         )
 
     if auth_instance == "js":
-        from langgraph_api.js.remote import CustomJsAuthBackend
+        from langgraph_api.js.remote import CustomJsAuthBackend  # noqa: PLC0415
 
         return CustomJsAuthBackend(disable_studio_auth=disable_studio_auth)
 
@@ -331,7 +331,7 @@ def _solve_fastapi_dependencies(
 ) -> Callable:
     """Solve FastAPI dependencies for a given function."""
     logger.info("Solving FastAPI dependencies", fn=str(fn), deps=str(deps))
-    from fastapi.dependencies.utils import (
+    from fastapi.dependencies.utils import (  # noqa: PLC0415
         get_parameterless_sub_dependant,
         solve_dependencies,
     )
@@ -399,7 +399,7 @@ def _depends() -> Any:
     if "fastapi" not in sys.modules:
         return None
     try:
-        from fastapi.params import Depends
+        from fastapi.params import Depends  # noqa: PLC0415
 
         return Depends
     except ImportError:
@@ -517,10 +517,10 @@ class ProxyUser(BaseUser):
         }
 
     def __contains__(self, key: str) -> bool:
-        return key in self._user
+        return key in self.dict()
 
     def __getitem__(self, key):
-        return self._user[key]
+        return self.dict()[key]
 
     def __setitem__(self, key, value):
         self._user[key] = value
@@ -530,10 +530,22 @@ class ProxyUser(BaseUser):
         return getattr(self._user, name)
 
     def __iter__(self):
-        return iter(self._user)
+        return iter(self.dict())
 
     def __len__(self):
-        return len(self._user)
+        return len(self.dict())
+
+    def get(self, key, /, default=None):
+        return self.dict().get(key, default)
+
+    def keys(self):
+        return self.dict().keys()
+
+    def values(self):
+        return self.dict().values()
+
+    def items(self):
+        return self.dict().items()
 
     def __str__(self) -> str:
         return f"{self._user}"

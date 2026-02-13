@@ -1,23 +1,55 @@
-[something.else]
-opt = "ha"
-
-[tool.doit]
-optx = "6"
-opty = "7"
-
-# [tool.doit.plugins.command]
-# foocmd = "tests.sample_plugin:MyCmd"
-
-[tool.doit.commands.list]
-status = "True"
-
-[tool.doit.tasks.sample]
-param1 = "toml val"
-
-[tool.doit.tasks.subtasks]
-howmany = 4
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
 
 
+[project]
+name = "doit"
+version = "0.37.0"
+description = "doit - Automation Tool"
+license = {text = "MIT"}
+readme = "pypi_long_description.rst"
+requires-python = ">=3.10"
+authors = [
+    {name = "Eduardo Naufel Schettino", email = "schettino72@gmail.com"},
+]
+keywords = ["build", "make", "task", "automation", "pipeline", "task-runner"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: System Administrators",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://pydoit.org"
+Documentation = "https://pydoit.org/"
+Source = "https://github.com/pydoit/doit/"
+Tracker = "https://github.com/pydoit/doit/issues"
+
+[project.scripts]
+doit = "doit.__main__:main"
+
+[project.optional-dependencies]
+toml = ["tomli; python_version < '3.11'"]
+cloudpickle = ["cloudpickle; platform_python_implementation != 'PyPy'"]
 
 
-
+[tool.setuptools]
+packages = ["doit"]

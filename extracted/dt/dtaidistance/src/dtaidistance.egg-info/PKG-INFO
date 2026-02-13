@@ -1,17 +1,18 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: dtaidistance
-Version: 2.3.13
+Version: 2.4.0
 Summary: Distance measures for time series (Dynamic Time Warping, fast C implementation)
 Author-email: Wannes Meert <wannes.meert@cs.kuleuven.be>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: homepage, https://github.com/wannesm/dtaidistance
 Project-URL: repository, https://github.com/wannesm/dtaidistance
 Project-URL: documentation, https://http://dtaidistance.readthedocs.io
 Keywords: dtw,time series,dynamic time warping,distance
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: Apache Software License
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: AUTHORS
 Requires-Dist: numpy
 Provides-Extra: tests
 Requires-Dist: pytest; extra == "tests"
@@ -21,6 +22,7 @@ Requires-Dist: matplotlib>=3.0.0; extra == "viz"
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-benchmark; extra == "dev"
+Requires-Dist: pytest-env; extra == "dev"
 Requires-Dist: matplotlib>=3.0.0; extra == "dev"
 Requires-Dist: numpy; extra == "dev"
 Requires-Dist: scipy; extra == "dev"
@@ -34,6 +36,7 @@ Provides-Extra: all
 Requires-Dist: numpy; extra == "all"
 Requires-Dist: scipy; extra == "all"
 Requires-Dist: pandas; extra == "all"
+Dynamic: license-file
 
 [![PyPi Version](https://img.shields.io/pypi/v/dtaidistance.svg)](https://pypi.org/project/dtaidistance/)
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/dtaidistance.svg)](https://anaconda.org/conda-forge/dtaidistance)
@@ -251,7 +254,7 @@ The output in this case will be:
      [ inf   inf  inf     inf     inf  inf]]   # 5
 
 
-## Clustering
+### Clustering
 
 A distance matrix can be used for time series clustering. You can use existing methods such as
 `scipy.cluster.hierarchy.linkage` or one of two included clustering methods (the latter is a
@@ -275,6 +278,23 @@ tree can be visualised:
     model.plot("myplot.png")
 
 ![Dynamic Time Warping (DTW) hierarchical clusteringt](https://people.cs.kuleuven.be/wannes.meert/dtw/hierarchy.png?v=2)
+
+
+### Subsequence search
+
+DTAIDistance supports various subsequence search algorithms like
+Subsequence Alignment, Subsequence KNN Search and Local Concurrences.
+See the [documentation](https://dtaidistance.readthedocs.io/en/latest/usage/subsequence.html)
+for more information.
+
+### Motif Discovery
+
+While methods such as `dtw.distance_matrix` and `subsequence.subsequencesearch`
+can be used for motif discovery in time series (after windowing), a more
+efficient and effective algorithm
+based on time warping is available in the
+[LoCoMotif package](https://github.com/ML-KULeuven/locomotif).
+
 
 
 ## Dependencies

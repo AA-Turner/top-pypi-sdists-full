@@ -33,7 +33,7 @@ class CreateVolumeRequestContent(BaseModel):
     name: StrictStr = Field(description="The name of the volume")
     volume_type: VolumeType
     comment: Optional[Annotated[str, Field(min_length=1, strict=True, max_length=65536)]] = Field(default=None, description="The comment attached to the volume")
-    storage_location: StrictStr = Field(description="The storage location of the volume")
+    storage_location: Optional[StrictStr] = Field(default=None, description="The storage location of the volume")
     __properties: ClassVar[List[str]] = ["catalog_name", "schema_name", "name", "volume_type", "comment", "storage_location"]
 
     model_config = ConfigDict(

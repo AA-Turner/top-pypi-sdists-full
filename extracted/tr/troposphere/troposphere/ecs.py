@@ -205,7 +205,7 @@ class ManagedInstancesNetworkConfiguration(AWSProperty):
     """
 
     props: PropsDictType = {
-        "SecurityGroups": ([str], False),
+        "SecurityGroups": ([str], True),
         "Subnets": ([str], True),
     }
 
@@ -226,7 +226,9 @@ class InstanceLaunchTemplate(AWSProperty):
     """
 
     props: PropsDictType = {
+        "CapacityOptionType": (str, False),
         "Ec2InstanceProfileArn": (str, True),
+        "FipsEnabled": (boolean, False),
         "InstanceRequirements": (InstanceRequirementsRequest, False),
         "Monitoring": (str, False),
         "NetworkConfiguration": (ManagedInstancesNetworkConfiguration, True),
@@ -385,6 +387,112 @@ class ClusterCapacityProviderAssociations(AWSObject):
         "CapacityProviders": ([str], False),
         "Cluster": (str, True),
         "DefaultCapacityProviderStrategy": ([CapacityProviderStrategy], True),
+    }
+
+
+class ExpressGatewayRepositoryCredentials(AWSProperty):
+    """
+    `ExpressGatewayRepositoryCredentials <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-expressgatewayservice-expressgatewayrepositorycredentials.html>`__
+    """
+
+    props: PropsDictType = {
+        "CredentialsParameter": (str, True),
+    }
+
+
+class ExpressGatewayServiceAwsLogsConfiguration(AWSProperty):
+    """
+    `ExpressGatewayServiceAwsLogsConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-expressgatewayservice-expressgatewayserviceawslogsconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "LogGroup": (str, True),
+        "LogStreamPrefix": (str, True),
+    }
+
+
+class KeyValuePair(AWSProperty):
+    """
+    `KeyValuePair <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-expressgatewayservice-keyvaluepair.html>`__
+    """
+
+    props: PropsDictType = {
+        "Name": (str, True),
+        "Value": (str, True),
+    }
+
+
+class Secret(AWSProperty):
+    """
+    `Secret <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-secret.html>`__
+    """
+
+    props: PropsDictType = {
+        "Name": (str, True),
+        "ValueFrom": (str, True),
+    }
+
+
+class ExpressGatewayContainer(AWSProperty):
+    """
+    `ExpressGatewayContainer <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-expressgatewayservice-expressgatewaycontainer.html>`__
+    """
+
+    props: PropsDictType = {
+        "AwsLogsConfiguration": (ExpressGatewayServiceAwsLogsConfiguration, False),
+        "Command": ([str], False),
+        "ContainerPort": (integer, False),
+        "Environment": ([KeyValuePair], False),
+        "Image": (str, True),
+        "RepositoryCredentials": (ExpressGatewayRepositoryCredentials, False),
+        "Secrets": ([Secret], False),
+    }
+
+
+class ExpressGatewayScalingTarget(AWSProperty):
+    """
+    `ExpressGatewayScalingTarget <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-expressgatewayservice-expressgatewayscalingtarget.html>`__
+    """
+
+    props: PropsDictType = {
+        "AutoScalingMetric": (str, False),
+        "AutoScalingTargetValue": (integer, False),
+        "MaxTaskCount": (integer, False),
+        "MinTaskCount": (integer, False),
+    }
+
+
+class ExpressGatewayServiceNetworkConfiguration(AWSProperty):
+    """
+    `ExpressGatewayServiceNetworkConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-expressgatewayservice-expressgatewayservicenetworkconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "SecurityGroups": ([str], False),
+        "Subnets": ([str], False),
+    }
+
+
+class ExpressGatewayService(AWSObject):
+    """
+    `ExpressGatewayService <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-expressgatewayservice.html>`__
+    """
+
+    resource_type = "AWS::ECS::ExpressGatewayService"
+
+    props: PropsDictType = {
+        "Cluster": (str, False),
+        "Cpu": (str, False),
+        "ExecutionRoleArn": (str, True),
+        "HealthCheckPath": (str, False),
+        "InfrastructureRoleArn": (str, True),
+        "Memory": (str, False),
+        "NetworkConfiguration": (ExpressGatewayServiceNetworkConfiguration, False),
+        "PrimaryContainer": (ExpressGatewayContainer, True),
+        "ScalingTarget": (ExpressGatewayScalingTarget, False),
+        "ServiceName": (str, False),
+        "Tags": (Tags, False),
+        "TaskRoleArn": (str, False),
     }
 
 
@@ -567,17 +675,6 @@ class PlacementStrategy(AWSProperty):
     props: PropsDictType = {
         "Field": (str, False),
         "Type": (placement_strategy_validator, True),
-    }
-
-
-class Secret(AWSProperty):
-    """
-    `Secret <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-secret.html>`__
-    """
-
-    props: PropsDictType = {
-        "Name": (str, True),
-        "ValueFrom": (str, True),
     }
 
 
@@ -1264,4 +1361,51 @@ class TaskSet(AWSObject):
         "ServiceRegistries": ([ServiceRegistry], False),
         "Tags": (Tags, False),
         "TaskDefinition": (str, True),
+    }
+
+
+class AutoScalingArns(AWSProperty):
+    """
+    `AutoScalingArns <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-expressgatewayservice-autoscalingarns.html>`__
+    """
+
+    props: PropsDictType = {
+        "ApplicationAutoScalingPolicies": ([str], False),
+        "ScalableTarget": (str, False),
+    }
+
+
+class ExpressGatewayServiceStatus(AWSProperty):
+    """
+    `ExpressGatewayServiceStatus <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-expressgatewayservice-expressgatewayservicestatus.html>`__
+    """
+
+    props: PropsDictType = {
+        "StatusCode": (str, False),
+    }
+
+
+class IngressPathArns(AWSProperty):
+    """
+    `IngressPathArns <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-expressgatewayservice-ingresspatharns.html>`__
+    """
+
+    props: PropsDictType = {
+        "CertificateArn": (str, False),
+        "ListenerArn": (str, False),
+        "ListenerRuleArn": (str, False),
+        "LoadBalancerArn": (str, False),
+        "LoadBalancerSecurityGroups": ([str], False),
+        "TargetGroupArns": ([str], False),
+    }
+
+
+class IngressPathSummary(AWSProperty):
+    """
+    `IngressPathSummary <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-expressgatewayservice-ingresspathsummary.html>`__
+    """
+
+    props: PropsDictType = {
+        "AccessType": (str, False),
+        "Endpoint": (str, False),
     }

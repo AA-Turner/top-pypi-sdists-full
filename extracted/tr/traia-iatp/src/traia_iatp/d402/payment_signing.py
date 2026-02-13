@@ -60,22 +60,20 @@ def sign_payment_header(
     operator_account: Account, 
     payment_requirements: PaymentRequirements, 
     header: PaymentHeader,
-    wallet_address: str = None,
-    request_path: str = None
+    wallet_address: str = None
 ) -> str:
     """
     Sign a payment header using EIP-712 PullFundsForSettlement signature.
     
     This signature format matches IATPWallet.sol validateConsumerSignature.
     
-    Contract Type Hash (IATPWallet.sol line 34-36):
+    Contract Type Hash (IATPWallet.sol):
     PullFundsForSettlement(
         address wallet,      // Consumer's IATPWallet contract address
         address provider,    // Provider's IATPWallet contract address
         address token,       // Token address (USDC, etc.)
         uint256 amount,      // Payment amount
-        uint256 deadline,    // Signature expiration
-        string requestPath   // API path (e.g., "/mcp/tools/call")
+        uint256 deadline     // Signature expiration
     )
     
     Note: chainId is in the EIP-712 domain, NOT in the message (per EIP-712 standard)
@@ -85,24 +83,12 @@ def sign_payment_header(
         payment_requirements: Payment requirements from server
         header: Payment header structure
         wallet_address: Consumer's IATPWallet contract address (if None, uses operator_account.address)
-        request_path: API request path (if None, uses payment_requirements.resource)
     """
     try:
         auth = header["payload"]["authorization"]
         
         # Get wallet address (IATPWallet contract, not EOA)
         consumer_wallet = wallet_address or auth["from"]
-        
-        # Get request path from payment_requirements if not provided
-        if request_path is None:
-            request_path = payment_requirements.resource or "/mcp"
-            logger.info(f"🔍 payment_requirements.resource: {payment_requirements.resource}")
-            logger.info(f"🔍 Using request_path: {request_path}")
-        
-        # Ensure we have a valid request path (contract requires non-empty string)
-        if not request_path or request_path.strip() == "":
-            logger.warning(f"⚠️  request_path was empty, defaulting to /mcp")
-            request_path = "/mcp"
         
         # Get domain info from payment_requirements.extra (IATPWallet domain)
         extra = payment_requirements.extra or {}
@@ -119,7 +105,6 @@ def sign_payment_header(
                     {"name": "token", "type": "address"},
                     {"name": "amount", "type": "uint256"},
                     {"name": "deadline", "type": "uint256"},
-                    {"name": "requestPath", "type": "string"},
                 ]
             },
             "primaryType": "PullFundsForSettlement",
@@ -135,7 +120,6 @@ def sign_payment_header(
                 "token": payment_requirements.asset,  # Token address (e.g., USDC)
                 "amount": int(auth["value"]),
                 "deadline": int(auth["validBefore"]),
-                "requestPath": request_path,  # Actual API path, not nonce
             },
         }
 
@@ -150,9 +134,8 @@ def sign_payment_header(
 
         header["payload"]["signature"] = signature
         
-        # Store wallet address and request path in header for verification
+        # Store wallet address in header for verification
         header["payload"]["authorization"]["from"] = consumer_wallet
-        header["payload"]["authorization"]["requestPath"] = request_path
 
         encoded = encode_payment(header)
         return encoded

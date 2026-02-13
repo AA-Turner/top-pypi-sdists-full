@@ -8,16 +8,52 @@ to GitHub repository secrets when `pysealer init` is run.
 import logging
 import os
 import re
-from pathlib import Path
 from typing import Optional, Tuple
 
 import git
 from github import Github, GithubException
-from nacl import encoding, public
 
 # Suppress verbose GitHub API logging
 logging.getLogger("github").setLevel(logging.CRITICAL)
 logging.getLogger("urllib3").setLevel(logging.CRITICAL)
+
+
+_BASE58_PATTERN = re.compile(r"^[1-9A-HJ-NP-Za-km-z]+$")
+
+
+def _validate_public_key(public_key: str) -> str:
+    """Validate and normalize a pysealer public key before uploading as a secret."""
+    if public_key is None:
+        raise ValueError("Public key is missing.")
+
+    key = str(public_key).strip().strip("\"'")
+
+    if not key:
+        raise ValueError("Public key is empty.")
+
+    if "\n" in key or "\r" in key:
+        raise ValueError("Public key must be a single-line value without newlines.")
+
+    if key.startswith("_"):
+        raise ValueError("Public key looks like a decorator token (starts with '_'), not a raw key.")
+
+    upper_key = key.upper()
+    if "BEGIN PUBLIC KEY" in upper_key or "END PUBLIC KEY" in upper_key:
+        raise ValueError("Public key appears to be PEM-formatted. Use the raw PYSEALER_PUBLIC_KEY value.")
+
+    if key.startswith("{") or key.endswith("}"):
+        raise ValueError("Public key appears to be JSON. Use only the raw key value.")
+
+    if not _BASE58_PATTERN.fullmatch(key):
+        raise ValueError("Public key is not valid Base58 format.")
+
+    # Ed25519 32-byte Base58 keys are typically 43-44 chars.
+    if len(key) < 43 or len(key) > 44:
+        raise ValueError(
+            f"Public key length {len(key)} is unexpected for pysealer (expected 43-44 characters)."
+        )
+
+    return key
 
 
 def get_repo_info() -> Tuple[str, str]:
@@ -67,32 +103,6 @@ def get_repo_info() -> Tuple[str, str]:
         raise RuntimeError(f"Git error: {e}")
 
 
-def encrypt_secret(public_key: str, secret_value: str) -> str:
-    """
-    Encrypt a secret using GitHub's public key.
-    
-    GitHub requires secrets to be encrypted using the repository's public key
-    before they can be uploaded via the API.
-    
-    Args:
-        public_key: The repository's public key (base64 encoded)
-        secret_value: The secret value to encrypt
-        
-    Returns:
-        str: Base64 encoded encrypted secret
-    """
-    # Convert the public key from base64
-    public_key_bytes = public_key.encode("utf-8")
-    public_key_obj = public.PublicKey(public_key_bytes, encoding.Base64Encoder())
-    
-    # Encrypt the secret using sealed box
-    sealed_box = public.SealedBox(public_key_obj)
-    encrypted = sealed_box.encrypt(secret_value.encode("utf-8"))
-    
-    # Return base64 encoded encrypted secret
-    return encoding.Base64Encoder().encode(encrypted).decode("utf-8")
-
-
 def add_secret_to_github(token: str, owner: str, repo_name: str, secret_name: str, secret_value: str) -> None:
     """
     Add or update a secret in GitHub repository.
@@ -112,27 +122,34 @@ def add_secret_to_github(token: str, owner: str, repo_name: str, secret_name: st
         # Initialize GitHub client
         g = Github(token)
         
+        # First, verify token has access by getting user info
+        try:
+            user = g.get_user()
+            user.login  # Force API call to validate token
+        except GithubException as auth_error:
+            if auth_error.status == 401:
+                raise Exception("Authentication failed. Your GitHub token is invalid or expired.")
+            raise
+        
         # Get the repository
         repo = g.get_repo(f"{owner}/{repo_name}")
         
-        # Get the repository's public key for encrypting secrets
-        public_key = repo.get_public_key()
-        
-        # Encrypt the secret
-        encrypted_value = encrypt_secret(public_key.key, secret_value)
-        
         # Create or update the secret (actions secrets are at repository level)
-        repo.create_secret(secret_name, encrypted_value, secret_type="actions")
+        repo.create_secret(secret_name, secret_value, secret_type="actions")
         
     except GithubException as e:
         if e.status == 401:
-            raise Exception("Authentication failed. Please check your GitHub token.")
+            raise Exception("Authentication failed. Please check your GitHub token is valid.")
         elif e.status == 403:
-            raise Exception("Permission denied. Your token needs 'repo' scope to manage secrets.")
+            raise Exception(f"Permission denied (HTTP {e.status}). Your token needs 'repo' scope to manage secrets. "
+                          f"For organization repositories like '{owner}/{repo_name}', you may also need admin:org scope or "
+                          f"the token must be authorized for the organization.")
         elif e.status == 404:
-            raise Exception(f"Repository '{owner}/{repo_name}' not found or you don't have access.")
+            raise Exception(f"Repository '{owner}/{repo_name}' not found or you don't have access (HTTP {e.status}). "
+                          f"Verify the repository exists and your token has access to it.")
         else:
-            raise Exception(f"GitHub API error: {e.data.get('message', str(e))}")
+            error_msg = e.data.get('message', str(e)) if hasattr(e, 'data') else str(e)
+            raise Exception(f"GitHub API error (HTTP {e.status}): {error_msg}")
 
 
 def setup_github_secrets(public_key: str, github_token: Optional[str] = None) -> Tuple[bool, str]:
@@ -153,6 +170,12 @@ def setup_github_secrets(public_key: str, github_token: Optional[str] = None) ->
         - success: True if secret was uploaded successfully
         - message: Success or error message
     """
+    # Validate key before any API call
+    try:
+        validated_public_key = _validate_public_key(public_key)
+    except ValueError as e:
+        return False, f"Invalid PYSEALER_PUBLIC_KEY: {e}"
+
     # Get GitHub token
     token = github_token or os.getenv("GITHUB_TOKEN")
     if not token:
@@ -163,7 +186,7 @@ def setup_github_secrets(public_key: str, github_token: Optional[str] = None) ->
         owner, repo_name = get_repo_info()
         
         # Upload the secret
-        add_secret_to_github(token, owner, repo_name, "PYSEALER_PUBLIC_KEY", public_key)
+        add_secret_to_github(token, owner, repo_name, "PYSEALER_PUBLIC_KEY", validated_public_key)
         
         return True, f"Successfully added PYSEALER_PUBLIC_KEY to {owner}/{repo_name}"
         
