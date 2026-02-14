@@ -4,6 +4,8 @@ from cadquery.vis import show, show_object, vtkAxesActor, ctrlPts, style
 
 import cadquery.vis as vis
 
+from cadquery.utils import instance_of
+
 from vtkmodules.vtkRenderingCore import (
     vtkRenderWindow,
     vtkRenderWindowInteractor,
@@ -18,7 +20,6 @@ from vtkmodules.vtkIOImage import vtkPNGWriter
 from pytest import fixture, raises
 from path import Path
 
-from typish import instance_of
 from typing import List
 
 
@@ -222,3 +223,14 @@ def test_camera_position(wp, patch_vtk):
     show(wp, position=(0, 0, 1), focus=(0, 0.1, 0))
     show(wp, focus=(0, 0.1, 0))
     show(wp, position=(0, 0, 1))
+
+    # Specify Z up
+    show(wp, viewup=(0, 0, 1), position=(0, -1, 0), focus=(0, 0.1, 0))
+    show(wp, focus=(0, 0.1, 0))
+    show(wp, position=(0, -1, 0))
+    show(wp, viewup=(0, 0, 1))
+
+
+def test_frustrum_clipping_range(wp, patch_vtk):
+
+    show(wp, zoom=2.0, clipping_range=(1, 100))

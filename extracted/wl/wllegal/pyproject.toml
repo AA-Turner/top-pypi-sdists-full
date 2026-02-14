@@ -26,7 +26,7 @@ classifiers = [
 ]
 dependencies = [
   "Django>=5.2,<6.1",
-  "weblate-language-data>=2026.1"
+  "weblate-language-data>=2026.2"
 ]
 description = "Hosted Weblate legal stuff"
 keywords = [
@@ -41,7 +41,7 @@ license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 name = "wllegal"
 requires-python = ">=3.11"
-version = "2026.1"
+version = "2026.2"
 
 [[project.authors]]
 email = "michal@weblate.org"
@@ -52,15 +52,16 @@ dev = [
   "wllegal[lint,test]"
 ]
 lint = [
-  "pre-commit==4.5.1"
+  "prek==0.3.2"
 ]
 test = [
   "wllegal[weblate]",
-  "coverage==7.13.1",
+  "coverage==7.13.4",
   "translate-toolkit"
 ]
 weblate = [
-  "Weblate[postgres]>=5.0"
+  "Weblate[postgres]>=5.0",
+  "django-otp<1.7.0; python_version < '3.12'"
 ]
 
 [project.readme]

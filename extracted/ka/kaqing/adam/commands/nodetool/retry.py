@@ -1,6 +1,7 @@
 from adam.commands import validate_args
 from adam.commands.command import Command
 from adam.commands.nodetool.nodetool import NodeTool
+# from adam.repl_cmd_runner import run_command
 from adam.repl_state import ReplState
 from adam.utils_job.job import Job
 from adam.utils_job.job_completer import job_completer
@@ -8,6 +9,7 @@ from adam.utils_job.utils_job_results import find_failed_pods
 
 class Retry(Command):
     COMMAND = 'retry'
+    run_command: callable = None
 
     # the singleton pattern
     def __new__(cls, *args, **kwargs):
@@ -39,9 +41,11 @@ class Retry(Command):
                         ctx.log2('Job not found.')
                         return state
 
-                    # failed = StatefulSets.pod_names(state.sts, state.namespace)[1:]
-                    failed = find_failed_pods(state, job, ctx=ctx)
-                    NodeTool().retry(job.command, state, failed=failed, ctx=ctx.copy(job_id=job_id, cmd=job.command))
+                    if not job.raw_command:
+                        ctx.log2('Cannot find raw command for job.')
+                        return state
+
+                    self.run_command(state, job.raw_command, job=job)
 
                     return state
 

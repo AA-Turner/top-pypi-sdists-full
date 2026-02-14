@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tink
-Version: 1.13.1
+Version: 1.14.0
 Summary: A multi-language, cross-platform library that provides cryptographic APIs that are secure, easy to use correctly, and hard(er) to misuse.
 Home-page: https://github.com/tink-crypto/tink-py
 Author: Tink Developers
@@ -14,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown

@@ -652,6 +652,7 @@ class CloudV2(OldCloud, Generic[IsAsynchronous]):
         worker_sidecars: list[dict] | None = None,
         host_setup_script_content: str | None = None,
         pause_on_exit: bool | None = None,
+        skip_ssd_mount: bool | None = None,
         cluster_timeout_seconds: int | None = None,
         filestores_to_attach: list[dict] | None = None,
     ) -> Tuple[int, bool]:
@@ -693,6 +694,7 @@ class CloudV2(OldCloud, Generic[IsAsynchronous]):
             "worker_sidecars": worker_sidecars,
             "host_setup_script": host_setup_script_content,
             "pause_on_exit": pause_on_exit,
+            "skip_ssd_mount": skip_ssd_mount,
             "cluster_timeout_seconds": cluster_timeout_seconds,
             "coiled_cloud_env_image": dask.config.get("coiled.cloud-env-image", None),
             "filestores_to_attach": filestores_to_attach,

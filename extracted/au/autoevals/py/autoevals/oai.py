@@ -4,9 +4,10 @@ import sys
 import textwrap
 import time
 import warnings
+from collections.abc import Callable
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional, Protocol, Tuple, Type, TypeVar, Union, cast, runtime_checkable
+from typing import Any, Optional, Protocol, TypeVar, Union, cast, runtime_checkable
 
 PROXY_URL = "https://api.braintrust.dev/v1/proxy"
 
@@ -19,8 +20,7 @@ class ChatCompletions(Protocol):
 @runtime_checkable
 class Chat(Protocol):
     @property
-    def completions(self) -> ChatCompletions:
-        ...
+    def completions(self) -> ChatCompletions: ...
 
 
 @runtime_checkable
@@ -38,35 +38,27 @@ class OpenAIV1Module(Protocol):
     class OpenAI(Protocol):
         # Core API resources
         @property
-        def chat(self) -> Chat:
-            ...
+        def chat(self) -> Chat: ...
 
         @property
-        def embeddings(self) -> Embeddings:
-            ...
+        def embeddings(self) -> Embeddings: ...
 
         @property
-        def moderations(self) -> Moderations:
-            ...
+        def moderations(self) -> Moderations: ...
 
         # Configuration
         @property
-        def api_key(self) -> str:
-            ...
+        def api_key(self) -> str: ...
 
         @property
-        def organization(self) -> Optional[str]:
-            ...
+        def organization(self) -> str | None: ...
 
         @property
-        def base_url(self) -> Union[str, Any, None]:
-            ...
+        def base_url(self) -> str | Any | None: ...
 
-    class AsyncOpenAI(OpenAI):
-        ...
+    class AsyncOpenAI(OpenAI): ...
 
-    class RateLimitError(Exception):
-        ...
+    class RateLimitError(Exception): ...
 
 
 # TODO: we're removing v0 support in the next release
@@ -84,19 +76,18 @@ class OpenAIV0Module(Protocol):
         acreate: Callable[..., Any]
         create: Callable[..., Any]
 
-    api_key: Optional[str]
-    api_base: Optional[str]
-    base_url: Optional[str]
+    api_key: str | None
+    api_base: str | None
+    base_url: str | None
 
     class error(Protocol):
-        class RateLimitError(Exception):
-            ...
+        class RateLimitError(Exception): ...
 
 
-_openai_module: Optional[Union[OpenAIV1Module, OpenAIV0Module]] = None
+_openai_module: OpenAIV1Module | OpenAIV0Module | None = None
 
 
-def get_openai_module() -> Union[OpenAIV1Module, OpenAIV0Module]:
+def get_openai_module() -> OpenAIV1Module | OpenAIV0Module:
     global _openai_module
 
     if _openai_module is not None:
@@ -160,11 +151,11 @@ class LLMClient:
         ```
     """
 
-    openai: Union[OpenAIV0Module, OpenAIV1Module.OpenAI]
+    openai: OpenAIV0Module | OpenAIV1Module.OpenAI
     complete: Callable[..., Any] = None  # type: ignore # Set in __post_init__
     embed: Callable[..., Any] = None  # type: ignore # Set in __post_init__
     moderation: Callable[..., Any] = None  # type: ignore # Set in __post_init__
-    RateLimitError: Type[Exception] = None  # type: ignore # Set in __post_init__
+    RateLimitError: type[Exception] = None  # type: ignore # Set in __post_init__
     is_async: bool = False
     _is_wrapped: bool = False
 
@@ -206,14 +197,15 @@ class LLMClient:
 
 
 _client_var = ContextVar[Optional[LLMClient]]("client")
+_default_model_var = ContextVar[Optional[str]]("default_model")
 
 T = TypeVar("T")
 
-_named_wrapper: Optional[Type[Any]] = None
-_wrap_openai: Optional[Callable[[Any], Any]] = None
+_named_wrapper: type[Any] | None = None
+_wrap_openai: Callable[[Any], Any] | None = None
 
 
-def get_openai_wrappers() -> Tuple[Type[Any], Callable[[Any], Any]]:
+def get_openai_wrappers() -> tuple[type[Any], Callable[[Any], Any]]:
     global _named_wrapper, _wrap_openai
 
     if _named_wrapper is not None and _wrap_openai is not None:
@@ -223,7 +215,7 @@ def get_openai_wrappers() -> Tuple[Type[Any], Callable[[Any], Any]]:
         from braintrust.oai import NamedWrapper as BraintrustNamedWrapper  # type: ignore
         from braintrust.oai import wrap_openai  # type: ignore
 
-        _named_wrapper = cast(Type[Any], BraintrustNamedWrapper)
+        _named_wrapper = cast(type[Any], BraintrustNamedWrapper)
     except ImportError:
 
         class NamedWrapper:
@@ -247,8 +239,8 @@ def resolve_client(client: Client, is_async: bool = False) -> LLMClient:
     return LLMClient(openai=client, is_async=is_async)
 
 
-def init(client: Optional[Client] = None, is_async: bool = False):
-    """Initialize Autoevals with an optional custom LLM client.
+def init(client: Client | None = None, is_async: bool = False, default_model: str | None = None):
+    """Initialize Autoevals with an optional custom LLM client and default model.
 
     This function sets up the global client context for Autoevals to use. If no client is provided,
     the default OpenAI client will be used.
@@ -261,18 +253,49 @@ def init(client: Optional[Client] = None, is_async: bool = False):
             - OpenAIV1: Wrapped in a new LLMClient instance (OpenAI SDK v1)
         is_async: Whether to create a client with async operations. Defaults to False.
             Deprecated: Use the `client` argument directly with your desired async/sync configuration.
+        default_model: The default model to use for evaluations when not specified per-call.
+            Defaults to "gpt-4o" if not set. When using non-OpenAI providers via the Braintrust
+            proxy, set this to the appropriate model string (e.g., "claude-3-5-sonnet-20241022").
+
+    Example:
+        Using with OpenAI (default)::
+
+            from openai import OpenAI
+            from autoevals import init
+
+            init(client=OpenAI())
+
+        Using with Anthropic via Braintrust proxy::
+
+            import os
+            from openai import OpenAI
+            from autoevals import init
+
+            init(
+                client=OpenAI(
+                    api_key=os.environ["BRAINTRUST_API_KEY"],
+                    base_url="https://api.braintrust.dev/v1/proxy",
+                ),
+                default_model="claude-3-5-sonnet-20241022",
+            )
     """
     _client_var.set(resolve_client(client, is_async=is_async) if client else None)
+    _default_model_var.set(default_model)
+
+
+def get_default_model() -> str:
+    """Get the configured default model, or "gpt-4o" if not set."""
+    return _default_model_var.get(None) or "gpt-4o"
 
 
 warned_deprecated_api_key_base_url = False
 
 
 def prepare_openai(
-    client: Optional[Client] = None,
+    client: Client | None = None,
     is_async: bool = False,
-    api_key: Optional[str] = None,
-    base_url: Optional[str] = None,
+    api_key: str | None = None,
+    base_url: str | None = None,
 ):
     """Prepares and configures an OpenAI client for use with AutoEval.
 
@@ -358,7 +381,7 @@ def prepare_openai(
     return LLMClient(openai=openai_obj, is_async=is_async)
 
 
-def post_process_response(resp: Any) -> Dict[str, Any]:
+def post_process_response(resp: Any) -> dict[str, Any]:
     # This normalizes against craziness in OpenAI v0 vs. v1
     if hasattr(resp, "to_dict"):
         # v0
@@ -368,18 +391,18 @@ def post_process_response(resp: Any) -> Dict[str, Any]:
         return resp.dict()
 
 
-def set_span_purpose(kwargs: Dict[str, Any]) -> None:
+def set_span_purpose(kwargs: dict[str, Any]) -> None:
     kwargs.setdefault("span_info", {}).setdefault("span_attributes", {})["purpose"] = "scorer"
 
 
 def run_cached_request(
     *,
-    client: Optional[LLMClient] = None,
+    client: LLMClient | None = None,
     request_type: str = "complete",
-    api_key: Optional[str] = None,
-    base_url: Optional[str] = None,
+    api_key: str | None = None,
+    base_url: str | None = None,
     **kwargs: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     wrapper = prepare_openai(client=client, is_async=False, api_key=api_key, base_url=base_url)
     if wrapper.is_wrapped:
         set_span_purpose(kwargs)
@@ -403,12 +426,12 @@ def run_cached_request(
 
 async def arun_cached_request(
     *,
-    client: Optional[LLMClient] = None,
+    client: LLMClient | None = None,
     request_type: str = "complete",
-    api_key: Optional[str] = None,
-    base_url: Optional[str] = None,
+    api_key: str | None = None,
+    base_url: str | None = None,
     **kwargs: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     wrapper = prepare_openai(client=client, is_async=True, api_key=api_key, base_url=base_url)
     if wrapper.is_wrapped:
         set_span_purpose(kwargs)

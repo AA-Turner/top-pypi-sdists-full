@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: py-cid
-Version: 0.4.0
+Version: 0.5.0
 Summary: Self-describing content-addressed identifiers for distributed systems
 Author-email: Dhruv Baldawa <dhruv@dhruvb.com>
 Maintainer: acul71

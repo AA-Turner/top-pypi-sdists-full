@@ -56,15 +56,15 @@ class ReverseProxyServer(netius.servers.ProxyServer):
     problems if the back-end servers are different for each rule or if
     the way the final back-end URL is created is different for each rule.
 
-    Load-balancing strategies (selectable via the ``strategy`` parameter):
+    Load-balancing strategies (selectable via the `strategy` parameter):
 
-    * ``robin`` - classic *round-robin*. Keeps an integer cursor per tuple of
+    * `robin` - classic *round-robin*. Keeps an integer cursor per tuple of
        prefixes and returns them sequentially, providing an even distribution
        with zero runtime overhead. Implemented by :py:meth:`balancer_robin`.
 
-    * ``smart`` - connection-aware balancer. Maintains a
+    * `smart` - connection-aware balancer. Maintains a
        :class:`netius.common.PriorityDict` where each prefix is scored by the
-       pair ``[busy, -last_release]``. The prefix with the fewest in-flight
+       pair `[busy, -last_release]`. The prefix with the fewest in-flight
        requests (or the one that has been idle for the longest time) is
        chosen, yielding adaptive load spread. Implemented by
        :py:meth:`balancer_smart`, :py:meth:`acquirer_smart` and
@@ -436,9 +436,10 @@ class ReverseProxyServer(netius.servers.ProxyServer):
         )
 
         # calls the proper (HTTP) method in the client this should acquire
-        # a new connection and start the process of sending the request
-        # to the associated HTTP server (request handling)
-        _connection = self.http_client.method(
+        # a new protocol and start the process of sending the request
+        # to the associated HTTP server (request handling), the method
+        # returns a tuple of (loop, protocol) in the async execution mode
+        _loop, _connection = self.http_client.method(
             method,
             url,
             headers=headers,

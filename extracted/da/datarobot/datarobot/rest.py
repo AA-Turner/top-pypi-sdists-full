@@ -23,6 +23,7 @@ from typing import (
     Callable,
     Dict,
     FrozenSet,
+    Iterable,
     Optional,
     Tuple,
     TypeVar,
@@ -245,12 +246,19 @@ class RESTClientObject(requests.Session, BrowserMixin):
     @handle_connection_reset
     # pylint: disable-next=arguments-differ
     def request(
-        self, method: str, url: str, join_endpoint: bool = False, keep_attrs: Optional[Any] = None, **kwargs: Any
+        self,
+        method: str,
+        url: str,
+        join_endpoint: bool = False,
+        keep_attrs: Optional[Any] = None,
+        files: Dict[str, Tuple[str, Any]] | Iterable[Any] | None = None,
+        **kwargs: Any,
     ) -> Response:
         if method.upper() in ('POST', 'PATCH', 'PUT'):
             for data_param in ('data', 'json'):
                 if kwargs.get(data_param) and is_convertable_to_api(kwargs[data_param]):
-                    kwargs['json'] = to_api(kwargs.pop(data_param), keep_attrs=keep_attrs)
+                    data_field = 'data' if files else 'json'
+                    kwargs[data_field] = to_api(kwargs.pop(data_param), keep_attrs=keep_attrs)
                     break
 
         if "headers" not in kwargs:
@@ -261,7 +269,7 @@ class RESTClientObject(requests.Session, BrowserMixin):
         kwargs.setdefault("timeout", (self.connect_timeout, DEFAULT_TIMEOUT.READ))
         if not url.startswith("http") or join_endpoint:
             url = self._join_endpoint(url)
-        response = super().request(method, url, **kwargs)
+        response = super().request(method, url, files=files, **kwargs)
         handle_deprecation_header(response, **kwargs)
         if not response:
             handle_http_error(response, **kwargs)

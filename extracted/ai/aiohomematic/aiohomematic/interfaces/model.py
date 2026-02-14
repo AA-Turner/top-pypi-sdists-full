@@ -524,6 +524,16 @@ class BaseDataPointProtocol(CallbackDataPointProtocol, Protocol):
     def timer_on_time_running(self) -> bool:
         """Return if on_time is running."""
 
+    @property
+    @abstractmethod
+    def translated_full_name(self) -> str:
+        """Return the translated full name of the data point."""
+
+    @property
+    @abstractmethod
+    def translated_name(self) -> str:
+        """Return the translated name of the data point."""
+
     @abstractmethod
     def force_usage(self, *, forced_usage: DataPointUsage) -> None:
         """Set the data point usage."""
@@ -669,6 +679,11 @@ class BaseParameterDataPointProtocol[ParameterT](BaseDataPointProtocol, Protocol
 
     @property
     @abstractmethod
+    def translation(self) -> str | None:
+        """Return the human-readable translation for the parameter."""
+
+    @property
+    @abstractmethod
     def translation_key(self) -> str:
         """Return translation key for data point."""
 
@@ -681,6 +696,11 @@ class BaseParameterDataPointProtocol[ParameterT](BaseDataPointProtocol, Protocol
     @abstractmethod
     def unit(self) -> str | None:
         """Return unit value."""
+
+    @property
+    @abstractmethod
+    def value_translations(self) -> dict[str, str | None] | None:
+        """Return translated names for all enum values."""
 
     @property
     @abstractmethod
@@ -1083,6 +1103,11 @@ class CalculatedDataPointProtocol(BaseDataPointProtocol, Protocol):
 
     @property
     @abstractmethod
+    def translation(self) -> str | None:
+        """Return the human-readable translation for the parameter."""
+
+    @property
+    @abstractmethod
     def translation_key(self) -> str:
         """Return translation key for Home Assistant."""
 
@@ -1167,6 +1192,11 @@ class ChannelIdentityProtocol(Protocol):
     @abstractmethod
     def type_name(self) -> str:
         """Return the type name of the channel."""
+
+    @property
+    @abstractmethod
+    def type_translation(self) -> str:
+        """Return the human-readable translation for the channel type."""
 
     @property
     @abstractmethod
@@ -1516,6 +1546,11 @@ class DeviceIdentityProtocol(Protocol):
     @abstractmethod
     def model(self) -> str:
         """Return the model of the device."""
+
+    @property
+    @abstractmethod
+    def model_description(self) -> str:
+        """Return the human-readable description for the device model."""
 
     @property
     @abstractmethod

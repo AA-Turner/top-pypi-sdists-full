@@ -28897,12 +28897,13 @@ class scout_chartdefinition_api_CartesianChartDefinitionV1(ConjureBeanType):
             'title': ConjureFieldDefinition('title', OptionalTypeWrapper[str]),
             'value_axes': ConjureFieldDefinition('valueAxes', List[scout_chartdefinition_api_ValueAxis]),
             'decimation': ConjureFieldDefinition('decimation', OptionalTypeWrapper[scout_chartdefinition_api_ScatterDecimation]),
-            'connect_points': ConjureFieldDefinition('connectPoints', OptionalTypeWrapper[bool])
+            'connect_points': ConjureFieldDefinition('connectPoints', OptionalTypeWrapper[bool]),
+            'floating_legends_config': ConjureFieldDefinition('floatingLegendsConfig', OptionalTypeWrapper[scout_chartdefinition_api_FloatingLegendConfig])
         }
 
-    __slots__: List[str] = ['_plots', '_events', '_comparison_run_groups', '_title', '_value_axes', '_decimation', '_connect_points']
+    __slots__: List[str] = ['_plots', '_events', '_comparison_run_groups', '_title', '_value_axes', '_decimation', '_connect_points', '_floating_legends_config']
 
-    def __init__(self, comparison_run_groups: List["scout_comparisonrun_api_ComparisonRunGroup"], plots: List["scout_chartdefinition_api_CartesianPlot"], value_axes: List["scout_chartdefinition_api_ValueAxis"], connect_points: Optional[bool] = None, decimation: Optional["scout_chartdefinition_api_ScatterDecimation"] = None, events: Optional[List["scout_chartdefinition_api_Event"]] = None, title: Optional[str] = None) -> None:
+    def __init__(self, comparison_run_groups: List["scout_comparisonrun_api_ComparisonRunGroup"], plots: List["scout_chartdefinition_api_CartesianPlot"], value_axes: List["scout_chartdefinition_api_ValueAxis"], connect_points: Optional[bool] = None, decimation: Optional["scout_chartdefinition_api_ScatterDecimation"] = None, events: Optional[List["scout_chartdefinition_api_Event"]] = None, floating_legends_config: Optional["scout_chartdefinition_api_FloatingLegendConfig"] = None, title: Optional[str] = None) -> None:
         self._plots = plots
         self._events = events
         self._comparison_run_groups = comparison_run_groups
@@ -28910,6 +28911,7 @@ class scout_chartdefinition_api_CartesianChartDefinitionV1(ConjureBeanType):
         self._value_axes = value_axes
         self._decimation = decimation
         self._connect_points = connect_points
+        self._floating_legends_config = floating_legends_config
 
     @builtins.property
     def plots(self) -> List["scout_chartdefinition_api_CartesianPlot"]:
@@ -28942,6 +28944,12 @@ class scout_chartdefinition_api_CartesianChartDefinitionV1(ConjureBeanType):
         """If toggled true, will visually connect the points of the series
         """
         return self._connect_points
+
+    @builtins.property
+    def floating_legends_config(self) -> Optional["scout_chartdefinition_api_FloatingLegendConfig"]:
+        """Config for showing a floating legend in the chart. If undefined, defaults to hiding.
+        """
+        return self._floating_legends_config
 
 
 scout_chartdefinition_api_CartesianChartDefinitionV1.__name__ = "CartesianChartDefinitionV1"
@@ -30174,6 +30182,84 @@ class scout_chartdefinition_api_FloatingLegendConfig(ConjureBeanType):
 scout_chartdefinition_api_FloatingLegendConfig.__name__ = "FloatingLegendConfig"
 scout_chartdefinition_api_FloatingLegendConfig.__qualname__ = "FloatingLegendConfig"
 scout_chartdefinition_api_FloatingLegendConfig.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_FloatingLegendPosition(ConjureUnionType):
+    _preset: Optional["scout_chartdefinition_api_FloatingLegendPresetPosition"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'preset': ConjureFieldDefinition('preset', scout_chartdefinition_api_FloatingLegendPresetPosition)
+        }
+
+    def __init__(
+            self,
+            preset: Optional["scout_chartdefinition_api_FloatingLegendPresetPosition"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (preset is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if preset is not None:
+                self._preset = preset
+                self._type = 'preset'
+
+        elif type_of_union == 'preset':
+            if preset is None:
+                raise ValueError('a union value must not be None')
+            self._preset = preset
+            self._type = 'preset'
+
+    @builtins.property
+    def preset(self) -> Optional["scout_chartdefinition_api_FloatingLegendPresetPosition"]:
+        return self._preset
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_FloatingLegendPositionVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_FloatingLegendPositionVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'preset' and self.preset is not None:
+            return visitor._preset(self.preset)
+
+
+scout_chartdefinition_api_FloatingLegendPosition.__name__ = "FloatingLegendPosition"
+scout_chartdefinition_api_FloatingLegendPosition.__qualname__ = "FloatingLegendPosition"
+scout_chartdefinition_api_FloatingLegendPosition.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_FloatingLegendPositionVisitor:
+
+    @abstractmethod
+    def _preset(self, preset: "scout_chartdefinition_api_FloatingLegendPresetPosition") -> Any:
+        pass
+
+
+scout_chartdefinition_api_FloatingLegendPositionVisitor.__name__ = "FloatingLegendPositionVisitor"
+scout_chartdefinition_api_FloatingLegendPositionVisitor.__qualname__ = "FloatingLegendPositionVisitor"
+scout_chartdefinition_api_FloatingLegendPositionVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_FloatingLegendPresetPosition(ConjureEnumType):
+
+    TOP_LEFT = 'TOP_LEFT'
+    '''TOP_LEFT'''
+    TOP_RIGHT = 'TOP_RIGHT'
+    '''TOP_RIGHT'''
+    BOTTOM_LEFT = 'BOTTOM_LEFT'
+    '''BOTTOM_LEFT'''
+    BOTTOM_RIGHT = 'BOTTOM_RIGHT'
+    '''BOTTOM_RIGHT'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_chartdefinition_api_FloatingLegendPresetPosition.__name__ = "FloatingLegendPresetPosition"
+scout_chartdefinition_api_FloatingLegendPresetPosition.__qualname__ = "FloatingLegendPresetPosition"
+scout_chartdefinition_api_FloatingLegendPresetPosition.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_FrequencyChartDefinition(ConjureUnionType):
@@ -33730,10 +33816,19 @@ class scout_chartdefinition_api_PerRowFloatingLegends(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
+            'position': ConjureFieldDefinition('position', OptionalTypeWrapper[scout_chartdefinition_api_FloatingLegendPosition])
         }
 
-    __slots__: List[str] = []
+    __slots__: List[str] = ['_position']
 
+    def __init__(self, position: Optional["scout_chartdefinition_api_FloatingLegendPosition"] = None) -> None:
+        self._position = position
+
+    @builtins.property
+    def position(self) -> Optional["scout_chartdefinition_api_FloatingLegendPosition"]:
+        """Position of the floating legend in the chart. If undefined, defaults to preset BOTTOM_LEFT.
+        """
+        return self._position
 
 
 scout_chartdefinition_api_PerRowFloatingLegends.__name__ = "PerRowFloatingLegends"
@@ -81298,7 +81393,7 @@ The signing key is only returned once — store it securely.
 
         _json: Any = _conjure_encoder.default(request)
 
-        _path = '/scout/v2/integrations/internal/webhook'
+        _path = '/scout/v2/integrations/internal/secure-webhook'
         _path = _path.format(**_path_params)
 
         _response: Response = self._request(
@@ -81310,6 +81405,41 @@ The signing key is only returned once — store it securely.
 
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), scout_integrations_api_CreateSecureWebhookIntegrationResponse, self._return_none_for_unknown_union_types)
+
+    def send_secure_webhook_message(self, auth_header: str, integration_rid: str, request: "scout_integrations_api_SendSecureWebhookMessageRequest") -> "scout_integrations_api_SendSecureWebhookMessageResponse":
+        """Sends a message to a secure webhook integration with HMAC-SHA256 signature.
+Implements retry logic with exponential backoff based on merged delivery configuration.
+Request configuration overrides take precedence over integration's stored configuration.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+            'integrationRid': quote(str(_conjure_encoder.default(integration_rid)), safe=''),
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v2/integrations/internal/secure-webhook/{integrationRid}'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_integrations_api_SendSecureWebhookMessageResponse, self._return_none_for_unknown_union_types)
 
     def delete_integration(self, auth_header: str, integration_rid: str) -> None:
         """Deletes an integration by archiving.
@@ -81974,6 +82104,74 @@ class scout_integrations_api_SendMessageRequest(ConjureBeanType):
 scout_integrations_api_SendMessageRequest.__name__ = "SendMessageRequest"
 scout_integrations_api_SendMessageRequest.__qualname__ = "SendMessageRequest"
 scout_integrations_api_SendMessageRequest.__module__ = "nominal_api.scout_integrations_api"
+
+
+class scout_integrations_api_SendSecureWebhookMessageRequest(ConjureBeanType):
+    """Request to send a message via secure webhook with optional per-request overrides.
+Request overrides take precedence over integration's stored configuration.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'payload': ConjureFieldDefinition('payload', str),
+            'custom_headers': ConjureFieldDefinition('customHeaders', OptionalTypeWrapper[Dict[str, str]]),
+            'delivery_config': ConjureFieldDefinition('deliveryConfig', OptionalTypeWrapper[scout_integrations_api_WebhookDeliveryConfig])
+        }
+
+    __slots__: List[str] = ['_payload', '_custom_headers', '_delivery_config']
+
+    def __init__(self, payload: str, custom_headers: Optional[Dict[str, str]] = None, delivery_config: Optional["scout_integrations_api_WebhookDeliveryConfig"] = None) -> None:
+        self._payload = payload
+        self._custom_headers = custom_headers
+        self._delivery_config = delivery_config
+
+    @builtins.property
+    def payload(self) -> str:
+        """JSON payload to send. Will be signed with HMAC-SHA256 using the integration's signing key.
+Validated before signing to ensure well-formed JSON.
+        """
+        return self._payload
+
+    @builtins.property
+    def custom_headers(self) -> Optional[Dict[str, str]]:
+        """Optional custom headers to override integration's stored customHeaders for this request.
+Must not include blocked headers (Authorization, Cookie, X-API-Key, X-Auth-Token, Proxy-Authorization, X-Nominal-*).
+Merged with integration headers, request overrides take precedence.
+        """
+        return self._custom_headers
+
+    @builtins.property
+    def delivery_config(self) -> Optional["scout_integrations_api_WebhookDeliveryConfig"]:
+        """Optional delivery configuration to override integration's stored deliveryConfig for this request.
+Merged with integration config, request overrides take precedence.
+Cross-field constraints (e.g., maxRetryInterval >= retryInterval) validated on merged result.
+        """
+        return self._delivery_config
+
+
+scout_integrations_api_SendSecureWebhookMessageRequest.__name__ = "SendSecureWebhookMessageRequest"
+scout_integrations_api_SendSecureWebhookMessageRequest.__qualname__ = "SendSecureWebhookMessageRequest"
+scout_integrations_api_SendSecureWebhookMessageRequest.__module__ = "nominal_api.scout_integrations_api"
+
+
+class scout_integrations_api_SendSecureWebhookMessageResponse(ConjureBeanType):
+    """Response indicating successful webhook delivery.
+Errors are thrown as exceptions rather than encoded in response.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+scout_integrations_api_SendSecureWebhookMessageResponse.__name__ = "SendSecureWebhookMessageResponse"
+scout_integrations_api_SendSecureWebhookMessageResponse.__qualname__ = "SendSecureWebhookMessageResponse"
+scout_integrations_api_SendSecureWebhookMessageResponse.__module__ = "nominal_api.scout_integrations_api"
 
 
 class scout_integrations_api_SimpleWebhookIntegration(ConjureBeanType):
@@ -104752,6 +104950,70 @@ value selections.
         _json: Any = _conjure_encoder.default(request)
 
         _path = '/timeseries/archetype/v1/series-archetype/batch-create'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        return
+
+    def create_or_update(self, auth_header: str, request: "timeseries_metadata_api_CreateSeriesMetadataRequest") -> None:
+        """Upserts series metadata. Creates new series metadata if it does not exist for the given channel and data
+source. If it already exists, updates the locator and any provided unit and description fields while
+preserving existing values for fields not supplied.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/timeseries/archetype/v1/series-archetype/create-or-update'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        return
+
+    def batch_create_or_update(self, auth_header: str, request: "timeseries_metadata_api_BatchCreateSeriesMetadataRequest") -> None:
+        """Batch version of createOrUpdate.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/timeseries/archetype/v1/series-archetype/batch-create-or-update'
         _path = _path.format(**_path_params)
 
         _response: Response = self._request(

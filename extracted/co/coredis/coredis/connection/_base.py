@@ -87,11 +87,11 @@ class BaseConnectionParams(TypedDict):
     #: The password to use for authenticating against the redis server
     password: NotRequired[str | None]
     #: If provided the connection handshake will include authentication using this provider.
-    credential_provider: NotRequired[AbstractCredentialProvider]
+    credential_provider: NotRequired[AbstractCredentialProvider | None]
     #: If provided the connection will immediately switch to this db as part of the handshake
     db: NotRequired[int | None]
     #: For TLS connections, the ssl context to use when performing the TLS handshake
-    ssl_context: NotRequired[ssl.SSLContext]
+    ssl_context: NotRequired[ssl.SSLContext | None]
 
 
 ConnectionT = TypeVar("ConnectionT", bound="BaseConnection")
@@ -192,7 +192,7 @@ class BaseConnection(ABC):
         noevict: bool = False,
         notouch: bool = False,
         ssl_context: ssl.SSLContext | None = None,
-        processing_budget: CapacityLimiter = CapacityLimiter(1),
+        processing_budget: CapacityLimiter | None = None,
     ):
         """
         :param stream_timeout: Maximum time to wait for receiving a response
@@ -280,7 +280,7 @@ class BaseConnection(ABC):
         self._terminated = False
 
         # To be used in the read task for cpu bound processing after data is received
-        self._processing_budget = processing_budget
+        self._processing_budget = processing_budget or CapacityLimiter(1)
 
     def __repr__(self) -> str:
         return self.describe()

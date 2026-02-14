@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zopfli
-Version: 0.4.0
+Version: 0.4.1
 Summary: Zopfli module for python
 Home-page: https://github.com/fonttools/py-zopfli
 Author: Adam DePrince

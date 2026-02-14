@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling
-Version: 2.73.0
+Version: 2.73.1
 Summary: SDK and CLI for parsing PDF, DOCX, HTML, and more, to a unified document representation for powering downstream workflows such as gen AI applications.
 Author-email: Christoph Auer <cau@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Maxim Lysak <mly@zurich.ibm.com>, Nikos Livathinos <nli@zurich.ibm.com>, Ahmed Nassar <ahn@zurich.ibm.com>, Panos Vagenas <pva@zurich.ibm.com>, Peter Staar <taa@zurich.ibm.com>
 License-Expression: MIT
@@ -46,7 +46,7 @@ Requires-Dist: pandas<3.0.0,>=2.1.4
 Requires-Dist: marko<3.0.0,>=2.1.2
 Requires-Dist: openpyxl<4.0.0,>=3.1.5
 Requires-Dist: lxml<7.0.0,>=4.0.0
-Requires-Dist: pillow<12.0.0,>=10.0.0
+Requires-Dist: pillow<13.0.0,>=10.0.0
 Requires-Dist: tqdm<5.0.0,>=4.65.0
 Requires-Dist: pluggy<2.0.0,>=1.0.0
 Requires-Dist: pylatexenc<3.0,>=2.10
@@ -73,6 +73,7 @@ Requires-Dist: onnxruntime-gpu<1.24; (python_version < "3.14" and (sys_platform 
 Provides-Extra: asr
 Requires-Dist: mlx-whisper>=0.4.3; (python_version >= "3.10" and sys_platform == "darwin" and platform_machine == "arm64") and extra == "asr"
 Requires-Dist: openai-whisper>=20250625; extra == "asr"
+Requires-Dist: numba>=0.63.0; extra == "asr"
 Dynamic: license-file
 
 <p align="center">

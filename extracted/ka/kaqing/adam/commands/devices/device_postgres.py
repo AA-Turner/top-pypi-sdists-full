@@ -130,13 +130,13 @@ class DevicePostgres(Command, Device):
 
             return '\t'.join([f'{ReplState.P}:>'] + (words if words else ['/']))
 
-    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str):
+    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str, retry = False):
         with pg_path(state) as (_, database):
             if not database:
                 database = PostgresDatabases.default_db()
 
             if database:
-                return True, chain.run(f'pg {cmd}', state)
+                return True, chain.retry(f'pg {cmd}', state) if retry else chain.run(f'pg {cmd}', state)
 
         return False, None
 

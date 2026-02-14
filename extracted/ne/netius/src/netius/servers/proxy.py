@@ -96,11 +96,11 @@ class ProxyServer(http2.HTTP2Server):
     The class glues together three distinct building blocks that live
     inside a lightweight Container:
 
-    1. A listening ``HTTP2Server`` (this class) that receives the front-end
+    1. A listening `HTTP2Server` (this class) that receives the front-end
        traffic.
-    2. An internal ``HTTPClient`` that forwards the request to the
+    2. An internal `HTTPClient` that forwards the request to the
        upstream/back-end using either HTTP/1.1 or HTTP/2.
-    3. A ``RawClient`` used for plain TCP tunnelling (e.g. ``CONNECT`` or
+    3. A `RawClient` used for plain TCP tunnelling (e.g. `CONNECT` or
        WebSocket bridged traffic).
 
     Design decisions and rationale:
@@ -108,20 +108,20 @@ class ProxyServer(http2.HTTP2Server):
     * **Event-driven & non-blocking** - inherits from :class:`HTTP2Server`
       so every connection is cooperatively multiplexed by the Netius
       loop.
-    * **Dynamic encoding pipeline** - the ``dynamic`` flag enables
+    * **Dynamic encoding pipeline** - the `dynamic` flag enables
       transparent negotiation between plain, chunked and compressed
       bodies, mirroring the behaviour of :class:`HTTPServer`.
-    * **Back-pressure aware** - when ``throttle`` is *True* the proxy
+    * **Back-pressure aware** - when `throttle` is *True* the proxy
       pauses reading from the client once the pending bytes in the
-      outbound socket exceed ``MAX_PENDING`` and resumes when the buffer
-      drains below ``min_pending``. This prevents producer-consumer
+      outbound socket exceed `MAX_PENDING` and resumes when the buffer
+      drains below `min_pending`. This prevents producer-consumer
       starvation and uncontrolled memory growth.
-    * **Origin rewriting** - with ``trust_origin`` set to *False* the
-      proxy rewrites ``Host``, ``Origin`` and ``Via`` headers in order to
+    * **Origin rewriting** - with `trust_origin` set to *False* the
+      proxy rewrites `Host`, `Origin` and `Via` headers in order to
       guarantee a single authoritative origin and mitigate header
       spoofing. Setting it to *True* provides a fully transparent mode
       useful for trusted/internal deployments.
-    * **Connection correlation** - ``conn_map`` keeps a one-to-one mapping
+    * **Connection correlation** - `conn_map` keeps a one-to-one mapping
       between downstream connections and their upstream counterpart so
       that errors and partial bodies propagate in both directions.
     * **Single loop deployment** - every component shares the same event
@@ -379,7 +379,13 @@ class ProxyServer(http2.HTTP2Server):
     def _throttle(self, _connection):
         if not _connection.is_restored():
             return
-        connection = self.conn_map[_connection]
+
+        # tries to resolve a protocol from the possible transport
+        # parameter (parameter can be a protocol or a transport)
+        # and then uses the resolved value as the key
+        _connection_key = getattr(_connection, "_protocol", _connection)
+        connection = self.conn_map[_connection_key]
+
         if not connection.renable == False:
             return
         connection.enable_read()
@@ -402,7 +408,7 @@ class ProxyServer(http2.HTTP2Server):
             return
 
         proxy_c.enable_read()
-        self.http_client.reads((proxy_c.socket,), state=False)
+        self.reads((proxy_c.socket,), state=False)
 
     def _raw_throttle(self, connection):
         if not connection.is_restored():
@@ -415,7 +421,7 @@ class ProxyServer(http2.HTTP2Server):
             return
 
         tunnel_c.enable_read()
-        self.raw_client.reads((tunnel_c.socket,), state=False)
+        self.reads((tunnel_c.socket,), state=False)
 
     def _on_prx_headers(self, client, parser, headers):
         # retrieves the owner of the parser as the client connection

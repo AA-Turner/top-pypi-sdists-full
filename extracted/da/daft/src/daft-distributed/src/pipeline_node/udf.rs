@@ -1,10 +1,19 @@
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex, atomic::Ordering},
+};
 
+use common_metrics::{
+    CPU_US_KEY, Counter, ROWS_IN_KEY, ROWS_OUT_KEY, StatSnapshot,
+    ops::{NodeCategory, NodeInfo, NodeType},
+    snapshot::UdfSnapshot,
+};
 use daft_dsl::{expr::bound_expr::BoundExpr, functions::python::UDFProperties};
 use daft_local_plan::{LocalNodeContext, LocalPhysicalPlan, LocalPhysicalPlanRef};
 use daft_logical_plan::{partitioning::translate_clustering_spec, stats::StatsState};
 use daft_schema::schema::SchemaRef;
 use itertools::Itertools;
+use opentelemetry::{KeyValue, metrics::Meter};
 
 use super::PipelineNodeImpl;
 use crate::{
@@ -13,7 +22,68 @@ use crate::{
         TaskBuilderStream,
     },
     plan::{PlanConfig, PlanExecutionContext},
+    statistics::{RuntimeStats, stats::RuntimeStatsRef},
 };
+
+pub struct UdfStats {
+    cpu_us: Counter,
+    rows_in: Counter,
+    rows_out: Counter,
+    custom_counters: Mutex<HashMap<Arc<str>, Counter>>,
+    meter: Meter,
+    node_kv: Vec<KeyValue>,
+}
+
+impl UdfStats {
+    pub fn new(meter: &Meter, node_id: NodeID) -> Self {
+        let node_kv = vec![KeyValue::new("node_id", node_id.to_string())];
+        Self {
+            cpu_us: Counter::new(meter, CPU_US_KEY, None),
+            rows_in: Counter::new(meter, ROWS_IN_KEY, None),
+            rows_out: Counter::new(meter, ROWS_OUT_KEY, None),
+            custom_counters: Mutex::new(HashMap::new()),
+            meter: meter.clone(),
+            node_kv,
+        }
+    }
+}
+
+impl RuntimeStats for UdfStats {
+    fn handle_worker_node_stats(&self, _node_info: &NodeInfo, snapshot: &StatSnapshot) {
+        let StatSnapshot::Udf(snapshot) = snapshot else {
+            return;
+        };
+        self.cpu_us.add(snapshot.cpu_us, self.node_kv.as_slice());
+        self.rows_in.add(snapshot.rows_in, self.node_kv.as_slice());
+        self.rows_out
+            .add(snapshot.rows_out, self.node_kv.as_slice());
+
+        // Handle custom counters dynamically
+        let mut custom_counters = self.custom_counters.lock().unwrap();
+        for (name, value) in &snapshot.custom_counters {
+            let counter = custom_counters.entry(name.clone()).or_insert_with(|| {
+                let name = name.as_ref().to_string();
+                Counter::new(&self.meter, name, None)
+            });
+            counter.add(*value, self.node_kv.as_slice());
+        }
+    }
+
+    fn export_snapshot(&self) -> StatSnapshot {
+        StatSnapshot::Udf(UdfSnapshot {
+            cpu_us: self.cpu_us.load(Ordering::Relaxed),
+            rows_in: self.rows_in.load(Ordering::Relaxed),
+            rows_out: self.rows_out.load(Ordering::Relaxed),
+            custom_counters: self
+                .custom_counters
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|(name, counter)| (name.clone(), counter.load(Ordering::Relaxed)))
+                .collect(),
+        })
+    }
+}
 
 pub(crate) struct UDFNode {
     config: PipelineNodeConfig,
@@ -42,6 +112,8 @@ impl UDFNode {
             plan_config.query_id.clone(),
             node_id,
             Self::NODE_NAME,
+            NodeType::UDFProject,
+            NodeCategory::Intermediate,
         );
         let config = PipelineNodeConfig::new(
             schema,
@@ -115,6 +187,10 @@ impl PipelineNodeImpl for UDFNode {
         }
 
         res
+    }
+
+    fn runtime_stats(&self, meter: &Meter) -> RuntimeStatsRef {
+        Arc::new(UdfStats::new(meter, self.node_id()))
     }
 
     fn produce_tasks(

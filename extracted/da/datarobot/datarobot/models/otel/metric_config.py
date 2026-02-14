@@ -29,16 +29,18 @@ class OtelMetricConfig(APIObject):
 
     Attributes
     ----------
-    otelName: str
+    otel_name: str
         Name of the OpenTelemetry reported metric.
     id: Optional[str]
         ID of the metric configuration. This is optional to allow setting list.
-    displayName: Optional[str]
+    display_name: Optional[str]
         Name to display for the reported metric.
     aggregation: Optional[str|MetricAggregation]
         Aggregation type to use for the reported metric.
     enabled: Optional[bool]
         Whether the reported metric is shown in displays.
+    percentile: Optional[float]
+        Percentile value to use for percentile aggregation of a histogram.
     """
 
     _path = "otel/{}/{}/metrics/configs/"
@@ -48,6 +50,7 @@ class OtelMetricConfig(APIObject):
         t.Key("display_name", optional=True): t.Or(t.String(), t.Null()),
         t.Key("aggregation", optional=True): t.Or(t.Enum(*[e.value for e in MetricAggregation]), t.String(), t.Null()),
         t.Key("enabled", optional=True): t.Or(t.Bool(), t.Null()),
+        t.Key("percentile", optional=True): t.Or(t.Float(), t.Null()),
     }).ignore_extra("*")
 
     def __init__(
@@ -57,6 +60,7 @@ class OtelMetricConfig(APIObject):
         display_name: Optional[str] = None,
         aggregation: Optional[str | MetricAggregation] = None,
         enabled: Optional[bool] = None,
+        percentile: Optional[float] = None,
         # NOTE: fields below are not provided by server, but tracked for object operations
         entity_type: Optional[str] = None,
         entity_id: Optional[str] = None,
@@ -66,6 +70,7 @@ class OtelMetricConfig(APIObject):
         self.display_name = display_name
         self.aggregation = aggregation
         self.enabled = enabled
+        self.percentile = percentile
         self.entity_type = entity_type
         self.entity_id = entity_id
 
@@ -98,6 +103,7 @@ class OtelMetricConfig(APIObject):
         display_name: Optional[str] = None,
         aggregation: Optional[str] = None,
         enabled: Optional[bool] = None,
+        percentile: Optional[float] = None,
     ) -> OtelMetricConfig:
         """Create a new OpenTelemetry metric configuration.
 
@@ -117,6 +123,8 @@ class OtelMetricConfig(APIObject):
             Aggregation type to use for the reported metric.
         enabled: Optional[bool]
             Whether the reported metric is shown in displays.
+        percentile: Optional[float]
+            Percentile used for computing percentile aggregation of histogram.
         """
         body: Dict[str, Any] = {
             "otelName": otel_name,
@@ -127,6 +135,8 @@ class OtelMetricConfig(APIObject):
             body["aggregation"] = str(aggregation)
         if enabled is not None:
             body["enabled"] = enabled
+        if percentile is not None:
+            body["percentile"] = percentile
         url = cls._path.format(entity_type, entity_id)
         response = cls._client.post(url, json=body)
         return cls.from_server_data_with_entity(response.json(), entity_type, entity_id)
@@ -248,6 +258,7 @@ class OtelMetricConfig(APIObject):
         display_name: Optional[str] = None,
         aggregation: Optional[str | MetricAggregation] = None,
         enabled: Optional[bool] = None,
+        percentile: Optional[float] = None,
     ) -> None:
         """Update an OpenTelemetry metric configuration.
 
@@ -263,6 +274,8 @@ class OtelMetricConfig(APIObject):
             Aggregation type to use for the reported metric.
         enabled: Optional[bool]
             Whether the reported metric is shown in displays.
+        percentile: Optional[float]
+            Percentile to use for the percentile aggregation of a histogram.
         """
         body: Dict[str, Any] = {}
         if otel_name:
@@ -273,6 +286,8 @@ class OtelMetricConfig(APIObject):
             body["aggregation"] = str(aggregation)
         if enabled is not None:
             body["enabled"] = enabled
+        if percentile is not None:
+            body["percentile"] = percentile
 
         if not self.id:
             raise ValueError("Cannot update a metric configuration without an ID")
@@ -286,6 +301,7 @@ class OtelMetricConfig(APIObject):
         self.display_name = data.get("displayName")
         self.aggregation = data.get("aggregation")
         self.enabled = data.get("enabled")
+        self.percentile = data.get("percentile")
 
     def delete(self) -> None:
         """

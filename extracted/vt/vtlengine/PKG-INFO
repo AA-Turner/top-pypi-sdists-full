@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vtlengine
-Version: 1.4.0
+Version: 1.5.0
 Summary: Run and Validate VTL Scripts
 License-Expression: AGPL-3.0
 License-File: LICENSE.md
@@ -21,6 +21,8 @@ Requires-Dist: antlr4-python3-runtime (>=4.9,<4.10)
 Requires-Dist: duckdb (>=1.4,<1.5)
 Requires-Dist: jsonschema (>=3.2.0,<5.0)
 Requires-Dist: networkx (>=2.8,<3.0)
+Requires-Dist: numpy (>=2.0.2,<2.1) ; python_version < "3.10"
+Requires-Dist: numpy (>=2.2.0,<2.3) ; python_version >= "3.10"
 Requires-Dist: pandas (>=2.1.4,<3.0)
 Requires-Dist: pysdmx[xml] (>=1.5.2,<2.0)
 Requires-Dist: s3fs (>=2022.11.0) ; extra == "all"

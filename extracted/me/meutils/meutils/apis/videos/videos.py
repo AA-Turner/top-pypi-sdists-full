@@ -227,6 +227,9 @@ if __name__ == '__main__':
 
     task_id = "9888bd5a-b87c-40e3-8bbf-c8914464ecf0"
     task_id = "474208609112264706"
+
+    base_url = 'seedance'
+    task_id = "cgt-20260213191024-btzgp"
     arun(videos.get(task_id))
 
     # video = arun(videos.create(request))

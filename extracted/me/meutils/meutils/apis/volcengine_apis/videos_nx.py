@@ -16,7 +16,8 @@ from meutils.apis.volcengine_apis.utils import upload
 
 from meutils.llm.clients import AsyncClient
 from meutils.schemas.openai_types import CompletionRequest
-from meutils.schemas.video_types import SoraVideoRequest, Video
+from meutils.schemas.video_types import SoraVideoRequest, Video, VolcVideoResponse
+from meutils.str_utils import parse_command_string
 
 BASE_URL = "https://ml-platform-api.console.volcengine.com/ark/bff/api/cn-beijing/2024-01-29"
 
@@ -25,15 +26,124 @@ BASE_URL = "https://ml-platform-api.console.volcengine.com/ark/bff/api/cn-beijin
 
 class Tasks(object):
 
-    def __init__(self, api_key):
+    def __init__(self, api_key: str):
         self.api_key = api_key
-        self.csrf_token = api_key.split("csrfToken=")[1].split(';')[0]
 
         default_headers = {
-            "x-csrf-token": self.csrf_token,
+            "x-csrf-token": api_key.split("csrfToken=")[1].split(';')[0],
             "Cookie": api_key
         }
         self.client = AsyncClient(base_url=BASE_URL, default_headers=default_headers)
+
+    async def get_for_volc(self, task_id: str):
+        video = await self.get(task_id)
+
+        volc_video = VolcVideoResponse(id=task_id)
+        if video.status == "completed":
+            volc_video.status = "succeeded"
+            for i in ["ratio", "resolution", "duration", "content", "usage"]:
+                setattr(volc_video, i, getattr(video, i))
+
+        elif video.status == "failed":
+            volc_video.status = "failed"
+
+        return volc_video
+
+    async def create_for_volc(self, request: CompletionRequest):  # 5s 10s 15s
+        # 兼容 官方格式
+
+        """
+        # 创建 图生视频 任务
+        curl -X POST https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer $ARK_API_KEY" \
+              -d '{
+                "model": "doubao-seedance-1-5-pro-251215",
+                "content": [
+                     {
+                        "type": "text",
+                        "text": "图中女孩对着镜头说“茄子”，360度环绕运镜"
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": "https://ark-project.tos-cn-beijing.volces.com/doc_image/seepro_first_frame.jpeg"
+                        },
+                        "role": "first_frame"
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": "https://ark-project.tos-cn-beijing.volces.com/doc_image/seepro_last_frame.jpeg"
+                        },
+                        "role": "last_frame"
+                    }
+                ],
+                "generate_audio":true,
+                "ratio": "adaptive",
+                "duration": 5,
+                "watermark": false
+            }'
+        """
+        video_request = SoraVideoRequest()
+        if request.messages:  # chat doubao-seedance-1-5-pro-251215_5s_720p
+            video_request.prompt = request.last_user_content
+            if '_' not in request.model:
+                request.model += "_4s_480p"
+            duration, video_request.resolution = request.model.split('_')[-2:]
+            video_request.seconds = int(duration.replace('s', ''))
+
+            if image_urls := request.last_urls.get("image_url"):
+                video_request.input_reference = image_urls
+
+            return await self.create(video_request)
+
+        elif hasattr(request, 'content'):
+            video_request.input_reference = []
+            for i in request.content:
+                if i.get("type") == "text":
+                    video_request.prompt = i.get("text")
+
+                elif i.get("type") == "image_url":
+                    url = i.get("image_url", {}).get("url")
+                    role = i.get("role")
+                    if role == "first_frame":
+                        video_request.first_frame_image = url
+                    elif role == "last_frame":
+                        video_request.last_frame_image = url
+                    else:
+                        video_request.input_reference.append(url)
+
+            request = request.model_dump()
+            if _ := request.get("duration"):
+                video_request.seconds = _
+
+            if _ := request.get("resolution"):
+                video_request.resolution = _
+
+            if _ := request.get("ratio"):
+                video_request.aspect_ratio = _
+
+            if _ := request.get("generate_audio"):
+                video_request.generate_audio = _
+
+            video = await self.create(video_request)
+            """
+             "ResponseMetadata": {
+        "RequestId": "202602132223495898AADDDC1C34119EED",
+        "Action": "CreateVideoGenTask",
+        "Version": "2024-01-29",
+        "Service": "ark",
+        "Region": "cn-beijing",
+        "Duration": 390,
+        "Error": {
+            "Message": "Your account has exhausted its free trial quota for the doubao-seedance-2-0 model.",
+            "Code": "QuotaExceeded",
+            "CodeN": 1009000
+        }
+    },
+            """
+            return {"id": video.id}
 
     async def create(self, request: SoraVideoRequest):
         payload = {
@@ -77,8 +187,9 @@ class Tasks(object):
         }
         ### 映射
         payload["Prompt"] = request.prompt
-        payload["Duration"] = int(request.seconds or 4)
+        payload["Duration"] = min(int(request.seconds or 4), 15)
 
+        logger.debug(request)
         if request.resolution:
             payload["Resolution"] = request.resolution
 
@@ -102,7 +213,7 @@ class Tasks(object):
             #     }
             #     for i, url in enumerate(urls, 1)
             # ]
-            urls = await upload(urls, api_key=api_key)
+            urls = await upload(urls, api_key=self.api_key)
 
             if len(urls) == 1:
                 payload["VideoTaskType"] = "first_frame"
@@ -114,11 +225,11 @@ class Tasks(object):
 
         if request.first_frame_image:
             payload["VideoTaskType"] = "first_frame"
-            payload["FirstFrameImageTosLocation"] = await upload(request.first_frame_image, api_key=api_key)
+            payload["FirstFrameImageTosLocation"] = await upload(request.first_frame_image, api_key=self.api_key)
 
         if request.last_frame_image:
             payload["VideoTaskType"] = "first_last_frame"
-            payload["LastFrameImageTosLocation"] = await upload(request.last_frame_image, api_key=api_key)
+            payload["LastFrameImageTosLocation"] = await upload(request.last_frame_image, api_key=self.api_key)
 
         logger.debug(bjson(payload))
 
@@ -189,15 +300,34 @@ class Tasks(object):
             transfer = True
 
         response = await self.client.post("/GetVideoGenTask", body={"Id": task_id}, cast_to=object)
-        # logger.debug(bjson(response))
+        # logger.debug(response.get("Result"))
 
-        if url := (response.get("Result") or {}).get("VideoUrl"):
+        if (result := (response.get("Result") or {})) and (error := result.get("Error")):
+            logger.debug(bjson(response))
+
+            return Video(id=task_id, status="failed", error=error)
+
+        elif url := result.get("VideoUrl"):
             logger.debug(bjson(response))
 
             if transfer:
                 url = await to_url(url, filename=f'{shortuuid.random()}.mp4')  # 避免重复转存
 
-            return Video(id=task_id, video_url=url, status="completed", progress=100)
+            _ = {
+                "ratio": result.get("Ratio"),
+                "resolution": result.get("Resolution", "720p"),
+                "duration": result.get("Duration", 5),
+                "content": {
+                    "video_url": url
+                },
+            }
+            total_tokens = _["duration"] * int(_['resolution'][:-1]) * 24 * 2
+            _['usage'] = {
+                "completion_tokens": total_tokens,
+                "total_tokens": total_tokens
+            }
+
+            return Video(id=task_id, video_url=url, status="completed", progress=100, **_)
         else:
             return Video(id=task_id)
 
@@ -213,6 +343,7 @@ if __name__ == "__main__":
 
         # seconds=4,
         # resolution="480p",
+        # size="16x9",
 
         seconds=15,
         resolution="720p",
@@ -227,6 +358,7 @@ if __name__ == "__main__":
 
     )
     task_ids = []
+    Tasks(api_key)
     # for i in range(120):
     #     request.prompt = f"孙悟空大声叫 {i}"
     #     video = arun(Tasks(api_key).create(request))
@@ -240,6 +372,7 @@ if __name__ == "__main__":
     # task_id = "cgt-20260212202542-mjzbb"
     task_id = "sora-2::cgt-20260212224451-6nrdn"
     arun(Tasks(api_key).get(task_id))
+    arun(Tasks(api_key).get_for_volc(task_id))
 
     t = ['cgt-20260212202400-zrkm4',
          'cgt-20260212202401-8ppjx',

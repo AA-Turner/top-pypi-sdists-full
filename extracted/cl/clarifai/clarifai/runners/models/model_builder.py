@@ -114,12 +114,14 @@ def get_yes_no_input(prompt, default=None):
         print("❌ Please enter 'y' or 'n'.")
 
 
-def select_compute_option(user_id: str):
+def select_compute_option(user_id: str, pat: Optional[str] = None, base_url: Optional[str] = None):
     """
     Dynamically list compute-clusters and node-pools that belong to `user_id`
     and return a dict with nodepool_id, compute_cluster_id, cluster_user_id.
     """
-    user = User(user_id=user_id)  # PAT / BASE URL are picked from env-vars
+    user = User(
+        user_id=user_id, pat=pat, base_url=base_url
+    )  # PAT / BASE URL are picked from env-vars
     clusters = list(user.list_compute_clusters())
     if not clusters:
         print("❌ No compute clusters found for this user.")
@@ -173,6 +175,7 @@ class ModelBuilder:
         platform: Optional[str] = None,
         pat: Optional[str] = None,
         base_url: Optional[str] = None,
+        compute_info_required: bool = False,
     ):
         """
         :param folder: The folder containing the model.py, config.yaml, requirements.txt and
@@ -186,6 +189,7 @@ class ModelBuilder:
         :param platform: Target platform(s) for Docker image build (e.g., "linux/amd64" or "linux/amd64,linux/arm64"). This overrides the platform specified in config.yaml.
         :param pat: Personal access token for authentication. If None, will use environment variables.
         :param base_url: Base URL for the API. If None, will use environment variables.
+        :param compute_info_required: Whether inference compute info is required. This affects certain validation and behavior.
         """
         assert app_not_found_action in ["auto_create", "prompt", "error"], ValueError(
             f"Expected one of {['auto_create', 'prompt', 'error']}, got {app_not_found_action=}"
@@ -206,7 +210,9 @@ class ModelBuilder:
         self.model_proto = self._get_model_proto()
         self.model_id = self.model_proto.id
         self.model_version_id = None
-        self.inference_compute_info = self._get_inference_compute_info()
+        self.inference_compute_info = self._get_inference_compute_info(
+            compute_info_required=compute_info_required
+        )
         self.is_v3 = True  # Do model build for v3
 
     def create_model_instance(self, load_model=True, mocking=False) -> ModelClass:
@@ -935,11 +941,12 @@ class ModelBuilder:
 
         return model_proto
 
-    def _get_inference_compute_info(self):
-        assert "inference_compute_info" in self.config, (
-            "inference_compute_info not found in the config file"
-        )
-        inference_compute_info = self.config.get('inference_compute_info')
+    def _get_inference_compute_info(self, compute_info_required=False):
+        if compute_info_required:
+            assert "inference_compute_info" in self.config, (
+                "inference_compute_info not found in the config file"
+            )
+        inference_compute_info = self.config.get('inference_compute_info') or {}
         # Ensure cpu_limit is a string if it exists and is an int
         if 'cpu_limit' in inference_compute_info and isinstance(
             inference_compute_info['cpu_limit'], int
@@ -1947,7 +1954,12 @@ def upload_model(
     :param base_url: Base URL for the API. If None, will use environment variables.
     """
     builder = ModelBuilder(
-        folder, app_not_found_action="prompt", platform=platform, pat=pat, base_url=base_url
+        folder,
+        app_not_found_action="prompt",
+        platform=platform,
+        pat=pat,
+        base_url=base_url,
+        compute_info_required=True,
     )
     builder.download_checkpoints(stage=stage)
 
@@ -2001,6 +2013,8 @@ def deploy_model(
     cluster_user_id=None,
     min_replicas=0,
     max_replicas=5,
+    pat=None,
+    base_url=None,
 ):
     """
     Deploy a model on Clarifai platform.
@@ -2016,6 +2030,8 @@ def deploy_model(
         cluster_user_id (str): The user ID that owns the compute cluster.
         min_replicas (int): Minimum number of replicas for autoscaling.
         max_replicas (int): Maximum number of replicas for autoscaling.
+        pat (str): Personal access token for authentication.
+        base_url (str): Base URL for the API.
     """
     if model_url and model_id:
         raise UserError("You can only specify one of url or model_id.")
@@ -2024,7 +2040,9 @@ def deploy_model(
     if model_url:
         user_id, app_id, _, model_id, _ = ClarifaiUrlHelper.split_clarifai_url(model_url)
     if not model_version_id:
-        model = Model(model_id=model_id, app_id=app_id, user_id=user_id)
+        model = Model(
+            model_id=model_id, app_id=app_id, user_id=user_id, pat=pat, base_url=base_url
+        )
         model_versions = [v for v in model.list_versions()]
         if not model_versions:
             raise UserError(f"No versions found for model {model_id}.")
@@ -2072,7 +2090,7 @@ def deploy_model(
 
     try:
         # Instantiate Nodepool and create the deployment
-        nodepool = Nodepool(nodepool_id=nodepool_id, user_id=user_id)
+        nodepool = Nodepool(nodepool_id=nodepool_id, user_id=user_id, pat=pat, base_url=base_url)
         deployment = nodepool.create_deployment(
             deployment_id=deployment_id, deployment_config=deployment_config
         )
@@ -2106,11 +2124,15 @@ def setup_deployment_for_model(builder):
             'app_id': model.get('app_id'),
             'model_id': model.get('id'),
             'model_version_id': builder.model_version_id,
+            'pat': builder._pat,
+            'base_url': builder._base_url,
         }
     )
 
     # Select compute options
-    compute_config = select_compute_option(user_id=state['user_id'])
+    compute_config = select_compute_option(
+        user_id=state['user_id'], pat=builder._pat, base_url=builder._base_url
+    )
 
     # Get deployment configuration
     print("\n⌨️  Enter Deployment Configuration:")
@@ -2132,6 +2154,8 @@ def setup_deployment_for_model(builder):
         cluster_user_id=compute_config['cluster_user_id'],
         min_replicas=min_replicas,
         max_replicas=max_replicas,
+        pat=builder._pat,
+        base_url=builder._base_url,
     )
 
     if success:
@@ -2159,7 +2183,7 @@ def setup_deployment_for_model(builder):
     """
 
 
-def delete_model_deployment(deployment_id, user_id, nodepool_id=None):
+def delete_model_deployment(deployment_id, user_id, nodepool_id=None, pat=None, base_url=None):
     """
     Delete a model deployment on Clarifai platform.
 
@@ -2167,10 +2191,12 @@ def delete_model_deployment(deployment_id, user_id, nodepool_id=None):
         deployment_id (str): The ID of the deployment to be deleted.
         nodepool_id (str): The ID of the nodepool where the deployment resides.
         user_id (str): The Clarifai user ID (usually owner of the deployment).
+        pat (str): Personal access token for authentication.
+        base_url (str): Base URL for the API.
     """
 
     # Instantiate the Nodepool object with given IDs
-    nodepool = Nodepool(nodepool_id=nodepool_id, user_id=user_id)
+    nodepool = Nodepool(nodepool_id=nodepool_id, user_id=user_id, pat=pat, base_url=base_url)
     # The delete_deployments method expects a list of deployment IDs
     try:
         nodepool.delete_deployments([deployment_id])
@@ -2182,7 +2208,13 @@ def delete_model_deployment(deployment_id, user_id, nodepool_id=None):
 
 
 def delete_model_version(
-    model_url=None, model_id=None, app_id=None, user_id=None, model_version_id=None
+    model_url=None,
+    model_id=None,
+    app_id=None,
+    user_id=None,
+    model_version_id=None,
+    pat=None,
+    base_url=None,
 ):
     """
     Delete a specific version of a model on Clarifai platform.
@@ -2192,6 +2224,8 @@ def delete_model_version(
         app_id (str): The ID of the application the model belongs to.
         user_id (str): The ID of the user who owns the model.
         model_version_id (str): The ID of the model version to be deleted.
+        pat (str): Personal access token for authentication.
+        base_url (str): Base URL for the API.
     """
     if not model_version_id:
         raise UserError("You must specify a model_version_id to delete.")
@@ -2201,7 +2235,7 @@ def delete_model_version(
         raise UserError("You must specify one of url or model_id.")
     if model_url:
         user_id, app_id, _, model_id, _ = ClarifaiUrlHelper.split_clarifai_url(model_url)
-    model = Model(model_id=model_id, app_id=app_id, user_id=user_id)
+    model = Model(model_id=model_id, app_id=app_id, user_id=user_id, pat=pat, base_url=base_url)
     try:
         model.delete_version(version_id=model_version_id)
         print(f"✅ Model version '{model_version_id}' successfully deleted.")
@@ -2222,6 +2256,8 @@ def backtrack_workflow(state):
                 deployment_id=state['deployment_id'],
                 user_id=state['user_id'],
                 nodepool_id=state.get('nodepool_id'),
+                pat=state.get('pat'),
+                base_url=state.get('base_url'),
             )
             if success:
                 state['deployed'] = False
@@ -2234,6 +2270,8 @@ def backtrack_workflow(state):
                 app_id=state['app_id'],
                 user_id=state['user_id'],
                 model_version_id=state['model_version_id'],
+                pat=state.get('pat'),
+                base_url=state.get('base_url'),
             )
             if success:
                 state['uploaded'] = False

@@ -1,4 +1,5 @@
 from copy import copy
+import traceback
 from typing import Callable, TypeVar
 
 from adam.config_holder import ConfigHolder
@@ -6,6 +7,7 @@ from adam.repl_session import ReplSession
 from adam.utils_color import Color
 from adam.utils_concurrent import offload
 from adam.directories import Directories
+from adam.utils_global import thread_local
 from adam.utils_job.job import Job
 from adam.utils_log import _log, log2
 
@@ -16,8 +18,8 @@ class Context:
     PODS = 'pods'
     LOCAL = 'local'
 
-    def new(cmd: str = None, background = False, show_out = False, text_color: str = None, history = 'pods', debug: bool = None):
-        return Context(cmd, background=background, show_out=show_out, text_color=text_color, history=history, debug=debug)
+    def new(cmd: str = None, background = False, show_out = False, text_color: str = None, history = 'pods', debug: bool = None, job_id: str = None):
+        return Context(cmd, background=background, show_out=show_out, text_color=text_color, history=history, debug=debug, job_id=job_id)
 
     def copy(self,
              background: bool = None,
@@ -70,8 +72,11 @@ class Context:
                  text_color: str = None,
                  history = 'pods',
                  debug: bool = False,
-                 bg_init_msg: str = None):
+                 bg_init_msg: str = None,
+                 job_id: str = None):
         self.cmd = cmd
+        if hasattr(thread_local, 'cmd'):
+            self.raw_cmd = thread_local.cmd
         self.background = background
         self.show_out = show_out
         self.text_color = text_color
@@ -83,7 +88,7 @@ class Context:
 
         self.log_file: str = None
         self._histories = set()
-        self.job_id = None
+        self.job_id = job_id
         self._pod_log_file: str = None
 
         if background:
@@ -92,13 +97,14 @@ class Context:
     def _init_backgrounded(self, extra: dict[str, str] = {}):
         if not self.job_id:
             self.job_id = Job.new_id()
-        bg_init_msg = self.bg_init_msg
-        if bg_init_msg is None:
-            bg_init_msg = '[{job_id}] Use :? to get the results.'
 
-        bg_init_msg = bg_init_msg.replace('{job_id}', self.job_id)
-        if bg_init_msg:
-            log2(bg_init_msg)
+            bg_init_msg = self.bg_init_msg
+            if bg_init_msg is None:
+                bg_init_msg = '[{job_id}] Use :? to get the results.'
+
+            bg_init_msg = bg_init_msg.replace('{job_id}', self.job_id)
+            if bg_init_msg:
+                log2(bg_init_msg)
 
         log_file = Job.local_log_file(self.cmd, self.job_id, extra=extra)
         self.log_file = log_file

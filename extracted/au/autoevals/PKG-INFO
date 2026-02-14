@@ -1,14 +1,15 @@
 Metadata-Version: 2.4
 Name: autoevals
-Version: 0.0.130
+Version: 0.1.0
 Summary: Universal library for evaluating AI models
 Home-page: https://www.braintrustdata.com
 Author: BrainTrust
 Author-email: info@braintrustdata.com
 Project-URL: Bug Tracker, https://github.com/braintrustdata/autoevals
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.8.0
+Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: chevron
@@ -424,6 +425,8 @@ Eval(
 - Exact match
 - Numeric difference
 - JSON diff
+
+For detailed documentation on all scorers, including parameters, score ranges, and usage examples, see the [**Scorer Reference**](SCORERS.md).
 
 ## Custom evaluation prompts
 

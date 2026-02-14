@@ -28,19 +28,11 @@ def load_long_description(fname):
 
 def load_requirements(fname):
     '''Load requirements.'''
-    try:
-        # pip >= 10.0
-        from pip._internal.req import parse_requirements
-    except ImportError:
-        # pip < 10.0
-        from pip.req import parse_requirements
-
-    reqs = parse_requirements(fname, session=False)
-    try:
-        requirements = [str(ir.requirement) for ir in reqs]
-    except AttributeError:
-        requirements = [str(ir.req) for ir in reqs]
-    return requirements
+    ret = list()
+    with open(fname) as f:
+        for line in f:
+            ret.append(line)
+    return ret
 
 
 setup(
@@ -50,7 +42,7 @@ setup(
     description=DESCRIPTION,
     long_description=load_long_description("README.md"),
     long_description_content_type="text/markdown",
-    license="GPL v3",
+    license="GNU AFFERO GPL 3.0",
     author='Artifex',
     author_email='support@artifex.com',
     url='https://artifex.com/',
@@ -58,7 +50,7 @@ setup(
     include_package_data=True,
     zip_safe=False,
     install_requires=load_requirements("requirements.txt"),
-    python_requires=">=3.6",
+    python_requires=">=3.10",
     entry_points={
         "console_scripts": [
             "pdf2docx=pdf2docx.main:main"

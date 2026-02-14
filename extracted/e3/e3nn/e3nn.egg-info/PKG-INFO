@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: e3nn
-Version: 0.5.9
+Version: 0.6.0
 Summary: Equivariant convolutional neural networks for the group E(3) of 3 dimensional rotations, translations, and mirrors.
 License: MIT
 Project-URL: homepage, https://e3nn.org
@@ -10,19 +10,18 @@ Project-URL: changelog, https://github.com/e3nn/e3nn/blob/main/.github/CHANGELOG
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: MacOS
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: sympy
 Requires-Dist: scipy
-Requires-Dist: torch>=1.8.0
+Requires-Dist: torch>=2.2.0
 Requires-Dist: opt_einsum_fx>=0.1.4
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"

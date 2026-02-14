@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: code-puppy
-Version: 0.0.399
+Version: 0.0.401
 Summary: Code generation agent
 Project-URL: repository, https://github.com/mpfaffenberger/code_puppy
 Project-URL: HomePage, https://github.com/mpfaffenberger/code_puppy
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Code Generators
 Requires-Python: <3.14,>=3.11
-Requires-Dist: dbos>=2.5.0
+Requires-Dist: dbos>=2.11.0
 Requires-Dist: fastapi>=0.109.0
 Requires-Dist: httpx[http2]>=0.24.1
 Requires-Dist: json-repair>=0.46.2
@@ -24,7 +24,7 @@ Requires-Dist: openai>=1.99.1
 Requires-Dist: pillow>=10.0.0
 Requires-Dist: playwright>=1.40.0
 Requires-Dist: prompt-toolkit>=3.0.52
-Requires-Dist: pydantic-ai-slim[anthropic,mcp,openai]==1.26.0
+Requires-Dist: pydantic-ai-slim[anthropic,mcp,openai]==1.56.0
 Requires-Dist: pydantic>=2.4.0
 Requires-Dist: pyfiglet>=0.8.post1
 Requires-Dist: python-dotenv>=1.0.0
@@ -183,7 +183,7 @@ When enabled, every agent is automatically wrapped as a `DBOSAgent`, checkpointi
 
 You can toggle DBOS via either of these options:
 
-- CLI config (persists): `/set enable_dbos true` (or `false` to disable)
+- CLI config (persists): `/set enable_dbos false` to disable (enabled by default)
 
 
 Config takes precedence if set; otherwise the environment variable is used.

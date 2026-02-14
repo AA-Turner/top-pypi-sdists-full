@@ -70,11 +70,11 @@ class DeviceExport(Command, Device):
 
         return '\t'.join([f'{ReplState.X}:>'] + (words if words else ['/']))
 
-    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str):
+    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str, retry = False):
         if cmd.startswith('select '):
             cmd = f'xelect {cmd[7:]}'
 
-        result = chain.run(cmd, state)
+        result = chain.retry(cmd, state) if retry else chain.run(cmd, state)
         if type(result) is ReplState:
             if state.export_session and not result.export_session:
                 state.export_session = None

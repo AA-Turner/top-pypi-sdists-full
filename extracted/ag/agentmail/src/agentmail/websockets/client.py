@@ -38,12 +38,12 @@ class WebsocketsClient:
 
     @contextmanager
     def connect(
-        self, *, auth_token: typing.Optional[str] = None, request_options: typing.Optional[RequestOptions] = None
+        self, *, api_key: typing.Optional[str] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> typing.Iterator[WebsocketsSocketClient]:
         """
         Parameters
         ----------
-        auth_token : typing.Optional[str]
+        api_key : typing.Optional[str]
             Your API key. Required if Authorization header is not set.
 
         request_options : typing.Optional[RequestOptions]
@@ -58,7 +58,7 @@ class WebsocketsClient:
             jsonable_encoder(
                 remove_none_from_dict(
                     {
-                        "auth_token": auth_token,
+                        "api_key": api_key,
                         **(
                             request_options.get("additional_query_parameters", {}) or {}
                             if request_options is not None
@@ -108,12 +108,12 @@ class AsyncWebsocketsClient:
 
     @asynccontextmanager
     async def connect(
-        self, *, auth_token: typing.Optional[str] = None, request_options: typing.Optional[RequestOptions] = None
+        self, *, api_key: typing.Optional[str] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> typing.AsyncIterator[AsyncWebsocketsSocketClient]:
         """
         Parameters
         ----------
-        auth_token : typing.Optional[str]
+        api_key : typing.Optional[str]
             Your API key. Required if Authorization header is not set.
 
         request_options : typing.Optional[RequestOptions]
@@ -128,7 +128,7 @@ class AsyncWebsocketsClient:
             jsonable_encoder(
                 remove_none_from_dict(
                     {
-                        "auth_token": auth_token,
+                        "api_key": api_key,
                         **(
                             request_options.get("additional_query_parameters", {}) or {}
                             if request_options is not None

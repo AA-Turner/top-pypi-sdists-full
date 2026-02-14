@@ -5,22 +5,20 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="signalrcore",
-    version="0.9.71",
+    version="1.0.0",
     author="mandrewcito",
     author_email="signalrcore@mandrewcito.dev",
-    description="A Python SignalR Core client(json and messagepack),"
-    "with invocation auth and two way streaming."
+    description="Python SignalR Core full client (transports and encodings)."
     "Compatible with azure / serverless functions."
     "Also with automatic reconnect and manually reconnect.",
-    keywords="signalr core client 3.1",
+    keywords="signalr core client 3.1+",
     long_description=long_description,
     long_description_content_type="text/markdown",
     license_file="LICENSE",
     url="https://github.com/mandrewcito/signalrcore",
-    packages=setuptools.find_packages(),
+    packages=setuptools.find_packages(exclude=["test", "test.*"]),
     classifiers=[
         "Programming Language :: Python :: 3.8",
-        "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent"
     ],
     install_requires=[
@@ -32,7 +30,8 @@ setuptools.setup(
             'flake8',
             'coverage',
             'pytest',
-            'pytest-cov'
+            'pytest-cov',
+            'build'
         ]
     },
 )

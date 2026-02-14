@@ -143,12 +143,15 @@ async def chat_for_video(
             yield i
 
         yield f"[🤫 任务进度]("
-        for i in range(60):
+        for i in range(100):
             await asyncio.sleep(3)
             response = await get_task(taskid)  # 包含  "status"
 
             logger.debug(response)
-            if response.get("status", "").lower().startswith(("succ", "fail")):
+            if isinstance(response, BaseModel):
+                response = response.model_dump(exclude_none=True)
+
+            if response.get("status", "").lower().startswith(("comp", "succ", "fail")):
 
                 yield ")🎉🎉🎉\n\n"
 

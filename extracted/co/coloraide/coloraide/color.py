@@ -19,6 +19,7 @@ from . import average
 from . import temperature
 from . import util
 from . import algebra as alg
+from . import spectrum
 from .channels import ANGLE_DEG, ANGLE_RAD, ANGLE_GRAD, ANGLE_TURN, ANGLE_NULL
 from .deprecate import warn_deprecated, deprecated
 from itertools import zip_longest as zipl
@@ -1341,6 +1342,34 @@ class Color(metaclass=ColorMeta):
 
         color = self._handle_color_input(color)
         return contrast.contrast(method, self, color)
+
+    def wavelength(
+        self,
+        *,
+        white: VectorLike | None = None,
+        complementary: bool = False
+    ) -> tuple[float, Vector, Vector]:
+        """Get the dominant wavelength."""
+
+        return spectrum.closest_wavelength(
+            self.xy(),
+            white or util.xyz_to_xyY(self.white())[:-1],
+            reverse=complementary
+        )
+
+    @classmethod
+    def from_wavelength(
+        cls,
+        space: str,
+        wavelength: float,
+        *,
+        scale: bool = True,
+        scale_space: str | None = None
+    ) -> Self:
+        """Create a color from a wavelength."""
+
+        xyY = util.xyz_to_xyY(spectrum.wavelength_to_color(wavelength))
+        return cls.chromaticity(space, xyY, 'xy-1931', scale=scale, scale_space=scale_space)
 
     @overload
     def get(self,

@@ -14,6 +14,9 @@
 
 import collections
 import logging
+import multiprocessing
+from multiprocessing.reduction import ForkingPickler
+import os
 import signal
 import sys
 import threading
@@ -24,21 +27,63 @@ import cotyledon
 from cotyledon import oslo_config_glue
 
 from oslo_service._i18n import _
+from oslo_service._multiprocessing import get_spawn_context
 from oslo_service.backend._common.constants import _LAUNCHER_RESTART_METHODS
-from oslo_service.backend._common.service \
-    import check_service_base as _check_service_base
-from oslo_service.backend._common.service import get_signal_mappings
-from oslo_service.backend._common.service import Singleton
+from oslo_service.backend._common import service as common_service
 from oslo_service.backend._threading import threadgroup
 from oslo_service.backend.base import ServiceBase
+from oslo_service import opts
 
 LOG = logging.getLogger(__name__)
 
 
-class SignalHandler(metaclass=Singleton):
+def _select_service_manager_context(service_instance):
+    try:
+        ForkingPickler.dumps(service_instance)
+    except Exception as exc:
+        if "fork" in multiprocessing.get_all_start_methods():
+            LOG.warning(
+                "Service %s is not picklable with spawn; "
+                "falling back to fork. "
+                "Please make the service spawn-safe to avoid this fallback.",
+                type(service_instance).__name__,
+                exc_info=exc,
+            )
+            return multiprocessing.get_context("fork")
+        LOG.error(
+            "Service %s is not picklable with spawn and fork is unavailable.",
+            type(service_instance).__name__,
+            exc_info=exc,
+        )
+        raise
+    return get_spawn_context()
+
+
+def _get_service_manager(service_instance, graceful_shutdown_timeout, conf,
+                         restart_method):
+    """Create and link a cotyledon ServiceManager for the given service.
+
+    :param service_instance: The service instance (used for spawn/fork check).
+    :param graceful_shutdown_timeout: Timeout for graceful shutdown.
+    :param conf: oslo.config ConfigOpts instance.
+    :param restart_method: 'reload' or 'mutate' for SIGHUP handling.
+    :returns: A tuple (manager_context, manager).
+    """
+    manager_context = _select_service_manager_context(service_instance)
+    manager = cotyledon.ServiceManager(
+        mp_context=manager_context,
+        graceful_shutdown_timeout=graceful_shutdown_timeout)
+    oslo_config_glue.link(
+        manager, conf,
+        reload_method=restart_method)
+    return (manager_context, manager)
+
+
+class SignalHandler(metaclass=common_service.Singleton):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._signals_by_name, self.signals_to_name = get_signal_mappings()
+        self._signals_by_name, self.signals_to_name = (
+            common_service.get_signal_mappings())
         self._signal_handlers = collections.defaultdict(list)
         self.clear()
 
@@ -46,6 +91,11 @@ class SignalHandler(metaclass=Singleton):
         for sig in list(self._signal_handlers.keys()):
             signal.signal(sig, signal.SIG_DFL)
         self._signal_handlers.clear()
+
+    def ignore_handler(self, sig):
+        signo = self._signals_by_name[sig]
+        signal.signal(signo, signal.SIG_IGN)
+        self._signal_handlers.pop(signo, None)
 
     def add_handlers(self, signals, handler):
         for sig in signals:
@@ -56,11 +106,7 @@ class SignalHandler(metaclass=Singleton):
             return
         signo = self._signals_by_name[sig]
         self._signal_handlers[signo].append(handler)
-        signal.signal(signo, self._handle_signal)
-
-    def _handle_signal(self, signo, frame):
-        threading.Thread(target=self._handle_signal_cb,
-                         args=(signo, frame)).start()
+        signal.signal(signo, self._handle_signal_cb)
 
     def _handle_signal_cb(self, signo, frame):
         for handler in reversed(self._signal_handlers[signo]):
@@ -110,7 +156,7 @@ class Launcher:
         """
         if workers is not None and workers != 1:
             raise ValueError(_("Launcher asked to start multiple workers"))
-        _check_service_base(service)
+        common_service.check_service_base(service)
         self.services.add(service)
 
     def stop(self):
@@ -143,25 +189,58 @@ class Launcher:
 class ServiceLauncher:
     def __init__(self, conf, restart_method='reload'):
         self.conf = conf
+        opts.register_service_opts(self.conf)
         self.restart_method = restart_method
         self.backdoor_port = None
-        self._manager = cotyledon.ServiceManager()
-        oslo_config_glue.setup(self._manager, conf,
-                               reload_method=restart_method)
+        self._manager = None
+        self._manager_context = None
+        self._lock = threading.Lock()
 
     def launch_service(self, service_instance, workers=1):
-        _check_service_base(service_instance)
+        common_service.check_service_base(service_instance)
         service_instance.backdoor_port = self.backdoor_port
         if not isinstance(workers, int) or workers < 1:
             raise ValueError("Number of workers must be >= 1")
-        self._manager.add(ServiceWrapper, workers, args=(service_instance,))
+        with self._lock:
+            if self._manager is None:
+                self._manager_context, self._manager = _get_service_manager(
+                    service_instance,
+                    self.conf.graceful_shutdown_timeout,
+                    self.conf,
+                    self.restart_method,
+                )
+            else:
+                # NOTE(gmaan): This case means services are launching the
+                # multiple workers of the same or different service instances.
+                # The first worker has initialized the cotyledon.ServiceManager
+                # with the manager context based on whether their service
+                # instance is spawn-safe or not. If the next worker is
+                # launching a different service instance, which may not be
+                # spawn-safe, we need to re-evaluate its spawn-readiness and
+                # accordingly select the manager context.
+                # This ensures that if any of the worker service_instance is
+                # not spawn-safe, we fallback to 'fork' start method.
+                self._manager_context = _select_service_manager_context(
+                    service_instance)
+                self._manager.mp_context = self._manager_context
+        # ServiceManager.add() is thread-safe, no need to hold lock
+        self._manager.add(
+            ServiceWrapper, workers, args=(service_instance,))
 
     def stop(self):
-        self._manager.shutdown()
+        with self._lock:
+            if not self._manager:
+                return
+            manager = self._manager
+        manager.shutdown()
 
     def wait(self):
+        with self._lock:
+            if not self._manager:
+                return 0
+            manager = self._manager
         try:
-            return self._manager.run()
+            return manager.run()
         except SystemExit as exc:
             self.stop()
             return exc.code
@@ -245,43 +324,128 @@ class ProcessLauncher:
             self, conf, wait_interval=None, restart_method='reload',
             no_fork=False):
         self.conf = conf
+        opts.register_service_opts(self.conf)
         self.restart_method = restart_method
         self.no_fork = no_fork
+        self._lock = threading.Lock()
         self._manager = None
+        self._manager_context = None
+        self.service = None
+        self.signal_handler = None
+        # NOTE(gmaan): If service is launched with no_fork=True that means
+        # service is running in the main process, and we need to handle the
+        # signals. In other cases, service processes are handled by the
+        # cotyledon library which handles the signals for all worker
+        # processes, so let's not override their signal handling.
+        if self.no_fork:
+            self.signal_handler = SignalHandler()
+            self.add_signal_handlers()
 
         if wait_interval is not None:
             warnings.warn(
-                "'wait_interval' is deprecated and has no effect in the"
-                " 'threading' backend. It is accepted only for compatibility"
-                " reasons and will be removed.",
+                "'wait_interval' is deprecated and has no effect in the "
+                "'threading' backend. It is accepted only for compatibility "
+                "reasons and will be removed.",
                 category=DeprecationWarning,
             )
 
     def launch_service(self, service, workers=1):
-        _check_service_base(service)
+        common_service.check_service_base(service)
 
         if self.no_fork:
             LOG.warning("no_fork=True: running service in main process")
-            service.start()
-            service.wait()
+            self.service = service
+            self.service.start()
+            self.service.wait()
             return
 
-        if self._manager is None:
-            self._manager = cotyledon.ServiceManager()
-            oslo_config_glue.setup(self._manager, self.conf,
-                                   reload_method=self.restart_method)
-
+        # NOTE(gmaan): cotyledon.ServiceManager does not allow more than one
+        # instance per application. There is use case where multiple services
+        # can be launched at same time. To avoid any race condition, we need
+        # lock while creating the ServiceManager.
+        # For more detail, ref to the bug#2138840
+        with self._lock:
+            if self._manager is None:
+                self._manager_context, self._manager = _get_service_manager(
+                    service,
+                    self.conf.graceful_shutdown_timeout,
+                    self.conf,
+                    self.restart_method,
+                )
+            else:
+                # NOTE(gmaan): This case means services are launching the
+                # multiple workers of the same or different service instances.
+                # The first worker has initialized the cotyledon.ServiceManager
+                # with the manager context based on whether their service
+                # instance is spawn-safe or not. If the next worker is
+                # launching a different service instance, which may not be
+                # spawn-safe, we need to re-evaluate its spawn-readiness and
+                # accordingly select the manager context.
+                # This ensures that if any of the worker service_instance is
+                # not spawn-safe, we fallback to 'fork' start method.
+                self._manager_context = _select_service_manager_context(
+                    service)
+                self._manager.mp_context = self._manager_context
+        # ServiceManager.add() is thread-safe, no need to hold lock
         self._manager.add(ServiceWrapper, workers, args=(service,))
+
+    def _graceful_shutdown(self, *args):
+        LOG.info('Graceful shutdown start')
+        # At this time, first SIGTERM is caught and this handler started the
+        # graceful shutdown. We need to ignore the another SIGTERM signal if
+        # they comes during the graceful shutdown otherwise they will interupt
+        # and race the already running graceful shutdown.
+        self.signal_handler.ignore_handler('SIGTERM')
+        # Register alarm signal with conf.graceful_shutdown_timeout.
+        # If graceful shutdown is not finished within the
+        # timeout, then alarm signal will exit the process.
+        if (self.conf.graceful_shutdown_timeout and
+                self.signal_handler.is_signal_supported('SIGALRM')):
+            signal.alarm(self.conf.graceful_shutdown_timeout)
+        self.service.stop()
+        LOG.info('Graceful shutdown finish')
+        os._exit(0)
+
+    def _reload_service(self, *args):
+        # TODO(gmaan): This handler is suppose to reload the service but we
+        # need to implement the restart() method for no_fork case which can
+        # call reset/restart on the service instance.
+        self.signal_handler.clear()
+        raise common_service.SignalExit(signal.SIGHUP)
+
+    def _fast_exit(self, *args):
+        LOG.info('Caught SIGINT signal, instantaneous exiting')
+        os._exit(1)
+
+    def _on_alarm_exit(self, *args):
+        LOG.info('Graceful shutdown timeout exceeded, '
+                 'instantaneous exiting')
+        os._exit(1)
+
+    def add_signal_handlers(self):
+        """Add signal handlers."""
+        self.signal_handler.clear()
+        self.signal_handler.add_handler('SIGTERM', self._graceful_shutdown)
+        self.signal_handler.add_handler('SIGINT', self._fast_exit)
+        self.signal_handler.add_handler('SIGHUP', self._reload_service)
+        self.signal_handler.add_handler('SIGALRM', self._on_alarm_exit)
 
     def wait(self):
         if self.no_fork:
             return 0
-        return self._manager.run()
+        with self._lock:
+            if not self._manager:
+                return 0
+            manager = self._manager
+        return manager.run()
 
     def stop(self):
         LOG.info("Stopping service")
-        if self._manager:
-            self._manager.shutdown()
+        with self._lock:
+            if not self._manager:
+                return
+            manager = self._manager
+        manager.shutdown()
 
     def restart(self):
         raise NotImplementedError()

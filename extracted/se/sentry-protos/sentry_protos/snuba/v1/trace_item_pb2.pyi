@@ -104,6 +104,44 @@ class KeyValue(google.protobuf.message.Message):
 global___KeyValue = KeyValue
 
 @typing.final
+class CategoryCount(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DATA_CATEGORY_FIELD_NUMBER: builtins.int
+    QUANTITY_FIELD_NUMBER: builtins.int
+    data_category: builtins.int
+    """DataCategory that defined in Relay"""
+    quantity: builtins.int
+    def __init__(
+        self,
+        *,
+        data_category: builtins.int = ...,
+        quantity: builtins.int = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["data_category", b"data_category", "quantity", b"quantity"]) -> None: ...
+
+global___CategoryCount = CategoryCount
+
+@typing.final
+class Outcomes(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    CATEGORY_COUNT_FIELD_NUMBER: builtins.int
+    KEY_ID_FIELD_NUMBER: builtins.int
+    key_id: builtins.int
+    @property
+    def category_count(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___CategoryCount]: ...
+    def __init__(
+        self,
+        *,
+        category_count: collections.abc.Iterable[global___CategoryCount] | None = ...,
+        key_id: builtins.int = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["category_count", b"category_count", "key_id", b"key_id"]) -> None: ...
+
+global___Outcomes = Outcomes
+
+@typing.final
 class TraceItem(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -137,6 +175,7 @@ class TraceItem(google.protobuf.message.Message):
     RETENTION_DAYS_FIELD_NUMBER: builtins.int
     RECEIVED_FIELD_NUMBER: builtins.int
     DOWNSAMPLED_RETENTION_DAYS_FIELD_NUMBER: builtins.int
+    OUTCOMES_FIELD_NUMBER: builtins.int
     organization_id: builtins.int
     project_id: builtins.int
     trace_id: builtins.str
@@ -154,6 +193,8 @@ class TraceItem(google.protobuf.message.Message):
     def attributes(self) -> google.protobuf.internal.containers.MessageMap[builtins.str, global___AnyValue]: ...
     @property
     def received(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    @property
+    def outcomes(self) -> global___Outcomes: ...
     def __init__(
         self,
         *,
@@ -169,8 +210,9 @@ class TraceItem(google.protobuf.message.Message):
         retention_days: builtins.int = ...,
         received: google.protobuf.timestamp_pb2.Timestamp | None = ...,
         downsampled_retention_days: builtins.int = ...,
+        outcomes: global___Outcomes | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["received", b"received", "timestamp", b"timestamp"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["attributes", b"attributes", "client_sample_rate", b"client_sample_rate", "downsampled_retention_days", b"downsampled_retention_days", "item_id", b"item_id", "item_type", b"item_type", "organization_id", b"organization_id", "project_id", b"project_id", "received", b"received", "retention_days", b"retention_days", "server_sample_rate", b"server_sample_rate", "timestamp", b"timestamp", "trace_id", b"trace_id"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["outcomes", b"outcomes", "received", b"received", "timestamp", b"timestamp"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["attributes", b"attributes", "client_sample_rate", b"client_sample_rate", "downsampled_retention_days", b"downsampled_retention_days", "item_id", b"item_id", "item_type", b"item_type", "organization_id", b"organization_id", "outcomes", b"outcomes", "project_id", b"project_id", "received", b"received", "retention_days", b"retention_days", "server_sample_rate", b"server_sample_rate", "timestamp", b"timestamp", "trace_id", b"trace_id"]) -> None: ...
 
 global___TraceItem = TraceItem

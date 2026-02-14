@@ -43,8 +43,8 @@ class DeviceAuditLog(Command, Device):
     def pwd(self, _: ReplState):
         return '\t'.join([f'{ReplState.L}:>', '/'])
 
-    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str):
-        return True, chain.run(f'audit {cmd}', state)
+    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str, retry = False):
+        return True, chain.retry(f'audit {cmd}', state) if retry else chain.run(f'audit {cmd}', state)
 
     def show_tables(self, _: ReplState, ctx = NULL):
         tabulize(Athena.table_names(),

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llmcompressor
-Version: 0.9.0.1
+Version: 0.9.0.2
 Summary: A library for compressing large language models utilizing the latest techniques and research in the field for both training aware and post training techniques. The library is designed to be flexible and easy to use on top of PyTorch and HuggingFace Transformers, allowing for quick experimentation.
 Home-page: https://github.com/vllm-project/llm-compressor
 Author: Neuralmagic, Inc.
@@ -35,7 +35,7 @@ Requires-Dist: transformers<=4.57.3,>=4.54.0
 Requires-Dist: datasets<=4.4.1,>=4.0.0
 Requires-Dist: accelerate<=1.12.0,>=1.6.0
 Requires-Dist: nvidia-ml-py<=13.590.44,>=12.560.30
-Requires-Dist: pillow<=12.0.0,>=10.4.0
+Requires-Dist: pillow<=12.1.1,>=10.4.0
 Requires-Dist: compressed-tensors==0.13.0
 Provides-Extra: dev
 Requires-Dist: pytest>=6.0.0; extra == "dev"

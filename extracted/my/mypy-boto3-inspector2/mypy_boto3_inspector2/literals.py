@@ -3,7 +3,7 @@ Type annotations for inspector2 service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_inspector2/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -371,6 +371,7 @@ ResourceTypeType = Literal[
 RuleSetCategoryType = Literal["IAC", "SAST", "SCA"]
 RuntimeType = Literal[
     "DOTNETCORE_3_1",
+    "DOTNET_10",
     "DOTNET_6",
     "DOTNET_7",
     "GO_1_X",
@@ -383,6 +384,7 @@ RuntimeType = Literal[
     "NODEJS_14_X",
     "NODEJS_16_X",
     "NODEJS_18_X",
+    "NODEJS_24_X",
     "PYTHON_3_10",
     "PYTHON_3_11",
     "PYTHON_3_7",
@@ -614,7 +616,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -879,6 +880,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

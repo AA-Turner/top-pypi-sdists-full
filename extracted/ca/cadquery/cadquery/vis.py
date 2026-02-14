@@ -14,8 +14,6 @@ from .occ_impl.assembly import _loc2vtk, toVTKAssy
 
 from typing import Union, Any, List, Tuple, Iterable, cast, Optional
 
-from typish import instance_of
-
 from OCP.TopoDS import TopoDS_Shape
 from OCP.Geom import Geom_BSplineSurface
 
@@ -39,6 +37,7 @@ from vtkmodules.vtkCommonDataModel import vtkCellArray, vtkPolyData
 from vtkmodules.vtkCommonColor import vtkNamedColors
 from vtkmodules.vtkIOImage import vtkPNGWriter
 
+from .utils import instance_of
 
 DEFAULT_COLOR = (1, 0.8, 0)
 DEFAULT_EDGE_COLOR = (0, 0, 0)
@@ -398,8 +397,11 @@ def show(
     zoom: float = 1.0,
     roll: float = -35,
     elevation: float = -45,
+    azimuth: float = 0,
     position: Optional[Tuple[float, float, float]] = None,
     focus: Optional[Tuple[float, float, float]] = None,
+    viewup: Optional[Tuple[float, float, float]] = None,
+    clipping_range: Optional[Tuple[float, float]] = None,
     width: Union[int, float] = 0.5,
     height: Union[int, float] = 0.5,
     trihedron: bool = True,
@@ -407,6 +409,7 @@ def show(
     gradient: bool = True,
     xpos: Union[int, float] = 0,
     ypos: Union[int, float] = 0,
+    fxaa: bool = True,
 ):
     """
     Show CQ objects using VTK. This functions optionally allows to make screenshots.
@@ -488,7 +491,7 @@ def show(
         renderer.GradientBackgroundOn()
 
     # use FXXAA
-    renderer.UseFXAAOn()
+    renderer.SetUseFXAA(fxaa)
 
     # add pts and locs
     renderer.AddActor(pts)
@@ -502,17 +505,31 @@ def show(
 
     # set camera
     camera = renderer.GetActiveCamera()
+
+    # Update camera position with user provided absolute positions
+    if viewup:
+        camera.SetViewUp(*viewup)
+
+    if focus:
+        camera.SetFocalPoint(*focus)
+
+    if position:
+        camera.SetPosition(*position)
+
+    if not (position or focus):
+        renderer.ResetCamera()  # fit all if no explicit position provided
+
+    # Update camera position with user defined relative positions
     camera.Roll(roll)
     camera.Elevation(elevation)
-    camera.Zoom(zoom)
+    camera.Azimuth(azimuth)
 
-    if position or focus:
-        if position:
-            camera.SetPosition(*position)
-        if focus:
-            camera.SetFocalPoint(*focus)
+    # Update camera view frustum
+    camera.Zoom(zoom)
+    if clipping_range:
+        camera.SetClippingRange(*clipping_range)
     else:
-        renderer.ResetCamera()
+        renderer.ResetCameraClippingRange()
 
     # initialize and set size
     inter.Initialize()

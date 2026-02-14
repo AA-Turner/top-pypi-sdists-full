@@ -1,24 +1,21 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use common_error::DaftResult;
 use common_metrics::{
-    CPU_US_KEY, ROWS_IN_KEY, ROWS_OUT_KEY, Stat, StatSnapshot, ops::NodeType, snapshot,
+    CPU_US_KEY, ROWS_IN_KEY, ROWS_OUT_KEY, StatSnapshot, meters::Counter, ops::NodeType,
+    snapshot::ExplodeSnapshot,
 };
 use daft_dsl::expr::bound_expr::BoundExpr;
 use daft_functions_list::explode;
 use daft_micropartition::MicroPartition;
 use itertools::Itertools;
-use opentelemetry::{KeyValue, global};
+use opentelemetry::{KeyValue, metrics::Meter};
 use tracing::{Span, instrument};
 
 use super::intermediate_op::{
     IntermediateOpExecuteResult, IntermediateOperator, IntermediateOperatorResult,
 };
-use crate::{
-    ExecutionTaskSpawner,
-    pipeline::NodeName,
-    runtime_stats::{Counter, RuntimeStats},
-};
+use crate::{ExecutionTaskSpawner, pipeline::NodeName, runtime_stats::RuntimeStats};
 
 pub struct ExplodeStats {
     cpu_us: Counter,
@@ -28,14 +25,13 @@ pub struct ExplodeStats {
 }
 
 impl ExplodeStats {
-    pub fn new(id: usize) -> Self {
-        let meter = global::meter("daft.local.node_stats");
+    pub fn new(meter: &Meter, id: usize) -> Self {
         let node_kv = vec![KeyValue::new("node_id", id.to_string())];
 
         Self {
-            cpu_us: Counter::new(&meter, CPU_US_KEY.into(), None),
-            rows_in: Counter::new(&meter, ROWS_IN_KEY.into(), None),
-            rows_out: Counter::new(&meter, ROWS_OUT_KEY.into(), None),
+            cpu_us: Counter::new(meter, CPU_US_KEY, None),
+            rows_in: Counter::new(meter, ROWS_IN_KEY, None),
+            rows_out: Counter::new(meter, ROWS_OUT_KEY, None),
             node_kv,
         }
     }
@@ -56,12 +52,13 @@ impl RuntimeStats for ExplodeStats {
         } else {
             rows_out as f64 / rows_in as f64
         };
-        snapshot![
-            CPU_US_KEY; Stat::Duration(Duration::from_micros(cpu_us)),
-            ROWS_IN_KEY; Stat::Count(rows_in),
-            ROWS_OUT_KEY; Stat::Count(rows_out),
-            "amplification"; Stat::Float(amplification),
-        ]
+
+        StatSnapshot::Explode(ExplodeSnapshot {
+            cpu_us,
+            rows_in,
+            rows_out,
+            amplification,
+        })
     }
 
     fn add_rows_in(&self, rows: u64) {
@@ -143,8 +140,8 @@ impl IntermediateOperator for ExplodeOperator {
         NodeType::Explode
     }
 
-    fn make_runtime_stats(&self, id: usize) -> Arc<dyn RuntimeStats> {
-        Arc::new(ExplodeStats::new(id))
+    fn make_runtime_stats(&self, meter: &Meter, id: usize) -> Arc<dyn RuntimeStats> {
+        Arc::new(ExplodeStats::new(meter, id))
     }
     fn batching_strategy(&self) -> DaftResult<Self::BatchingStrategy> {
         Ok(crate::dynamic_batching::StaticBatchingStrategy::new(

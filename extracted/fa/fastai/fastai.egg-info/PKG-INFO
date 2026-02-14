@@ -1,25 +1,20 @@
 Metadata-Version: 2.4
 Name: fastai
-Version: 2.8.6
+Version: 2.8.7
 Summary: fastai simplifies training fast and accurate neural nets using modern best practices
-Home-page: https://github.com/fastai/fastai
-Author: Jeremy Howard, Sylvain Gugger, and contributors
-Author-email: info@fast.ai
-License: Apache Software License 2.0
-Keywords: fastai,deep learning,machine learning
-Classifier: Development Status :: 5 - Production/Stable
-Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
+Author-email: "Jeremy Howard, Sylvain Gugger, and contributors" <info@fast.ai>
+License: Apache-2.0
+Project-URL: Repository, https://github.com/fastai/fastai
+Project-URL: Documentation, https://docs.fast.ai/
+Keywords: fastai,,deep,learning,,machine,learning
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
+Classifier: Intended Audience :: Developers
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pip
-Requires-Dist: packaging
 Requires-Dist: fastdownload<2,>=0.0.5
 Requires-Dist: fastcore>=1.8.0
 Requires-Dist: fasttransform>=0.0.2
@@ -36,7 +31,7 @@ Requires-Dist: spacy<4
 Requires-Dist: packaging
 Requires-Dist: plum-dispatch
 Requires-Dist: cloudpickle
-Requires-Dist: torch<2.10,>=1.10
+Requires-Dist: torch<3,>=1.10
 Provides-Extra: dev
 Requires-Dist: nbdev; extra == "dev"
 Requires-Dist: ipywidgets; extra == "dev"
@@ -61,19 +56,7 @@ Requires-Dist: ninja; extra == "dev"
 Requires-Dist: timm>=0.9; extra == "dev"
 Requires-Dist: accelerate>=0.21; extra == "dev"
 Requires-Dist: ipykernel; extra == "dev"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # Welcome to fastai
 
@@ -161,7 +144,7 @@ composable building blocks. This way, a user wanting to rewrite part of
 the high-level API or add particular behavior to suit their needs does
 not have to learn how to use the lowest level.
 
-<img alt="Layered API" src="https://raw.githubusercontent.com/fastai/fastai/main/images/layered.png" width="345">
+<img alt="Layered API" src="images/layered.png" width="345">
 
 ## Migrating from other libraries
 

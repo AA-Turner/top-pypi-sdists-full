@@ -35,7 +35,7 @@ from typing import Any
 import pyrig
 from pyrig.rig.configs.base.workflow import Workflow
 from pyrig.rig.configs.pyproject import PyprojectConfigFile
-from pyrig.src.modules.dependency_graph import DependencyGraph
+from pyrig.src.dependency_graph import DependencyGraph
 
 
 class HealthCheckWorkflow(Workflow):
@@ -113,7 +113,7 @@ class HealthCheckWorkflow(Workflow):
         Returns:
             Number of hours to offset from base cron hour.
         """
-        graph = DependencyGraph.cached()
+        graph = DependencyGraph()
         src_package = import_module(PyprojectConfigFile.L.package_name())
         return graph.shortest_path_length(src_package.__name__, pyrig.__name__)
 

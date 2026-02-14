@@ -63,9 +63,10 @@ data = {
     "veo3.1-fast_1080p": 0.15 * TIMES,
 
     # seedance
-    "doubao-seedance-2-0-260128_480p": 0.8 / 10 * 0.6,
-    "doubao-seedance-2-0-260128_720p": 0.8 / 10 * 0.6,
-    "doubao-seedance-2-0-260128_1080p": 0.8 / 10 * 0.6,
+    "doubao-seedance-2-0_480p": 0.2,
+    "doubao-seedance-2-0": 0.3,
+    "doubao-seedance-2-0_720p": 0.3,
+    # "doubao-seedance-2-0_1080p": 0.8 / 10 * 0.6,
 
     'doubao-seedance-1-0-pro_480p': 1.46 / 10 * 0.6,
     'doubao-seedance-1-0-pro_720p': 3.38 / 10 * 0.6,

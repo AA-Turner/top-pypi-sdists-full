@@ -159,6 +159,11 @@ class BindingGenerator:
     parser = header_parsing.XMACRO
     for tokens, _, _ in parser.scanString(xmacro_src):
       for xmacro in tokens:
+        if not (
+            xmacro.name.startswith("MJMODEL")
+            or xmacro.name.startswith("MJDATA")
+        ):
+          continue
         for member in xmacro.members:
           if not hasattr(member, "name") or not member.name:
             continue

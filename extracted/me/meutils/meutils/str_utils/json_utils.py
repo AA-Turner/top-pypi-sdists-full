@@ -121,4 +121,3 @@ if __name__ == '__main__':
 
 
     repair_json("{a:b;a:c}")
-    from toon_python import encode

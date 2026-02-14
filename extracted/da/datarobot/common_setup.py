@@ -71,6 +71,7 @@ Extra
     This can be used in DataRobot Custom Applications and on its own.
 - `core` (requires Python 3.8+): Platform library functions to improve building with DataRobot.
     This can be used in DataRobot Custom Applications, Custom Models, and Agent Workflows.
+- `fs` (requires Python 3.9+): Provides file system implementation to work with the DataRobot file system.
 
 You can install these optional groups by specifying them in the pip command, for example:
 
@@ -154,6 +155,11 @@ auth_test_require = auth_lint_require
 core_require = [
     "pydantic-settings>=2.2.0",
     "pydantic>=2.2.0",
+    "psutil>=7.2.1",
+]
+
+files_require = [
+    "fsspec>=2025.5.0",
 ]
 
 lint_require = (
@@ -165,6 +171,7 @@ lint_require = (
     + databricks_require
     + auth_lint_require
     + core_require
+    + files_require
 )
 
 tests_require = (
@@ -179,6 +186,7 @@ tests_require = (
     + images_require
     + databricks_require
     + auth_test_require
+    + files_require
 )
 
 docs_require = [
@@ -195,7 +203,7 @@ docs_require = [
     "myst-parser==4.0.0",
 ]
 
-dev_require = tests_require + lint_require + images_require + docs_require + core_require
+dev_require = tests_require + lint_require + images_require + docs_require + core_require + files_require
 
 example_require = [
     "jupyter<=5.0",
@@ -256,5 +264,6 @@ common_setup_kwargs = dict(
         "auth": auth_require,
         "auth-authlib": authlib_require,
         "core": core_require,
+        "fs": files_require,
     },
 )

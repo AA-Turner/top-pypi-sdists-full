@@ -29,6 +29,7 @@ class Video(_Video):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     """Unique identifier for the video job."""
 
+    completed_at: int = Field(default_factory=lambda: int(time.time()))
     created_at: int = Field(default_factory=lambda: int(time.time()))
     """Unix timestamp (seconds) for when the job was created."""
 
@@ -235,6 +236,57 @@ class LipsyncVideoRequest(BaseModel):
     sync_mode: Union[str, Literal["cut_off", "loop", "bounce"]] = "cut_off"
 
 
+# {
+#   "id": "cgt-2025******-****",
+#   "model": "doubao-seedance-1-5-pro-251215",
+#   "status": "succeeded",
+#   "content": {
+# #     "video_url": "https://ark-content-generation-cn-beijing.tos-cn-beijing.volces.com/xxx "
+# #   },
+#   "usage": {
+#     "completion_tokens": 108900,
+#     "total_tokens": 108900
+#   },
+#   "created_at": 1743414619,
+#   "updated_at": 1743414673,
+#   "seed": 10,
+#   "resolution": "720p",
+#   "ratio": "16:9",
+#   "duration": 5,
+#   "framespersecond": 24,
+#   "service_tier":"default",
+#   "execution_expires_after":172800,
+#   "generate_audio":true,
+#   "draft":false
+# }
+class VolcVideoResponse(BaseModel):
+    """火山引擎视频生成API响应模型"""
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    model: Optional[str] = "doubao-seedance-2-0-260128"
+    status: Optional[Union[str, Literal["succeeded", "failed", "queued", "running"]]] = "running"
+    content: dict = {}
+    usage: Optional[dict] = None
+
+    # 时间戳字段（Unix时间戳）
+    created_at: int = Field(default_factory=lambda: int(time.time()) - 300)
+    updated_at: int = Field(default_factory=lambda: int(time.time()))
+
+    # 生成参数
+    resolution: Optional[str] = None
+    ratio: Optional[str] = None
+    duration: Optional[int] = 15
+
+    framespersecond: int = 24
+    seed: int = -1
+
+    # 配置字段
+    service_tier: str = "default"
+    execution_expires_after: int = 172800
+    generate_audio: bool = True
+    draft: bool = False
+
+
 if __name__ == '__main__':
     # print(LipsyncVideoRequest())
 
@@ -281,4 +333,3 @@ if __name__ == '__main__':
     # })
     #
     # print(_)
-

@@ -1,13 +1,12 @@
 Metadata-Version: 2.4
 Name: signalrcore
-Version: 0.9.71
-Summary: A Python SignalR Core client(json and messagepack),with invocation auth and two way streaming.Compatible with azure / serverless functions.Also with automatic reconnect and manually reconnect.
+Version: 1.0.0
+Summary: Python SignalR Core full client (transports and encodings).Compatible with azure / serverless functions.Also with automatic reconnect and manually reconnect.
 Home-page: https://github.com/mandrewcito/signalrcore
 Author: mandrewcito
 Author-email: signalrcore@mandrewcito.dev
-Keywords: signalr core client 3.1
+Keywords: signalr core client 3.1+
 Classifier: Programming Language :: Python :: 3.8
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -18,6 +17,7 @@ Requires-Dist: flake8; extra == "dev"
 Requires-Dist: coverage; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: build; extra == "dev"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -30,6 +30,10 @@ Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: summary
 
+
+![logo alt](https://raw.githubusercontent.com/mandrewcito/signalrcore/master/docs/img/logo_temp.128.svg.png)
+
+
 # SignalR core client
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg?logo=paypal&style=flat-square)](https://www.paypal.me/mandrewcito/1)
 ![Pypi](https://img.shields.io/pypi/v/signalrcore.svg)
@@ -39,8 +43,27 @@ Dynamic: summary
 ![Open issues](https://img.shields.io/github/issues-raw/mandrewcito/signalrcore.svg)
 ![codecov.io](https://codecov.io/github/mandrewcito/signalrcore/coverage.svg?branch=master)
 
-![logo alt](https://raw.githubusercontent.com/mandrewcito/signalrcore/master/docs/img/logo_temp.128.svg.png)
+Python signalr core client library, made by a guy born in Vilalba (Lugo).
 
+## About V1.0.0 (aka poluca)  
+
+Feature list:
+* All kind of communications with the server (streaming, sending messages)
+* All transports implemented (sse, long polling and web sockets)
+* All encodings (text, binary - msgpack)
+* Authentication
+* Automatic reconnection with different strategies 
+* Custom ssl context passthrough ([see certificates article](https://github.com/mandrewcito/signalrcore/blob/main/docs/articles/CustomClientCert.md))
+* AsyncIO minimal implementation (will be improved on following versions)
+* ... 
+
+## Upcoming changes
+
+* AsyncIO transport layer and callbacks
+* Test suite, divide test into integration and unit. Making stubs of clients which enable testing without server
+  * Managed solution azure server. For testing purposes only (PRs targeting main branch)
+* Ack/Sequence implementation
+* ...
 
 # Links 
 
@@ -50,19 +73,35 @@ Dynamic: summary
 
 * [Wiki - This Doc](https://mandrewcito.github.io/signalrcore/)
 
-# Develop
+* [Aspnetcore SignalR docs](https://github.com/dotnet/aspnetcore/tree/main/src/SignalR/docs)
 
-Test server will be available in [here](https://github.com/mandrewcito/signalrcore-containertestservers) and docker compose is required.
+# Development
+Software requirements:
+> - python > 3.8
+> - virtualenv
+> - pip
+> - docker
+> - docker compose
+> 
+> Test environment has as a requirement a signalr core server, is available in [here](https://github.com/mandrewcito/signalrcore-containertestservers)
+
+Clone repos and install virtual environment:
 
 ```bash
+git clone https://github.com/mandrewcito/signalrcore-containertestservers
+cd signalrcore
+make dev-install
 git clone https://github.com/mandrewcito/signalrcore-containertestservers
 cd signalrcore-containertestservers
 docker compose up
 cd ../signalrcore
-make tests
+make pytest-cov
 ```
+Have fun :)
 
 # A Tiny How To
+
+You can reach a lot of examples in *tests* folder, raw implementations in *playground* and fully working examples at the *examples* folder.
 
 ## Connect to a server without auth
 
@@ -140,8 +179,9 @@ hub_connection = HubConnectionBuilder()\
     .configure_logging(logging.DEBUG, socket_trace=True, handler=handler)
     ...
  ```
+ 
 ## Configuring reconnection
-After reaching max_attempts an exeption will be thrown and on_disconnect event will be fired.
+After reaching max_attempts an exception will be thrown and on_disconnect event will be fired.
 ```python
 hub_connection = HubConnectionBuilder()\
     .with_url(server_url)\
@@ -160,15 +200,17 @@ hub_connection = HubConnectionBuilder()\
             ...
             .build()
 ```
+
 ## Configuring additional querystring parameters
 ```python
-server_url ="http.... /?myquerystringparam=134&foo=bar"
+server_url ="http.... /?myQueryStringParam=134&foo=bar"
 connection = HubConnectionBuilder()\
             .with_url(server_url,
             options={
             })\
             .build()
 ```
+
 ## Configuring skip negotiation
 ```python
 hub_connection = HubConnectionBuilder() \
@@ -182,6 +224,7 @@ hub_connection = HubConnectionBuilder() \
         .build()
 
 ```
+
 ## Configuring ping(keep alive)
 
 keep_alive_interval sets the seconds of ping message
@@ -197,6 +240,7 @@ hub_connection = HubConnectionBuilder()\
         "max_attempts": 5
     }).build()
 ```
+
 ## Configuring logging
 ```python
 hub_connection = HubConnectionBuilder()\
@@ -221,6 +265,66 @@ HubConnectionBuilder()\
             .with_hub_protocol(MessagePackHubProtocol())\
                 ...
             .build()
+```
+## Configure custom ssl context
+You can add a custom ssl context to all requests and sockets
+
+```python
+MY_CA_FILE_PATH = "ca.crt"
+context = ssl.create_default_context(
+    cafile=MY_CA_FILE_PATH
+)
+
+options = {
+    "ssl_context": context
+}
+
+builder = HubConnectionBuilder()\
+    .with_url(self.server_url, options=options)\
+    .configure_logging(
+        logging.INFO,
+        socket_trace=True)
+ 
+connection = builder.build()
+``` 
+
+More info about certificates [here](https://github.com/mandrewcito/signalrcore/blob/main/docs/articles/CustomClientCert.md)
+
+### Websockets
+
+Will be used as transport layer by default, you do not need to specify it.
+
+```python
+HubConnectionBuilder()\
+    .with_url(server_http_url, options={
+        ...
+        "transport": HttpTransportType.web_sockets
+        })\
+    .configure_logging(logging.ERROR)\
+    .build()
+```
+
+### Server sent events
+
+```python
+HubConnectionBuilder()\
+    .with_url(server_http_url, options={
+        ...
+        "transport": HttpTransportType.server_sent_events
+        })\
+    .configure_logging(logging.ERROR)\
+    .build()
+```
+### Long polling
+
+```python
+HubConnectionBuilder()\
+    .with_url(server_http_url, options={
+        ...
+        "transport": HttpTransportType.long_polling
+        })\
+    .configure_logging(logging.ERROR)\
+    .build()
 ```
 ## Events
 
@@ -289,9 +393,38 @@ subject.next(str(iteration))
 subject.complete()
 ```
 
+# AIO
+
+## Create connection
+
+```python
+from signalrcore.aio.aio_hub_connection_builder import AIOHubConnectionBuilder
+
+builder = AIOHubConnectionBuilder()\
+    .with_url(self.server_url, options=options)\
+    .configure_logging(
+        self.get_log_level(),
+        socket_trace=self.is_debug())\
+    .with_automatic_reconnect({
+        "type": "raw",
+        "keep_alive_interval": 10,
+        "reconnect_interval": 5,
+        "max_attempts": 5
+    })
+
+hub = builder.build()
+
+await hub.start()
+
+await connection.send("SendMessage", [username, message])
+
+await connection.stop()
+
+```
+
 # Full Examples
 
-Examples will be avaiable [here](https://github.com/mandrewcito/signalrcore/tree/master/test/examples)
+Examples will be available [here](https://github.com/mandrewcito/signalrcore/tree/master/test/examples)
 It were developed using package from [aspnet core - SignalRChat](https://codeload.github.com/aspnet/Docs/zip/master) 
 
 ## Chat example

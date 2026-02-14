@@ -373,12 +373,12 @@ if __name__ == "__main__":
              "content": "无人机以极快速度穿越复杂障碍或自然奇观，带来沉浸式飞行体验  --resolution 1080p  --duration 5 --camerafixed false"}
         ],
     )
-    request = VideoRequest(
-        model="doubao-seedance-1-0-pro-250528",
-        prompt="无人机以极快速度穿越复杂障碍或自然奇观，带来沉浸式飞行体验",
-        duration=10
-    )
-    # r = arun(create_task(request, api_key))
+    # request = VideoRequest(
+    #     model="doubao-seedance-1-0-pro-250528",
+    #     prompt="无人机以极快速度穿越复杂障碍或自然奇观，带来沉浸式飞行体验",
+    #     duration=10
+    # )
+    r = arun(create_task(request, api_key))
     # r = {'id': 'cgt-20250612172542-6nbt2'}
 
     # arun(get_task(r.get('id')))
@@ -387,17 +387,17 @@ if __name__ == "__main__":
 
     # arun(get_task("cgt-20250707160713-j8kll"))
 
-    tokens = arun(polling_keys('', channel_id=21452))
-
-    tokens = list(set(tokens)) + ['68b877dc-a337-4a20-9091-738bb0fcd79c'] + ["f8bf3116-d644-465a-b2e0-cad74469cf0b"]
-
-    from meutils.apis.oneapi.tasks import get_tasks
-
-    ids = arun(get_tasks(return_ids=True))
-
-    # ids = ['cgt-20260126144127-hghhr']
-
-    arun(get_task_from_feishu(ids, tokens))
+    # tokens = arun(polling_keys('', channel_id=21452))
+    #
+    # tokens = list(set(tokens)) + ['68b877dc-a337-4a20-9091-738bb0fcd79c'] + ["f8bf3116-d644-465a-b2e0-cad74469cf0b"]
+    #
+    # from meutils.apis.oneapi.tasks import get_tasks
+    #
+    # ids = arun(get_tasks(return_ids=True))
+    #
+    # # ids = ['cgt-20260126144127-hghhr']
+    #
+    # arun(get_task_from_feishu(ids, tokens))
 
     # arun(get_valid_token())
 

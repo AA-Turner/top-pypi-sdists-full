@@ -1,8 +1,9 @@
 """Models and base API"""
 
 import operator
+import warnings
 from contextlib import suppress
-from functools import reduce
+from functools import cache, reduce
 
 from django.db import models, transaction
 from django.db.models import Q
@@ -13,7 +14,9 @@ from treebeard.exceptions import InvalidPosition, MissingNodeOrderBy
 class Node(models.Model):
     """Node class"""
 
-    _db_connection = None
+    # Subclasses must override this to provide the name of a field
+    # that identifies the model.
+    TREEBEARD_IDENTIFYING_FIELD = None
     _cached_attributes = ()
 
     @classmethod
@@ -530,9 +533,27 @@ class Node(models.Model):
 
         fields, filters = [], []
         for field in self.node_order_by:
+            comparator = "gt"
+            if field.startswith("-"):
+                field = field[1:]
+                comparator = "lt"
+
             value = getattr(newobj, field)
-            filters.append(Q(*[Q(**{f: v}) for f, v in fields] + [Q(**{"%s__gt" % field: value})]))
+            if value is None:
+                warnings.warn(
+                    f"Received a null value for field '{field}', which is used "
+                    f"by '{self.__class__.__name__}.node_order_by'. "
+                    "This field will be ignored when sorting the object.",
+                    category=RuntimeWarning,
+                )
+                continue
+
+            filters.append(Q(*[Q(**{f: v}) for f, v in fields] + [Q(**{f"{field}__{comparator}": value})]))
             fields.append((field, value))
+
+        if not filters:
+            return siblings
+
         return siblings.filter(reduce(operator.or_, filters))
 
     def _clear_cached_attributes(self):
@@ -596,44 +617,31 @@ class Node(models.Model):
         return cls.get_annotated_list_qs(qs)
 
     @classmethod
-    def _get_serializable_model(cls):
+    @cache
+    def tree_model(cls):
         """
-        Returns a model with a valid _meta.local_fields (serializable).
+        Determine what class we should use for the
+        nodes returned by its tree methods (such as get_children).
 
-        Basically, this means the original model, not a proxied model.
+        Usually this will be trivially the same as the initial model class,
+        but there are special cases when model inheritance is in use:
 
-        (this is a workaround for a bug in django)
+        * If the model extends another via multi-table inheritance, we need to
+        use whichever ancestor originally implemented the tree behaviour (i.e.
+        the one which defines the fields used by Treebeard). We can't use the
+        subclass, because it's not guaranteed that the other nodes reachable
+        from the current one will be instances of the same subclass.
+
+        * If the model is a proxy model, the returned nodes should also use
+        the proxy class.
         """
-        current_class = cls
-        while current_class._meta.proxy:
-            current_class = current_class._meta.proxy_for_model
-        return current_class
+        base_class = cls._meta.get_field(cls.TREEBEARD_IDENTIFYING_FIELD).model
+        if cls._meta.proxy_for_model == base_class:
+            return cls
+
+        return base_class
 
     class Meta:
         """Abstract model."""
 
         abstract = True
-
-
-def get_result_class_base(cls, identifying_field: str):
-    """
-    For the given model class, determine what class we should use for the
-    nodes returned by its tree methods (such as get_children).
-
-    Usually this will be trivially the same as the initial model class,
-    but there are special cases when model inheritance is in use:
-
-    * If the model extends another via multi-table inheritance, we need to
-      use whichever ancestor originally implemented the tree behaviour (i.e.
-      the one which defines the 'path' field). We can't use the
-      subclass, because it's not guaranteed that the other nodes reachable
-      from the current one will be instances of the same subclass.
-
-    * If the model is a proxy model, the returned nodes should also use
-      the proxy class.
-    """
-    base_class = cls._meta.get_field(identifying_field).model
-    if cls._meta.proxy_for_model == base_class:
-        return cls
-
-    return base_class

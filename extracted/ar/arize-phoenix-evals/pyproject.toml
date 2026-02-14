@@ -22,7 +22,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
 ]
-version = "2.9.0"
+version = "2.10.0"
 dependencies = [
   "pandas",
   "tqdm",
@@ -59,7 +59,7 @@ test = [
   "nest_asyncio",
   "pandas-stubs==2.0.3.230814",
   "types-tqdm",
-  "lameenc"
+  "lameenc",
 ]
 
 [project.urls]

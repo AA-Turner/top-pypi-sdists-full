@@ -28,6 +28,7 @@ __copyright__ = "Copyright (c) 2008-2024 Hive Solutions Lda."
 __license__ = "Apache License, Version 2.0"
 """ The license for the module """
 
+from . import mixin
 from . import legacy
 from . import request
 from . import observer
@@ -35,12 +36,18 @@ from . import observer
 
 class Protocol(observer.Observable):
     """
-    Abstract class from which concrete implementation of
-    protocol logic should be inherited.
+    Abstract base for protocol implementations, providing
+    an interface that is API-compatible with asyncio's
+    `Protocol` class.
 
-    The logic of a protocol should implement both a reaction
-    to the arrival of information (receive) and the sending
-    of processed data (send).
+    Manages the lifecycle of a connection through the
+    standard `connection_made` and `connection_lost` callbacks
+    and provides flow control via `pause_writing` and
+    `resume_writing`.
+
+    Concrete subclasses should override data handling
+    methods (eg `data_received`, `datagram_received`)
+    to implement their specific protocol logic.
     """
 
     def __init__(self, owner=None):
@@ -74,10 +81,22 @@ class Protocol(observer.Observable):
             return
 
         # calls the concrete implementation of the close operation
-        # allowing an extra level of indirection
+        # allowing an extra level of indirection, allowing subclasses
+        # to implement custom close behavior
         self.close_c()
 
+        # triggers the close event before the delayed finish
+        # operation runs, this is critical because when _loop
+        # is None the delay call executes finish() synchronously
+        # which destroys all event bindings via unbind_all(),
+        # the event must fire while handlers are still bound
         self.trigger("close", self)
+
+        # delays the execution of the finish (cleanup) operation
+        # so that all the pending operations from the close
+        # can be executed in the meantime, ensuring a proper,
+        # secure and clean execution of the finish method
+        self.delay(self.finish)
 
     def finish(self):
         # in case the current protocol is already (completely) closed
@@ -115,12 +134,6 @@ class Protocol(observer.Observable):
         # this operation is only considered to be safely completed
         # on the next tick of the event loop
         self._close_transport()
-
-        # delays the execution of the finish (cleanup) operation
-        # so that all the pending operations from the close transport
-        # call can be executed in the meantime, ensuring a proper,
-        # secure and clean execution of the finish method
-        self.delay(self.finish)
 
     def finish_c(self):
         del self._delayed[:]
@@ -280,6 +293,16 @@ class Protocol(observer.Observable):
 
 
 class DatagramProtocol(Protocol):
+    """
+    Protocol for connectionless datagram-based communication
+    (eg UDP), API-compatible with asyncio's
+    `DatagramProtocol`.
+
+    Incoming data arrives through `datagram_received`
+    and outgoing data is sent via `send`. Maintains a
+    request queue for correlating responses to pending
+    requests using their identifiers.
+    """
 
     def __init__(self):
         Protocol.__init__(self)
@@ -303,6 +326,17 @@ class DatagramProtocol(Protocol):
         # so that its format is compliant with what's expected by
         # the underlying transport send to operation
         data = legacy.bytes(data)
+
+        # in case the protocol is already closed or closing the send
+        # operation is silently ignored to avoid writing to a dead transport
+        if self.is_closed_or_closing():
+            return 0
+
+        # in case the transport has not yet been set (connection still
+        # being established) the data is buffered and will be flushed
+        # once `connection_made()` fires
+        if not self._transport:
+            return self._delay_send(data, address=address, callback=callback)
 
         # in case the current transport buffers do not allow writing
         # (paused mode) the writing of the data is delayed until the
@@ -348,7 +382,29 @@ class DatagramProtocol(Protocol):
         return self.requests_m.get(id, None)
 
 
-class StreamProtocol(Protocol):
+class StreamProtocol(Protocol, mixin.ConnectionCompat):
+    """
+    Protocol for stream-based (TCP) communication, providing
+    an interface compatible with asyncio's `Protocol` class.
+
+    Incoming bytes arrive through `data_received` and
+    outgoing data is written via `send`. Backward
+    compatibility with the `Connection` interface is
+    provided by the `ConnectionCompat` mixin.
+    """
+
+    def connection_made(self, transport):
+        Protocol.connection_made(self, transport)
+
+        # propagates any pending limit values that were set before the
+        # connection was established, this is required for container
+        # proxy scenarios where limits are set right after connect()
+        connection = self.connection
+        if connection:
+            if hasattr(self, "_max_pending"):
+                connection.max_pending = self._max_pending
+            if hasattr(self, "_min_pending"):
+                connection.min_pending = self._min_pending
 
     def data_received(self, data):
         self.on_data(data)
@@ -364,6 +420,19 @@ class StreamProtocol(Protocol):
         # so that its format is compliant with what's expected by
         # the underlying transport write operation
         data = legacy.bytes(data)
+
+        # in case the transport has been unset (connection closed or
+        # closing) the send operation is silently ignored
+        if self.is_closed_or_closing():
+            return 0
+
+        # in case the transport has not yet been set (connection still
+        # being established) the data is buffered and will be flushed
+        # once `connection_made()` fires, this is critical for proxy
+        # scenarios where body data may arrive before the backend
+        # connection is fully established
+        if not self._transport:
+            return self._delay_send(data, callback=callback)
 
         # in case the current transport buffers do not allow writing
         # (paused mode) the writing of the data is delayed until the
@@ -389,3 +458,30 @@ class StreamProtocol(Protocol):
         # returns the size (in bytes) of the data that has just been
         # explicitly sent through the associated transport
         return len(data)
+
+    @property
+    def connection(self):
+        """
+        Returns the underlying connection for backward compatibility
+        with code that expects a Connection object (eg proxy servers).
+
+        :rtype: Connection
+        :return: The underlying connection object associated with
+        the transport, or None if no transport is set or does not
+        expose a connection object.
+        """
+
+        # in case there's no transport associated with the current protocol
+        # it's not possible to retrieve the connection object so None is
+        # returned to indicate the absence of a connection
+        if not self._transport:
+            return None
+
+        # in asyncio compat mode the transport may be an asyncio transport
+        # instance, which does not expose the private `_connection`
+        # attribute, guard access to avoid AttributeError while keeping
+        # backward compatibility for custom transports that do define it.
+        if not hasattr(self._transport, "_connection"):
+            return None
+
+        return self._transport._connection

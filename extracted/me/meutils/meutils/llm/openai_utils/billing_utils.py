@@ -275,7 +275,7 @@ if __name__ == '__main__':
     # model = "doubao-seedance-1-0-pro-250528_10s_1080p"
     model = "minimax-hailuo-02_6s_1080p"
     # model = "flux-kontext-pro"
-    arun(billing_for_async_task(model, task_id=model))
+    # arun(billing_for_async_task(model, task_id=model))
 
     data = {
         "video_url": "https://storage.googleapis.com/falserverless/example_inputs/wan_animate_input_video.mp4",
@@ -345,11 +345,11 @@ if __name__ == '__main__':
     # "model": "doubao-seedance-1-0-lite-i2v-250428",
 
     data = {
-        "model": "doubao-seedance-1-5-pro-251215",
+        "model": "doubao-seedance-2-0-260128",
 
         "content": [
             {
-                "text": "男人背过身，抬头看到红布条 --rs 1080p --dur 5 --cf false --seed -1 --wm false --rt 9:16",
+                "text": "男人背过身，抬头看到红布条 ",
                 "type": "text"
             },
             {
@@ -361,9 +361,9 @@ if __name__ == '__main__':
             }
         ]
         ,
-        "duration": 5,
+        # "duration": 5,
         "created_at": 1761633057,
-        "resolution": "1080p",
+        # "resolution": "1080p",
         "updated_at": 1761633094,
         "framespersecond": 24
     }
@@ -401,3 +401,9 @@ if __name__ == '__main__':
     #     "enhance_prompt": True
     # }
     # print(get_billing_model(data, default_resolution=""))
+
+
+    {
+        f"doubao-seedance-2-0_{i}s_720p": 0.3 * i
+    for i in range(4, 16)
+    }

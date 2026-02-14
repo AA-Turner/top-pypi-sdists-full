@@ -54,8 +54,8 @@ async def parse_token(token: str) -> Optional[str]:
         tokens = await get_series(feishu_url, duplicated=True)
         token = '\n'.join(tokens)  # 多渠道
 
-    elif ',' in token:  # 内存里随机轮询
-        token = np.random.choice(token.split(','))
+    # elif ',' in token:  # 内存里随机轮询
+    #     token = np.random.choice(token.split(','))
 
     elif token in {"None", "none", "null"}:
         token = None

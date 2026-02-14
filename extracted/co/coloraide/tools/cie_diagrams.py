@@ -14,7 +14,6 @@ try:
     from coloraide_extras.everything import ColorAll
 except ImportError:
     from coloraide.everything import ColorAll
-from coloraide import util  # noqa: E402
 from coloraide.cat import WHITES  # noqa: E402
 from coloraide import algebra as alg  # noqa: E402
 from coloraide.temperature import ohno_2013  # noqa: E402
@@ -97,24 +96,8 @@ class SpectralLocus:
     ) -> None:
         """Initialize."""
 
-        self.spline = alg.interpolate([*zip(x, y)], method='catrom')
+        self.spline = alg.interpolate([*zip(x, y)], domain=domain, method='catrom')
         self.domain = domain
-
-    def scale(self, point):
-        """Scale the temperature point to match the range 0 - 1."""
-
-        # Extrapolation
-        if point <= self.domain[0]:
-            point = (point - self.domain[0]) / (self.domain[-1] - self.domain[0])
-        elif point >= self.domain[-1]:
-            point = 1.0 + (point - self.domain[-1]) / (self.domain[-1] - self.domain[0])
-
-        # Interpolation
-        else:
-            a, b = self.domain[0], self.domain[len(self.domain) - 1]
-            l = b - a
-            point = ((point - a) / l) if l else 0.0
-        return point
 
     def steps(self, steps):
         """Get steps."""
@@ -124,7 +107,7 @@ class SpectralLocus:
     def __call__(self, wave):
         """Get the uv for the given temp."""
 
-        return self.spline(self.scale(wave))
+        return self.spline(wave)
 
 
 def get_spline(x, y, steps=100):
@@ -148,16 +131,26 @@ def convert_chromaticity(xy, opt):
     return color[opt.viewed_chromaticity_names[0]], color[opt.viewed_chromaticity_names[1]]
 
 
-def get_spectral_locus_labels(locus, waves, distance, opt):
+def get_spectral_locus_labels(opt):
     """Get the spectral locus wavelength labels."""
 
+    distance = opt.label_distance
     standard = opt.viewed_chromaticity == opt.chromaticity
 
     annotations = []
-    for wave in sorted(waves):
-        x, y = convert_chromaticity(locus(wave), opt)
-        x1, y1 = convert_chromaticity(locus(wave - 0.05), opt)
-        x2, y2 = convert_chromaticity(locus(wave + 0.05), opt)
+    for wave in sorted(opt.spectral_locus_labels):
+        x, y = convert_chromaticity(
+            ColorAll.convert_chromaticity('xy-1931', opt.chromaticity, opt.observer.xy(wave))[:-1],
+            opt
+        )
+        x1, y1 = convert_chromaticity(
+            ColorAll.convert_chromaticity('xy-1931', opt.chromaticity, opt.observer.xy(wave - 0.05))[:-1],
+            opt
+        )
+        x2, y2 = convert_chromaticity(
+            ColorAll.convert_chromaticity('xy-1931', opt.chromaticity, opt.observer.xy(wave + 0.05))[:-1],
+            opt
+        )
 
         d1 = math.sqrt((x - x1) ** 2 + (y - y1) ** 2)
         d2 = math.sqrt((x2 - x) ** 2 + (y2 - y) ** 2)
@@ -251,17 +244,11 @@ class DiagramOptions:
     - Handle some diagram colors specific to themes.
     """
 
-    def __init__(self, mode="1931", observer='2deg', title=""):
+    def __init__(self, mode="1931", title=""):
         """Initialize."""
 
         self.observer = cmfs.CIE_1931_2DEG
         self.white = ALL_WHITES['2deg']['D65']
-        if observer == '10deg':
-            self.white = ALL_WHITES['10deg']['D65']
-            self.observer = cmfs.CIE_1964_10DEG
-            self.axis_labels = ('CIE u', 'CIE v')
-        elif observer != '2deg':
-            raise ValueError(f"Unrecognized 'observer': {observer}")
 
         self.viewed_chromaticity = None
         if mode not in ('1931', '1960', '1976'):
@@ -284,34 +271,22 @@ class DiagramOptions:
         if mode == "1931":
             self.spectral_locus_labels = labels_1931
             self.axis_labels = ('CIE x', 'CIE y')
-            if observer == '2deg':
-                self.title = "CIE 1931 Chromaticy Diagram - 2˚ Degree Standard Observer"
-            else:
-                self.title = "CIE 1931 Chromaticy Diagram - 10˚ Degree Standard Observer"
+            self.title = "CIE 1931 Chromaticy Diagram - 2˚ Degree Standard Observer"
             self.label_distance = 0.04
         elif mode == "1976":
             self.spectral_locus_labels = labels_1960
             self.axis_labels = ("CIE u'", "CIE v'")
-            if observer == '2deg':
-                self.title = "CIE 1976 UCS Chromaticity Diagram - 2˚ Degree Standard Observer"
-            else:
-                self.title = "CIE 1976 UCS Chromaticity Diagram - 10˚ Degree Standard Observer"
+            self.title = "CIE 1976 UCS Chromaticity Diagram - 2˚ Degree Standard Observer"
             self.label_distance = 0.03
         elif mode == '1960':
             self.spectral_locus_labels = labels_1960
             self.axis_labels = ('CIE u', 'CIE v')
-            if observer == '2deg':
-                self.title = "CIE 1960 UCS Chromaticity Diagram - 2˚ Degree Standard Observer"
-            else:
-                self.title = "CIE 1960 UCS Chromaticity Diagram - 10˚ Degree Standard Observer"
+            self.title = "CIE 1960 UCS Chromaticity Diagram - 2˚ Degree Standard Observer"
             self.label_distance = 0.02
         else:
             self.spectral_locus_labels = labels_1960
             self.axis_labels = self.viewed_chromaticity_names
-            if observer == '2deg':
-                self.title = f"CIE {mode} Chromaticity Diagram - 2˚ Degree Standard Observer"
-            else:
-                self.title = f"CIE {mode} Diagram - 10˚ Degree Standard Observer"
+            self.title = f"CIE {mode} Chromaticity Diagram - 2˚ Degree Standard Observer"
             self.label_distance = 0.05
 
         self.cct = 'ohno-2013'
@@ -327,14 +302,14 @@ class DiagramOptions:
 
 
 def cie_diagram(
-    mode="1931", observer="2deg", colorize=True, opacity=1, rgb_spaces=None,
-    white_points=None, title='', show_labels=True, axis=True,
-    show_legend=True, overlay_legend=True, black_body=False, isotherms=False, cct=None, pointer=False,
-    macadam_limits=False, height=600, width=800
+    mode="1931", colorize=True, opacity=1, rgb_spaces=None, white_points=None,
+    title='', label_opacity=True, axis=True, show_legend=True, overlay_legend=True,
+    black_body=False, isotherms=False, cct=None, pointer=False, macadam_limits=False,
+    estimate_wavelength=None, wavelength_whitepoint=None, wavelength=None, height=600, width=800
 ):
     """CIE diagram."""
 
-    opt = DiagramOptions(mode=mode, observer=observer, title=title)
+    opt = DiagramOptions(mode=mode, title=title)
 
     fig = go.Figure(
         layout={
@@ -357,22 +332,16 @@ def cie_diagram(
 
     xs = []
     ys = []
-    wavelength = []
     annotations = []
 
     # Get points for the spectral locus
-    for k, v in opt.observer.items():
-        if 360 <= k <= 780:
-            # Get the XYZ values in the correct format
-            xy = util.xyz_to_xyY(v)[:-1]
-            wavelength.append(k)
-            x, y = Color.convert_chromaticity('xy-1931', opt.chromaticity, xy)[:-1]
-            xs.append(x)
-            ys.append(y)
+    for r in alg.linspace(360, 780, int(len(opt.observer) * 1.5)):
+        xy = opt.observer.xy(r)
+        x, y = Color.convert_chromaticity('xy-1931', opt.chromaticity, xy)[:-1]
+        xs.append(x)
+        ys.append(y)
 
-    spectral_locus = SpectralLocus(xs, ys, wavelength)
-    annotations = get_spectral_locus_labels(spectral_locus, opt.spectral_locus_labels, opt.label_distance, opt)
-    xs, ys = spectral_locus.steps(int(len(xs) * 1.5))
+    annotations = get_spectral_locus_labels(opt)
 
     # Draw the bottom purple line
     interp = alg.interpolate([[xs[-1], ys[-1]], [xs[0], ys[0]]])
@@ -568,16 +537,17 @@ def cie_diagram(
     for i in range(len(xs)):
         xs[i], ys[i] = convert_chromaticity((xs[i], ys[i]), opt)
 
+    # Spectral Locus
     fig.add_traces(data=go.Scatter(
         x=xs,
         y=ys,
         mode='lines',
         line={'color': opt.locus_line_color if colorize else opt.default_color, 'width': 2},
         showlegend=False,
-        opacity=0.5
+        opacity=0.2
     ))
 
-    if show_labels:
+    if label_opacity > 0:
         # Label points
         lx = []
         ly = []
@@ -593,7 +563,7 @@ def cie_diagram(
                 standoff=0,
                 showarrow=False,
                 align='center',
-                opacity=0.75
+                opacity=label_opacity
             )
 
         fig.add_traces(data=go.Scatter(
@@ -605,7 +575,7 @@ def cie_diagram(
                 'size': 6,
                 'symbol': 'circle'
             },
-            opacity=0.75,
+            opacity=label_opacity,
             showlegend=False
         ))
 
@@ -636,7 +606,7 @@ def cie_diagram(
         wy = []
         annot = []
         for wp in white_points:
-            w = ALL_WHITES[observer][wp]
+            w = ALL_WHITES['2deg'][wp]
             annot.append(wp)
             xy = convert_chromaticity(Color.convert_chromaticity('xy-1931', opt.chromaticity, w)[:-1], opt)
             wx.append(xy[0])
@@ -666,6 +636,63 @@ def cie_diagram(
                 align="center",
                 opacity=0.75
             )
+
+    # Estimate wavelengths.
+    if wavelength:
+        if not estimate_wavelength:
+            estimate_wavelength = []
+        for w in wavelength:
+            estimate_wavelength.append(float(w))
+    if estimate_wavelength:
+        for c in estimate_wavelength:
+            x = []
+            y = []
+            is_wavelength = isinstance(c, float)
+            color = Color(c) if not is_wavelength else Color.from_wavelength('xyy', c, scale=False)
+            if wavelength_whitepoint:
+                w = WHITES['2deg'][wavelength_whitepoint]
+            else:
+                w = color._space.WHITE
+            wlabel = str(w)
+            for k, v in WHITES['2deg'].items():
+                if w == v:
+                    wlabel = k
+                    break
+            dwl = color.wavelength(white=w)
+            cwl = color.wavelength(white=w, complementary=True)
+            if not math.isnan(dwl[1][0]):
+                bu0, bv0 = color.split_chromaticity(opt.chromaticity, white=opt.white)[:-1]
+                bu1, bv1 = convert_chromaticity(dwl[1], opt)
+                bu2, bv2 = convert_chromaticity(w, opt)
+                bu3, bv3 = convert_chromaticity(cwl[1], opt)
+                x = [bu1, bu0, bu2, bu3] if not is_wavelength else [bu1, bu2, bu3]
+                y = [bv1, bv0, bv2, bv3] if not is_wavelength else [bv1, bv2, bv3]
+                fig.add_traces(data=go.Scatter(
+                    x=x,
+                    y=y,
+                    mode='lines+markers',
+                    marker={
+                        'color': opt.default_colorized_color if colorize else opt.default_color,
+                        'size': 6,
+                        'symbol': 'circle'
+                    },
+                    opacity=0.5,
+                    showlegend=False
+                ))
+                if not is_wavelength:
+                    labels = [f'Dominant ({dwl[0]})', '', wlabel, 'Complementary']
+                else:
+                    labels = [f'Dominant ({dwl[0]})', wlabel, 'Complementary']
+                for _x, _y, _l in zip(x, y, labels):
+                    fig.add_annotation(
+                        text=_l,
+                        x=_x,
+                        y=_y,
+                        font={'size': 14},
+                        showarrow=False,
+                        opacity=0.75,
+                        yshift=14
+                    )
 
     # Add any specified CCT points.
     if cct:
@@ -779,7 +806,6 @@ def main():
 
     parser = argparse.ArgumentParser(prog='diagrams', description='Generate CIE Chromaticity diagrams.')
     parser.add_argument('--diagram', '-d', default='1931', help='Diagram to generate.')
-    parser.add_argument('--cmfs', '-c', default="2deg", help="CMFS to use, e.g., '2deg' (default) or '10deg'.")
     parser.add_argument('--white-point', '-w', action='append', help="A white point to plot.")
     parser.add_argument('--cct', '-C', action='append', help="A point specified by 'CCT:Duv'.")
     parser.add_argument(
@@ -792,11 +818,23 @@ def main():
         help="Show MacAdam limits, relative to D65, by specifying an L* value and a color for the boundary '30:color'. "
              "'max' can be used show the entire visible spectrum 'max:color'."
     )
+    parser.add_argument(
+        '--estimate-wavelength', '-e', action='append',
+        help="Estimate the wavelength of a color and draw the dominant and complementary points."
+    )
+    parser.add_argument(
+        '--wavelength-whitepoint', '-E',
+        help="Provide a specific white point to estimate wavelengths from."
+    )
+    parser.add_argument(
+        '--wavelength', action='append',
+        help="Provide a specific wavelength and convert it to a color and plot the complementary."
+    )
     parser.add_argument('--rgb', '-r', action='append', help="An RGB space to show on diagram: 'space:color'.")
     parser.add_argument('--title', '-t', default='', help="Override title with your own.")
     parser.add_argument('--no-axis', '-x', action="store_true", help="Disable display axis.")
     parser.add_argument('--no-legend', '-g', action="store_true", help="Disable legend.")
-    parser.add_argument('--no-labels', '-l', action='store_true', help="Disable showing wavelength labels.")
+    parser.add_argument('--label-opacity', '-l', type=float, default=0.75, help="Control opacity of labels.")
     parser.add_argument('--no-background', '-b', action='store_true', help="Disable diagram color background.")
     parser.add_argument('--no-alpha', '-a', action='store_true', help="Disable diagram transparent background.")
     parser.add_argument('--black-body', '-k', action='store_true', help="Draw the black body curve (WIP).")
@@ -809,12 +847,11 @@ def main():
 
     fig = cie_diagram(
         mode=args.diagram,
-        observer=args.cmfs,
         white_points=args.white_point,
         rgb_spaces=[r.split(':') for r in args.rgb] if args.rgb is not None else None,
         colorize=not args.no_background,
         opacity=0.8 if not args.no_alpha else 1.0,
-        show_labels=not args.no_labels,
+        label_opacity=args.label_opacity,
         show_legend=not args.no_legend,
         overlay_legend=args.overlay_legend,
         axis=not args.no_axis,
@@ -824,6 +861,9 @@ def main():
         cct=args.cct,
         pointer=args.pointer,
         macadam_limits=args.macadam_limits,
+        estimate_wavelength=args.estimate_wavelength,
+        wavelength_whitepoint=args.wavelength_whitepoint,
+        wavelength=args.wavelength,
         height=args.height,
         width=args.width
     )

@@ -210,6 +210,7 @@ class ClusterKwargs(TypedDict, total=False):
     scheduler_sidecars: list[dict] | None
     worker_sidecars: list[dict] | None
     pause_on_exit: bool | None
+    skip_ssd_mount: bool | None
     filestores_to_attach: list[dict] | None
 
 
@@ -479,6 +480,8 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         Like ``scheduler_sidecars``, but run on worker VMs instead of scheduler.
     pause_on_exit
         Pause the cluster instead of shutting it down when exiting.
+    skip_ssd_mount
+        Don't automatically mount SSD/NVMe (if any) to ``/scratch``.
     filestores_to_attach
         List of filestores to attach (specified as ``{"id": id, "input": True, "output": True}``, not name).
     """
@@ -566,6 +569,7 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         scheduler_sidecars: list[dict] | None = None,
         worker_sidecars: list[dict] | None = None,
         pause_on_exit: bool | None = None,
+        skip_ssd_mount: bool | None = None,
         filestores_to_attach: list[dict] | None = None,
     ):
         self.pause_on_exit = pause_on_exit
@@ -866,6 +870,7 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         self._asynchronous = asynchronous
         self._is_coiled_hosted = False
         self.shutdown_on_close = shutdown_on_close
+        self.skip_ssd_mount = skip_ssd_mount
 
         self.environ = normalize_environ(environ)
         aws_default_region = self._get_aws_default_region()
@@ -1622,6 +1627,7 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
                     worker_sidecars=self.worker_sidecars,
                     host_setup_script_content=self.host_setup_script_content,
                     pause_on_exit=self.pause_on_exit,
+                    skip_ssd_mount=self.skip_ssd_mount,
                     filestores_to_attach=self.filestores_to_attach,
                     cluster_timeout_seconds=self.cluster_timeout_seconds,
                 )

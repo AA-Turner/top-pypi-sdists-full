@@ -1,11 +1,12 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: python-statemachine
-Version: 2.5.0
+Version: 2.6.0
 Summary: Python Finite State Machines made easy.
 Project-URL: homepage, https://github.com/fgmacedo/python-statemachine
 Author-email: Fernando Macedo <fgmacedo@gmail.com>
 Maintainer-email: Fernando Macedo <fgmacedo@gmail.com>
 License: MIT License
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: AsyncIO
 Classifier: Framework :: Django
@@ -19,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Home Automation
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.7
@@ -127,6 +129,8 @@ You can now create an instance:
 This state machine can be represented graphically as follows:
 
 ```py
+>>> # This example will only run on automated tests if dot is present
+>>> getfixture("requires_dot_installed")
 >>> img_path = "docs/images/readme_trafficlightmachine.png"
 >>> sm._graph().write_png(img_path)
 

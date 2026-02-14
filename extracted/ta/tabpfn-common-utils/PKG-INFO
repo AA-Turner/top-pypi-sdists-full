@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tabpfn-common-utils
-Version: 0.2.15
+Version: 0.2.16
 Summary: Utilities shared between TabPFN codebases
 Project-URL: Homepage, https://github.com/priorlabs/tabpfn_common_utils
 Project-URL: Issues, https://github.com/priorlabs/tabpfn_common_utils/issues
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 Requires-Dist: filelock>=3.19.1
 Requires-Dist: numpy>=1.21.6
+Requires-Dist: nvidia-ml-py>=13.590.48
 Requires-Dist: pandas<3,>=1.4.0
 Requires-Dist: platformdirs>=4
 Requires-Dist: posthog~=6.7

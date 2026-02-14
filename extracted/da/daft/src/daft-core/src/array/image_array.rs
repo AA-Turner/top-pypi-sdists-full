@@ -35,22 +35,6 @@ impl ImageArray {
         array.list().unwrap()
     }
 
-    pub fn channel_array(&self) -> &daft_arrow::array::UInt16Array {
-        self.channels().as_arrow2()
-    }
-
-    pub fn height_array(&self) -> &daft_arrow::array::UInt32Array {
-        self.heights().as_arrow2()
-    }
-
-    pub fn width_array(&self) -> &daft_arrow::array::UInt32Array {
-        self.widths().as_arrow2()
-    }
-
-    pub fn mode_array(&self) -> &daft_arrow::array::UInt8Array {
-        self.modes().as_arrow2()
-    }
-
     pub fn channels(&self) -> &DataArray<UInt16Type> {
         let array = self.physical.children.get(Self::IMAGE_CHANNEL_IDX).unwrap();
         array.u16().unwrap()
@@ -79,21 +63,17 @@ impl ImageArray {
     ) -> DaftResult<Self> {
         let values: Vec<Series> = vec![
             data_array.into_series().rename("data"),
-            UInt16Array::from_iter_values(sidecar_data.channels)
+            UInt16Array::from_values("channel", sidecar_data.channels)
                 .with_nulls(sidecar_data.nulls.clone())?
-                .rename("channel")
                 .into_series(),
-            UInt32Array::from_iter_values(sidecar_data.heights)
+            UInt32Array::from_values("height", sidecar_data.heights)
                 .with_nulls(sidecar_data.nulls.clone())?
-                .rename("height")
                 .into_series(),
-            UInt32Array::from_iter_values(sidecar_data.widths)
+            UInt32Array::from_values("width", sidecar_data.widths)
                 .with_nulls(sidecar_data.nulls.clone())?
-                .rename("width")
                 .into_series(),
-            UInt8Array::from_iter_values(sidecar_data.modes)
+            UInt8Array::from_values("mode", sidecar_data.modes)
                 .with_nulls(sidecar_data.nulls.clone())?
-                .rename("mode")
                 .into_series(),
         ];
         let physical_type = data_type.to_physical();

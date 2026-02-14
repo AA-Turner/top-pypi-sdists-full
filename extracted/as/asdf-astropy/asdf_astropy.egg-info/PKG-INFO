@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asdf-astropy
-Version: 0.9.0
+Version: 0.10.0
 Summary: ASDF serialization support for astropy
 Author-email: The Astropy Developers <astropy.team@gmail.com>
 Project-URL: documentation, https://asdf-astropy.readthedocs.io/en/latest/
@@ -17,7 +17,7 @@ Requires-Dist: asdf-coordinates-schemas>=0.4
 Requires-Dist: asdf-transform-schemas>=0.6
 Requires-Dist: asdf-standard>=1.1.0
 Requires-Dist: astropy>=5.3.0
-Requires-Dist: numpy>=1.26
+Requires-Dist: numpy>=1.26.4
 Requires-Dist: packaging>=19
 Provides-Extra: docs
 Requires-Dist: docutils; extra == "docs"

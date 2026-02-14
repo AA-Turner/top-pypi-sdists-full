@@ -11,5 +11,5 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-__version__ = "3.11.1"
-__expected_server_version__ = "2.40"
+__version__ = "3.12.0"
+__expected_server_version__ = "2.41"

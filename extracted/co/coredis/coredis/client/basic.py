@@ -4,7 +4,6 @@ import contextlib
 import contextvars
 import random
 import warnings
-from collections import defaultdict
 from ssl import SSLContext
 from typing import TYPE_CHECKING, Any, cast, overload
 
@@ -44,7 +43,6 @@ from coredis.patterns.pubsub import PubSub, SubscriptionCallback
 from coredis.pool import ConnectionPool
 from coredis.response._callbacks import (
     NoopCallback,
-    ResponseCallback,
 )
 from coredis.response.types import ScoredMember
 from coredis.retry import (
@@ -102,7 +100,6 @@ class Client(
     decode_responses: bool
     encoding: str
     server_version: Version | None
-    callback_storage: dict[type[ResponseCallback[Any, Any]], dict[str, Any]]
     type_adapter: TypeAdapter
 
     def __init__(
@@ -138,10 +135,9 @@ class Client(
         notouch: bool = False,
         type_adapter: TypeAdapter | None = None,
         cache: AbstractCache | None = None,
-        **kwargs: Any,
     ):
         if not connection_pool:
-            kwargs = {
+            kwargs: ConnectionPool.PoolParams = {
                 "db": db,
                 "username": username,
                 "password": password,
@@ -163,13 +159,13 @@ class Client(
             if unix_socket_path is not None:
                 kwargs.update(
                     {
-                        "path": unix_socket_path,
+                        "path": unix_socket_path,  # type: ignore
                         "connection_class": UnixDomainSocketConnection,
                     }
                 )
             else:
                 # TCP specific options
-                kwargs.update({"host": host, "port": port})
+                kwargs.update({"host": host, "port": port})  # type: ignore
 
                 if ssl_context is not None:
                     kwargs["ssl_context"] = ssl_context
@@ -200,7 +196,6 @@ class Client(
             contextvars.ContextVar("waitaof", default=None)
         )
         self.retry_policy = retry_policy
-        self.callback_storage = defaultdict(dict)
         self.type_adapter = type_adapter or TypeAdapter()
 
     def create_request(
@@ -546,7 +541,6 @@ class Redis(Client[AnyStr]):
         notouch: bool = ...,
         retry_policy: RetryPolicy = ...,
         type_adapter: TypeAdapter | None = ...,
-        **kwargs: Any,
     ) -> None: ...
 
     @overload
@@ -584,7 +578,6 @@ class Redis(Client[AnyStr]):
         notouch: bool = ...,
         retry_policy: RetryPolicy = ...,
         type_adapter: TypeAdapter | None = ...,
-        **kwargs: Any,
     ) -> None: ...
 
     def __init__(
@@ -623,15 +616,18 @@ class Redis(Client[AnyStr]):
             (ConnectionError, TimeoutError), retries=2, delay=0.01
         ),
         type_adapter: TypeAdapter | None = None,
-        **kwargs: Any,
     ) -> None:
         """
-
         Changes
+
           - .. versionremoved:: 6.0.0
+
             - :paramref:`protocol_version` removed (and therefore support for RESP2)
+
           - .. versionchanged:: 6.0.0
+
             -  The client is now an async context manager and must always be used as such.
+
           - .. versionadded:: 4.12.0
 
             - :paramref:`retry_policy`
@@ -782,7 +778,6 @@ class Redis(Client[AnyStr]):
             retry_policy=retry_policy,
             type_adapter=type_adapter,
             cache=cache,
-            **kwargs,
         )
         self._decodecontext: contextvars.ContextVar[bool | None,] = contextvars.ContextVar(
             "decode", default=None
@@ -1079,7 +1074,7 @@ class Redis(Client[AnyStr]):
          acknowledgement of subscriptions.
         :param max_idle_seconds: Maximum duration (in seconds) to tolerate no
          messages from the server before performing a keepalive check with a
-        ``PING``.
+         ``PING``.
         """
 
         return PubSub[AnyStr](

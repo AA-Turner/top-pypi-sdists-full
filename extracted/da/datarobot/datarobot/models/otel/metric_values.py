@@ -12,7 +12,7 @@
 # publication of such source code.
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
 import dateutil
@@ -20,6 +20,7 @@ import trafaret as t
 
 from datarobot.models.api_object import APIObject
 from datarobot.models.otel.metric_enums import MetricResolution
+from datarobot.models.otel.utils import to_datetime_param
 
 OtelMetricValueTrafaret = t.Dict({
     t.Key("otel_name"): t.String(),
@@ -138,8 +139,8 @@ class OtelMetricValue(APIObject):
         entity_type: str,
         entity_id: str,
         resolution: MetricResolution,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        start_time: Optional[datetime | date | str] = None,
+        end_time: Optional[datetime | date | str] = None,
     ) -> List[OtelMetricValue]:
         """List OpenTelemetry metric buckets with values.
 
@@ -153,9 +154,9 @@ class OtelMetricValue(APIObject):
             The entity ID of the reported metrics (e.g. `123456`).
         resolution: OtelMetricResolution
             Period for values of the metric list.
-        start_time: Optional[datetime]
+        start_time: Optional[datetime | date | str]
             Start time of the metric list.
-        end_time: Optional[datetime]
+        end_time: Optional[datetime | date | str]
             End time of the metric list.
 
         Returns
@@ -167,9 +168,9 @@ class OtelMetricValue(APIObject):
             "resolution": resolution,
         }
         if start_time:
-            params["startTime"] = start_time.isoformat()
+            params["startTime"] = to_datetime_param(start_time)
         if end_time:
-            params["endTime"] = end_time.isoformat()
+            params["endTime"] = to_datetime_param(end_time)
 
         data = cls._client.get(path, params=params).json()["data"]
         return [cls.from_server_data(d) for d in data]

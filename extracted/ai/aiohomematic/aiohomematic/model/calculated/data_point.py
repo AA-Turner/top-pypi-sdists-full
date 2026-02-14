@@ -13,6 +13,7 @@ from datetime import datetime
 import logging
 from typing import Final, Unpack, cast, override
 
+from aiohomematic import ccu_translations
 from aiohomematic.const import (
     INIT_DATETIME,
     CalculatedParameter,
@@ -52,6 +53,7 @@ class CalculatedDataPoint[ParameterT: ParamType](BaseDataPoint, CallbackDataPoin
     __slots__ = (
         "_data_points",
         "_default",
+        "_translation",
         "_max",
         "_min",
         "_multiplier",
@@ -85,6 +87,11 @@ class CalculatedDataPoint[ParameterT: ParamType](BaseDataPoint, CallbackDataPoin
             is_in_multiple_channels=hmed.is_multi_channel_device(model=channel.device.model, category=self.category),
         )
         self._data_points: Final[dict[_DataPointKey, GenericDataPointProtocolAny]] = {}
+        self._translation: Final[str | None] = ccu_translations.get_parameter_translation(
+            parameter=self._calculated_parameter,
+            channel_type=channel.type_name,
+            locale=channel.device.config_provider.config.locale,
+        )
         self._type: ParameterType = None  # type: ignore[assignment]
         self._values: tuple[str, ...] | None = None
         self._max: ParameterT = None  # type: ignore[assignment]
@@ -117,6 +124,7 @@ class CalculatedDataPoint[ParameterT: ParamType](BaseDataPoint, CallbackDataPoin
     multiplier: Final = DelegatedProperty[float](path="_multiplier")
     parameter: Final = DelegatedProperty[str](path="_calculated_parameter")
     service: Final = DelegatedProperty[bool](path="_service")
+    translation: Final = DelegatedProperty[str | None](path="_translation", kind=Kind.INFO)
     unit: Final = DelegatedProperty[str | None](path="_unit", kind=Kind.CONFIG)
     values: Final = DelegatedProperty[tuple[str, ...] | None](path="_values", kind=Kind.CONFIG)
     visible: Final = DelegatedProperty[bool](path="_visible")
@@ -287,7 +295,15 @@ class CalculatedDataPoint[ParameterT: ParamType](BaseDataPoint, CallbackDataPoin
     @override
     def _get_data_point_name(self) -> DataPointNameData:
         """Create the name for the data point."""
-        return get_data_point_name_data(channel=self._channel, parameter=self._calculated_parameter)
+        return get_data_point_name_data(
+            channel=self._channel,
+            parameter=self._calculated_parameter,
+            parameter_translation=ccu_translations.get_parameter_translation(
+                parameter=self._calculated_parameter,
+                channel_type=self._channel.type_name,
+                locale=self._channel.device.config_provider.config.locale,
+            ),
+        )
 
     @override
     def _get_data_point_usage(self) -> DataPointUsage:

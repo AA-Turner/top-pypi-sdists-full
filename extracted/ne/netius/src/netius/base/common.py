@@ -58,7 +58,7 @@ NAME = "netius"
 identification of both the clients and the services this
 value may be prefixed or suffixed """
 
-VERSION = "1.21.0"
+VERSION = "1.24.0"
 """ The version value that identifies the version of the
 current infra-structure, all of the services and clients
 may share this value """
@@ -4821,7 +4821,7 @@ def get_loop(factory=None, ensure=True, _compat=None, asyncio=None, **kwargs):
 
 def get_event_loop(*args, **kwargs):
     """
-    Compatibility alias function with the ``get_loop()`` function
+    Compatibility alias function with the `get_loop()` function
     to ensure proper compatibility with asyncio.
 
     :rtype: EventLoop

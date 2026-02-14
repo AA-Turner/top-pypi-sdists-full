@@ -1,12 +1,12 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: django-environ
-Version: 0.12.0
+Version: 0.12.1
 Summary: A package that allows you to utilize 12factor inspired environment variables to configure your Django application.
 Home-page: https://django-environ.readthedocs.org
 Author: Daniele Faraglia
 Author-email: daniele.faraglia@gmail.com
-Maintainer: Serghei Iakovlev
-Maintainer-email: oss@serghei.pl
+Maintainer: Daniele Faraglia
+Maintainer-email: daniele.faraglia@gmail.com
 License: MIT
 Project-URL: Documentation, https://django-environ.readthedocs.org
 Project-URL: Funding, https://opencollective.com/django-environ
@@ -69,6 +69,7 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: maintainer
 Dynamic: maintainer-email
 Dynamic: platform
@@ -154,7 +155,7 @@ are loaded from a ``.env`` file and filled in ``os.environ`` with ``setdefault``
 method, to avoid to overwrite the real environ.
 A similar approach is used in
 `Two Scoops of Django <https://web.archive.org/web/20240121133956/https://www.feldroy.com/books/two-scoops-of-django-3-x>`_
-book and explained in `12factor-django <https://wellfire.co/learn/easier-12-factor-django>`_
+book and explained in `12factor-django <https://dev.to/ale_jacques/django-drf-12-factor-app-with-examples-36jg>`_
 article.
 
 
@@ -280,37 +281,17 @@ Resources
 Release Information
 ===================
 
-v0.12.0 - 8-November-2024
+v0.12.1 - 13-February-2026
 -----------------------------
 Fixed
 +++++
-- Include prefix in the ``ImproperlyConfigured`` error message
-  `#513 <https://github.com/joke2k/django-environ/issues/513>`_.
-
-Added
-+++++
-- Add support for Python 3.12 and 3.13
-  `#538 <https://github.com/joke2k/django-environ/issues/538>`_.
-- Add support for Django 5.1
-  `#535 <https://github.com/joke2k/django-environ/issues/535>`_.
-- Add support for Django CockroachDB driver
-  `#509 <https://github.com/joke2k/django-environ/issues/509>`_.
-- Add support for Django Channels
-  `#266 <https://github.com/joke2k/django-environ/issues/266>`_.
-
-Changed
-+++++++
-- Disabled inline comments handling by default due to potential side effects.
-  While the feature itself is useful, the project's philosophy dictates that
-  it should not be enabled by default for all users
-  `#499 <https://github.com/joke2k/django-environ/issues/499>`_.
-
-Removed
-+++++++
-- Removed support of Python 3.6, 3.7 and 3.8
-  `#538 <https://github.com/joke2k/django-environ/issues/538>`_.
-- Removed support of Django 1.x.
-  `#538 <https://github.com/joke2k/django-environ/issues/538>`_.
+- Fixed PostgreSQL cluster URL parsing with bracketed IPv6 hosts in recent
+  Python versions, preventing failures in runtime URL parsing and related
+  regression tests
+  `#574 <https://github.com/joke2k/django-environ/issues/574>`_.
+- Fixed debug logging in ``Env.get_value()`` to avoid evaluating lazy default
+  objects when DEBUG logging is enabled
+  `#571 <https://github.com/joke2k/django-environ/issues/571>`_.
 
 `Full changelog <https://django-environ.readthedocs.org/en/latest/changelog.html>`_.
 
@@ -322,7 +303,7 @@ Reporting a Vulnerability
 -------------------------
 
 If you discover a security vulnerability within ``django-environ``, please
-send an e-mail to Serghei Iakovlev via oss@serghei.pl. All security
+send an e-mail to Daniele Faraglia via daniele.faraglia+oss@gmail.com. All security
 vulnerabilities will be promptly addressed.
 
 

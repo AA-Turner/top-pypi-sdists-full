@@ -50,7 +50,7 @@ class Device:
     def pwd(self, state: ReplState):
         pass
 
-    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str):
+    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str, retry = False):
         return False, None
 
     def enter(self, state: ReplState):

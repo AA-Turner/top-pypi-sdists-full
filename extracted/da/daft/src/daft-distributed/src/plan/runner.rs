@@ -11,7 +11,6 @@ use common_error::DaftResult;
 use common_metrics::QueryID;
 use common_partitioning::PartitionRef;
 use common_runtime::{JoinSet, create_join_set};
-use common_treenode::{TreeNode, TreeNodeRecursion};
 use futures::{Stream, StreamExt};
 
 use super::{DistributedPhysicalPlan, PlanResult, QueryIdx};
@@ -164,23 +163,18 @@ impl<W: Worker<Task = SwordfishTask>> PlanRunner<W> {
         let query_id = plan.query_id();
         let config = plan.execution_config().clone();
         let logical_plan = plan.logical_plan().clone();
-        let plan_config = PlanConfig::new(query_idx, query_id, config);
+        let plan_config = PlanConfig::new(query_idx, query_id.clone(), config);
 
         let pipeline_node =
             logical_plan_to_pipeline_node(plan_config, logical_plan, Arc::new(psets))?;
 
-        // Extract runtime stats from pipeline nodes to create the StatisticsManager
-        let mut runtime_stats = HashMap::new();
-        pipeline_node.apply(|node| {
-            runtime_stats.insert(node.node_id(), node.runtime_stats());
-            Ok(TreeNodeRecursion::Continue)
-        })?;
-
-        let statistics_manager = StatisticsManager::new(runtime_stats, subscribers);
+        let statistics_manager =
+            StatisticsManager::from_pipeline_node(query_id, &pipeline_node, subscribers)?;
 
         let runtime = get_or_init_runtime();
         let (result_sender, result_receiver) = create_channel(1);
         let this = self.clone();
+        let statistics_manager_clone = statistics_manager.clone();
         let joinset = runtime.block_on_current_thread(async move {
             let mut joinset = create_join_set();
             let scheduler_handle = spawn_scheduler_actor(
@@ -195,6 +189,10 @@ impl<W: Worker<Task = SwordfishTask>> PlanRunner<W> {
             });
             joinset
         });
-        Ok(PlanResult::new(joinset, result_receiver))
+        Ok(PlanResult::new(
+            joinset,
+            result_receiver,
+            statistics_manager_clone,
+        ))
     }
 }

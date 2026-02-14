@@ -132,9 +132,9 @@ class DeviceCass(Command, Device):
 
         return '\t'.join([f'{ReplState.C}:>'] + (words if words else ['/']))
 
-    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str):
+    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str, retry = False):
         if state.sts:
-            return True, chain.run(f'cql {cmd}', state)
+            return True, chain.retry(f'cql {cmd}', state) if retry else chain.run(f'cql {cmd}', state)
 
         return False, None
 

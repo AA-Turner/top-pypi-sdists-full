@@ -576,7 +576,9 @@ __all__ = (
     "AuthorizeSecurityGroupIngressRequestTypeDef",
     "AuthorizeSecurityGroupIngressResultTypeDef",
     "AvailabilityZoneAddressTypeDef",
+    "AvailabilityZoneGeographyTypeDef",
     "AvailabilityZoneMessageTypeDef",
+    "AvailabilityZoneSubGeographyTypeDef",
     "AvailabilityZoneTypeDef",
     "AvailableCapacityTypeDef",
     "BaselineEbsBandwidthMbpsRequestTypeDef",
@@ -2712,6 +2714,7 @@ __all__ = (
     "RebootInstancesRequestTypeDef",
     "RecurringChargeTypeDef",
     "ReferencedSecurityGroupTypeDef",
+    "RegionGeographyTypeDef",
     "RegionTypeDef",
     "RegionalSummaryTypeDef",
     "RegisterImageRequestServiceResourceRegisterImageTypeDef",
@@ -3773,8 +3776,16 @@ class AvailabilityZoneAddressTypeDef(TypedDict):
     AllocationIds: NotRequired[Sequence[str]]
 
 
+class AvailabilityZoneGeographyTypeDef(TypedDict):
+    Name: NotRequired[str]
+
+
 class AvailabilityZoneMessageTypeDef(TypedDict):
     Message: NotRequired[str]
+
+
+class AvailabilityZoneSubGeographyTypeDef(TypedDict):
+    Name: NotRequired[str]
 
 
 class InstanceCapacityTypeDef(TypedDict):
@@ -5658,16 +5669,6 @@ class DescribePrincipalIdFormatRequestTypeDef(TypedDict):
     Resources: NotRequired[Sequence[str]]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
-
-
-RegionTypeDef = TypedDict(
-    "RegionTypeDef",
-    {
-        "OptInStatus": NotRequired[str],
-        "RegionName": NotRequired[str],
-        "Endpoint": NotRequired[str],
-    },
-)
 
 
 class ScheduledInstanceRecurrenceRequestTypeDef(TypedDict):
@@ -8463,6 +8464,10 @@ class ReferencedSecurityGroupTypeDef(TypedDict):
     UserId: NotRequired[str]
     VpcId: NotRequired[str]
     VpcPeeringConnectionId: NotRequired[str]
+
+
+class RegionGeographyTypeDef(TypedDict):
+    Name: NotRequired[str]
 
 
 class RegisterInstanceTagAttributeRequestTypeDef(TypedDict):
@@ -11504,6 +11509,8 @@ AvailabilityZoneTypeDef = TypedDict(
         "ParentZoneName": NotRequired[str],
         "ParentZoneId": NotRequired[str],
         "GroupLongName": NotRequired[str],
+        "Geography": NotRequired[list[AvailabilityZoneGeographyTypeDef]],
+        "SubGeography": NotRequired[list[AvailabilityZoneSubGeographyTypeDef]],
         "State": NotRequired[AvailabilityZoneStateType],
     },
 )
@@ -15365,11 +15372,6 @@ class DescribePrefixListsResultTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class DescribeRegionsResultTypeDef(TypedDict):
-    Regions: list[RegionTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class DescribeSecurityGroupReferencesResultTypeDef(TypedDict):
     SecurityGroupReferenceSet: list[SecurityGroupReferenceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -16765,6 +16767,17 @@ class SecurityGroupRuleTypeDef(TypedDict):
     Description: NotRequired[str]
     Tags: NotRequired[list[TagTypeDef]]
     SecurityGroupRuleArn: NotRequired[str]
+
+
+RegionTypeDef = TypedDict(
+    "RegionTypeDef",
+    {
+        "OptInStatus": NotRequired[str],
+        "Geography": NotRequired[list[RegionGeographyTypeDef]],
+        "RegionName": NotRequired[str],
+        "Endpoint": NotRequired[str],
+    },
+)
 
 
 class RegisterInstanceEventNotificationAttributesRequestTypeDef(TypedDict):
@@ -19653,6 +19666,11 @@ class DescribeSecurityGroupRulesResultTypeDef(TypedDict):
     SecurityGroupRules: list[SecurityGroupRuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class DescribeRegionsResultTypeDef(TypedDict):
+    Regions: list[RegionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeImageReferencesRequestPaginateTypeDef(TypedDict):

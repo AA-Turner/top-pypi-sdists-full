@@ -20,6 +20,7 @@ from coredis.commands._key_spec import KeySpec
 from coredis.commands._validators import mutually_inclusive_parameters
 from coredis.commands.constants import CommandName, NodeFlag
 from coredis.connection._base import RedisSSLContext
+from coredis.credentials import AbstractCredentialProvider
 from coredis.exceptions import (
     AskError,
     BusyLoadingError,
@@ -191,6 +192,9 @@ class RedisCluster(
         port: int | None = ...,
         *,
         startup_nodes: Iterable[Node] | None = ...,
+        username: str | None = ...,
+        password: str | None = ...,
+        credential_provider: AbstractCredentialProvider | None = ...,
         stream_timeout: float | None = ...,
         connect_timeout: float | None = ...,
         pool_timeout: float | None = ...,
@@ -220,7 +224,6 @@ class RedisCluster(
         notouch: bool = ...,
         retry_policy: RetryPolicy = ...,
         type_adapter: TypeAdapter | None = ...,
-        **kwargs: Any,
     ) -> None: ...
 
     @overload
@@ -230,6 +233,9 @@ class RedisCluster(
         port: int | None = ...,
         *,
         startup_nodes: Iterable[Node] | None = ...,
+        username: str | None = ...,
+        password: str | None = ...,
+        credential_provider: AbstractCredentialProvider | None = ...,
         stream_timeout: float | None = ...,
         connect_timeout: float | None = ...,
         pool_timeout: float | None = ...,
@@ -259,7 +265,6 @@ class RedisCluster(
         notouch: bool = ...,
         retry_policy: RetryPolicy = ...,
         type_adapter: TypeAdapter | None = ...,
-        **kwargs: Any,
     ) -> None: ...
 
     def __init__(
@@ -268,6 +273,9 @@ class RedisCluster(
         port: int | None = None,
         *,
         startup_nodes: Iterable[Node] | None = None,
+        username: str | None = None,
+        password: str | None = None,
+        credential_provider: AbstractCredentialProvider | None = None,
         stream_timeout: float | None = None,
         connect_timeout: float | None = None,
         pool_timeout: float | None = None,
@@ -307,15 +315,16 @@ class RedisCluster(
             ),
         ),
         type_adapter: TypeAdapter | None = None,
-        **kwargs: Any,
     ) -> None:
         """
 
         Changes
           - .. versionremoved:: 6.0.0
+
             - :paramref:`protocol_version` removed (and therefore support for RESP2)
 
           - .. versionchanged:: 6.0.0
+
             -  The cluster client is now an async context manager and must always be used as such.
 
           - .. versionadded:: 4.12.0
@@ -450,11 +459,8 @@ class RedisCluster(
          when interacting with redis commands.
         """
 
-        if "db" in kwargs:  # noqa
-            raise RedisClusterException("Argument 'db' is not possible to use in cluster mode")
         if connection_pool and cache:
             raise RuntimeError("Parameters 'cache' and 'connection_pool' are mutually exclusive!")
-
         if connection_pool:
             pool = connection_pool
         else:
@@ -469,9 +475,7 @@ class RedisCluster(
                         port=port if port else 7000,
                     )
                 )
-            if ssl_context is not None:
-                kwargs["ssl_context"] = ssl_context
-            elif ssl:
+            if ssl_context is None and ssl:
                 ssl_context = RedisSSLContext(
                     ssl_keyfile,
                     ssl_certfile,
@@ -479,10 +483,12 @@ class RedisCluster(
                     ssl_ca_certs,
                     ssl_check_hostname,
                 ).get()
-                kwargs["ssl_context"] = ssl_context
 
             pool = connection_pool_cls(
                 startup_nodes=startup_nodes,
+                username=username,
+                password=password,
+                credential_provider=credential_provider,
                 max_connections=max_connections,
                 reinitialize_steps=reinitialize_steps,
                 max_connections_per_node=max_connections_per_node,
@@ -497,11 +503,14 @@ class RedisCluster(
                 stream_timeout=stream_timeout,
                 connect_timeout=connect_timeout,
                 timeout=pool_timeout,
+                ssl_context=ssl_context,
                 _cache=cache,
-                **kwargs,
             )
 
         super().__init__(
+            username=username,
+            password=password,
+            credential_provider=credential_provider,
             stream_timeout=stream_timeout,
             connect_timeout=connect_timeout,
             pool_timeout=pool_timeout,
@@ -515,7 +524,6 @@ class RedisCluster(
             notouch=notouch,
             retry_policy=retry_policy,
             type_adapter=type_adapter,
-            **kwargs,
         )
 
         self.refresh_table_asap: bool = True
@@ -535,10 +543,9 @@ class RedisCluster(
     @classmethod
     @overload
     def from_url(
-        cls: type[RedisCluster[bytes]],
+        cls,
         url: str,
         *,
-        db: int | None = ...,
         skip_full_coverage_check: bool = ...,
         decode_responses: Literal[False] = ...,
         verify_version: bool = ...,
@@ -554,10 +561,9 @@ class RedisCluster(
     @classmethod
     @overload
     def from_url(
-        cls: type[RedisCluster[str]],
+        cls,
         url: str,
         *,
-        db: int | None = ...,
         skip_full_coverage_check: bool = ...,
         decode_responses: Literal[True],
         verify_version: bool = ...,
@@ -575,7 +581,6 @@ class RedisCluster(
         cls: type[RedisClusterT],
         url: str,
         *,
-        db: int | None = None,
         skip_full_coverage_check: bool = False,
         decode_responses: bool = False,
         verify_version: bool = True,
@@ -619,7 +624,6 @@ class RedisCluster(
                 type_adapter=type_adapter,
                 connection_pool=ClusterConnectionPool.from_url(
                     url,
-                    db=db,
                     skip_full_coverage_check=skip_full_coverage_check,
                     decode_responses=decode_responses,
                     noreply=noreply,
@@ -638,7 +642,6 @@ class RedisCluster(
                 type_adapter=type_adapter,
                 connection_pool=ClusterConnectionPool.from_url(
                     url,
-                    db=db,
                     skip_full_coverage_check=skip_full_coverage_check,
                     decode_responses=decode_responses,
                     noreply=noreply,
@@ -911,6 +914,7 @@ class RedisCluster(
             released = False
             if self.refresh_table_asap and not slots:
                 await self.connection_pool.refresh_cluster_mapping(forced=True)
+                self.refresh_table_asap = False
             _node = None
             if asking and redirect_addr:
                 _node = pool.nodes.nodes[redirect_addr]
@@ -1115,7 +1119,7 @@ class RedisCluster(
          acknowledgement of subscriptions.
         :param max_idle_seconds: Maximum duration (in seconds) to tolerate no
          messages from the cluster before performing a keepalive check with a
-        ``PING``.
+         ``PING``.
         """
         return ClusterPubSub[AnyStr](
             self.connection_pool,
@@ -1171,7 +1175,7 @@ class RedisCluster(
          acknowledgement of subscriptions.
         :param max_idle_seconds: Maximum duration (in seconds) to tolerate no
          messages from the cluster before performing a keepalive check with a
-        ``PING``.
+         ``PING``.
 
         New in :redis-version:`7.0.0`
         """

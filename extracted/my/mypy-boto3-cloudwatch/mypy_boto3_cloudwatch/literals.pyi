@@ -3,7 +3,7 @@ Type annotations for cloudwatch service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -70,7 +70,7 @@ CompositeAlarmExistsWaiterName = Literal["composite_alarm_exists"]
 DescribeAlarmHistoryPaginatorName = Literal["describe_alarm_history"]
 DescribeAlarmsPaginatorName = Literal["describe_alarms"]
 DescribeAnomalyDetectorsPaginatorName = Literal["describe_anomaly_detectors"]
-EvaluationStateType = Literal["PARTIAL_DATA"]
+EvaluationStateType = Literal["EVALUATION_ERROR", "EVALUATION_FAILURE", "PARTIAL_DATA"]
 GetMetricDataPaginatorName = Literal["get_metric_data"]
 HistoryItemTypeType = Literal[
     "Action",
@@ -258,7 +258,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -523,6 +522,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

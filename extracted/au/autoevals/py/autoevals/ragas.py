@@ -17,10 +17,10 @@ These metrics are ported from the RAGAS project with some enhancements.
 
 **Common arguments**:
 
-    - `model`: Model to use for evaluation, defaults to DEFAULT_RAGAS_MODEL (gpt-3.5-turbo-16k)
+    - `model`: Model to use for evaluation, defaults to the model configured via init(default_model=...) or "gpt-4o"
     - `client`: Optional Client for API calls. If not provided, uses global client from init()
 
-**Example**:
+**Example - Direct usage**:
     ```python
     from openai import OpenAI
     from autoevals import init
@@ -37,7 +37,7 @@ These metrics are ported from the RAGAS project with some enhancements.
     result = relevancy.eval(
         input="What is the capital of France?",
         output="Paris is the capital of France",
-        context="Paris is the capital of France. The city is known for the Eiffel Tower."
+        context=["Paris is the capital of France.", "The city is known for the Eiffel Tower."]
     )
     print(f"Context relevance score: {result.score}")  # 1.0 for highly relevant
 
@@ -46,9 +46,58 @@ These metrics are ported from the RAGAS project with some enhancements.
     result = faithfulness.eval(
         input="What is France's capital city?",
         output="Paris is the capital of France and has the Eiffel Tower",
-        context="Paris is the capital of France. The city is known for the Eiffel Tower."
+        context=["Paris is the capital of France.", "The city is known for the Eiffel Tower."]
     )
     print(f"Faithfulness score: {result.score}")  # 1.0 for fully supported claims
+    ```
+
+**Example - Using with Braintrust Eval**:
+    ```python
+    from braintrust import Eval
+    from autoevals import init
+    from autoevals.ragas import Faithfulness, ContextRelevancy
+    from openai import OpenAI
+
+    # Initialize autoevals
+    init(OpenAI())
+
+    # Dataset with context in metadata
+    dataset = [
+        {
+            "input": "What is the capital of France?",
+            "expected": "Paris",
+            "metadata": {
+                "context": [
+                    "Paris is the capital of France.",
+                    "Berlin is the capital of Germany."
+                ]
+            }
+        },
+        # ... more examples
+    ]
+
+    # Create scorer functions that extract context from metadata
+    def faithfulness_scorer(output, expected, input, metadata):
+        return Faithfulness().eval(
+            input=input,
+            output=output,
+            context=metadata.get("context", [])
+        )
+
+    def context_relevancy_scorer(output, expected, input, metadata):
+        return ContextRelevancy().eval(
+            input=input,
+            output=output,
+            context=metadata.get("context", [])
+        )
+
+    # Run evaluation
+    Eval(
+        "my-rag-eval",
+        data=dataset,
+        task=lambda input: generate_answer(input),  # Your LLM function
+        scores=[faithfulness_scorer, context_relevancy_scorer]
+    )
     ```
 
 For more examples and detailed usage of each evaluator, see their individual class docstrings.
@@ -58,14 +107,13 @@ For more examples and detailed usage of each evaluator, see their individual cla
 
 import asyncio
 import json
-from typing import Optional
 
 import chevron
 
 from . import Score
 from .list import ListContains
 from .llm import OpenAILLMScorer
-from .oai import Client, arun_cached_request, run_cached_request
+from .oai import Client, _default_model_var, arun_cached_request, get_default_model, run_cached_request
 from .string import EmbeddingSimilarity
 
 
@@ -75,7 +123,30 @@ def check_required(name, **kwargs):
             raise ValueError(f"{name} requires {key} value")
 
 
+# Deprecated: Use init(default_model="...") to configure the default model instead.
+# This was previously "gpt-4o-mini" but now defaults to the configured model.
 DEFAULT_RAGAS_MODEL = "gpt-4o-mini"
+
+
+def _get_model(model: str | None) -> str:
+    """Get the model to use, respecting init(default_model=...) configuration.
+
+    Falls back to DEFAULT_RAGAS_MODEL if no model is specified and no custom
+    default has been configured.
+    """
+    if model is not None:
+        return model
+
+    # Check if user configured a custom default via init(default_model=...)
+    # If they did (even if it's "gpt-4o"), respect it for consistency
+    configured_default = _default_model_var.get(None)
+    if configured_default is not None:
+        return configured_default
+
+    # Fall back to RAGAS-specific default when user hasn't configured anything
+    return DEFAULT_RAGAS_MODEL
+
+
 DEFAULT_RAGAS_EMBEDDING_MODEL = "text-embedding-3-small"
 
 ENTITY_PROMPT = """Given a text, extract unique entities without repetition. Ensure you consider different forms or mentions of the same entity as a single entity.
@@ -133,12 +204,12 @@ def extract_entities_request(text, **extra_args):
     )
 
 
-async def aextract_entities(*, text, client: Optional[Client] = None, **extra_args):
+async def aextract_entities(*, text, client: Client | None = None, **extra_args):
     response = await arun_cached_request(client=client, **extract_entities_request(text=text, **extra_args))
     return json.loads(response["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"])
 
 
-def extract_entities(*, text, client: Optional[Client] = None, **extra_args):
+def extract_entities(*, text, client: Client | None = None, **extra_args):
     response = run_cached_request(client=client, **extract_entities_request(text=text, **extra_args))
     return json.loads(response["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"])
 
@@ -169,10 +240,10 @@ class ContextEntityRecall(OpenAILLMScorer):
         context: The context document(s) to search for entities in
     """
 
-    def __init__(self, pairwise_scorer=None, model=DEFAULT_RAGAS_MODEL, client: Optional[Client] = None, **kwargs):
+    def __init__(self, pairwise_scorer=None, model: str | None = None, client: Client | None = None, **kwargs):
         super().__init__(client=client, **kwargs)
 
-        self.extraction_model = model
+        self.extraction_model = _get_model(model)
         self.contains_scorer = ListContains(
             pairwise_scorer=pairwise_scorer or EmbeddingSimilarity(client=client), allow_extra_entities=True
         )
@@ -313,18 +384,20 @@ class ContextRelevancy(OpenAILLMScorer):
         context: The context document(s) to evaluate
     """
 
-    def __init__(self, pairwise_scorer=None, model=DEFAULT_RAGAS_MODEL, client: Optional[Client] = None, **kwargs):
+    def __init__(self, pairwise_scorer=None, model: str | None = None, client: Client | None = None, **kwargs):
         super().__init__(client=client, **kwargs)
 
-        self.model = model
+        self.model = _get_model(model)
 
     def _postprocess(self, context, response):
         sentences = json.loads(response["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"])
 
+        # Clamp score to [0, 1] - the LLM may return sentences longer than the
+        # original context due to paraphrasing or hallucination (#80)
+        raw_score = len("".join([s["sentence"] for s in sentences["sentences"]])) / len(context)
         return Score(
             name=self._name(),
-            # Simplify this by just using the string length, rather than the number of sentences.
-            score=len("".join([s["sentence"] for s in sentences["sentences"]])) / len(context),
+            score=min(max(raw_score, 0), 1),
             metadata={
                 "relevant_sentences": sentences["sentences"],
             },
@@ -473,10 +546,10 @@ class ContextRecall(OpenAILLMScorer):
         context: The context document(s) to evaluate
     """
 
-    def __init__(self, pairwise_scorer=None, model=DEFAULT_RAGAS_MODEL, client: Optional[Client] = None, **kwargs):
+    def __init__(self, pairwise_scorer=None, model: str | None = None, client: Client | None = None, **kwargs):
         super().__init__(client=client, **kwargs)
 
-        self.model = model
+        self.model = _get_model(model)
 
     def _postprocess(self, response):
         statements = json.loads(response["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"])
@@ -633,10 +706,10 @@ class ContextPrecision(OpenAILLMScorer):
         context: The context document(s) to evaluate
     """
 
-    def __init__(self, pairwise_scorer=None, model=DEFAULT_RAGAS_MODEL, client: Optional[Client] = None, **kwargs):
+    def __init__(self, pairwise_scorer=None, model: str | None = None, client: Client | None = None, **kwargs):
         super().__init__(client=client, **kwargs)
 
-        self.model = model
+        self.model = _get_model(model)
 
     def _postprocess(self, response):
         precision = json.loads(response["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"])
@@ -839,28 +912,28 @@ def extract_faithfulness_request(context, statements, **extra_args):
     )
 
 
-async def aextract_statements(question, answer, client: Optional[Client] = None, **extra_args):
+async def aextract_statements(question, answer, client: Client | None = None, **extra_args):
     response = await arun_cached_request(
         client=client, **extract_statements_request(question=question, answer=answer, **extra_args)
     )
     return load_function_call(response)
 
 
-def extract_statements(question, answer, client: Optional[Client] = None, **extra_args):
+def extract_statements(question, answer, client: Client | None = None, **extra_args):
     response = run_cached_request(
         client=client, **extract_statements_request(question=question, answer=answer, **extra_args)
     )
     return load_function_call(response)
 
 
-async def aextract_faithfulness(context, statements, client: Optional[Client] = None, **extra_args):
+async def aextract_faithfulness(context, statements, client: Client | None = None, **extra_args):
     response = await arun_cached_request(
         client=client, **extract_faithfulness_request(context=context, statements=statements, **extra_args)
     )
     return load_function_call(response)
 
 
-def extract_faithfulness(context, statements, client: Optional[Client] = None, **extra_args):
+def extract_faithfulness(context, statements, client: Client | None = None, **extra_args):
     response = run_cached_request(
         client=client, **extract_faithfulness_request(context=context, statements=statements, **extra_args)
     )
@@ -895,10 +968,10 @@ class Faithfulness(OpenAILLMScorer):
         context: The context document(s) to evaluate against
     """
 
-    def __init__(self, model=DEFAULT_RAGAS_MODEL, client: Optional[Client] = None, **kwargs):
+    def __init__(self, model: str | None = None, client: Client | None = None, **kwargs):
         super().__init__(client=client, **kwargs)
 
-        self.model = model
+        self.model = _get_model(model)
 
     async def _run_eval_async(self, output, expected=None, input=None, context=None, **kwargs):
         check_required("Faithfulness", input=input, output=output, context=context)
@@ -1057,16 +1130,16 @@ class AnswerRelevancy(OpenAILLMScorer):
 
     def __init__(
         self,
-        model=DEFAULT_RAGAS_MODEL,
+        model: str | None = None,
         strictness=3,
         temperature=0.5,
         embedding_model=DEFAULT_RAGAS_EMBEDDING_MODEL,
-        client: Optional[Client] = None,
+        client: Client | None = None,
         **kwargs,
     ):
         super().__init__(temperature=temperature, client=client, **kwargs)
 
-        self.model = model
+        self.model = _get_model(model)
         self.strictness = strictness
         self.temperature = temperature
         self.embedding_model = embedding_model
@@ -1162,7 +1235,7 @@ class AnswerSimilarity(OpenAILLMScorer):
         self,
         pairwise_scorer=None,
         model=DEFAULT_RAGAS_EMBEDDING_MODEL,
-        client: Optional[Client] = None,
+        client: Client | None = None,
         **kwargs,
     ):
         super().__init__(client=client, **kwargs)
@@ -1172,15 +1245,15 @@ class AnswerSimilarity(OpenAILLMScorer):
     async def _run_eval_async(self, output, expected=None, input=None, **kwargs):
         check_required("AnswerSimilarity", expected=expected, output=output)
 
-        return await EmbeddingSimilarity(client=self.client).eval_async(
-            output=output, expected=expected, model=self.model, **self.extra_args
+        return await EmbeddingSimilarity(client=self.client, model=self.model).eval_async(
+            output=output, expected=expected, **self.extra_args
         )
 
     def _run_eval_sync(self, output, expected=None, input=None, **kwargs):
         check_required("AnswerSimilarity", expected=expected, output=output)
 
-        return EmbeddingSimilarity(client=self.client).eval(
-            output=output, expected=expected, model=self.model, **self.extra_args
+        return EmbeddingSimilarity(client=self.client, model=self.model).eval(
+            output=output, expected=expected, **self.extra_args
         )
 
 
@@ -1297,22 +1370,27 @@ class AnswerCorrectness(OpenAILLMScorer):
         factuality_weight: Optional float between 0-1 for factual correctness weight
         answer_similarity_weight: Optional float between 0-1 for answer similarity weight
         answer_similarity: Optional AnswerSimilarity instance for similarity evaluation
+        embedding_model: Optional model to use for answer similarity embeddings
     """
 
     def __init__(
         self,
         pairwise_scorer=None,
-        model=DEFAULT_RAGAS_MODEL,
+        model: str | None = None,
         factuality_weight=0.75,
         answer_similarity_weight=0.25,
         answer_similarity=None,
-        client: Optional[Client] = None,
+        embedding_model=None,
+        client: Client | None = None,
         **kwargs,
     ):
         super().__init__(client=client, **kwargs)
 
-        self.model = model
-        self.answer_similarity = answer_similarity or AnswerSimilarity(client=client)
+        self.model = _get_model(model)
+        self.answer_similarity = answer_similarity or AnswerSimilarity(
+            model=embedding_model if embedding_model is not None else DEFAULT_RAGAS_EMBEDDING_MODEL,
+            client=client,
+        )
 
         if factuality_weight == 0 and answer_similarity_weight == 0:
             raise ValueError("At least one weight must be nonzero")
@@ -1343,14 +1421,12 @@ class AnswerCorrectness(OpenAILLMScorer):
     async def _run_answer_similarity_async(self, output, expected):
         if self.answer_similarity_weight == 0:
             return None
-        return await self.answer_similarity.eval_async(
-            output=output, expected=expected, model=self.model, **self.extra_args
-        )
+        return await self.answer_similarity.eval_async(output=output, expected=expected, **self.extra_args)
 
     def _run_answer_similarity_sync(self, output, expected):
         if self.answer_similarity_weight == 0:
             return None
-        return self.answer_similarity.eval(output=output, expected=expected, model=self.model, **self.extra_args)
+        return self.answer_similarity.eval(output=output, expected=expected, **self.extra_args)
 
     async def _run_eval_async(self, output, expected=None, input=None, **kwargs):
         check_required("AnswerCorrectness", input=input, expected=expected, output=output)
@@ -1387,9 +1463,9 @@ def load_function_call(response):
     return json.loads(response["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"])
 
 
-async def aload_function_call_request(client: Optional[Client] = None, **kwargs):
+async def aload_function_call_request(client: Client | None = None, **kwargs):
     return load_function_call(await arun_cached_request(client=client, **kwargs))
 
 
-def load_function_call_request(client: Optional[Client] = None, **kwargs):
+def load_function_call_request(client: Client | None = None, **kwargs):
     return load_function_call(run_cached_request(client=client, **kwargs))

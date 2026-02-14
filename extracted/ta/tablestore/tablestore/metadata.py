@@ -356,7 +356,7 @@ class UpdateTableResponse(CommonResponse):
 
 class DescribeTableResponse(CommonResponse):
 
-    def __init__(self, table_meta, table_options, reserved_throughput_details, sse_details, secondary_indexes=[]):
+    def __init__(self, table_meta, table_options, reserved_throughput_details, secondary_indexes=[], sse_details=None):
         self.table_meta = table_meta
         self.table_options = table_options
         self.reserved_throughput_details = reserved_throughput_details
@@ -1050,10 +1050,11 @@ class MatchQuery(Query):
 
 class MatchPhraseQuery(Query):
 
-    def __init__(self, field_name, text, weight=None):
+    def __init__(self, field_name, text, weight=None, slop=None):
         self.field_name = field_name
         self.text = text
         self.weight = weight
+        self.slop = slop
 
 class MatchAllQuery(Query):
 

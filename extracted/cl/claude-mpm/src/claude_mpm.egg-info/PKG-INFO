@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: claude-mpm
-Version: 5.7.34
+Version: 5.8.14
 Summary: Claude Code workflow and agent management framework - Multi-agent orchestration, skills system, MCP integration, session management, and semantic code search for AI-powered development
 Author-email: Bob Matsuoka <bob@matsuoka.com>
 Maintainer: Claude MPM Team
@@ -169,6 +169,8 @@ Claude MPM transforms Claude Code into a **comprehensive AI development platform
 - **44+ Bundled Skills** - TDD, debugging, Docker, API design, security scanning, Git workflows
 - **Progressive Disclosure** - Skills load on-demand to optimize context usage
 - **Three-Tier Organization** - Bundled → User → Project priority resolution
+- **Domain Authority System** - Auto-generated agent/tool discovery skills for intelligent PM delegation
+- **Skills Optimization** - Intelligent project analysis with automated skill recommendations
 
 ### 🔌 MCP Integration (Model Context Protocol)
 - **Google Workspace MCP** - 34 tools for Gmail, Calendar, Drive, Docs, Tasks

@@ -571,6 +571,12 @@ def get_entrypoint(connection, container_name) -> str:
     help="Non-default value for shm_size (for example, '3 GiB').",
 )
 @click.option(
+    "--skip-ssd-mount",
+    is_flag=True,
+    default=None,
+    help="Don't automatically mount SSD/NVMe (if any) to ``/scratch``.",
+)
+@click.option(
     "--filestore",
     "filestore_names",
     default=None,
@@ -607,6 +613,7 @@ def run(
     package_sync_strict,
     package_sync_conda_extras,
     docker_shm_size,
+    skip_ssd_mount,
     filestore_names,
     command,
 ):
@@ -644,6 +651,7 @@ def run(
         package_sync_conda_extras=package_sync_conda_extras,
         docker_shm_size=docker_shm_size,
         filestore_names=filestore_names,
+        skip_ssd_mount=skip_ssd_mount,
     )
     sys.exit(info["exit_code"])
 
@@ -682,6 +690,7 @@ def start_run(
     package_sync_conda_extras: List[str] | None = None,
     docker_shm_size: str | None = None,
     filestore_names: list[str] | None = None,
+    skip_ssd_mount: bool | None = None,
 ):
     runtime_env_dict = dict_from_key_val_list(env)
     tags = dict_from_key_val_list(tag)
@@ -778,6 +787,7 @@ def start_run(
                     "package_sync_conda_extras": package_sync_conda_extras,
                     "backend_options": {"docker_shm_size": docker_shm_size} if docker_shm_size else None,
                     "unset_single_threading_variables": True,
+                    "skip_ssd_mount": skip_ssd_mount,
                     "filestores_to_attach": filestores_to_attach,
                 }
                 cluster_kwargs["name"] = name or f"run-{short_random_string()}"

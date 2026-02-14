@@ -82,6 +82,8 @@ from .literals import (
     ClusterInstanceTypeType,
     ClusterKubernetesTaintEffectType,
     ClusterNodeRecoveryType,
+    ClusterSlurmConfigStrategyType,
+    ClusterSlurmNodeTypeType,
     ClusterSortByType,
     ClusterStatusType,
     CodeRepositorySortByType,
@@ -521,6 +523,8 @@ __all__ = (
     "ClusterEbsVolumeConfigTypeDef",
     "ClusterEventDetailTypeDef",
     "ClusterEventSummaryTypeDef",
+    "ClusterFsxLustreConfigTypeDef",
+    "ClusterFsxOpenZfsConfigTypeDef",
     "ClusterInstanceGroupDetailsTypeDef",
     "ClusterInstanceGroupSpecificationTypeDef",
     "ClusterInstancePlacementTypeDef",
@@ -535,10 +539,13 @@ __all__ = (
     "ClusterNodeDetailsTypeDef",
     "ClusterNodeSummaryTypeDef",
     "ClusterOrchestratorEksConfigTypeDef",
+    "ClusterOrchestratorSlurmConfigTypeDef",
     "ClusterOrchestratorTypeDef",
     "ClusterRestrictedInstanceGroupDetailsTypeDef",
     "ClusterRestrictedInstanceGroupSpecificationTypeDef",
     "ClusterSchedulerConfigSummaryTypeDef",
+    "ClusterSlurmConfigDetailsTypeDef",
+    "ClusterSlurmConfigTypeDef",
     "ClusterSummaryTypeDef",
     "ClusterTieredStorageConfigTypeDef",
     "CodeEditorAppImageConfigOutputTypeDef",
@@ -2617,9 +2624,26 @@ class ClusterEventSummaryTypeDef(TypedDict):
     InstanceId: NotRequired[str]
     Description: NotRequired[str]
 
+class ClusterFsxLustreConfigTypeDef(TypedDict):
+    DnsName: str
+    MountName: str
+    MountPath: NotRequired[str]
+
+class ClusterFsxOpenZfsConfigTypeDef(TypedDict):
+    DnsName: str
+    MountPath: NotRequired[str]
+
 class ClusterLifeCycleConfigTypeDef(TypedDict):
     SourceS3Uri: str
     OnCreate: str
+
+class ClusterSlurmConfigDetailsTypeDef(TypedDict):
+    NodeType: ClusterSlurmNodeTypeType
+    PartitionNames: NotRequired[list[str]]
+
+class ClusterSlurmConfigTypeDef(TypedDict):
+    NodeType: ClusterSlurmNodeTypeType
+    PartitionNames: NotRequired[Sequence[str]]
 
 class ClusterInstancePlacementTypeDef(TypedDict):
     AvailabilityZone: NotRequired[str]
@@ -2649,6 +2673,9 @@ UltraServerInfoTypeDef = TypedDict(
 
 class ClusterOrchestratorEksConfigTypeDef(TypedDict):
     ClusterArn: str
+
+class ClusterOrchestratorSlurmConfigTypeDef(TypedDict):
+    SlurmConfigStrategy: NotRequired[ClusterSlurmConfigStrategyType]
 
 class ClusterSchedulerConfigSummaryTypeDef(TypedDict):
     ClusterSchedulerConfigArn: str
@@ -6418,13 +6445,15 @@ ClusterCapacityRequirementsUnionTypeDef = Union[
     ClusterCapacityRequirementsTypeDef, ClusterCapacityRequirementsOutputTypeDef
 ]
 
-class ClusterInstanceStorageConfigTypeDef(TypedDict):
-    EbsVolumeConfig: NotRequired[ClusterEbsVolumeConfigTypeDef]
-
 class ListClusterEventsResponseTypeDef(TypedDict):
     Events: list[ClusterEventSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class ClusterInstanceStorageConfigTypeDef(TypedDict):
+    EbsVolumeConfig: NotRequired[ClusterEbsVolumeConfigTypeDef]
+    FsxLustreConfig: NotRequired[ClusterFsxLustreConfigTypeDef]
+    FsxOpenZfsConfig: NotRequired[ClusterFsxOpenZfsConfigTypeDef]
 
 class ClusterKubernetesConfigDetailsTypeDef(TypedDict):
     CurrentLabels: NotRequired[dict[str, str]]
@@ -6455,6 +6484,7 @@ class ClusterNodeSummaryTypeDef(TypedDict):
 
 class ClusterOrchestratorTypeDef(TypedDict):
     Eks: NotRequired[ClusterOrchestratorEksConfigTypeDef]
+    Slurm: NotRequired[ClusterOrchestratorSlurmConfigTypeDef]
 
 class ListClusterSchedulerConfigsResponseTypeDef(TypedDict):
     ClusterSchedulerConfigSummaries: list[ClusterSchedulerConfigSummaryTypeDef]
@@ -11934,6 +11964,7 @@ class ClusterInstanceGroupDetailsTypeDef(TypedDict):
     TargetStateCount: NotRequired[int]
     SoftwareUpdateStatus: NotRequired[SoftwareUpdateStatusType]
     ActiveSoftwareUpdateConfig: NotRequired[DeploymentConfigurationOutputTypeDef]
+    SlurmConfig: NotRequired[ClusterSlurmConfigDetailsTypeDef]
 
 class ClusterRestrictedInstanceGroupDetailsTypeDef(TypedDict):
     CurrentCount: NotRequired[int]
@@ -12787,6 +12818,7 @@ class ClusterInstanceGroupSpecificationTypeDef(TypedDict):
     ScheduledUpdateConfig: NotRequired[ScheduledUpdateConfigUnionTypeDef]
     ImageId: NotRequired[str]
     KubernetesConfig: NotRequired[ClusterKubernetesConfigTypeDef]
+    SlurmConfig: NotRequired[ClusterSlurmConfigTypeDef]
     CapacityRequirements: NotRequired[ClusterCapacityRequirementsUnionTypeDef]
 
 class ClusterRestrictedInstanceGroupSpecificationTypeDef(TypedDict):
@@ -12994,6 +13026,7 @@ class UpdateClusterRequestTypeDef(TypedDict):
     NodeProvisioningMode: NotRequired[Literal["Continuous"]]
     ClusterRole: NotRequired[str]
     AutoScaling: NotRequired[ClusterAutoScalingConfigTypeDef]
+    Orchestrator: NotRequired[ClusterOrchestratorTypeDef]
 
 class DescribeAlgorithmOutputTypeDef(TypedDict):
     AlgorithmName: str

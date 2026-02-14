@@ -1,4 +1,6 @@
 import uuid
+import copy
+import ssl
 from typing import Callable, List, Union, Optional
 from signalrcore.messages.message_type import MessageType
 from signalrcore.messages.stream_invocation_message\
@@ -6,10 +8,23 @@ from signalrcore.messages.stream_invocation_message\
 from .errors import HubConnectionError
 from signalrcore.helpers import Helpers
 from .handlers import StreamHandler, InvocationHandler
-from ..transport.websockets.websocket_transport import WebsocketTransport
+from ..transport.base_transport import BaseTransport
 from ..subject import Subject
 from ..messages.invocation_message import InvocationMessage
 from collections import defaultdict
+from ..protocol.base_hub_protocol import BaseHubProtocol
+from ..protocol.protocol_factory import ProtocolFactory
+from ..transport.transport_factory import TransportFactory
+from .negotiation import NegotiateResponse, NegotiationHandler
+from ..types import HttpTransportType, HubProtocolEncoding
+from ..messages.base_message import BaseMessage
+from ..messages.completion_message import CompletionMessage
+from ..messages.stream_item_message import StreamItemMessage
+from ..messages.cancel_invocation_message import CancelInvocationMessage
+from ..messages.ping_message import PingMessage
+from ..messages.ack_message import AckMessage
+from ..messages.sequence_message import SequenceMessage
+from ..messages.close_message import CloseMessage
 
 
 class InvocationResult(object):
@@ -18,38 +33,131 @@ class InvocationResult(object):
         self.message = None
 
 
+class HubCallbacks(object):
+    on_open: Callable
+    on_close: Callable
+    on_error: Callable[[Exception], None]
+    on_reconnect: Callable
+
+    def __init__(self):
+        self.logger = Helpers.get_logger()
+        self._on_open = lambda: self.logger.info("on_open not defined")
+        self._on_close = lambda: self.logger.info("on_close not defined")
+        self._on_error = lambda error: self.logger.info(
+            "on_error not defined {0}".format(error))
+        self._on_reconnect = lambda: self.logger.info(
+            "on_reconnect not defined")
+
+    def on_open(self):
+        return self._on_open()
+
+    def on_close(self):
+        return self._on_close()
+
+    def on_error(self, error: Exception):
+        return self._on_error(error)
+
+    def on_reconnect(self):
+        return self._on_reconnect()
+
+
 class BaseHubConnection(object):
+    url: str
+    headers: dict
+    token: str
+    ssl_context: ssl.SSLContext
+    protocol: BaseHubProtocol = None
+    transport: BaseTransport = None
+    preferred_transport: Optional[HttpTransportType] = None
+    preferred_protocol: Optional[HubProtocolEncoding] = None
+
     def __init__(
             self,
-            url,
-            protocol,
+            url: str,
+            preferred_protocol: Optional[HubProtocolEncoding] = None,
+            preferred_transport: Optional[HttpTransportType] = None,
+            skip_negotiation=False,
             headers=None,
+            ssl_context: ssl.SSLContext = ssl.create_default_context(),
+            protocol=None,
+            proxies: dict = {},
             **kwargs):
+        self.preferred_protocol = preferred_protocol
+        self.preferred_transport = preferred_transport
+        self.kwargs = kwargs
+        self.url = url
+        self.ssl_context = ssl_context
+        self.proxies = proxies
+        self.token = None
+        self._selected_protocol = protocol
+
         if headers is None:
-            self.headers = dict()
+            self.headers = dict()  # pragma: no cover
         else:
             self.headers = headers
+
         self.logger = Helpers.get_logger()
         self.handlers = defaultdict(list)
         self.stream_handlers = defaultdict(list)
+        self.skip_negotiation = skip_negotiation
+        self._callbacks = HubCallbacks()
 
-        self._on_error = lambda error: self.logger.info(
-            "on_error not defined {0}".format(error))
+    def negotiate(self) -> NegotiateResponse:
+        handler = NegotiationHandler(
+            self.url,
+            self.headers,
+            self.proxies,
+            self.ssl_context,
+            self.skip_negotiation
+        )
 
-        self.transport = WebsocketTransport(
-            url=url,
-            protocol=protocol,
-            headers=self.headers,
-            on_message=self.on_message,
-            **kwargs)
+        (url, headers, response) = handler.negotiate()
+
+        self.url = url
+        self.headers = copy.deepcopy(headers)
+
+        return response
 
     def start(self) -> None:
+        if self.transport is not None and self.transport.is_connected():
+            self.logger.warning("Already connected unable to start")
+            return False
+
         self.logger.debug("Connection started")
+
+        negotiate_response = self.negotiate()
+
+        self.protocol = ProtocolFactory.create(
+                self.preferred_transport,
+                self.preferred_protocol,
+                negotiate_response)\
+            if self._selected_protocol is None else\
+            self._selected_protocol
+
+        self.transport = TransportFactory.create(
+            negotiate_response,
+            self.preferred_transport,
+            url=self.url,
+            protocol=self.protocol,
+            headers=self.headers,
+            token=self.token,
+            skip_negotiation=self.skip_negotiation,
+            connection_id=negotiate_response.get_id(),
+            ssl_context=self.ssl_context,
+            proxies=self.proxies,
+            on_close=self._callbacks.on_close,
+            on_open=self._callbacks.on_open,
+            on_reconnect=self._callbacks.on_reconnect,
+            on_message=self.on_message,
+            **self.kwargs
+        )
+
         return self.transport.start()
 
     def stop(self) -> None:
         self.logger.debug("Connection stop")
-        return self.transport.stop()
+        if self.transport is not None:
+            return self.transport.stop()
 
     def on_close(self, callback) -> None:
         """Configures on_close connection callback.
@@ -58,7 +166,7 @@ class BaseHubConnection(object):
         Args:
             callback (function): function without params
         """
-        self.transport.on_close_callback(callback)
+        self._callbacks._on_close = callback
 
     def on_open(self, callback) -> None:
         """Configures on_open connection callback.
@@ -68,7 +176,7 @@ class BaseHubConnection(object):
         Args:
             callback (function): function without params
         """
-        self.transport.on_open_callback(callback)
+        self._callbacks._on_open = callback
 
     def on_error(self, callback) -> None:
         """Configures on_error connection callback. It will be raised
@@ -79,7 +187,7 @@ class BaseHubConnection(object):
             callback (function): function with one parameter.
                 A CompletionMessage object.
         """
-        self._on_error = callback
+        self._callbacks._on_error = callback
 
     def on_reconnect(self, callback) -> None:
         """Configures on_reconnect reconnection callback.
@@ -89,7 +197,7 @@ class BaseHubConnection(object):
         Args:
             callback (function): function without params
         """
-        self.transport.on_reconnect_callback(callback)
+        self._callbacks._on_reconnect = callback
 
     def on(self, event, callback_function: Callable) -> None:
         """Register a callback on the specified event
@@ -139,7 +247,7 @@ class BaseHubConnection(object):
             self,
             method: str,
             arguments: Union[List, Subject],
-            on_invocation: Optional[Callable] = None,
+            on_invocation: Optional[Callable[[List[CompletionMessage]], None]] = None,  # noqa: E501
             invocation_id: Optional[str] = None)\
             -> InvocationResult:
         """invokes a server function
@@ -160,7 +268,7 @@ class BaseHubConnection(object):
         if invocation_id is None:
             invocation_id = str(uuid.uuid4())
 
-        if not self.transport.is_running():
+        if self.transport is None or not self.transport.is_running():
             raise HubConnectionError(
                 "Cannot connect to SignalR hub. Unable to transmit messages")
 
@@ -194,78 +302,113 @@ class BaseHubConnection(object):
 
         return result
 
-    def on_message(self, messages) -> None:
+    def __on_invocation_message(self, message: InvocationMessage) -> None:  # 1
+        message: InvocationMessage
+        fired_handlers = self.handlers.get(message.target, [])
+
+        if len(fired_handlers) == 0:
+            self.logger.info(
+                f"Event '{message.target}' hasn't fired any handler")
+
+        for handler in fired_handlers:
+            handler(message.arguments)
+
+    def __on_stream_item_message(
+            self, message: StreamItemMessage) -> None:  # 2
+        fired_handlers = self.stream_handlers.get(
+            message.invocation_id, [])
+
+        if len(fired_handlers) == 0:
+            self.logger.warning(
+                "id '{0}' hasn't fire any stream handler".format(
+                    message.invocation_id))
+
+        for handler in fired_handlers:
+            handler.next_callback(message.item)
+
+    def __on_completion_message(self, message: CompletionMessage) -> None:  # 3
+        if message.error is not None and len(message.error) > 0:
+            self._callbacks.on_error(message)
+        else:
+            # Send callbacks
+            fired_handlers: List[StreamHandler] = self.stream_handlers.get(
+                message.invocation_id, [])
+
+            # Stream callbacks
+            for handler in fired_handlers:
+                handler: StreamHandler
+                handler.complete_callback(message)
+
+        # unregister handler
+        if message.invocation_id in self.stream_handlers:
+            del self.stream_handlers[message.invocation_id]
+
+    def __on_stream_invocation_message(
+            self, message: StreamInvocationMessage) -> None:  # 4 # pragma: no cover # noqa: E501
+        self.logger.debug(f"Stream invocation message {message}")
+
+    def __on_cancel_invocation_message(
+            self, message: CancelInvocationMessage) -> None:  # 5 # pragma: no cover # noqa: E501
+        fired_handlers = self.stream_handlers.get(
+            message.invocation_id, [])
+
+        if len(fired_handlers) == 0:
+            self.logger.warning(
+                "id '{0}' hasn't fire any stream handler".format(
+                    message.invocation_id))
+
+        for handler in fired_handlers:
+            handler.error_callback(message)
+
+        # unregister handler
+        if message.invocation_id in self.stream_handlers:
+            del self.stream_handlers[message.invocation_id]
+
+    def __on_ping_message(
+            self, message: PingMessage) -> None:  # 6
+        self.logger.debug(f"Ping message {message}")
+
+    def __on_close_message(
+            self, message: CloseMessage) -> None:  # 6
+        self.logger.info(f"Close message received from server {message}")
+        self.transport.dispose()
+
+    def __on_ack_message(
+            self, message: AckMessage) -> None:  # pragma: no cover # 8
+        self.logger.debug(f"Ack message {message}")
+
+    def __on_sequence_message(
+            self, message: SequenceMessage) -> None:  # pragma: no cover # 9
+        self.logger.debug(f"Sequence message {message}")
+
+    def __on_binding_failure(self, message) -> None:  # -1  # pragma: no cover # noqa: E501
+        self.logger.error(message)
+        self._callbacks.on_error(message)
+
+    def on_message(self, messages: List[BaseMessage]) -> None:
         for message in messages:
-            if message.type == MessageType.invocation_binding_failure:
-                self.logger.error(message)
-                self._on_error(message)
-                continue
-
-            if message.type == MessageType.ping:
-                continue
-
-            if message.type == MessageType.invocation:
-
-                fired_handlers = self.handlers.get(message.target, [])
-
-                if len(fired_handlers) == 0:
-                    self.logger.debug(
-                        f"event '{message.target}' hasn't fired any handler")
-
-                for handler in fired_handlers:
-                    handler(message.arguments)
-
-            if message.type == MessageType.close:
-                self.logger.info("Close message received from server")
-                self.transport.dispose()
+            self.logger.debug(message)
+            if message.type == MessageType.invocation_binding_failure:  # pragma: no cover # noqa: E501
+                self.__on_binding_failure(message)
+            elif message.type == MessageType.invocation:
+                self.__on_invocation_message(message)
+            elif message.type == MessageType.stream_item:  # 2
+                self.__on_stream_item_message(message)
+            elif message.type == MessageType.completion:  # 3
+                self.__on_completion_message(message)
+            elif message.type == MessageType.stream_invocation:  # 4 # pragma: no cover # noqa: E501
+                self.__on_stream_invocation_message(message)
+            elif message.type == MessageType.cancel_invocation:  # 5 # pragma: no cover # noqa: E501
+                self.__on_cancel_invocation_message(message)
+            elif message.type == MessageType.ping:  # 6
+                self.__on_ping_message(message)
+            elif message.type == MessageType.close:  # 7
+                self.__on_close_message(message)
                 return
-
-            if message.type == MessageType.completion:
-                if message.error is not None and len(message.error) > 0:
-                    self._on_error(message)
-
-                # Send callbacks
-                fired_handlers = self.stream_handlers.get(
-                    message.invocation_id, [])
-
-                # Stream callbacks
-                for handler in fired_handlers:
-                    handler.complete_callback(message)
-
-                # unregister handler
-                if message.invocation_id in self.stream_handlers:
-                    del self.stream_handlers[message.invocation_id]
-
-            if message.type == MessageType.stream_item:
-                fired_handlers = self.stream_handlers.get(
-                    message.invocation_id, [])
-
-                if len(fired_handlers) == 0:
-                    self.logger.warning(
-                        "id '{0}' hasn't fire any stream handler".format(
-                            message.invocation_id))
-
-                for handler in fired_handlers:
-                    handler.next_callback(message.item)
-
-            if message.type == MessageType.stream_invocation:
-                pass
-
-            if message.type == MessageType.cancel_invocation:
-                fired_handlers = self.stream_handlers.get(
-                    message.invocation_id, [])
-
-                if len(fired_handlers) == 0:
-                    self.logger.warning(
-                        "id '{0}' hasn't fire any stream handler".format(
-                            message.invocation_id))
-
-                for handler in fired_handlers:
-                    handler.error_callback(message)
-
-                # unregister handler
-                if message.invocation_id in self.stream_handlers:
-                    del self.stream_handlers[message.invocation_id]
+            elif message.type == MessageType.ack:  # pragma: no cover  # 8
+                self.__on_ack_message(message)
+            elif message.type == MessageType.sequence:  # pragma: no cover # 9
+                self.__on_sequence_message(message)
 
     def stream(self, event, event_params) -> StreamHandler:
         """Starts server streaming

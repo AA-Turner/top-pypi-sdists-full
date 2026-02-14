@@ -9,6 +9,7 @@ from typing import Union
 from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
 from adam.sql.lark_completer import LarkCompleter
+from adam.utils_job.job import Job
 from adam.utils_log import log2
 from adam.utils_context import Context
 
@@ -33,6 +34,12 @@ class Command:
     def run(self, cmd: str, state: ReplState):
         if self._successor:
             return self._successor.run(cmd, state)
+
+        return None
+
+    def retry(self, cmd: str, job: Job, state: ReplState):
+        if self._successor:
+            return self._successor.retry(cmd, job, state)
 
         return None
 
@@ -131,8 +138,8 @@ class Command:
     def validate_state(self, state: ReplState, show_err = True):
         return state.validate(self.required(), show_err=show_err)
 
-    def context(self, args: list[str] = None, show_out = True, ignore_bg = False):
-        return ContextHandler(self.command(), args, self.backgrounable(), show_out=show_out, ignore_bg=ignore_bg)
+    def context(self, args: list[str] = None, show_out = True, ignore_bg = False, job_id: str = None):
+        return ContextHandler(self.command(), args, self.backgrounable(), show_out=show_out, ignore_bg=ignore_bg, job_id=job_id)
 
     def help(self, _: ReplState, desc: str = None, command: str = None, args: str = None):
         if not desc:
@@ -194,15 +201,19 @@ class Command:
         return self.command().split(' ')
 
     # build a chain-of-responsibility chain
-    def chain(cl: list['Command']):
+    def chain(cl: list['Command'], run_command: callable = None):
         global repl_cmds
         repl_cmds.extend(cl)
 
         cmds = cl[0]
         cmd = cmds
+        if hasattr(cmd, 'run_command'):
+            cmd.run_command = run_command
         for successor in cl[1:]:
             cmd._successor = successor
             cmd = successor
+            if hasattr(cmd, 'run_command'):
+                cmd.run_command = run_command
 
         return cmds
 
@@ -409,12 +420,13 @@ class ExtractSequenceOptionsHandler:
         return False
 
 class ContextHandler:
-    def __init__(self, command: str, args: list[str] = None, backgroundable = False, show_out = True, ignore_bg = False):
+    def __init__(self, command: str, args: list[str] = None, backgroundable = False, show_out = True, ignore_bg = False, job_id: str = None):
         self.command = command
         self.args = args
         self.backgrounable = backgroundable
         self.show_out = show_out
         self.ignore_bg = ignore_bg
+        self.job_id = job_id
 
     def __enter__(self) -> tuple[list[str], Context]:
         args = self.args
@@ -425,7 +437,7 @@ class ContextHandler:
                 log2(f"'&' is not a valid option for '{self.command}', ignoring")
                 background = False
 
-        return args, Context.new(self.command + ' ' + ' '.join(args), show_out=self.show_out, background=background)
+        return args, Context.new(self.command + ' ' + ' '.join(args), show_out=self.show_out, background=background, job_id = self.job_id)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         return False

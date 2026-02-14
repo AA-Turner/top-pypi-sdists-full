@@ -80,25 +80,25 @@ def content(user_id, show_ignored, report_run_id):
             ignore_mpan_cores_msn = ecoes_props["ignore_mpan_cores_msn"]
             url_prefix = "https://www.ecoes.co.uk/"
 
-            proxies = props.get("proxies", {})
-            r = requests.get(url_prefix, proxies=proxies)
-            data = {
-                "Username": ecoes_props["user_name"],
-                "Password": ecoes_props["password"],
-            }
-            login_j = requests.post(url_prefix, data=data, allow_redirects=False).json()
-            if not login_j["Success"]:
-                raise BadRequest(f"Login to ECOES failed: {login_j['Messages']}")
-            elif "RedirectUrl" in login_j and "SetPassword" in login_j["RedirectUrl"]:
-                raise BadRequest(
-                    "Login to ECOES failed, it looks like the password needs to be "
-                    "changed"
+            with requests.Session() as s:
+                r = s.get(url_prefix)
+                data = {
+                    "Username": ecoes_props["user_name"],
+                    "Password": ecoes_props["password"],
+                }
+                login_j = s.post(url_prefix, data=data, allow_redirects=False).json()
+                if not login_j["Success"]:
+                    raise BadRequest(f"Login to ECOES failed: {login_j['Messages']}")
+                elif (
+                    "RedirectUrl" in login_j and "SetPassword" in login_j["RedirectUrl"]
+                ):
+                    raise BadRequest(
+                        "Login to ECOES failed, it looks like the password needs to be "
+                        "changed"
+                    )
+                r = s.get(
+                    f"{url_prefix}PortfolioAccess/ExportPortfolioMPANs?fileType=csv"
                 )
-
-            r = requests.get(
-                f"{url_prefix}PortfolioAccess/ExportPortfolioMPANs?fileType=csv",
-                proxies=proxies,
-            )
 
             _process(
                 sess,

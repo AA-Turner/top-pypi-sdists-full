@@ -259,22 +259,19 @@ def test_client_post_files(test_files):
 
 
 @retry()
-def test_client_impersonate_chrome131():
+def test_client_impersonate_chrome100():
     client = primp.Client(
-        impersonate="chrome_131",
+        impersonate="chrome_144",
         impersonate_os="windows",
     )
-    response = client.get("https://tls.peet.ws/api/all")
+    #response = client.get("https://tls.peet.ws/api/all")
     #response = client.get("https://tls.http.rw/api/all")
+    response = client.get("https://tls.browserleaks.com/json")
     assert response.status_code == 200
     json_data = response.json()
     assert (
         json_data["user_agent"]
-        == "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        == "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
     )
-    assert json_data["tls"]["ja4"] == "t13d1516h2_8daaf6152771_b1ff8ab2d16f"
-    assert (
-        json_data["http2"]["akamai_fingerprint_hash"]
-        == "52d84b11737d980aef856699f885ca86"
-    )
-    assert json_data["tls"]["peetprint_hash"] == "7466733991096b3f4e6c0e79b0083559"
+    assert json_data["ja4"] == "t13d1516h2_8daaf6152771_d8a2da3f94cd"
+    assert json_data["akamai_hash"] == "52d84b11737d980aef856699f885ca86"

@@ -42,6 +42,7 @@
 
 def browse():
     """Retrieve the catalog information.
+
     Returns:
         a dict object. The keys of the dict should be table names of the Python
         data source, and the values are normalized in Pandas DataFrame format.
@@ -52,9 +53,11 @@ def browse():
 
 def preview(table_name, row_count):
     """Get partial data for preview, data refine and schema change.
+
     Args:
         table_name: name of the selected table.
         row_count: number of rows to be retrieved.
+
     Returns:
         a Pandas DataFrame object with `row_count` rows.
     """
@@ -63,8 +66,10 @@ def preview(table_name, row_count):
 
 def publish(table_name):
     """Get the data published and store the data into the cube
+
     Args:
         table_name: name of the selected table.
+
     Returns:
         a Pandas DataFrame object with all data.
     """

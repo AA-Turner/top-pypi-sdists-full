@@ -1,26 +1,21 @@
-use std::{
-    sync::{Arc, atomic::Ordering},
-    time::Duration,
-};
+use std::sync::{Arc, atomic::Ordering};
 
 use common_error::DaftResult;
-use common_metrics::{CPU_US_KEY, ROWS_IN_KEY, Stat, StatSnapshot, ops::NodeType, snapshot};
+use common_metrics::{
+    CPU_US_KEY, Counter, ROWS_IN_KEY, StatSnapshot, ops::NodeType, snapshot::WriteSnapshot,
+};
 use daft_core::prelude::SchemaRef;
 use daft_dsl::expr::bound_expr::BoundExpr;
 use daft_micropartition::MicroPartition;
 use daft_recordbatch::RecordBatch;
 use daft_writers::{AsyncFileWriter, WriteResult, WriterFactory};
-use opentelemetry::{KeyValue, global};
+use opentelemetry::{KeyValue, metrics::Meter};
 use tracing::{Span, instrument};
 
 use super::blocking_sink::{
     BlockingSink, BlockingSinkFinalizeOutput, BlockingSinkFinalizeResult, BlockingSinkSinkResult,
 };
-use crate::{
-    ExecutionTaskSpawner,
-    pipeline::NodeName,
-    runtime_stats::{Counter, RuntimeStats},
-};
+use crate::{ExecutionTaskSpawner, pipeline::NodeName, runtime_stats::RuntimeStats};
 
 struct WriteStats {
     cpu_us: Counter,
@@ -32,15 +27,14 @@ struct WriteStats {
 }
 
 impl WriteStats {
-    pub fn new(id: usize) -> Self {
-        let meter = global::meter("daft.local.node_stats");
+    pub fn new(meter: &Meter, id: usize) -> Self {
         let node_kv = vec![KeyValue::new("node_id", id.to_string())];
 
         Self {
-            cpu_us: Counter::new(&meter, "cpu_us".into(), None),
-            rows_in: Counter::new(&meter, "rows_in".into(), None),
-            rows_written: Counter::new(&meter, "rows_written".into(), None),
-            bytes_written: Counter::new(&meter, "bytes_written".into(), None),
+            cpu_us: Counter::new(meter, CPU_US_KEY, None),
+            rows_in: Counter::new(meter, ROWS_IN_KEY, None),
+            rows_written: Counter::new(meter, "rows written", None),
+            bytes_written: Counter::new(meter, "bytes written", None),
 
             node_kv,
         }
@@ -62,12 +56,16 @@ impl RuntimeStats for WriteStats {
     }
 
     fn build_snapshot(&self, ordering: Ordering) -> StatSnapshot {
-        snapshot![
-            CPU_US_KEY; Stat::Duration(Duration::from_micros(self.cpu_us.load(ordering))),
-            ROWS_IN_KEY; Stat::Count(self.rows_in.load(ordering)),
-            "rows written"; Stat::Count(self.rows_written.load(ordering)),
-            "bytes written"; Stat::Bytes(self.bytes_written.load(ordering)),
-        ]
+        let cpu_us = self.cpu_us.load(ordering);
+        let rows_in = self.rows_in.load(ordering);
+        let rows_written = self.rows_written.load(ordering);
+        let bytes_written = self.bytes_written.load(ordering);
+        StatSnapshot::Write(WriteSnapshot {
+            cpu_us,
+            rows_in,
+            rows_written,
+            bytes_written,
+        })
     }
 
     fn add_rows_in(&self, rows: u64) {
@@ -218,8 +216,8 @@ impl BlockingSink for WriteSink {
         Ok(WriteState::new(writer))
     }
 
-    fn make_runtime_stats(&self, id: usize) -> Arc<dyn RuntimeStats> {
-        Arc::new(WriteStats::new(id))
+    fn make_runtime_stats(&self, meter: &Meter, id: usize) -> Arc<dyn RuntimeStats> {
+        Arc::new(WriteStats::new(meter, id))
     }
 
     fn multiline_display(&self) -> Vec<String> {

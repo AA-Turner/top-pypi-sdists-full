@@ -353,6 +353,7 @@ async def handle_tools_call(
         }
 
     arguments = params.get("arguments", {})
+    context = params.get("context")
     assistants = await client.assistants.search(
         limit=MAX_ASSISTANTS, headers=request.headers
     )
@@ -386,6 +387,7 @@ async def handle_tools_call(
         thread_id=None,
         assistant_id=tool_name,
         input=arguments,
+        context=context,
         headers=request.headers,
         raise_error=False,
     )

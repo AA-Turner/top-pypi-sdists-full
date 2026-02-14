@@ -138,7 +138,7 @@ class ReplCommands:
                 DownloadCassandraLog(), DropExportDatabase(), DropExportDatabases(), DownloadExportSession(),
                 ExportTables(), ExportXSelect(), ExportUse(),
                 GenerateReport(), ImportSession(), ImportCSVFiles(), Issues(), NodeTool(),
-                RestartNodes(), RestartCluster(), Retry(), RollOut(),
+                RestartNodes(), RestartCluster(), RollOut(),
                 ShowTokens(), ShowStatus(), ShowCassandraVersion(),
                 ShowCassandraRepairs(), ShowColumnCounts(), ShowJobs(), ShowStorage(), ShowExportDatabases(),
                 ShowExportSessions(), ShowExportSession(), ShowProcesses(), Upgrade(),
@@ -161,7 +161,7 @@ class ReplCommands:
         return [ExportSelect(), DropExportDatabase(), DropExportDatabases(), ShowColumnCounts()]
 
     def tools() -> list[Command]:
-        return [Shell(), CodeStart(), CodeStop(), DeployFrontend(), UndeployFrontend(), DeployPod(), UndeployPod(), Kubectl(), Code()]
+        return [Retry(), Shell(), CodeStart(), CodeStop(), DeployFrontend(), UndeployFrontend(), DeployPod(), UndeployPod(), Kubectl(), Code()]
 
     def exit() -> list[Command]:
         return [Exit()]

@@ -48,7 +48,7 @@ def show_last_results(state: ReplState, args: str = None, ctx = NULL):
 
 def show_last_results_with_local_log(state: ReplState, job: Job, ctx = NULL):
         ctx.log2(f'[{job.job_id}] {job.command}')
-        show_local_log(job)
+        show_local_log(job, ctx=ctx.copy(text_color=Color.gray))
         ctx.log2()
 
 def show_last_results_with_pod_logs(state: ReplState, job: Job, ctx = NULL):
@@ -153,6 +153,8 @@ def find_logs_for_pod(pod: str, container: str, namespace: str, dir: str, job: J
         elif l.endswith('.err'):
             line.err = log.size
         elif l.endswith('.pid'):
+            if log.ts:
+                line.exit_ts = log.ts
             if log.exit_code:
                 line.exit_code = log.exit_code
             if log.pid:
@@ -197,7 +199,12 @@ def pod_suffix(pod_name: str):
 
     return pod_name
 
-def show_local_log(cmd: Job):
+def show_local_log(cmd: Job, ctx = NULL):
+    ctx = ctx.copy(show_out=True)
+
     log_file = cmd._local_log_file()
     if os.path.exists(log_file):
-        os.system(f'cat {log_file}')
+        with open(log_file, 'r') as f:
+            for line in f:
+                ctx.log2(line.strip('\r\n'))
+        # os.system(f'cat {log_file}')

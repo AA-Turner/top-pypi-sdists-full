@@ -604,8 +604,33 @@ if __name__ == '__main__':
 
     # print(CompletionRequest(messages=messages).last_urls)
     # print(CompletionRequest(messages=messages).last_urls)
-
-    r = CompletionRequest(messages=messages)
+    data = {
+                "model": "doubao-seedance-1-5-pro-251215",
+                "content": [
+                     {
+                        "type": "text",
+                        "text": "图中女孩对着镜头说“茄子”，360度环绕运镜"
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": "https://ark-project.tos-cn-beijing.volces.com/doc_image/seepro_first_frame.jpeg"
+                        },
+                        "role": "first_frame"
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": "https://ark-project.tos-cn-beijing.volces.com/doc_image/seepro_last_frame.jpeg"
+                        },
+                        "role": "last_frame"
+                    }
+                ],
+                "generate_audio":True,
+                "ratio": "adaptive",
+                "duration": 5,
+            }
+    r = CompletionRequest(**data)
 
     # print(mesages)
     # print(CompletionRequest(messages=messages).last_assistant_content)

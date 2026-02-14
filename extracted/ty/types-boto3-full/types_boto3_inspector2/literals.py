@@ -371,6 +371,7 @@ ResourceTypeType = Literal[
 RuleSetCategoryType = Literal["IAC", "SAST", "SCA"]
 RuntimeType = Literal[
     "DOTNETCORE_3_1",
+    "DOTNET_10",
     "DOTNET_6",
     "DOTNET_7",
     "GO_1_X",
@@ -383,6 +384,7 @@ RuntimeType = Literal[
     "NODEJS_14_X",
     "NODEJS_16_X",
     "NODEJS_18_X",
+    "NODEJS_24_X",
     "PYTHON_3_10",
     "PYTHON_3_11",
     "PYTHON_3_7",

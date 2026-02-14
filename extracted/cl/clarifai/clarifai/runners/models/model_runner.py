@@ -91,6 +91,8 @@ class ModelRunner(BaseRunner):
         HealthProbeRequestHandler.is_startup = True
 
         start_health_server_thread(port=health_check_port, address='')
+        if health_check_port is not None:
+            start_health_server_thread(port=health_check_port, address='')
 
     def get_runner_item_output_for_status(
         self, status: status_pb2.Status
@@ -109,6 +111,27 @@ class ModelRunner(BaseRunner):
             multi_output_response=service_pb2.MultiOutputResponse(status=status)
         )
         return rio
+
+    @property
+    def admission_control_backoff(self) -> float:
+        """
+        The time in seconds to wait before retrying admission control. If the model defines this backoff, we use that.
+        """
+        if hasattr(self.model, 'admission_control_backoff'):
+            return self.model.admission_control_backoff
+        return super().admission_control_backoff
+
+    def check_admission(self) -> bool:
+        """
+        Check if the runner is ready to accept new work. If the model has a check_admission func, we call that.
+
+        Returns:
+          bool: True if the runner is ready to accept work, False otherwise.
+        """
+        if hasattr(self.model, 'check_admission'):
+            return self.model.check_admission()
+        else:
+            return super().check_admission()
 
     def runner_item_predict(
         self, runner_item: service_pb2.RunnerItem

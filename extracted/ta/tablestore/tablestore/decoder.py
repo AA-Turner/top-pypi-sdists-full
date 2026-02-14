@@ -334,7 +334,7 @@ class OTSProtoBufferDecoder(object):
         sse_details = self._parse_sse_details(proto.sse_details)
         secondary_indexes = self._parse_secondary_indexes(proto.index_metas)
         describe_table_response = DescribeTableResponse(table_meta, table_options, reserved_throughput_details,
-                                                        sse_details, secondary_indexes)
+                                                        secondary_indexes, sse_details)
         describe_table_response.set_request_id(request_id)
         return describe_table_response, proto
 

@@ -7,7 +7,7 @@ module-root = ""
 
 [project]
 name = "model-bakery"
-version = "1.23.2"
+version = "1.23.3"
 description = "Smart object creation facility for Django."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -59,7 +59,7 @@ dev = [
     "pytest-django",
     "black",
     "ruff",
-    "mypy",
+    "ty>=0.0.17",
 ]
 
 [project.urls]
@@ -84,9 +84,15 @@ source = [
 [tool.coverage.report]
 show_missing = true
 
-[tool.mypy]
-ignore_missing_imports = true
-disallow_untyped_calls = true
+[tool.ty.rules]
+# Django dynamic attributes (.objects, ._meta, etc.)
+# TODO: remove these two ignores when ty adds better Django support
+#  https://github.com/astral-sh/ty/issues/1018
+unresolved-attribute = "ignore"
+possibly-missing-attribute = "ignore"
+# Allow `# type: ignore` comments (mypy syntax) without warnings
+unused-ignore-comment = "ignore"
+unused-type-ignore-comment = "ignore"
 
 [tool.pytest.ini_options]
 addopts = "--tb=short -rxs --nomigrations"

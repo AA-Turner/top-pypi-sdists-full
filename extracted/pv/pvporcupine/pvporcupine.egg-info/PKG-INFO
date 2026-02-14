@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pvporcupine
-Version: 4.0.1
+Version: 4.0.2
 Summary: Porcupine wake word engine.
 Home-page: https://github.com/Picovoice/porcupine
 Author: Picovoice
@@ -14,6 +14,15 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Multimedia :: Sound/Audio :: Speech
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: requires-python
+Dynamic: summary
 
 # Porcupine Wake Word Engine
 

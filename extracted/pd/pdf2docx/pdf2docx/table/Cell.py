@@ -19,14 +19,28 @@ class Cell(Layout):
         self.border_width = raw.get('border_width', (0,0,0,0)) # type: tuple [float]
         self.merged_cells = raw.get('merged_cells', (1,1)) # type: tuple [int]
 
+    def _block_text(self, block):
+        '''Get text from a block, always returning a str (for join).'''
+        if not hasattr(block, 'text'):
+            return '<NEST TABLE>'
+        t = block.text
+        if t is None:
+            return ''
+        if isinstance(t, list):
+            return '\n'.join(str(x) for x in t)
+        return str(t)
 
     @property
     def text(self):
         '''Text contained in this cell.'''
         if not self: return None
         # NOTE: sub-table may exists in
-        return '\n'.join([block.text if block.is_text_block else '<NEST TABLE>'
-                                 for block in self.blocks])
+        # fixme: prev code did `if block.is_text_block`, but sometimes
+        # there is no `is_text_block` member; would be good to ensure
+        # this member is always present and avoid use of `hasattr()`.
+        return '\n'.join([self._block_text(block) for block in self.blocks])
+        # return '\n'.join([block.text if hasattr(block, 'text') else '<NEST TABLE>'
+        #                         for block in self.blocks])
 
 
     @property
@@ -73,9 +87,14 @@ class Cell(Layout):
         n_row, n_col = self.merged_cells
         i, j = indexes
         docx_cell = table.cell(i, j)
-        if n_row*n_col!=1:
+        if n_row*n_col != 1 and ((i+n_row-1) * table._column_count + j+n_col-1) < len(table._cells): # check whether index is over length of cells
             _cell = table.cell(i+n_row-1, j+n_col-1)
-            docx_cell.merge(_cell)
+            try:
+                docx_cell.merge(_cell)
+            except Exception as e:
+                def show(c):
+                    return f'[_tc.top={c._tc.top} _tc.bottom={c._tc.bottom}]'
+                raise Exception(f'Failed to merge docx_cell={show(docx_cell)} _cell={show(_cell)}. {i=} {j=} {n_row=} {n_col=}') from e
 
         # ---------------------
         # cell width (cell height is set by row height)
@@ -125,7 +144,8 @@ class Cell(Layout):
         # merged cells are assumed to have same borders with the main cell
         for m in range(i, i+n_row):
             for n in range(j, j+n_col):
-                docx.set_cell_border(table.cell(m, n), **kwargs)
+                if len(table._cells) > m * table._column_count + n: # check whether index is over length of cells
+                    docx.set_cell_border(table.cell(m, n), **kwargs)
 
         # ---------------------
         # cell bg-color

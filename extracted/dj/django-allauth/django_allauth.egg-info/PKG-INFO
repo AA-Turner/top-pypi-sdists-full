@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-allauth
-Version: 65.14.1
+Version: 65.14.3
 Summary: Integrated set of Django applications addressing authentication, registration, account management as well as 3rd party (social) account authentication.
 Author-email: Raymond Penners <raymond.penners@intenct.nl>
 License: MIT

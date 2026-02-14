@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: logfire
-Version: 4.23.0
+Version: 4.24.0
 Summary: The best Python observability tool! 🪵🔥
 Project-URL: Homepage, https://logfire.pydantic.dev/
 Project-URL: Source, https://github.com/pydantic/logfire
@@ -92,6 +92,8 @@ Provides-Extra: starlette
 Requires-Dist: opentelemetry-instrumentation-starlette>=0.42b0; extra == 'starlette'
 Provides-Extra: system-metrics
 Requires-Dist: opentelemetry-instrumentation-system-metrics>=0.42b0; extra == 'system-metrics'
+Provides-Extra: variables
+Requires-Dist: pydantic>=2; extra == 'variables'
 Provides-Extra: wsgi
 Requires-Dist: opentelemetry-instrumentation-wsgi>=0.42b0; extra == 'wsgi'
 Description-Content-Type: text/markdown

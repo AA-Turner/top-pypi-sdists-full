@@ -280,6 +280,13 @@ class HTTPProtocol(netius.StreamProtocol):
         # the process of sending the request to the server
         self.run_request()
 
+        # flushes any data that was buffered before the transport
+        # was available, this happens in the proxy scenario where
+        # `on_headers()` and `on_partial()` fire in the same parser
+        # pass (same event loop tick) so body chunks are queued
+        # via `_delay_send()` before `connection_made()` runs
+        self._flush_send()
+
     def loop_set(self, loop):
         netius.StreamProtocol.loop_set(self, loop)
         self.set_dynamic()
@@ -1240,6 +1247,12 @@ class HTTPClient(netius.ClientAgent):
         if protocol:
             loop = loop or protocol.loop()
 
+        # if no loop was provided and this client has a container loop
+        # reference, uses it so that connections join the container's
+        # shared event loop (dual architecture support)
+        if not loop and self._container_loop:
+            loop = self._container_loop
+
         # determines if the loop instance was provided by the user so
         # that latter on we can determine if it should be closed (garbage
         # collection or not)
@@ -1277,6 +1290,11 @@ class HTTPClient(netius.ClientAgent):
             on_data=on_data,
             on_result=on_result,
         )
+
+        # relays protocol events through this client so that observers
+        # that bind on the client (eg proxy servers) receive events from
+        # all managed protocols using the old client-first convention
+        self._relay_protocol_events(protocol)
 
         # verifies if the current protocol is already open and if that's the
         # case calls the connection made directly, indicating that the connection
@@ -1357,6 +1375,26 @@ class HTTPClient(netius.ClientAgent):
         # returns the final request object (that should be populated by this
         # time) to the called method, so that a simple interface is provided
         return protocol.request
+
+    def _relay_protocol_events(self, protocol):
+        netius.ClientAgent._relay_protocol_events(self, protocol)
+        protocol.bind(
+            "headers",
+            lambda protocol, parser: self.trigger(
+                "headers", self, parser, parser.headers
+            ),
+        )
+        protocol.bind(
+            "message",
+            lambda protocol, parser, message: self.trigger(
+                "message", self, parser, message
+            ),
+        )
+        protocol.bind(
+            "partial",
+            lambda protocol, parser, data: self.trigger("partial", self, parser, data),
+        )
+        protocol.bind("open", lambda protocol: self.trigger("acquire", self, protocol))
 
     def _get_loop(self, **kwargs):
         if not self._loop:

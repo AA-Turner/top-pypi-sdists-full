@@ -2,7 +2,7 @@
 #
 #    BitcoinLib - Python Cryptocurrency Library
 #    Unit Tests for Wallet Class
-#    © 2016 - 2024 February - 1200 Web Development <http://1200wd.com/>
+#    © 2016 - 2026 February - 1200 Web Development <http://1200wd.com/>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU Affero General Public License as
@@ -61,7 +61,7 @@ def database_init(dbname=DATABASE_NAME):
         cur.close()
         con.close()
         return 'postgresql+psycopg://postgres:postgres@localhost:5432/' + dbname
-    elif os.getenv('UNITTEST_DATABASE') == 'mysql':
+    elif os.getenv('UNITTEST_DATABASE') == 'mysql' or os.getenv('UNITTEST_DATABASE') == 'mariadb':
         con = mysql.connector.connect(user='root', host='localhost', password='root')
         cur = con.cursor()
         cur.execute("DROP DATABASE IF EXISTS {}".format(dbname))
@@ -685,7 +685,6 @@ class TestWalletKeys(unittest.TestCase):
         w = wallet_create_or_open("wallet_private", network='testnet', db_uri=self.database_uri)
         wk = w.public_master()
         self.assertIsNone(wk._hdkey_object.private_hex)
-        self.assertIsNone(wk._dbkey)
 
         w2 = wallet_create_or_open('wallet_public', network='testnet', keys=wk, db_uri=self.database_uri)
         self.assertFalse(w2.main_key.is_private)
@@ -779,6 +778,19 @@ class TestWalletKeys(unittest.TestCase):
         w.new_key()
         w.utxos_update()
         self.assertEqual(sum([k.balance for k in w.keys_addresses()]), 400000000)
+
+    def test_wallet_key_get_keys(self):
+        seed_phrase = 'gentle disagree gentle little razor skull want left emotion addict oppose eye'
+        w = wallet_create_or_open("wallet_get_keys", seed_phrase, db_uri=self.database_uri)
+        w.new_keys(number_of_keys=10)
+
+        k = w.key('bc1q2j845rqtpndyg067zhcta3dqd0qv0m3j4yvcw0')
+        self.assertEqual(k.path, "m/84'/0'/0'/0/10")
+        k = w.key('address index 8')
+        self.assertEqual(k.path, "m/84'/0'/0'/0/8")
+        k = w.key(
+            'zprvAhcLR85RiBnqVkPiLS7Be4k1N7PyAszs8v1cgx2AEc8GMPEVXiH4R6GPm1fcVP8nDbQF1NcJ4M86XS9F6G4nJ1qnwMjnVs2qqVsHKh7u4sv')
+        self.assertEqual(k.address, "bc1qah5u6nex7s3g99uwqlck2dse92s44682dqku9u")
 
     @classmethod
     def tearDownClass(cls):
@@ -1332,7 +1344,7 @@ class TestWalletMultisig(unittest.TestCase):
         k2 = wl.new_key()
         k3 = wl.new_key_change()
         wl.utxos_update()
-        self.assertEqual(wl.public_master()[1].wif, keys[1].wif(multisig=True))
+        self.assertEqual(wl.public_master()[1].wif, keys[1].wif())
         key_names = [k.name for k in wl.keys(is_active=False)]
         self.assertListEqual(key_names, [k1.name, k2.name, k3.name])
 

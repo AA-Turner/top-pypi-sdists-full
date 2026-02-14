@@ -725,6 +725,7 @@ class HardCodedFilter(BaseModel):
                 self.filter.wb_user_ids,
                 self.filter.wb_run_ids,
                 self.filter.turn_ids,
+                self.filter.thread_ids is not None,
             ]
         )
 
@@ -1219,6 +1220,7 @@ class CallsQuery(BaseModel):
         queue_id_filter: str | None,
         expand_columns: list[str] | None,
         field_to_object_join_alias_map: dict[str, str] | None,
+        id_subquery_name: str | None = None,
     ) -> QueryJoins:
         """Build all JOIN clauses for the query.
 
@@ -1288,6 +1290,18 @@ class CallsQuery(BaseModel):
         # Total storage size join
         total_storage_size_join = ""
         if self.include_total_storage_size:
+            # When we have a filtered set of call IDs, restrict the trace_ids
+            # looked up in calls_merged_stats to only those related to the
+            # filtered calls. This leverages the primary key index to avoid
+            # aggregating over the entire project when only a subset is needed.
+            trace_id_filter = ""
+            if id_subquery_name is not None:
+                trace_id_filter = f"""AND trace_id IN (
+                    SELECT trace_id
+                    FROM {table_alias}
+                    WHERE project_id = {param_slot(project_param, "String")}
+                    AND id IN {id_subquery_name}
+                )"""
             total_storage_size_join = f"""
             LEFT JOIN (
                 SELECT
@@ -1295,6 +1309,7 @@ class CallsQuery(BaseModel):
                     sum(COALESCE(attributes_size_bytes,0) + COALESCE(inputs_size_bytes,0) + COALESCE(output_size_bytes,0) + COALESCE(summary_size_bytes,0)) AS total_storage_size_bytes
                 FROM {config.stats_table_name}
                 WHERE project_id = {param_slot(project_param, "String")}
+                {trace_id_filter}
                 GROUP BY trace_id
             ) AS {ROLLED_UP_CALL_MERGED_STATS_TABLE_NAME}
             ON {table_alias}.trace_id = {ROLLED_UP_CALL_MERGED_STATS_TABLE_NAME}.trace_id
@@ -1442,7 +1457,7 @@ class CallsQuery(BaseModel):
             needs_feedback=needs_feedback,
         )
 
-    def _as_sql_base_format(
+    def _build_query_body(
         self,
         pb: ParamBuilder,
         table_alias: str,
@@ -1450,10 +1465,11 @@ class CallsQuery(BaseModel):
         field_to_object_join_alias_map: dict[str, str] | None = None,
         expand_columns: list[str] | None = None,
     ) -> str:
-        """Build the base SQL query format.
+        """Build the SQL query body: everything from FROM through OFFSET.
 
-        This method orchestrates the building of a complete SQL query by delegating
-        to specialized helper methods for different query components.
+        This method builds filters, JOINs, WHERE/PREWHERE, GROUP BY, ORDER BY,
+        LIMIT, and OFFSET — everything except the SELECT clause. Callers compose
+        their own SELECT with the returned body to form a complete query.
 
         Args:
             pb: Parameter builder for query parameterization
@@ -1463,12 +1479,8 @@ class CallsQuery(BaseModel):
             expand_columns: List of columns that should be expanded for object refs
 
         Returns:
-            Complete SQL query string
+            SQL query body string (FROM through OFFSET, not formatted)
         """
-        select_fields_sql = ", ".join(
-            field.as_select_sql(pb, table_alias, use_agg_fn=self.use_agg_fn)
-            for field in self.select_fields
-        )
         filter_result = self._build_filter_conditions(
             pb, table_alias, expand_columns, field_to_object_join_alias_map
         )
@@ -1489,12 +1501,12 @@ class CallsQuery(BaseModel):
             queue_id_filter=filter_result.queue_id_filter,
             expand_columns=expand_columns,
             field_to_object_join_alias_map=field_to_object_join_alias_map,
+            id_subquery_name=id_subquery_name,
         )
         group_by_sql = ""
         if self.use_agg_fn:
             group_by_sql = f"GROUP BY ({table_alias}.project_id, {table_alias}.id)"
 
-        # Assemble the actual SQL query
         # Use PREWHERE for project_id to filter data before reading from disk
         # This is a ClickHouse optimization for high-selectivity filters
         where_filters_sql = where_filters.to_sql()
@@ -1511,9 +1523,7 @@ class CallsQuery(BaseModel):
         if not where_clause and filter_result.filter_sql and not self.use_agg_fn:
             where_clause = "WHERE 1"
 
-        raw_sql = f"""
-        SELECT {select_fields_sql}
-        FROM {table_alias}
+        return f"""FROM {table_alias}
         {joins.to_sql()}
         PREWHERE {table_alias}.project_id = {param_slot(project_param, "String")}
         {where_clause}
@@ -1521,9 +1531,46 @@ class CallsQuery(BaseModel):
         {filter_result.filter_sql}
         {order_result.order_by_sql}
         {order_result.limit_sql}
-        {order_result.offset_sql}
-        """
+        {order_result.offset_sql}"""
 
+    def _as_sql_base_format(
+        self,
+        pb: ParamBuilder,
+        table_alias: str,
+        id_subquery_name: str | None = None,
+        field_to_object_join_alias_map: dict[str, str] | None = None,
+        expand_columns: list[str] | None = None,
+    ) -> str:
+        """Build the base SQL query format.
+
+        Computes the SELECT clause from select_fields and combines it with
+        the query body built by _build_query_body.
+
+        Args:
+            pb: Parameter builder for query parameterization
+            table_alias: The table alias to use in SQL (typically "calls_merged")
+            id_subquery_name: Optional name of a CTE containing filtered IDs
+            field_to_object_join_alias_map: Mapping of field paths to CTE aliases for object refs
+            expand_columns: List of columns that should be expanded for object refs
+
+        Returns:
+            Complete SQL query string
+        """
+        select_fields_sql = ", ".join(
+            field.as_select_sql(pb, table_alias, use_agg_fn=self.use_agg_fn)
+            for field in self.select_fields
+        )
+        body = self._build_query_body(
+            pb,
+            table_alias,
+            id_subquery_name,
+            field_to_object_join_alias_map,
+            expand_columns,
+        )
+        raw_sql = f"""
+        SELECT {select_fields_sql}
+        {body}
+        """
         return safely_format_sql(raw_sql, logger)
 
 
@@ -1765,10 +1812,18 @@ def process_query_to_conditions(
             lhs_part = process_operand(operation.gt_[0])
             rhs_part = process_operand(operation.gt_[1])
             cond = f"({lhs_part} > {rhs_part})"
+        elif isinstance(operation, tsi_query.LtOperation):
+            lhs_part = process_operand(operation.lt_[0])
+            rhs_part = process_operand(operation.lt_[1])
+            cond = f"({lhs_part} < {rhs_part})"
         elif isinstance(operation, tsi_query.GteOperation):
             lhs_part = process_operand(operation.gte_[0])
             rhs_part = process_operand(operation.gte_[1])
             cond = f"({lhs_part} >= {rhs_part})"
+        elif isinstance(operation, tsi_query.LteOperation):
+            lhs_part = process_operand(operation.lte_[0])
+            rhs_part = process_operand(operation.lte_[1])
+            cond = f"({lhs_part} <= {rhs_part})"
         elif isinstance(operation, tsi_query.InOperation):
             lhs_part = process_operand(operation.in_[0])
             rhs_part = ",".join(process_operand(op) for op in operation.in_[1])
@@ -1825,7 +1880,9 @@ def process_query_to_conditions(
                 tsi_query.NotOperation,
                 tsi_query.EqOperation,
                 tsi_query.GtOperation,
+                tsi_query.LtOperation,
                 tsi_query.GteOperation,
+                tsi_query.LteOperation,
                 tsi_query.InOperation,
                 tsi_query.ContainsOperation,
             ),
@@ -2230,13 +2287,38 @@ def build_calls_stats_query(
     if opt_query := _try_optimized_stats_query(req, param_builder, read_table):
         return (opt_query, aggregated_columns.keys())
 
-    # Fall back to general query builder
+    if req.include_total_storage_size:
+        aggregated_columns["total_storage_size_bytes"] = (
+            "sum(coalesce(total_storage_size_bytes, 0))"
+        )
+
+    # For calls_complete, use a flat query (10x+ faster, avoids subquery materialization):
+    #   Fast:  SELECT count() FROM calls_complete WHERE ...
+    #   Slow:  SELECT count() FROM (SELECT id FROM calls_complete WHERE ...)
+    if read_table == ReadTable.CALLS_COMPLETE:
+        query = _build_calls_complete_stats_query(
+            req, param_builder, aggregated_columns
+        )
+        return (query, aggregated_columns.keys())
+
+    # For calls_merged, use subquery wrapping (GROUP BY requires materialization)
+    cq = _build_stats_calls_query(req, read_table)
+    inner_query = cq.as_sql(param_builder)
+    calls_query_sql = f"SELECT {', '.join(aggregated_columns[k] for k in aggregated_columns)} FROM ({inner_query})"
+
+    return (calls_query_sql, aggregated_columns.keys())
+
+
+def _build_stats_calls_query(
+    req: tsi.CallsQueryStatsReq,
+    read_table: ReadTable,
+) -> CallsQuery:
+    """Build a CallsQuery populated with the stats request's filters and conditions."""
     cq = CallsQuery(
         project_id=req.project_id,
         include_total_storage_size=req.include_total_storage_size or False,
         read_table=read_table,
     )
-
     cq.add_field("id")
     if req.filter is not None:
         cq.set_hardcoded_filter(HardCodedFilter(filter=req.filter))
@@ -2246,17 +2328,62 @@ def build_calls_stats_query(
         cq.set_limit(req.limit)
     if req.expand_columns is not None:
         cq.set_expand_columns(req.expand_columns)
-
     if req.include_total_storage_size:
-        aggregated_columns["total_storage_size_bytes"] = (
-            "sum(coalesce(total_storage_size_bytes, 0))"
-        )
         cq.add_field("total_storage_size_bytes")
+    return cq
 
-    inner_query = cq.as_sql(param_builder)
-    calls_query_sql = f"SELECT {', '.join(aggregated_columns[k] for k in aggregated_columns)} FROM ({inner_query})"
 
-    return (calls_query_sql, aggregated_columns.keys())
+def _build_calls_complete_stats_query(
+    req: tsi.CallsQueryStatsReq,
+    param_builder: ParamBuilder,
+    aggregated_columns: dict[str, str],
+) -> str:
+    """Build a flat stats query for calls_complete without subquery wrapping.
+
+    Produces SELECT count() FROM calls_complete WHERE ... directly,
+    which is 10x+ faster than the subquery form because ClickHouse evaluates
+    aggregates without materializing intermediate rows.
+
+    Uses CallsQuery._build_query_body for filter/condition/JOIN building,
+    then composes its own aggregate SELECT clause on top.
+    """
+    table_name = get_calls_table_name(ReadTable.CALLS_COMPLETE)
+    cq = _build_stats_calls_query(req, ReadTable.CALLS_COMPLETE)
+
+    # Only inject deleted_at filter (started_at check is unnecessary for calls_complete
+    # since each row is a complete call, no orphaned call parts)
+    cq.add_condition(
+        tsi_query.EqOperation.model_validate(
+            {"$eq": [{"$getField": "deleted_at"}, {"$literal": None}]}
+        )
+    )
+
+    # Build the query body (FROM, JOINs, WHERE, etc.) — reuses all existing
+    # filter/condition/join abstractions without CTE optimization overhead
+    body = cq._build_query_body(param_builder, table_name)
+
+    # Build the aggregate SELECT clause
+    stats_parts: list[str] = []
+    for col_name, col_agg in aggregated_columns.items():
+        if col_name == "total_storage_size_bytes":
+            # Inline the total_storage_size expression for the flat query.
+            # Mirrors AggregatedDataSizeField.as_select_sql(use_agg_fn=False),
+            # wrapped in the aggregate function directly.
+            total_storage_expr = (
+                f"CASE WHEN {table_name}.parent_id IS NULL "
+                f"THEN {ROLLED_UP_CALL_MERGED_STATS_TABLE_NAME}.total_storage_size_bytes "
+                f"ELSE NULL END"
+            )
+            stats_parts.append(f"sum(coalesce({total_storage_expr}, 0)) AS {col_name}")
+        else:
+            stats_parts.append(f"{col_agg} AS {col_name}")
+    stats_select = ", ".join(stats_parts)
+
+    raw_sql = f"""
+    SELECT {stats_select}
+    {body}
+    """
+    return safely_format_sql(raw_sql, logger)
 
 
 def _try_optimized_stats_query(
@@ -2346,6 +2473,7 @@ def _is_minimal_filter(filter: tsi.CallsFilter | None) -> bool:
         return True
     return (
         filter.wb_run_ids is None
+        and filter.wb_user_ids is None
         and filter.op_names is None
         and filter.call_ids is None
         and filter.trace_ids is None
@@ -2353,6 +2481,8 @@ def _is_minimal_filter(filter: tsi.CallsFilter | None) -> bool:
         and filter.trace_roots_only is None
         and filter.input_refs is None
         and filter.output_refs is None
+        and filter.thread_ids is None
+        and filter.turn_ids is None
     )
 
 

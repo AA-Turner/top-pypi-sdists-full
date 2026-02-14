@@ -2,7 +2,7 @@ import csv
 from copy import copy, deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
 
 import pandas as pd
 
@@ -24,6 +24,7 @@ from vtlengine.AST.Grammar.tokens import (
     CHECK_HIERARCHY,
     COUNT,
     CURRENT_DATE,
+    DATASET_PRIORITY,
     DATE_ADD,
     DROP,
     EQ,
@@ -36,8 +37,11 @@ from vtlengine.AST.Grammar.tokens import (
     INSTR,
     KEEP,
     MEMBERSHIP,
+    PARTIAL_NULL,
+    PARTIAL_ZERO,
     REPLACE,
     ROUND,
+    RULE_PRIORITY,
     SUBSTR,
     TRUNC,
     WHEN,
@@ -70,6 +74,7 @@ from vtlengine.Operators.Comparison import Between, ExistIn
 from vtlengine.Operators.Conditional import Case, If
 from vtlengine.Operators.General import Eval
 from vtlengine.Operators.HROperators import (
+    REMOVE,
     HAAssignment,
     Hierarchy,
     get_measure_from_dataset,
@@ -94,7 +99,6 @@ from vtlengine.Utils import (
     REGULAR_AGGREGATION_MAPPING,
     ROLE_SETTER_MAPPING,
     SET_MAPPING,
-    THEN_ELSE,
     UNARY_MAPPING,
 )
 from vtlengine.Utils.__Virtual_Assets import VirtualCounter
@@ -119,34 +123,30 @@ class InterpreterAnalyzer(ASTTemplate):
     # Return only persistent
     return_only_persistent: bool = True
     # Flags to change behavior
-    nested_condition: Union[str, bool] = False
     is_from_assignment: bool = False
     is_from_component_assignment: bool = False
     is_from_regular_aggregation: bool = False
     is_from_grouping: bool = False
     is_from_having: bool = False
-    is_from_if: bool = False
     is_from_rule: bool = False
     is_from_join: bool = False
-    is_from_condition: bool = False
     is_from_hr_val: bool = False
     is_from_hr_agg: bool = False
-    condition_stack: Optional[List[str]] = None
+    compute_partial_data: bool = False
     # Handlers for simplicity
+    condition_stack: Optional[List[Dataset]] = None
     regular_aggregation_dataset: Optional[Dataset] = None
     aggregation_grouping: Optional[List[str]] = None
     aggregation_dataset: Optional[Dataset] = None
-    then_condition_dataset: Optional[List[Any]] = None
-    else_condition_dataset: Optional[List[Any]] = None
     ruleset_dataset: Optional[Dataset] = None
     rule_data: Optional[pd.DataFrame] = None
+    partial_rule_data: Optional[Any] = None
+    partial_rule_elements: Optional[Set[str]] = None
     ruleset_signature: Optional[Dict[str, str]] = None
     udo_params: Optional[List[Dict[str, Any]]] = None
     hr_agg_rules_computed: Optional[Dict[str, pd.DataFrame]] = None
     ruleset_mode: Optional[str] = None
     hr_input: Optional[str] = None
-    hr_partial_is_valid: Optional[List[bool]] = None
-    hr_condition: Optional[Dict[str, str]] = None
     # DL
     dprs: Optional[Dict[str, Optional[Dict[str, Any]]]] = None
     udos: Optional[Dict[str, Optional[Dict[str, Any]]]] = None
@@ -430,16 +430,6 @@ class InterpreterAnalyzer(ASTTemplate):
         return self.visit(node.operand)
 
     def visit_BinOp(self, node: AST.BinOp) -> Any:
-        is_from_if = False
-        if (
-            not self.is_from_condition
-            and node.op != MEMBERSHIP
-            and self.condition_stack is not None
-            and len(self.condition_stack) > 0
-        ):
-            is_from_if = self.is_from_if
-            self.is_from_if = False
-
         if (
             self.is_from_join
             and node.op in [MEMBERSHIP, AGGREGATE]
@@ -458,10 +448,14 @@ class InterpreterAnalyzer(ASTTemplate):
                 column_stop=node.right.column_stop,
             )
             return self.visit(ast_var_id)
+
         left_operand = self.visit(node.left)
         right_operand = self.visit(node.right)
-        if is_from_if:
-            left_operand, right_operand = self.merge_then_else_datasets(left_operand, right_operand)
+
+        if self.condition_stack:
+            left_operand = self.merge_then_else_datasets(left_operand)
+            right_operand = self.merge_then_else_datasets(right_operand)
+
         if node.op == MEMBERSHIP:
             if right_operand not in left_operand.components and "#" in right_operand:
                 right_operand = right_operand.split("#")[1]
@@ -554,6 +548,8 @@ class InterpreterAnalyzer(ASTTemplate):
                     and comp_grouped.data is not None
                     and len(comp_grouped.data) > 0
                 ):
+                    # Deep copy the data to avoid modifying the original dataset
+                    operand.data = operand.data.copy()
                     operand.data[comp_grouped.name] = comp_grouped.data
                 groupings = [comp_grouped.name]
                 self.aggregation_dataset = None
@@ -913,12 +909,16 @@ class InterpreterAnalyzer(ASTTemplate):
     def visit_Collection(self, node: AST.Collection) -> Any:
         if node.kind == "Set":
             elements = []
+            scalar_data_type = None
             duplicates = []
             for child in node.children:
                 ref_element = child.children[1] if isinstance(child, AST.ParamOp) else child
                 if ref_element in elements:
                     duplicates.append(ref_element)
-                elements.append(self.visit(child).value)
+                scalar = self.visit(child)
+                elements.append(scalar.value)
+                if scalar_data_type is None:
+                    scalar_data_type = scalar.data_type
             if len(duplicates) > 0:
                 raise SemanticError("1-2-5", duplicates=duplicates)
             for element in elements:
@@ -928,7 +928,8 @@ class InterpreterAnalyzer(ASTTemplate):
                 raise Exception("A set must contain at least one element")
             if len(elements) != len(set(elements)):
                 raise Exception("A set must not contain duplicates")
-            return ScalarSet(data_type=BASIC_TYPES[type(elements[0])], values=elements)
+            set_type = scalar_data_type or BASIC_TYPES[type(elements[0])]
+            return ScalarSet(data_type=set_type, values=elements)
         elif node.kind == "ValueDomain":
             if self.value_domains is None:
                 raise SemanticError("2-3-10", comp_type="Value Domains")
@@ -1051,9 +1052,10 @@ class InterpreterAnalyzer(ASTTemplate):
         return REGULAR_AGGREGATION_MAPPING[node.op].analyze(operands, dataset)
 
     def visit_If(self, node: AST.If) -> Dataset:
-        self.is_from_condition = True
+        if self.condition_stack is None:
+            self.condition_stack = []
+
         condition = self.visit(node.condition)
-        self.is_from_condition = False
 
         if isinstance(condition, Scalar):
             thenValue = self.visit(node.thenOp)
@@ -1065,86 +1067,103 @@ class InterpreterAnalyzer(ASTTemplate):
                     then_name=thenValue.name,
                     else_name=elseValue.name,
                 )
-            if condition.value:
-                return self.visit(node.thenOp)
-            else:
-                return self.visit(node.elseOp)
+            return self.visit(node.thenOp if condition.value else node.elseOp)
 
         # Analysis for data component and dataset
-        else:
-            if self.condition_stack is None:
-                self.condition_stack = []
-            if self.then_condition_dataset is None:
-                self.then_condition_dataset = []
-            if self.else_condition_dataset is None:
-                self.else_condition_dataset = []
-            self.generate_then_else_datasets(copy(condition))
+        then_ds, else_ds = self.generate_then_else_datasets(condition)
 
-        self.condition_stack.append(THEN_ELSE["then"])
-        self.is_from_if = True
-        self.nested_condition = "T" if isinstance(node.thenOp, AST.If) else False
+        self.condition_stack.append(then_ds)
         thenOp = self.visit(node.thenOp)
-        if isinstance(thenOp, Scalar) or not isinstance(node.thenOp, AST.BinOp):
-            self.then_condition_dataset.pop()
-            self.condition_stack.pop()
+        self.condition_stack.pop()
 
-        self.condition_stack.append(THEN_ELSE["else"])
-        self.is_from_if = True
-        self.nested_condition = "E" if isinstance(node.elseOp, AST.If) else False
+        self.condition_stack.append(else_ds)
         elseOp = self.visit(node.elseOp)
-        if isinstance(elseOp, Scalar) or (
-            not isinstance(node.elseOp, AST.BinOp) and not isinstance(node.elseOp, AST.If)
-        ):
-            if len(self.else_condition_dataset) > 0:
-                self.else_condition_dataset.pop()
-            if len(self.condition_stack) > 0:
-                self.condition_stack.pop()
+        self.condition_stack.pop()
 
         return If.analyze(condition, thenOp, elseOp)
 
     def visit_Case(self, node: AST.Case) -> Any:
         conditions: List[Any] = []
         thenOps: List[Any] = []
+        else_ds = Dataset(name="else", components={}, data=pd.DataFrame())
 
         if self.condition_stack is None:
             self.condition_stack = []
-        if self.then_condition_dataset is None:
-            self.then_condition_dataset = []
-        if self.else_condition_dataset is None:
-            self.else_condition_dataset = []
 
         for case in node.cases:
-            self.is_from_condition = True
-            cond = self.visit(case.condition)
-            self.is_from_condition = False
-
-            conditions.append(cond)
-            if isinstance(cond, Scalar):
-                then_result = self.visit(case.thenOp)
-                thenOps.append(then_result)
+            conditions.append(self.visit(case.condition))
+            if isinstance(conditions[-1], Scalar):
+                thenOps.append(self.visit(case.thenOp))
                 continue
 
-            self.generate_then_else_datasets(copy(cond))
+            then_ds, else_ds = self.generate_then_else_datasets(conditions[-1])
 
-            self.condition_stack.append(THEN_ELSE["then"])
-            self.is_from_if = True
-            self.is_from_case_then = True
+            self.condition_stack.append(then_ds)
+            thenOps.append(self.visit(case.thenOp))
+            self.condition_stack.pop()
 
-            then_result = self.visit(case.thenOp)
-            thenOps.append(then_result)
-
-            self.is_from_case_then = False
-            self.is_from_if = False
-            if len(self.condition_stack) > 0:
-                self.condition_stack.pop()
-            if len(self.then_condition_dataset) > 0:
-                self.then_condition_dataset.pop()
-            if len(self.else_condition_dataset) > 0:
-                self.else_condition_dataset.pop()
-
+        self.condition_stack.append(else_ds)
         elseOp = self.visit(node.elseOp)
+        self.condition_stack.pop()
 
         return Case.analyze(conditions, thenOps, elseOp)
+
+    def generate_then_else_datasets(
+        self,
+        condition: Union[Dataset, DataComponent],
+    ) -> Tuple[Dataset, Dataset]:
+        if isinstance(condition, Dataset):
+            measures = condition.get_measures()
+            if len(measures) != 1:
+                raise SemanticError("1-1-1-4", op="condition")
+            elif measures[0].data_type != BASIC_TYPES[bool]:
+                raise SemanticError("2-1-9-5", op="condition", name=condition.name)
+            cond = condition.data[measures[0].name] if condition.data is not None else None
+        else:
+            if condition.data_type != BASIC_TYPES[bool]:
+                raise SemanticError("2-1-9-4", op="condition", name=condition.name)
+            cond = condition.data
+
+        components = getattr(condition, "components", {})
+        then_df = pd.DataFrame(columns=list(components.keys()))
+        else_df = pd.DataFrame(columns=list(components.keys()))
+        if cond is not None:
+            merge_ds = self.condition_stack[-1] if self.condition_stack else None
+            if isinstance(merge_ds, Dataset) and merge_ds.data is not None:
+                cond = cond.loc[merge_ds.data.index]
+
+            valid = cond.dropna().astype(bool)
+            if isinstance(condition, Dataset) and condition.data is not None:
+                then_df = condition.data.loc[valid.index[valid]]
+                else_df = condition.data.loc[valid.index[~valid]]
+            else:
+                then_df = pd.DataFrame(index=valid.index[valid])
+                else_df = pd.DataFrame(index=valid.index[~valid])
+
+        return (
+            Dataset(name="then", components=components, data=then_df),
+            Dataset(name="else", components=components, data=else_df),
+        )
+
+    def merge_then_else_datasets(self, operand: Any) -> Any:
+        if self.condition_stack:
+            merge_dataset = self.condition_stack[-1]
+            if merge_dataset.data is None:
+                return operand
+
+            merge_data = merge_dataset.data
+            if isinstance(operand, DataComponent) and operand.data is not None:
+                operand.data = operand.data.loc[merge_data.index]
+            elif isinstance(operand, Dataset) and operand.data is not None:
+                ids = merge_dataset.get_identifiers_names()
+                if set(ids).issubset(operand.data.columns):
+                    operand.data = (
+                        operand.data.assign(__idx__=operand.data.index)
+                        .merge(merge_data[ids], on=ids, how="inner")
+                        .set_index("__idx__")
+                    )
+
+        return operand
 
     def visit_RenameNode(self, node: AST.RenameNode) -> Any:
         if self.udo_params is not None:
@@ -1257,199 +1276,205 @@ class InterpreterAnalyzer(ASTTemplate):
                 mask = self.visit(node.params[0])
             return Cast.analyze(operand, scalar_type, mask)
 
-        elif node.op == CHECK_DATAPOINT:
-            if self.dprs is None:
-                raise SemanticError("1-2-6", node_type="Datapoint Rulesets", node_value="")
-            # Checking if ruleset exists
-            dpr_name: Any = node.children[1]
-            if dpr_name not in self.dprs:
-                raise SemanticError("1-2-6", node_type="Datapoint Ruleset", node_value=dpr_name)
-            dpr_info = self.dprs[dpr_name]
+        raise SemanticError("1-3-5", op_type="ParamOp", node_op=node.op)
 
-            # Extracting dataset
-            dataset_element = self.visit(node.children[0])
-            if not isinstance(dataset_element, Dataset):
-                raise SemanticError("1-1-1-20", op=node.op)
-            # Checking if list of components supplied is valid
-            if len(node.children) > 2:
-                for comp_name in node.children[2:]:
-                    if comp_name.__str__() not in dataset_element.components:
-                        raise SemanticError(
-                            "1-1-1-10",
-                            comp_name=comp_name,
-                            dataset_name=dataset_element.name,
-                        )
-                if dpr_info is not None and dpr_info["signature_type"] == "variable":
-                    for i, comp_name in enumerate(node.children[2:]):
-                        if comp_name != dpr_info["params"][i]:
-                            raise SemanticError(
-                                "1-1-10-3",
-                                op=node.op,
-                                expected=dpr_info["params"][i],
-                                found=comp_name,
-                            )
+    def _get_hr_mode_values(self, node: AST.HROperation) -> Tuple[str, str, str]:
+        """Extract mode values with defaults for HROperation."""
+        mode = node.validation_mode.value if node.validation_mode else "non_null"
+        if node.op == HIERARCHY:
+            input_ = node.input_mode.value if node.input_mode else "rule"
+            output = node.output.value if node.output else "computed"
+        else:  # CHECK_HIERARCHY
+            input_ = node.input_mode.value if node.input_mode else "dataset"
+            output = node.output.value if node.output else "invalid"
+        return mode, input_, output
 
-            output: Any = node.params[0]  # invalid, all_measures, all
-            if dpr_info is None:
-                dpr_info = {}
+    def visit_HROperation(self, node: AST.HROperation) -> None:
+        """Handle hierarchy and check_hierarchy operators."""
+        # Visit dataset and get component if present
+        # Deep copy the dataset when there are conditions to avoid modifying the original
+        conditions = node.conditions or []
+        has_conditions = len(conditions) > 0
+        dataset = deepcopy(self.visit(node.dataset)) if has_conditions else self.visit(node.dataset)
+        component: Optional[str] = self.visit(node.rule_component) if node.rule_component else None
+        hr_name = node.ruleset_name
+        cond_components = [self.visit(c) for c in conditions] if has_conditions else []
 
+        # Get mode values with defaults
+        mode, input_, output = self._get_hr_mode_values(node)
+
+        # Validate hierarchical ruleset exists
+        if self.hrs is None:
+            raise SemanticError("1-2-6", node_type="Hierarchical Rulesets", node_value="")
+        if hr_name not in self.hrs:
+            raise SemanticError("1-2-6", node_type="Hierarchical Ruleset", node_value=hr_name)
+
+        if not isinstance(dataset, Dataset):
+            raise SemanticError("1-1-1-20", op=node.op)
+
+        hr_info = self.hrs[hr_name]
+
+        if hr_info is not None:
+            if len(cond_components) != len(hr_info["condition"]):
+                raise SemanticError("1-1-10-2", op=node.op)
+
+            if hr_info["node"].signature_type == "variable" and hr_info["signature"] != component:
+                raise SemanticError(
+                    "1-1-10-3",
+                    op=node.op,
+                    found=component,
+                    expected=hr_info["signature"],
+                )
+            elif hr_info["node"].signature_type == "valuedomain" and component is None:
+                raise SemanticError("1-1-10-4", op=node.op)
+            elif component is None:
+                raise NotImplementedError(
+                    "Hierarchical Ruleset handling without component "
+                    "and signature type variable is not implemented yet."
+                )
+
+            cond_info = {}
+            for i, cond_comp in enumerate(hr_info["condition"]):
+                if hr_info["node"].signature_type == "variable" and cond_components[i] != cond_comp:
+                    raise SemanticError(
+                        "1-1-10-6",
+                        op=node.op,
+                        expected=cond_comp,
+                        found=cond_components[i],
+                    )
+                cond_info[cond_comp] = cond_components[i]
+
+            if node.op == HIERARCHY:
+                aux = []
+                for rule in hr_info["rules"]:
+                    if rule.rule.op == EQ or rule.rule.op == WHEN and rule.rule.right.op == EQ:
+                        aux.append(rule)
+                if len(aux) == 0:
+                    raise SemanticError("1-1-10-5")
+                hr_info["rules"] = aux
+
+                hierarchy_ast = AST.HRuleset(
+                    name=hr_name,
+                    signature_type=hr_info["node"].signature_type,
+                    element=hr_info["node"].element,
+                    rules=aux,
+                    line_start=node.line_start,
+                    line_stop=node.line_stop,
+                    column_start=node.column_start,
+                    column_stop=node.column_stop,
+                )
+                HRDAGAnalyzer().visit(hierarchy_ast)
+
+            Check_Hierarchy.validate_hr_dataset(dataset, component)
+
+            # Set up interpreter state for rule processing
+            self.ruleset_dataset = dataset
+            self.ruleset_signature = {**{"RULE_COMPONENT": component}, **cond_info}
+            self.ruleset_mode = mode
+            self.hr_input = input_
             rule_output_values = {}
-            self.ruleset_dataset = dataset_element
-            self.ruleset_signature = dpr_info["signature"]
-            self.ruleset_mode = output
-            # Gather rule data, adding the ruleset dataset to the interpreter
-            if dpr_info is not None:
-                for rule in dpr_info["rules"]:
+
+            if node.op == HIERARCHY:
+                self.is_from_hr_agg = True
+                self.hr_agg_rules_computed = {}
+                for rule in hr_info["rules"]:
+                    self.visit(rule)
+                self.is_from_hr_agg = False
+            else:
+                self.is_from_hr_val = True
+                for rule in hr_info["rules"]:
                     rule_output_values[rule.name] = {
                         "errorcode": rule.erCode,
                         "errorlevel": rule.erLevel,
                         "output": self.visit(rule),
                     }
-            self.ruleset_mode = None
+                self.is_from_hr_val = False
+
+            # Clean up interpreter state
             self.ruleset_signature = None
             self.ruleset_dataset = None
+            self.ruleset_mode = None
+            self.hr_input = None
 
-            # Datapoint Ruleset final evaluation
-            return Check_Datapoint.analyze(
-                dataset_element=dataset_element,
-                rule_info=rule_output_values,
-                output=output,
-            )
-        elif node.op in (CHECK_HIERARCHY, HIERARCHY):
-            component: Optional[str] = None
-            if len(node.children) == 2:
-                dataset, hr_name = (self.visit(x) for x in node.children)
-                cond_components: List[str] = []
-            elif len(node.children) == 3:
-                dataset, component, hr_name = (self.visit(x) for x in node.children)
-                cond_components = []
+            # Final evaluation
+            if node.op == CHECK_HIERARCHY:
+                result = Check_Hierarchy.analyze(
+                    dataset_element=dataset,
+                    rule_info=rule_output_values,
+                    output=output,
+                )
+                del rule_output_values
             else:
-                children = [self.visit(x) for x in node.children]
-                dataset = deepcopy(children[0])
-                component = children[1]
-                hr_name = children[2]
-                cond_components = children[3:]
+                result = Hierarchy.analyze(dataset, self.hr_agg_rules_computed, output)
+                self.hr_agg_rules_computed = None
+            return result
 
-            # Input is always dataset
-            mode, input_, output = (self.visit(param) for param in node.params)
+        raise SemanticError("1-3-5", op_type="HROperation", node_op=node.op)
 
-            # Sanitise the hierarchical ruleset and the call
+    def visit_DPValidation(self, node: AST.DPValidation) -> None:
+        """Handle check_datapoint operator."""
+        if self.dprs is None:
+            raise SemanticError("1-2-6", node_type="Datapoint Rulesets", node_value="")
 
-            if self.hrs is None:
-                raise SemanticError("1-2-6", node_type="Hierarchical Rulesets", node_value="")
-            else:
-                if hr_name not in self.hrs:
+        dpr_name = node.ruleset_name
+        if dpr_name not in self.dprs:
+            raise SemanticError("1-2-6", node_type="Datapoint Ruleset", node_value=dpr_name)
+        dpr_info = self.dprs[dpr_name]
+
+        # Extract dataset
+        dataset_element = self.visit(node.dataset)
+        if not isinstance(dataset_element, Dataset):
+            raise SemanticError("1-1-1-20", op=CHECK_DATAPOINT)
+
+        # Check component list validity
+        if node.components:
+            for comp_name in node.components:
+                if comp_name not in dataset_element.components:
                     raise SemanticError(
-                        "1-2-6", node_type="Hierarchical Ruleset", node_value=hr_name
+                        "1-1-1-10",
+                        comp_name=comp_name,
+                        dataset_name=dataset_element.name,
                     )
-
-                if not isinstance(dataset, Dataset):
-                    raise SemanticError("1-1-1-20", op=node.op)
-
-                hr_info = self.hrs[hr_name]
-            if hr_info is not None:
-                if len(cond_components) != len(hr_info["condition"]):
-                    raise SemanticError("1-1-10-2", op=node.op)
-
-                if (
-                    hr_info["node"].signature_type == "variable"
-                    and hr_info["signature"] != component
-                ):
-                    raise SemanticError(
-                        "1-1-10-3",
-                        op=node.op,
-                        found=component,
-                        expected=hr_info["signature"],
-                    )
-                elif hr_info["node"].signature_type == "valuedomain" and component is None:
-                    raise SemanticError("1-1-10-4", op=node.op)
-                elif component is None:
-                    # TODO: Leaving this until refactor in Ruleset handling is done
-                    raise NotImplementedError(
-                        "Hierarchical Ruleset handling without component "
-                        "and signature type variable is not implemented yet."
-                    )
-
-                cond_info = {}
-                for i, cond_comp in enumerate(hr_info["condition"]):
-                    if (
-                        hr_info["node"].signature_type == "variable"
-                        and cond_components[i] != cond_comp
-                    ):
+            if dpr_info is not None and dpr_info["signature_type"] == "variable":
+                for i, comp_name in enumerate(node.components):
+                    if comp_name != dpr_info["params"][i]:
                         raise SemanticError(
-                            "1-1-10-6",
-                            op=node.op,
-                            expected=cond_comp,
-                            found=cond_components[i],
+                            "1-1-10-3",
+                            op=CHECK_DATAPOINT,
+                            expected=dpr_info["params"][i],
+                            found=comp_name,
                         )
-                    cond_info[cond_comp] = cond_components[i]
 
-                if node.op == HIERARCHY:
-                    aux = []
-                    for rule in hr_info["rules"]:
-                        if rule.rule.op == EQ or rule.rule.op == WHEN and rule.rule.right.op == EQ:
-                            aux.append(rule)
-                    # Filter only the rules with HRBinOP as =,
-                    # as they are the ones that will be computed
-                    if len(aux) == 0:
-                        raise SemanticError("1-1-10-5")
-                    hr_info["rules"] = aux
+        # Get output mode with default
+        output = node.output.value if node.output else "invalid"
 
-                    hierarchy_ast = AST.HRuleset(
-                        name=hr_name,
-                        signature_type=hr_info["node"].signature_type,
-                        element=hr_info["node"].element,
-                        rules=aux,
-                        line_start=node.line_start,
-                        line_stop=node.line_stop,
-                        column_start=node.column_start,
-                        column_stop=node.column_stop,
-                    )
-                    HRDAGAnalyzer().visit(hierarchy_ast)
+        if dpr_info is None:
+            dpr_info = {}
 
-                Check_Hierarchy.validate_hr_dataset(dataset, component)
+        rule_output_values = {}
+        self.ruleset_dataset = dataset_element
+        self.ruleset_signature = dpr_info.get("signature")
+        self.ruleset_mode = output
 
-                # Gather rule data, adding the necessary elements to the interpreter
-                # for simplicity
-                self.ruleset_dataset = dataset
-                self.ruleset_signature = {**{"RULE_COMPONENT": component}, **cond_info}
-                self.ruleset_mode = mode
-                self.hr_input = input_
-                rule_output_values = {}
-                if node.op == HIERARCHY:
-                    self.is_from_hr_agg = True
-                    self.hr_agg_rules_computed = {}
-                    for rule in hr_info["rules"]:
-                        self.visit(rule)
-                    self.is_from_hr_agg = False
-                else:
-                    self.is_from_hr_val = True
-                    for rule in hr_info["rules"]:
-                        rule_output_values[rule.name] = {
-                            "errorcode": rule.erCode,
-                            "errorlevel": rule.erLevel,
-                            "output": self.visit(rule),
-                        }
-                    self.is_from_hr_val = False
-                self.ruleset_signature = None
-                self.ruleset_dataset = None
-                self.ruleset_mode = None
-                self.hr_input = None
+        # Gather rule data
+        if dpr_info:
+            for rule in dpr_info["rules"]:
+                rule_output_values[rule.name] = {
+                    "errorcode": rule.erCode,
+                    "errorlevel": rule.erLevel,
+                    "output": self.visit(rule),
+                }
 
-                # Final evaluation
-                if node.op == CHECK_HIERARCHY:
-                    result = Check_Hierarchy.analyze(
-                        dataset_element=dataset,
-                        rule_info=rule_output_values,
-                        output=output,
-                    )
-                    del rule_output_values
-                else:
-                    result = Hierarchy.analyze(dataset, self.hr_agg_rules_computed, output)
-                    self.hr_agg_rules_computed = None
-                return result
+        self.ruleset_mode = None
+        self.ruleset_signature = None
+        self.ruleset_dataset = None
 
-        raise SemanticError("1-3-5", op_type="ParamOp", node_op=node.op)
+        # Final evaluation
+        return Check_Datapoint.analyze(
+            dataset_element=dataset_element,
+            rule_info=rule_output_values,
+            output=output,
+        )
 
     def visit_DPRule(self, node: AST.DPRule) -> None:
         self.is_from_rule = True
@@ -1478,6 +1503,12 @@ class InterpreterAnalyzer(ASTTemplate):
             self.rule_data = (
                 None if self.ruleset_dataset.data is None else self.ruleset_dataset.data.copy()
             )
+
+        if self.ruleset_mode in (PARTIAL_NULL, PARTIAL_ZERO):
+            self.compute_partial_data = True
+            self.partial_rule_data = None
+            self.partial_rule_elements = set()
+
         rule_result = self.visit(node.rule)
         if rule_result is None:
             self.is_from_rule = False
@@ -1488,10 +1519,12 @@ class InterpreterAnalyzer(ASTTemplate):
                 self.hr_agg_rules_computed is not None
                 and rule_result.data is not None
                 and len(rule_result.data[measure_name]) > 0
+                and not (self.hr_input == DATASET_PRIORITY and node.rule.op != EQ)
             ):
                 self.hr_agg_rules_computed[rule_result.name] = rule_result.data
         else:
             rule_result = rule_result.data
+
         self.rule_data = None
         self.is_from_rule = False
         return rule_result
@@ -1523,65 +1556,28 @@ class InterpreterAnalyzer(ASTTemplate):
             original_data.loc[non_filtering_indexes, "bool_var"] = True
             original_data.loc[nan_indexes, "bool_var"] = None
             return original_data
-        elif node.op in HR_COMP_MAPPING:
-            self.is_from_assignment = True
-            if self.ruleset_mode in ("partial_null", "partial_zero"):
-                self.hr_partial_is_valid = []
-            left_operand = self.visit(node.left)
-            self.is_from_assignment = False
-            right_operand = self.visit(node.right)
-            if isinstance(right_operand, Dataset):
-                right_operand = get_measure_from_dataset(right_operand, node.right.value)
 
-            if self.ruleset_mode in ("partial_null", "partial_zero"):
-                # Check all values were present in the dataset
-                if self.hr_partial_is_valid and not any(self.hr_partial_is_valid):
-                    right_operand.data = right_operand.data.map(lambda x: "REMOVE_VALUE")
-                self.hr_partial_is_valid = []
+        self.compute_partial_data &= not self.is_from_hr_agg or node.op not in HR_COMP_MAPPING
+        left_operand = self.visit(node.left)
+        self.compute_partial_data = self.ruleset_mode in (PARTIAL_NULL, PARTIAL_ZERO)
+        right_operand = self.visit(node.right)
+        if isinstance(right_operand, Dataset):
+            right_operand = get_measure_from_dataset(right_operand, node.right.value)
 
-            if self.is_from_hr_agg:
-                return HAAssignment.analyze(left_operand, right_operand, self.ruleset_mode)
-            else:
-                result = HR_COMP_MAPPING[node.op].analyze(
-                    left_operand, right_operand, self.ruleset_mode
-                )
-                left_measure = left_operand.get_measures()[0]
-                if left_operand.data is None:
-                    result.data = None
-                else:
-                    left_original_measure_data = left_operand.data[left_measure.name]
-                    result.data[left_measure.name] = left_original_measure_data
-                result.components[left_measure.name] = left_measure
-                return result
-        else:
-            left_operand = self.visit(node.left)
-            right_operand = self.visit(node.right)
-            if (
-                isinstance(left_operand, Dataset)
-                and isinstance(right_operand, Dataset)
-                and self.ruleset_mode in ("partial_null", "partial_zero")
-                and not self.only_semantic
-            ):
-                measure_name = left_operand.get_measures_names()[0]
-                if left_operand.data is None:
-                    left_operand.data = pd.DataFrame({measure_name: []})
-                if right_operand.data is None:
-                    right_operand.data = pd.DataFrame({measure_name: []})
-                left_null_indexes = set(
-                    left_operand.data[left_operand.data[measure_name].isnull()].index
-                )
-                right_null_indexes = set(
-                    right_operand.data[right_operand.data[measure_name].isnull()].index
-                )
-                # If no indexes are in common, then one datapoint is not null
-                invalid_indexes = list(left_null_indexes.intersection(right_null_indexes))
-                if len(invalid_indexes) > 0:
-                    left_operand.data.loc[invalid_indexes, measure_name] = "REMOVE_VALUE"
-            if isinstance(left_operand, Dataset):
-                left_operand = get_measure_from_dataset(left_operand, node.left.value)
-            if isinstance(right_operand, Dataset):
-                right_operand = get_measure_from_dataset(right_operand, node.right.value)
-            return HR_NUM_BINARY_MAPPING[node.op].analyze(left_operand, right_operand)
+        if self.ruleset_mode in (PARTIAL_NULL, PARTIAL_ZERO):
+            if left_operand.data is not None:
+                left_operand.data = left_operand.data[self.partial_rule_data]
+            if right_operand.data is not None:
+                right_operand.data = right_operand.data[self.partial_rule_data]
+
+        if node.op in HR_COMP_MAPPING:
+            op = HAAssignment if self.is_from_hr_agg else HR_COMP_MAPPING[node.op]
+            return op.analyze(left_operand, right_operand, self.ruleset_mode)
+        if isinstance(left_operand, Dataset):
+            left_operand = get_measure_from_dataset(left_operand, node.left.value)
+        return HR_NUM_BINARY_MAPPING[node.op].analyze(
+            left_operand, right_operand, self.ruleset_mode
+        )
 
     def visit_HRUnOp(self, node: AST.HRUnOp) -> None:
         operand = self.visit(node.operand)
@@ -1636,153 +1632,6 @@ class InterpreterAnalyzer(ASTTemplate):
         output_to_check = node.output
         return Eval.analyze(operands, external_routine, output_to_check)
 
-    def generate_then_else_datasets(self, condition: Union[Dataset, DataComponent]) -> None:
-        components = {}
-        if self.then_condition_dataset is None:
-            self.then_condition_dataset = []
-        if self.else_condition_dataset is None:
-            self.else_condition_dataset = []
-        if isinstance(condition, Dataset):
-            if len(condition.get_measures()) != 1:
-                raise SemanticError("1-1-1-4", op="condition")
-            if condition.get_measures()[0].data_type != BASIC_TYPES[bool]:
-                raise SemanticError("2-1-9-5", op="condition", name=condition.name)
-            name = condition.get_measures_names()[0]
-            if condition.data is None or condition.data.empty:
-                data = None
-            else:
-                data = condition.data[name]
-                components = {comp.name: comp for comp in condition.get_identifiers()}
-
-        else:
-            if condition.data_type != BASIC_TYPES[bool]:
-                raise SemanticError("2-1-9-4", op="condition", name=condition.name)
-            name = condition.name
-            data = None if condition.data is None else condition.data
-
-        if data is not None:
-            if self.nested_condition and self.condition_stack is not None:
-                merge_df = (
-                    self.then_condition_dataset[-1]
-                    if self.condition_stack[-1] == THEN_ELSE["then"]
-                    else self.else_condition_dataset[-1]
-                )
-                indexes = merge_df.data[merge_df.data.columns[-1]]
-            else:
-                indexes = data[data.notnull()].index
-
-            if isinstance(condition, Dataset):
-                filtered_data = data.iloc[indexes]
-                then_data: Any = (
-                    condition.data[condition.data[name] == True]
-                    if (condition.data is not None)
-                    else []
-                )
-                then_indexes: Any = list(filtered_data[filtered_data == True].index)
-                if len(then_data) > len(then_indexes):
-                    then_data = then_data.iloc[then_indexes]
-                then_data[name] = then_indexes
-                else_data: Any = (
-                    condition.data[condition.data[name] != True]
-                    if (condition.data is not None)
-                    else []
-                )
-                else_indexes: Any = list(set(indexes) - set(then_indexes))
-                if len(else_data) > len(else_indexes):
-                    else_data = else_data.iloc[else_indexes]
-                else_data[name] = else_indexes
-            else:
-                filtered_data = data.iloc[indexes]
-                then_indexes = list(filtered_data[filtered_data == True].index)
-                else_indexes = list(set(indexes) - set(then_indexes))
-                then_data = pd.DataFrame({name: then_indexes})
-                else_data = pd.DataFrame({name: else_indexes})
-        else:
-            then_data = pd.DataFrame({name: []})
-            else_data = pd.DataFrame({name: []})
-        components.update(
-            {
-                name: Component(
-                    name=name,
-                    data_type=BASIC_TYPES[int],
-                    role=Role.MEASURE,
-                    nullable=True,
-                )
-            }
-        )
-
-        if self.condition_stack and len(self.condition_stack) > 0:
-            last_condition_dataset = (
-                self.then_condition_dataset[-1]
-                if self.condition_stack[-1] == THEN_ELSE["then"]
-                else (self.else_condition_dataset[-1])
-            )
-            measure_name = last_condition_dataset.get_measures_names()[0]
-            then_data = then_data[then_data[name].isin(last_condition_dataset.data[measure_name])]
-            else_data = else_data[else_data[name].isin(last_condition_dataset.data[measure_name])]
-        then_dataset = Dataset(name=name, components=components, data=then_data)
-        else_dataset = Dataset(name=name, components=components, data=else_data)
-
-        self.then_condition_dataset.append(then_dataset)
-        self.else_condition_dataset.append(else_dataset)
-
-    def merge_then_else_datasets(self, left_operand: Any, right_operand: Any) -> Any:
-        if (
-            self.then_condition_dataset is None
-            or self.else_condition_dataset is None
-            or self.condition_stack is None
-        ):
-            return left_operand, right_operand
-
-        if self.is_from_case_then:
-            merge_dataset = (
-                self.then_condition_dataset[-1]
-                if self.condition_stack[-1] == THEN_ELSE["then"]
-                else self.else_condition_dataset[-1]
-            )
-        else:
-            merge_dataset = (
-                self.then_condition_dataset.pop()
-                if self.condition_stack.pop() == THEN_ELSE["then"]
-                else (self.else_condition_dataset.pop())
-            )
-
-        merge_index = merge_dataset.data[merge_dataset.get_measures_names()[0]].to_list()
-        ids = merge_dataset.get_identifiers_names()
-        if isinstance(left_operand, (Dataset, DataComponent)):
-            if left_operand.data is None:
-                return left_operand, right_operand
-            if isinstance(left_operand, Dataset):
-                dataset_index = left_operand.data.index[
-                    left_operand.data[ids]
-                    .apply(tuple, 1)
-                    .isin(merge_dataset.data[ids].apply(tuple, 1))
-                ]
-                left = left_operand.data[left_operand.get_measures_names()[0]]
-                left_operand.data[left_operand.get_measures_names()[0]] = left.reindex(
-                    dataset_index, fill_value=None
-                )
-            else:
-                left = left_operand.data
-                left_operand.data = left.reindex(merge_index, fill_value=None)
-        if isinstance(right_operand, (Dataset, DataComponent)):
-            if right_operand.data is None:
-                return left_operand, right_operand
-            if isinstance(right_operand, Dataset):
-                dataset_index = right_operand.data.index[
-                    right_operand.data[ids]
-                    .apply(tuple, 1)
-                    .isin(merge_dataset.data[ids].apply(tuple, 1))
-                ]
-                right = right_operand.data[right_operand.get_measures_names()[0]]
-                right_operand.data[right_operand.get_measures_names()[0]] = right.reindex(
-                    dataset_index, fill_value=None
-                )
-            else:
-                right = right_operand.data
-                right_operand.data = right.reindex(merge_index, fill_value=None)
-        return left_operand, right_operand
-
     def visit_Identifier(self, node: AST.Identifier) -> Union[AST.AST, Dataset, str]:
         """
         Identifier: (value)
@@ -1809,91 +1658,63 @@ class InterpreterAnalyzer(ASTTemplate):
 
             return node.value
         """
-        partial_is_valid = True
-        # Only for Hierarchical Rulesets
         if not (self.is_from_rule and node.kind == "CodeItemID"):
             return node.value
 
-        # Getting Dataset elements
-        result_components = {
-            comp_name: copy(comp)
-            for comp_name, comp in self.ruleset_dataset.components.items()  # type: ignore[union-attr]
-        }
-        if self.ruleset_signature is not None:
-            hr_component = self.ruleset_signature["RULE_COMPONENT"]
-        name = node.value
+        ruleset_ds = self.ruleset_dataset
+        if ruleset_ds is None:
+            raise SemanticError("2-3-7")
+        rule_data = self.rule_data
+        signature = self.ruleset_signature
 
-        if self.rule_data is None:
-            return Dataset(name=name, components=result_components, data=None)
+        result_components = {c.name: c for c in ruleset_ds.get_components()}
+        hr_component = signature["RULE_COMPONENT"]  # type: ignore[index]
+        me_name = ruleset_ds.get_measures_names()[0]
+        other_ids = list(set(ruleset_ds.get_identifiers_names()) - {hr_component})
 
-        condition = None
-        if hasattr(node, "_right_condition"):
-            condition: DataComponent = self.visit(node._right_condition)  # type: ignore[no-redef]
-            if condition is not None:
-                condition = condition.data[condition.data == True].index
+        if rule_data is None:
+            return Dataset(name=node.value, components=result_components, data=None)
 
-        if (
-            self.hr_agg_rules_computed is not None
-            and self.hr_input == "rule"
-            and node.value in self.hr_agg_rules_computed
-        ):
+        if self.hr_agg_rules_computed is not None and node.value in self.hr_agg_rules_computed:
             df = self.hr_agg_rules_computed[node.value].copy()
-            return Dataset(name=name, components=result_components, data=df)
+            if self.hr_input in (RULE_PRIORITY, DATASET_PRIORITY):
+                input_df = rule_data.copy().rename(columns={me_name: "__input_me__"})
+                merged = df.merge(input_df, on=ruleset_ds.get_identifiers_names(), how="inner")
+                df[me_name].where(df[me_name].notna(), merged["__input_me__"], inplace=True)
+            self.update_partial_data(df, me_name, node.value)
+            return Dataset(name=node.value, components=result_components, data=df)
 
-        df = self.rule_data.copy()
+        df = rule_data.copy()
+        code_data = df[other_ids].drop_duplicates().reset_index(drop=True)
+        condition = getattr(node, "_right_condition", None)
         if condition is not None:
-            df = df.loc[condition].reset_index(drop=True)
+            condition = self.visit(condition)
+            if condition is not None and condition.data is not None:
+                df = df.loc[condition.data]
+                keys = pd.MultiIndex.from_frame(df[other_ids].drop_duplicates())
+                mask = pd.MultiIndex.from_frame(code_data[other_ids]).isin(keys)
+                code_data = code_data.loc[mask]
 
-        measure_name = self.ruleset_dataset.get_measures_names()[0]  # type: ignore[union-attr]
         if node.value in df[hr_component].values:
-            rest_identifiers = [
-                comp.name
-                for comp in result_components.values()
-                if comp.role == Role.IDENTIFIER and comp.name != hr_component
-            ]
-            code_data = df[df[hr_component] == node.value].reset_index(drop=True)
-            code_data = code_data.merge(df[rest_identifiers], how="right", on=rest_identifiers)
-            code_data = code_data.drop_duplicates().reset_index(drop=True)
-
-            # If the value is in the dataset, we create a new row
-            # based on the hierarchy mode
-            # (Missing data points are considered,
-            # lines 6483-6510 of the reference manual)
-            if self.ruleset_mode in ("partial_null", "partial_zero"):
-                # We do not care about the presence of the leftCodeItem in Hierarchy Roll-up
-                if self.is_from_hr_agg and self.is_from_assignment:
-                    pass
-                elif code_data[hr_component].isnull().any():
-                    partial_is_valid = False
-
-            if self.ruleset_mode in ("non_zero", "partial_zero", "always_zero"):
-                fill_indexes = code_data[code_data[hr_component].isnull()].index
-                code_data.loc[fill_indexes, measure_name] = 0
-            code_data[hr_component] = node.value
-            df = code_data
+            value_data = df[df[hr_component] == node.value]
+            merged = value_data.merge(code_data, how="right", on=other_ids, indicator=True)
+            merged.loc[merged["_merge"] == "right_only", me_name] = REMOVE
+            df = merged.drop(columns=["_merge"]).set_index(code_data.index)
         else:
-            # If the value is not in the dataset, we create a new row
-            # based on the hierarchy mode
-            # (Missing data points are considered,
-            # lines 6483-6510 of the reference manual)
-            if self.ruleset_mode in ("partial_null", "partial_zero"):
-                # We do not care about the presence of the leftCodeItem in Hierarchy Roll-up
-                if self.is_from_hr_agg and self.is_from_assignment:
-                    pass
-                elif self.ruleset_mode == "partial_null":
-                    partial_is_valid = False
-            df = df.head(1)
-            df[hr_component] = node.value
-            if self.ruleset_mode in ("non_zero", "partial_zero", "always_zero"):
-                df[measure_name] = 0
-            else:  # For non_null, partial_null and always_null
-                df[measure_name] = None
-        if self.hr_partial_is_valid is not None and self.ruleset_mode in (
-            "partial_null",
-            "partial_zero",
-        ):
-            self.hr_partial_is_valid.append(partial_is_valid)
-        return Dataset(name=name, components=result_components, data=df)
+            df = code_data.copy()
+            df[me_name] = REMOVE
+        df[hr_component] = node.value
+
+        self.update_partial_data(df, me_name, node.value)
+        return Dataset(name=node.value, components=result_components, data=df)
+
+    def update_partial_data(self, df: pd.DataFrame, measure: str, name: str) -> None:
+        if self.compute_partial_data:
+            if self.partial_rule_data is None:
+                self.partial_rule_data = (df[measure] != REMOVE) & df[measure].notna()
+            else:
+                self.partial_rule_data |= (df[measure] != REMOVE) & df[measure].notna()
+            self.partial_rule_elements.add(name)  # type: ignore[union-attr]
 
     def visit_UDOCall(self, node: AST.UDOCall) -> None:  # noqa: C901
         if self.udos is None:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: translate-toolkit
-Version: 3.18.1
+Version: 3.19.0
 Summary: Tools and API for translation and localization engineering.
 Author-email: Translate <translate-devel@lists.sourceforge.net>
 License-Expression: GPL-2.0-or-later
@@ -34,7 +34,7 @@ License-File: COPYING
 Requires-Dist: lxml<6.1,>=5.2.0
 Requires-Dist: unicode-segmentation-rs<0.3,>=0.2.0
 Provides-Extra: all
-Requires-Dist: translate-toolkit[chardet,fluent,ical,ini,levenshtein,markdown,php,rc,spellcheck,subtitles,tmserver,toml,trados,yaml]; extra == "all"
+Requires-Dist: translate-toolkit[chardet,fluent,ical,ini,levenshtein,markdown,php,rc,spellcheck,subtitles,toml,yaml]; extra == "all"
 Provides-Extra: chardet
 Requires-Dist: charset-normalizer<4.0,>=3.4.0; extra == "chardet"
 Provides-Extra: fluent
@@ -44,7 +44,7 @@ Requires-Dist: vobject==0.9.9; extra == "ical"
 Provides-Extra: ini
 Requires-Dist: iniparse==0.5; extra == "ini"
 Provides-Extra: levenshtein
-Requires-Dist: python-Levenshtein>=0.21.0; extra == "levenshtein"
+Requires-Dist: RapidFuzz>=3.14.0; extra == "levenshtein"
 Provides-Extra: markdown
 Requires-Dist: mistletoe<1.6.0,>=1.4.0; extra == "markdown"
 Provides-Extra: php
@@ -55,12 +55,8 @@ Provides-Extra: spellcheck
 Requires-Dist: pyenchant==3.3.0; extra == "spellcheck"
 Provides-Extra: subtitles
 Requires-Dist: aeidon<1.16,>=1.14.1; extra == "subtitles"
-Provides-Extra: tmserver
-Requires-Dist: cheroot==11.1.2; extra == "tmserver"
 Provides-Extra: toml
 Requires-Dist: tomlkit<0.15.0,>=0.13.0; extra == "toml"
-Provides-Extra: trados
-Requires-Dist: BeautifulSoup4>=4.13.0; extra == "trados"
 Provides-Extra: yaml
 Requires-Dist: ruamel.yaml<0.20.0,>=0.18.0; extra == "yaml"
 Dynamic: license-file
@@ -174,10 +170,10 @@ files, but has not yet been tested as extensively. Feedback is most welcome.
 The package iniparse is necessary for ini2po and po2ini:
 <https://pypi.org/project/iniparse/>
 
-The python-Levenshtein package will improve performance for fuzzy matching if
+The RapidFuzz package will improve performance for fuzzy matching if
 it is available. This can improve the performance of pot2po, for example.  It
 is optional and no functionality is lost if it is not installed, only speed.
-<http://sourceforge.net/projects/translate/files/python-Levenshtein/>
+<https://pypi.org/project/RapidFuzz/>
 
 Functions in the `lang.data` module can supply functions to translate language
 names using the `pycountry` package. It can even translate names in the format
@@ -191,9 +187,6 @@ The package vobject is needed for ical2po and po2ical.
 The aeidon package is needed for sub2po
 and po2sub. Some Unicode encoded files (including most files from
 <http://dotsub.com/>) require version 0.14 or later.
-
-Trados TXT TM support requires the BeautifulSoup parser
-<http://www.crummy.com/software/BeautifulSoup/>
 
 Markdown support requires the mistletoe parser
 <https://github.com/miyuchina/mistletoe>

@@ -1,16 +1,16 @@
 Metadata-Version: 2.4
 Name: pymupdf4llm
-Version: 0.2.9
+Version: 0.3.3
 Summary: PyMuPDF Utilities for LLM/RAG
-Home-page: https://github.com/pymupdf/RAG
+Home-page: https://github.com/pymupdf/pymupdf4llm
 Author: Artifex
 Author-email: support@artifex.com
 License: Dual Licensed - GNU AFFERO GPL 3.0 or Artifex Commercial License
 Project-URL: Documentation, https://pymupdf.readthedocs.io/
-Project-URL: Source, https://github.com/pymupdf/RAG/tree/main/pymupdf4llm/pymupdf4llm
-Project-URL: Tracker, https://github.com/pymupdf/RAG/issues
-Project-URL: Changelog, https://github.com/pymupdf/RAG/blob/main/CHANGES.md
-Project-URL: License, https://github.com/pymupdf/RAG/blob/main/LICENSE
+Project-URL: Source, https://github.com/pymupdf/pymupdf4llm/tree/main/pymupdf4llm
+Project-URL: Tracker, https://github.com/pymupdf/pymupdf4llm/issues
+Project-URL: Changelog, https://github.com/pymupdf/pymupdf4llm/blob/main/CHANGES.md
+Project-URL: License, https://github.com/pymupdf/pymupdf4llm/blob/main/LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -19,10 +19,10 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pymupdf>=1.26.6
+Requires-Dist: pymupdf>=1.27.1
 Requires-Dist: tabulate
 Provides-Extra: layout
-Requires-Dist: pymupdf-layout>=1.26.6; extra == "layout"
+Requires-Dist: pymupdf-layout>=1.27.1; extra == "layout"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

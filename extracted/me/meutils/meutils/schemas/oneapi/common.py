@@ -185,11 +185,11 @@ MODEL_PRICE = {
     "nano-banana": 0.03,
 
     "nano-banana2": 0.03,
-    "nano-banana-2": 0.04 * 4,
-    "nano-banana-pro": 0.16,
-    "nano-banana-pro_1k": 0.15,
-    "nano-banana-pro_2k": 0.16,
-    "nano-banana-pro_4k": 0.18,
+    "nano-banana-2": 0.2,
+    "nano-banana-pro": 0.2,
+    "nano-banana-pro_1k": 0.2,
+    "nano-banana-pro_2k": 0.2,
+    "nano-banana-pro_4k": 0.2,
 
     "vip/nano-banana-pro": 0.15 * 4,
     "vip/nano-banana-pro_4k": 0.3 * 4,
@@ -277,7 +277,7 @@ MODEL_PRICE = {
     "doubao-seedream-4-0-250828": 0.2,
     "seedream-4-5": 0.25,
     "doubao-seedream-4-5-251128": 0.25,
-    "doubao-seedream-5-0-260128":  0.25,
+    "doubao-seedream-5-0-260128": 0.25,
     "seedream-5.0": 0.05,
 
     "seedream-4-0-250828": 0.2,
@@ -289,6 +289,19 @@ MODEL_PRICE = {
     "jimeng-3.1": 0.05,
     "jimeng-4.0": 0.05,
     "jimeng-4.1": 0.05,
+
+    'doubao-seedance-2-0_4s_720p': 1.2,
+    'doubao-seedance-2-0_5s_720p': 1.5,
+    'doubao-seedance-2-0_6s_720p': 1.8,
+    'doubao-seedance-2-0_7s_720p': 2.1,
+    'doubao-seedance-2-0_8s_720p': 2.4,
+    'doubao-seedance-2-0_9s_720p': 2.7,
+    'doubao-seedance-2-0_10s_720p': 3.0,
+    'doubao-seedance-2-0_11s_720p': 3.3,
+    'doubao-seedance-2-0_12s_720p': 3.6,
+    'doubao-seedance-2-0_13s_720p': 3.9,
+    'doubao-seedance-2-0_14s_720p': 4.2,
+    'doubao-seedance-2-0_15s_720p': 4.5,
 
     "doubao-seedance-1-0-lite_5s_480p": 0.4,
     "doubao-seedance-1-0-lite_10s_480p": 0.8,
@@ -373,13 +386,14 @@ MODEL_PRICE = {
 
     "sora-1:1-480p-5s": 1.2,
     "dall-e-3": 0.03,
-    "sora-2": 0.2,
     "sora-2-hd": 0.2,
     "sora-2-pro": 2,
 
     "sora-2-4s": 0.15 * 4,
     "sora-2-8s": 0.15 * 8,
     "sora-2-12s": 0.15 * 12,
+    "sora-2-15s": 1,
+    "sora-2": 1,
 
     # 视频
     "api-videos-3d": 0.01,
@@ -392,8 +406,8 @@ MODEL_PRICE = {
     # grok
     "grok-3-image": 0.1,
     "grok-imagine-0.9": 0.1,
-    "grok-imagine-image": 0.02*4,
-    "grok-imagine-image-pro": 0.07*4,
+    "grok-imagine-image": 0.02 * 4,
+    "grok-imagine-image-pro": 0.07 * 4,
 
     # 虚拟换衣fish
     "api-kolors-virtual-try-on": 0.1,

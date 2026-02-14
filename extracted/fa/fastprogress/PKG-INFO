@@ -1,34 +1,25 @@
 Metadata-Version: 2.4
 Name: fastprogress
-Version: 1.1.3
+Version: 1.1.5
 Summary: A nested progress with plotting options for fastai
-Home-page: https://github.com/answerdotai/fastprogress
-Author: Sylvain Gugger and Jeremy Howard
-Author-email: info@fast.ai
-License: Apache Software License 2.0
-Keywords: jupyter notebook progressbar
-Classifier: Development Status :: 5 - Production/Stable
-Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
+Author-email: Sylvain Gugger and Jeremy Howard <info@fast.ai>
+License: Apache-2.0
+Project-URL: Repository, https://github.com/answerdotai/fastprogress
+Project-URL: Documentation, https://fastprogress.fast.ai/
+Keywords: jupyter,notebook,progressbar
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.10
+Classifier: Intended Audience :: Developers
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: fastcore>=1.10.0
 Requires-Dist: python-fasthtml>=0.12.34
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
+Provides-Extra: dev
+Requires-Dist: numpy; extra == "dev"
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # fastprogress
 

@@ -70,7 +70,7 @@ CompositeAlarmExistsWaiterName = Literal["composite_alarm_exists"]
 DescribeAlarmHistoryPaginatorName = Literal["describe_alarm_history"]
 DescribeAlarmsPaginatorName = Literal["describe_alarms"]
 DescribeAnomalyDetectorsPaginatorName = Literal["describe_anomaly_detectors"]
-EvaluationStateType = Literal["PARTIAL_DATA"]
+EvaluationStateType = Literal["EVALUATION_ERROR", "EVALUATION_FAILURE", "PARTIAL_DATA"]
 GetMetricDataPaginatorName = Literal["get_metric_data"]
 HistoryItemTypeType = Literal[
     "Action",

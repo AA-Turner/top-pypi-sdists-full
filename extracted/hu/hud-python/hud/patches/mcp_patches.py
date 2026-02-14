@@ -17,6 +17,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _format_exception(exc: BaseException) -> str:
+    """Format exceptions as 'TypeName: message' when a message exists, else 'TypeName'."""
+    detail = str(exc).strip()
+    if detail:
+        return f"{type(exc).__name__}: {detail}"
+    return type(exc).__name__
+
+
 def patch_json_response_error_propagation() -> None:
     """
     Patch _handle_json_response to re-raise exceptions instead of swallowing them.
@@ -59,7 +67,10 @@ def patch_json_response_error_propagation() -> None:
     except ImportError:
         logger.debug("mcp.client.streamable_http not available, skipping patch")
     except Exception as e:
-        logger.warning("Failed to patch _handle_json_response: %s", e)
+        logger.warning(
+            "Failed to patch _handle_json_response: %s",
+            _format_exception(e),
+        )
 
 
 def patch_streamable_http_error_handling() -> None:
@@ -97,9 +108,12 @@ def patch_streamable_http_error_handling() -> None:
 
             async def handle_request_async(ctx: RequestContext, is_resumption: bool) -> None:
                 msg = ctx.session_message.message
-                # Use configured timeout, minimum 30s to prevent instant failures
-                timeout = max(settings.client_timeout, 15.0)
-                deadline = time.monotonic() + timeout
+                # Per-attempt timeout comes from transport's sse_read_timeout (840s).
+                # client_timeout caps total wall-clock retry duration for this request.
+                configured_timeout = float(settings.client_timeout)
+                default_timeout = float(settings.__class__.model_fields["client_timeout"].default)
+                global_timeout = configured_timeout if configured_timeout > 0 else default_timeout
+                deadline = time.monotonic() + global_timeout
                 retryable_exceptions = (
                     httpx.ConnectError,
                     httpx.ReadError,
@@ -124,7 +138,10 @@ def patch_streamable_http_error_handling() -> None:
                             error=ErrorData(
                                 code=-32000,
                                 message=f"Transport error: {type(exc).__name__}",
-                                data={"error_type": type(exc).__name__, "detail": str(exc)},
+                                data={
+                                    "error_type": type(exc).__name__,
+                                    "detail": str(exc),
+                                },
                             ),
                         )
                         await ctx.read_stream_writer.send(
@@ -147,14 +164,24 @@ def patch_streamable_http_error_handling() -> None:
                     except Exception as e:
                         if is_retryable(e):
                             if time.monotonic() >= deadline:
-                                logger.error("MCP request failed after timeout: %s", e)
+                                logger.error(
+                                    "MCP request failed after timeout (%.0fs): %s",
+                                    global_timeout,
+                                    _format_exception(e),
+                                )
                                 await send_error_response(e)
                                 return
-                            logger.warning("Retrying MCP request after error: %s", e)
+                            logger.warning(
+                                "Retrying MCP request after error: %s",
+                                _format_exception(e),
+                            )
                             await asyncio.sleep(backoff)
                             backoff = min(backoff * 2, max_backoff)
                         else:
-                            logger.exception("Request handler error: %s", e)
+                            logger.exception(
+                                "Request handler error: %s",
+                                _format_exception(e),
+                            )
                             await send_error_response(e)
                             return
 
@@ -201,7 +228,10 @@ def patch_streamable_http_error_handling() -> None:
     except ImportError:
         logger.debug("mcp.client.streamable_http not available, skipping patch")
     except Exception as e:
-        logger.warning("Failed to patch streamable_http: %s", e)
+        logger.warning(
+            "Failed to patch streamable_http: %s",
+            _format_exception(e),
+        )
 
 
 def patch_client_session_validation() -> None:
@@ -223,7 +253,10 @@ def patch_client_session_validation() -> None:
     except ImportError:
         logger.debug("mcp.client.session not available, skipping patch")
     except Exception as e:
-        logger.warning("Failed to patch client session: %s", e)
+        logger.warning(
+            "Failed to patch client session: %s",
+            _format_exception(e),
+        )
 
 
 def patch_server_output_validation() -> None:
@@ -336,7 +369,10 @@ def patch_server_output_validation() -> None:
     except ImportError:
         logger.debug("mcp.server.lowlevel.server not available, skipping patch")
     except Exception as e:
-        logger.warning("Failed to patch server output validation: %s", e)
+        logger.warning(
+            "Failed to patch server output validation: %s",
+            _format_exception(e),
+        )
 
 
 def suppress_fastmcp_logging(level: int = logging.WARNING) -> None:

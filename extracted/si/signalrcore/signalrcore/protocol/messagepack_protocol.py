@@ -11,7 +11,11 @@ from ..messages.stream_invocation_message import StreamInvocationMessage  # 4
 from ..messages.cancel_invocation_message import CancelInvocationMessage  # 5
 from ..messages.ping_message import PingMessage  # 6
 from ..messages.close_message import CloseMessage  # 7
+from ..messages.ack_message import AckMessage  # 8
+from ..messages.sequence_message import SequenceMessage  # 9
+
 from ..helpers import Helpers
+from ..types import HubProtocolEncoding, RECORD_SEPARATOR, DEFAULT_ENCODING
 
 
 class MessagePackHubProtocol(BaseHubProtocol):
@@ -28,9 +32,12 @@ class MessagePackHubProtocol(BaseHubProtocol):
         "stream_ids"
     ]
 
-    def __init__(self):
+    def __init__(self, version: int = 1):
         super(MessagePackHubProtocol, self).__init__(
-            "messagepack", 1, "Text", chr(0x1E))
+            "messagepack",
+            version,
+            HubProtocolEncoding.binary,
+            RECORD_SEPARATOR)
         self.logger = Helpers.get_logger()
 
     def parse_messages(self, raw):
@@ -70,7 +77,10 @@ class MessagePackHubProtocol(BaseHubProtocol):
             messages = self.parse_messages(
                 raw_message[raw_message.index(0x1E) + 1:])\
                 if has_various_messages else []
-            data = json.loads(handshake_data)
+            data = json.loads(
+                handshake_data.decode(DEFAULT_ENCODING)
+                if type(handshake_data) is bytes else
+                handshake_data)
             return HandshakeResponseMessage(data.get("error", None)), messages
         except Exception as ex:
             if type(raw_message) is str:
@@ -111,6 +121,8 @@ class MessagePackHubProtocol(BaseHubProtocol):
         # [5, Headers, InvocationId]
         # [6]
         # [7, Error, AllowReconnect?]
+        # [8, SequenceId]
+        # [9, SequenceId]
 
         if raw[0] == 1:  # InvocationMessage
             if len(raw[5]) > 0:
@@ -155,19 +167,30 @@ class MessagePackHubProtocol(BaseHubProtocol):
 
         elif raw[0] == 4:  # StreamInvocationMessage
             return StreamInvocationMessage(
-                headers=raw[1], invocation_id=raw[2],
-                target=raw[3], arguments=raw[4])  # stream_id missing?
+                headers=raw[1],
+                invocation_id=raw[2],
+                target=raw[3],
+                arguments=raw[4],
+                stream_ids=raw[5] if len(raw) > 5 else [])
 
         elif raw[0] == 5:  # CancelInvocationMessage
             return CancelInvocationMessage(
-                headers=raw[1], invocation_id=raw[2])
+                headers=raw[1],
+                invocation_id=raw[2])
 
         elif raw[0] == 6:  # PingMessageEncoding
             return PingMessage()
 
         elif raw[0] == 7:  # CloseMessageEncoding
-            return CloseMessage(error=raw[1])  # AllowReconnect is missing
-        raise Exception("Unknown message type.")
+            return CloseMessage(
+                error=raw[1],
+                allow_reconnect=raw[2] if len(raw) > 2 else None)
+        elif raw[0] == 8:  # pragma: no cover # AckMessage
+            return AckMessage(sequence_id=raw[1])
+        elif raw[0] == 7:  # pragma: no cover # SequenceMessage
+            return SequenceMessage(sequence_id=raw[1])
+
+        raise Exception("Unknown message type.")  # pragma: no cover
 
     def _to_varint(self, value):
         buffer = b''

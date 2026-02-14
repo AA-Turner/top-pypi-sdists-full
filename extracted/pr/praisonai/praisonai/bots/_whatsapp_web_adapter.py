@@ -67,6 +67,11 @@ class WhatsAppWebAdapter:
         return self._is_connected
 
     @property
+    def connected_at(self) -> Optional[float]:
+        """Epoch seconds when the adapter received ConnectedEv."""
+        return self._started_at
+
+    @property
     def self_jid(self) -> Optional[str]:
         return self._self_jid
 
@@ -104,8 +109,43 @@ class WhatsAppWebAdapter:
 
         logger.info(f"WhatsApp Web: connecting (creds: {db_path})")
 
+        # ── Suppress noisy Go-backend warnings ─────────────────────
+        # whatsmeow emits non-actionable warnings (websocket EOF on
+        # close, LTHash mismatches during state sync, duplicate
+        # contacts, missing MAC values). These are protocol-level
+        # quirks, not bugs in our code — suppress to reduce noise.
+        _known_noise = (
+            "failed to close WebSocket",
+            "duplicate contacts found",
+            "mismatching LTHash",
+            "missing value MAC",
+        )
+
+        class _WhatsmeowNoiseFilter(logging.Filter):
+            def filter(self, record: logging.LogRecord) -> bool:
+                msg = record.getMessage()
+                return not any(pat in msg for pat in _known_noise)
+
+        for _logger_name in ("whatsmeow.Client", "whatsmeow.Database", "whatsmeow"):
+            _wm_logger = logging.getLogger(_logger_name)
+            _wm_logger.addFilter(_WhatsmeowNoiseFilter())
+
+        # ── Critical: bridge neonize's event loop to ours ──────────
+        # neonize creates event_global_loop = asyncio.new_event_loop()
+        # at import time but NEVER starts it. Go-thread callbacks
+        # (QR, messages, connected) are posted to that dead loop via
+        # asyncio.run_coroutine_threadsafe(..., event_global_loop).
+        # Fix: replace it with the currently running loop so callbacks
+        # actually execute.
+        import neonize.aioze.events as _nz_events
+        import neonize.aioze.client as _nz_client
+        _nz_events.event_global_loop = self._loop
+        _nz_client.event_global_loop = self._loop
+
         # neonize uses `name` as the DB file path directly
         self._client = NewAClient(db_path)
+        # Also patch the client instance's loop reference
+        self._client.loop = self._loop
 
         # Register event handlers via neonize's Event system
         # client.event is an Event instance; calling it with an event type
@@ -160,11 +200,13 @@ class WhatsAppWebAdapter:
         if self._on_disconnected:
             await self._safe_callback(self._on_disconnected)
 
-    async def send_message(self, to: str, text: str) -> Optional[str]:
+    async def send_message(self, to: Any, text: str) -> Optional[str]:
         """Send a text message via WhatsApp Web.
 
         Args:
-            to: Recipient JID or phone number (e.g., "1234567890@s.whatsapp.net")
+            to: Recipient — a native neonize JID protobuf object (preferred,
+                preserves LID routing info) OR a JID string / phone number
+                (e.g., "1234567890@s.whatsapp.net") as fallback.
             text: Message text
 
         Returns:
@@ -175,15 +217,16 @@ class WhatsAppWebAdapter:
             return None
 
         try:
-            # Normalize phone number to JID string
-            jid_str = self._normalize_jid(to)
-
-            from neonize.utils import build_jid
-            # build_jid expects (phone_number, server) — split JID string
-            parts = jid_str.split("@", 1)
-            user = parts[0]
-            server = parts[1] if len(parts) > 1 else "s.whatsapp.net"
-            target_jid = build_jid(user, server)
+            # If *to* is already a neonize JID protobuf, use it directly.
+            # This preserves LID routing info and avoids "no LID found" errors.
+            target_jid = to
+            if isinstance(to, str):
+                jid_str = self._normalize_jid(to)
+                from neonize.utils import build_jid
+                parts = jid_str.split("@", 1)
+                user = parts[0]
+                server = parts[1] if len(parts) > 1 else "s.whatsapp.net"
+                target_jid = build_jid(user, server)
 
             resp = await self._client.send_message(target_jid, text)
             msg_id = getattr(resp, 'ID', None) or str(resp)
@@ -244,19 +287,31 @@ class WhatsAppWebAdapter:
 
     @staticmethod
     def _print_qr_terminal(qr_data: str) -> None:
-        """Print QR code to terminal using qrcode library or fallback."""
+        """Print QR code to terminal. Uses segno (neonize dep) or qrcode."""
+        try:
+            import segno  # type: ignore  — installed with neonize
+            print("\n" + "=" * 50)
+            print("Scan this QR code in WhatsApp → Linked Devices:")
+            print("=" * 50)
+            segno.make_qr(qr_data).terminal(compact=True)
+            print("=" * 50 + "\n")
+            return
+        except Exception:
+            pass
         try:
             import qrcode  # type: ignore
             qr = qrcode.QRCode(border=1)
             qr.add_data(qr_data)
             qr.print_ascii(tty=True)
+            return
         except ImportError:
-            # Fallback: just print the raw data
-            print(f"\n{'='*50}")
-            print("Scan this QR code in WhatsApp → Linked Devices:")
-            print(f"QR Data: {qr_data[:80]}...")
-            print(f"{'='*50}")
-            print("(Install 'qrcode' package for visual QR: pip install qrcode)")
+            pass
+        # Final fallback: raw data
+        print(f"\n{'='*50}")
+        print("Scan this QR code in WhatsApp → Linked Devices:")
+        print(f"QR Data: {qr_data[:80]}...")
+        print(f"{'='*50}")
+        print("(Install 'segno' or 'qrcode' for visual QR display)")
 
     async def _safe_callback(self, callback: Callable, *args: Any) -> None:
         """Safely invoke a callback, handling both sync and async."""

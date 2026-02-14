@@ -1,11 +1,10 @@
 import json
 
-from .base_hub_protocol import BaseHubProtocol
-
-from ..messages.message_type import MessageType
 from json import JSONEncoder
 
-from signalrcore.helpers import Helpers
+from .base_hub_protocol import BaseHubProtocol
+from ..messages.message_type import MessageType
+from ..types import HubProtocolEncoding, RECORD_SEPARATOR
 
 
 class MyEncoder(JSONEncoder):
@@ -24,20 +23,27 @@ class MyEncoder(JSONEncoder):
 
 
 class JsonHubProtocol(BaseHubProtocol):
-    def __init__(self):
-        super(JsonHubProtocol, self).__init__("json", 1, "Text", chr(0x1E))
+    def __init__(self, version: int = 1):
+        super(JsonHubProtocol, self).__init__(
+            "json",
+            version,
+            HubProtocolEncoding.text,
+            RECORD_SEPARATOR)
         self.encoder = MyEncoder()
 
     def parse_messages(self, raw):
-        Helpers.get_logger().debug("Raw message incoming: ")
-        Helpers.get_logger().debug(raw)
+        self.logger.debug("Raw message incoming: ")
+        self.logger.debug(raw)
+
         raw_messages = [
             record.replace(self.record_separator, "")
             for record in raw.split(self.record_separator)
             if record is not None and record != ""
             and record != self.record_separator
             ]
+
         result = []
+
         for raw_message in raw_messages:
             dict_message = json.loads(raw_message)
             if len(dict_message.keys()) > 0:
@@ -45,6 +51,6 @@ class JsonHubProtocol(BaseHubProtocol):
         return result
 
     def encode(self, message):
-        Helpers.get_logger()\
+        self.logger\
             .debug(self.encoder.encode(message) + self.record_separator)
         return self.encoder.encode(message) + self.record_separator

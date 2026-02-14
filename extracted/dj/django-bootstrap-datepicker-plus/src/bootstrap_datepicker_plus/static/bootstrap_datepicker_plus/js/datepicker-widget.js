@@ -14,6 +14,8 @@
    * @property {Function} date
    *
    * @typedef {object} WidgetOptions
+   * @property {string | undefined} minDate
+   * @property {string | undefined} maxDate
    * @property {object} icons
    *
    * @typedef {object} WidgetInputConfig
@@ -74,7 +76,6 @@
         handleErrorAndThrow(err, inputElement);
       }
     }
-    findAndProcessDeprecatedRangeInputs(htmlElement);
   }
 
   /**
@@ -177,13 +178,23 @@
    * @param {WidgetInstance} toInstance
    */
   function configureRangeSelection(fromInstance, toInstance) {
-    fromInstance.dateTimePickerData.maxDate(toInstance.dateTimePickerData.date() || false);
-    toInstance.dateTimePickerData.minDate(fromInstance.dateTimePickerData.date() || false);
+    const initialFromInstanceMaxMoments = fromInstance.config.options.maxDate ? [moment(fromInstance.config.options.maxDate)] : [];
+    const initialToInstanceMinMoments = toInstance.config.options.minDate ? [moment(toInstance.config.options.minDate)] : [];
+    const toCurrentDate = toInstance.dateTimePickerData.date();
+    const fromCurrentDate = fromInstance.dateTimePickerData.date();
+    const fromInstanceMaxMoments = initialFromInstanceMaxMoments.concat(toCurrentDate ? [toCurrentDate] : []);
+    const toInstanceMinMoments = initialToInstanceMinMoments.concat(fromCurrentDate ? [fromCurrentDate] : []);
+    fromInstance.dateTimePickerData.maxDate(fromInstanceMaxMoments.length ? moment.min(fromInstanceMaxMoments) : false);
+    toInstance.dateTimePickerData.minDate(toInstanceMinMoments.length ? moment.max(toInstanceMinMoments) : false);
+
     fromInstance.$element.on("dp.change", function (e) {
-      toInstance.dateTimePickerData.minDate(e.date || false);
+      const toInstanceMinMoments = initialToInstanceMinMoments.concat(e.date ? [e.date] : []);
+      toInstance.dateTimePickerData.minDate(toInstanceMinMoments.length ? moment.max(toInstanceMinMoments) : false);
     });
+
     toInstance.$element.on("dp.change", function (e) {
-      fromInstance.dateTimePickerData.maxDate(e.date || false);
+      const fromInstanceMaxMoments = initialFromInstanceMaxMoments.concat(e.date ? [e.date] : []);
+      fromInstance.dateTimePickerData.maxDate(fromInstanceMaxMoments.length ? moment.min(fromInstanceMaxMoments) : false);
     });
   }
 
@@ -213,23 +224,6 @@
       inputElement.closest(`.${inputWrapperClass}`).after(errorDisplay);
     }
     throw new WidgetError(error.message);
-  }
-
-  /**
-   * @param {HTMLElement} htmlElement
-   */
-  function findAndProcessDeprecatedRangeInputs(htmlElement) {
-    const fromInputs = htmlElement.querySelectorAll('[data-dbdp-start]:not([disabled])')
-    for (const fromInput of fromInputs) {
-      const eventName = fromInput.dataset.dbdpStart;
-      const toInput = htmlElement.querySelector(`input[data-dbdp-end="${eventName}"]:not([disabled])`);
-      if (!toInput) continue;
-      const fromHiddenInput = fromInput.closest(`.${inputWrapperClass}`)?.nextElementSibling;
-      const toHiddenInput = toInput.closest(`.${inputWrapperClass}`)?.nextElementSibling;
-      if (fromHiddenInput && toHiddenInput && widgetInstances.has(fromHiddenInput) && widgetInstances.has(toHiddenInput)) {
-        configureRangeSelection(widgetInstances.get(fromHiddenInput), widgetInstances.get(toHiddenInput));
-      }
-    }
   }
 
   if ("bootstrap" in window) { // if bootstrap version >= 4

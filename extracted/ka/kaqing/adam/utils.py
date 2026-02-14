@@ -190,9 +190,6 @@ def copy_config_file(rel_path: str, module: str, suffix: str = '.yaml', show_out
 def idp_token_from_env():
     return os.getenv('IDP_TOKEN')
 
-def is_lambda(func):
-    return callable(func) and hasattr(func, '__name__') and func.__name__ == '<lambda>'
-
 def in_docker() -> bool:
     if os.path.exists('/.dockerenv'):
         return True

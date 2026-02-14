@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-typer
-Version: 3.5.1
+Version: 3.6.0
 Summary: Use Typer to define the CLI for your Django management commands.
 Project-URL: Homepage, https://django-typer.readthedocs.io
 Project-URL: Documentation, https://django-typer.readthedocs.io
@@ -16,7 +16,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
@@ -36,11 +35,8 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: <4.0,>=3.10
 Requires-Dist: click<8.4,>=8.1.8
 Requires-Dist: django<6.1,>=4.2
-Requires-Dist: shellingham<2.0,>=1.5.4
-Requires-Dist: typer-slim<0.22.0,>=0.20.1
+Requires-Dist: typer<0.23.1,>=0.22.0
 Requires-Dist: typing-extensions>=3.7.4.3; python_version < '3.10'
-Provides-Extra: rich
-Requires-Dist: rich<15.0.0,>=10.11.0; extra == 'rich'
 Description-Content-Type: text/markdown
 
 # django-typer

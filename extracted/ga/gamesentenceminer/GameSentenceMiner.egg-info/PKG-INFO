@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: GameSentenceMiner
-Version: 2.23.34
+Version: 2.24.2
 Summary: A tool for mining sentences from games. Update: Dependencies, replay buffer based line searching, and bug fixes.
 Author-email: Beangate <bpwhelan95@gmail.com>
 License: MIT License
@@ -73,6 +73,8 @@ Provides-Extra: lens
 Requires-Dist: betterproto==2.0.0b7; extra == "lens"
 Provides-Extra: gpu
 Requires-Dist: onnxruntime-gpu[cuda,cudnn]; extra == "gpu"
+Provides-Extra: dev
+Requires-Dist: pytest>=9.0.2; extra == "dev"
 Dynamic: license-file
 
 <p align="center">
@@ -201,3 +203,8 @@ This project includes modified versions of the following libraries, I got tired 
    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=bpwhelan/GameSentenceMiner&type=date&legend=top-left" />
  </picture>
 </a>
+
+## Sponsors
+
+| <img src="https://signpath.org/assets/favicon.png" width="25" height="25" align="center"> | Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/). |
+| :--- | :--- |

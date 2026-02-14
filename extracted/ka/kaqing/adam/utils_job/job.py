@@ -2,9 +2,10 @@ from datetime import datetime
 import os
 import re
 import threading
-from typing import Callable, TextIO
+from typing import TextIO
 
 from adam.directories import local_log_dir
+from adam.utils_global import thread_local
 from adam.utils_log import log_exc
 
 class Job:
@@ -28,8 +29,7 @@ class Job:
                      suffix = '.log',
                      err = False,
                      dir: str = None,
-                     extra: dict[str, str] = {},
-                     callback: Callable[['Job'], None] = None):
+                     extra: dict[str, str] = {}):
         with log_exc():
             # for export, local file creates the last file, then pods will try to create the last file again
             job: Job = Job.create(job_id, command, extra, replace_last_file = False)
@@ -125,18 +125,25 @@ class Job:
     def read(f: TextIO):
         job_id = None
         command = None
+        raw_command = ''
         extra: dict[str, str] = {}
         with log_exc():
             job_id = f.readline().strip(' \r\n')
             command = f.readline().strip(' \r\n')
+            raw_command = f.readline().strip(' \r\n')
             while(e := f.readline().strip(' \r\n')):
                 if groups := re.match(r'(.*?):(.*)', e):
                     extra[groups[1]] = groups[2].strip(' \r\n')
 
-        return Job(command, job_id, extra)
+        return Job(command, raw_command, job_id, extra)
 
-    def __init__(self, command: str = None, job_id: str = None, extra: dict[str, str] = {}):
+    def __init__(self, command: str = None, raw_command: str = None, job_id: str = None, extra: dict[str, str] = {}):
         self.command = command
+        self.raw_command = raw_command
+        if hasattr(thread_local, 'cmd'):
+            self.raw_command = thread_local.cmd
+        if self.raw_command is None:
+            self.raw_command = ''
         self.job_id = job_id
         self.extra = extra
 
@@ -144,6 +151,8 @@ class Job:
         f.write(self.job_id)
         f.write('\n')
         f.write(self.command)
+        f.write('\n')
+        f.write(self.raw_command)
         if self.extra:
             for k, v in self.extra.items():
                 f.write('\n')

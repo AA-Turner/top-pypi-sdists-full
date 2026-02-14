@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nsj_rest_lib
-Version: 6.3.0
+Version: 6.3.2
 Summary: Biblioteca para construção de APIs Rest Python, de acordo com o guidelines interno, e com paradigma declarativo.
 Home-page: https://github.com/Nasajon/nsj_rest_lib
 Author: Nasajon Sistemas

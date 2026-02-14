@@ -3,7 +3,10 @@ from __future__ import annotations
 from collections.abc import Hashable
 from typing import Any, TypeAlias
 
-from .typing import MutableSet, RedisError, ResponsePrimitive
+from .typing import MutableSet, RedisError, StringT
+
+#: Primitives returned by redis
+ResponsePrimitive: TypeAlias = StringT | int | float | bool | None
 
 #: Represents the total structure of any response for any redis command.
 ResponseType: TypeAlias = (

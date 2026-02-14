@@ -33,13 +33,12 @@ test = [
   "pytest-cov==7.0.0",
   "pytest-xdist==3.8.0",
   "pytest==9.0.2",
-  "syrupy==5.0.0"
+  "syrupy==5.1.0"
 ]
 types = [
   "setuptools>=61.2",
-  "ty==0.0.11",
-  "types-lxml==2026.1.1",
-  "wcwidth-stubs==0.2.14.0"
+  "ty==0.0.17",
+  "types-lxml==2026.1.1"
 ]
 
 [project]
@@ -83,7 +82,7 @@ requires-python = ">=3.11"
 
 [project.optional-dependencies]
 all = [
-  "translate-toolkit[chardet,fluent,ical,ini,levenshtein,markdown,php,rc,spellcheck,subtitles,tmserver,toml,trados,yaml]"
+  "translate-toolkit[chardet,fluent,ical,ini,levenshtein,markdown,php,rc,spellcheck,subtitles,toml,yaml]"
 ]
 chardet = [
   "charset-normalizer>=3.4.0,<4.0"
@@ -98,7 +97,7 @@ ini = [
   "iniparse==0.5"
 ]
 levenshtein = [
-  "python-Levenshtein>=0.21.0"
+  "RapidFuzz>=3.14.0"
 ]
 markdown = [
   "mistletoe>=1.4.0,<1.6.0"
@@ -115,14 +114,8 @@ spellcheck = [
 subtitles = [
   "aeidon>=1.14.1,<1.16"
 ]
-tmserver = [
-  "cheroot==11.1.2"
-]
 toml = [
   "tomlkit>=0.13.0,<0.15.0"
-]
-trados = [
-  "BeautifulSoup4>=4.13.0"
 ]
 yaml = [
   "ruamel.yaml>=0.18.0,<0.20.0"
@@ -134,7 +127,6 @@ file = "README.rst"
 
 [project.scripts]
 android2po = "translate.convert.android2po:main"
-build_tmdb = "translate.tools.build_tmdb:main"
 csv2po = "translate.convert.csv2po:main"
 csv2tbx = "translate.convert.csv2tbx:main"
 dtd2po = "translate.convert.dtd2po:main"
@@ -206,7 +198,6 @@ sub2po = "translate.convert.sub2po:main"
 symb2po = "translate.convert.symb2po:main"
 tbx2po = "translate.convert.tbx2po:main"
 tiki2po = "translate.convert.tiki2po:main"
-tmserver = "translate.services.tmserver:main"
 toml2po = "translate.convert.toml2po:main"
 ts2po = "translate.convert.ts2po:main"
 txt2po = "translate.convert.txt2po:main"
@@ -240,6 +231,7 @@ ignore = [
   "tests/*/*/*",
   "tests/*/*/*/*",
   "tests/*/*/*/*/*",
+  "tools/benchmark.py",  # Internal benchmarking
   "tools/phase",  # TODO: investigate purpuse, it was never installed
   "tools/phaselist2goals",  # TODO: investigate purpuse, it was never installed
   "translate/convert/odfxml",  # TODO: investigate purpuse, it was never installed
@@ -255,8 +247,6 @@ disable_warnings = ["no-ctracer"]
 
 [tool.isort]
 known_third_party = [
-  "bs4",
-  "cheroot",
   "iniparse",
   "lxml",
   "phply",
@@ -447,8 +437,8 @@ select = ["ALL"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**.py" = ["PLC1901", "T201"]
+"tools/benchmark.py" = ["T201"]
 "translate/misc/progressbar.py" = ["T201"]
-"translate/storage/benchmark.py" = ["T201"]
 "translate/storage/placeables/strelem.py" = ["T201"]
 "translate/tools/**.py" = ["T201"]
 

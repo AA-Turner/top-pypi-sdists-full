@@ -11,7 +11,41 @@ else:
     from typing import Unpack
 
 
-from .primp import RClient
+from .primp import RClient, RAsyncClient
+
+# Exception types - re-exported for convenient access
+from .primp import (
+    # Base exception
+    RequestException,
+    PrimpError,  # Alias for RequestException
+    # HTTP errors
+    HTTPError,
+    # Connection errors
+    ConnectionError,
+    ConnectTimeout,
+    SSLError,
+    ProxyError,
+    # Timeout errors
+    Timeout,
+    ReadTimeout,
+    # Request errors
+    RequestError,
+    InvalidURL,
+    InvalidHeader,
+    # Body errors
+    BodyError,
+    StreamConsumedError,
+    ChunkedEncodingError,
+    # Decode errors
+    DecodeError,
+    ContentDecodingError,
+    # JSON errors
+    JSONError,
+    InvalidJSONError,
+    JSONDecodeError,
+    # Redirect errors
+    TooManyRedirects,
+)
 
 if TYPE_CHECKING:
     from .primp import IMPERSONATE, IMPERSONATE_OS, ClientRequestParams, HttpMethod, RequestParams, Response
@@ -24,7 +58,6 @@ else:
 
     Unpack = _Unpack()
     RequestParams = ClientRequestParams = TypedDict
-
 
 class Client(RClient):
     """Initializes an HTTP client that can impersonate web browsers."""
@@ -60,20 +93,12 @@ class Client(RClient):
             proxy: proxy URL for HTTP requests, example: "socks5://127.0.0.1:9150". Default is None.
             timeout: timeout for HTTP requests in seconds. Default is 30.
             impersonate: impersonate browser. Supported browsers:
-                "chrome_100", "chrome_101", "chrome_104", "chrome_105", "chrome_106",
-                "chrome_107", "chrome_108", "chrome_109", "chrome_114", "chrome_116",
-                "chrome_117", "chrome_118", "chrome_119", "chrome_120", "chrome_123",
-                "chrome_124", "chrome_126", "chrome_127", "chrome_128", "chrome_129",
-                "chrome_130", "chrome_131", "chrome_133"
-                "safari_15.3", "safari_15.5", "safari_15.6.1", "safari_16",
-                "safari_16.5", "safari_17.0", "safari_17.2.1", "safari_17.4.1",
-                "safari_17.5", "safari_18",  "safari_18.2",
-                "safari_ios_16.5", "safari_ios_17.2", "safari_ios_17.4.1", "safari_ios_18.1.1",
-                "safari_ipad_18",
-                "okhttp_3.9", "okhttp_3.11", "okhttp_3.13", "okhttp_3.14", "okhttp_4.9",
-                "okhttp_4.10", "okhttp_5",
-                "edge_101", "edge_122", "edge_127", "edge_131",
-                "firefox_109", "firefox_117", "firefox_128", "firefox_133", "firefox_135".
+                "chrome_144", "chrome_145",
+                "edge_144", "edge_145",
+                "opera_126", "opera_127",
+                "safari_18.5", "safari_26",
+                "firefox_140", "firefox_146",
+                "random".
                 Default is None.
             impersonate_os: impersonate OS. Supported OS:
                 "android", "ios", "linux", "macos", "windows". Default is None.
@@ -117,9 +142,8 @@ class Client(RClient):
         return self.request(method="PATCH", url=url, **kwargs)
 
 
-class AsyncClient(Client):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+class AsyncClient(RAsyncClient):
+    """Fully async HTTP client that can impersonate web browsers."""
 
     async def __aenter__(self) -> AsyncClient:
         return self
@@ -127,32 +151,28 @@ class AsyncClient(Client):
     async def __aexit__(self, *args):
         del self
 
-    async def _run_sync_asyncio(self, fn, *args, **kwargs):
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, partial(fn, *args, **kwargs))
+    async def request(self, method: HttpMethod, url: str, **kwargs: Unpack[RequestParams]) -> AsyncResponse:
+        return await super().request(method=method, url=url, **kwargs)
 
-    async def request(self, method: HttpMethod, url: str, **kwargs: Unpack[RequestParams]):  # type: ignore
-        return await self._run_sync_asyncio(super().request, method=method, url=url, **kwargs)
-
-    async def get(self, url: str, **kwargs: Unpack[RequestParams]):  # type: ignore
+    async def get(self, url: str, **kwargs: Unpack[RequestParams]) -> AsyncResponse:
         return await self.request(method="GET", url=url, **kwargs)
 
-    async def head(self, url: str, **kwargs: Unpack[RequestParams]):  # type: ignore
+    async def head(self, url: str, **kwargs: Unpack[RequestParams]) -> AsyncResponse:
         return await self.request(method="HEAD", url=url, **kwargs)
 
-    async def options(self, url: str, **kwargs: Unpack[RequestParams]):  # type: ignore
+    async def options(self, url: str, **kwargs: Unpack[RequestParams]) -> AsyncResponse:
         return await self.request(method="OPTIONS", url=url, **kwargs)
 
-    async def delete(self, url: str, **kwargs: Unpack[RequestParams]):  # type: ignore
+    async def delete(self, url: str, **kwargs: Unpack[RequestParams]) -> AsyncResponse:
         return await self.request(method="DELETE", url=url, **kwargs)
 
-    async def post(self, url: str, **kwargs: Unpack[RequestParams]):  # type: ignore
+    async def post(self, url: str, **kwargs: Unpack[RequestParams]) -> AsyncResponse:
         return await self.request(method="POST", url=url, **kwargs)
 
-    async def put(self, url: str, **kwargs: Unpack[RequestParams]):  # type: ignore
+    async def put(self, url: str, **kwargs: Unpack[RequestParams]) -> AsyncResponse:
         return await self.request(method="PUT", url=url, **kwargs)
 
-    async def patch(self, url: str, **kwargs: Unpack[RequestParams]):  # type: ignore
+    async def patch(self, url: str, **kwargs: Unpack[RequestParams]) -> AsyncResponse:
         return await self.request(method="PATCH", url=url, **kwargs)
 
 
@@ -170,20 +190,12 @@ def request(
         method: the HTTP method to use (e.g., "GET", "POST").
         url: the URL to which the request will be made.
         impersonate: impersonate browser. Supported browsers:
-            "chrome_100", "chrome_101", "chrome_104", "chrome_105", "chrome_106",
-            "chrome_107", "chrome_108", "chrome_109", "chrome_114", "chrome_116",
-            "chrome_117", "chrome_118", "chrome_119", "chrome_120", "chrome_123",
-            "chrome_124", "chrome_126", "chrome_127", "chrome_128", "chrome_129",
-            "chrome_130", "chrome_131", "chrome_133",
-            "safari_15.3", "safari_15.5", "safari_15.6.1", "safari_16",
-            "safari_16.5", "safari_17.0", "safari_17.2.1", "safari_17.4.1",
-            "safari_17.5", "safari_18",  "safari_18.2",
-            "safari_ios_16.5", "safari_ios_17.2", "safari_ios_17.4.1", "safari_ios_18.1.1",
-            "safari_ipad_18",
-            "okhttp_3.9", "okhttp_3.11", "okhttp_3.13", "okhttp_3.14", "okhttp_4.9",
-            "okhttp_4.10", "okhttp_5",
-            "edge_101", "edge_122", "edge_127", "edge_131",
-            "firefox_109", "firefox_117", "firefox_128", "firefox_133", "firefox_135".
+            "chrome_144", "chrome_145",
+            "edge_144", "edge_145",
+            "opera_126", "opera_127",
+            "safari_18.5", "safari_26",
+            "firefox_140", "firefox_146",
+            "random".
             Default is None.
         impersonate_os: impersonate OS. Supported OS:
             "android", "ios", "linux", "macos", "windows". Default is None.

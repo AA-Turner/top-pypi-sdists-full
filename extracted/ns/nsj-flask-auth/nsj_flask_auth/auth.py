@@ -714,6 +714,10 @@ class Auth:
                         scope,
                         user_scope_permissions,
                     )
+                    tenant_from_request = self._get_entity_scope_id_from_request(Scope.TENANT)
+                    if tenant_from_request:
+                        self._verify_tenant_scope(tenant_from_request)
+                        
                     return func(*args, **kwargs)
                 except Forbidden as e:
                     return self._format_erro(403, f"{e}")
@@ -813,3 +817,41 @@ class Auth:
             return wrapper
         
         return decorator
+
+    def _verify_tenant_scope(self, tenant_from_request: int) -> None:
+        """
+        Verifica se o tenant da requisição corresponde ao tenant autenticado.
+        
+        Args:
+            tenant_from_request: Tenant enviado na requisição
+            
+        Raises:
+            Forbidden: Se o tenant não corresponder ao autenticado
+        """
+        profile = g.get('profile', {})
+        authentication_type = profile.get('authentication_type')
+        
+        # Se for API Key de sistema, permite qualquer tenant
+        if authentication_type == 'api_key' and 'tenant' not in profile:
+            return
+        
+        # Se for API Key de tenant, valida se corresponde
+        if authentication_type == 'api_key' and 'tenant' in profile:
+            tenant_autenticado = profile.get('tenant')
+            if tenant_autenticado != tenant_from_request:
+                raise Forbidden(
+                    f"Acesso negado. Tenant da API Key ({tenant_autenticado}) não corresponde ao tenant da requisição ({tenant_from_request})"
+                )
+        
+        # Se for Access Token (usuário), valida se tem acesso ao tenant
+        if authentication_type == 'access_token':
+            user_profile = profile.get('user_profile', {})
+            tenants_usuario = user_profile.get('tenants', [])
+            
+            # Verifica se o tenant da requisição está na lista de tenants do usuário
+            tenant_encontrado = any(t.get('id') == tenant_from_request for t in tenants_usuario)
+            
+            if not tenant_encontrado:
+                raise Forbidden(
+                    f"Acesso negado. Usuário não possui permissão para o tenant {tenant_from_request}"
+                )

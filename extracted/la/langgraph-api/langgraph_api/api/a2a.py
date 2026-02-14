@@ -1143,6 +1143,7 @@ async def handle_message_send(
     """
     client = _client()
     context_id: str | None
+    run_context = params.get("context")
 
     try:
         message = params.get("message")
@@ -1260,6 +1261,7 @@ async def handle_message_send(
                 assistant_id=assistant_id,
                 input=input_content,
                 command=command,
+                context=run_context,
                 if_not_exists="create",
                 headers=request.headers,
             )
@@ -1841,6 +1843,7 @@ async def handle_message_stream(
     - A JSON-RPC error if anything fails.
     """
     client = _client()
+    run_context = params.get("context")
 
     async def stream_body():
         try:
@@ -2017,6 +2020,7 @@ async def handle_message_stream(
                 if_not_exists="create",
                 input=input_content,
                 command=command,
+                context=run_context,
                 headers=request.headers,
             )
 

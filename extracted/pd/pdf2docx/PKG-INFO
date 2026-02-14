@@ -1,15 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pdf2docx
-Version: 0.5.8
+Version: 0.5.9
 Summary: Open source Python library converting pdf to docx.
 Home-page: https://artifex.com/
 Author: Artifex
 Author-email: support@artifex.com
-License: GPL v3
+License: GNU AFFERO GPL 3.0
 Keywords: pdf-to-word,pdf-to-docx
-Requires-Python: >=3.6
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: PyMuPDF>=1.26.7
+Requires-Dist: python-docx>=0.8.10
+Requires-Dist: fonttools>=4.24.0
+Requires-Dist: numpy>=1.17.2
+Requires-Dist: opencv-python-headless>=4.5
+Requires-Dist: fire>=0.3.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 English | [中文](README_CN.md)
 

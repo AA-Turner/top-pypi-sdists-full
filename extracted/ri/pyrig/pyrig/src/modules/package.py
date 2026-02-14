@@ -13,13 +13,13 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+from pyrig.src.dependency_graph import DependencyGraph
 from pyrig.src.modules.class_ import (
     all_cls_from_module,
     all_methods_from_cls,
     discard_parent_classes,
     discover_all_subclasses,
 )
-from pyrig.src.modules.dependency_graph import DependencyGraph
 from pyrig.src.modules.function import all_functions_from_module
 from pyrig.src.modules.imports import (
     import_package_with_dir_fallback,
@@ -139,7 +139,6 @@ def all_deps_depending_on_dep(
     Returns:
         List of imported module objects for dependent packages.
     """
-    # Note we do not use cached to avoid caching the entire graph during CLI invocations
     return DependencyGraph().all_depending_on(dep, include_self=include_self)
 
 

@@ -47,11 +47,15 @@ class Upgrade(Command):
                     ctx.log()
 
                     if version == '-':
-                        ctx.log('Upgrade command cannot work until you deploy the pod first.')
+                        ctx.log("Upgrade cannot work until you deploy the pod first with \n  'deploy pod'")
                         return state
 
                     if version == newer:
                         ctx.log('Ops pod is already with latest version.')
+                        return state
+
+                    if version.split('.')[0] != newer.split('.')[0]:
+                        ctx.log("Upgrade cannot work as major version has been changed. Please re-deploy pod with \n  'deploy pod --force'.")
                         return state
 
                     if not forced:

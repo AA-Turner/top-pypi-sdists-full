@@ -1204,6 +1204,8 @@ class OTSProtoBufferEncoder(object):
         proto.text = self._get_unicode(query.text)
         if query.weight is not None:
             proto.weight = query.weight
+        if query.slop is not None:
+            proto.slop = query.slop
 
         return proto.SerializeToString()
 

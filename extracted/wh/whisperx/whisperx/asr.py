@@ -58,11 +58,7 @@ class WhisperModel(faster_whisper.WhisperModel):
         )
 
         encoder_output = self.encode(features)
-
-        max_initial_timestamp_index = int(
-            round(options.max_initial_timestamp / self.time_precision)
-        )
-
+        
         result = self.model.generate(
                 encoder_output,
                 [prompt] * batch_size,
@@ -72,11 +68,13 @@ class WhisperModel(faster_whisper.WhisperModel):
                 max_length=self.max_length,
                 suppress_blank=options.suppress_blank,
                 suppress_tokens=options.suppress_tokens,
+                no_repeat_ngram_size=options.no_repeat_ngram_size,
+                repetition_penalty=options.repetition_penalty,
             )
 
         tokens_batch = [x.sequences_ids[0] for x in result]
 
-        def decode_batch(tokens: List[List[int]]) -> str:
+        def decode_batch(tokens: List[List[int]]) -> List[str]:
             res = []
             for tk in tokens:
                 res.append([token for token in tk if token < tokenizer.eot])
@@ -409,7 +407,7 @@ def load_model(
                 device_vad = f'cuda:{device_index}'
             else:
                 device_vad = device
-            vad_model = Pyannote(torch.device(device_vad), use_auth_token=None, **default_vad_options)
+            vad_model = Pyannote(torch.device(device_vad), token=None, **default_vad_options)
         else:
             raise ValueError(f"Invalid vad_method: {vad_method}")
 

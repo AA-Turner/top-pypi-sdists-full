@@ -1,18 +1,17 @@
 Metadata-Version: 2.4
 Name: sdmetrics
-Version: 0.27.0
+Version: 0.27.1
 Summary: Metrics for Synthetic Data Generation Projects
 Author-email: MIT Data To AI Lab <dailabmit@gmail.com>
-License: MIT license
+License-Expression: MIT
 Project-URL: Source Code, https://github.com/sdv-dev/SDMetrics
 Project-URL: Issue Tracker, https://github.com/sdv-dev/SDMetrics/issues
 Project-URL: Changes, https://github.com/sdv-dev/SDMetrics/blob/main/HISTORY.md
 Project-URL: Twitter, https://twitter.com/sdv_dev
-Project-URL: Chat, https://bit.ly/sdv-slack-invite
+Project-URL: Chat, https://forum.datacebo.com/
 Keywords: sdmetrics,SDMetrics
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -95,7 +94,7 @@ Dynamic: license-file
 [![Downloads](https://pepy.tech/badge/sdmetrics)](https://pepy.tech/project/sdmetrics)
 [![Tests](https://github.com/sdv-dev/SDMetrics/workflows/Run%20Tests/badge.svg)](https://github.com/sdv-dev/SDMetrics/actions?query=workflow%3A%22Run+Tests%22+branch%3Amain)
 [![Coverage Status](https://codecov.io/gh/sdv-dev/SDMetrics/branch/main/graph/badge.svg)](https://codecov.io/gh/sdv-dev/SDMetrics)
-[![Slack](https://img.shields.io/badge/Community-Slack-blue?style=plastic&logo=slack)](https://bit.ly/sdv-slack-invite)
+[![Forum](https://img.shields.io/badge/Forum-Join%20now!-36C5F0)](https://forum.datacebo.com)
 [![Tutorial](https://img.shields.io/badge/Demo-Get%20started-orange?style=plastic&logo=googlecolab)](https://bit.ly/sdmetrics-demo)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14279167.svg)](https://doi.org/10.5281/zenodo.14279167)
 

@@ -16,11 +16,11 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python",
   "Topic :: Software Development :: Internationalization",
@@ -29,29 +29,34 @@ classifiers = [
 ]
 description = "Language definitions for Weblate"
 keywords = [
-  "i18n l10n gettext git mercurial translate"
+  "gettext",
+  "git",
+  "i18n",
+  "l10n",
+  "mercurial",
+  "translate"
 ]
 license = "MIT"
 license-files = ["LICENSE"]
 name = "weblate-language-data"
 requires-python = ">=3.9"
-version = "2026.1"
+version = "2026.2"
 
 [project.optional-dependencies]
 dev = [
-  "translate-toolkit==3.18.0",
+  "translate-toolkit==3.18.1",
   "weblate-language-data[lint,test,types]"
 ]
 django = [
   "Django"
 ]
 lint = [
-  "pre-commit==4.5.1"
+  "prek==0.3.2"
 ]
 test = [
 ]
 types = [
-  "django-stubs==5.2.8",
+  "django-stubs==5.2.9",
   "mypy==1.19.1"
 ]
 

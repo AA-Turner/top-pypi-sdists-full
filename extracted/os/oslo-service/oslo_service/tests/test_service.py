@@ -175,7 +175,7 @@ class ServiceLauncherTest(ServiceTestBase):
         start_workers = self._spawn()
 
         # kill one worker and check if new worker can come up
-        LOG.info('pid of first child is %s' % start_workers[0])
+        LOG.info('pid of first child is %r', start_workers[0])
         os.kill(start_workers[0], signal.SIGTERM)
 
         # Wait at most 5 seconds to respawn a worker
@@ -185,7 +185,7 @@ class ServiceLauncherTest(ServiceTestBase):
 
         # Make sure worker pids don't match
         end_workers = self._get_workers()
-        LOG.info('workers: %r' % end_workers)
+        LOG.info('workers: %r', end_workers)
         self.assertNotEqual(start_workers, end_workers)
 
     def _terminate_with_signal(self, sig):
@@ -199,7 +199,7 @@ class ServiceLauncherTest(ServiceTestBase):
         self._wait(cond, timeout)
 
         workers = self._get_workers()
-        LOG.info('workers: %r' % workers)
+        LOG.info('workers: %r', workers)
         self.assertFalse(workers, 'No OS processes left.')
 
     def test_terminate_sigkill(self):
@@ -232,7 +232,7 @@ class ServiceLauncherTest(ServiceTestBase):
 
         # Make sure worker pids match
         end_workers = self._get_workers()
-        LOG.info('workers: %r' % end_workers)
+        LOG.info('workers: %r', end_workers)
         self.assertEqual(start_workers, end_workers)
 
     def test_parent_signal_sighup(self):
@@ -651,10 +651,14 @@ class EventletServerProcessLauncherTest(base.ServiceBaseTestCase):
         # NOTE(bnemec): process_time of 5 needs to be longer than the graceful
         # shutdown timeout in the "exceeded" test below, but also needs to be
         # shorter than the timeout in the regular graceful shutdown test.
+        kwargs = {'workers': self.workers, 'process_time': 5}
+        # graceful_shutdown_timeout is registered in
+        # ServiceBaseTestCase.setUp()
+        kwargs['graceful_shutdown_timeout'] = (
+            self.conf.graceful_shutdown_timeout)
         proc = multiprocessing.Process(target=eventlet_service.run,
                                        args=(queue,),
-                                       kwargs={'workers': self.workers,
-                                               'process_time': 5})
+                                       kwargs=kwargs)
         proc.start()
 
         port = queue.get()
@@ -705,15 +709,18 @@ class EventletServerProcessLauncherTest(base.ServiceBaseTestCase):
 
     def test_graceful_stop_with_exceeded_graceful_shutdown_timeout(self):
         # Server must exit if graceful_shutdown_timeout exceeded
-        graceful_shutdown_timeout = 4
+        graceful_shutdown_timeout = 2
         self.config(graceful_shutdown_timeout=graceful_shutdown_timeout)
         proc, conn = self.run_server()
 
         time_before = time.time()
         os.kill(proc.pid, signal.SIGTERM)
         self.assertTrue(proc.is_alive())
+        # If graceful_shutdown_timeout works, the process should exit.
+        # If it doesn't work, the test will hang which is a useful signal.
         proc.join()
-        self.assertFalse(proc.is_alive())
+        self.assertFalse(proc.is_alive(),
+                         "Process should have exited after graceful timeout")
         time_after = time.time()
 
         self.assertTrue(time_after - time_before > graceful_shutdown_timeout)

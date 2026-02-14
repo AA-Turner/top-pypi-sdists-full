@@ -659,6 +659,11 @@ class AzureBlobStorageClient(StorageClient):
         """Return a URI for a filename"""
         return f"{self.protocol}://{self._container_name}@{self._account_name}.dfs.core.windows.net/{filename}"
 
+    @override
+    def get_filename(self, uri: str):
+        """Return a filename for a uri"""
+        return uri.replace(f"{self.protocol}://{self._container_name}@{self._account_name}.dfs.core.windows.net/", "")
+
     def get_https_uri(self, filename: str) -> str:
         """Return an HTTPS URI for signed URLs and direct access"""
         return f"https://{self._account_name}.blob.core.windows.net/{self._container_name}/{filename}"
@@ -948,9 +953,15 @@ class LocalStorageClient(StorageClient):
     ):
         return self.upload_object(filename, content_type, data, metadata)
 
+    @override
     def get_uri(self, filename: str):
         """Return a URI for a filename"""
         return f"{self.protocol}://" + str(self._normalize_path(filename))
+
+    @override
+    def get_filename(self, uri: str):
+        """Return a filename for a uri"""
+        return uri.replace(f"{self.protocol}://{self._folder}", "").lstrip("/")
 
     @overload
     @override

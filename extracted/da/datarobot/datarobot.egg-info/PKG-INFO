@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot
-Version: 3.11.1
+Version: 3.12.0
 Summary: This client library is designed to support the DataRobot API.
 Home-page: https://datarobot.com
 Author: datarobot
@@ -51,6 +51,7 @@ Requires-Dist: pydantic>=2.11.3; extra == "dev"
 Requires-Dist: httpx>=0.28.1; extra == "dev"
 Requires-Dist: eval-type-backport; python_version < "3.10" and extra == "dev"
 Requires-Dist: respx; extra == "dev"
+Requires-Dist: fsspec>=2025.5.0; extra == "dev"
 Requires-Dist: ruff>=0.14.1; extra == "dev"
 Requires-Dist: mypy==1.16.0; extra == "dev"
 Requires-Dist: types-PyYAML==6.0.12; extra == "dev"
@@ -69,6 +70,8 @@ Requires-Dist: eval-type-backport; python_version < "3.10" and extra == "dev"
 Requires-Dist: respx; extra == "dev"
 Requires-Dist: pydantic-settings>=2.2.0; extra == "dev"
 Requires-Dist: pydantic>=2.2.0; extra == "dev"
+Requires-Dist: psutil>=7.2.1; extra == "dev"
+Requires-Dist: fsspec>=2025.5.0; extra == "dev"
 Requires-Dist: Pillow==10.4.0; python_version >= "3.8" and extra == "dev"
 Requires-Dist: Pillow==9.5.0; python_version < "3.8" and extra == "dev"
 Requires-Dist: Sphinx>=8.1.3; python_version >= "3.11" and extra == "dev"
@@ -84,6 +87,8 @@ Requires-Dist: sphinx-markdown-builder; extra == "dev"
 Requires-Dist: myst-parser==4.0.0; extra == "dev"
 Requires-Dist: pydantic-settings>=2.2.0; extra == "dev"
 Requires-Dist: pydantic>=2.2.0; extra == "dev"
+Requires-Dist: psutil>=7.2.1; extra == "dev"
+Requires-Dist: fsspec>=2025.5.0; extra == "dev"
 Provides-Extra: examples
 Requires-Dist: jupyter<=5.0; extra == "examples"
 Requires-Dist: fredapi==0.4.0; extra == "examples"
@@ -113,6 +118,8 @@ Requires-Dist: eval-type-backport; python_version < "3.10" and extra == "lint"
 Requires-Dist: respx; extra == "lint"
 Requires-Dist: pydantic-settings>=2.2.0; extra == "lint"
 Requires-Dist: pydantic>=2.2.0; extra == "lint"
+Requires-Dist: psutil>=7.2.1; extra == "lint"
+Requires-Dist: fsspec>=2025.5.0; extra == "lint"
 Provides-Extra: docs
 Requires-Dist: Sphinx>=8.1.3; python_version >= "3.11" and extra == "docs"
 Requires-Dist: sphinx_rtd_theme>=3.0; extra == "docs"
@@ -143,6 +150,7 @@ Requires-Dist: pydantic>=2.11.3; extra == "test"
 Requires-Dist: httpx>=0.28.1; extra == "test"
 Requires-Dist: eval-type-backport; python_version < "3.10" and extra == "test"
 Requires-Dist: respx; extra == "test"
+Requires-Dist: fsspec>=2025.5.0; extra == "test"
 Provides-Extra: databricks
 Requires-Dist: databricks-connect>=13.0; extra == "databricks"
 Provides-Extra: auth
@@ -157,6 +165,9 @@ Requires-Dist: eval-type-backport; python_version < "3.10" and extra == "auth-au
 Provides-Extra: core
 Requires-Dist: pydantic-settings>=2.2.0; extra == "core"
 Requires-Dist: pydantic>=2.2.0; extra == "core"
+Requires-Dist: psutil>=7.2.1; extra == "core"
+Provides-Extra: fs
+Requires-Dist: fsspec>=2025.5.0; extra == "fs"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -229,6 +240,7 @@ datarobot has the following optional groups:
     This can be used in DataRobot Custom Applications and on its own.
 - `core` (requires Python 3.8+): Platform library functions to improve building with DataRobot.
     This can be used in DataRobot Custom Applications, Custom Models, and Agent Workflows.
+- `fs` (requires Python 3.9+): Provides file system implementation to work with the DataRobot file system.
 
 You can install these optional groups by specifying them in the pip command, for example:
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: editdistpy
-Version: 0.1.6
+Version: 0.2.0
 Summary: Fast Levenshtein and Damerau optimal string alignment algorithms.
 Author: mmb L
 License-Expression: MIT

@@ -7,7 +7,10 @@
 # @WeChat       : meutils
 # @Software     : PyCharm
 # @Description  :
+import json
 import os
+
+import numpy as np
 
 from meutils.pipe import *
 from meutils.llm.clients import AsyncOpenAI
@@ -15,6 +18,8 @@ from meutils.caches import rcache
 from meutils.db.orm import select_first, update_or_insert
 from meutils.schemas.db.oneapi_types import OneapiTask, OneapiUser, OneapiToken
 from meutils.apis.oneapi.channel import get_channel_keys
+from meutils.schemas.task_types import FluxTaskResponse
+from meutils.db.redis_db import redis_aclient
 
 
 @rcache(ttl=90 * 24 * 3600)
@@ -46,6 +51,14 @@ async def get_user_quota(api_key: Optional[str] = None, user_id: Optional[int] =
 
 async def polling_keys(biz: str, api_key: Optional[str] = None, batch_size: int = 1,
                        channel_id: Optional[int] = None):  # 轮询
+    """
+
+    :param biz: model
+    :param api_key:
+    :param batch_size:
+    :param channel_id:
+    :return:
+    """
     # all
     if channel_id:
         df = await get_channel_keys(channel_id, base_url='https://api.chatfire.cn')
@@ -74,6 +87,41 @@ async def polling_keys(biz: str, api_key: Optional[str] = None, batch_size: int 
     except Exception as e:
         logger.debug(e)
         return None
+
+
+async def set_async_flux_signal(task_id: str, response: Union[BaseModel, dict]):
+    # 异步任务信号 response:{task_id}
+    if isinstance(response, BaseModel):
+        response = response.model_dump(exclude_none=True)
+    flux_task_response = FluxTaskResponse(id=task_id, result=response)
+    if flux_task_response.status in {"Ready", "Error", "Content Moderated"}:
+        if request_data := await redis_aclient.get(f"request:{task_id}"):
+            flux_task_response.details['request'] = json.loads(request_data)
+
+        data = flux_task_response.model_dump_json(exclude_none=True, indent=4)
+        await redis_aclient.set(f"response:{task_id}", data, ex=7 * 24 * 3600)
+        await redis_aclient.set(f"response-raw:{task_id}", json.dumps(response), ex=7 * 24 * 3600)
+
+        return True  # 任务结束
+
+
+async def polling_task(get_task: Callable, task_id: str, n: int = 1):  # todo 轮询获取结果，直到成功或失败  解耦出去
+    if response := await redis_aclient.get(f"response-raw:{task_id}"):
+        return json.loads(response)
+
+    for i in range(n):
+        await asyncio.sleep(5)
+
+        logger.debug(f"Polling task {task_id} ... ({i + 1}/{n})")
+        try:
+            response = await get_task(task_id)
+            if await set_async_flux_signal(task_id, response) or n == 1:  # 任务结束
+                # break
+                return response
+
+
+        except Exception as e:
+            logger.error(f"Get task error: {e}, retrying... ({i + 1}/10)")
 
 
 if __name__ == '__main__':

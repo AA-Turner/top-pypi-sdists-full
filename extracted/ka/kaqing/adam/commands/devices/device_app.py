@@ -129,9 +129,9 @@ class DeviceApp(Command, Device):
 
         return '\t'.join([f'{ReplState.A}:>'] + (words if words else ['/']))
 
-    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str):
+    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str, retry = False):
         if state.app_app:
-            return True, chain.run(f'app {cmd}', state)
+            return True, chain.retry(f'app {cmd}', state) if retry else chain.run(f'app {cmd}', state)
 
         return False, None
 

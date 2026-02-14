@@ -1,1 +1,1 @@
-const char* PYMSSQL_VERSION = "2.3.12";
+const char* PYMSSQL_VERSION = "2.3.13";

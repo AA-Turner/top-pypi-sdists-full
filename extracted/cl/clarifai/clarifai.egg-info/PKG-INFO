@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clarifai
-Version: 12.1.7
+Version: 12.2.0
 Home-page: https://github.com/Clarifai/clarifai-python
 Author: Clarifai
 Author-email: support@clarifai.com
@@ -18,8 +18,8 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: clarifai-grpc>=12.0.6
-Requires-Dist: clarifai-protocol==0.0.35
+Requires-Dist: clarifai-grpc>=12.1.0
+Requires-Dist: clarifai-protocol<0.1.0,>=0.0.35
 Requires-Dist: numpy>=1.22.0
 Requires-Dist: tqdm>=4.65.0
 Requires-Dist: PyYAML>=6.0.1
@@ -38,6 +38,7 @@ Requires-Dist: pydantic_core>=2.33.2
 Requires-Dist: packaging>=25.0
 Requires-Dist: tenacity>=8.2.3
 Requires-Dist: httpx>=0.27.0
+Requires-Dist: openai>=1.0.0
 Provides-Extra: all
 Requires-Dist: pycocotools>=2.0.7; extra == "all"
 Dynamic: author
@@ -635,3 +636,12 @@ Also see the official [Python SDK docs](https://clarifai-python.readthedocs.io/e
 
 Examples for uploading models and runners have been moved to this [repo](https://github.com/Clarifai/runners-examples).
 Find our official documentation at [docs.clarifai.com/compute/models/upload](https://docs.clarifai.com/compute/models/upload).
+
+## Versioning
+
+This project uses [CalVer](https://calver.org/) with the format **`YY.MM.PATCH`**:
+- **YY** — Clarifai year, counting from the company's founding (e.g. `12` for the 12th year)
+- **MM** — month number, not zero-padded (e.g. `1` for January, `12` for December)
+- **PATCH** — incremental release within that month, starting at `0`
+
+Git tags use the same format without a `v` prefix (e.g. `12.2.0`). The version is defined in `clarifai/__init__.py`.

@@ -34,6 +34,7 @@ from .client import CloudWatchClient
 from .literals import (
     AlarmTypeType,
     ComparisonOperatorType,
+    EvaluationStateType,
     StandardUnitType,
     StateValueType,
     StatisticType,
@@ -354,7 +355,7 @@ class Alarm(ServiceResource):
     evaluate_low_sample_count_percentile: str
     metrics: list[MetricDataQueryAlarmTypeDef]
     threshold_metric_id: str
-    evaluation_state: Literal["PARTIAL_DATA"]
+    evaluation_state: EvaluationStateType
     state_transitioned_timestamp: datetime
     meta: CloudWatchResourceMeta  # type: ignore[override]
 

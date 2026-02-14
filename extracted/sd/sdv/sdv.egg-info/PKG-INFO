@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sdv
-Version: 1.33.1
+Version: 1.34.0
 Summary: Generate synthetic data for single table, multi table and sequential data
 Author-email: "DataCebo, Inc." <info@sdv.dev>
 License-Expression: BUSL-1.1
@@ -9,7 +9,7 @@ Project-URL: Issue Tracker, https://github.com/sdv-dev/SDV/issues
 Project-URL: Changes, https://github.com/sdv-dev/SDV/blob/main/HISTORY.md
 Project-URL: Twitter, https://twitter.com/sdv_dev
 Project-URL: Chat, https://forum.datacebo.com
-Keywords: sdv,synthetic-data,synhtetic-data-generation,timeseries,single-table,multi-table
+Keywords: sdv,synthetic-data,synthetic-data-generation,timeseries,single-table,multi-table
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English

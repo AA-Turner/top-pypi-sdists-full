@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2023 Ole André Vadla Ravnås <oleavr@nowsecure.com>
+ * Copyright (C) 2013-2026 Ole André Vadla Ravnås <oleavr@nowsecure.com>
  * Copyright (C) 2024 Håvard Sørbø <havard@hsorbo.no>
  *
  * Licence: wxWindows Library Licence, Version 3.1
@@ -378,6 +378,7 @@ static PyObject * PyGObject_marshal_variant (GVariant * variant);
 static PyObject * PyGObject_marshal_variant_byte_array (GVariant * variant);
 static PyObject * PyGObject_marshal_variant_dict (GVariant * variant);
 static PyObject * PyGObject_marshal_variant_array (GVariant * variant);
+static PyObject * PyGObject_marshal_variant_tuple (GVariant * variant);
 static gboolean PyGObject_unmarshal_variant (PyObject * value, GVariant ** variant);
 static gboolean PyGObject_unmarshal_variant_from_mapping (PyObject * mapping, GVariant ** variant);
 static gboolean PyGObject_unmarshal_variant_from_sequence (PyObject * sequence, GVariant ** variant);
@@ -1749,10 +1750,20 @@ PyGObject_marshal_variant (GVariant * variant)
   {
     case G_VARIANT_CLASS_STRING:
       return PyGObject_marshal_string (g_variant_get_string (variant, NULL));
+    case G_VARIANT_CLASS_BYTE:
+      return PyLong_FromLong (g_variant_get_byte (variant));
+    case G_VARIANT_CLASS_INT16:
+      return PyLong_FromLong (g_variant_get_int16 (variant));
+    case G_VARIANT_CLASS_UINT16:
+      return PyLong_FromUnsignedLong (g_variant_get_uint16 (variant));
+    case G_VARIANT_CLASS_INT32:
+      return PyLong_FromLong (g_variant_get_int32 (variant));
+    case G_VARIANT_CLASS_UINT32:
+      return PyLong_FromUnsignedLong (g_variant_get_uint32 (variant));
     case G_VARIANT_CLASS_INT64:
       return PyLong_FromLongLong (g_variant_get_int64 (variant));
     case G_VARIANT_CLASS_UINT64:
-      return PyLong_FromLongLong (g_variant_get_uint64 (variant));
+      return PyLong_FromUnsignedLongLong (g_variant_get_uint64 (variant));
     case G_VARIANT_CLASS_DOUBLE:
       return PyFloat_FromDouble (g_variant_get_double (variant));
     case G_VARIANT_CLASS_BOOLEAN:
@@ -1765,6 +1776,19 @@ PyGObject_marshal_variant (GVariant * variant)
         return PyGObject_marshal_variant_dict (variant);
 
       return PyGObject_marshal_variant_array (variant);
+    case G_VARIANT_CLASS_TUPLE:
+      return PyGObject_marshal_variant_tuple (variant);
+    case G_VARIANT_CLASS_VARIANT:
+    {
+      GVariant * inner;
+      PyObject * result;
+
+      inner = g_variant_get_variant (variant);
+      result = PyGObject_marshal_variant (inner);
+      g_variant_unref (inner);
+
+      return result;
+    }
     default:
       break;
   }
@@ -1823,19 +1847,34 @@ PyGObject_marshal_variant_array (GVariant * variant)
 
   for (i = 0; (child = g_variant_iter_next_value (&iter)) != NULL; i++)
   {
-    if (g_variant_is_of_type (child, G_VARIANT_TYPE_VARIANT))
-    {
-      GVariant * inner = g_variant_get_variant (child);
-      g_variant_unref (child);
-      child = inner;
-    }
-
     PyList_SetItem (list, i, PyGObject_marshal_variant (child));
 
     g_variant_unref (child);
   }
 
   return list;
+}
+
+static PyObject *
+PyGObject_marshal_variant_tuple (GVariant * variant)
+{
+  GVariantIter iter;
+  PyObject * tuple;
+  guint i;
+  GVariant * child;
+
+  g_variant_iter_init (&iter, variant);
+
+  tuple = PyTuple_New (g_variant_iter_n_children (&iter));
+
+  for (i = 0; (child = g_variant_iter_next_value (&iter)) != NULL; i++)
+  {
+    PyTuple_SetItem (tuple, i, PyGObject_marshal_variant (child));
+
+    g_variant_unref (child);
+  }
+
+  return tuple;
 }
 
 static gboolean
@@ -1847,14 +1886,14 @@ PyGObject_unmarshal_variant (PyObject * value, GVariant ** variant)
 
     PyGObject_unmarshal_string (value, &str);
 
-    *variant = g_variant_new_take_string (str);
+    *variant = g_variant_ref_sink (g_variant_new_take_string (str));
 
     return TRUE;
   }
 
   if (PyBool_Check (value))
   {
-    *variant = g_variant_new_boolean (value == Py_True);
+    *variant = g_variant_ref_sink (g_variant_new_boolean (value == Py_True));
 
     return TRUE;
   }
@@ -1867,14 +1906,14 @@ PyGObject_unmarshal_variant (PyObject * value, GVariant ** variant)
     if (l == -1 && PyErr_Occurred ())
       return FALSE;
 
-    *variant = g_variant_new_int64 (l);
+    *variant = g_variant_ref_sink (g_variant_new_int64 (l));
 
     return TRUE;
   }
 
   if (PyFloat_Check (value))
   {
-    *variant = g_variant_new_double (PyFloat_AsDouble (value));
+    *variant = g_variant_ref_sink (g_variant_new_double (PyFloat_AsDouble (value)));
 
     return TRUE;
   }
@@ -1888,7 +1927,7 @@ PyGObject_unmarshal_variant (PyObject * value, GVariant ** variant)
     PyBytes_AsStringAndSize (value, &buffer, &length);
 
     copy = g_memdup2 (buffer, length);
-    *variant = g_variant_new_from_data (G_VARIANT_TYPE_BYTESTRING, copy, length, TRUE, g_free, copy);
+    *variant = g_variant_ref_sink (g_variant_new_from_data (G_VARIANT_TYPE_BYTESTRING, copy, length, TRUE, g_free, copy));
 
     return TRUE;
   }
@@ -1934,12 +1973,13 @@ PyGObject_unmarshal_variant_from_mapping (PyObject * mapping, GVariant ** varian
 
     g_variant_builder_add (&builder, "{sv}", PyBytes_AsString (key_bytes), raw_value);
 
+    g_variant_unref (raw_value);
     Py_DecRef (key_bytes);
   }
 
   Py_DecRef (items);
 
-  *variant = g_variant_builder_end (&builder);
+  *variant = g_variant_ref_sink (g_variant_builder_end (&builder));
 
   return TRUE;
 
@@ -1984,10 +2024,11 @@ PyGObject_unmarshal_variant_from_sequence (PyObject * sequence, GVariant ** vari
     else
       g_variant_builder_add (&builder, "v", raw_value);
 
+    g_variant_unref (raw_value);
     Py_DecRef (val);
   }
 
-  *variant = g_variant_builder_end (&builder);
+  *variant = g_variant_ref_sink (g_variant_builder_end (&builder));
 
   return TRUE;
 
@@ -2887,7 +2928,7 @@ PyDevice_spawn (PyDevice * self, PyObject * args, PyObject * kw)
         goto invalid_dict_value;
       }
 
-      g_hash_table_insert (aux, raw_key, g_variant_ref_sink (raw_value));
+      g_hash_table_insert (aux, raw_key, raw_value);
     }
   }
 

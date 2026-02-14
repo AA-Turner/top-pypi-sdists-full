@@ -152,6 +152,7 @@ from coredis.typing import (
     KeyT,
     Literal,
     Mapping,
+    MappingKeyT,
     Parameters,
     RedisValueT,
     ResponsePrimitive,
@@ -498,6 +499,55 @@ class CoreCommands(CommandMixin[AnyStr]):
             CommandName.MSETNX, *dict_to_flat_list(key_values), callback=BoolCallback()
         )
 
+    @mutually_exclusive_parameters("ex", "px", "exat", "pxat", "keepttl")
+    @redis_command(CommandName.MSETEX, group=CommandGroup.STRING, version_introduced="8.4.0")
+    def msetex(
+        self,
+        key_values: Mapping[KeyT, ValueT],
+        *,
+        condition: Literal[PureToken.NX, PureToken.XX] | None = None,
+        ex: int | datetime.timedelta | None = None,
+        px: int | datetime.timedelta | None = None,
+        exat: int | datetime.datetime | None = None,
+        pxat: int | datetime.datetime | None = None,
+        keepttl: bool | None = None,
+    ) -> CommandRequest[bool]:
+        """
+        Atomically sets multiple string keys with an optional shared expiration in a single operation.
+
+        :param condition: Condition to use when setting the keys
+        :param ex: Number of seconds to expire in
+        :param px: Number of milliseconds to expire in
+        :param exat: Expiry time with seconds granularity
+        :param pxat: Expiry time with milliseconds granularity
+        :param keepttl: Retain the time to live associated with the keys
+
+        :return: Whether all the keys were set
+        """
+        command_arguments: CommandArgList = [len(key_values), *dict_to_flat_list(key_values)]
+        if condition is not None:
+            command_arguments.append(condition)
+        if ex is not None:
+            command_arguments.append(PrefixToken.EX)
+            command_arguments.append(normalized_seconds(ex))
+
+        if px is not None:
+            command_arguments.append(PrefixToken.PX)
+            command_arguments.append(normalized_milliseconds(px))
+
+        if exat is not None:
+            command_arguments.append(PrefixToken.EXAT)
+            command_arguments.append(normalized_time_seconds(exat))
+
+        if pxat is not None:
+            command_arguments.append(PrefixToken.PXAT)
+            command_arguments.append(normalized_time_milliseconds(pxat))
+
+        if keepttl:
+            command_arguments.append(PureToken.KEEPTTL)
+
+        return self.create_request(CommandName.MSETEX, *command_arguments, callback=BoolCallback())
+
     @redis_command(
         CommandName.PSETEX,
         group=CommandGroup.STRING,
@@ -532,6 +582,10 @@ class CoreCommands(CommandMixin[AnyStr]):
         exat: int | datetime.datetime | None = ...,
         pxat: int | datetime.datetime | None = ...,
         keepttl: bool | None = ...,
+        ifeq: ValueT | None = ...,
+        ifne: ValueT | None = ...,
+        ifdeq: ValueT | None = ...,
+        ifdne: ValueT | None = ...,
     ) -> CommandRequest[bool]: ...
 
     @overload
@@ -547,9 +601,14 @@ class CoreCommands(CommandMixin[AnyStr]):
         exat: int | datetime.datetime | None = ...,
         pxat: int | datetime.datetime | None = ...,
         keepttl: bool | None = ...,
+        ifeq: ValueT | None = ...,
+        ifne: ValueT | None = ...,
+        ifdeq: ValueT | None = ...,
+        ifdne: ValueT | None = ...,
     ) -> CommandRequest[AnyStr | None]: ...
 
     @mutually_exclusive_parameters("ex", "px", "exat", "pxat", "keepttl")
+    @mutually_exclusive_parameters("condition", "ifeq", "ifne", "ifdeq", "ifdne")
     @redis_command(
         CommandName.SET,
         group=CommandGroup.STRING,
@@ -557,6 +616,10 @@ class CoreCommands(CommandMixin[AnyStr]):
             "exat": {"version_introduced": "6.2.0"},
             "pxat": {"version_introduced": "6.2.0"},
             "get": {"version_introduced": "6.2.0"},
+            "ifeq": {"version_introduced": "8.4.0"},
+            "ifne": {"version_introduced": "8.4.0"},
+            "ifdeq": {"version_introduced": "8.4.0"},
+            "ifdne": {"version_introduced": "8.4.0"},
         },
     )
     def set(
@@ -571,6 +634,10 @@ class CoreCommands(CommandMixin[AnyStr]):
         exat: int | datetime.datetime | None = None,
         pxat: int | datetime.datetime | None = None,
         keepttl: bool | None = None,
+        ifeq: ValueT | None = None,
+        ifne: ValueT | None = None,
+        ifdeq: ValueT | None = None,
+        ifdne: ValueT | None = None,
     ) -> CommandRequest[AnyStr | bool | None]:
         """
         Set the string value of a key
@@ -584,6 +651,10 @@ class CoreCommands(CommandMixin[AnyStr]):
         :param exat: Expiry time with seconds granularity
         :param pxat: Expiry time with milliseconds granularity
         :param keepttl: Retain the time to live associated with the key
+        :param ifeq: Set the key only if it's current value is equal to this value
+        :param ifne: Set the key only if it's current value is **not** equal to this value
+        :param ifdeq: Set the key only if it's current hash digest is equal to this value
+        :param ifdne: Set the key only if it's current hash digest is **not** equal to this value
 
         :return: Whether the operation was performed successfully.
 
@@ -617,6 +688,14 @@ class CoreCommands(CommandMixin[AnyStr]):
 
         if condition:
             command_arguments.append(condition)
+        if ifeq is not None:
+            command_arguments.extend([PrefixToken.IFEQ, ifeq])
+        if ifne is not None:
+            command_arguments.extend([PrefixToken.IFNE, ifne])
+        if ifdeq is not None:
+            command_arguments.extend([PrefixToken.IFDEQ, ifdeq])
+        if ifdne is not None:
+            command_arguments.extend([PrefixToken.IFDNE, ifdne])
 
         return self.create_request(
             CommandName.SET,
@@ -2189,7 +2268,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         return self.create_request(CommandName.HLEN, key, callback=IntCallback())
 
     @redis_command(CommandName.HSET, group=CommandGroup.HASH, flags={CommandFlag.FAST})
-    def hset(self, key: KeyT, field_values: Mapping[StringT, ValueT]) -> CommandRequest[int]:
+    def hset(self, key: KeyT, field_values: Mapping[MappingKeyT, ValueT]) -> CommandRequest[int]:
         """
         Sets ``field`` to ``value`` within hash :paramref:`key`
 
@@ -2209,7 +2288,7 @@ class CoreCommands(CommandMixin[AnyStr]):
     def hsetex(
         self,
         key: KeyT,
-        field_values: Mapping[StringT, ValueT],
+        field_values: Mapping[MappingKeyT, ValueT],
         condition: Literal[PureToken.FNX, PureToken.FXX] | None = None,
         ex: int | datetime.timedelta | None = None,
         px: int | datetime.timedelta | None = None,
@@ -2274,7 +2353,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         deprecation_reason="Use :meth:`hset` with multiple field-value pairs",
         flags={CommandFlag.FAST},
     )
-    def hmset(self, key: KeyT, field_values: Mapping[StringT, ValueT]) -> CommandRequest[bool]:
+    def hmset(self, key: KeyT, field_values: Mapping[MappingKeyT, ValueT]) -> CommandRequest[bool]:
         """
         Sets key to value within hash :paramref:`key` for each corresponding
         key and value from the ``field_values`` dict.
@@ -2576,6 +2655,49 @@ class CoreCommands(CommandMixin[AnyStr]):
         """
 
         return self.create_request(CommandName.DEL, *keys, callback=IntCallback())
+
+    @mutually_exclusive_parameters("ifeq", "ifne", "ifdeq", "ifdne")
+    @redis_command(
+        CommandName.DELEX,
+        group=CommandGroup.GENERIC,
+        version_introduced="8.4.0",
+    )
+    def delex(
+        self,
+        key: KeyT,
+        *,
+        ifeq: ValueT | None = None,
+        ifne: ValueT | None = None,
+        ifdeq: ValueT | None = None,
+        ifdne: ValueT | None = None,
+    ) -> CommandRequest[bool]:
+        """
+        Conditionally removes the specified key based on value or hash digest comparison.
+        """
+        command_arguments: CommandArgList = [key]
+        if ifeq is not None:
+            command_arguments.extend([PrefixToken.IFEQ, ifeq])
+        if ifne is not None:
+            command_arguments.extend([PrefixToken.IFNE, ifne])
+        if ifdeq is not None:
+            command_arguments.extend([PrefixToken.IFDEQ, ifdeq])
+        if ifdne is not None:
+            command_arguments.extend([PrefixToken.IFDNE, ifdne])
+
+        return self.create_request(CommandName.DELEX, *command_arguments, callback=BoolCallback())
+
+    @redis_command(
+        CommandName.DIGEST,
+        group=CommandGroup.GENERIC,
+        version_introduced="8.4.0",
+    )
+    def digest(self, key: KeyT) -> CommandRequest[AnyStr | None]:
+        """
+        Get the hash digest for the value stored in the specified key as a hexadecimal string
+        """
+        return self.create_request(
+            CommandName.DIGEST, key, callback=OptionalAnyStrCallback[AnyStr]()
+        )
 
     @redis_command(
         CommandName.DUMP,
@@ -5212,6 +5334,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         )
 
     @mutually_inclusive_parameters("trim_strategy", "threshold")
+    @mutually_exclusive_parameters("idmpauto", "idmp")
     @redis_command(
         CommandName.XADD,
         group=CommandGroup.STREAM,
@@ -5219,15 +5342,20 @@ class CoreCommands(CommandMixin[AnyStr]):
             "nomkstream": {"version_introduced": "6.2.0"},
             "limit": {"version_introduced": "6.2.0"},
             "condition": {"version_introduced": "8.2.0"},
+            "idmpauto": {"version_introduced": "8.6.0"},
+            "idmp": {"version_introduced": "8.6.0"},
         },
         flags={CommandFlag.FAST},
     )
     def xadd(
         self,
         key: KeyT,
-        field_values: Mapping[StringT, ValueT],
+        field_values: Mapping[MappingKeyT, ValueT],
+        *,
         identifier: ValueT | None = None,
         nomkstream: bool | None = None,
+        idmpauto: StringT | None = None,
+        idmp: tuple[StringT, StringT] | None = None,
         trim_strategy: Literal[PureToken.MAXLEN, PureToken.MINID] | None = None,
         threshold: int | None = None,
         trim_operator: Literal[PureToken.EQUAL, PureToken.APPROXIMATELY] | None = None,
@@ -5238,7 +5366,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         Appends a new entry to a stream
 
         :return: The identifier of the added entry. The identifier is the one auto-generated
-         if ``*`` is passed as :paramref:`identifier`, otherwise the it justs returns
+         if ``*`` is passed as :paramref:`identifier`, otherwise it justs returns
          the same identifier specified
 
          Returns ``None`` when used with :paramref:`nomkstream` and the key doesn't exist.
@@ -5250,6 +5378,13 @@ class CoreCommands(CommandMixin[AnyStr]):
             command_arguments.append(PureToken.NOMKSTREAM)
         if condition is not None:
             command_arguments.append(condition)
+
+        if idmpauto is not None:
+            command_arguments.extend([PrefixToken.IDMPAUTO, idmpauto])
+        if idmp is not None:
+            command_arguments.append(PrefixToken.IDMP)
+            command_arguments.extend(idmp)
+
         if trim_strategy == PureToken.MAXLEN:
             command_arguments.append(trim_strategy)
 
@@ -5280,7 +5415,9 @@ class CoreCommands(CommandMixin[AnyStr]):
         flags={CommandFlag.READONLY, CommandFlag.FAST},
     )
     def xlen(self, key: KeyT) -> CommandRequest[int]:
-        """ """
+        """
+        Returns the number of entries inside a stream
+        """
 
         return self.create_request(CommandName.XLEN, key, callback=IntCallback())
 
@@ -5352,19 +5489,19 @@ class CoreCommands(CommandMixin[AnyStr]):
     )
     def xread(
         self,
-        streams: Mapping[ValueT, ValueT],
+        streams: Mapping[MappingKeyT, ValueT],
         count: int | None = None,
         block: int | datetime.timedelta | None = None,
     ) -> CommandRequest[dict[AnyStr, tuple[StreamEntry, ...]] | None]:
         """
-        Return never seen elements in multiple streams, with IDs greater than
-        the ones reported by the caller for each stream. Can block.
+        Reads entries from :paramref:`stream` with IDs greater than those provided
+        in the mapping.
 
         :return: Mapping of streams to stream entries.
          Field and values are guaranteed to be reported in the same order they were
          added by :meth:`xadd`.
 
-         When :paramref:`block` is used, on timeout ``None`` is returned.
+         When :paramref:`block` is used and the timeout is exceeded, ``None`` is returned.
         """
         command_arguments: CommandArgList = []
 
@@ -5394,12 +5531,21 @@ class CoreCommands(CommandMixin[AnyStr]):
         self,
         group: StringT,
         consumer: StringT,
-        streams: Mapping[ValueT, ValueT],
+        streams: Mapping[MappingKeyT, ValueT],
         count: int | None = None,
         block: int | datetime.timedelta | None = None,
         noack: bool | None = None,
     ) -> CommandRequest[dict[AnyStr, tuple[StreamEntry, ...]] | None]:
-        """ """
+        """
+        Reads entries from :paramref:`stream` with IDs greater than those provided in the mapping,
+        owned by the consumer group identified by :paramref:`group` & :paramref:`consumer`.
+
+        :return: Mapping of streams to stream entries.
+         Field and values are guaranteed to be reported in the same order they were
+         added by :meth:`xadd`.
+
+         When :paramref:`block` is used and the timeout is exceeded, ``None`` is returned.
+        """
         command_arguments: CommandArgList = [PrefixToken.GROUP, group, consumer]
 
         if block is not None:
@@ -5482,7 +5628,9 @@ class CoreCommands(CommandMixin[AnyStr]):
         limit: int | None = None,
         condition: Literal[PureToken.KEEPREF, PureToken.DELREF, PureToken.ACKED] | None = None,
     ) -> CommandRequest[int]:
-        """ """
+        """
+        Trims the stream by evicting older entries
+        """
         command_arguments: CommandArgList = [trim_strategy]
 
         if trim_operator:
@@ -5822,6 +5970,31 @@ class CoreCommands(CommandMixin[AnyStr]):
             *command_arguments,
             callback=AutoClaimCallback[AnyStr](justid=justid),
         )
+
+    @mutually_exclusive_parameters("idmp_duration", "idmp_maxsize")
+    @redis_command(
+        CommandName.XCFGSET,
+        group=CommandGroup.STREAM,
+        version_introduced="8.6.0",
+    )
+    def xcfgset(
+        self,
+        key: KeyT,
+        idmp_duration: int | datetime.timedelta | None = None,
+        idmp_maxsize: int | None = None,
+    ) -> CommandRequest[bool]:
+        """
+        Sets the IDMP (Idempotent Message Processing) configuration parameters for a stream.
+        """
+        command_arguments: CommandArgList = [key]
+        if idmp_duration is not None:
+            command_arguments.append(PrefixToken.IDMP_DURATION)
+            command_arguments.append(normalized_seconds(idmp_duration))
+        if idmp_maxsize is not None:
+            command_arguments.append(PrefixToken.IDMP_MAXSIZE)
+            command_arguments.append(idmp_maxsize)
+
+        return self.create_request(CommandName.XCFGSET, *command_arguments, callback=BoolCallback())
 
     @redis_command(
         CommandName.BITCOUNT,
@@ -7949,7 +8122,7 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterBoolCombine(),
         ),
     )
-    def config_set(self, parameter_values: Mapping[StringT, ValueT]) -> CommandRequest[bool]:
+    def config_set(self, parameter_values: Mapping[MappingKeyT, ValueT]) -> CommandRequest[bool]:
         """Sets configuration parameters to the given values"""
 
         return self.create_request(

@@ -1,3 +1,4 @@
+from datetime import datetime
 import itertools
 import re
 
@@ -92,11 +93,23 @@ class ProcessInfo:
                  ctx=ctx.copy(show_out=True))
 
 class LogLine(ProcessInfo):
-    header='POD\tPID\tEXIT_CODE\tCMD\tLAST_ARG\tOUT_SIZE\tERR_SIZE\tLOG(ERR)_FILES'
+    header='POD\tPID\tEXIT\tAT\tCMD\tLAST_ARG\tOUT_SIZE\tERR_SIZE\tLOG(ERR)_FILES'
 
-    def __init__(self, pod_name: str = '-', exit_code: str = '-', out: str = '-', err: str = '-', file: str = '-', user: str = '-', pid: str = '-', cmd: str = '-', last_arg: str = '-', pod: str = '-'):
+    def __init__(self,
+                 pod_name: str = '-',
+                 exit_ts: str = '-',
+                 exit_code: str = '-',
+                 out: str = '-',
+                 err: str = '-',
+                 file: str = '-',
+                 user: str = '-',
+                 pid: str = '-',
+                 cmd: str = '-',
+                 last_arg: str = '-',
+                 pod: str = '-'):
         super().__init__(user, pid, cmd, last_arg, pod)
         self.pod_name = pod_name
+        self.exit_ts = exit_ts
         self.exit_code = exit_code
         self.out = out
         self.err = err
@@ -106,11 +119,16 @@ class LogLine(ProcessInfo):
         return f"LogLine({', '.join([self.pod_name, self.pid, self.exit_code, self.cmd, self.last_arg, self.out, self.err, self.file])})"
 
     def table_line(self):
-        return '\t'.join([self.pod_name, self.pid, self.exit_code, self.cmd, self.last_arg, self.out, self.err, self.file if self.err not in ['-', '0'] else self.file.replace('.err', '.log')])
+        ts = self.exit_ts
+        try:
+            ts = datetime.fromtimestamp(float(self.exit_ts)).strftime('%Y-%m-%d %H:%M:%S')
+        except:
+            pass
+
+        return '\t'.join([self.pod_name, self.pid, self.exit_code, ts, self.cmd, self.last_arg, self.out, self.err, self.file if self.err not in ['-', '0'] else self.file.replace('.err', '.log')])
 
     def merge(self, process: ProcessInfo):
         self.user = process.user
-        # self.pid = process.pid
         self.exit_code = 'Running'
         self.cmd = process.cmd
         self.last_arg = process.last_arg

@@ -1,6 +1,6 @@
 [project]
 name = "repomix"
-version = "0.4.1"
+version = "0.5.0"
 description = "A tool for analyzing and summarizing code repositories"
 authors = [
     { name = "Anderson", email = "andersonby@163.com" },
@@ -41,7 +41,7 @@ quick-release = "python scripts/release.py"
 test = "python -m pytest"
 lint = "ruff check ."
 lint-fix = "ruff check --fix ."
-typecheck = "pyright"
+typecheck = "ty check src"
 format = "ruff format ."
 check = [
     "test",
@@ -49,32 +49,8 @@ check = [
     "typecheck",
 ]
 
-[tool.pyright]
-include = [
-    "src",
-    "tests",
-]
-exclude = [
-    "**/__pycache__",
-]
-pythonVersion = "3.10"
-pythonPlatform = "All"
-typeCheckingMode = "basic"
-reportMissingImports = true
-reportMissingTypeStubs = false
-reportUnusedImport = true
-reportUnusedClass = true
-reportUnusedFunction = true
-reportUnusedVariable = true
-reportDuplicateImport = true
-reportOptionalSubscript = true
-reportOptionalMemberAccess = true
-reportOptionalCall = true
-reportOptionalIterable = true
-reportOptionalContextManager = true
-reportOptionalOperand = true
-reportTypedDictNotRequiredAccess = false
-reportArgumentType = "warning"
+[tool.ty.environment]
+python-version = "3.10"
 
 [tool.ruff]
 line-length = 160
@@ -116,5 +92,5 @@ dev = [
     "pytest>=8.3.5",
     "pytest-asyncio>=1.1.0",
     "ruff>=0.8.0",
-    "pyright>=1.1.390",
+    "ty>=0.0.1a7",
 ]

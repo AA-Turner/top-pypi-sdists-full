@@ -469,3 +469,36 @@ def _pivot_prediction_labels(
     pred_frame = pd.DataFrame.from_records(wrapper)
     frame = pd.concat([frame, pred_frame], axis=1)
     return frame.drop("prediction_values", axis=1)
+
+
+def _is_not_null(val: Any) -> bool:
+    """Check if a value is not null (None, NaN, NaT).
+
+    Use this when processing pandas/numpy data to safely determine if a value is not null.
+
+    Use this helper instead of direct comparisons like `val is not None` or `pd.notna(val)`
+    because:
+    1. `val is not None` fails to catch NaN and NaT values.
+    2. `pd.isna(val)` / `pd.notna(val)` returns an array (not a bool) when given a list,
+       which causes ambiguous truth value errors in conditionals.
+
+    This function safely handles scalars, NaN, NaT, None, and non-scalar types (list, dict).
+    """
+    # None is always null
+    if val is None:
+        return False
+    # Lists and dicts are never considered null, even if empty.
+    # Return early to avoid pd.isna() returning an array for list inputs.
+    if isinstance(val, (list, dict)):
+        return True
+    try:
+        result = pd.isna(val)
+        # For scalars, pd.isna returns a bool
+        # https://pandas.pydata.org/docs/reference/api/pandas.isna.html
+        if isinstance(result, bool):
+            return not result
+        # For unexpected array-like results, treat as not null
+        return True
+    except (TypeError, ValueError):
+        # If pd.isna fails, the value is some custom type - treat as not null
+        return True

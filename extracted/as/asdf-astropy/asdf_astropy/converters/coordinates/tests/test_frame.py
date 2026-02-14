@@ -1,3 +1,4 @@
+import importlib.metadata
 import unittest.mock as mk
 
 import asdf
@@ -12,6 +13,8 @@ from astropy.coordinates import (
     GCRS,
     ICRS,
     ITRS,
+    TEME,
+    TETE,
     Angle,
     CartesianRepresentation,
     FK4NoETerms,
@@ -20,6 +23,7 @@ from astropy.coordinates import (
     Latitude,
     Longitude,
     PrecessedGeocentric,
+    SkyCoord,
     SphericalRepresentation,
 )
 from astropy.time import Time
@@ -27,12 +31,20 @@ from astropy.time import Time
 from asdf_astropy.converters.coordinates.frame import FrameConverter, LegacyICRSConverter
 from asdf_astropy.testing.helpers import assert_frame_equal
 
+# skip TETE and TEME for old asdf-coordinates_schemas
+if importlib.metadata.version("asdf-coordinates-schemas") < "0.5.0":
+    TETE_MARKS = [pytest.mark.skip]
+else:
+    TETE_MARKS = []
+
 
 def create_frames():
     test_data = {
         "ra": 1 * u.deg,
         "dec": 2 * u.deg,
     }
+
+    sky = SkyCoord(ra=10 * u.deg, dec=12 * u.deg, frame="icrs")
 
     return [
         CIRS(),
@@ -66,6 +78,10 @@ def create_frames():
         PrecessedGeocentric(),
         PrecessedGeocentric(**test_data),
         PrecessedGeocentric(**test_data, equinox="B1975"),
+        pytest.param(TEME(obstime=Time("J2020")), marks=TETE_MARKS),
+        pytest.param(TEME(sky.represent_as("cartesian"), obstime=Time("J2020")), marks=TETE_MARKS),
+        pytest.param(TETE(), marks=TETE_MARKS),
+        pytest.param(TETE(**test_data, obstime=Time("J2020")), marks=TETE_MARKS),
     ]
 
 

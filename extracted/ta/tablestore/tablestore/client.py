@@ -1123,7 +1123,7 @@ class AsyncOTSClient(BaseOTSClient):
 
         return self.protocol.parse_response(api_name, status, res_headers, res_body)
 
-    async def create_table(self, table_meta, table_options, reserved_throughput, secondary_indexes=None):
+    async def create_table(self, table_meta, table_options, reserved_throughput, secondary_indexes=None, sse_spec=None):
         """
         Description: Creates a table based on the table information.
 
@@ -1132,6 +1132,7 @@ class AsyncOTSClient(BaseOTSClient):
         ``table_options`` is an instance of the ``tablestore.metadata.TableOptions`` class, which includes three parameters: time_to_live, max_version, and max_time_deviation.
         ``reserved_throughput`` is an instance of the ``tablestore.metadata.ReservedThroughput`` class, representing the reserved read/write throughput.
         ``secondary_indexes`` is an array that can include one or more instances of the ``tablestore.metadata.SecondaryIndexMeta`` class, representing the secondary indexes to be created.
+        ``sse_spec`` is an instance of the ``tablestore.metadata.SSESpecification`` class, which includes four parameters: enable, key_type, key_id, and role_arn.
 
         Return: None.
 
@@ -1146,7 +1147,7 @@ class AsyncOTSClient(BaseOTSClient):
 
         if secondary_indexes is None:
             secondary_indexes = []
-        await self._request_helper('CreateTable', table_meta, table_options, reserved_throughput, secondary_indexes)
+        await self._request_helper('CreateTable', table_meta, table_options, reserved_throughput, sse_spec, secondary_indexes)
 
     async def delete_table(self, table_name):
         """

@@ -27,8 +27,7 @@ from datarobot.models.use_cases.utils import get_use_case_id
 from datarobot.utils.waiters import wait_for_async_resolution
 
 custom_model_llm_validation_trafaret = (
-    t
-    .Dict({
+    t.Dict({
         t.Key("chat_model_id", optional=True, default=None): t.Or(t.Null, t.String),
     })
     .merge(custom_model_validation_trafaret)

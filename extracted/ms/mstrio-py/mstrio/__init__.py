@@ -1,9 +1,9 @@
 __title__ = "mstrio-py"
-__version__ = "11.6.1.101"  # NOSONAR
+__version__ = "11.6.2.101"  # NOSONAR
 __license__ = "DUAL-TIER LICENSE AGREEMENT"
 __description__ = "Python interface for the Strategy One REST API"
-__author__ = "Strategy One"
+__author__ = "Strategy Inc"
 __author_email__ = "bkaczynski@strategy.com"
 
 from .utils.dev_helpers import what_can_i_do_with  # noqa: F401
-__build__ = "11.6.0100.00033"
+__build__ = "11.6.0200.00018"

@@ -1,4 +1,3 @@
-
 import os
 import sys
 import datetime
@@ -70,7 +69,7 @@ def get_search_command(as_parser=False):
                         post_posargs={'provides': 'diff_paths'})
     cmd.add(ls_subcmd)
 
-    class TwoFour(object):
+    class TwoFour:
         def __call__(self, posargs_):
             return ', '.join(posargs_)
 
@@ -107,7 +106,7 @@ def test_search_prs_basic():
 @pytest.mark.skipif(sys.platform == "win32", reason="Module shortcut test not supported on Windows (mostly on github ci)")
 def test_module_shortcut():
     prs = get_search_command(as_parser=True)
-    assert prs.parse(['/search_pkg/__main__.py']).to_cmd_scope()['cmd_'] == 'python -m search_pkg'
+    assert prs.parse(['/search_pkg/__main__.py']).to_cmd_scope()['cmd_'] == os.path.basename(sys.executable) + ' -m search_pkg'
 
 
 def test_prs_sys_argv():

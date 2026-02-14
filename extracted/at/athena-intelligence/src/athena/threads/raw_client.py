@@ -191,8 +191,6 @@ class RawThreadsClient:
         """
         Check the status of a thread execution by thread ID. Returns thread status and associated conversation asset information for tracking progress.
 
-        **Polling pattern:** When used with the async AOP execution endpoint, call this endpoint repeatedly in a loop with a 5-second interval until the status is "completed" or "failed". Always implement a timeout to avoid polling indefinitely. See the Long-Running AOP Execution guide in Python Guides for the complete pattern.
-
         Parameters
         ----------
         thread_id : str
@@ -541,8 +539,6 @@ class AsyncRawThreadsClient:
     ) -> AsyncHttpResponse[ThreadStatusResponseOut]:
         """
         Check the status of a thread execution by thread ID. Returns thread status and associated conversation asset information for tracking progress.
-
-        **Polling pattern:** When used with the async AOP execution endpoint, call this endpoint repeatedly in a loop with a 5-second interval until the status is "completed" or "failed". Always implement a timeout to avoid polling indefinitely. See the Long-Running AOP Execution guide in Python Guides for the complete pattern.
 
         Parameters
         ----------

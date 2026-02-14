@@ -77,7 +77,7 @@ class SphericalHarmonics(torch.nn.Module):
         self._is_range_lmax = ls == list(range(max(ls) + 1))
         self._prof_str = f"spherical_harmonics({ls})"
 
-        _lmax = 11
+        _lmax = 12
         if self._lmax > _lmax:
             raise NotImplementedError(
                 f"spherical_harmonics maximum l implemented is {_lmax}, send us an email to ask for more"
@@ -85,7 +85,7 @@ class SphericalHarmonics(torch.nn.Module):
 
         if get_optimization_defaults()["jit_mode"] == "script":
             self.sph_func = torch.jit.script(_spherical_harmonics)
-        elif get_optimization_defaults()["jit_mode"] == "compile":
+        elif get_optimization_defaults()["jit_mode"] == "inductor":
             self.sph_func = torch.compile(_spherical_harmonics, fullgraph=True)
         else:
             self.sph_func = _spherical_harmonics

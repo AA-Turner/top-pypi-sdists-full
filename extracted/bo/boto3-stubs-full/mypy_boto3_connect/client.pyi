@@ -185,6 +185,8 @@ from .type_defs import (
     CreateInstanceResponseTypeDef,
     CreateIntegrationAssociationRequestTypeDef,
     CreateIntegrationAssociationResponseTypeDef,
+    CreateNotificationRequestTypeDef,
+    CreateNotificationResponseTypeDef,
     CreateParticipantRequestTypeDef,
     CreateParticipantResponseTypeDef,
     CreatePersistentContactAssociationRequestTypeDef,
@@ -243,6 +245,7 @@ from .type_defs import (
     DeleteHoursOfOperationRequestTypeDef,
     DeleteInstanceRequestTypeDef,
     DeleteIntegrationAssociationRequestTypeDef,
+    DeleteNotificationRequestTypeDef,
     DeletePredefinedAttributeRequestTypeDef,
     DeletePromptRequestTypeDef,
     DeletePushNotificationRegistrationRequestTypeDef,
@@ -296,6 +299,8 @@ from .type_defs import (
     DescribeInstanceResponseTypeDef,
     DescribeInstanceStorageConfigRequestTypeDef,
     DescribeInstanceStorageConfigResponseTypeDef,
+    DescribeNotificationRequestTypeDef,
+    DescribeNotificationResponseTypeDef,
     DescribePhoneNumberRequestTypeDef,
     DescribePhoneNumberResponseTypeDef,
     DescribePredefinedAttributeRequestTypeDef,
@@ -445,6 +450,8 @@ from .type_defs import (
     ListLambdaFunctionsResponseTypeDef,
     ListLexBotsRequestTypeDef,
     ListLexBotsResponseTypeDef,
+    ListNotificationsRequestTypeDef,
+    ListNotificationsResponseTypeDef,
     ListPhoneNumbersRequestTypeDef,
     ListPhoneNumbersResponseTypeDef,
     ListPhoneNumbersV2RequestTypeDef,
@@ -497,6 +504,8 @@ from .type_defs import (
     ListUseCasesResponseTypeDef,
     ListUserHierarchyGroupsRequestTypeDef,
     ListUserHierarchyGroupsResponseTypeDef,
+    ListUserNotificationsRequestTypeDef,
+    ListUserNotificationsResponseTypeDef,
     ListUserProficienciesRequestTypeDef,
     ListUserProficienciesResponseTypeDef,
     ListUsersRequestTypeDef,
@@ -542,6 +551,8 @@ from .type_defs import (
     SearchHoursOfOperationOverridesResponseTypeDef,
     SearchHoursOfOperationsRequestTypeDef,
     SearchHoursOfOperationsResponseTypeDef,
+    SearchNotificationsRequestTypeDef,
+    SearchNotificationsResponseTypeDef,
     SearchPredefinedAttributesRequestTypeDef,
     SearchPredefinedAttributesResponseTypeDef,
     SearchPromptsRequestTypeDef,
@@ -640,6 +651,7 @@ from .type_defs import (
     UpdateHoursOfOperationRequestTypeDef,
     UpdateInstanceAttributeRequestTypeDef,
     UpdateInstanceStorageConfigRequestTypeDef,
+    UpdateNotificationContentRequestTypeDef,
     UpdateParticipantAuthenticationRequestTypeDef,
     UpdateParticipantRoleConfigRequestTypeDef,
     UpdatePhoneNumberMetadataRequestTypeDef,
@@ -672,6 +684,7 @@ from .type_defs import (
     UpdateUserHierarchyRequestTypeDef,
     UpdateUserHierarchyStructureRequestTypeDef,
     UpdateUserIdentityInfoRequestTypeDef,
+    UpdateUserNotificationStatusRequestTypeDef,
     UpdateUserPhoneConfigRequestTypeDef,
     UpdateUserProficienciesRequestTypeDef,
     UpdateUserRoutingProfileRequestTypeDef,
@@ -1231,6 +1244,16 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#create_integration_association)
         """
 
+    def create_notification(
+        self, **kwargs: Unpack[CreateNotificationRequestTypeDef]
+    ) -> CreateNotificationResponseTypeDef:
+        """
+        Creates a new notification to be delivered to specified recipients.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_notification.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#create_notification)
+        """
+
     def create_participant(
         self, **kwargs: Unpack[CreateParticipantRequestTypeDef]
     ) -> CreateParticipantResponseTypeDef:
@@ -1602,6 +1625,16 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#delete_integration_association)
         """
 
+    def delete_notification(
+        self, **kwargs: Unpack[DeleteNotificationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a notification.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_notification.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#delete_notification)
+        """
+
     def delete_predefined_attribute(
         self, **kwargs: Unpack[DeletePredefinedAttributeRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -1957,6 +1990,17 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_instance_storage_config.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#describe_instance_storage_config)
+        """
+
+    def describe_notification(
+        self, **kwargs: Unpack[DescribeNotificationRequestTypeDef]
+    ) -> DescribeNotificationResponseTypeDef:
+        """
+        Retrieves detailed information about a specific notification, including its
+        content, priority, recipients, and metadata.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_notification.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#describe_notification)
         """
 
     def describe_phone_number(
@@ -2808,6 +2852,16 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_lex_bots)
         """
 
+    def list_notifications(
+        self, **kwargs: Unpack[ListNotificationsRequestTypeDef]
+    ) -> ListNotificationsResponseTypeDef:
+        """
+        Retrieves a paginated list of all notifications in the Amazon Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_notifications.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_notifications)
+        """
+
     def list_phone_numbers(
         self, **kwargs: Unpack[ListPhoneNumbersRequestTypeDef]
     ) -> ListPhoneNumbersResponseTypeDef:
@@ -3076,6 +3130,17 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_user_hierarchy_groups)
         """
 
+    def list_user_notifications(
+        self, **kwargs: Unpack[ListUserNotificationsRequestTypeDef]
+    ) -> ListUserNotificationsResponseTypeDef:
+        """
+        Retrieves a paginated list of notifications for a specific user, including the
+        notification status for that user.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_user_notifications.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_user_notifications)
+        """
+
     def list_user_proficiencies(
         self, **kwargs: Unpack[ListUserProficienciesRequestTypeDef]
     ) -> ListUserProficienciesResponseTypeDef:
@@ -3327,6 +3392,16 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_hours_of_operations.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#search_hours_of_operations)
+        """
+
+    def search_notifications(
+        self, **kwargs: Unpack[SearchNotificationsRequestTypeDef]
+    ) -> SearchNotificationsResponseTypeDef:
+        """
+        Searches for notifications based on specified criteria and filters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_notifications.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#search_notifications)
         """
 
     def search_predefined_attributes(
@@ -3980,6 +4055,16 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_instance_storage_config)
         """
 
+    def update_notification_content(
+        self, **kwargs: Unpack[UpdateNotificationContentRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the localized content of an existing notification.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_notification_content.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_notification_content)
+        """
+
     def update_participant_authentication(
         self, **kwargs: Unpack[UpdateParticipantAuthenticationRequestTypeDef]
     ) -> dict[str, Any]:
@@ -4278,6 +4363,17 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_user_identity_info.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_user_identity_info)
+        """
+
+    def update_user_notification_status(
+        self, **kwargs: Unpack[UpdateUserNotificationStatusRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the status of a notification for a specific user, such as marking it as
+        read or hidden.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_user_notification_status.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_user_notification_status)
         """
 
     def update_user_phone_config(

@@ -119,6 +119,7 @@ lint.ignore = [
     "N802",
     "N803",
     "N806",
+    "N811",
     "N818",
     "PGH004",
     "RUF002",
@@ -135,7 +136,7 @@ omit = [
     "coloraide/spaces/cam16_jmh.py",
     "coloraide/spaces/zcam_jmh.py",
     "coloraide/deprecate.py",
-    "coloraide/sds.py"
+    "coloraide/illuminants.py"
 ]
 
 exclude_lines = [

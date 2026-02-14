@@ -70,6 +70,8 @@ class ModelVersion:
                 raise ValueError(
                     f"No load function defined for type {self.model_type}, encoding {self.model_encoding}, and class {self.model_class}"
                 )
+        else:
+            raise ValueError("Model type and encoding must be specified to load model.")
 
     def predict(self, X: Any):
         """Runs prediction using the loaded model."""

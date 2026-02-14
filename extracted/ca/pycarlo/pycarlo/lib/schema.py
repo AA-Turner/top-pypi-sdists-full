@@ -12602,7 +12602,9 @@ class AccessRequest(sgqlc.types.Type):
     updated_time = sgqlc.types.Field(DateTime, graphql_name="updatedTime")
     """When the request was last updated"""
 
-    notified_admins = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="notifiedAdmins")
+    notified_admins = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="notifiedAdmins"
+    )
     """List of admin emails that were notified about this request"""
 
 
@@ -15508,7 +15510,8 @@ class AuthorizationGroupOutput(sgqlc.types.Type):
     """
 
     roles = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of("RoleOutput")), graphql_name="roles"
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("RoleOutput"))),
+        graphql_name="roles",
     )
     """List of roles that are assigned to this group."""
 
@@ -15531,11 +15534,14 @@ class AuthorizationGroupOutput(sgqlc.types.Type):
     group
     """
 
-    users = sgqlc.types.Field(sgqlc.types.list_of("AuthUser"), graphql_name="users")
-    """List of users  who are members of the group."""
+    users = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("AuthUser")), graphql_name="users"
+    )
+    """List of users who are members of the group."""
 
     domain_restrictions = sgqlc.types.Field(
-        sgqlc.types.list_of("DomainRestriction"), graphql_name="domainRestrictions"
+        sgqlc.types.list_of(sgqlc.types.non_null("DomainRestriction")),
+        graphql_name="domainRestrictions",
     )
     """List of domains this group is limited to."""
 
@@ -15606,14 +15612,15 @@ class AuthorizationProvisioningOutput(sgqlc.types.Type):
     """Short text to describe the provider."""
 
     default_domains = sgqlc.types.Field(
-        sgqlc.types.list_of("DomainRestriction"), graphql_name="defaultDomains"
+        sgqlc.types.list_of(sgqlc.types.non_null("DomainRestriction")),
+        graphql_name="defaultDomains",
     )
     """List of default domains for auth groups created by this
     configuration.
     """
 
     default_roles = sgqlc.types.Field(
-        sgqlc.types.list_of("RoleOutput"), graphql_name="defaultRoles"
+        sgqlc.types.list_of(sgqlc.types.non_null("RoleOutput")), graphql_name="defaultRoles"
     )
     """List of default roles that are assigned to auth groups created by
     this configuration.
@@ -29464,6 +29471,7 @@ class Mutation(sgqlc.types.Type):
         args=sgqlc.types.ArgDict(
             (
                 ("dashboard_id", sgqlc.types.Arg(UUID, graphql_name="dashboardId", default=None)),
+                ("domain_id", sgqlc.types.Arg(UUID, graphql_name="domainId", default=None)),
                 ("title", sgqlc.types.Arg(String, graphql_name="title", default=None)),
             )
         ),
@@ -29473,6 +29481,8 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `dashboard_id` (`UUID`)None
+    * `domain_id` (`UUID`): Domain to assign the dashboard to. Omit to
+      leave unchanged on update.
     * `title` (`String`): Title of the dashboard
     """
 
@@ -29488,6 +29498,7 @@ class Mutation(sgqlc.types.Type):
                         sgqlc.types.non_null(String), graphql_name="dashboardJson", default=None
                     ),
                 ),
+                ("domain_id", sgqlc.types.Arg(UUID, graphql_name="domainId", default=None)),
             )
         ),
     )
@@ -29500,6 +29511,8 @@ class Mutation(sgqlc.types.Type):
       If not specified, a new dashboard is created.
     * `dashboard_json` (`String!`): Dashboard definition as JSON
       string
+    * `domain_id` (`UUID`): Domain to assign the dashboard to. Can
+      also be set in the JSON.
     """
 
     delete_custom_dashboard = sgqlc.types.Field(
@@ -42907,6 +42920,7 @@ class Mutation(sgqlc.types.Type):
         args=sgqlc.types.ArgDict(
             (
                 ("description", sgqlc.types.Arg(String, graphql_name="description", default=None)),
+                ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=False)),
                 (
                     "label",
                     sgqlc.types.Arg(
@@ -42949,6 +42963,9 @@ class Mutation(sgqlc.types.Type):
 
     * `description` (`String`): Description of the role's purpose and
       intended use.
+    * `dry_run` (`Boolean`): When True, validates and previews the
+      role without saving. Returns the full role output including
+      resolved permissions and definition YAML. (default: `false`)
     * `label` (`String!`): UI/user-friendly display name for the role.
     * `name` (`String!`): Role name in [company-prefix]/[role-name]
       format.  '{MANAGED_ROLE_PREFIX}/' prefix is reserved for Monte
@@ -50425,6 +50442,7 @@ class Query(sgqlc.types.Type):
         graphql_name="listCustomDashboards",
         args=sgqlc.types.ArgDict(
             (
+                ("domain_id", sgqlc.types.Arg(UUID, graphql_name="domainId", default=None)),
                 ("search", sgqlc.types.Arg(String, graphql_name="search", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
@@ -50438,6 +50456,7 @@ class Query(sgqlc.types.Type):
 
     Arguments:
 
+    * `domain_id` (`UUID`): Filter dashboards by domain UUID
     * `search` (`String`): Filter dashboards by title (case-
       insensitive partial match)
     * `offset` (`Int`)None
@@ -63815,12 +63834,34 @@ class Query(sgqlc.types.Type):
     """
 
     get_account_roles = sgqlc.types.Field(
-        sgqlc.types.list_of("RoleOutput"), graphql_name="getAccountRoles"
+        sgqlc.types.list_of(sgqlc.types.non_null("RoleOutput")),
+        graphql_name="getAccountRoles",
+        args=sgqlc.types.ArgDict(
+            (
+                ("role_name", sgqlc.types.Arg(String, graphql_name="roleName", default=None)),
+                (
+                    "include_deprecated_permissions",
+                    sgqlc.types.Arg(
+                        Boolean, graphql_name="includeDeprecatedPermissions", default=False
+                    ),
+                ),
+            )
+        ),
     )
-    """Get roles available for current user's account."""
+    """Get roles available for current user's account.
+
+    Arguments:
+
+    * `role_name` (`String`): Optional role name to filter by. If
+      provided, returns only that role.
+    * `include_deprecated_permissions` (`Boolean`): If true, includes
+      deprecated permissions in resolvedPermissions and
+      allowedPermissionCount. Default is false. (default: `false`)
+    """
 
     get_authorization_groups = sgqlc.types.Field(
-        sgqlc.types.list_of(AuthorizationGroupOutput), graphql_name="getAuthorizationGroups"
+        sgqlc.types.list_of(sgqlc.types.non_null(AuthorizationGroupOutput)),
+        graphql_name="getAuthorizationGroups",
     )
     """Get authorization group list for the user's account."""
 
@@ -69905,6 +69946,10 @@ class RoleOutput(sgqlc.types.Type):
         "description",
         "restrictions_summary",
         "recommended_for",
+        "deprecated",
+        "deprecation_reason",
+        "allowed_permission_count",
+        "resolved_permissions",
         "policy_statements",
         "definition",
         "authorization_groups",
@@ -69938,6 +69983,30 @@ class RoleOutput(sgqlc.types.Type):
     pipelines'.
     """
 
+    deprecated = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="deprecated")
+    """Whether or not this role is deprecated and so should not be used
+    for new groups.
+    """
+
+    deprecation_reason = sgqlc.types.Field(String, graphql_name="deprecationReason")
+    """If deprecated, explains why and how to migrate."""
+
+    allowed_permission_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="allowedPermissionCount"
+    )
+    """Number of permissions that are allowed/granted by this role.
+    Respects the includeDeprecatedPermissions argument from the parent
+    query.
+    """
+
+    resolved_permissions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("UserPermission"))),
+        graphql_name="resolvedPermissions",
+    )
+    """Resolved permissions for this role. Respects the
+    includeDeprecatedPermissions argument from the parent query.
+    """
+
     policy_statements = sgqlc.types.Field(
         sgqlc.types.non_null(
             sgqlc.types.list_of(sgqlc.types.non_null(AuthorizationPolicyStatement))
@@ -69952,7 +70021,7 @@ class RoleOutput(sgqlc.types.Type):
     """(experimental) YAML definition of the role."""
 
     authorization_groups = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(AuthorizationGroupOutput)),
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AuthorizationGroupOutput))),
         graphql_name="authorizationGroups",
     )
     """(experimental) List of the authorization groups that this role is
@@ -76208,12 +76277,14 @@ class UpdateUserAuthorizationGroupMembership(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("added_to_groups", "removed_from_groups")
     added_to_groups = sgqlc.types.Field(
-        sgqlc.types.list_of(AuthorizationGroupOutput), graphql_name="addedToGroups"
+        sgqlc.types.list_of(sgqlc.types.non_null(AuthorizationGroupOutput)),
+        graphql_name="addedToGroups",
     )
     """List of groups user was added to."""
 
     removed_from_groups = sgqlc.types.Field(
-        sgqlc.types.list_of(AuthorizationGroupOutput), graphql_name="removedFromGroups"
+        sgqlc.types.list_of(sgqlc.types.non_null(AuthorizationGroupOutput)),
+        graphql_name="removedFromGroups",
     )
     """List of groups user was removed from."""
 
@@ -76330,14 +76401,19 @@ class UserAuthorizationOutput(sgqlc.types.Type):
         "performance_dashboard_access",
         "can_edit_table_monitors",
     )
-    groups = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="groups")
+    groups = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="groups"
+    )
     """List of the groups this user is a member of."""
 
-    roles = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="roles")
+    roles = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="roles"
+    )
     """List of roles assigned to this user via their groups"""
 
     domain_restrictions = sgqlc.types.Field(
-        sgqlc.types.list_of("DomainRestriction"), graphql_name="domainRestrictions"
+        sgqlc.types.list_of(sgqlc.types.non_null("DomainRestriction")),
+        graphql_name="domainRestrictions",
     )
     """Union of all discovered domain restrictions for the user. If
     empty, user has no restrictions. Note this list may not
@@ -76348,7 +76424,7 @@ class UserAuthorizationOutput(sgqlc.types.Type):
     """
 
     permissions = sgqlc.types.Field(
-        sgqlc.types.list_of("UserPermission"), graphql_name="permissions"
+        sgqlc.types.list_of(sgqlc.types.non_null("UserPermission")), graphql_name="permissions"
     )
     """Full list of permissions with resolved policy for the user."""
 
@@ -76533,21 +76609,38 @@ class UserOutput(sgqlc.types.Type):
 
 
 class UserPermission(sgqlc.types.Type):
-    """An individual permission policy for a user."""
+    """An individual permission's policy for a user."""
 
     __schema__ = schema
-    __field_names__ = ("permission", "effect", "domain_restriction_ids", "applicable_policies")
-    permission = sgqlc.types.Field(Permission, graphql_name="permission")
+    __field_names__ = (
+        "permission",
+        "permission_path",
+        "effect",
+        "domain_restriction_ids",
+        "is_specified_by_policy",
+        "applicable_policies",
+    )
+    permission = sgqlc.types.Field(sgqlc.types.non_null(Permission), graphql_name="permission")
     """Enum name of permission this policy applies to."""
 
-    effect = sgqlc.types.Field(PermissionEffect, graphql_name="effect")
+    permission_path = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="permissionPath")
+    """Fully-qualified path of the permission."""
+
+    effect = sgqlc.types.Field(sgqlc.types.non_null(PermissionEffect), graphql_name="effect")
     """The effective policy for this permission for the user."""
 
     domain_restriction_ids = sgqlc.types.Field(
-        sgqlc.types.list_of(UUID), graphql_name="domainRestrictionIds"
+        sgqlc.types.list_of(sgqlc.types.non_null(UUID)), graphql_name="domainRestrictionIds"
     )
     """If permission allowed and user is restricted, union of domain IDs
     for which user has this permission.
+    """
+
+    is_specified_by_policy = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="isSpecifiedByPolicy"
+    )
+    """Whether this permission was set based on an applied policy.If
+    false, that means the permission was denied by omission.
     """
 
     applicable_policies = sgqlc.types.Field(
@@ -80601,6 +80694,7 @@ class CustomDashboard(sgqlc.types.Type, Node):
         "updated_time",
         "last_update_user",
         "dashboard_id",
+        "domain_id",
         "title",
         "widgets",
     )
@@ -80618,6 +80712,9 @@ class CustomDashboard(sgqlc.types.Type, Node):
 
     dashboard_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="dashboardId")
 
+    domain_id = sgqlc.types.Field(UUID, graphql_name="domainId")
+    """Domain this dashboard belongs to, if any"""
+
     title = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="title")
     """The title of the dashboard"""
 
@@ -80632,6 +80729,7 @@ class CustomDashboardList(sgqlc.types.Type, Node):
     __schema__ = schema
     __field_names__ = (
         "dashboard_id",
+        "domain_id",
         "title",
         "created_time",
         "created_by",
@@ -80639,6 +80737,9 @@ class CustomDashboardList(sgqlc.types.Type, Node):
         "last_update_user",
     )
     dashboard_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="dashboardId")
+
+    domain_id = sgqlc.types.Field(UUID, graphql_name="domainId")
+    """Domain this dashboard belongs to, if any"""
 
     title = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="title")
     """The title of the dashboard"""

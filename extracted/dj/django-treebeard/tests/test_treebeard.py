@@ -1,6 +1,5 @@
 """Unit/Functional tests"""
 
-import datetime
 import os
 from unittest import mock
 from unittest.mock import patch
@@ -17,6 +16,7 @@ from django.dispatch import receiver
 from django.forms import ValidationError
 from django.template import Context, Template
 from django.test.client import RequestFactory
+from django.utils.timezone import now
 
 from tests import models
 from tests.admin import register_all as admin_register_all
@@ -31,6 +31,7 @@ from treebeard.exceptions import (
     PathOverflow,
 )
 from treebeard.forms import movenodeform_factory
+from treebeard.mp_tree import MP_Node
 from treebeard.ns_tree import NS_Node
 from treebeard.templatetags.admin_tree import tree_context
 
@@ -430,7 +431,7 @@ class TestSimpleNodeMethods(TestNonEmptyTree):
         ]
         for desc, expected in data:
             node = model.objects.get(desc=desc)
-            max_queries = 2 if issubclass(model, AL_Node) else 1
+            max_queries = 2 if issubclass(model, AL_Node) else 0
             with django_assert_max_num_queries(max_queries):
                 got = node.is_root()
             assert got == expected
@@ -443,7 +444,8 @@ class TestSimpleNodeMethods(TestNonEmptyTree):
         ]
         for desc, expected in data:
             node = model.objects.get(desc=desc)
-            with django_assert_max_num_queries(1):
+            max_queries = 0 if issubclass(model, (MP_Node, NS_Node)) else 1
+            with django_assert_max_num_queries(max_queries):
                 got = node.is_leaf()
             assert got == expected
 
@@ -522,7 +524,8 @@ class TestSimpleNodeMethods(TestNonEmptyTree):
         ]
         for desc, expected in data:
             node = model.objects.get(desc=desc)
-            with django_assert_max_num_queries(1):
+            max_queries = 0 if issubclass(model, MP_Node) else 1
+            with django_assert_max_num_queries(max_queries):
                 got = node.get_children_count()
             assert got == expected
 
@@ -725,7 +728,7 @@ class TestSimpleNodeMethods(TestNonEmptyTree):
         for desc1, desc2, expected in data:
             node1 = model.objects.get(desc=desc1)
             node2 = model.objects.get(desc=desc2)
-            max_queries = 2 if issubclass(model, NS_Node) else 1
+            max_queries = 2 if issubclass(model, (NS_Node, AL_Node)) else 0
             with django_assert_max_num_queries(max_queries):
                 assert node1.is_sibling_of(node2) == expected
 
@@ -741,7 +744,8 @@ class TestSimpleNodeMethods(TestNonEmptyTree):
         for desc1, desc2, expected in data:
             node1 = model.objects.get(desc=desc1)
             node2 = model.objects.get(desc=desc2)
-            with django_assert_max_num_queries(1):
+            max_queries = 1 if issubclass(model, (NS_Node, AL_Node)) else 0
+            with django_assert_max_num_queries(max_queries):
                 assert node1.is_child_of(node2) == expected
 
     def test_is_descendant_of(self, model, django_assert_max_num_queries):
@@ -756,7 +760,7 @@ class TestSimpleNodeMethods(TestNonEmptyTree):
         for desc1, desc2, expected in data:
             node1 = model.objects.get(desc=desc1)
             node2 = model.objects.get(desc=desc2)
-            max_queries = 6 if issubclass(model, AL_Node) else 1
+            max_queries = 6 if issubclass(model, AL_Node) else 0
             with django_assert_max_num_queries(max_queries):
                 assert node1.is_descendant_of(node2) == expected
 
@@ -846,7 +850,6 @@ class TestAddChild(TestNonEmptyTree):
             @receiver(post_save, dispatch_uid="test_add_child_post_save")
             def on_post_save(instance, **kwargs):
                 parent = instance.get_parent()
-                parent.refresh_from_db()
                 assert parent.get_descendant_count() == 1
 
             # It's important that we're testing a leaf node
@@ -1696,7 +1699,8 @@ class TestMoveBranch(TestNonEmptyTree):
 
     def test_move_branch_first_child(self, model):
         target = model.objects.get(desc="23")
-        model.objects.get(desc="4").move(target, "first-child")
+        node = model.objects.get(desc="4")
+        node.move(target, "first-child")
         expected = [
             ("1", 1, 0),
             ("2", 1, 4),
@@ -1709,6 +1713,10 @@ class TestMoveBranch(TestNonEmptyTree):
             ("24", 2, 0),
             ("3", 1, 0),
         ]
+
+        # Check that for MP, NS and LT nodes, the depth was updated on the in-memory instances
+        assert node.get_depth() == 3
+        assert target.get_children_count() == 2
         assert self.got(model) == expected
 
     def test_move_branch_last_child(self, model):
@@ -1748,9 +1756,9 @@ class TestTreeSorted(TestTreeBase):
             (2, 2, "qwe", 1, 0),
             (2, 5, "zxy", 1, 0),
             (3, 2, "vcx", 1, 0),
-            (3, 3, "abc", 1, 0),
-            (3, 3, "abc", 1, 0),
             (3, 3, "zxy", 1, 0),
+            (3, 3, "abc", 1, 0),
+            (3, 3, "abc", 1, 0),
             (4, 1, "fgh", 1, 0),
         ]
         assert self.got(sorted_model) == expected
@@ -1771,9 +1779,9 @@ class TestTreeSorted(TestTreeBase):
             (2, 2, "qwe", 2, 0),
             (2, 5, "zxy", 2, 0),
             (3, 2, "vcx", 2, 0),
-            (3, 3, "abc", 2, 0),
-            (3, 3, "abc", 2, 0),
             (3, 3, "zxy", 2, 0),
+            (3, 3, "abc", 2, 0),
+            (3, 3, "abc", 2, 0),
             (4, 1, "fgh", 2, 0),
         ]
         assert self.got(sorted_model) == expected
@@ -1792,12 +1800,12 @@ class TestTreeSorted(TestTreeBase):
 
         expected = [
             (0, 0, "a", 1, 3),
-            (0, 0, "aa", 2, 0),
-            (0, 0, "ac", 2, 3),
-            (0, 0, "aca", 3, 0),
-            (0, 0, "acb", 3, 0),
-            (0, 0, "acc", 3, 0),
             (0, 0, "av", 2, 0),
+            (0, 0, "ac", 2, 3),
+            (0, 0, "acc", 3, 0),
+            (0, 0, "acb", 3, 0),
+            (0, 0, "aca", 3, 0),
+            (0, 0, "aa", 2, 0),
         ]
         assert self.got(sorted_model) == expected
 
@@ -1822,9 +1830,9 @@ class TestTreeSorted(TestTreeBase):
             (2, 2, "qwe", 2, 0),
             (2, 5, "zxy", 2, 0),
             (3, 2, "vcx", 2, 0),
-            (3, 3, "abc", 2, 0),
-            (3, 3, "abc", 2, 0),
             (3, 3, "zxy", 2, 0),
+            (3, 3, "abc", 2, 0),
+            (3, 3, "abc", 2, 0),
             (4, 1, "fgh", 2, 0),
         ]
         assert self.got(sorted_model) == expected
@@ -1852,9 +1860,9 @@ class TestTreeSorted(TestTreeBase):
             (0, 2, "qwe", 1, 0),
             (0, 5, "zxy", 1, 0),
             (1, 2, "vcx", 1, 0),
-            (1, 3, "abc", 1, 0),
-            (1, 3, "abc", 1, 0),
             (1, 3, "zxy", 1, 0),
+            (1, 3, "abc", 1, 0),
+            (1, 3, "abc", 1, 0),
             (1, 4, "bcd", 1, 0),
             (2, 1, "fgh", 1, 0),
         ]
@@ -1884,6 +1892,15 @@ class TestInheritedModels(TestTreeBase):
         node3 = inherited_model(desc="3")
         base_model.add_root(instance=node3)
         return inherited_model
+
+    @staticmethod
+    @pytest.fixture(
+        scope="function",
+        params=models.INHERITED_MODELS_WITH_SORT,
+        ids=lambda fv: f"base={fv[0].__name__} inherited={fv[1].__name__}",
+    )
+    def inherited_model_with_sort(request):
+        return request.param
 
     def test_get_tree_all(self, inherited_model):
         got = [(o.desc, o.get_depth(), o.get_children_count()) for o in inherited_model.get_tree()]
@@ -2038,8 +2055,6 @@ class TestInheritedModels(TestTreeBase):
         node21 = inherited_model.objects.get(desc="21")
         node21.move(node1, "first-child")
 
-        node1.refresh_from_db()
-        node21.refresh_from_db()
         assert [node.desc for node in node1.get_children()] == ["21"]
         assert [node.desc for node in node21.get_children()] == ["211", "212"]
 
@@ -2050,6 +2065,18 @@ class TestInheritedModels(TestTreeBase):
 
         for node in inherited_model.get_descendants_group_count():
             assert node.descendants_count == node.get_descendant_count()
+
+    def test_add_root_with_node_order_by(self, inherited_model_with_sort):
+        """
+        Regression test for https://github.com/django-treebeard/django-treebeard/issues/301
+
+        Ensure that adding a second inherited root node with node_order_by does not delegate
+        to the parent class.
+        """
+        _, inherited_model = inherited_model_with_sort
+        inherited_model.add_root(val1=2, val2=3, desc="A")
+        inherited_model.add_root(val1=2, val2=3, desc="B")
+        assert list(inherited_model.objects.values_list("desc", flat=True)) == ["B", "A"]
 
 
 @pytest.mark.django_db
@@ -2129,23 +2156,25 @@ class TestHelpers(TestTreeBase):
 @pytest.mark.django_db
 class TestMP_TreeSortedAutoNow(TestTreeBase):
     """
-    The sorting mechanism used by treebeard when adding a node can fail if the
-    ordering is using an "auto_now" field
+    Auto-populated fields cannot be used with node_order_by, because we need
+    to be able to run queries against the value before creating the object.
+
+    Treebeard should log a warning and skip ordering by that field if no value is found
+    on the object.
     """
 
-    def test_sorted_by_autonow_workaround(self, mpsortedautonow_model):
-        # workaround
-        for i in range(1, 5):
-            mpsortedautonow_model.add_root(desc="node%d" % (i,), created=datetime.datetime.now())
-
-    def test_sorted_by_autonow_FAIL(self, mpsortedautonow_model):
-        """
-        This test asserts that we have a problem.
-        fix this, somehow
-        """
+    def test_sorted_by_autonow_ignores_and_warns(self, mpsortedautonow_model):
         mpsortedautonow_model.add_root(desc="node1")
-        with pytest.raises(ValueError):
+        with pytest.warns(RuntimeWarning, match="Received a null value for field 'created'"):
             mpsortedautonow_model.add_root(desc="node2")
+
+        # Object was still created, but `created` order isn't respected
+        assert list(mpsortedautonow_model.objects.values_list("desc", flat=True)) == ["node2", "node1"]
+
+    def test_sorted_by_autonow_value_added_manually(self, mpsortedautonow_model):
+        mpsortedautonow_model.add_root(desc="node1", created=now())
+        mpsortedautonow_model.add_root(desc="node2", created=now())
+        assert list(mpsortedautonow_model.objects.values_list("desc", flat=True)) == ["node1", "node2"]
 
 
 @pytest.mark.django_db
@@ -3049,23 +3078,3 @@ class TestMP_TreeDescendantsPerformance(TestTreeBase):
             with django_assert_num_queries(expected):
                 # converting to list to force queryset evaluation
                 list(node.get_descendants())
-
-
-@pytest.mark.django_db
-class TestRefreshFromDb:
-    def test_get_parent(self, model):
-        parent1 = model.objects.get(desc=2)
-        parent2 = model.objects.get(desc=4)
-        node = model.objects.get(desc=21)
-        assert node.get_parent() == parent1
-        node.move(parent2, pos="last-child")
-        node.refresh_from_db()
-        assert node.get_parent() == parent2
-
-    def test_get_depth(self, model):
-        node = model.objects.get(desc=1)
-        new_parent = model.objects.get(desc=2)
-        assert node.get_depth() == 1
-        node.move(new_parent, pos="last-child")
-        node.refresh_from_db()
-        assert node.get_depth() == 2

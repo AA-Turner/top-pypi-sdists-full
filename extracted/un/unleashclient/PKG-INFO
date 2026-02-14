@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: UnleashClient
-Version: 6.5.1
+Version: 6.5.2
 Summary: Python client for the Unleash feature toggle system!
 Author-email: Ivan Lee <ivanklee86@gmail.com>
 Project-URL: Homepage, https://github.com/Unleash/unleash-python-sdk

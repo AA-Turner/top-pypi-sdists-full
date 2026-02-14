@@ -179,7 +179,7 @@ class IATPServerAgentGenerator:
         lines = []
         for idx, ep in enumerate(endpoints, start=1):
             name = ep.get("endpoint_name", f"tool_{idx}")
-            desc = ep.get("endpoint_description", "No description available.")
+            desc = ep.get("endpoint_description") or ""
             # Sanitize: collapse newlines and escape quotes for safe Jinja2 embedding
             desc = " ".join(desc.replace("\r", "").split("\n")).strip()
             desc = desc.replace('"', '\\"').replace("'", "\\'")

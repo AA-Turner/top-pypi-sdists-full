@@ -467,13 +467,23 @@ pub fn create_default_config(path: &str) -> Result<(), ConfigError> {
     // Default configuration content
     let default_config = r#"# rumdl configuration file
 
+# Inherit settings from another config file (relative to this file's directory)
+# extends = "../base.rumdl.toml"
+
 # Global configuration options
 [global]
 # List of rules to disable (uncomment and modify as needed)
 # disable = ["MD013", "MD033"]
 
-# List of rules to enable exclusively (if provided, only these rules will run)
+# List of rules to enable exclusively (replaces defaults; only these rules will run)
 # enable = ["MD001", "MD003", "MD004"]
+
+# Additional rules to enable on top of defaults (additive, does not replace)
+# Use this to activate opt-in rules like MD060, MD063, MD072, MD073, MD074
+# extend-enable = ["MD060", "MD063"]
+
+# Additional rules to disable on top of the disable list (additive)
+# extend-disable = ["MD041"]
 
 # List of file/directory patterns to include for linting (if provided, only these will be linted)
 # include = [
@@ -550,6 +560,18 @@ pub enum ConfigError {
     /// Configuration file already exists
     #[error("Configuration file already exists at {path}")]
     FileExists { path: String },
+
+    /// Circular extends reference detected
+    #[error("Circular extends reference: {path} already in chain {chain:?}")]
+    CircularExtends { path: String, chain: Vec<String> },
+
+    /// Extends chain exceeds maximum depth
+    #[error("extends chain exceeds maximum depth of {max_depth} at {path}")]
+    ExtendsDepthExceeded { path: String, max_depth: usize },
+
+    /// Extends target file not found
+    #[error("extends target not found: {path} (referenced from {from})")]
+    ExtendsNotFound { path: String, from: String },
 }
 
 /// Get a rule-specific configuration value
@@ -587,6 +609,8 @@ pub fn generate_pyproject_config() -> String {
 # Global configuration options
 line-length = 100
 disable = []
+# extend-enable = ["MD060"]  # Add opt-in rules (additive, keeps defaults)
+# extend-disable = []  # Additional rules to disable (additive)
 exclude = [
     # Common directories to exclude
     ".git",

@@ -2,6 +2,7 @@
 # because the unused imports are on purpose
 
 from .base import BaseInsight, CsvSupportedInsight
+from .confusion_matrix import ConfusionMatrix
 from .lift_chart import LiftChart
 from .residuals import Residuals
 from .roc_curve import RocCurve

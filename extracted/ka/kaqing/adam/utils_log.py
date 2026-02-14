@@ -11,10 +11,9 @@ import click
 from adam.config_holder import ConfigHolder
 from adam.utils_color import Color, colored_print
 from adam.directories import local_log_dir
+from adam.utils_global import thread_local
 
 T = TypeVar('T')
-
-log_state = threading.local()
 
 def log(s = None, file: str = None, text_color: str = None):
     return _log(s=s, file=file, text_color=text_color)
@@ -70,24 +69,24 @@ class Ing:
         if not self.condition:
             return None
 
-        if not hasattr(log_state, 'ing_cnt'):
-            log_state.ing_cnt = 0
+        if not hasattr(thread_local, 'ing_cnt'):
+            thread_local.ing_cnt = 0
 
         try:
-            if not log_state.ing_cnt:
+            if not thread_local.ing_cnt:
                 if not self.suppress_log and not ConfigHolder().config.is_debug():
                     log2(f'{self.msg}...', nl=False, file=self.job_log)
 
             return None
         finally:
-            log_state.ing_cnt += 1
+            thread_local.ing_cnt += 1
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if not self.condition:
             return False
 
-        log_state.ing_cnt -= 1
-        if not log_state.ing_cnt:
+        thread_local.ing_cnt -= 1
+        if not thread_local.ing_cnt:
             if not self.suppress_log and not ConfigHolder().config.is_debug():
                 log2(' OK', file=self.job_log)
 
@@ -109,7 +108,7 @@ def ing(msg: str, body: Callable[[], None]=None, suppress_log=False, job_log: st
     return r
 
 def loggable():
-    return ConfigHolder().config and ConfigHolder().config.is_debug() or not hasattr(log_state, 'ing_cnt') or not log_state.ing_cnt
+    return ConfigHolder().config and ConfigHolder().config.is_debug() or not hasattr(thread_local, 'ing_cnt') or not thread_local.ing_cnt
 
 class TimingNode:
     def __init__(self, depth: int, s0: time.time = time.time(), line: str = None):
@@ -140,11 +139,11 @@ class LogTiming:
         if (config := ConfigHolder().config.get('debugs.timings', 'off')) not in ['on', 'file']:
             return
 
-        if not hasattr(log_state, 'timings'):
-            log_state.timings = TimingNode(0)
+        if not hasattr(thread_local, 'timings'):
+            thread_local.timings = TimingNode(0)
 
-        self.me = log_state.timings
-        log_state.timings = TimingNode(self.me.depth+1)
+        self.me = thread_local.timings
+        thread_local.timings = TimingNode(self.me.depth+1)
         if not self.s0:
             self.s0 = time.time()
 
@@ -152,19 +151,19 @@ class LogTiming:
         if (config := ConfigHolder().config.get('debugs.timings', 'off')) not in ['on', 'file']:
             return False
 
-        if hasattr(log_state, 'timings'):
-            child = log_state.timings
-            log_state.timings.line = timing_log_line(self.me.depth, self.msg, self.s0)
+        if hasattr(thread_local, 'timings'):
+            child = thread_local.timings
+            thread_local.timings.line = timing_log_line(self.me.depth, self.msg, self.s0)
 
             if child and child.line:
                 self.me.children.append(child)
-            log_state.timings = self.me
+            thread_local.timings = self.me
 
             if not self.me.depth:
                 # log timings finally
                 CommandLog.log(self.me.tree(), config)
 
-                log_state.timings = TimingNode(0)
+                thread_local.timings = TimingNode(0)
 
         return False
 

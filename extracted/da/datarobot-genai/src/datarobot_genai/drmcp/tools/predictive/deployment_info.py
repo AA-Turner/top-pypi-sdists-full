@@ -27,8 +27,9 @@ from fastmcp.exceptions import ToolError
 from fastmcp.tools.tool import ToolResult
 from mcp.types import TextContent
 
-from datarobot_genai.drmcp.core.clients import get_sdk_client
-from datarobot_genai.drmcp.core.mcp_instance import dr_mcp_tool
+from datarobot_genai.drmcp import dr_mcp_tool
+from datarobot_genai.drmcp.tools.clients.datarobot import DataRobotClient
+from datarobot_genai.drmcp.tools.clients.datarobot import get_datarobot_access_token
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,8 @@ async def get_deployment_info(
     if not deployment_id:
         raise ToolError("Deployment ID must be provided")
 
-    client = get_sdk_client()
+    token = await get_datarobot_access_token()
+    client = DataRobotClient(token).get_client()
     deployment = client.Deployment.get(deployment_id)
 
     # get features from the deployment

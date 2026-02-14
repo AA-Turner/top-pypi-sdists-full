@@ -26,6 +26,7 @@ from google.cloud.spanner_v1 import (
     BeginTransactionRequest,
     TransactionOptions,
     TransactionSelector,
+    _opentelemetry_tracing,
 )
 from google.cloud.spanner_v1.snapshot import _SnapshotBase
 from tests._builders import (
@@ -44,6 +45,8 @@ from tests._helpers import (
 )
 from google.cloud.spanner_v1._helpers import (
     _metadata_with_request_id,
+    _metadata_with_request_id_and_req_id,
+    _augment_errors_with_request_id,
     AtomicCounter,
 )
 from google.cloud.spanner_v1.param_types import INT64
@@ -80,6 +83,7 @@ BASE_ATTRIBUTES = {
     "gcp.client.service": "spanner",
     "gcp.client.version": LIB_VERSION,
     "gcp.client.repo": "googleapis/python-spanner",
+    "gcp.resource.name": _opentelemetry_tracing.GCP_RESOURCE_NAME_PREFIX + "testing",
 }
 enrich_with_otel_scope(BASE_ATTRIBUTES)
 
@@ -297,8 +301,10 @@ class Test_restart_on_unavailable(OpenTelemetryBase):
         session = _Session(database)
         derived = _build_snapshot_derived(session)
         resumable = self._call_fut(derived, restart, request, session=session)
-        with self.assertRaises(InternalServerError):
+        # Exception has request_id attribute added
+        with self.assertRaises(InternalServerError) as context:
             list(resumable)
+        self.assertTrue(hasattr(context.exception, "request_id"))
         restart.assert_called_once_with(
             request=request,
             metadata=[
@@ -371,8 +377,10 @@ class Test_restart_on_unavailable(OpenTelemetryBase):
         session = _Session(database)
         derived = _build_snapshot_derived(session)
         resumable = self._call_fut(derived, restart, request, session=session)
-        with self.assertRaises(InternalServerError):
+        # Exception has request_id attribute added
+        with self.assertRaises(InternalServerError) as context:
             list(resumable)
+        self.assertTrue(hasattr(context.exception, "request_id"))
         restart.assert_called_once_with(
             request=request,
             metadata=[
@@ -596,8 +604,10 @@ class Test_restart_on_unavailable(OpenTelemetryBase):
         session = _Session(database)
         derived = _build_snapshot_derived(session)
         resumable = self._call_fut(derived, restart, request, session=session)
-        with self.assertRaises(InternalServerError):
+        # Exception has request_id attribute added
+        with self.assertRaises(InternalServerError) as context:
             list(resumable)
+        self.assertTrue(hasattr(context.exception, "request_id"))
         restart.assert_called_once_with(
             request=request,
             metadata=[
@@ -2218,6 +2228,31 @@ class _Database(object):
             span,
         )
 
+    def metadata_and_request_id(
+        self, nth_request, nth_attempt, prior_metadata=[], span=None
+    ):
+        return _metadata_with_request_id_and_req_id(
+            self._nth_client_id,
+            self._channel_id,
+            nth_request,
+            nth_attempt,
+            prior_metadata,
+            span,
+        )
+
+    def with_error_augmentation(
+        self, nth_request, nth_attempt, prior_metadata=[], span=None
+    ):
+        metadata, request_id = _metadata_with_request_id_and_req_id(
+            self._nth_client_id,
+            self._channel_id,
+            nth_request,
+            nth_attempt,
+            prior_metadata,
+            span,
+        )
+        return metadata, _augment_errors_with_request_id(request_id)
+
     @property
     def _channel_id(self):
         return 1
@@ -2282,6 +2317,8 @@ def _build_span_attributes(
         "gcp.client.service": "spanner",
         "gcp.client.version": LIB_VERSION,
         "gcp.client.repo": "googleapis/python-spanner",
+        "gcp.resource.name": _opentelemetry_tracing.GCP_RESOURCE_NAME_PREFIX
+        + database.name,
         "x_goog_spanner_request_id": _build_request_id(database, attempt),
     }
     attributes.update(extra_attributes)

@@ -44,7 +44,7 @@ dependencies = [
     "annotated-doc >=0.0.2",
 ]
 readme = "README.md"
-version = "0.23.0"
+version = "0.23.1"
 
 [project.urls]
 Homepage = "https://github.com/fastapi/typer"
@@ -257,9 +257,6 @@ ignore = [
 ]
 "docs_src/prompt/tutorial003_py39.py" = [
     "F841",
-]
-"docs_src/using_click/tutorial001_py39.py" = [
-    "B007",
 ]
 "docs_src/*" = [
     "TID",

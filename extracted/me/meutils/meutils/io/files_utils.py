@@ -361,10 +361,12 @@ async def do_file_data(
         # todo 图片格式
 ):
     file = file_or_str_list
-
+    if file == [""]: return
+    
     if isinstance(file, list):
         tasks = [do_file_data(_, input_reference_format, content_type) for _ in file]
         return await asyncio.gather(*tasks)
+
 
     # 针对单文件
     if isinstance(file, str):  # url1;url2
@@ -374,6 +376,7 @@ async def do_file_data(
             return file.split('|')
 
         return file
+
 
     elif isinstance(file, UploadFile):
         if not file.filename: return None
@@ -585,7 +588,7 @@ if __name__ == '__main__':
     url = "https://v15-kling.klingai.com/bs2/upload-ylab-stunt-sgp/minimax_tts/05622a13394bc31ce681ada011462007/audio.mp3"
     # arun(get_file_duration(filename='.mp4', url=url))
 
-    # arun(do_file_data([None]))
+    arun(do_file_data(['xxxx', [""]]))
 
     image = ["https://v3.fal.media/files/penguin/XoW0qavfF-ahg-jX4BMyL_image.webp"] * 2
 
@@ -601,4 +604,4 @@ if __name__ == '__main__':
 
     url = "https://ark-common-storage-prod-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-0/2104716667/0/20260212/02177089914238900000000000000000000ffffac183fc8d5d6cf.mp4%3FX-Tos-Algorithm=TOS4-HMAC-SHA256&X-Tos-Credential=AKLTYWJkZTExNjA1ZDUyNDc3YzhjNTM5OGIyNjBhNDcyOTQ%252F20260212%252Fcn-beijing%252Ftos%252Frequest&X-Tos-Date=20260212T123107Z&X-Tos-Expires=86400&X-Tos-Signature=065ea666a698224b237f7c0be0e31cc01a9ff7bd99caf0f90b1123095cf23cd4&X-Tos-SignedHeaders=host?X-Tos-Algorithm=TOS4-HMAC-SHA256&X-Tos-Credential=AKLTMjgxMzUwNzliYzdlNDE4MTllYjJjZGVlOWQ3N2M1ZDY%2F20260212%2Fcn-beijing%2Ftos%2Frequest&X-Tos-Date=20260212T135308Z&X-Tos-Expires=604800&X-Tos-Signature=b982ef2fb2b2acffe10192a0412781ee57b3fdaa26af6fccbbe8cb40022dd22f&X-Tos-SignedHeaders=host"
 
-    arun(to_url(url, content_type="video/mp4"))
+    # arun(to_url(url, content_type="video/mp4"))

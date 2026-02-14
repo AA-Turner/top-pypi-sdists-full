@@ -73,7 +73,7 @@ from inspect import getfullargspec
 import logging
 from typing import Any, Final, TypeAlias, TypeVar, cast, overload, override
 
-from aiohomematic import i18n, support as hms
+from aiohomematic import ccu_translations, i18n, support as hms
 from aiohomematic.async_support import loop_check
 from aiohomematic.central.events import DataPointStateChangedEvent, DeviceRemovedEvent, OptimisticRollbackEvent
 from aiohomematic.client.command_throttle import CommandPriority
@@ -690,6 +690,8 @@ class BaseDataPoint(CallbackDataPoint, BaseDataPointProtocol, PayloadMixin):
     room: Final = DelegatedProperty[str | None](path="_channel.room")
     rooms: Final = DelegatedProperty[set[str]](path="_channel.rooms")
     timer_on_time = DelegatedProperty[float | None](path="_timer_on_time")
+    translated_full_name: Final = DelegatedProperty[str](path="_data_point_name_data.translated_full_name")
+    translated_name: Final = DelegatedProperty[str](path="_data_point_name_data.translated_name", kind=Kind.CONFIG)
 
     @property
     def timer_on_time_running(self) -> bool:
@@ -764,6 +766,7 @@ class BaseParameterDataPoint[
         "_ignore_on_initial_load",
         "_is_forced_sensor",
         "_is_un_ignored",
+        "_translation",
         "_max",
         "_min",
         "_multiplier",
@@ -785,6 +788,7 @@ class BaseParameterDataPoint[
         "_translation_key",
         "_type",
         "_unit",
+        "_value_translations",
         "_values",
         "_visible",
     )
@@ -823,6 +827,11 @@ class BaseParameterDataPoint[
             parameter=self._parameter,
             custom_only=True,
         )
+        self._translation: Final[str | None] = ccu_translations.get_parameter_translation(
+            parameter=self._parameter,
+            channel_type=channel.type_name,
+            locale=channel.device.config_provider.config.locale,
+        )
         self._current_value: ParameterT | None = None
         self._last_non_default_value: ParameterT | None = None
         self._unconfirmed_value: ParameterT | None = None
@@ -833,6 +842,19 @@ class BaseParameterDataPoint[
         self._state_uncertain: bool = True
         self._is_forced_sensor: bool = False
         self._assign_parameter_data(parameter_data=parameter_data)
+        self._value_translations: Final[dict[str, str | None] | None] = (
+            {
+                v: ccu_translations.get_parameter_value_translation(
+                    parameter=self._parameter,
+                    value=v,
+                    channel_type=channel.type_name,
+                    locale=channel.device.config_provider.config.locale,
+                )
+                for v in self._values
+            }
+            if self._values is not None
+            else None
+        )
 
         # Initialize STATUS parameter support
         self._status_parameter: str | None = self._detect_status_parameter()
@@ -875,8 +897,12 @@ class BaseParameterDataPoint[
     status: Final = DelegatedProperty[ParameterStatus | None](path="_status_value")
     status_dpk: Final = DelegatedProperty[DataPointKey | None](path="_status_dpk")
     status_parameter: Final = DelegatedProperty[str | None](path="_status_parameter")
+    translation: Final = DelegatedProperty[str | None](path="_translation", kind=Kind.INFO)
     translation_key: Final = DelegatedProperty[str](path="_translation_key")
     unit: Final = DelegatedProperty[str | None](path="_unit", kind=Kind.CONFIG)
+    value_translations: Final = DelegatedProperty[dict[str, str | None] | None](
+        path="_value_translations", kind=Kind.CONFIG
+    )
     values: Final = DelegatedProperty[tuple[str, ...] | None](path="_values", kind=Kind.CONFIG)
     visible: Final = DelegatedProperty[bool](path="_visible")
 

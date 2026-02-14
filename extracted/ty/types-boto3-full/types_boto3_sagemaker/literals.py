@@ -89,6 +89,8 @@ __all__ = (
     "ClusterKubernetesTaintEffectType",
     "ClusterNodeProvisioningModeType",
     "ClusterNodeRecoveryType",
+    "ClusterSlurmConfigStrategyType",
+    "ClusterSlurmNodeTypeType",
     "ClusterSortByType",
     "ClusterStatusType",
     "CodeRepositorySortByType",
@@ -990,6 +992,8 @@ ClusterInstanceTypeType = Literal[
 ClusterKubernetesTaintEffectType = Literal["NoExecute", "NoSchedule", "PreferNoSchedule"]
 ClusterNodeProvisioningModeType = Literal["Continuous"]
 ClusterNodeRecoveryType = Literal["Automatic", "None"]
+ClusterSlurmConfigStrategyType = Literal["Managed", "Merge", "Overwrite"]
+ClusterSlurmNodeTypeType = Literal["Compute", "Controller", "Login"]
 ClusterSortByType = Literal["CREATION_TIME", "NAME"]
 ClusterStatusType = Literal[
     "Creating", "Deleting", "Failed", "InService", "RollingBack", "SystemUpdating", "Updating"
@@ -1672,6 +1676,12 @@ ProcessingInstanceTypeType = Literal[
     "ml.g6e.4xlarge",
     "ml.g6e.8xlarge",
     "ml.g6e.xlarge",
+    "ml.g7e.12xlarge",
+    "ml.g7e.24xlarge",
+    "ml.g7e.2xlarge",
+    "ml.g7e.48xlarge",
+    "ml.g7e.4xlarge",
+    "ml.g7e.8xlarge",
     "ml.m4.10xlarge",
     "ml.m4.16xlarge",
     "ml.m4.2xlarge",

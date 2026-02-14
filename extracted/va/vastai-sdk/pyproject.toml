@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "vastai-sdk"
-version = "0.4.4"
+version = "0.4.5"
 description = "SDK for Vast.ai GPU Cloud Service"
 readme = "README.md"
 authors = [

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix
-Version: 12.35.0
+Version: 13.0.3
 Summary: AI Observability and Evaluation
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -19,7 +19,7 @@ Requires-Python: <3.14,>=3.10
 Requires-Dist: aioitertools
 Requires-Dist: aiosqlite
 Requires-Dist: alembic<2,>=1.3.0
-Requires-Dist: arize-phoenix-client>=1.28.1
+Requires-Dist: arize-phoenix-client>=1.29.0
 Requires-Dist: arize-phoenix-evals>=2.8.0
 Requires-Dist: arize-phoenix-otel>=0.14.0
 Requires-Dist: authlib
@@ -31,14 +31,16 @@ Requires-Dist: grpcio
 Requires-Dist: httpx
 Requires-Dist: jinja2
 Requires-Dist: jmespath
+Requires-Dist: jsonpath-ng
+Requires-Dist: jsonschema
 Requires-Dist: ldap3
 Requires-Dist: numpy!=2.0.0
-Requires-Dist: openinference-instrumentation>=0.1.32
-Requires-Dist: openinference-semantic-conventions>=0.1.20
+Requires-Dist: openinference-instrumentation-openai>=0.1.41
+Requires-Dist: openinference-instrumentation>=0.1.44
+Requires-Dist: openinference-semantic-conventions>=0.1.26
 Requires-Dist: opentelemetry-exporter-otlp
 Requires-Dist: opentelemetry-proto>=1.12.0
 Requires-Dist: opentelemetry-sdk
-Requires-Dist: opentelemetry-semantic-conventions
 Requires-Dist: orjson
 Requires-Dist: pandas>=1.0
 Requires-Dist: prometheus-client
@@ -46,8 +48,10 @@ Requires-Dist: protobuf>=4.25.8
 Requires-Dist: psutil
 Requires-Dist: pyarrow
 Requires-Dist: pydantic>=2.1.0
+Requires-Dist: pystache
 Requires-Dist: python-dateutil
 Requires-Dist: python-multipart
+Requires-Dist: pyyaml
 Requires-Dist: scikit-learn
 Requires-Dist: scipy
 Requires-Dist: sqlalchemy[asyncio]<3,>=2.0.4
@@ -60,17 +64,17 @@ Requires-Dist: typing-extensions>=4.6
 Requires-Dist: uvicorn
 Requires-Dist: wrapt<2,>=1.17.2
 Provides-Extra: aws
-Requires-Dist: boto3; extra == 'aws'
+Requires-Dist: aioboto3; extra == 'aws'
 Provides-Extra: container
+Requires-Dist: aioboto3; extra == 'container'
 Requires-Dist: aiohttp; extra == 'container'
-Requires-Dist: anthropic>=0.49.0; extra == 'container'
+Requires-Dist: anthropic>=0.78.0; extra == 'container'
 Requires-Dist: azure-identity; extra == 'container'
-Requires-Dist: boto3; extra == 'container'
 Requires-Dist: fast-hdbscan>=0.2.0; extra == 'container'
 Requires-Dist: google-genai; (python_version < '3.10') and extra == 'container'
 Requires-Dist: google-genai>=1.50.0; (python_version >= '3.10') and extra == 'container'
 Requires-Dist: numba>=0.60.0; extra == 'container'
-Requires-Dist: openai>=1.0.0; extra == 'container'
+Requires-Dist: openai>=2.14.0; extra == 'container'
 Requires-Dist: opentelemetry-exporter-otlp==1.39.1; extra == 'container'
 Requires-Dist: opentelemetry-instrumentation-fastapi==0.60b1; extra == 'container'
 Requires-Dist: opentelemetry-instrumentation-grpc==0.60b1; extra == 'container'
@@ -210,6 +214,7 @@ Phoenix is built on top of OpenTelemetry and is vendor, language, and framework 
 | [Pydantic AI](https://arize.com/docs/phoenix/integrations/pydantic) | `openinference-instrumentation-pydantic-ai` | [![PyPI Version](https://img.shields.io/pypi/v/openinference-instrumentation-pydantic-ai.svg)](https://pypi.python.org/pypi/openinference-instrumentation-pydantic-ai) |
 | [Autogen AgentChat](https://arize.com/docs/phoenix/integrations/frameworks/autogen/autogen-tracing) | `openinference-instrumentation-autogen-agentchat` | [![PyPI Version](https://img.shields.io/pypi/v/openinference-instrumentation-autogen-agentchat.svg)](https://pypi.python.org/pypi/openinference-instrumentation-autogen-agentchat) |
 | [Portkey](https://arize.com/docs/phoenix/integrations/portkey) | `openinference-instrumentation-portkey` | [![PyPI Version](https://img.shields.io/pypi/v/openinference-instrumentation-portkey.svg)](https://pypi.python.org/pypi/openinference-instrumentation-portkey) |
+| [Agent Spec](https://arize.com/docs/phoenix/tracing/integrations-tracing/agentspec) | `openinference-instrumentation-agentspec` | [![PyPI Version](https://img.shields.io/pypi/v/openinference-instrumentation-agentspec.svg)](https://pypi.python.org/pypi/openinference-instrumentation-agentspec) |
 
 ## Span Processors
 

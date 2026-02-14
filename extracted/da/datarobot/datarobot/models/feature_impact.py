@@ -86,8 +86,7 @@ class FeatureImpact(APIObject):
     """
 
     _converter = (
-        t
-        .Dict({
+        t.Dict({
             t.Key("count"): t.Int,
             t.Key("ran_redundancy_detection"): t.Bool,
             t.Key("row_count", optional=True, default=None): t.Or(t.Int, t.Null),

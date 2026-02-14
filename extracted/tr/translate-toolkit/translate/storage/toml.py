@@ -21,7 +21,7 @@ r"""Class that manages TOML data files for translation."""
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, BinaryIO, cast
 
 from tomlkit import TOMLDocument, document, loads
 from tomlkit.exceptions import TOMLKitError
@@ -114,7 +114,7 @@ class TOMLFile(base.DictStore[TOMLUnit]):
         """Return an empty root node for serialization."""
         return document()
 
-    def serialize(self, out: BytesIO) -> None:
+    def serialize(self, out: BinaryIO) -> None:
         """Serialize the store to a file."""
         # Always start with valid root even if original file was empty
         if self._original is None:
@@ -234,7 +234,7 @@ class TOMLFile(base.DictStore[TOMLUnit]):
             self.filename = ""
         if hasattr(input, "read"):
             src = input.read()  # ty:ignore[call-non-callable]
-            input.close()  # ty:ignore[possibly-missing-attribute]
+            input.close()  # ty:ignore[unresolved-attribute]
             input = src
         if isinstance(input, bytes):
             input = input.decode(self.encoding)
@@ -281,7 +281,7 @@ class GoI18nTOMLUnit(TOMLUnit):
             # to preserve the table structure
             return {"other": self.target}
 
-        tags = self._store.get_plural_tags()  # ty:ignore[possibly-missing-attribute]
+        tags = self._store.get_plural_tags()  # ty:ignore[unresolved-attribute]
 
         # Sync plural_strings elements to plural_tags count.
         strings = self.sync_plural_count(self.target, tags)
@@ -336,7 +336,10 @@ class GoI18nTOMLFile(TOMLFile):
         # Need at least 2 keys and all keys must be CLDR plural categories
         if data and len(data) >= 2 and all(x in cldr_plural_categories for x in data):
             # Extract plural forms in CLDR order
-            values = [data[tag] for tag in cldr_plural_categories if tag in data]
+            values = cast(
+                "list[str]",
+                [data[tag] for tag in cldr_plural_categories if tag in data],
+            )
 
             # Skip blank values (all plurals are None or empty)
             if values and not all(not value for value in values):

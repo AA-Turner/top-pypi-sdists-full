@@ -110,6 +110,7 @@ class BYOProxy(TypedDict):
 class BaseAIScrapeParams(TypedDict):
     url: NotRequired[str]
     html: NotRequired[str]
+    scroll: NotRequired[bool]
     http_headers: NotRequired[Dict[str, Any]]
     reject_request_pattern: NotRequired[List[str]]
     goto_options: NotRequired[GotoOptions]

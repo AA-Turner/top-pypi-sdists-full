@@ -3,7 +3,7 @@ Type annotations for cloudwatch service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -27,6 +27,7 @@ from .literals import (
     AnomalyDetectorStateValueType,
     AnomalyDetectorTypeType,
     ComparisonOperatorType,
+    EvaluationStateType,
     HistoryItemTypeType,
     MetricStreamOutputFormatType,
     ScanByType,
@@ -1065,7 +1066,7 @@ class MetricAlarmTypeDef(TypedDict):
     EvaluateLowSampleCountPercentile: NotRequired[str]
     Metrics: NotRequired[list[MetricDataQueryOutputTypeDef]]
     ThresholdMetricId: NotRequired[str]
-    EvaluationState: NotRequired[Literal["PARTIAL_DATA"]]
+    EvaluationState: NotRequired[EvaluationStateType]
     StateTransitionedTimestamp: NotRequired[datetime]
 
 

@@ -1,74 +1,78 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.3
 Name: nixtla
-Version: 0.7.2
+Version: 0.7.3
 Summary: Python SDK for Nixtla API (TimeGPT)
+Keywords: time-series,forecasting,gpt
+Author: Nixtla
 Author-email: Nixtla <business@nixtla.io>
 License: Apache Software License 2.0
-Project-URL: Homepage, https://github.com/Nixtla/nixtla/
-Project-URL: Documentation, https://nixtlaverse.nixtla.io/
-Project-URL: Repository, https://github.com/Nixtla/nixtla/
-Keywords: time-series,forecasting,gpt
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
-Description-Content-Type: text/markdown
-License-File: LICENSE
 Requires-Dist: annotated-types
 Requires-Dist: httpx[zstd]
+Requires-Dist: narwhals>=2.11.0
 Requires-Dist: orjson
-Requires-Dist: pandas
+Requires-Dist: pandas<3.0.0
 Requires-Dist: pydantic>=1.10
 Requires-Dist: tenacity
 Requires-Dist: tqdm
 Requires-Dist: utilsforecast>=0.2.15
-Provides-Extra: dev
-Requires-Dist: black; extra == "dev"
-Requires-Dist: datasetsforecast; extra == "dev"
-Requires-Dist: fire; extra == "dev"
-Requires-Dist: hierarchicalforecast; extra == "dev"
-Requires-Dist: ipython<=8.32.0; extra == "dev"
-Requires-Dist: ipywidgets; extra == "dev"
-Requires-Dist: jupyterlab; extra == "dev"
-Requires-Dist: neuralforecast; extra == "dev"
-Requires-Dist: numpy<2; extra == "dev"
-Requires-Dist: plotly; extra == "dev"
-Requires-Dist: polars; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: pyreadr<0.5.3; extra == "dev"
-Requires-Dist: python-dotenv; extra == "dev"
-Requires-Dist: pyyaml; extra == "dev"
-Requires-Dist: setuptools<70; extra == "dev"
-Requires-Dist: statsforecast; extra == "dev"
-Requires-Dist: tabulate; extra == "dev"
-Requires-Dist: shap; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: pytest-rerunfailures; extra == "dev"
-Requires-Dist: pyarrow<21.0.0; extra == "dev"
-Requires-Dist: mlforecast; extra == "dev"
-Requires-Dist: lightgbm; extra == "dev"
-Requires-Dist: utilsforecast[plotting]; extra == "dev"
-Requires-Dist: holidays; extra == "dev"
-Requires-Dist: pandas_market_calendars; extra == "dev"
-Requires-Dist: pip-licenses; extra == "dev"
-Provides-Extra: distributed
-Requires-Dist: fugue[dask,ray,spark]>=0.8.7; extra == "distributed"
-Requires-Dist: dask<=2024.12.1; extra == "distributed"
-Requires-Dist: pandas<2.2; extra == "distributed"
-Requires-Dist: ray<=2.20.0; extra == "distributed"
-Provides-Extra: plotting
-Requires-Dist: utilsforecast[plotting]; extra == "plotting"
+Requires-Dist: holidays ; extra == 'date-extras'
+Requires-Dist: pandas-market-calendars ; extra == 'date-extras'
+Requires-Dist: black ; extra == 'dev'
+Requires-Dist: datasetsforecast ; extra == 'dev'
+Requires-Dist: fire ; extra == 'dev'
+Requires-Dist: hierarchicalforecast ; extra == 'dev'
+Requires-Dist: ipython<=8.32.0 ; extra == 'dev'
+Requires-Dist: ipywidgets ; extra == 'dev'
+Requires-Dist: jupyterlab ; extra == 'dev'
+Requires-Dist: neuralforecast ; extra == 'dev'
+Requires-Dist: numpy<2 ; extra == 'dev'
+Requires-Dist: plotly ; extra == 'dev'
+Requires-Dist: polars ; extra == 'dev'
+Requires-Dist: pre-commit ; extra == 'dev'
+Requires-Dist: pyreadr<0.5.3 ; extra == 'dev'
+Requires-Dist: python-dotenv ; extra == 'dev'
+Requires-Dist: pyyaml ; extra == 'dev'
+Requires-Dist: ruff ; extra == 'dev'
+Requires-Dist: statsforecast ; extra == 'dev'
+Requires-Dist: tabulate ; extra == 'dev'
+Requires-Dist: shap ; extra == 'dev'
+Requires-Dist: pytest ; extra == 'dev'
+Requires-Dist: pytest-cov ; extra == 'dev'
+Requires-Dist: pytest-rerunfailures ; extra == 'dev'
+Requires-Dist: pyarrow<21.0.0 ; extra == 'dev'
+Requires-Dist: mlforecast ; extra == 'dev'
+Requires-Dist: lightgbm ; extra == 'dev'
+Requires-Dist: utilsforecast[plotting] ; extra == 'dev'
+Requires-Dist: holidays ; extra == 'dev'
+Requires-Dist: pandas-market-calendars ; extra == 'dev'
+Requires-Dist: pip-licenses ; extra == 'dev'
+Requires-Dist: pyspark<=4.0.1 ; extra == 'dev'
+Requires-Dist: fugue[dask,ray,spark]>=0.9.6 ; extra == 'distributed'
+Requires-Dist: dask<=2024.12.1 ; extra == 'distributed'
+Requires-Dist: pandas<2.2 ; extra == 'distributed'
+Requires-Dist: ray<=2.52.1 ; extra == 'distributed'
+Requires-Dist: utilsforecast[plotting] ; extra == 'plotting'
+Requires-Dist: snowflake-snowpark-python ; extra == 'snowflake'
+Requires-Dist: fire ; extra == 'snowflake'
+Requires-Dist: rich ; extra == 'snowflake'
+Requires-Python: >=3.10
+Project-URL: Homepage, https://github.com/Nixtla/nixtla/
+Project-URL: Documentation, https://nixtlaverse.nixtla.io/
+Project-URL: Repository, https://github.com/Nixtla/nixtla/
 Provides-Extra: date-extras
-Requires-Dist: holidays; extra == "date-extras"
-Requires-Dist: pandas_market_calendars; extra == "date-extras"
-Dynamic: license-file
+Provides-Extra: dev
+Provides-Extra: distributed
+Provides-Extra: plotting
+Provides-Extra: snowflake
+Description-Content-Type: text/markdown
 
 # Nixtla &nbsp; [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Statistical%20Forecasting%20Algorithms%20by%20Nixtla%20&url=https://github.com/Nixtla/neuralforecast&via=nixtlainc&hashtags=StatisticalModels,TimeSeries,Forecasting) &nbsp;[![Slack](https://img.shields.io/badge/Slack-4A154B?&logo=slack&logoColor=white)](https://join.slack.com/t/nixtlacommunity/shared_invite/zt-1pmhan9j5-F54XR20edHk0UtYAPcW4KQ)
 
@@ -151,6 +155,17 @@ nixtla_client.plot(df, anomalies_df,time_col='timestamp', target_col='value')
 ## 🤓 API support for other languages
 
 Explore our [API Reference](https://docs.nixtla.io) to discover how to leverage TimeGPT across various programming languages including JavaScript, Go, and more.
+
+## ❄️ Snowflake Deployment
+
+Run TimeGPT directly within your Snowflake environment. The deployment script creates stored procedures and UDTFs that enable forecasting and anomaly detection on your Snowflake data without moving it outside your infrastructure.
+
+```bash
+pip install nixtla[snowflake]
+python -m nixtla.scripts.snowflake_install_nixtla
+```
+
+The script will guide you through setting up external access integrations, configuring your API key, and deploying the forecasting components to your specified database and schema.
 
 ## 🔥 Features and Capabilities
 

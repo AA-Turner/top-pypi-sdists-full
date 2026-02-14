@@ -1,9 +1,12 @@
+import ssl
 from .hub.base_hub_connection import BaseHubConnection
 from .hub.auth_hub_connection import AuthHubConnection
-from .transport.websockets.reconnection import \
+from .transport.reconnection import \
     IntervalReconnectionHandler, RawReconnectionHandler, ReconnectionType
 from .helpers import Helpers
-from .protocol.json_hub_protocol import JsonHubProtocol
+from .types import HttpTransportType, HubProtocolEncoding
+from .protocol.protocol_factory import BaseHubProtocol
+from .transport.sockets.utils import create_ssl_context
 
 
 class HubConnectionBuilder(object):
@@ -19,22 +22,27 @@ class HubConnectionBuilder(object):
 
     def __init__(self):
         self.hub_url = None
-        self.hub = None
+
         self.options = {
             "access_token_factory": None
         }
-        self.token = None
+
         self.headers = dict()
-        self.negotiate_headers = None
+
         self.has_auth_configured = None
-        self.protocol = None
+
+        self.protocol: BaseHubProtocol = None
+        self.preferred_protocol = None
+        self.preferred_transport = None
+
         self.reconnection_handler = None
-        self.keep_alive_interval = None
-        self.verify_ssl = True
+        self.keep_alive_interval = 15
+
+        self.ssl_context = ssl.create_default_context()
         self.enable_trace = False  # socket trace
         self.skip_negotiation = False  # By default do not skip negotiation
-        self.running = False
         self.proxies = dict()
+        self.logger = Helpers.get_logger()
 
     def with_url(
             self,
@@ -87,12 +95,6 @@ class HubConnectionBuilder(object):
             raise TypeError(
                 "options must be a dict {0}.".format(self.options))
 
-        if options is not None \
-                and "access_token_factory" in options.keys()\
-                and not callable(options["access_token_factory"]):
-            raise TypeError(
-                "access_token_factory must be a function without params")
-
         if options is not None:
             self.has_auth_configured = \
                 "access_token_factory" in options.keys()\
@@ -101,8 +103,47 @@ class HubConnectionBuilder(object):
             self.skip_negotiation = "skip_negotiation" in options.keys()\
                 and options["skip_negotiation"]
 
+            if "transport" in options.keys():
+                transport = options.get("transport")
+                if type(transport) is not HttpTransportType:
+                    raise TypeError(
+                        f"transport types:  {HttpTransportType}")
+                self.preferred_transport = transport
+
+            if "verify_ssl" in options.keys()\
+                    and "ssl_context" in options.keys():
+                raise ValueError(
+                    "You must specify one of these two options, "
+                    "verify_ssl:bool or ssl_context: ssl.SSLContext")
+
+            if "verify_ssl" in options.keys():
+                value = options.get("verify_ssl", None)
+                if type(value) is not bool:
+                    raise TypeError("Verify ssl must be a bool")
+
+                self.ssl_context = create_ssl_context(value)
+
+            if "ssl_context" in options.keys():
+                value = options.get("ssl_context", None)
+                if type(value) is not ssl.SSLContext:
+                    raise TypeError("ssl_context must be a ssl.SSLContext")
+                self.ssl_context = value
+
+            if "headers" in options.keys():
+                value = options.get("headers", None)
+                if type(value) is not dict:
+                    raise TypeError("headers must be a Dict[str, str]")
+                self.headers.update(value)
+
+            if "access_token_factory" in options.keys():
+                auth_function = options.get("access_token_factory", None)
+                if auth_function is None\
+                        or not callable(auth_function):
+                    raise TypeError(
+                        "access_token_factory is not function")
+                self.auth_function = auth_function
+
         self.hub_url = hub_url
-        self.hub = None
         self.options = self.options if options is None else options
         return self
 
@@ -149,73 +190,67 @@ class HubConnectionBuilder(object):
 
     def with_hub_protocol(self, protocol):
         """Changes transport protocol
-            from signalrcore.protocol.messagepack_protocol\
-                import MessagePackHubProtocol
+            from signalrcore.types\
+                import HubProtocolEncoding
 
             HubConnectionBuilder()\
             .with_url(self.server_url, options={"verify_ssl":False})\
                 ...
-            .with_hub_protocol(MessagePackHubProtocol())\
+            .with_hub_protocol(HubProtocolEncoding.binary)\
                 ...
             .build()
         Args:
-            protocol (JsonHubProtocol|MessagePackHubProtocol):
-                protocol instance
+            protocol(
+                    MessagePackHubProtocol|
+                    JsonHubProtocol|
+                    HubProtocolEncoding):
+                protocol instance or HubProtocolEncoding
 
         Returns:
             HubConnectionBuilder: instance configured
         """
-        self.protocol = protocol
-        return self
+        if issubclass(type(protocol), BaseHubProtocol):
+            self.protocol = protocol
+            return self
+
+        if type(protocol) is HubProtocolEncoding:
+            self.preferred_protocol = protocol
+            return self
+
+        raise TypeError(f"Wrong protocol type {type(protocol)}")
 
     def build(self):
-        """Configures the connection hub
-
-        Raises:
-            TypeError: Checks parameters an raises TypeError
-                if one of them is wrong
+        """Creates the connection hub
 
         Returns:
-            [HubConnectionBuilder]: [self object for fluent interface purposes]
+            [BaseHubConnection]: [connection SignalR object]
         """
-        if self.protocol is None:
-            self.protocol = JsonHubProtocol()
-
-        if "headers" in self.options.keys()\
-                and type(self.options["headers"]) is dict:
-            self.headers.update(self.options["headers"])
-
-        if self.has_auth_configured:
-            auth_function = self.options["access_token_factory"]
-            if auth_function is None or not callable(auth_function):
-                raise TypeError(
-                    "access_token_factory is not function")
-        if "verify_ssl" in self.options.keys()\
-                and type(self.options["verify_ssl"]) is bool:
-            self.verify_ssl = self.options["verify_ssl"]
-
         return AuthHubConnection(
                 headers=self.headers,
-                auth_function=auth_function,
+                auth_function=self.auth_function,
                 url=self.hub_url,
                 protocol=self.protocol,
+                preferred_protocol=self.preferred_protocol,
                 keep_alive_interval=self.keep_alive_interval,
                 reconnection_handler=self.reconnection_handler,
-                verify_ssl=self.verify_ssl,
+                ssl_context=self.ssl_context,
                 proxies=self.proxies,
                 skip_negotiation=self.skip_negotiation,
-                enable_trace=self.enable_trace)\
+                enable_trace=self.enable_trace,
+                preferred_transport=self.preferred_transport)\
             if self.has_auth_configured else\
             BaseHubConnection(
                 url=self.hub_url,
                 protocol=self.protocol,
+                preferred_protocol=self.preferred_protocol,
                 keep_alive_interval=self.keep_alive_interval,
                 reconnection_handler=self.reconnection_handler,
                 headers=self.headers,
-                verify_ssl=self.verify_ssl,
+                ssl_context=self.ssl_context,
                 proxies=self.proxies,
                 skip_negotiation=self.skip_negotiation,
-                enable_trace=self.enable_trace)
+                enable_trace=self.enable_trace,
+                preferred_transport=self.preferred_transport)
 
     def with_automatic_reconnect(self, data: dict):
         """Configures automatic reconnection
@@ -233,7 +268,7 @@ class HubConnectionBuilder(object):
             .build()
 
         Args:
-            data (dict): [dict with autmatic reconnection parameters]
+            data (dict): [dict with automatic reconnection parameters]
 
         Returns:
             [HubConnectionBuilder]: [self object for fluent interface purposes]

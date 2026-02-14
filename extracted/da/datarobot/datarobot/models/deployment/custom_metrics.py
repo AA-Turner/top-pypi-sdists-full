@@ -33,28 +33,8 @@ from datarobot.models.deployment.mixins import MonitoringDataQueryBuilderMixin
 from datarobot.models.registry import Job
 from datarobot.models.runtime_parameters import RuntimeParameterValue
 from datarobot.models.types import Schedule
-from datarobot.utils import from_api, to_api, underscorize
+from datarobot.utils import _is_not_null, from_api, to_api, underscorize
 from datarobot.utils.waiters import wait_for_async_resolution
-
-
-def _is_not_null(val: Any) -> bool:
-    """Check if a value is not null (None, NaN, NaT).
-
-    This helper safely handles both scalar and non-scalar types,
-    unlike pd.isna() which returns an array for list inputs.
-    """
-    if val is None:
-        return False
-    if isinstance(val, (list, dict)):
-        return True
-    try:
-        result = pd.isna(val)
-        if isinstance(result, bool):
-            return not result
-        return True
-    except (TypeError, ValueError):
-        return True
-
 
 if TYPE_CHECKING:
     from datarobot._compat import TypedDict

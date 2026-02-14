@@ -31,7 +31,7 @@ use crate::types::function::{
     is_implicit_classmethod, is_implicit_staticmethod,
 };
 use crate::types::generics::{
-    GenericContext, InferableTypeVars, Specialization, walk_generic_context, walk_specialization,
+    GenericContext, InferableTypeVars, Specialization, walk_specialization,
 };
 use crate::types::infer::{infer_expression_type, infer_unpack_types, nearest_enclosing_class};
 use crate::types::member::{Member, class_member};
@@ -2322,11 +2322,10 @@ impl<'db> StaticClassLiteral<'db> {
         )
     }
 
-    /// Returns all of the typevars that are referenced in this class's definition. This includes
-    /// any typevars bound in its generic context, as well as any typevars mentioned in its base
-    /// class list. (This is used to ensure that classes do not bind or reference typevars from
-    /// enclosing generic contexts.)
-    pub(crate) fn typevars_referenced_in_definition(
+    /// Returns all of the typevars that are referenced in this class's base class list.
+    /// (This is used to ensure that classes do not reference typevars from enclosing
+    /// generic contexts.)
+    pub(crate) fn typevars_referenced_in_bases(
         self,
         db: &'db dyn Db,
     ) -> FxIndexSet<BoundTypeVarInstance<'db>> {
@@ -2355,9 +2354,6 @@ impl<'db> StaticClassLiteral<'db> {
         }
 
         let visitor = CollectTypeVars::default();
-        if let Some(generic_context) = self.generic_context(db) {
-            walk_generic_context(db, generic_context, &visitor);
-        }
         for base in self.explicit_bases(db) {
             visitor.visit_type(db, *base);
         }
@@ -3270,7 +3266,7 @@ impl<'db> StaticClassLiteral<'db> {
 
                         if let Some(ref mut default_ty) = default_ty {
                             *default_ty = default_ty
-                                .try_call_dunder_get(db, Type::none(db), Type::from(self))
+                                .try_call_dunder_get(db, None, Type::from(self))
                                 .map(|(return_ty, _)| return_ty)
                                 .unwrap_or_else(Type::unknown);
                         }
@@ -6115,9 +6111,10 @@ impl<'db, I: Iterator<Item = ClassBase<'db>>> MroLookup<'db, I> {
                     // Skip over these very special class bases that aren't really classes.
                 }
                 ClassBase::Dynamic(_) => {
-                    return InstanceMemberResult::Done(PlaceAndQualifiers::todo(
-                        "instance attribute on class with dynamic base",
-                    ));
+                    // We already return the dynamic type for class member lookup, so we can
+                    // just return unbound here (to avoid having to build a union of the
+                    // dynamic type with itself).
+                    return InstanceMemberResult::Done(PlaceAndQualifiers::unbound());
                 }
                 ClassBase::Class(class) => {
                     if let member @ PlaceAndQualifiers {

@@ -15,7 +15,7 @@ from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING, Union
 if TYPE_CHECKING:
     from praisonaiagents import Agent
 
-from praisonai.bots._protocol_mixin import ChatCommandMixin
+from praisonai.bots._protocol_mixin import ChatCommandMixin, MessageHookMixin
 from praisonaiagents.bots import (
     BotConfig,
     BotMessage,
@@ -26,11 +26,12 @@ from praisonaiagents.bots import (
 
 from ._commands import format_status, format_help
 from ._session import BotSessionManager
+from ._debounce import InboundDebouncer
 
 logger = logging.getLogger(__name__)
 
 
-class DiscordBot(ChatCommandMixin):
+class DiscordBot(ChatCommandMixin, MessageHookMixin):
     """Discord bot runtime for PraisonAI agents.
     
     Connects an agent to Discord, handling messages, slash commands,
@@ -77,6 +78,9 @@ class DiscordBot(ChatCommandMixin):
         self._command_handlers: Dict[str, Callable] = {}
         self._started_at: Optional[float] = None
         self._session: BotSessionManager = BotSessionManager()
+        self._debouncer: InboundDebouncer = InboundDebouncer(
+            debounce_ms=self.config.debounce_ms,
+        )
     
     @property
     def is_running(self) -> bool:
@@ -133,6 +137,8 @@ class DiscordBot(ChatCommandMixin):
             
             bot_message = self._convert_message(message)
             
+            self.fire_message_received(bot_message)
+            
             if not self.config.is_user_allowed(bot_message.sender.user_id if bot_message.sender else ""):
                 return
             if not self.config.is_channel_allowed(bot_message.channel.channel_id if bot_message.channel else ""):
@@ -180,18 +186,27 @@ class DiscordBot(ChatCommandMixin):
                 
                 if self._agent:
                     user_id = str(message.author.id)
+                    async def _send_agent_response():
+                        text_to_send = await self._debouncer.debounce(user_id, bot_message.text)
+                        response = await self._session.chat(self._agent, user_id, text_to_send)
+                        send_result = self.fire_message_sending(
+                            str(message.channel.id), str(response),
+                        )
+                        if send_result["cancel"]:
+                            return
+                        await self._send_long_message(message.channel, send_result["content"], reference=message)
+                        self.fire_message_sent(str(message.channel.id), send_result["content"])
+
                     if self.config.typing_indicator:
                         async with message.channel.typing():
                             try:
-                                response = await self._session.chat(self._agent, user_id, bot_message.text)
-                                await self._send_long_message(message.channel, response, reference=message)
+                                await _send_agent_response()
                             except Exception as e:
                                 logger.error(f"Agent error: {e}")
                                 await message.reply(f"Error: {str(e)}")
                     else:
                         try:
-                            response = await self._session.chat(self._agent, user_id, bot_message.text)
-                            await self._send_long_message(message.channel, response, reference=message)
+                            await _send_agent_response()
                         except Exception as e:
                             logger.error(f"Agent error: {e}")
                             await message.reply(f"Error: {str(e)}")
@@ -204,6 +219,7 @@ class DiscordBot(ChatCommandMixin):
             return
         
         self._is_running = False
+        self._debouncer.cancel_all()
         
         if self._client:
             await self._client.close()
@@ -250,7 +266,9 @@ class DiscordBot(ChatCommandMixin):
         )
     
     async def _send_long_message(self, channel, text: str, reference=None) -> None:
-        """Send a long message, splitting if necessary."""
+        """Send a long message, splitting with markdown-aware chunking."""
+        from ._chunk import chunk_message
+
         max_len = min(self.config.max_message_length, 2000)
         
         if len(text) <= max_len:
@@ -259,7 +277,7 @@ class DiscordBot(ChatCommandMixin):
             else:
                 await channel.send(text)
         else:
-            chunks = [text[i:i+max_len] for i in range(0, len(text), max_len)]
+            chunks = chunk_message(text, max_length=max_len, preserve_fences=True)
             for i, chunk in enumerate(chunks):
                 if i == 0 and reference:
                     await channel.send(chunk, reference=reference)
@@ -364,6 +382,43 @@ class DiscordBot(ChatCommandMixin):
             pass
         return None
     
+    async def probe(self):
+        """Test Discord API connectivity without starting the bot."""
+        from praisonaiagents.bots import ProbeResult
+        started = time.time()
+        try:
+            import aiohttp
+            url = "https://discord.com/api/v10/users/@me"
+            headers = {"Authorization": f"Bot {self._token}"}
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                    elapsed = (time.time() - started) * 1000
+                    if resp.status == 200:
+                        data = await resp.json()
+                        return ProbeResult(
+                            ok=True, platform="discord", elapsed_ms=elapsed,
+                            bot_username=data.get("username"),
+                            details={"bot_id": data.get("id"), "discriminator": data.get("discriminator")},
+                        )
+                    else:
+                        text = await resp.text()
+                        return ProbeResult(ok=False, platform="discord", elapsed_ms=elapsed, error=f"HTTP {resp.status}: {text[:200]}")
+        except Exception as e:
+            return ProbeResult(ok=False, platform="discord", elapsed_ms=(time.time() - started) * 1000, error=str(e))
+
+    async def health(self):
+        """Get detailed health status of the Discord bot."""
+        from praisonaiagents.bots import HealthResult
+        probe_result = await self.probe()
+        uptime = (time.time() - self._started_at) if self._started_at else None
+        session_count = len(self._session._histories) if hasattr(self._session, '_histories') else 0
+        return HealthResult(
+            ok=self._is_running and probe_result.ok, platform="discord",
+            is_running=self._is_running, uptime_seconds=uptime,
+            probe=probe_result, sessions=session_count,
+            error=probe_result.error if not probe_result.ok else None,
+        )
+
     def _format_status(self) -> str:
         """Format /status response."""
         return format_status(self._agent, self.platform, self._started_at, self._is_running)

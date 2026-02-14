@@ -16,7 +16,7 @@ keywords = [
   "log",
   "user",
 ]
-license = "Unlicense"
+license = "MIT"
 maintainers = [
   { name = "Bernát Gábor", email = "gaborjbernat@gmail.com" },
 ]
@@ -24,7 +24,7 @@ requires-python = ">=3.10"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: The Unlicense (Unlicense)",
+  "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3 :: Only",
@@ -167,6 +167,7 @@ ini_options.asyncio_default_fixture_loop_scope = "session"
 ini_options.testpaths = [
   "tests",
 ]
+ini_options.timeout = 20
 ini_options.verbosity_assertions = 2
 ini_options.filterwarnings = [
   "error",

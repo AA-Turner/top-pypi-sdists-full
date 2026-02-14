@@ -242,7 +242,7 @@ name = "daft"
 edition = "2024"
 name = "daft"
 publish = false
-version = "0.7.2"
+version = "0.7.3"
 exclude = ["tests/", "benchmarking/", "tutorials/", "k8s/", "ci/", "docs/", "assets/", "tools/", "*.md", "codecov.yml", "mkdocs.yml"]
 
 [package.metadata.cargo-machete]
@@ -252,7 +252,8 @@ ignored = ["lzma-sys"]
 path = "src/arrow2"
 
 [patch.crates-io.parquet-format-safe]
-path = "src/parquet-format-safe"
+git = "https://github.com/Eventual-Inc/parquet-format-safe"
+tag = "patched-parquet-format-safe"
 
 [patch.crates-io.parquet2]
 path = "src/parquet2"
@@ -296,7 +297,6 @@ features = ["disable_initial_exec_tls"]
 [workspace]
 
 [workspace.dependencies]
-ahash = "0.8.12"
 arrow = "57.1.0"
 arrow-buffer = "57.1.0"
 arrow-csv = "57.1.0"
@@ -304,6 +304,7 @@ arrow-data = "57.1.0"
 arrow-flight = "57.1.0"
 arrow-ipc = "57.1.0"
 arrow-json = "57.1.0"
+arrow-row = "57.1.0"
 arrow-schema = "57.1.0"
 approx = "0.5.1"
 arc-swap = "1.7.1"
@@ -560,7 +561,8 @@ version = "0.4.29"
 
 [workspace.dependencies.parquet-format-safe]
 features = ["async"]
-path = "src/parquet-format-safe"
+git = "https://github.com/Eventual-Inc/parquet-format-safe"
+tag = "patched-parquet-format-safe"
 
 [workspace.dependencies.parquet2]
 features = ["async"]
@@ -668,4 +670,4 @@ priority = 1
 
 [workspace.package]
 edition = "2024"
-version = "0.7.2"
+version = "0.7.3"

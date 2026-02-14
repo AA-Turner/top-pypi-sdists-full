@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: guardrails-ai
-Version: 0.8.0
+Version: 0.8.1
 Summary: Adding guardrails to large language models.
 License: Apache-2.0
 License-File: LICENSE

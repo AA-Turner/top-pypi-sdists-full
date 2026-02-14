@@ -376,7 +376,6 @@ class ASCIIColors(ANSI):
         console.print(text, **kwargs)
 
     # ============== New Rich-style methods ==============
-
     @staticmethod
     def panel(
         content: str,
@@ -393,7 +392,8 @@ class ASCIIColors(ANSI):
         
         New rich-style convenience method.
         """
-        from ascii_colors.rich import Panel, BoxStyle, Style, Text, Console
+        from ascii_colors.rich import Panel, BoxStyle, Style, Console, Text
+        import re
         
         # Convert string box name to enum
         box_style = BoxStyle.SQUARE
@@ -411,19 +411,79 @@ class ASCIIColors(ANSI):
         if background:
             style_obj = Style(background=background)
         
-        # Create panel with explicit width
-        text_obj = Text(content)
+        # Normalize newlines in content
+        normalized_content = content.replace('\r\n', '\n').replace('\r', '\n')
         
-        # Calculate appropriate width
+        # Check if content has markup tags that span multiple lines
+        # If so, apply markup to each line individually to ensure proper formatting
+        if '[/' in normalized_content and '\n' in normalized_content:
+            # Try to find outermost tags that wrap all content
+            # Pattern matches [tag]...content...[/tag] where content can span lines
+            outer_tag_pattern = r'^\[([\w\s]+)\](.*?)\[/\1\]$'
+            match = re.match(outer_tag_pattern, normalized_content, re.DOTALL)
+            
+            if match:
+                tag = match.group(1)
+                inner_content = match.group(2)
+                inner_lines = inner_content.split('\n')
+                # Wrap each inner line with the same tag, then apply markup
+                processed_lines = [ASCIIColors._apply_rich_markup(f'[{tag}]{line}[/{tag}]') for line in inner_lines]
+                processed_content = '\n'.join(processed_lines)
+            else:
+                # No simple outer tag pattern, apply markup normally
+                # This might not handle multi-line tags perfectly, but it's the best we can do
+                processed_content = ASCIIColors._apply_rich_markup(normalized_content)
+        else:
+            # No multi-line markup, apply normally
+            processed_content = ASCIIColors._apply_rich_markup(normalized_content)
+        
+        # Calculate appropriate width based on longest line (not total content length)
         term_width = ASCIIColors._get_terminal_width()
+        
+        # Split by newlines to find longest line for width calculation
+        content_lines = processed_content.split('\n')
+        
+        # Find the longest line length (excluding ANSI codes for width calculation)
+        from ascii_colors.utils import strip_ansi
+        longest_line_len = max((len(strip_ansi(line)) for line in content_lines), default=0)
+        
+        # Parse padding to get horizontal padding value
+        if isinstance(padding, int):
+            pad_x = padding
+        elif len(padding) == 2:
+            pad_x = padding[1]  # (vertical, horizontal)
+        else:
+            pad_x = padding[1]  # (top, right, bottom, left)
+        
+        # Calculate panel width: must fit longest line + 2 borders + 2*pad_x padding
+        # inner_width = panel_width - 2 (borders)
+        # content_width = inner_width - 2*pad_x = panel_width - 2 - 2*pad_x
+        # We need content_width >= longest_line_len
+        # So: panel_width >= longest_line_len + 2 + 2*pad_x
+        min_panel_width = longest_line_len + 2 + 2 * pad_x
+        
         if width is None:
-            panel_width = min(term_width - 4, max(40, len(content) + 10))
+            # Use min of: terminal width minus margin, or calculated minimum
+            panel_width = min(term_width - 4, max(40, min_panel_width))
         else:
             panel_width = min(width, term_width - 2)
         
+        # Ensure panel is wide enough for the longest line plus borders and padding
+        panel_width = max(panel_width, min_panel_width)
+        
+        # Apply rich markup to title if provided
+        processed_title = None
+        if title:
+            processed_title = ASCIIColors._apply_rich_markup(title)
+        
+        # Create a Text object with no_wrap=True to prevent re-wrapping
+        # This tells Panel to respect the explicit newlines in the content
+        text_obj = Text(processed_content, no_wrap=True)
+        
+        # Create Panel with the Text object
         panel = Panel(
             text_obj,
-            title=title,
+            title=processed_title,
             border_style=style_obj,
             box=box_style,
             padding=padding,
@@ -461,9 +521,14 @@ class ASCIIColors(ANSI):
         except ValueError:
             pass
         
+        # Apply rich markup to title if provided
+        processed_title = None
+        if title:
+            processed_title = ASCIIColors._apply_rich_markup(title)
+        
         table = Table(
-            *headers,
-            title=title,
+            *[ASCIIColors._apply_rich_markup(h) for h in headers],
+            title=processed_title,
             box=box_style,
             show_lines=show_lines,
             header_style=header_style,
@@ -471,7 +536,9 @@ class ASCIIColors(ANSI):
         
         if rows:
             for row in rows:
-                table.add_row(*row)
+                # Apply rich markup to each cell
+                processed_row = [ASCIIColors._apply_rich_markup(str(cell)) for cell in row]
+                table.add_row(*processed_row)
         
         # Calculate width based on content
         term_width = ASCIIColors._get_terminal_width()
@@ -497,10 +564,13 @@ class ASCIIColors(ANSI):
         """
         from ascii_colors.rich import Tree, Style
         
+        # Apply rich markup to label
+        processed_label = ASCIIColors._apply_rich_markup(label)
+        
         style_obj = Style.parse(style) if style else Style()
         guide_obj = Style.parse(guide_style) if guide_style else Style(dim=True)
         
-        return Tree(label, style=style_obj, guide_style=guide_obj)
+        return Tree(processed_label, style=style_obj, guide_style=guide_obj)
 
     @staticmethod
     def syntax(
@@ -539,7 +609,10 @@ class ASCIIColors(ANSI):
         """
         from ascii_colors.rich import Markdown, Console
         
-        md = Markdown(markup)
+        # Apply rich markup to markdown content (for any embedded tags)
+        processed_markup = ASCIIColors._apply_rich_markup(markup)
+        
+        md = Markdown(processed_markup)
         
         term_width = ASCIIColors._get_terminal_width()
         console = Console(width=min(term_width - 4, 100), force_terminal=False)
@@ -561,7 +634,8 @@ class ASCIIColors(ANSI):
         """
         from ascii_colors.rich import Columns, Text, Console
         
-        renderables = [Text(item) for item in items]
+        # Apply rich markup to each item
+        renderables = [Text(ASCIIColors._apply_rich_markup(item)) for item in items]
         cols = Columns(renderables, equal=equal, width=width)
         
         term_width = ASCIIColors._get_terminal_width()
@@ -589,7 +663,10 @@ class ASCIIColors(ANSI):
         console = Console(width=ASCIIColors._get_terminal_width())
         style_obj = Style.parse(style) if style else None
         
-        console.rule(title, characters=characters, style=style_obj, align=align)
+        # Apply rich markup to title
+        processed_title = ASCIIColors._apply_rich_markup(title)
+        
+        console.rule(processed_title, characters=characters, style=style_obj, align=align)
 
     @staticmethod
     def status(
@@ -608,11 +685,14 @@ class ASCIIColors(ANSI):
         """
         from ascii_colors.rich import Status, Console, Style
         
+        # Apply rich markup to message
+        processed_message = ASCIIColors._apply_rich_markup(message)
+        
         console = Console(width=ASCIIColors._get_terminal_width())
         style_obj = Style.parse(spinner_style) if spinner_style else Style(color=ANSI.color_green)
         
         return Status(
-            message,
+            processed_message,
             console=console,
             spinner=spinner,
             spinner_style=style_obj,
@@ -636,10 +716,12 @@ class ASCIIColors(ANSI):
         
         from ascii_colors.rich import Text
         if isinstance(renderable, str):
-            renderable = Text(renderable)
+            # Apply rich markup to string renderables
+            processed = ASCIIColors._apply_rich_markup(renderable)
+            renderable = Text(processed)
         
         return Live(renderable, console=console, refresh_per_second=refresh_per_second)
-
+    
     @staticmethod
     def _get_mini_console(width: int) -> 'Console':
         """Get a minimal console for string capture."""
@@ -654,3 +736,4 @@ class ASCIIColors(ANSI):
             return shutil.get_terminal_size().columns
         except Exception:
             return 80
+

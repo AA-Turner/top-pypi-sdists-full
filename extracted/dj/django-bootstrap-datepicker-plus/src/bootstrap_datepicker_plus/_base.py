@@ -1,11 +1,10 @@
 """Contains Base Date-Picker input class for widgets of this package."""
 
 import warnings
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 from django import forms
 from django.forms.widgets import DateTimeBaseInput
-from typing_extensions import deprecated
 
 from ._config import WidgetConfig
 from .schemas import InputAttrs, WidgetOptions, WidgetVariant
@@ -18,15 +17,15 @@ class BasePickerInput(DateTimeBaseInput):
     variant = WidgetVariant.date
     _date_format = "%Y-%m-%d"
     backend_date_format = "YYYY-MM-DD"
-    options: Optional[WidgetOptions] = None
+    options: WidgetOptions | None = None
     template_name = "bootstrap_datepicker_plus/input.html"
 
     def __init__(
         self,
-        attrs: Optional[InputAttrs] = None,
-        format: Optional[str] = None,
-        options: Optional[WidgetOptions] = None,
-        range_from: Optional[str] = None,
+        attrs: InputAttrs | None = None,
+        format: str | None = None,
+        options: WidgetOptions | None = None,
+        range_from: str | None = None,
     ):
         """Date-picker input widget.
 
@@ -58,7 +57,7 @@ class BasePickerInput(DateTimeBaseInput):
         super().__init__(attrs, self._date_format)
 
     def build_attrs(
-        self, base_attrs: InputAttrs, extra_attrs: Optional[InputAttrs] = None
+        self, base_attrs: InputAttrs, extra_attrs: InputAttrs | None = None
     ) -> InputAttrs:
         """Build an attribute dictionary."""
         settings = get_widget_settings()
@@ -73,39 +72,15 @@ class BasePickerInput(DateTimeBaseInput):
         return attrs
 
     def get_context(
-        self, name: str, value: Any, attrs: Optional[InputAttrs]
-    ) -> Dict[str, Any]:
+        self, name: str, value: Any, attrs: InputAttrs | None
+    ) -> dict[str, Any]:
         """Return widget context dictionary."""
         settings = get_widget_settings()
         context = super().get_context(name, value, attrs)
-        context["addon_icon_class"] = settings.addon_icon_classes[self.variant]
+        context["widget"]["addon_icon_class"] = settings.addon_icon_classes[
+            self.variant
+        ]
         return context
-
-    @deprecated(
-        "Use 'range_from' instead. See https://github.com/monim67/django-bootstrap-datepicker-plus"
-    )
-    def start_of(self, event_id: str) -> "BasePickerInput":
-        """Set Date-Picker as the start-date of a date-range (Deprecated!!!)."""
-        warnings.warn(
-            "The 'start_of' method is deprecated, use 'range_from' instead. "
-            "see https://github.com/monim67/django-bootstrap-datepicker-plus",
-            category=FutureWarning,
-        )
-        self.attrs["data-dbdp-start"] = event_id
-        return self
-
-    @deprecated(
-        "Use 'range_from' instead. See https://github.com/monim67/django-bootstrap-datepicker-plus"
-    )
-    def end_of(self, event_id: str, import_options: bool = True) -> "BasePickerInput":
-        """Set Date-Picker as the end-date of a date-range (Deprecated!!!)."""
-        warnings.warn(
-            "The 'end_of' method is deprecated, use 'range_from' instead. "
-            "see https://github.com/monim67/django-bootstrap-datepicker-plus",
-            category=FutureWarning,
-        )
-        self.attrs["data-dbdp-end"] = event_id
-        return self
 
     @property
     def media(self) -> forms.Media:  # type: ignore
@@ -127,6 +102,6 @@ class BasePickerInput(DateTimeBaseInput):
         )
 
 
-def tuple_exclude_none(*items: Optional[str]) -> Tuple[str, ...]:
+def tuple_exclude_none(*items: str | None) -> tuple[str, ...]:
     """Create a tuple removing None values."""
     return tuple(item for item in items if item is not None)

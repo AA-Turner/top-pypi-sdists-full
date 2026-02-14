@@ -3,8 +3,9 @@
 This module provides a collection of pre-built LLM scorers for common evaluation tasks.
 
 All evaluators accept the following common arguments:
-- model: Model to use (defaults to gpt-4)
-- temperature: Controls randomness (0-1, defaults to 0)
+- model: Model to use (defaults to gpt-4o)
+- temperature: Controls randomness (0-1). If not specified, uses the model's default.
+- max_tokens: Maximum tokens to generate. If not specified, uses the model's default.
 - client: OpenAI client (defaults to global client from init())
 
 Example:
@@ -49,14 +50,13 @@ import os
 import re
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, List, Optional
 
 import chevron
 import yaml
 
 from autoevals.partial import ScorerWithPartial
 
-from .oai import Client, arun_cached_request, run_cached_request
+from .oai import Client, arun_cached_request, get_default_model, run_cached_request
 from .score import Score
 
 # Disable HTML escaping in chevron.
@@ -78,6 +78,7 @@ single choice by setting the `choice` parameter to a single choice from {{__choi
     "\n", " "
 )
 
+# Deprecated: Use init(default_model="...") to configure the default model instead.
 DEFAULT_MODEL = "gpt-4o"
 
 PLAIN_RESPONSE_SCHEMA = {
@@ -126,9 +127,9 @@ def build_classification_tools(useCoT, choice_strings):
 class OpenAIScorer(ScorerWithPartial):
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
-        client: Optional[Client] = None,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        client: Client | None = None,
     ) -> None:
         self.extra_args = {}
         if api_key:
@@ -142,39 +143,44 @@ class OpenAIScorer(ScorerWithPartial):
 class OpenAILLMScorer(OpenAIScorer):
     def __init__(
         self,
-        temperature: Optional[float] = None,
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
-        client: Optional[Client] = None,
+        temperature: float | None = None,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        client: Client | None = None,
     ) -> None:
         super().__init__(
             api_key=api_key,
             base_url=base_url,
             client=client,
         )
-        self.extra_args["temperature"] = temperature or 0
+        if temperature is not None:
+            self.extra_args["temperature"] = temperature
 
 
 class OpenAILLMClassifier(OpenAILLMScorer):
     def __init__(
         self,
         name: str,
-        messages: List,
+        messages: list,
         model,
         choice_scores,
         classification_tools,
         render_args=None,
         max_tokens=None,
         temperature=None,
+        reasoning_effort=None,
+        reasoning_enabled=None,
+        reasoning_budget=None,
         engine=None,
         api_key=None,
         base_url=None,
-        client: Optional[Client] = None,
+        client: Client | None = None,
     ):
         super().__init__(
             client=client,
             api_key=api_key,
             base_url=base_url,
+            temperature=temperature,
         )
 
         self.name = name
@@ -183,10 +189,17 @@ class OpenAILLMClassifier(OpenAILLMScorer):
         self.engine = engine
         self.messages = messages
 
-        self.extra_args["temperature"] = temperature or 0
-
-        if max_tokens:
+        if max_tokens is not None:
             self.extra_args["max_tokens"] = max(max_tokens, 5)
+
+        if reasoning_effort is not None:
+            self.extra_args["reasoning_effort"] = reasoning_effort
+
+        if reasoning_enabled is not None:
+            self.extra_args["reasoning_enabled"] = reasoning_enabled
+
+        if reasoning_budget is not None:
+            self.extra_args["reasoning_budget"] = reasoning_budget
 
         self.render_args = {}
         if render_args:
@@ -264,11 +277,12 @@ class OpenAILLMClassifier(OpenAILLMScorer):
 @dataclass
 class ModelGradedSpec:
     prompt: str
-    choice_scores: Dict[str, float]
-    model: Optional[str] = None
-    engine: Optional[str] = None
-    use_cot: Optional[bool] = None
-    temperature: Optional[float] = None
+    choice_scores: dict[str, float]
+    model: str | None = None
+    engine: str | None = None
+    use_cot: bool | None = None
+    temperature: float | None = None
+    max_tokens: int | None = None
 
 
 class LLMClassifier(OpenAILLMClassifier):
@@ -307,8 +321,11 @@ class LLMClassifier(OpenAILLMClassifier):
         choice_scores: Mapping of choices to scores (e.g. `{"good": 1, "bad": 0}`)
         model: Model to use. Defaults to DEFAULT_MODEL.
         use_cot: Enable chain of thought reasoning. Defaults to True.
-        max_tokens: Maximum tokens to generate. Defaults to 512.
-        temperature: Controls randomness (0-1). Defaults to 0.
+        max_tokens: Maximum tokens to generate. If not specified, uses the model's default.
+        temperature: Controls randomness (0-1). If not specified, uses the model's default.
+        reasoning_effort: Controls reasoning depth for o-series models (e.g., "low", "medium", "high").
+        reasoning_enabled: Enable extended thinking for supported models (e.g., Claude). Defaults to None.
+        reasoning_budget: Token allocation for model's internal reasoning. Defaults to None.
         engine: Deprecated by OpenAI. Use model instead.
         api_key: Deprecated. Use client instead.
         base_url: Deprecated. Use client instead.
@@ -316,24 +333,30 @@ class LLMClassifier(OpenAILLMClassifier):
         **extra_render_args: Additional template variables
     """
 
-    _SPEC_FILE_CONTENTS: Dict[str, str] = defaultdict(str)
+    _SPEC_FILE_CONTENTS: dict[str, str] = defaultdict(str)
 
     def __init__(
         self,
         name,
         prompt_template,
         choice_scores,
-        model=DEFAULT_MODEL,
+        model=None,
         use_cot=True,
-        max_tokens=512,
-        temperature=0,
+        max_tokens=None,
+        temperature=None,
+        reasoning_effort=None,
+        reasoning_enabled=None,
+        reasoning_budget=None,
         engine=None,
         api_key=None,
         base_url=None,
-        client: Optional[Client] = None,
+        client: Client | None = None,
         **extra_render_args,
     ):
         choice_strings = list(choice_scores.keys())
+        # Use configured default model if not specified
+        if model is None:
+            model = get_default_model()
 
         prompt = prompt_template + "\n" + (COT_SUFFIX if use_cot else NO_COT_SUFFIX)
         messages = [
@@ -351,6 +374,9 @@ class LLMClassifier(OpenAILLMClassifier):
             classification_tools=build_classification_tools(use_cot, choice_strings),
             max_tokens=max_tokens,
             temperature=temperature,
+            reasoning_effort=reasoning_effort,
+            reasoning_enabled=reasoning_enabled,
+            reasoning_budget=reasoning_budget,
             engine=engine,
             api_key=api_key,
             base_url=base_url,
@@ -359,11 +385,23 @@ class LLMClassifier(OpenAILLMClassifier):
         )
 
     @classmethod
-    def from_spec(cls, name: str, spec: ModelGradedSpec, client: Optional[Client] = None, **kwargs):
-        return cls(name, spec.prompt, spec.choice_scores, client=client, **kwargs)
+    def from_spec(cls, name: str, spec: ModelGradedSpec, client: Client | None = None, **kwargs):
+        spec_kwargs = {}
+        if spec.model is not None:
+            spec_kwargs["model"] = spec.model
+        if spec.engine is not None:
+            spec_kwargs["engine"] = spec.engine
+        if spec.use_cot is not None:
+            spec_kwargs["use_cot"] = spec.use_cot
+        if spec.temperature is not None:
+            spec_kwargs["temperature"] = spec.temperature
+        if spec.max_tokens is not None:
+            spec_kwargs["max_tokens"] = spec.max_tokens
+        # kwargs can override spec values
+        return cls(name, spec.prompt, spec.choice_scores, client=client, **spec_kwargs, **kwargs)
 
     @classmethod
-    def from_spec_file(cls, name: str, path: str, client: Optional[Client] = None, **kwargs):
+    def from_spec_file(cls, name: str, path: str, client: Client | None = None, **kwargs):
         if cls._SPEC_FILE_CONTENTS[name] == "":
             with open(path) as f:
                 cls._SPEC_FILE_CONTENTS[name] = f.read()
@@ -381,7 +419,7 @@ class SpecFileClassifier(LLMClassifier):
         temperature=None,
         api_key=None,
         base_url=None,
-        client: Optional[Client] = None,
+        client: Client | None = None,
     ):
         kwargs = {}
         if model is not None:

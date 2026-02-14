@@ -305,22 +305,19 @@ def test_put():
 
 
 @retry()
-def test_get_impersonate_firefox133():
+def test_get_impersonate_chrome106():
     response = primp.get(
-        "https://tls.peet.ws/api/all",
+        #"https://tls.peet.ws/api/all",
         #"https://tls.http.rw/api/all",
-        impersonate="firefox_133",
-        impersonate_os="linux",
+        "https://tls.browserleaks.com/json",
+        impersonate="safari_18.5",
+        impersonate_os="ios",
     )
     assert response.status_code == 200
     json_data = response.json()
     assert (
         json_data["user_agent"]
-        == "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0"
+        == "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"
     )
-    assert json_data["tls"]["ja4"] == "t13d1716h2_5b57614c22b0_bed828528d07"
-    assert (
-        json_data["http2"]["akamai_fingerprint_hash"]
-        == "6ea73faa8fc5aac76bded7bd238f6433"
-    )
-    assert json_data["tls"]["peetprint_hash"] == "199f9cf4a47bfc51995a9f3942190094"
+    assert json_data["ja4"] == "t13d2014h2_a09f3c656075_e42f34c56612"
+    assert json_data["akamai_hash"] == "c52879e43202aeb92740be6e8c86ea96"
