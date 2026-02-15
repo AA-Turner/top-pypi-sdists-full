@@ -324,15 +324,25 @@ class WhatsAppBot(ChatCommandMixin, MessageHookMixin):
                 if not self._respond_to_all:
                     if is_self_chat:
                         pass  # true self-chat — always allow
+                    elif is_from_me:
+                        # Outgoing message to someone else's chat — NEVER process.
+                        # This prevents the bot from responding when the user
+                        # sends messages to friends/groups.  Only self-chat
+                        # (user → own number) should trigger the bot.
+                        logger.debug(
+                            "Filtered: outgoing msg %s to chat %s (not self-chat)",
+                            msg_id, chat_jid,
+                        )
+                        return
                     elif is_group and self._allowed_groups:
-                        # Check if group JID is in the allowlist
+                        # Inbound group message — check if group is in allowlist
                         chat_jid_str = chat_jid.split("@")[0] if "@" in chat_jid else chat_jid
                         if not (chat_jid in self._allowed_groups
                                 or chat_jid_str in self._allowed_groups):
                             logger.debug("Filtered: group %s not in allowlist", chat_jid)
                             return
                     elif not is_group and self._allowed_numbers:
-                        # Check if sender number is in the allowlist
+                        # Inbound DM — check if sender is in allowlist
                         sender_num = _jid_user(sender_jid)
                         if sender_num not in self._allowed_numbers:
                             logger.debug("Filtered: sender %s not in allowlist", sender_num)
@@ -457,10 +467,19 @@ class WhatsAppBot(ChatCommandMixin, MessageHookMixin):
                 await asyncio.sleep(1)
         except asyncio.CancelledError:
             pass
+        except KeyboardInterrupt:
+            pass
         except Exception as e:
             logger.error(f"WhatsApp Web mode error: {e}")
             raise
         finally:
+            # Graceful shutdown: stop the neonize log worker thread to
+            # prevent "threading._shutdown" errors on Ctrl+C.
+            try:
+                from neonize.utils.log import shutdown_log_worker
+                shutdown_log_worker()
+            except Exception:
+                pass
             await self.stop()
 
     async def _web_send(self, to: Any, text: str) -> None:

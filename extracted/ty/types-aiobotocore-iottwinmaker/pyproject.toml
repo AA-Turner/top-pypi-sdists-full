@@ -4,10 +4,10 @@
 
 [project]
 name = "types-aiobotocore-iottwinmaker"
-version = "3.1.2"
+version = "3.1.3"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for aiobotocore IoTTwinMaker 3.1.2 service generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for aiobotocore IoTTwinMaker 3.1.3 service generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",

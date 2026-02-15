@@ -57,7 +57,7 @@ def make_name_from_obj(
 
     Args:
         obj: Object to extract name from (module, function, class, or string).
-            For non-string objects, the ``__name__`` attribute is used.
+            For non-string objects, the `__name__` attribute is used.
         split_on: Character(s) to split the name on. Defaults to "_" for
             snake_case identifiers.
         join_on: Character(s) to join the parts with. Defaults to "-" for
@@ -65,22 +65,21 @@ def make_name_from_obj(
         capitalize: Whether to capitalize each word in the result.
 
     Returns:
-        Formatted string with parts joined by ``join_on``. For example,
+        Formatted string with parts joined by `join_on`. For example,
         "some_function" becomes "Some-Function" with default parameters.
 
     Raises:
-        ValueError: If object has no ``__name__`` attribute and is not a string,
+        ValueError: If object has no `__name__` attribute and is not a string,
             or if the resulting name would be empty or contain only separators.
 
     Example:
-        >>> import my_module
-        >>> make_name_from_obj(my_module)  # __name__ is "my_module"
-        'My-Module'
+        >>> make_name_from_obj("init_project")
+        'Init-Project'
         >>> make_name_from_obj("init_project", join_on=" ")
         'Init Project'
 
     Note:
-        For non-string objects, only the last component of ``__name__`` is used
+        For non-string objects, only the last component of `__name__` is used
         (e.g., "package.submodule" → "submodule"). Does not handle PascalCase
         identifiers; use `split_on_uppercase` first if needed.
     """
@@ -120,12 +119,12 @@ def re_search_excluding_docstrings(
         None if not found or only found within docstrings.
 
     Warning:
-        Match positions (``span()``, ``start()``, ``end()``) reference the
+        Match positions (`span()`, `start()`, `end()`) reference the
         stripped content where docstrings have been removed, not the original.
         Do not use these positions for slicing or indexing the original content.
 
     Note:
-        Removes all triple-quoted strings (both ``\"\"\"`` and ``'''``) using
+        Removes all triple-quoted strings (both `\"\"\"` and `'''`) using
         regex heuristics. Cannot distinguish docstrings from triple-quoted
         string literals used for other purposes. Unclosed triple-quoted strings
         are not removed, so their content will be searched.
@@ -138,7 +137,7 @@ def re_search_excluding_docstrings(
 def make_summary_error_msg(
     errors_locations: Iterable[str],
 ) -> str:
-    """Create indented error message summarizing multiple error locations.
+    """Create formatted error message summarizing multiple error locations.
 
     Used by pyrig's test fixtures to format assertion error messages when
     multiple validation failures are detected across the codebase.
@@ -148,14 +147,15 @@ def make_summary_error_msg(
             test identifiers, or descriptive location strings).
 
     Returns:
-        Multiline string with "Found errors at:" header and indented bulleted
-        list. The output includes leading and trailing whitespace for embedding
-        in larger error messages.
+        Multiline string with "Found errors at:" header followed by a bulleted
+        list. The output includes a leading newline and trailing newlines after
+        each location item.
 
     Note:
-        The output format is designed for use in assertion messages and includes
-        indentation suitable for multiline f-strings. Each location appears on
-        its own line with a "- " prefix.
+        The output format is designed for use in assertion messages. It starts
+        with a newline, then "Found errors at:" on its own line, followed by
+        each location on a separate line with "- " prefix, each with a trailing
+        newline (creating blank lines between items).
     """
     msg = """
 Found errors at:
@@ -198,15 +198,17 @@ def make_linked_badge_markdown(
 
 
 def package_req_name_split_pattern() -> re.Pattern[str]:
-    """Helper function to access the regex pattern for parsing package names.
+    """Return compiled regex pattern for splitting package names from requirements.
 
-    Pre-compiled regex for parsing package names from requirement strings.
-    Matches everything before the first version specifier (>, <, =, [, ;, etc.)
-    Allows alphanumeric, underscore, hyphen, and period (for namespace packages).
-    Used by DependencyGraph and PyprojectConfigFile.L.
+    Matches any character that is not part of a valid package name (i.e., not
+    alphanumeric, underscore, hyphen, period, or bracket). When used with
+    `re.Pattern.split`, the first element of the result is the package name
+    stripped of version specifiers and extras.
+
+    Used by `DependencyGraph` and `PyprojectConfigFile`.
 
     Returns:
-        re.Pattern: The pre-compiled regex pattern.
+        Compiled regex pattern matching non-package-name characters.
     """
     # re.compile is already internally cached by Python
     return re.compile(r"[^a-zA-Z0-9_.\[\]-]")

@@ -3,15 +3,15 @@
 Extends the base PyprojectConfigFile with pyrig-specific PyPI classifiers and
 keywords. Only active when pyrig itself is the project being configured.
 
-The conditional class definition uses ``src_package_is_pyrig()`` to ensure this
-class is only discoverable via ``__subclasses__()`` when running within pyrig's
+The conditional class definition uses `src_package_is_pyrig()` to ensure this
+class is only discoverable via `__subclasses__()` when running within pyrig's
 repository. Other projects depending on pyrig will not inherit these settings.
 
 Example:
     When generating pyproject.toml for pyrig itself::
 
         >>> from pyrig.rig.configs.pyrig.pyproject import PyprojectConfigFile
-        >>> configs = PyprojectConfigFile.L.configs()
+        >>> configs = PyprojectConfigFile.I.configs()
         >>> "project-setup" in configs["project"]["keywords"]
         True
         >>> any("Build Tools" in c for c in configs["project"]["classifiers"])
@@ -44,8 +44,7 @@ if src_package_is_pyrig():
             pyrig.rig.configs.pyproject.PyprojectConfigFile: Parent class
         """
 
-        @classmethod
-        def make_python_version_classifiers(cls) -> list[str]:
+        def make_python_version_classifiers(self) -> list[str]:
             """Generate PyPI classifiers with pyrig-specific metadata.
 
             Prepends pyrig-specific classifiers to the base classifiers:
@@ -69,8 +68,7 @@ if src_package_is_pyrig():
             )
             return [*dev_statuses, *intended_audiences, *topics, *classifiers]
 
-        @classmethod
-        def _configs(cls) -> dict[str, Any]:
+        def _configs(self) -> dict[str, Any]:
             """Generate complete pyproject.toml config with pyrig-specific keywords.
 
             Extends base configuration by adding keywords relevant to pyrig's

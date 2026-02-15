@@ -34,6 +34,7 @@ from .paginator import (
     ListAgentRuntimesPaginator,
     ListAgentRuntimeVersionsPaginator,
     ListApiKeyCredentialProvidersPaginator,
+    ListBrowserProfilesPaginator,
     ListBrowsersPaginator,
     ListCodeInterpretersPaginator,
     ListEvaluatorsPaginator,
@@ -55,6 +56,8 @@ from .type_defs import (
     CreateAgentRuntimeResponseTypeDef,
     CreateApiKeyCredentialProviderRequestTypeDef,
     CreateApiKeyCredentialProviderResponseTypeDef,
+    CreateBrowserProfileRequestTypeDef,
+    CreateBrowserProfileResponseTypeDef,
     CreateBrowserRequestTypeDef,
     CreateBrowserResponseTypeDef,
     CreateCodeInterpreterRequestTypeDef,
@@ -82,6 +85,8 @@ from .type_defs import (
     DeleteAgentRuntimeRequestTypeDef,
     DeleteAgentRuntimeResponseTypeDef,
     DeleteApiKeyCredentialProviderRequestTypeDef,
+    DeleteBrowserProfileRequestTypeDef,
+    DeleteBrowserProfileResponseTypeDef,
     DeleteBrowserRequestTypeDef,
     DeleteBrowserResponseTypeDef,
     DeleteCodeInterpreterRequestTypeDef,
@@ -109,6 +114,8 @@ from .type_defs import (
     GetAgentRuntimeResponseTypeDef,
     GetApiKeyCredentialProviderRequestTypeDef,
     GetApiKeyCredentialProviderResponseTypeDef,
+    GetBrowserProfileRequestTypeDef,
+    GetBrowserProfileResponseTypeDef,
     GetBrowserRequestTypeDef,
     GetBrowserResponseTypeDef,
     GetCodeInterpreterRequestTypeDef,
@@ -145,6 +152,8 @@ from .type_defs import (
     ListAgentRuntimeVersionsResponseTypeDef,
     ListApiKeyCredentialProvidersRequestTypeDef,
     ListApiKeyCredentialProvidersResponseTypeDef,
+    ListBrowserProfilesRequestTypeDef,
+    ListBrowserProfilesResponseTypeDef,
     ListBrowsersRequestTypeDef,
     ListBrowsersResponseTypeDef,
     ListCodeInterpretersRequestTypeDef,
@@ -316,6 +325,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#create_browser)
         """
 
+    async def create_browser_profile(
+        self, **kwargs: Unpack[CreateBrowserProfileRequestTypeDef]
+    ) -> CreateBrowserProfileResponseTypeDef:
+        """
+        Creates a browser profile in Amazon Bedrock AgentCore.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_browser_profile.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#create_browser_profile)
+        """
+
     async def create_code_interpreter(
         self, **kwargs: Unpack[CreateCodeInterpreterRequestTypeDef]
     ) -> CreateCodeInterpreterResponseTypeDef:
@@ -455,6 +474,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_browser.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#delete_browser)
+        """
+
+    async def delete_browser_profile(
+        self, **kwargs: Unpack[DeleteBrowserProfileRequestTypeDef]
+    ) -> DeleteBrowserProfileResponseTypeDef:
+        """
+        Deletes a browser profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_browser_profile.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#delete_browser_profile)
         """
 
     async def delete_code_interpreter(
@@ -606,6 +635,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_browser.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_browser)
+        """
+
+    async def get_browser_profile(
+        self, **kwargs: Unpack[GetBrowserProfileRequestTypeDef]
+    ) -> GetBrowserProfileResponseTypeDef:
+        """
+        Gets information about a browser profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_browser_profile.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_browser_profile)
         """
 
     async def get_code_interpreter(
@@ -779,6 +818,16 @@ class BedrockAgentCoreControlClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_api_key_credential_providers.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_api_key_credential_providers)
+        """
+
+    async def list_browser_profiles(
+        self, **kwargs: Unpack[ListBrowserProfilesRequestTypeDef]
+    ) -> ListBrowserProfilesResponseTypeDef:
+        """
+        Lists all browser profiles in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_browser_profiles.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#list_browser_profiles)
         """
 
     async def list_browsers(
@@ -1142,6 +1191,17 @@ class BedrockAgentCoreControlClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_api_key_credential_providers"]
     ) -> ListApiKeyCredentialProvidersPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_browser_profiles"]
+    ) -> ListBrowserProfilesPaginator:
         """
         Create a paginator for an operation.
 

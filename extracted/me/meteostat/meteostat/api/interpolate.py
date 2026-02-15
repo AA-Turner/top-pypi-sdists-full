@@ -159,7 +159,7 @@ def _interpolate_with_nearest_neighbor(
     )
     elevation_filter = (
         pd.Series([True] * len(df), index=df.index)
-        if elevation_threshold is None
+        if elevation_threshold is None or point.elevation is None
         else (np.abs(df["elevation"] - point.elevation) <= elevation_threshold)
     )
     df_filtered = df[distance_filter & elevation_filter]
@@ -327,8 +327,8 @@ def interpolate(
 
     # Apply lapse rate if specified and elevation is available
     if (
-        lapse_rate
-        and point.elevation
+        lapse_rate is not None
+        and point.elevation is not None
         and df["elevation_diff"].max() >= lapse_rate_threshold
     ):
         logger.debug("Applying lapse rate correction.")

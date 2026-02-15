@@ -11,7 +11,7 @@ jobs:
   macos:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: 3.12
@@ -35,7 +35,7 @@ jobs:
           pip install pytest
           cd tests && pytest
       - name: Upload wheels
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: wheels-macos
           path: dist
@@ -46,7 +46,7 @@ jobs:
       matrix:
         target: [x64, x86]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: 3.12
@@ -68,7 +68,7 @@ jobs:
           pip install pytest
           cd tests && pytest
       - name: Upload wheels
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: wheels-windows-${{ matrix.target }}
           path: dist
@@ -79,7 +79,7 @@ jobs:
       matrix:
         target: [aarch64-pc-windows-msvc]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: 3.12
@@ -100,7 +100,7 @@ jobs:
           pip install pytest
           cd tests && pytest
       - name: Upload wheels
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: wheels-windows-arm-${{ matrix.target }}
           path: dist
@@ -111,7 +111,7 @@ jobs:
       matrix:
         target: [x86_64, i686]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: 3.12
@@ -141,7 +141,7 @@ jobs:
           pip install pytest
           cd tests && pytest
       - name: Upload wheels
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: wheels-linux-${{ matrix.target }}
           path: dist
@@ -150,9 +150,21 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [aarch64, armv7, s390x, ppc64le, ppc64]
+        platform:
+          - target: aarch64-unknown-linux-gnu
+            arch: aarch64
+          - target: armv7-unknown-linux-gnueabihf
+            arch: armv7
+          - target: s390x-unknown-linux-gnu
+            arch: s390x
+          - target: powerpc64le-unknown-linux-gnu
+            arch: ppc64le
+          - target: powerpc64-unknown-linux-gnu
+            arch: ppc64
+          - target: riscv64gc-unknown-linux-gnu
+            arch: riscv64
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: 3.12
@@ -160,7 +172,7 @@ jobs:
         uses: pyo3/maturin-action@v1
         with:
           rust-toolchain: nightly
-          target: ${{ matrix.target }}
+          target: ${{ matrix.platform.target }}
           manylinux: auto
           args: --release --out dist
           sccache: true
@@ -168,15 +180,15 @@ jobs:
         uses: pyo3/maturin-action@v1
         with:
           rust-toolchain: nightly
-          target: ${{ matrix.target }}
+          target: ${{ matrix.platform.target }}
           manylinux: auto
           args: --release --out dist -i python3.13
           sccache: true
       - uses: uraimo/run-on-arch-action@v3.0.1
-        if: matrix.target != 'ppc64'
+        if: matrix.platform.arch != 'ppc64'
         name: Install built wheel
         with:
-          arch: ${{ matrix.target }}
+          arch: ${{ matrix.platform.arch }}
           distro: ubuntu22.04
           githubToken: ${{ github.token }}
           install: |
@@ -187,9 +199,9 @@ jobs:
             pip3 install nh3 --no-index --find-links dist/ --force-reinstall
             cd tests && pytest
       - name: Upload wheels
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
-          name: wheels-linux-${{ matrix.target }}
+          name: wheels-linux-${{ matrix.platform.arch }}
           path: dist
 
   musllinux:
@@ -200,7 +212,7 @@ jobs:
           - x86_64-unknown-linux-musl
           - i686-unknown-linux-musl
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: 3.12
@@ -221,19 +233,17 @@ jobs:
           sccache: true
       - name: Install built wheel
         if: matrix.target == 'x86_64-unknown-linux-musl'
-        uses: addnab/docker-run-action@v3
-        with:
-          image: alpine:latest
-          options: -v ${{ github.workspace }}:/io -w /io
-          run: |
+        run: |
+          docker run --rm -v ${{ github.workspace }}:/io -w /io alpine:latest sh -c '
             apk add py3-virtualenv
             python3 -m virtualenv .venv
             source .venv/bin/activate
             pip install -U pip pytest
             pip install nh3 --no-index --find-links /io/dist/ --force-reinstall
             cd tests && python3 -m pytest
+          '
       - name: Upload wheels
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: wheels-${{ matrix.target }}
           path: dist
@@ -248,7 +258,7 @@ jobs:
           - target: armv7-unknown-linux-musleabihf
             arch: armv7
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: 3.12
@@ -281,15 +291,15 @@ jobs:
             pip install nh3 --no-index --find-links dist/ --force-reinstall
             cd tests && python3 -m pytest
       - name: Upload wheels
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
-          name: wheels-${{ matrix.platform.target }}
+          name: wheels-${{ matrix.platform.arch }}
           path: dist
 
   sdist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: 3.12
@@ -300,7 +310,7 @@ jobs:
           command: sdist
           args: --out dist
       - name: Upload sdist
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: wheels-sdist
           path: dist
@@ -312,7 +322,7 @@ jobs:
     needs:
       [macos, windows, windows-arm, linux, linux-cross, musllinux, musllinux-cross, sdist]
     steps:
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           pattern: wheels-*
           merge-multiple: true

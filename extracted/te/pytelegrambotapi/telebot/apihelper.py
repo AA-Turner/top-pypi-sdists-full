@@ -349,6 +349,16 @@ def get_user_profile_photos(token, user_id, offset=None, limit=None):
     return _make_request(token, method_url, params=payload)
 
 
+def get_user_profile_audios(token, user_id, offset=None, limit=None):
+    method_url = r'getUserProfileAudios'
+    payload = {'user_id': user_id}
+    if offset:
+        payload['offset'] = offset
+    if limit:
+        payload['limit'] = limit
+    return _make_request(token, method_url, params=payload)
+
+
 def set_user_emoji_status(token, user_id, emoji_status_custom_emoji_id=None, emoji_status_expiration_date=None):
     method_url = r'setUserEmojiStatus'
     payload = {'user_id': user_id}
@@ -1525,6 +1535,17 @@ def get_my_name(token, language_code=None):
     if language_code is not None:
         payload['language_code'] = language_code
     return _make_request(token, method_url, params=payload)
+
+def set_my_profile_photo(token, photo):
+    method_url = r'setMyProfilePhoto'
+    payload = {}
+    photo_json, files = photo.convert_input_profile_photo()
+    payload['photo'] = photo_json
+    return _make_request(token, method_url, params=payload, files=files, method='post')
+
+def delete_my_profile_photo(token):
+    method_url = r'deleteMyProfilePhoto'
+    return _make_request(token, method_url, method='post')
 
 def set_chat_menu_button(token, chat_id=None, menu_button=None):
     method_url = r'setChatMenuButton'

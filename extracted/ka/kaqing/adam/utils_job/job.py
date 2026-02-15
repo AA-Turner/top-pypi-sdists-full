@@ -10,14 +10,15 @@ from adam.utils_log import log_exc
 
 class Job:
     _last_job: 'Job' = None
-    _show_restarts_command: 'Job' = None
+    _job_scheduler: 'Job' = None
+    _node_scheduler: 'Job' = None
+
     _jobs: dict[str, 'Job'] = {}
     _pod_log_cnts_by_job_id: dict[str, int] = {}
     lock = threading.Lock()
 
     def local_log_file(command: str, job_id: str = None, err = False, dir: str = None, extra: dict[str, str] = {}):
         with log_exc():
-            # job: Job
             job: Job = Job.create(job_id, command, extra)
 
             return job._local_log_file(dir, err=err)
@@ -58,23 +59,34 @@ class Job:
         if not job_id:
             job_id = Job.new_id()
 
+        if job_id in Job.jobs():
+            return Job.jobs()[job_id]
+
         job = Job(command=command, job_id=job_id, extra=extra)
         if command:
-            if Job.write_last_job(job, replace=replace_last_file):
-                Job._last_job = job
-                Job._jobs[job_id] = job
+            if command not in ['job-scheduler']:
+                if Job.write_last_job(job, replace=replace_last_file):
+                    Job._last_job = job
+                    Job._jobs[job_id] = job
 
             if (tks := command.split(' ')) and tks[0] == 'restart' and tks[1] in ['cassandra']:
-                Job._show_restarts_command = job
+                Job._node_scheduler = job
+            elif command == 'job-scheduler':
+                Job._job_scheduler = job
+
+        # print('SEAN job create', job, job.job_id, job.command)
 
         return job
 
-    def new_id(dt: datetime = None):
+    def new_id(dt: datetime = None, cmd: str = None):
         if not dt:
             dt = datetime.now()
 
+        # print('SEAN Job.new_id', cmd)
+
         id = dt.strftime("%d%H%M%S")
-        Job._last_job = Job(job_id=id)
+        if not cmd or cmd not in ['job-scheduler']:
+            Job._last_job = Job(job_id=id)
 
         return id
 
@@ -103,8 +115,11 @@ class Job:
 
             return None
 
-    def show_restarts_command():
-        return Job._show_restarts_command
+    def node_scheduler():
+        return Job._node_scheduler
+
+    def job_scheduler():
+        return Job._job_scheduler
 
     def write_last_job(cmd: 'Job', replace = True):
         file = f'{local_log_dir()}/last'
@@ -146,6 +161,7 @@ class Job:
             self.raw_command = ''
         self.job_id = job_id
         self.extra = extra
+        # print('SEAN Job init', self.job_id, self.command)
 
     def write(self, f: TextIO):
         f.write(self.job_id)

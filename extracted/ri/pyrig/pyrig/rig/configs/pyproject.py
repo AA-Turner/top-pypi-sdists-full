@@ -1,4 +1,4 @@
-"""Manages pyproject.toml (PEP 518, 621, 660).
+"""Manage pyproject.toml (PEP 518, 621, 660).
 
 Handles metadata, dependencies, build config (uv), tool configs (ruff, ty, pytest,
 bandit, rumdl). Enforces opinionated defaults: all ruff rules (except D203, D213,
@@ -10,7 +10,6 @@ Utility methods: project info, dependencies, Python versions, license detection,
 classifiers.
 """
 
-from functools import cache
 from pathlib import Path
 from typing import Any, Literal
 
@@ -40,7 +39,7 @@ from pyrig.src.string_ import package_req_name_split_pattern
 
 
 class PyprojectConfigFile(TomlConfigFile):
-    """Manages pyproject.toml with metadata, dependencies, build config, tool settings.
+    """Manage pyproject.toml with metadata, dependencies, configs, and tool settings.
 
     Generates structure with metadata from git/filesystem, dependency normalization,
     uv build config, tool configs, CLI entry points. Priority 20 (created early).
@@ -50,39 +49,38 @@ class PyprojectConfigFile(TomlConfigFile):
 
     See Also:
         pyrig.rig.configs.base.toml.TomlConfigFile
-        pyrig.src.consts.STANDARD_DEV_DEPS
     """
 
-    @classmethod
-    def priority(cls) -> float:
+    def priority(self) -> float:
         """Return priority 20 (created early for other configs to read)."""
         return Priority.MEDIUM
 
-    @classmethod
-    def _dump(cls, config: dict[str, Any] | list[Any]) -> None:
-        """Write config with dependency normalization (modifies in-place)."""
+    def _dump(self, config: dict[str, Any] | list[Any]) -> None:
+        """Write config with dependency normalization (modifies in-place).
+
+        Raises:
+            TypeError: If ``config`` is not a dict.
+        """
         if not isinstance(config, dict):
             msg = f"Cannot dump {config} to pyproject.toml file."
             raise TypeError(msg)
-        cls.remove_wrong_dependencies(config)
+        self.remove_wrong_dependencies(config)
         super()._dump(config)
 
-    @classmethod
-    def parent_path(cls) -> Path:
+    def parent_path(self) -> Path:
         """Return project root."""
         return Path()
 
-    @classmethod
-    def _configs(cls) -> dict[str, Any]:
+    def _configs(self) -> dict[str, Any]:
         """Generate complete pyproject.toml config (metadata, deps, build, tools)."""
-        repo_owner, _ = VersionController.L.repo_owner_and_name(check_repo_url=False)
-        tests_package_name = MirrorTestConfigFile.L.tests_package_name()
+        repo_owner, _ = VersionController.I.repo_owner_and_name(check_repo_url=False)
+        tests_package_name = MirrorTestConfigFile.I.tests_package_name()
 
         return {
             "project": {
                 "name": project_name_from_cwd(),
-                "version": cls.project_version(),
-                "description": cls.project_description(),
+                "version": self.project_version(),
+                "description": self.project_description(),
                 "readme": "README.md",
                 "authors": [
                     {"name": repo_owner},
@@ -90,34 +88,34 @@ class PyprojectConfigFile(TomlConfigFile):
                 "maintainers": [
                     {"name": repo_owner},
                 ],
-                "license": cls.detect_project_license(),
-                "license-files": [LicenseConfigFile.L.path().name],
-                "requires-python": cls.requires_python(),
+                "license": self.detect_project_license(),
+                "license-files": [LicenseConfigFile.I.path().name],
+                "requires-python": self.requires_python(),
                 "classifiers": [
-                    *cls.make_python_version_classifiers(),
+                    *self.make_python_version_classifiers(),
                 ],
                 "urls": {
-                    "Homepage": RemoteVersionController.L.repo_url(),
-                    "Documentation": DocsBuilder.L.documentation_url(),
-                    "Source": RemoteVersionController.L.repo_url(),
-                    "Issues": RemoteVersionController.L.issues_url(),
-                    "Changelog": RemoteVersionController.L.releases_url(),
+                    "Homepage": RemoteVersionController.I.repo_url(),
+                    "Documentation": DocsBuilder.I.documentation_url(),
+                    "Source": RemoteVersionController.I.repo_url(),
+                    "Issues": RemoteVersionController.I.issues_url(),
+                    "Changelog": RemoteVersionController.I.releases_url(),
                 },
                 "keywords": [],
                 "scripts": {
                     project_name_from_cwd(): f"{cli.__name__}:{cli.main.__name__}"
                 },
-                "dependencies": cls.make_dependency_versions(cls.dependencies()),
+                "dependencies": self.make_dependency_versions(self.dependencies()),
             },
             "dependency-groups": {
-                "dev": cls.make_dependency_versions(
-                    cls.dev_dependencies(),
+                "dev": self.make_dependency_versions(
+                    self.dev_dependencies(),
                     additional=Tool.subclasses_dev_dependencies(),
                 )
             },
             "build-system": {
-                "requires": PackageManager.L.build_system_requires(),
-                "build-backend": PackageManager.L.build_backend(),
+                "requires": PackageManager.I.build_system_requires(),
+                "build-backend": PackageManager.I.build_backend(),
             },
             "tool": {
                 "uv": {
@@ -149,7 +147,7 @@ class PyprojectConfigFile(TomlConfigFile):
                 "pytest": {
                     "ini_options": {
                         "testpaths": [tests_package_name],
-                        "addopts": f"--cov={package_name_from_cwd()} --cov-report=term-missing --cov-fail-under={ProjectTester.L.coverage_threshold()}",  # noqa: E501
+                        "addopts": f"--cov={package_name_from_cwd()} --cov-report=term-missing --cov-fail-under={ProjectTester.I.coverage_threshold()}",  # noqa: E501
                     }
                 },
                 "bandit": {
@@ -165,19 +163,18 @@ class PyprojectConfigFile(TomlConfigFile):
             },
         }
 
-    @classmethod
-    def detect_project_license(cls) -> str:
+    def detect_project_license(self) -> str:
         """Detect the project's license from the LICENSE file.
 
         Reads the LICENSE file and uses spdx_matcher to identify the license
         type and return its SPDX identifier.
 
         Returns:
-            str: SPDX license identifier (e.g., "MIT", "Apache-2.0", "GPL-3.0").
+            SPDX license identifier (e.g., "MIT", "Apache-2.0", "GPL-3.0").
 
         Raises:
             FileNotFoundError: If LICENSE file doesn't exist.
-            StopIteration: If no license is detected (empty licenses dict).
+            ValueError: If no license is detected in the LICENSE file.
 
         Note:
             This method reads from the LICENSE file in the project root.
@@ -193,30 +190,26 @@ class PyprojectConfigFile(TomlConfigFile):
             raise ValueError(msg)
         return next(iter(licenses))
 
-    @classmethod
-    def remove_wrong_dependencies(cls, config: dict[str, Any]) -> None:
+    def remove_wrong_dependencies(self, config: dict[str, Any]) -> None:
         """Normalize dependency versions (modifies in-place)."""
-        config["project"]["dependencies"] = cls.make_dependency_versions(
+        config["project"]["dependencies"] = self.make_dependency_versions(
             config["project"]["dependencies"]
         )
-        config["dependency-groups"]["dev"] = cls.make_dependency_versions(
+        config["dependency-groups"]["dev"] = self.make_dependency_versions(
             config["dependency-groups"]["dev"]
         )
 
-    @classmethod
-    def project_description(cls) -> str:
+    def project_description(self) -> str:
         """Get project description from pyproject.toml."""
-        return str(cls.load().get("project", {}).get("description", ""))
+        return str(self.load().get("project", {}).get("description", ""))
 
-    @classmethod
-    def project_version(cls) -> str:
+    def project_version(self) -> str:
         """Get project version from pyproject.toml."""
-        return str(cls.load().get("project", {}).get("version", ""))
+        return str(self.load().get("project", {}).get("version", ""))
 
-    @classmethod
-    def make_python_version_classifiers(cls) -> list[str]:
+    def make_python_version_classifiers(self) -> list[str]:
         """Generate PyPI classifiers (Python versions, OS Independent, Typed)."""
-        versions = cls.supported_python_versions()
+        versions = self.supported_python_versions()
         python_version_classifiers = [
             f"Programming Language :: Python :: {v.major}.{v.minor}" for v in versions
         ]
@@ -229,14 +222,12 @@ class PyprojectConfigFile(TomlConfigFile):
 
         return [*python_version_classifiers, *os_classifiers, *typing_classifiers]
 
-    @classmethod
-    def requires_python(cls, default: str = ">=3.12") -> str:
+    def requires_python(self, default: str = ">=3.12") -> str:
         """Get requires-python constraint from pyproject.toml."""
-        return str(cls.load().get("project", {}).get("requires-python", default))
+        return str(self.load().get("project", {}).get("requires-python", default))
 
-    @classmethod
     def make_dependency_versions(
-        cls,
+        self,
         dependencies: list[str],
         additional: list[str] | None = None,
     ) -> list[str]:
@@ -244,62 +235,58 @@ class PyprojectConfigFile(TomlConfigFile):
         if additional is None:
             additional = []
         stripped_dependencies = {
-            cls.remove_version_from_dep(dep) for dep in dependencies
+            self.remove_version_from_dep(dep) for dep in dependencies
         }
         additional = [
             dep
             for dep in additional
-            if cls.remove_version_from_dep(dep) not in stripped_dependencies
+            if self.remove_version_from_dep(dep) not in stripped_dependencies
         ]
         # Due to caching in load(), mutating in place causes bugs.
         # Always return a new structure instead of modifying.
         dependencies = [*dependencies, *additional]
         return sorted(set(dependencies))
 
-    @classmethod
-    def remove_version_from_dep(cls, dep: str) -> str:
+    def remove_version_from_dep(self, dep: str) -> str:
         """Strip version specifier from dependency.
 
-        Uses REQ_NAME_SPLIT_PATTERN from package module for consistency.
-        (e.g., 'requests>=2.0' -> 'requests').
+        Uses ``package_req_name_split_pattern`` from ``pyrig.src.string_``
+        for consistency (e.g., 'requests>=2.0' -> 'requests').
+
+        Args:
+            dep: Dependency string, optionally with version specifier.
         """
         return package_req_name_split_pattern().split(dep)[0]
 
-    @classmethod
-    def package_name(cls) -> str:
-        """Get Python package name with underscores.
-
-        (e.g., 'my-project' -> 'my_project').
-        """
-        project_name = cls.project_name()
+    def package_name(self) -> str:
+        """Get the Python package name (e.g., 'my-project' -> 'my_project')."""
+        project_name = self.project_name()
         return package_name_from_project_name(project_name)
 
-    @classmethod
-    def project_name(cls) -> str:
+    def project_name(self) -> str:
         """Get project name from pyproject.toml."""
-        return str(cls.load().get("project", {}).get("name", ""))
+        return str(self.load().get("project", {}).get("name", ""))
 
-    @classmethod
-    def dev_dependencies(cls) -> list[str]:
+    def dev_dependencies(self) -> list[str]:
         """Get dev dependencies from pyproject.toml."""
-        dev_deps: list[str] = cls.load().get("dependency-groups", {}).get("dev", [])
+        dev_deps: list[str] = self.load().get("dependency-groups", {}).get("dev", [])
         return dev_deps
 
-    @classmethod
-    def dependencies(cls) -> list[str]:
+    def dependencies(self) -> list[str]:
         """Get runtime dependencies from pyproject.toml."""
-        deps: list[str] = cls.load().get("project", {}).get("dependencies", [])
+        deps: list[str] = self.load().get("project", {}).get("dependencies", [])
         return deps
 
-    @classmethod
-    @cache
     @return_resource_content_on_fetch_error(resource_name="LATEST_PYTHON_VERSION")
     def fetch_latest_python_version(
-        cls, level: Literal["major", "minor", "micro"] = "minor"
+        self, level: Literal["major", "minor", "micro"] = "minor"
     ) -> str:
         """Fetch latest stable Python version.
 
-        Is fetched from endoflife.date API (cached, with fallback).
+        Fetches from endoflife.date API (cached, with fallback).
+
+        Args:
+            level: Precision level for the version string.
         """
         url = "https://endoflife.date/api/python.json"
         resp = requests.get(url, timeout=10)
@@ -308,31 +295,32 @@ class PyprojectConfigFile(TomlConfigFile):
         latest_version = data[0]["latest"]
         return str(adjust_version_to_level(Version(latest_version), level))
 
-    @classmethod
     def latest_python_version(
-        cls, level: Literal["major", "minor", "micro"] = "minor"
+        self, level: Literal["major", "minor", "micro"] = "minor"
     ) -> Version:
         """Get latest stable Python version at precision level (major/minor/micro)."""
-        latest_version = Version(cls.fetch_latest_python_version())
+        latest_version = Version(self.fetch_latest_python_version())
         return adjust_version_to_level(latest_version, level)
 
-    @classmethod
     def latest_possible_python_version(
-        cls, level: Literal["major", "minor", "micro"] = "micro"
+        self, level: Literal["major", "minor", "micro"] = "micro"
     ) -> Version:
         """Get latest Python version allowed by requires-python constraint."""
-        constraint = cls.load()["project"]["requires-python"]
+        constraint = self.load()["project"]["requires-python"]
         version_constraint = VersionConstraint(constraint)
         version = version_constraint.upper_inclusive()
         if version is None:
-            version = cls.latest_python_version()
+            version = self.latest_python_version()
 
         return adjust_version_to_level(version, level)
 
-    @classmethod
-    def first_supported_python_version(cls) -> Version:
-        """Get minimum supported Python version from requires-python."""
-        constraint = cls.requires_python()
+    def first_supported_python_version(self) -> Version:
+        """Get minimum supported Python version from requires-python.
+
+        Raises:
+            ValueError: If requires-python has no lower bound.
+        """
+        constraint = self.requires_python()
         version_constraint = VersionConstraint(constraint)
         lower = version_constraint.find_lower_inclusive()
         if lower is None:
@@ -340,11 +328,10 @@ class PyprojectConfigFile(TomlConfigFile):
             raise ValueError(msg)
         return lower
 
-    @classmethod
-    def supported_python_versions(cls) -> list[Version]:
+    def supported_python_versions(self) -> list[Version]:
         """Get all supported Python minor versions within requires-python constraint."""
-        constraint = cls.requires_python()
+        constraint = self.requires_python()
         version_constraint = VersionConstraint(constraint)
         return version_constraint.version_range(
-            level="minor", upper_default=cls.latest_python_version()
+            level="minor", upper_default=self.latest_python_version()
         )

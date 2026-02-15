@@ -336,7 +336,7 @@ jobs:\n",
           pip uninstall -y pyodide-build\n",
                 );
                 conf.push_str(
-                    "      - uses: mymindstorm/setup-emsdk@v12
+                    "      - uses: mymindstorm/setup-emsdk@v14
         with:
           version: ${{ env.EMSCRIPTEN_VERSION }}
           actions-cache-folder: emsdk-cache\n",
@@ -377,11 +377,11 @@ jobs:\n",
             } else {
                 vec!["--find-interpreter".to_string()]
             };
-            if let Some(manifest_path) = self.manifest_path.as_ref() {
-                if manifest_path != Path::new("Cargo.toml") {
-                    maturin_args.push("--manifest-path".to_string());
-                    maturin_args.push(manifest_path.display().to_string())
-                }
+            if let Some(manifest_path) = self.manifest_path.as_ref()
+                && manifest_path != Path::new("Cargo.toml")
+            {
+                maturin_args.push("--manifest-path".to_string());
+                maturin_args.push(manifest_path.display().to_string())
             }
             if self.zig && matches!(platform, Platform::ManyLinux) {
                 maturin_args.push("--zig".to_string());
@@ -447,11 +447,11 @@ jobs:\n",
             ));
             // pytest
             let mut chdir = String::new();
-            if let Some(manifest_path) = self.manifest_path.as_ref() {
-                if manifest_path != Path::new("Cargo.toml") {
-                    let parent = manifest_path.parent().unwrap();
-                    chdir = format!("cd {} && ", parent.display());
-                }
+            if let Some(manifest_path) = self.manifest_path.as_ref()
+                && manifest_path != Path::new("Cargo.toml")
+            {
+                let parent = manifest_path.parent().unwrap();
+                chdir = format!("cd {} && ", parent.display());
             }
             if self.pytest {
                 match platform {

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: signxml
-Version: 4.2.2
+Version: 4.3.0
 Summary: Python XML Signature and XAdES library
 Project-URL: Homepage, https://github.com/XML-Security/signxml
 Project-URL: Documentation, https://xml-security.github.io/signxml/
@@ -21,17 +21,16 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: certifi>=2023.11.17
 Requires-Dist: cryptography>=43
 Requires-Dist: lxml<7,>=5.2.1

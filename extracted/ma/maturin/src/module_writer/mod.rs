@@ -147,16 +147,16 @@ pub fn write_python_part(
             Err(err) => {
                 // Skip errors for paths that don't need to be included, e.g. for directories
                 // that we don't have permissions for.
-                if let ignore::Error::WithPath { path, .. } = &err {
-                    if !python_packages.iter().any(|pkg| path.starts_with(pkg)) {
-                        // Log priority logging, we're only looking at the directory at all due to
-                        // a particularity in how we're doing path traversal.
-                        trace!(
-                            "Skipping inaccessible path {} due to read error: {err}",
-                            path.display()
-                        );
-                        continue;
-                    }
+                if let ignore::Error::WithPath { path, .. } = &err
+                    && !python_packages.iter().any(|pkg| path.starts_with(pkg))
+                {
+                    // Log priority logging, we're only looking at the directory at all due to
+                    // a particularity in how we're doing path traversal.
+                    trace!(
+                        "Skipping inaccessible path {} due to read error: {err}",
+                        path.display()
+                    );
+                    continue;
                 }
                 return Err(err.into());
             }
@@ -170,11 +170,11 @@ pub fn write_python_part(
         let relative = absolute.strip_prefix(python_dir).unwrap();
         if !absolute.is_dir() {
             // Ignore native libraries from develop, if any
-            if let Some(extension) = relative.extension() {
-                if extension.to_string_lossy() == "so" {
-                    debug!("Ignoring native library {}", relative.display());
-                    continue;
-                }
+            if let Some(extension) = relative.extension()
+                && extension.to_string_lossy() == "so"
+            {
+                debug!("Ignoring native library {}", relative.display());
+                continue;
             }
             #[cfg(unix)]
             let mode = absolute.metadata()?.permissions().mode();
@@ -188,19 +188,21 @@ pub fn write_python_part(
 
     // Include additional files
     if let Some(pyproject) = pyproject_toml {
-        // FIXME: in src-layout pyproject.toml isn't located directly in python dir
-        let pyproject_dir = python_dir;
+        let project_root = &project_layout.project_root;
         if let Some(glob_patterns) = pyproject.include() {
+            let escaped_project_root = PathBuf::from(glob::Pattern::escape(
+                project_root.to_string_lossy().as_ref(),
+            ));
             for pattern in glob_patterns
                 .iter()
                 .filter_map(|glob_pattern| glob_pattern.targets(Format::Wheel))
             {
                 eprintln!("📦 Including files matching \"{pattern}\"");
-                for source in glob::glob(&pyproject_dir.join(pattern).to_string_lossy())
+                for source in glob::glob(&escaped_project_root.join(pattern).to_string_lossy())
                     .with_context(|| format!("Invalid glob pattern: {pattern}"))?
                     .filter_map(Result::ok)
                 {
-                    let target = source.strip_prefix(pyproject_dir)?.to_path_buf();
+                    let target = source.strip_prefix(project_root)?.to_path_buf();
                     if !source.is_dir() {
                         #[cfg(unix)]
                         let mode = source.metadata()?.permissions().mode();
@@ -327,11 +329,28 @@ pub fn write_dist_info(
     if !metadata24.license_files.is_empty() {
         let license_files_dir = dist_info_dir.join("licenses");
         for path in &metadata24.license_files {
-            writer.add_file(
-                license_files_dir.join(path),
-                pyproject_dir.join(path),
-                false,
-            )?;
+            if path.is_absolute()
+                || path.components().any(|c| {
+                    matches!(
+                        c,
+                        std::path::Component::ParentDir
+                            | std::path::Component::Prefix(_)
+                            | std::path::Component::RootDir
+                    )
+                })
+            {
+                bail!(
+                    "Refusing to write license file with unsafe path `{}` into wheel",
+                    path.display()
+                );
+            }
+
+            let source = metadata24
+                .license_file_sources
+                .get(path)
+                .cloned()
+                .unwrap_or_else(|| pyproject_dir.join(path));
+            writer.add_file(license_files_dir.join(path), source, false)?;
         }
     }
 

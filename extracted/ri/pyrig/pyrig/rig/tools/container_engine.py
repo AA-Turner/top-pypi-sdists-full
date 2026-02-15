@@ -5,7 +5,7 @@ Used for creating containerized builds, particularly PyInstaller executables.
 
 Example:
     >>> from pyrig.rig.tools.container_engine import ContainerEngine
-    >>> args = ContainerEngine.L.build_args(project_name="myapp")
+    >>> args = ContainerEngine.I.build_args(project_name="myapp")
     >>> args.run()
 """
 
@@ -22,14 +22,13 @@ class ContainerEngine(Tool):
 
     Example:
         >>> from pathlib import Path
-        >>> ContainerEngine.L.build_args(project_name="app:v1").run()
-        >>> ContainerEngine.L.save_args(
-        ...     image_file=Path("app.tar"), image_path=Path("./dist")
+        >>> ContainerEngine.I.build_args(project_name="app:v1").run()
+        >>> ContainerEngine.I.save_args(
+        ...     image_file=Path("app.tar"), image_path=Path("dist/app.tar")
         ... ).run()
     """
 
-    @classmethod
-    def name(cls) -> str:
+    def name(self) -> str:
         """Get tool name.
 
         Returns:
@@ -37,34 +36,33 @@ class ContainerEngine(Tool):
         """
         return "podman"
 
-    @classmethod
-    def group(cls) -> str:
-        """Returns the group the tools belongs to.
+    def group(self) -> str:
+        """Returns the group the tool belongs to.
 
-        E.g. testing, tool, code-quality etc...
+        Returns:
+            `ToolGroup.TOOLING`
         """
         return ToolGroup.TOOLING
 
-    @classmethod
-    def badge_urls(cls) -> tuple[str, str]:
-        """Returns the badge and connected page."""
+    def badge_urls(self) -> tuple[str, str]:
+        """Return the badge and link URLs."""
         return (
             "https://img.shields.io/badge/Container-Podman-A23CD6?logo=podman&logoColor=grey&colorA=0D1F3F&colorB=A23CD6",
             "https://podman.io",
         )
 
-    @classmethod
-    def dev_dependencies(cls) -> list[str]:
+    def dev_dependencies(self) -> list[str]:
         """Get tool dependencies.
 
+        Podman is a system package (not a Python dependency), so this
+        returns an empty list.
+
         Returns:
-            List of tool dependencies.
+            Empty list — podman must be installed at the OS level.
         """
-        # podman is not a python package, so we don't have a dev dependency for it
         return []
 
-    @classmethod
-    def build_args(cls, *args: str, project_name: str) -> Args:
+    def build_args(self, *args: str, project_name: str) -> Args:
         """Construct podman build arguments.
 
         Args:
@@ -74,10 +72,9 @@ class ContainerEngine(Tool):
         Returns:
             Args for 'podman build'.
         """
-        return cls.args("build", "-t", project_name, ".", *args)
+        return self.args("build", "-t", project_name, ".", *args)
 
-    @classmethod
-    def save_args(cls, *args: str, image_file: Path, image_path: Path) -> Args:
+    def save_args(self, *args: str, image_file: Path, image_path: Path) -> Args:
         """Construct podman save arguments.
 
         Args:
@@ -89,7 +86,7 @@ class ContainerEngine(Tool):
         Returns:
             Args for 'podman save'.
         """
-        return cls.args(
+        return self.args(
             "save",
             "-o",
             image_path.as_posix(),

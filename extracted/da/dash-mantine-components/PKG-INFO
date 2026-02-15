@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dash_mantine_components
-Version: 2.5.1
+Version: 2.6.0
 Summary: Plotly Dash Components based on Mantine
 Home-page: https://github.com/snehilvj/dash-mantine-components
 Author: Snehil Vijay <snehilvj@outlook.com>
@@ -12,7 +12,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: dash>=2
 Provides-Extra: dev
-Requires-Dist: dash[ci,dev,testing]>=2; extra == "dev"
+Requires-Dist: dash[ci,dev,testing]>=4; extra == "dev"
 Requires-Dist: pyyaml>=5.0; extra == "dev"
 Requires-Dist: pytest<8.1.0; extra == "dev"
 Requires-Dist: wheel; extra == "dev"

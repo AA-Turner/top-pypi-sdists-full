@@ -1072,6 +1072,7 @@ MODEL_RATIO = {
     "minimax-m2": 1,
     "minimax-m2.1": 1.05,
     "minimax-m2.1-lightning": 1.05,
+    "minimax-m2.5": 1.05,
 
     # deepseek
     "deepseek-prover-v2-671b": 2,
@@ -1138,6 +1139,11 @@ MODEL_RATIO = {
     "meta-deepresearch": 2,
 
     # 豆包
+    "doubao-seed-2-0-code-preview-260215": 1.6,
+    "doubao-seed-2-0-mini-260215": 0.1,
+    "doubao-seed-2-0-lite-260215": 0.3,
+    "doubao-seed-2-0-pro-260215": 1.6,
+
     "seed-x-ppo-7b": 0.3,
     "doubao-seed-1-6-flash-250828": 0.15,
     "doubao-seed-1-6-flash-250715": 0.15,
@@ -1445,6 +1451,7 @@ MODEL_RATIO = {
     "gpt-5.2": 0.875,
     "gpt-5.2-codex": 0.875,
     "gpt-5.3-codex": 0.875,
+    "gpt-5.3-codex-spark": 0.875,
 
     "gpt-5-2025-08-07": 0.625,
     "gpt-5-chat-latest": 0.625,
@@ -1547,6 +1554,7 @@ COMPLETION_RATIO = {
     "minimax-m2": 4,
     "minimax-m2.1": 4,
     "minimax-m2.1-lightning": 8,
+    "minimax-m2.5": 4,
 
     # 智能体
     "gpt-4-plus": 5,
@@ -1664,6 +1672,7 @@ COMPLETION_RATIO = {
     "gpt-5.2": 8,
     "gpt-5.2-codex": 8,
     "gpt-5.3-codex": 8,
+    "gpt-5.3-codex-spark": 8,
 
     # claude
     "claude-3-5-haiku-20241022": 5,
@@ -1892,6 +1901,11 @@ COMPLETION_RATIO = {
 
     # 豆包
     "seed-x-ppo-7b": 1,
+
+    "doubao-seed-2-0-code-preview-260215": 5,
+    "doubao-seed-2-0-mini-260215": 10,
+    "doubao-seed-2-0-lite-260215": 6,
+    "doubao-seed-2-0-pro-260215": 5,
 
     "doubao-seed-1-6-flash-250828": 10,
     "doubao-seed-1-6-flash-250715": 10,

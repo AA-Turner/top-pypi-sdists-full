@@ -5880,6 +5880,10 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AMAZON_INSPECTOR2_MANAGED_TELEMETRY_POLICY = "AMAZON_INSPECTOR2_MANAGED_TELEMETRY_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

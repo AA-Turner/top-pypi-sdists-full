@@ -1,6 +1,6 @@
-"""Configuration management for Containerfile files.
+"""Manage Containerfile configuration.
 
-Manages Docker-compatible Containerfile generation with best practices: Python slim
+Generate Docker-compatible Containerfile with best practices: Python slim
 base, uv package manager, non-root user (appuser), optimized layer caching, and
 proper permissions. Compatible with Docker, Podman, and OCI-compliant runtimes.
 
@@ -18,98 +18,59 @@ from pyrig.rig.tools.package_manager import PackageManager
 
 
 class ContainerfileConfigFile(StringConfigFile):
-    """Containerfile configuration manager.
+    """Manage Containerfile generation.
 
-    Generates production-ready Containerfile with Python slim base, uv package
+    Produce production-ready Containerfile with Python slim base, uv package
     manager, non-root user (appuser, UID 1000), optimized layer caching, and
     configurable entrypoint. Compatible with Docker, Podman, and buildah.
 
-    Examples:
-        Generate Containerfile::
-
-            ContainerfileConfigFile()
-
-        Build and run::
-
-            docker build -t myproject .
-            docker run myproject
+    Example:
+        >>> ContainerfileConfigFile.I.validate()
 
     See Also:
-        pyrig.rig.configs.pyproject.PyprojectConfigFile
-        pyrig.rig.tools.package_manager.PackageManager
+        `pyrig.rig.configs.pyproject.PyprojectConfigFile`
+        `pyrig.rig.tools.package_manager.PackageManager`
     """
 
-    @classmethod
-    def filename(cls) -> str:
-        """Get the Containerfile filename.
-
-        Returns:
-            "Containerfile".
-        """
+    def filename(self) -> str:
+        """Return 'Containerfile'."""
         return "Containerfile"
 
-    @classmethod
-    def parent_path(cls) -> Path:
-        """Get the parent directory for Containerfile.
-
-        Returns:
-            Project root.
-        """
+    def parent_path(self) -> Path:
+        """Return project root."""
         return Path()
 
-    @classmethod
-    def extension(cls) -> str:
-        """Get the file extension for Containerfile.
-
-        Returns:
-            Empty string (no extension).
-        """
+    def extension(self) -> str:
+        """Return empty string (no extension)."""
         return ""
 
-    @classmethod
-    def extension_separator(cls) -> str:
-        """Get the extension separator for Containerfile.
-
-        Returns:
-            Empty string (no separator).
-        """
+    def extension_separator(self) -> str:
+        """Return empty string (no separator)."""
         return ""
 
-    @classmethod
-    def lines(cls) -> list[str]:
-        """Get Containerfile build instructions.
+    def lines(self) -> list[str]:
+        """Return Containerfile build instructions via `layers()`."""
+        return self.layers()
 
-        Generates optimized layer sequence: base image, workdir, uv install,
+    def layers(self) -> list[str]:
+        """Generate Containerfile build instructions.
+
+        Builds optimized layer sequence: base image, workdir, uv install,
         dependency copy (for caching), user creation, source copy, dependency
         install, cleanup, entrypoint/command.
 
         Returns:
-            list[str]: Containerfile instructions (FROM, WORKDIR, COPY, RUN, etc.).
+            Containerfile instructions (FROM, WORKDIR, COPY, RUN, etc.).
 
         Note:
-            Reads from pyproject.toml and may make API calls for Python version.
+            Reads from `pyproject.toml` and may make API calls to resolve the
+            Python version.
         """
-        return cls.layers()
-
-    @classmethod
-    def layers(cls) -> list[str]:
-        """Get Containerfile build instructions.
-
-        Generates optimized layer sequence: base image, workdir, uv install,
-        dependency copy (for caching), user creation, source copy, dependency
-        install, cleanup, entrypoint/command.
-
-        Returns:
-            list[str]: Containerfile instructions (FROM, WORKDIR, COPY, RUN, etc.).
-
-        Note:
-            Reads from pyproject.toml and may make API calls for Python version.
-        """
-        latest_python_version = PyprojectConfigFile.L.latest_possible_python_version()
-        project_name = PyprojectConfigFile.L.project_name()
-        package_name = PyprojectConfigFile.L.package_name()
+        latest_python_version = PyprojectConfigFile.I.latest_possible_python_version()
+        project_name = PyprojectConfigFile.I.project_name()
+        package_name = PyprojectConfigFile.I.package_name()
         app_user_name = "appuser"
-        entrypoint_args = list(PackageManager.L.run_args(project_name))
+        entrypoint_args = list(PackageManager.I.run_args(project_name))
         default_cmd_args = [main.__name__]
         return [
             f"FROM python:{latest_python_version}-slim",

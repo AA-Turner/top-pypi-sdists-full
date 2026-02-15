@@ -214,6 +214,16 @@ pub struct DevelopOptions {
         action = clap::ArgAction::Append
     )]
     pub extras: Vec<String>,
+    /// Install dependency groups defined in pyproject.toml (PEP 735)
+    ///
+    /// Use as `--group=test,docs`
+    #[arg(
+        short = 'G',
+        long,
+        value_delimiter = ',',
+        action = clap::ArgAction::Append
+    )]
+    pub group: Vec<String>,
     /// Skip installation, only build the extension module inplace
     ///
     /// Only works with mixed Rust/Python project layout
@@ -241,6 +251,7 @@ pub struct DevelopOptions {
 fn install_dependencies(
     build_context: &BuildContext,
     extras: &[String],
+    groups: &[String],
     python: &Path,
     venv_dir: &Path,
     install_backend: &InstallBackend,
@@ -274,6 +285,40 @@ fn install_dependencies(
         if !status.success() {
             bail!(
                 r#"{} install finished with "{}""#,
+                install_backend.name(),
+                status
+            )
+        }
+    }
+    let effective_groups = if groups.is_empty() {
+        let has_dev_group = build_context
+            .pyproject_toml
+            .as_ref()
+            .and_then(|p| p.dependency_groups.as_ref())
+            .is_some_and(|dg| dg.0.contains_key("dev"));
+        if has_dev_group {
+            vec!["dev".to_string()]
+        } else {
+            Vec::new()
+        }
+    } else {
+        groups.to_vec()
+    };
+    if !effective_groups.is_empty() {
+        let mut args = vec!["install".to_string()];
+        for group in &effective_groups {
+            args.push("--group".to_string());
+            args.push(group.clone());
+        }
+        let status = install_backend
+            .make_command(python)
+            .args(&args)
+            .env("VIRTUAL_ENV", venv_dir)
+            .status()
+            .with_context(|| format!("Failed to run {} install --group", install_backend.name()))?;
+        if !status.success() {
+            bail!(
+                r#"{} install --group finished with "{}""#,
                 install_backend.name(),
                 status
             )
@@ -365,15 +410,13 @@ fn parse_direct_url_path(pip_show_output: &str) -> Result<Option<PathBuf>> {
     if let Some(Some(location)) = Regex::new(r"Location: ([^\r\n]*)")?
         .captures(pip_show_output)
         .map(|c| c.get(1))
-    {
-        if let Some(Some(direct_url_path)) = Regex::new(r"  (.*direct_url.json)")?
+        && let Some(Some(direct_url_path)) = Regex::new(r"  (.*direct_url.json)")?
             .captures(pip_show_output)
             .map(|c| c.get(1))
-        {
-            return Ok(Some(
-                PathBuf::from(location.as_str()).join(direct_url_path.as_str()),
-            ));
-        }
+    {
+        return Ok(Some(
+            PathBuf::from(location.as_str()).join(direct_url_path.as_str()),
+        ));
     }
     Ok(None)
 }
@@ -389,6 +432,7 @@ pub fn develop(develop_options: DevelopOptions, venv_dir: &Path) -> Result<()> {
         release,
         strip,
         extras,
+        group,
         skip_install,
         pip_path,
         mut cargo_options,
@@ -407,10 +451,10 @@ pub fn develop(develop_options: DevelopOptions, venv_dir: &Path) -> Result<()> {
     let python = target.get_venv_python(venv_dir);
 
     // check python platform and architecture
-    if !target.user_specified {
-        if let Some(detected_target) = detect_arch_from_python(&python, &target) {
-            target_triple = Some(detected_target);
-        }
+    if !target.user_specified
+        && let Some(detected_target) = detect_arch_from_python(&python, &target)
+    {
+        target_triple = Some(detected_target);
     }
 
     // Store wheel in a unique location so we don't get name clashes with parallel runs
@@ -435,7 +479,7 @@ pub fn develop(develop_options: DevelopOptions, venv_dir: &Path) -> Result<()> {
 
     let build_context = build_options
         .into_build_context()
-        .strip(strip)
+        .strip(if strip { Some(true) } else { None })
         .editable(true)
         .build()?;
 
@@ -487,7 +531,14 @@ pub fn develop(develop_options: DevelopOptions, venv_dir: &Path) -> Result<()> {
     };
 
     if !skip_install {
-        install_dependencies(&build_context, &extras, &python, venv_dir, &install_backend)?;
+        install_dependencies(
+            &build_context,
+            &extras,
+            &group,
+            &python,
+            venv_dir,
+            &install_backend,
+        )?;
     }
 
     let wheels = build_context.build_wheels()?;

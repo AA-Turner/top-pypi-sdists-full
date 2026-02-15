@@ -11,8 +11,8 @@ Example:
     >>> import pyrig.src.string_
     >>>
     >>> class StringDocstringCopy(CopyModuleOnlyDocstringConfigFile):
-    ...     @classmethod
-    ...     def src_module(cls) -> ModuleType:
+    ...
+    ...     def src_module(self) -> ModuleType:
     ...         return pyrig.src.string_
     >>>
     >>> StringDocstringCopy()  # Creates file with only docstring
@@ -26,7 +26,6 @@ class CopyModuleOnlyDocstringConfigFile(CopyModuleConfigFile):
     """Base class for copying only module docstrings.
 
     Extracts and copies only the module docstring, allowing custom implementation.
-    Validates file starts with triple quotes.
 
     Subclasses must implement:
         - `src_module`: Return the source module to copy docstring from
@@ -36,28 +35,25 @@ class CopyModuleOnlyDocstringConfigFile(CopyModuleConfigFile):
         pyrig.rig.configs.base.init.InitConfigFile: For __init__.py docstrings
     """
 
-    @classmethod
-    def lines(cls) -> list[str]:
+    def lines(self) -> list[str]:
         """Extract only the docstring from source module.
 
         Returns:
-            Module docstring wrapped in triple quotes with newline.
+            Module docstring wrapped in triple quotes as list of lines.
+
+        Raises:
+            ValueError: If source module has no docstring.
         """
-        docstring = cls.src_module().__doc__
+        docstring = self.src_module().__doc__
         if docstring is None:
-            msg = f"Source module {cls.src_module()} has no docstring"
+            msg = f"Source module {self.src_module()} has no docstring"
             raise ValueError(msg)
         return [*f'"""{docstring}"""'.splitlines()]
 
-    @classmethod
-    def is_correct(cls) -> bool:
-        """Check if file content is valid.
-
-        Validates that the file passes parent class validation (empty or expected
-        content present) or that the source module has a docstring (allowing custom
-        implementation in the target file).
+    def is_correct(self) -> bool:
+        """Check if the source module has a docstring.
 
         Returns:
-            True if parent validation passes or source module has a docstring.
+            True if the source module has a docstring.
         """
-        return module_has_docstring(cls.src_module())
+        return module_has_docstring(self.src_module())

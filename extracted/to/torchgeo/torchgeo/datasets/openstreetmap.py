@@ -27,7 +27,7 @@ from pyproj import CRS
 
 from .errors import DatasetNotFoundError
 from .geo import VectorDataset
-from .utils import Path
+from .utils import Path, Sample
 
 
 class OpenStreetMap(VectorDataset):
@@ -88,7 +88,7 @@ class OpenStreetMap(VectorDataset):
         classes: list[dict[str, Any]],
         paths: Path = 'data',
         res: float | tuple[float, float] = (0.0001, 0.0001),
-        transforms: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+        transforms: Callable[[Sample], Sample] | None = None,
         download: bool = False,
     ) -> None:
         """Initialize a new OpenStreetMap dataset instance.
@@ -428,10 +428,7 @@ class OpenStreetMap(VectorDataset):
                         )
 
     def plot(
-        self,
-        sample: dict[str, Any],
-        show_titles: bool = True,
-        suptitle: str | None = None,
+        self, sample: Sample, show_titles: bool = True, suptitle: str | None = None
     ) -> Figure:
         """Plot a sample from the dataset.
 

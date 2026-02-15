@@ -22,7 +22,7 @@ class SrcInitConfigFile(InitConfigFile):
     Examples:
         Generate {package_name}/src/__init__.py::
 
-            SrcInitConfigFile()
+            SrcInitConfigFile.I.validate()
 
         Add utilities::
 
@@ -36,14 +36,6 @@ class SrcInitConfigFile(InitConfigFile):
         pyrig.rig.configs.base.init.InitConfigFile
     """
 
-    @classmethod
-    def src_module(cls) -> ModuleType:
-        """Get the source module to copy docstring from.
-
-        Returns:
-            ModuleType: pyrig.src module.
-
-        Note:
-            Only docstring is copied, no code.
-        """
+    def src_module(self) -> ModuleType:
+        """Return the `pyrig.src` module."""
         return src

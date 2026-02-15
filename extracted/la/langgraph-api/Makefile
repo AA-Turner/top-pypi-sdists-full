@@ -364,7 +364,7 @@ MCP_CONFORMANCE_BASELINE ?= ../mcp-conformance-baseline.yml
 MCP_STARTUP_DELAY ?= 10
 
 test-mcp-conformance:
-	npx @modelcontextprotocol/conformance server \
+	npx @modelcontextprotocol/conformance@0.1.13 server \
 		--url $(MCP_CONFORMANCE_URL) \
 		--suite $(MCP_CONFORMANCE_SUITE) \
 		--expected-failures $(MCP_CONFORMANCE_BASELINE) \

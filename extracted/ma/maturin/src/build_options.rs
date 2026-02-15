@@ -2,7 +2,9 @@ use crate::auditwheel::{AuditWheelMode, PlatformTag};
 use crate::bridge::{Abi3Version, PyO3Crate};
 use crate::compile::{CompileTarget, LIB_CRATE_TYPES};
 use crate::compression::CompressionOptions;
-use crate::cross_compile::{find_sysconfigdata, parse_sysconfigdata};
+use crate::cross_compile::{
+    find_build_details, find_sysconfigdata, parse_build_details_json_file, parse_sysconfigdata,
+};
 use crate::project_layout::ProjectResolver;
 use crate::pyproject_toml::ToolMaturin;
 use crate::python_interpreter::{InterpreterConfig, InterpreterKind};
@@ -19,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::ops::{Deref, DerefMut};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use tracing::{debug, instrument};
 
@@ -263,79 +265,118 @@ impl BuildOptions {
                             interpreters.push(PythonInterpreter::from_config(interpreter_config));
                         } else if target.cross_compiling() {
                             if let Some(cross_lib_dir) = env::var_os("PYO3_CROSS_LIB_DIR") {
-                                let host_interpreters = find_interpreter_in_host(
-                                    bridge,
-                                    interpreter,
-                                    target,
-                                    requires_python,
-                                )?;
-                                let host_python = &host_interpreters[0];
-                                eprintln!(
-                                    "🐍 Using host {host_python} for cross-compiling preparation"
-                                );
-                                // pyo3
-                                unsafe {
-                                    env::set_var("PYO3_PYTHON", &host_python.executable);
-                                    env::set_var("PYTHON_SYS_EXECUTABLE", &host_python.executable)
-                                };
+                                let cross_lib_path: &Path = cross_lib_dir.as_ref();
+                                if let Some(build_details_path) = find_build_details(cross_lib_path)
+                                {
+                                    eprintln!(
+                                        "🐍 Using build-details.json for cross-compiling preparation"
+                                    );
+                                    let config =
+                                        parse_build_details_json_file(&build_details_path)?;
+                                    let host_interpreters = find_interpreter_in_host(
+                                        bridge,
+                                        interpreter,
+                                        target,
+                                        requires_python,
+                                    )?;
+                                    let host_python = &host_interpreters[0];
+                                    // pyo3
+                                    unsafe {
+                                        env::set_var("PYO3_PYTHON", &host_python.executable);
+                                        env::set_var(
+                                            "PYTHON_SYS_EXECUTABLE",
+                                            &host_python.executable,
+                                        )
+                                    };
+                                    let soabi = soabi_from_ext_suffix(&config.ext_suffix);
+                                    let implementation_name =
+                                        config.interpreter_kind.to_string().to_ascii_lowercase();
+                                    interpreters.push(PythonInterpreter {
+                                        config,
+                                        executable: PathBuf::new(),
+                                        platform: None,
+                                        runnable: false,
+                                        implementation_name,
+                                        soabi,
+                                    });
+                                } else {
+                                    let host_interpreters = find_interpreter_in_host(
+                                        bridge,
+                                        interpreter,
+                                        target,
+                                        requires_python,
+                                    )?;
+                                    let host_python = &host_interpreters[0];
+                                    eprintln!(
+                                        "🐍 Using host {host_python} for cross-compiling preparation"
+                                    );
+                                    // pyo3
+                                    unsafe {
+                                        env::set_var("PYO3_PYTHON", &host_python.executable);
+                                        env::set_var(
+                                            "PYTHON_SYS_EXECUTABLE",
+                                            &host_python.executable,
+                                        )
+                                    };
 
-                                let sysconfig_path =
-                                    find_sysconfigdata(cross_lib_dir.as_ref(), target)?;
-                                let sysconfig_data =
-                                    parse_sysconfigdata(host_python, sysconfig_path)?;
-                                let major = sysconfig_data
-                                    .get("version_major")
-                                    .context("version_major is not defined")?
-                                    .parse::<usize>()
-                                    .context("Could not parse value of version_major")?;
-                                let minor = sysconfig_data
-                                    .get("version_minor")
-                                    .context("version_minor is not defined")?
-                                    .parse::<usize>()
-                                    .context("Could not parse value of version_minor")?;
-                                let abiflags = sysconfig_data
-                                    .get("ABIFLAGS")
-                                    .map(ToString::to_string)
-                                    .unwrap_or_default();
-                                let gil_disabled = sysconfig_data
-                                    .get("Py_GIL_DISABLED")
-                                    .map(|x| x == "1")
-                                    .unwrap_or_default();
-                                let ext_suffix = sysconfig_data
-                                    .get("EXT_SUFFIX")
-                                    .context("syconfig didn't define an `EXT_SUFFIX` ಠ_ಠ")?;
-                                let soabi = sysconfig_data.get("SOABI");
-                                let interpreter_kind = soabi
-                                    .and_then(|tag| {
-                                        if tag.starts_with("pypy") {
-                                            Some(InterpreterKind::PyPy)
-                                        } else if tag.starts_with("cpython") {
-                                            Some(InterpreterKind::CPython)
-                                        } else if tag.starts_with("graalpy") {
-                                            Some(InterpreterKind::GraalPy)
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                    .context("unsupported Python interpreter")?;
-                                interpreters.push(PythonInterpreter {
-                                    config: InterpreterConfig {
-                                        major,
-                                        minor,
-                                        interpreter_kind,
-                                        abiflags,
-                                        ext_suffix: ext_suffix.to_string(),
-                                        pointer_width: None,
-                                        gil_disabled,
-                                    },
-                                    executable: PathBuf::new(),
-                                    platform: None,
-                                    runnable: false,
-                                    implementation_name: interpreter_kind
-                                        .to_string()
-                                        .to_ascii_lowercase(),
-                                    soabi: soabi.cloned(),
-                                });
+                                    let sysconfig_path =
+                                        find_sysconfigdata(cross_lib_path, target)?;
+                                    let sysconfig_data =
+                                        parse_sysconfigdata(host_python, sysconfig_path)?;
+                                    let major = sysconfig_data
+                                        .get("version_major")
+                                        .context("version_major is not defined")?
+                                        .parse::<usize>()
+                                        .context("Could not parse value of version_major")?;
+                                    let minor = sysconfig_data
+                                        .get("version_minor")
+                                        .context("version_minor is not defined")?
+                                        .parse::<usize>()
+                                        .context("Could not parse value of version_minor")?;
+                                    let abiflags = sysconfig_data
+                                        .get("ABIFLAGS")
+                                        .map(ToString::to_string)
+                                        .unwrap_or_default();
+                                    let gil_disabled = sysconfig_data
+                                        .get("Py_GIL_DISABLED")
+                                        .map(|x| x == "1")
+                                        .unwrap_or_default();
+                                    let ext_suffix = sysconfig_data
+                                        .get("EXT_SUFFIX")
+                                        .context("syconfig didn't define an `EXT_SUFFIX` ಠ_ಠ")?;
+                                    let soabi = sysconfig_data.get("SOABI");
+                                    let interpreter_kind = soabi
+                                        .and_then(|tag| {
+                                            if tag.starts_with("pypy") {
+                                                Some(InterpreterKind::PyPy)
+                                            } else if tag.starts_with("cpython") {
+                                                Some(InterpreterKind::CPython)
+                                            } else if tag.starts_with("graalpy") {
+                                                Some(InterpreterKind::GraalPy)
+                                            } else {
+                                                None
+                                            }
+                                        })
+                                        .context("unsupported Python interpreter")?;
+                                    interpreters.push(PythonInterpreter {
+                                        config: InterpreterConfig {
+                                            major,
+                                            minor,
+                                            interpreter_kind,
+                                            abiflags,
+                                            ext_suffix: ext_suffix.to_string(),
+                                            pointer_width: None,
+                                            gil_disabled,
+                                        },
+                                        executable: PathBuf::new(),
+                                        platform: None,
+                                        runnable: false,
+                                        implementation_name: interpreter_kind
+                                            .to_string()
+                                            .to_ascii_lowercase(),
+                                        soabi: soabi.cloned(),
+                                    });
+                                }
                             } else {
                                 if interpreter.is_empty() && !self.find_interpreter {
                                     bail!(
@@ -555,7 +596,7 @@ impl BuildOptions {
 #[derive(Debug)]
 pub struct BuildContextBuilder {
     build_options: BuildOptions,
-    strip: bool,
+    strip: Option<bool>,
     editable: bool,
     sdist_only: bool,
 }
@@ -564,13 +605,13 @@ impl BuildContextBuilder {
     fn new(build_options: BuildOptions) -> Self {
         Self {
             build_options,
-            strip: false,
+            strip: None,
             editable: false,
             sdist_only: false,
         }
     }
 
-    pub fn strip(mut self, strip: bool) -> Self {
+    pub fn strip(mut self, strip: Option<bool>) -> Self {
         self.strip = strip;
         self
     }
@@ -636,29 +677,27 @@ impl BuildContextBuilder {
 
         let mut universal2 = target_triple == Some(TargetTriple::Universal2);
         // Also try to determine universal2 from ARCHFLAGS environment variable
-        if target_triple.is_none() {
-            if let Ok(arch_flags) = env::var("ARCHFLAGS") {
-                let arches: HashSet<&str> = arch_flags
-                    .split("-arch")
-                    .filter_map(|x| {
-                        let x = x.trim();
-                        if x.is_empty() { None } else { Some(x) }
-                    })
-                    .collect();
-                match (arches.contains("x86_64"), arches.contains("arm64")) {
-                    (true, true) => universal2 = true,
-                    (true, false) => {
-                        target_triple =
-                            Some(TargetTriple::Regular("x86_64-apple-darwin".to_string()))
-                    }
-                    (false, true) => {
-                        target_triple =
-                            Some(TargetTriple::Regular("aarch64-apple-darwin".to_string()))
-                    }
-                    (false, false) => {}
+        if target_triple.is_none()
+            && let Ok(arch_flags) = env::var("ARCHFLAGS")
+        {
+            let arches: HashSet<&str> = arch_flags
+                .split("-arch")
+                .filter_map(|x| {
+                    let x = x.trim();
+                    if x.is_empty() { None } else { Some(x) }
+                })
+                .collect();
+            match (arches.contains("x86_64"), arches.contains("arm64")) {
+                (true, true) => universal2 = true,
+                (true, false) => {
+                    target_triple = Some(TargetTriple::Regular("x86_64-apple-darwin".to_string()))
                 }
-            };
-        }
+                (false, true) => {
+                    target_triple = Some(TargetTriple::Regular("aarch64-apple-darwin".to_string()))
+                }
+                (false, false) => {}
+            }
+        };
         if universal2 {
             // Ensure that target_triple is valid. This is necessary to properly
             // infer the platform tags when cross-compiling from Linux.
@@ -717,7 +756,7 @@ impl BuildContextBuilder {
             }
         }
 
-        let strip = pyproject.map(|x| x.strip()).unwrap_or_default() || strip;
+        let strip = strip.unwrap_or_else(|| pyproject.map(|x| x.strip()).unwrap_or_default());
         let skip_auditwheel = pyproject.map(|x| x.skip_auditwheel()).unwrap_or_default()
             || build_options.skip_auditwheel;
         let auditwheel = build_options
@@ -734,6 +773,10 @@ impl BuildContextBuilder {
             .platform_tag
             .iter()
             .any(|platform_tag| platform_tag == &PlatformTag::Pypi);
+
+        let sbom = pyproject
+            .and_then(|x| x.maturin())
+            .and_then(|x| x.sbom.clone());
 
         let platform_tags = if build_options.platform_tag.is_empty() {
             #[cfg(feature = "zig")]
@@ -854,6 +897,7 @@ impl BuildContextBuilder {
             cargo_options,
             compression: build_options.compression,
             pypi_validation,
+            sbom,
         })
     }
 }
@@ -1510,6 +1554,23 @@ fn find_interpreter_in_sysconfig(
     Ok(interpreters)
 }
 
+/// Derive SOABI from an extension suffix.
+///
+/// For example, `.cpython-314-x86_64-linux-gnu.so` becomes
+/// `cpython-314-x86_64-linux-gnu`.
+fn soabi_from_ext_suffix(ext_suffix: &str) -> Option<String> {
+    let s = ext_suffix.strip_prefix('.')?;
+    let s = s
+        .strip_suffix(".so")
+        .or_else(|| s.strip_suffix(".pyd"))
+        .unwrap_or(s);
+    if s.is_empty() {
+        None
+    } else {
+        Some(s.to_string())
+    }
+}
+
 fn maybe_free_threaded(python_ver: &str) -> (&str, &str) {
     if let Some(ver) = python_ver.strip_suffix('t') {
         (ver, "t")
@@ -1647,53 +1708,53 @@ impl CargoOptions {
             }
         }
 
-        if let Some(features) = tool_maturin.features {
-            if self.features.is_empty() {
-                self.features = features;
-                args_from_pyproject.push("features");
-            }
+        if let Some(features) = tool_maturin.features
+            && self.features.is_empty()
+        {
+            self.features = features;
+            args_from_pyproject.push("features");
         }
 
-        if let Some(all_features) = tool_maturin.all_features {
-            if !self.all_features {
-                self.all_features = all_features;
-                args_from_pyproject.push("all-features");
-            }
+        if let Some(all_features) = tool_maturin.all_features
+            && !self.all_features
+        {
+            self.all_features = all_features;
+            args_from_pyproject.push("all-features");
         }
 
-        if let Some(no_default_features) = tool_maturin.no_default_features {
-            if !self.no_default_features {
-                self.no_default_features = no_default_features;
-                args_from_pyproject.push("no-default-features");
-            }
+        if let Some(no_default_features) = tool_maturin.no_default_features
+            && !self.no_default_features
+        {
+            self.no_default_features = no_default_features;
+            args_from_pyproject.push("no-default-features");
         }
 
-        if let Some(frozen) = tool_maturin.frozen {
-            if !self.frozen {
-                self.frozen = frozen;
-                args_from_pyproject.push("frozen");
-            }
+        if let Some(frozen) = tool_maturin.frozen
+            && !self.frozen
+        {
+            self.frozen = frozen;
+            args_from_pyproject.push("frozen");
         }
 
-        if let Some(locked) = tool_maturin.locked {
-            if !self.locked {
-                self.locked = locked;
-                args_from_pyproject.push("locked");
-            }
+        if let Some(locked) = tool_maturin.locked
+            && !self.locked
+        {
+            self.locked = locked;
+            args_from_pyproject.push("locked");
         }
 
-        if let Some(config) = tool_maturin.config {
-            if self.config.is_empty() {
-                self.config = config;
-                args_from_pyproject.push("config");
-            }
+        if let Some(config) = tool_maturin.config
+            && self.config.is_empty()
+        {
+            self.config = config;
+            args_from_pyproject.push("config");
         }
 
-        if let Some(unstable_flags) = tool_maturin.unstable_flags {
-            if self.unstable_flags.is_empty() {
-                self.unstable_flags = unstable_flags;
-                args_from_pyproject.push("unstable-flags");
-            }
+        if let Some(unstable_flags) = tool_maturin.unstable_flags
+            && self.unstable_flags.is_empty()
+        {
+            self.unstable_flags = unstable_flags;
+            args_from_pyproject.push("unstable-flags");
         }
 
         args_from_pyproject

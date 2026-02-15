@@ -2,6 +2,7 @@ from abc import ABC
 from contextlib import redirect_stdout
 import copy
 import csv
+from datetime import datetime
 import importlib
 import io
 import os
@@ -27,6 +28,9 @@ T = TypeVar('T')
 NO_SORT = 0
 SORT = 1
 REVERSE_SORT = -1
+
+def ts():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 def convert_seconds(total_seconds_float):
     total_seconds_int = int(total_seconds_float)  # Convert float to integer seconds

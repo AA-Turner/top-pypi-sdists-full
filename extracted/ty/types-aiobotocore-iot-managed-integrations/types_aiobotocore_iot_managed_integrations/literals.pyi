@@ -58,6 +58,7 @@ __all__ = (
     "ListProvisioningProfilesPaginatorName",
     "ListSchemaVersionsPaginatorName",
     "LogLevelType",
+    "ManagedThingAssociationStatusType",
     "ManagedintegrationsforIoTDeviceManagementServiceName",
     "OtaMechanismType",
     "OtaProtocolType",
@@ -91,6 +92,7 @@ AssociationStateType = Literal[
 AuthMaterialTypeType = Literal[
     "CUSTOM_PROTOCOL_QR_BAR_CODE",
     "DISCOVERED_DEVICE",
+    "PRE_ONBOARDED_CLOUD",
     "WIFI_SETUP_QR_BAR_CODE",
     "ZIGBEE_QR_BAR_CODE",
     "ZWAVE_QR_BAR_CODE",
@@ -160,6 +162,7 @@ ListOtaTasksPaginatorName = Literal["list_ota_tasks"]
 ListProvisioningProfilesPaginatorName = Literal["list_provisioning_profiles"]
 ListSchemaVersionsPaginatorName = Literal["list_schema_versions"]
 LogLevelType = Literal["DEBUG", "ERROR", "INFO", "WARN"]
+ManagedThingAssociationStatusType = Literal["ASSOCIATED", "PRE_ASSOCIATED"]
 OtaMechanismType = Literal["PUSH"]
 OtaProtocolType = Literal["HTTP"]
 OtaStatusType = Literal["CANCELED", "COMPLETED", "DELETION_IN_PROGRESS", "IN_PROGRESS", "SCHEDULED"]

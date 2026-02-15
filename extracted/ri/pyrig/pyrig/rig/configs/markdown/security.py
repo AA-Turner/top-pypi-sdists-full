@@ -49,20 +49,18 @@ class SecurityConfigFile(MarkdownConfigFile):
         - How to report vulnerabilities (email, not public issues)
         - What information to include in reports
         - Response timeline expectations
-        - Supported versions table
 
     Examples:
         Generate SECURITY.md::
 
-            SecurityConfigFile()
+            SecurityConfigFile.I.validate()
 
     See Also:
         pyrig.rig.configs.base.markdown.MarkdownConfigFile
         pyrig.rig.configs.markdown.code_of_conduct.CodeOfConductConfigFile
     """
 
-    @classmethod
-    def filename(cls) -> str:
+    def filename(self) -> str:
         """Get the SECURITY filename.
 
         Returns:
@@ -70,8 +68,7 @@ class SecurityConfigFile(MarkdownConfigFile):
         """
         return "SECURITY"
 
-    @classmethod
-    def parent_path(cls) -> Path:
+    def parent_path(self) -> Path:
         """Get the parent directory for SECURITY.md.
 
         Returns:
@@ -79,41 +76,37 @@ class SecurityConfigFile(MarkdownConfigFile):
         """
         return Path()
 
-    @classmethod
-    def lines(cls) -> list[str]:
-        """Get the security template content with email inserted.
+    def lines(self) -> list[str]:
+        """Return the security policy as individual lines.
 
         Returns:
-            list[str]: Security template lines.
+            list[str]: Security template lines with contact method inserted.
         """
-        return [*cls.template_with_contact_method().splitlines()]
+        return [*self.template_with_contact_method().splitlines()]
 
-    @classmethod
-    def is_correct(cls) -> bool:
+    def is_correct(self) -> bool:
         """Check if SECURITY.md exists and is non-empty.
 
         Returns:
             bool: True if file exists with content, False otherwise.
         """
-        return cls.path().exists() and bool(
-            cls.path().read_text(encoding="utf-8").strip()
+        return self.path().exists() and bool(
+            self.path().read_text(encoding="utf-8").strip()
         )
 
-    @classmethod
-    def template_with_contact_method(cls) -> str:
+    def template_with_contact_method(self) -> str:
         """Get the security template content with email inserted.
 
         Returns:
             str: Security template content with user's email.
         """
-        contact_method = cls.contact_method()
+        contact_method = self.contact_method()
         return SECURITY_TEMPLATE.replace("[INSERT CONTACT METHOD]", contact_method)
 
-    @classmethod
-    def contact_method(cls) -> str:
+    def contact_method(self) -> str:
         """Get the contact method for security reports.
 
         Returns:
-            str: The email in the version control, e.g. the email in git config
+            str: Email address from version control config (e.g. git).
         """
-        return f"<{VersionController.L.email()}>"
+        return f"<{VersionController.I.email()}>"

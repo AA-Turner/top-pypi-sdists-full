@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyreqwest
-Version: 0.10.1
+Version: 0.11.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -75,7 +75,7 @@ This is not a good choice when:
 - Automatic decompression (zstd, gzip, brotli, deflate)
 - Automatic response decoding (charset detection)
 - Multipart form support
-- Proxy support
+- Proxy support (also SOCKS)
 - Redirects
 - Timeouts
 - Authentication (Basic, Bearer)

@@ -1,13 +1,6 @@
-[package]
-name = "aoe2rec-tools"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-aoe2rec = { version = "0.5.2", path = "crates/aoe2rec" }
 
 [workspace]
-members = ["crates/aoe2rec-py"]
+members = ["crates/aoe2rec", "crates/aoe2rec-py"]
 
 [profile.release]
 # Tell `rustc` to optimize for small code size.

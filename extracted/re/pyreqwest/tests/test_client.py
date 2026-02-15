@@ -116,6 +116,11 @@ async def test_max_connections_full_timeout(echo_server: SubprocessServer):
         assert isinstance(e.value, TimeoutError)
 
 
+async def test_max_connections_invalid():
+    with pytest.raises(ValueError, match="max_connections must be greater than 0"):
+        ClientBuilder().max_connections(0)
+
+
 @pytest.mark.parametrize("timeout_value", [0.05, 0.2, None])
 @pytest.mark.parametrize("sleep_kind", ["sleep_start", "sleep_body"])
 @pytest.mark.parametrize("timeout_kind", ["total", "read", "connect"])
@@ -262,6 +267,23 @@ async def test_response_compression(echo_server: SubprocessServer):
         res = await (await client.get(echo_server.url).build().send()).json()
         accepts = {enc.strip() for enc in dict(res["headers"])["accept-encoding"].split(",")}
         assert accepts == {"deflate", "br", "zstd"}
+
+
+@pytest.mark.parametrize("resp_body", ["", "not empty"])
+@pytest.mark.parametrize("compress", [False, True])
+@pytest.mark.parametrize("http2", [False, True])
+async def test_head_response_body(
+    https_echo_server: SubprocessServer, cert_authority: trustme.CA, resp_body: str, compress: bool, http2: bool
+):
+    cert_pem = cert_authority.cert_pem.bytes()
+    async with ClientBuilder().http2(http2).add_root_certificate_pem(cert_pem).build() as client:
+        url = https_echo_server.url.with_query({"compress": "gzip"}) if compress else https_echo_server.url
+        url = url.extend_query({"echo_param": resp_body}) if resp_body else url.extend_query({"empty_body": "1"})
+
+        resp = await client.head(url).build().send()
+        assert resp.status == 200
+        assert resp.headers.get("x-content-encoding") == ("gzip" if compress else None)
+        assert (await resp.bytes()) == b""
 
 
 @pytest.mark.parametrize("str_url", [False, True])
@@ -491,7 +513,6 @@ async def test_various_builder_functions(
         .brotli(False)
         .zstd(False)
         .deflate(False)
-        .max_redirects(1)
         .referer(True)
         .no_proxy()
         .pool_idle_timeout(timedelta(seconds=1))
@@ -549,20 +570,34 @@ async def test_resolve(echo_server: SubprocessServer):
         assert resp.status == 200
 
 
-async def test_max_redirects(echo_server: SubprocessServer):
+@pytest.mark.parametrize("enable", [True, False])
+async def test_follow_redirects(echo_server: SubprocessServer, enable: bool):
     url = echo_server.url.with_query({"status": 302, "header_location": "/redirect"})
 
-    async with ClientBuilder().max_redirects(1).error_for_status(True).build() as client:
-        req = client.get(url).build()
-        resp = await req.send()
-        assert (await resp.json())["path"] == "/redirect"
-        assert resp.status == 200
+    async with ClientBuilder().follow_redirects(enable=enable).error_for_status(True).build() as client:
+        resp = await client.get(url).build().send()
+        if enable:
+            assert (await resp.json())["path"] == "/redirect"
+            assert resp.status == 200
+        else:
+            assert (await resp.json())["path"] == "/"
+            assert resp.status == 302
 
-    async with ClientBuilder().max_redirects(0).error_for_status(True).build() as client:
+
+@pytest.mark.parametrize("value", [1, 0])
+async def test_max_redirects(echo_server: SubprocessServer, value: int):
+    url = echo_server.url.with_query({"status": 302, "header_location": "/redirect"})
+
+    async with ClientBuilder().max_redirects(value).error_for_status(True).build() as client:
         req = client.get(url).build()
-        with pytest.raises(RedirectError, match="error following redirect") as e:
-            await req.send()
-        assert e.value.details and {"message": "too many redirects"} in (e.value.details["causes"] or [])
+        if value == 0:
+            with pytest.raises(RedirectError, match="error following redirect") as e:
+                await req.send()
+            assert e.value.details and {"message": "too many redirects"} in (e.value.details["causes"] or [])
+        else:
+            resp = await req.send()
+            assert (await resp.json())["path"] == "/redirect"
+            assert resp.status == 200
 
 
 def test_bad_tls_version():

@@ -3,6 +3,7 @@ from abc import abstractmethod
 from adam.commands.command import Command
 from adam.config import Config
 from adam.utils_context import NULL
+from adam.utils_job.job import Job
 from adam.utils_k8s.pod_exec_result import PodExecResult
 from adam.repl_state import BashSession, ReplState
 from adam.utils_log import log2
@@ -50,7 +51,7 @@ class Device:
     def pwd(self, state: ReplState):
         pass
 
-    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str, retry = False):
+    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str, job: Job = None, ctx = NULL):
         return False, None
 
     def enter(self, state: ReplState):

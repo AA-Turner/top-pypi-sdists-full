@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: comfy-test
-Version: 0.1.110
+Version: 0.2.0
 Summary: Installation testing infrastructure for ComfyUI custom nodes
 Project-URL: Homepage, https://github.com/PozzettiAndrea/comfy-test
 Project-URL: Repository, https://github.com/PozzettiAndrea/comfy-test

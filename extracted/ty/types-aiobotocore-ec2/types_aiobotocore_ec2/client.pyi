@@ -119,6 +119,9 @@ from .paginator import (
     DescribeRouteTablesPaginator,
     DescribeScheduledInstanceAvailabilityPaginator,
     DescribeScheduledInstancesPaginator,
+    DescribeSecondaryInterfacesPaginator,
+    DescribeSecondaryNetworksPaginator,
+    DescribeSecondarySubnetsPaginator,
     DescribeSecurityGroupRulesPaginator,
     DescribeSecurityGroupsPaginator,
     DescribeSecurityGroupVpcAssociationsPaginator,
@@ -437,6 +440,10 @@ from .type_defs import (
     CreateRouteServerResultTypeDef,
     CreateRouteTableRequestTypeDef,
     CreateRouteTableResultTypeDef,
+    CreateSecondaryNetworkRequestTypeDef,
+    CreateSecondaryNetworkResultTypeDef,
+    CreateSecondarySubnetRequestTypeDef,
+    CreateSecondarySubnetResultTypeDef,
     CreateSecurityGroupRequestTypeDef,
     CreateSecurityGroupResultTypeDef,
     CreateSnapshotRequestTypeDef,
@@ -607,6 +614,10 @@ from .type_defs import (
     DeleteRouteServerRequestTypeDef,
     DeleteRouteServerResultTypeDef,
     DeleteRouteTableRequestTypeDef,
+    DeleteSecondaryNetworkRequestTypeDef,
+    DeleteSecondaryNetworkResultTypeDef,
+    DeleteSecondarySubnetRequestTypeDef,
+    DeleteSecondarySubnetResultTypeDef,
     DeleteSecurityGroupRequestTypeDef,
     DeleteSecurityGroupResultTypeDef,
     DeleteSnapshotRequestTypeDef,
@@ -931,6 +942,12 @@ from .type_defs import (
     DescribeScheduledInstanceAvailabilityResultTypeDef,
     DescribeScheduledInstancesRequestTypeDef,
     DescribeScheduledInstancesResultTypeDef,
+    DescribeSecondaryInterfacesRequestTypeDef,
+    DescribeSecondaryInterfacesResultTypeDef,
+    DescribeSecondaryNetworksRequestTypeDef,
+    DescribeSecondaryNetworksResultTypeDef,
+    DescribeSecondarySubnetsRequestTypeDef,
+    DescribeSecondarySubnetsResultTypeDef,
     DescribeSecurityGroupReferencesRequestTypeDef,
     DescribeSecurityGroupReferencesResultTypeDef,
     DescribeSecurityGroupRulesRequestTypeDef,
@@ -1666,6 +1683,10 @@ from .waiter import (
     NatGatewayDeletedWaiter,
     NetworkInterfaceAvailableWaiter,
     PasswordDataAvailableWaiter,
+    SecondaryNetworkCreateCompleteWaiter,
+    SecondaryNetworkDeleteCompleteWaiter,
+    SecondarySubnetCreateCompleteWaiter,
+    SecondarySubnetDeleteCompleteWaiter,
     SecurityGroupExistsWaiter,
     SecurityGroupVpcAssociationAssociatedWaiter,
     SecurityGroupVpcAssociationDisassociatedWaiter,
@@ -2994,6 +3015,26 @@ class EC2Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#create_route_table)
         """
 
+    async def create_secondary_network(
+        self, **kwargs: Unpack[CreateSecondaryNetworkRequestTypeDef]
+    ) -> CreateSecondaryNetworkResultTypeDef:
+        """
+        Creates an Amazon secondary network.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_secondary_network.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#create_secondary_network)
+        """
+
+    async def create_secondary_subnet(
+        self, **kwargs: Unpack[CreateSecondarySubnetRequestTypeDef]
+    ) -> CreateSecondarySubnetResultTypeDef:
+        """
+        Creates a secondary subnet in a secondary network.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_secondary_subnet.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#create_secondary_subnet)
+        """
+
     async def create_security_group(
         self, **kwargs: Unpack[CreateSecurityGroupRequestTypeDef]
     ) -> CreateSecurityGroupResultTypeDef:
@@ -3933,6 +3974,26 @@ class EC2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_route_table.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#delete_route_table)
+        """
+
+    async def delete_secondary_network(
+        self, **kwargs: Unpack[DeleteSecondaryNetworkRequestTypeDef]
+    ) -> DeleteSecondaryNetworkResultTypeDef:
+        """
+        Deletes a secondary network.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_secondary_network.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#delete_secondary_network)
+        """
+
+    async def delete_secondary_subnet(
+        self, **kwargs: Unpack[DeleteSecondarySubnetRequestTypeDef]
+    ) -> DeleteSecondarySubnetResultTypeDef:
+        """
+        Deletes a secondary subnet.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_secondary_subnet.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#delete_secondary_subnet)
         """
 
     async def delete_security_group(
@@ -5664,6 +5725,36 @@ class EC2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_scheduled_instances.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#describe_scheduled_instances)
+        """
+
+    async def describe_secondary_interfaces(
+        self, **kwargs: Unpack[DescribeSecondaryInterfacesRequestTypeDef]
+    ) -> DescribeSecondaryInterfacesResultTypeDef:
+        """
+        Describes one or more of your secondary interfaces.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_secondary_interfaces.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#describe_secondary_interfaces)
+        """
+
+    async def describe_secondary_networks(
+        self, **kwargs: Unpack[DescribeSecondaryNetworksRequestTypeDef]
+    ) -> DescribeSecondaryNetworksResultTypeDef:
+        """
+        Describes one or more secondary networks.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_secondary_networks.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#describe_secondary_networks)
+        """
+
+    async def describe_secondary_subnets(
+        self, **kwargs: Unpack[DescribeSecondarySubnetsRequestTypeDef]
+    ) -> DescribeSecondarySubnetsResultTypeDef:
+        """
+        Describes one or more of your secondary subnets.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_secondary_subnets.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#describe_secondary_subnets)
         """
 
     async def describe_security_group_references(
@@ -10451,6 +10542,39 @@ class EC2Client(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_secondary_interfaces"]
+    ) -> DescribeSecondaryInterfacesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_secondary_networks"]
+    ) -> DescribeSecondaryNetworksPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_secondary_subnets"]
+    ) -> DescribeSecondarySubnetsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_security_group_rules"]
     ) -> DescribeSecurityGroupRulesPaginator:
         """
@@ -11520,6 +11644,50 @@ class EC2Client(AioBaseClient):
     def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["password_data_available"]
     ) -> PasswordDataAvailableWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_waiter.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["secondary_network_create_complete"]
+    ) -> SecondaryNetworkCreateCompleteWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_waiter.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["secondary_network_delete_complete"]
+    ) -> SecondaryNetworkDeleteCompleteWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_waiter.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["secondary_subnet_create_complete"]
+    ) -> SecondarySubnetCreateCompleteWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_waiter.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["secondary_subnet_delete_complete"]
+    ) -> SecondarySubnetDeleteCompleteWaiter:
         """
         Returns an object that can wait for some condition.
 

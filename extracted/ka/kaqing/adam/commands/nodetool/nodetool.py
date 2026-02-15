@@ -9,9 +9,11 @@ from adam.commands.nodetool.nodetool_commands import NODETOOL_COMMANDS
 from adam.commands.nodetool.utils_nodetool import abort_nodetool_tasks, find_running_nodetool_tasks
 from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
+from adam.utils import ts
 from adam.utils_context import Context
 from adam.utils_job.job import Job
-from adam.utils_job.utils_job_results import find_failed_pods
+from adam.utils_job.job_status import JobStatus, RunningJobStatus
+from adam.utils_job.utils_job_results import find_exit_codes, find_job_status
 from adam.utils_log import log
 from adam.utils_cassandra.pod_service import cassandra
 from adam.utils_tabulize import tabulize
@@ -45,29 +47,43 @@ class NodeTool(Command):
             with self.context(args) as (args, ctx):
                 return self._run(args, state, ctx=ctx)
 
-    def retry(self, cmd: str, job: Job, state: ReplState):
+    def retry(self, cmd: str, job: Job, state: ReplState, ctx: Context=None):
         if not(args := self.args(cmd)):
             return super().retry(cmd, job, state)
 
         with self.validate(args, state) as (args, state):
-            with self.context(args, job_id=job.job_id) as (args, ctx):
-                if not (pods := find_failed_pods(state, job, ctx=ctx.copy(show_out=False, background=False))):
-                    ctx.copy(background=False).log2(f'No failures are reported for job: {job.job_id}.')
+            # ctx is not None when from job scheduler
+            from_scheduler = ctx
+            with self.context(args, job_id=job.job_id, ctx=ctx) as (args, ctx):
+                job_status = find_job_status(state, job, ctx=ctx.copy(show_out=False, background=False))
 
-                    return state
+                ctx_for_log = ctx
+                if not from_scheduler:
+                    # if this is run with 'retry' command, show the message synchronously
+                    ctx_for_log = ctx.copy(background=False, show_out=True)
 
-                ctx.copy(background=False).log2(f'{len(pods)} nodetool compacts are being retried...')
+                if not job_status.failed():
+                    if job_status.is_running():
+                        ctx_for_log.log2(f'[{ts()}] Still running with no failures reported.')
+                    else:
+                        ctx_for_log.log2(f'[{ts()}] All nodetool {args[0]} have been completed successfully!')
 
-                return self._run(args, state, pods=pods, ctx=ctx)
+                    return job_status
 
-    def _run(self, args: list[str], state: ReplState, pods: list[str] = None, ctx: Context = None):
+                ctx_for_log.log2(f'[{ts()}] {job_status.failed()} nodetool {args[0]} are being retried...')
+
+                self._run(args, state, pods=job_status.failed_pods, retry=True, ctx=ctx)
+
+                return job_status
+
+    def _run(self, args: list[str], state: ReplState, pods: list[str] = None, retry = False, ctx: Context = None):
         with extract_options(args, '--force') as (args, forced):
             if not pods:
                 pods = state.pod
 
             with cassandra(state, pod=pods) as pods:
                 if subcommand := args[0]:
-                    if subcommand in ['repair']:
+                    if subcommand in ['repair'] and not retry:
                         ps = find_running_nodetool_tasks(subcommand, state)
                         if ps:
                             tabulize(ps,
@@ -91,7 +107,7 @@ class NodeTool(Command):
 
                 pods.nodetool(' '.join(args), status=(args[0] == 'status'), ctx=ctx)
 
-                return state
+                return RunningJobStatus(job_id=ctx.job_id)
 
     def completion(self, state: ReplState):
         return super().completion(state, {c: {'--force': None, '&': None} for c in NODETOOL_COMMANDS}, pods=device(state).pods(state, '-'))

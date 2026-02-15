@@ -37,9 +37,9 @@ class Command:
 
         return None
 
-    def retry(self, cmd: str, job: Job, state: ReplState):
+    def retry(self, cmd: str, job: Job, state: ReplState, ctx = None):
         if self._successor:
-            return self._successor.retry(cmd, job, state)
+            return self._successor.retry(cmd, job, state, ctx=ctx)
 
         return None
 
@@ -138,8 +138,8 @@ class Command:
     def validate_state(self, state: ReplState, show_err = True):
         return state.validate(self.required(), show_err=show_err)
 
-    def context(self, args: list[str] = None, show_out = True, ignore_bg = False, job_id: str = None):
-        return ContextHandler(self.command(), args, self.backgrounable(), show_out=show_out, ignore_bg=ignore_bg, job_id=job_id)
+    def context(self, args: list[str] = None, show_out = True, ignore_bg = False, job_id: str = None, ctx: Context = None):
+        return ContextHandler(self.command(), args, self.backgrounable(), show_out=show_out, ignore_bg=ignore_bg, job_id=job_id, ctx=ctx)
 
     def help(self, _: ReplState, desc: str = None, command: str = None, args: str = None):
         if not desc:
@@ -420,13 +420,14 @@ class ExtractSequenceOptionsHandler:
         return False
 
 class ContextHandler:
-    def __init__(self, command: str, args: list[str] = None, backgroundable = False, show_out = True, ignore_bg = False, job_id: str = None):
+    def __init__(self, command: str, args: list[str] = None, backgroundable = False, show_out = True, ignore_bg = False, job_id: str = None, ctx: Context = None):
         self.command = command
         self.args = args
         self.backgrounable = backgroundable
         self.show_out = show_out
         self.ignore_bg = ignore_bg
         self.job_id = job_id
+        self.ctx = ctx
 
     def __enter__(self) -> tuple[list[str], Context]:
         args = self.args
@@ -437,7 +438,11 @@ class ContextHandler:
                 log2(f"'&' is not a valid option for '{self.command}', ignoring")
                 background = False
 
-        return args, Context.new(self.command + ' ' + ' '.join(args), show_out=self.show_out, background=background, job_id = self.job_id)
+        ctx = self.ctx
+        if not ctx:
+            ctx = Context.new(self.command + ' ' + ' '.join(args), show_out=self.show_out, background=background, job_id = self.job_id)
+
+        return args, ctx
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         return False

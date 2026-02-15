@@ -266,7 +266,6 @@ def test_threaded_shared_lock_obj(lock_type: type[BaseFileLock], tmp_path: Path)
 def test_threaded_lock_different_lock_obj(lock_type: type[BaseFileLock], tmp_path: Path) -> None:
     # Runs multiple threads, which acquire the same lock file with a different FileLock object. When thread group 1
     # acquired the lock, thread group 2 must not hold their lock.
-
     def t_1() -> None:
         for _ in range(1000):
             with lock_1:
@@ -498,6 +497,55 @@ def test_poll_intervall_deprecated(lock_type: type[BaseFileLock], tmp_path: Path
 
 
 @pytest.mark.parametrize("lock_type", [FileLock, SoftFileLock])
+def test_default_poll_interval(lock_type: type[BaseFileLock], tmp_path: Path) -> None:
+    lock_path = tmp_path / "a"
+    lock = lock_type(str(lock_path))
+    assert lock.poll_interval == 0.05
+
+    lock_2 = lock_type(str(lock_path), poll_interval=0.1)
+    assert lock_2.poll_interval == 0.1
+
+    lock_2.poll_interval = 0.2
+    assert lock_2.poll_interval == 0.2
+
+
+@pytest.mark.parametrize("lock_type", [FileLock, SoftFileLock])
+def test_poll_interval_used_by_context_manager(
+    lock_type: type[BaseFileLock], tmp_path: Path, mocker: MockerFixture
+) -> None:
+    lock_path = tmp_path / "a"
+    lock_1 = lock_type(str(lock_path))
+    lock_2 = lock_type(str(lock_path), timeout=0.2, poll_interval=0.05)
+
+    lock_1.acquire()
+    sleep_mock = mocker.patch("filelock._api.time.sleep")
+    with pytest.raises(Timeout):
+        lock_2.acquire()
+    sleep_mock.assert_called_with(0.05)
+
+    sleep_mock.reset_mock()
+    lock_2.poll_interval = 0.1
+    with pytest.raises(Timeout):
+        lock_2.acquire()
+    sleep_mock.assert_called_with(0.1)
+    lock_1.release()
+
+
+@pytest.mark.parametrize("lock_type", [FileLock, SoftFileLock])
+def test_poll_interval_acquire_override(lock_type: type[BaseFileLock], tmp_path: Path, mocker: MockerFixture) -> None:
+    lock_path = tmp_path / "a"
+    lock_1 = lock_type(str(lock_path))
+    lock_2 = lock_type(str(lock_path), timeout=0.2, poll_interval=0.05)
+
+    lock_1.acquire()
+    sleep_mock = mocker.patch("filelock._api.time.sleep")
+    with pytest.raises(Timeout):
+        lock_2.acquire(poll_interval=0.15)
+    sleep_mock.assert_called_with(0.15)
+    lock_1.release()
+
+
+@pytest.mark.parametrize("lock_type", [FileLock, SoftFileLock])
 def test_context_decorator(lock_type: type[BaseFileLock], tmp_path: Path) -> None:
     lock_path = tmp_path / "a"
     lock = lock_type(str(lock_path))
@@ -601,10 +649,13 @@ def test_wrong_platform(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="flock not run on windows")
+@pytest.mark.filterwarnings("default::UserWarning")
 def test_flock_not_implemented_unix(tmp_path: Path, mocker: MockerFixture) -> None:
     mocker.patch("fcntl.flock", side_effect=OSError(ENOSYS, "mock error"))
-    with pytest.raises(NotImplementedError), FileLock(tmp_path / "a.lock"):
-        pass
+    lock = FileLock(tmp_path / "a.lock")
+    with lock:
+        assert lock.is_locked
+        assert isinstance(lock, SoftFileLock)
 
 
 def test_soft_errors(tmp_path: Path, mocker: MockerFixture) -> None:
@@ -747,8 +798,14 @@ def test_singleton_locks_are_distinct_per_lock_file(lock_type: type[BaseFileLock
 @pytest.mark.parametrize("lock_type", [FileLock, SoftFileLock])
 def test_singleton_locks_must_be_initialized_with_the_same_args(lock_type: type[BaseFileLock], tmp_path: Path) -> None:
     lock_path = tmp_path / "a"
-    args: dict[str, Any] = {"timeout": -1, "mode": 0o644, "thread_local": True, "blocking": True}
-    alternate_args: dict[str, Any] = {"timeout": 10, "mode": 0, "thread_local": False, "blocking": False}
+    args: dict[str, Any] = {"timeout": -1, "mode": 0o644, "thread_local": True, "blocking": True, "poll_interval": 0.05}
+    alternate_args: dict[str, Any] = {
+        "timeout": 10,
+        "mode": 0,
+        "thread_local": False,
+        "blocking": False,
+        "poll_interval": 0.1,
+    }
 
     lock = lock_type(str(lock_path), is_singleton=True, **args)
 
@@ -838,7 +895,15 @@ def test_mtime_zero_exit_branch(
         lock.acquire(timeout=0)
 
 
-@pytest.mark.parametrize("lock_type", [FileLock, SoftFileLock])
+@pytest.mark.parametrize(
+    "lock_type",
+    [
+        pytest.param(
+            FileLock, marks=pytest.mark.skipif(sys.platform == "win32", reason="Windows cannot unlink open files")
+        ),
+        SoftFileLock,
+    ],
+)
 def test_lock_file_removed_after_release(tmp_path: Path, lock_type: type[BaseFileLock]) -> None:
     lock_path = tmp_path / "test.lock"
     lock = lock_type(str(lock_path))
@@ -974,3 +1039,84 @@ def test_sticky_bit_fallback_handles_concurrent_unlink(tmp_path: Path, mocker: M
     assert lock.is_locked
     assert call_count == 3
     lock.release()
+
+
+@pytest.mark.parametrize("lock_type", [FileLock, SoftFileLock])
+def test_cancel_check_triggers(lock_type: type[BaseFileLock], tmp_path: Path) -> None:
+    lock_path = tmp_path / "a"
+    lock_1 = lock_type(str(lock_path))
+    lock_2 = lock_type(str(lock_path))
+
+    lock_1.acquire()
+
+    with pytest.raises(Timeout, match=r"The file lock '.*' could not be acquired."):
+        lock_2.acquire(timeout=1, cancel_check=lambda: True)
+    assert not lock_2.is_locked
+    lock_1.release()
+
+
+@pytest.mark.parametrize("lock_type", [FileLock, SoftFileLock])
+def test_cancel_check_after_n_polls(lock_type: type[BaseFileLock], tmp_path: Path, mocker: MockerFixture) -> None:
+    lock_path = tmp_path / "a"
+    lock_1 = lock_type(str(lock_path))
+    lock_2 = lock_type(str(lock_path))
+
+    lock_1.acquire()
+
+    call_count = 0
+
+    def cancel_after_two() -> bool:
+        nonlocal call_count
+        call_count += 1
+        return call_count >= 2
+
+    mocker.patch("filelock._api.time.sleep")
+    with pytest.raises(Timeout):
+        lock_2.acquire(timeout=10, cancel_check=cancel_after_two)
+    assert call_count == 2
+    assert not lock_2.is_locked
+    lock_1.release()
+
+
+@pytest.mark.parametrize("lock_type", [FileLock, SoftFileLock])
+def test_cancel_check_not_called_when_lock_available(lock_type: type[BaseFileLock], tmp_path: Path) -> None:
+    lock_path = tmp_path / "a"
+    lock = lock_type(str(lock_path))
+
+    called = False
+
+    def should_not_be_called() -> bool:
+        nonlocal called
+        called = True
+        return True
+
+    lock.acquire(cancel_check=should_not_be_called)
+    assert lock.is_locked
+    assert not called
+    lock.release()
+
+
+@pytest.mark.parametrize("lock_type", [FileLock, SoftFileLock])
+def test_cancel_check_false_allows_acquisition(lock_type: type[BaseFileLock], tmp_path: Path) -> None:
+    lock_path = tmp_path / "a"
+    lock = lock_type(str(lock_path))
+
+    lock.acquire(cancel_check=lambda: False)
+    assert lock.is_locked
+    lock.release()
+
+
+@pytest.mark.parametrize("lock_type", [FileLock, SoftFileLock])
+def test_cancel_check_log_message(
+    lock_type: type[BaseFileLock], tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    lock_path = tmp_path / "a"
+    lock_1 = lock_type(str(lock_path))
+    lock_2 = lock_type(str(lock_path))
+
+    lock_1.acquire()
+    with pytest.raises(Timeout):
+        lock_2.acquire(timeout=1, cancel_check=lambda: True)
+    assert any("Cancellation requested" in msg for msg in caplog.messages)
+    lock_1.release()

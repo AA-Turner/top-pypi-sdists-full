@@ -4,7 +4,7 @@ import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 import structlog
 from langgraph.pregel.debug import CheckpointPayload, TaskResultPayload
@@ -17,6 +17,7 @@ from langgraph_api.config import (
     BG_JOB_ISOLATED_LOOPS,
     BG_JOB_MAX_RETRIES,
     BG_JOB_TIMEOUT_SECS,
+    USE_CUSTOM_CHECKPOINTER,
 )
 from langgraph_api.encryption.context import set_encryption_context
 from langgraph_api.encryption.middleware import (
@@ -352,6 +353,30 @@ async def worker(
                             )
                         else:
                             raise
+
+                    # The Go layer deletes checkpoints from Postgres tables,
+                    # but custom checkpointers store data elsewhere (e.g. Redis).
+                    # Clean up the custom checkpointer's data for this run.
+                    if USE_CUSTOM_CHECKPOINTER:
+                        try:
+                            from langgraph_api import (  # noqa: PLC0415
+                                _checkpointer as api_checkpointer,
+                            )
+
+                            checkpointer = cast(
+                                "Any", await api_checkpointer.get_checkpointer()
+                            )
+                            await checkpointer.adelete_for_runs([str(run_id)])
+                        except Exception:
+                            await logger.aerror(
+                                "Failed to clean up custom checkpointer "
+                                "data for rolled-back run. Thread state may "
+                                "reflect the rolled-back run until a new run "
+                                "completes.",
+                                exc_info=True,
+                                run_id=str(run_id),
+                                thread_id=thread_id,
+                            )
 
                     checkpoint = None  # reset the checkpoint
             elif isinstance(exception, UserInterrupt):

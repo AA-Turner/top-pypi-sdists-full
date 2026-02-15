@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from typing import NoReturn
+
 import pytest
 import pytest_trio.plugin  # type: ignore # noqa
 import trio
@@ -12,7 +14,7 @@ class PyeeTestError(Exception):
 
 
 @pytest.mark.trio
-async def test_trio_emit():
+async def test_trio_emit() -> None:
     """Test that the trio event emitter can handle wrapping
     coroutines
     """
@@ -35,7 +37,7 @@ async def test_trio_emit():
 
 
 @pytest.mark.trio
-async def test_trio_once_emit():
+async def test_trio_once_emit() -> None:
     """Test that trio event emitters also wrap coroutines when
     using once
     """
@@ -58,13 +60,13 @@ async def test_trio_once_emit():
 
 
 @pytest.mark.trio
-async def test_trio_error():
+async def test_trio_error() -> None:
     """Test that trio event emitters can handle errors when
     wrapping coroutines
     """
 
     async with TrioEventEmitter() as ee:
-        send, rcv = trio.open_memory_channel(1)
+        send, rcv = trio.open_memory_channel[PyeeTestError](1)
 
         @ee.on("event")
         async def event_handler():
@@ -86,18 +88,18 @@ async def test_trio_error():
 
 
 @pytest.mark.trio
-async def test_sync_error(event_loop):
+async def test_sync_error() -> None:
     """Test that regular functions have the same error handling as coroutines"""
 
     async with TrioEventEmitter() as ee:
-        send, rcv = trio.open_memory_channel(1)
+        send, rcv = trio.open_memory_channel[PyeeTestError](1)
 
         @ee.on("event")
-        def sync_handler():
+        def sync_handler() -> NoReturn:
             raise PyeeTestError()
 
         @ee.on("error")
-        async def handle_error(exc):
+        async def handle_error(exc) -> None:
             async with send:
                 await send.send(exc)
 

@@ -141,20 +141,37 @@ class _UnixDefaults(PlatformDirsABC):  # noqa: PLR0904
         return os.path.expanduser("~/.local/bin")  # noqa: PTH111
 
     @property
+    def site_bin_dir(self) -> str:
+        """:return: bin directory shared by users, e.g. ``/usr/local/bin``"""
+        return "/usr/local/bin"
+
+    @property
     def user_applications_dir(self) -> str:
         """:return: applications directory tied to the user, e.g. ``~/.local/share/applications``"""
         return os.path.join(os.path.expanduser("~/.local/share"), "applications")  # noqa: PTH111, PTH118
+
+    @property
+    def _site_applications_dirs(self) -> list[str]:
+        return [os.path.join(p, "applications") for p in ["/usr/local/share", "/usr/share"]]  # noqa: PTH118
+
+    @property
+    def site_applications_dir(self) -> str:
+        """:return: applications directory shared by users, e.g. ``/usr/share/applications``"""
+        dirs = self._site_applications_dirs
+        return os.pathsep.join(dirs) if self.multipath else dirs[0]
 
     @property
     def user_runtime_dir(self) -> str:
         """
         :return: runtime directory tied to the user, e.g. ``$XDG_RUNTIME_DIR/$appname/$version``.
 
-        If ``$XDG_RUNTIME_DIR`` is unset, tries the platform default (``/var/run/user/$(id -u)`` on
-        FreeBSD/OpenBSD/NetBSD, ``/run/user/$(id -u)`` otherwise). If the default is not writable,
-        falls back to a temporary directory.
+        If ``$XDG_RUNTIME_DIR`` is unset, tries the platform default (``/tmp/run/user/$(id -u)`` on
+        OpenBSD, ``/var/run/user/$(id -u)`` on FreeBSD/NetBSD, ``/run/user/$(id -u)`` otherwise).
+        If the default is not writable, falls back to a temporary directory.
         """
-        if sys.platform.startswith(("freebsd", "openbsd", "netbsd")):
+        if sys.platform.startswith("openbsd"):
+            path = f"/tmp/run/user/{getuid()}"  # noqa: S108
+        elif sys.platform.startswith(("freebsd", "netbsd")):
             path = f"/var/run/user/{getuid()}"
         else:
             path = f"/run/user/{getuid()}"
@@ -245,9 +262,19 @@ class Unix(XDGMixin, _UnixDefaults):
         return self.site_log_dir if self._use_site else super().user_log_dir
 
     @property
+    def user_applications_dir(self) -> str:
+        """:return: applications directory tied to the user, or site equivalent when root with ``use_site_for_root``"""
+        return self.site_applications_dir if self._use_site else super().user_applications_dir
+
+    @property
     def user_runtime_dir(self) -> str:
         """:return: runtime directory tied to the user, or site equivalent when root with ``use_site_for_root``"""
         return self.site_runtime_dir if self._use_site else super().user_runtime_dir
+
+    @property
+    def user_bin_dir(self) -> str:
+        """:return: bin directory tied to the user, or site equivalent when root with ``use_site_for_root``"""
+        return self.site_bin_dir if self._use_site else super().user_bin_dir
 
 
 def _get_user_media_dir(env_var: str, fallback_tilde_path: str) -> str:

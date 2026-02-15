@@ -1,12 +1,12 @@
-"""Test pack._core module"""
+"""Test rpack._core module"""
 
 # Built-in
+import ctypes
 import random
 import unittest
 
 # Local
 import rpack
-import rpack._rpack
 import rpack._core
 
 
@@ -51,6 +51,9 @@ class TestBboxSize(unittest.TestCase):
 class TestPackInput(unittest.TestCase):
     """Test how rpack.pack handles bad input"""
 
+    _LONG_BITS = ctypes.sizeof(ctypes.c_long) * 8
+    _LONG_MAX = (1 << (_LONG_BITS - 1)) - 1
+
     def test_empty(self):
         """Empty input should give empty output"""
         self.assertListEqual(rpack.pack([]), [])
@@ -89,6 +92,16 @@ class TestPackInput(unittest.TestCase):
     def test_floats(self):
         with self.assertRaises(TypeError):
             rpack.pack([[1.99, 1.99]])
+
+    def test_area_overflow(self):
+        too_wide = self._LONG_MAX // 2 + 1
+        with self.assertRaisesRegex(OverflowError, "area"):
+            rpack.pack([(too_wide, 2)])
+
+    def test_total_area_overflow(self):
+        side = self._LONG_MAX // 2 + 1
+        with self.assertRaisesRegex(OverflowError, "area"):
+            rpack.pack([(side, 1), (side, 1)])
 
 
 class TestPackInputBoundingBoxRestrictions(unittest.TestCase):
@@ -286,16 +299,3 @@ class TestPackOutput(unittest.TestCase):
                 ]
                 pos = rpack.pack(sizes)
                 self.assertFalse(rpack._core.overlapping(sizes, pos))
-
-    def test_backwards_compatible(self):
-        for i in range(10):
-            random.seed(i)
-            sizes = [(random.randint(1, 50), random.randint(1, 50)) for _ in range(20)]
-            pos1 = rpack._rpack.pack(sizes)
-            self.assertFalse(rpack._core.overlapping(sizes, pos1))
-            pos2 = rpack.pack(sizes)
-            self.assertFalse(rpack._core.overlapping(sizes, pos2))
-            self.assertLessEqual(
-                rpack._core.packing_density(sizes, pos1),
-                rpack._core.packing_density(sizes, pos2),
-            )

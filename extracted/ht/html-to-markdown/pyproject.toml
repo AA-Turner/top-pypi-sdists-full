@@ -7,7 +7,7 @@ requires = [
 
 [project]
 name = "html-to-markdown"
-version = "2.24.5"
+version = "2.24.6"
 description = "High-performance HTML to Markdown converter powered by Rust with a clean Python API"
 readme = "README.md"
 keywords = [
@@ -45,7 +45,7 @@ classifiers = [
   "Topic :: Text Processing :: Markup :: Markdown",
   "Typing :: Typed",
 ]
-dependencies = [  ]
+dependencies = []
 urls.Changelog = "https://github.com/kreuzberg-dev/html-to-markdown/releases"
 urls.Homepage = "https://github.com/kreuzberg-dev/html-to-markdown"
 urls.Issues = "https://github.com/kreuzberg-dev/html-to-markdown/issues"

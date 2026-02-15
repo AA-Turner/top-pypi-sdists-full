@@ -2,7 +2,7 @@
 
 Provides subset checking for nested dictionaries and lists, with optional
 auto-correction callbacks that modify the superset in-place when mismatches
-are detected. Used primarily by ConfigFile to validate and merge configuration
+are detected. Used primarily by `ConfigFile` to validate and merge configuration
 files.
 
 See Also:
@@ -36,17 +36,19 @@ def nested_structure_is_subset(  # noqa: C901
     When callbacks are provided and a mismatch is detected, the appropriate callback
     is invoked. Callbacks should modify the superset in-place to correct the mismatch.
     After each callback invocation, the function re-checks the entire structure; if
-    the mismatch is corrected, ``True`` is returned.
+    the mismatch is corrected, `True` is returned.
 
     Args:
         subset: The expected structure to check (treated as the "required" values).
         superset: The actual structure to check against (may contain additional values).
         on_dict_mismatch: Callback invoked on dict mismatches. Receives
-            ``(subset_dict, superset_dict, key)`` where ``key`` is the mismatched key.
-            Should modify ``superset_dict`` in-place to add/fix the missing value.
+            `(subset, superset, key)` where the first two arguments are the full
+            dict structures being compared and `key` is the mismatched key.
+            Should modify `superset` in-place to add/fix the missing value.
         on_list_mismatch: Callback invoked on list mismatches. Receives
-            ``(subset_list, superset_list, index)`` where ``index`` is the position
-            of the missing item in subset. Should modify ``superset_list`` in-place.
+            `(subset, superset, index)` where the first two arguments are the full
+            list structures being compared and `index` is the position of the missing
+            item in subset. Should modify `superset` in-place.
 
     Returns:
         True if subset is contained in superset (or if callbacks successfully
@@ -60,7 +62,7 @@ def nested_structure_is_subset(  # noqa: C901
             >>> nested_structure_is_subset({"a": 1}, {"a": 2})
             False
 
-        With auto-correction callback (as used by ConfigFile)::
+        With auto-correction callback (as used by `ConfigFile`)::
 
             >>> actual = {"a": 1}
             >>> expected = {"a": 1, "b": 2}
@@ -107,7 +109,7 @@ def nested_structure_is_subset(  # noqa: C901
         ):
             all_good = False
             if on_false_action is not None:
-                on_false_action(subset, superset, key_or_index)  # ty:ignore[invalid-argument-type]
+                on_false_action(subset, superset, key_or_index)  # type:ignore[arg-type]
                 all_good = nested_structure_is_subset(subset, superset)
 
                 if not all_good:

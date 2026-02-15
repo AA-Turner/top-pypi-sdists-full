@@ -10,7 +10,7 @@ use pyo3::types::{PyDict, PyList, PyTuple};
 
 /// Python wrapper for metadata extraction configuration
 #[cfg(feature = "metadata")]
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Clone)]
 pub struct MetadataConfig {
     #[pyo3(get, set)]

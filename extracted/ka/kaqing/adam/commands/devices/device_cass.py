@@ -5,6 +5,7 @@ from adam.commands.cql.utils_cql import cassandra_table_names
 from adam.commands.devices.device import Device
 from adam.config import Config
 from adam.repl_state import ReplState
+from adam.utils_job.job import Job
 from adam.utils_log import log2, log_timing, wait_log
 from adam.utils_cassandra.cassandra_status import CassandraStatus
 from adam.utils_cassandra.pod_service import cassandra
@@ -132,9 +133,9 @@ class DeviceCass(Command, Device):
 
         return '\t'.join([f'{ReplState.C}:>'] + (words if words else ['/']))
 
-    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str, retry = False):
+    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str, job: Job = None, ctx = NULL):
         if state.sts:
-            return True, chain.retry(f'cql {cmd}', state) if retry else chain.run(f'cql {cmd}', state)
+            return True, chain.retry(f'cql {cmd}', job, state, ctx=ctx) if job else chain.run(f'cql {cmd}', state)
 
         return False, None
 

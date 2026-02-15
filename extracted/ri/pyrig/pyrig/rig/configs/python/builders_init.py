@@ -22,7 +22,7 @@ class BuildersInitConfigFile(InitConfigFile):
     Examples:
         Generate {package_name}/rig/builders/__init__.py::
 
-            BuildersInitConfigFile()
+            BuildersInitConfigFile.I.validate()
 
         Add custom builders::
 
@@ -38,12 +38,11 @@ class BuildersInitConfigFile(InitConfigFile):
         pyrig.rig.configs.base.init.InitConfigFile
     '''
 
-    @classmethod
-    def src_module(cls) -> ModuleType:
+    def src_module(self) -> ModuleType:
         """Get the source module to copy docstring from.
 
         Returns:
-            ModuleType: pyrig.rig.builders module.
+            The `pyrig.rig.builders` module.
 
         Note:
             Only docstring is copied, no code.

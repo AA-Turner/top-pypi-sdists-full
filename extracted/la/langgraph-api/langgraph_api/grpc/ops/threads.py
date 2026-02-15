@@ -6,7 +6,7 @@ import asyncio
 from contextlib import AsyncExitStack
 from datetime import UTC
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 from uuid import UUID
 
 if TYPE_CHECKING:
@@ -29,7 +29,7 @@ from starlette.exceptions import HTTPException
 from langgraph_api import _checkpointer as api_checkpointer
 from langgraph_api import store as api_store
 from langgraph_api.command import map_cmd
-from langgraph_api.config import THREAD_TTL
+from langgraph_api.config import THREAD_TTL, USE_CUSTOM_CHECKPOINTER
 from langgraph_api.encryption.shared import get_encryption
 from langgraph_api.graph import get_graph
 from langgraph_api.grpc.client import get_shared_client
@@ -689,6 +689,13 @@ class Threads(Authenticated):
         response = await client.threads.Copy(request)
 
         thread = proto_to_thread(response)
+
+        # The Go layer copies checkpoint data from the Postgres checkpoints
+        # table, but custom checkpointers store data elsewhere (e.g. Redis).
+        # Call the custom checkpointer's acopy_thread to copy that data too.
+        if USE_CUSTOM_CHECKPOINTER:
+            checkpointer = cast("Any", await api_checkpointer.get_checkpointer())
+            await checkpointer.acopy_thread(str(thread_id), thread["thread_id"])
 
         async def generate_result():
             yield thread

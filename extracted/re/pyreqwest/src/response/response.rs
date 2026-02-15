@@ -105,14 +105,12 @@ impl BaseResponse {
 
     fn error_for_status(&self) -> PyResult<()> {
         let inner = self.ref_inner()?;
-        if inner.status.0.is_success() {
-            return Ok(());
-        }
         let msg = if inner.status.0.is_client_error() {
             "HTTP status client error"
-        } else {
-            debug_assert!(inner.status.0.is_server_error());
+        } else if inner.status.0.is_server_error() {
             "HTTP status server error"
+        } else {
+            return Ok(());
         };
         Err(StatusError::from_custom(
             msg,
@@ -188,13 +186,13 @@ impl BaseResponse {
     pub async fn initialize(
         response: reqwest::Response,
         request_semaphore_permit: Option<SpawnedRequestPermit>,
-        consume_body: BodyConsumeConfig,
+        read_config: BodyConsumeConfig,
         runtime: RuntimeHandle,
         json_handler: Option<JsonHandler>,
         error_for_status: bool,
     ) -> PyResult<Self> {
         let (body_reader, head) =
-            BodyReader::initialize(response, request_semaphore_permit, consume_body, runtime.clone()).await?;
+            BodyReader::initialize(response, request_semaphore_permit, read_config, runtime.clone()).await?;
 
         let resp = BaseResponse(Some(Inner {
             status: StatusCode(head.status),

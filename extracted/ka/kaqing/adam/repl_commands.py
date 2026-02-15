@@ -21,10 +21,12 @@ from adam.commands.config.param_get import GetParam
 from adam.commands.config.param_set import SetParam
 from adam.commands.deploy.upgrade import Upgrade
 from adam.commands.filters.debug_filter import DebugFilter
+from adam.commands.filters.schedule_filter import ScheduleFilter
 from adam.commands.filters.time_filter import TimeFilter
 from adam.commands.fs.find_files import FindFiles
 from adam.commands.fs.show_thread_pools import ShowThreadPools
-from adam.commands.nodetool.retry import Retry
+from adam.commands.job.retry import Retry
+from adam.commands.job.show_job_schedules import ShowJobSchedules
 from adam.commands.tmux.good import Good
 from adam.commands.tmux.good_morning import GoodMorning
 from adam.commands.tmux.good_night import GoodNight
@@ -77,7 +79,7 @@ from adam.commands.fs.ls_local import LsLocal
 from adam.commands.fs.rm import RmLocal
 from adam.commands.fs.rm_logs import RmLogs
 from adam.commands.fs.show_job_result import ShowJobResults
-from adam.commands.fs.show_jobs import ShowJobs
+from adam.commands.cassandra.show_node_restart_schedules import ShowNodeRestartSchedules
 from adam.commands.fs.tail import Tail
 from adam.commands.fs.tail_local import TailLocal
 from adam.commands.kubectl import Kubectl
@@ -140,8 +142,8 @@ class ReplCommands:
                 GenerateReport(), ImportSession(), ImportCSVFiles(), Issues(), NodeTool(),
                 RestartNodes(), RestartCluster(), RollOut(),
                 ShowTokens(), ShowStatus(), ShowCassandraVersion(),
-                ShowCassandraRepairs(), ShowColumnCounts(), ShowJobs(), ShowStorage(), ShowExportDatabases(),
-                ShowExportSessions(), ShowExportSession(), ShowProcesses(), Upgrade(),
+                ShowCassandraRepairs(), ShowColumnCounts(), ShowNodeRestartSchedules(), ShowStorage(), ShowExportDatabases(),
+                ShowExportSessions(), ShowExportSession(), ShowJobSchedules(), ShowProcesses(), Upgrade(),
                 Watch()] + \
                 Medusa().cmd_list() + \
                 Reaper().cmd_list() + \
@@ -167,4 +169,4 @@ class ReplCommands:
         return [Exit()]
 
     def filters() -> list[CommandFilter]:
-        return [DebugFilter(), TimeFilter()]
+        return [DebugFilter(), ScheduleFilter(), TimeFilter()]

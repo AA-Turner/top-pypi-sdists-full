@@ -1,6 +1,6 @@
-"""Configuration management for issue template chooser config.
+"""Manage issue template chooser config.
 
-Manages .github/ISSUE_TEMPLATE/config.yml which controls the issue template
+Create .github/ISSUE_TEMPLATE/config.yml to control the issue template
 chooser behavior on GitHub.
 
 See Also:
@@ -15,46 +15,29 @@ from pyrig.rig.configs.base.yml import YmlConfigFile
 
 
 class ConfigConfigFile(YmlConfigFile):
-    """Issue template chooser configuration manager.
+    """Manage .github/ISSUE_TEMPLATE/config.yml.
 
-    Generates .github/ISSUE_TEMPLATE/config.yml which controls:
+    Control the issue template chooser:
     - Whether blank issues are allowed (blank_issues_enabled)
 
-    Examples:
-        Generate config.yml::
-
-            ConfigConfigFile()
+    Example:
+        >>> ConfigConfigFile.I.validate()
 
     See Also:
         https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-your-repository
         pyrig.rig.configs.base.yml.YmlConfigFile
     """
 
-    @classmethod
-    def parent_path(cls) -> Path:
-        """Get the parent directory for the config.
-
-        Returns:
-            Path: .github/ISSUE_TEMPLATE/.
-        """
+    def parent_path(self) -> Path:
+        """Return .github/ISSUE_TEMPLATE/."""
         return Path(".github/ISSUE_TEMPLATE")
 
-    @classmethod
-    def _configs(cls) -> dict[str, Any]:
-        """Get the issue template config.
-
-        Returns:
-            dict[str, Any]: Issue template config YAML structure.
-        """
+    def _configs(self) -> dict[str, Any]:
+        """Return issue template config YAML structure."""
         return {"blank_issues_enabled": False}
 
-    @classmethod
-    def is_correct(cls) -> bool:
-        """Check if config.yml exists and is non-empty.
-
-        Returns:
-            bool: True if file exists with content, False otherwise.
-        """
-        return cls.path().exists() and bool(
-            cls.path().read_text(encoding="utf-8").strip()
+    def is_correct(self) -> bool:
+        """Return True if config.yml exists with content."""
+        return self.path().exists() and bool(
+            self.path().read_text(encoding="utf-8").strip()
         )

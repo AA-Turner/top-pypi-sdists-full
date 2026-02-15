@@ -27,6 +27,7 @@ from .literals import (
     AnomalyDetectorStateValueType,
     AnomalyDetectorTypeType,
     ComparisonOperatorType,
+    EvaluationStateType,
     HistoryItemTypeType,
     MetricStreamOutputFormatType,
     ScanByType,
@@ -943,7 +944,7 @@ class MetricAlarmTypeDef(TypedDict):
     EvaluateLowSampleCountPercentile: NotRequired[str]
     Metrics: NotRequired[list[MetricDataQueryOutputTypeDef]]
     ThresholdMetricId: NotRequired[str]
-    EvaluationState: NotRequired[Literal["PARTIAL_DATA"]]
+    EvaluationState: NotRequired[EvaluationStateType]
     StateTransitionedTimestamp: NotRequired[datetime]
 
 class MetricMathAnomalyDetectorOutputTypeDef(TypedDict):

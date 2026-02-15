@@ -33,6 +33,7 @@ _WIN_FOLDERS: dict[str, str] = {
     "CSIDL_MYMUSIC": r"C:\Users\Test\Music",
     "CSIDL_DESKTOPDIRECTORY": r"C:\Users\Test\Desktop",
     "CSIDL_PROGRAMS": r"C:\Users\Test\AppData\Roaming\Microsoft\Windows\Start Menu\Programs",
+    "CSIDL_COMMON_PROGRAMS": r"C:\ProgramData\Microsoft\Windows\Start Menu\Programs",
 }
 
 _LOCAL = os.path.normpath(_WIN_FOLDERS["CSIDL_LOCAL_APPDATA"])
@@ -90,7 +91,9 @@ def test_windows(params: dict[str, Any], func: str) -> None:
         "user_music_dir": os.path.normpath(_WIN_FOLDERS["CSIDL_MYMUSIC"]),
         "user_desktop_dir": os.path.normpath(_WIN_FOLDERS["CSIDL_DESKTOPDIRECTORY"]),
         "user_bin_dir": os.path.join(_LOCAL, "Programs"),  # noqa: PTH118
+        "site_bin_dir": os.path.join(_COMMON, "bin"),  # noqa: PTH118
         "user_applications_dir": os.path.normpath(_WIN_FOLDERS["CSIDL_PROGRAMS"]),
+        "site_applications_dir": os.path.normpath(_WIN_FOLDERS["CSIDL_COMMON_PROGRAMS"]),
         "user_runtime_dir": temp,
         "site_runtime_dir": temp,
     }
@@ -302,6 +305,7 @@ def test_known_folder_guids_has_all_csidl_names() -> None:
         "CSIDL_DOWNLOADS",
         "CSIDL_DESKTOPDIRECTORY",
         "CSIDL_PROGRAMS",
+        "CSIDL_COMMON_PROGRAMS",
     }
     assert set(_KNOWN_FOLDER_GUIDS.keys()) == expected
 

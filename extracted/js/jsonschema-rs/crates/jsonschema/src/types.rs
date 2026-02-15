@@ -23,19 +23,24 @@ pub enum JsonType {
 
 impl fmt::Display for JsonType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            JsonType::Array => f.write_str("array"),
-            JsonType::Boolean => f.write_str("boolean"),
-            JsonType::Integer => f.write_str("integer"),
-            JsonType::Null => f.write_str("null"),
-            JsonType::Number => f.write_str("number"),
-            JsonType::Object => f.write_str("object"),
-            JsonType::String => f.write_str("string"),
-        }
+        f.write_str(self.as_str())
     }
 }
 
 impl JsonType {
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            JsonType::Array => "array",
+            JsonType::Boolean => "boolean",
+            JsonType::Integer => "integer",
+            JsonType::Null => "null",
+            JsonType::Number => "number",
+            JsonType::Object => "object",
+            JsonType::String => "string",
+        }
+    }
+
     pub(crate) fn from_repr(repr: u8) -> Self {
         match repr {
             1 => JsonType::Array,

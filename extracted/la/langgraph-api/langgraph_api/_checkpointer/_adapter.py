@@ -131,12 +131,24 @@ class _CustomCheckpointerAdapter(BaseCheckpointSaver):
         before: RunnableConfig | None = None,
         limit: int | None = None,
     ) -> AsyncIterator[CheckpointTuple]:
+        # Extract the requested checkpoint_ns for post-filtering.
+        # Some checkpointer implementations (e.g. Redis) return checkpoints
+        # from ALL namespaces when checkpoint_ns="" (empty string is falsy),
+        # but callers expect only checkpoints matching the given namespace.
+        requested_ns: str | None = None
+        if config is not None:
+            requested_ns = config.get("configurable", {}).get("checkpoint_ns")
+
         async for item in self._inner.alist(
             config,
             filter=filter,
             before=before,
             limit=limit,
         ):
+            if requested_ns is not None:
+                item_ns = item.config.get("configurable", {}).get("checkpoint_ns", "")
+                if item_ns != requested_ns:
+                    continue
             yield item
 
     async def adelete_thread(self, thread_id: str) -> None:
@@ -152,18 +164,48 @@ class _CustomCheckpointerAdapter(BaseCheckpointSaver):
             await self._inner.adelete_for_runs(run_ids)
             return
         raise RuntimeError(
-            "Please implement adelete_for_runs in your custom checkpointer "
-            "to support run deletion/rollback."
+            "adelete_for_runs is not implemented by your custom checkpointer. "
+            "This method is required for multitask_strategy='rollback' to clean "
+            "up checkpoints from cancelled runs. Please implement adelete_for_runs "
+            "on your checkpointer class."
         )
 
     async def acopy_thread(self, source_thread_id: str, target_thread_id: str) -> None:
         if self._capabilities.has_acopy_thread:
             await self._inner.acopy_thread(source_thread_id, target_thread_id)
             return
-        raise RuntimeError(
-            "Please implement acopy_thread in your custom checkpointer "
-            "to support thread copy."
-        )
+        # Generic fallback: list all checkpoints from source, replay to target.
+        cfg = {"configurable": {"thread_id": source_thread_id}}
+        checkpoints = [cp async for cp in self._inner.alist(cfg)]
+        checkpoints.sort(key=lambda x: x.config["configurable"]["checkpoint_id"])
+        for cp in checkpoints:
+            ns = cp.config["configurable"].get("checkpoint_ns", "")
+            new_config: dict = {
+                "configurable": {
+                    "thread_id": target_thread_id,
+                    "checkpoint_ns": ns,
+                }
+            }
+            parent_config = cp.parent_config
+            if parent_config and parent_config.get("configurable"):
+                parent_id = parent_config["configurable"].get("checkpoint_id")
+                if parent_id is not None:
+                    new_config["configurable"]["checkpoint_id"] = parent_id
+            new_metadata = dict(cp.metadata)
+            if "thread_id" in new_metadata:
+                new_metadata["thread_id"] = target_thread_id
+            stored_config = await self._inner.aput(
+                new_config,
+                cp.checkpoint,
+                new_metadata,
+                cp.checkpoint.get("channel_versions", {}),
+            )
+            if cp.pending_writes:
+                writes_by_task: dict[str, list[tuple[str, Any]]] = {}
+                for task_id, channel, value in cp.pending_writes:
+                    writes_by_task.setdefault(task_id, []).append((channel, value))
+                for task_id, writes in writes_by_task.items():
+                    await self._inner.aput_writes(stored_config, writes, task_id)
 
     async def aprune(
         self, thread_ids: Sequence[str], *, strategy: str = "keep_latest"
@@ -171,10 +213,19 @@ class _CustomCheckpointerAdapter(BaseCheckpointSaver):
         if self._capabilities.has_aprune:
             await self._inner.aprune(thread_ids, strategy=strategy)
             return
-        raise RuntimeError(
-            "Please implement aprune in your custom checkpointer "
-            "to support thread pruning."
-        )
+        # Generic fallback
+        for tid in thread_ids:
+            tid = str(tid)
+            if strategy == "delete_all":
+                await self.adelete_thread(tid)
+            elif strategy == "keep_latest":
+                raise RuntimeError(
+                    "aprune(keep_latest) is not implemented by your custom "
+                    "checkpointer. This method is required for thread history "
+                    "pruning. Without it, old checkpoints accumulate and storage "
+                    "grows without bound. Please implement aprune on your "
+                    "checkpointer class."
+                )
 
     async def aget_tuple(self, config: RunnableConfig) -> CheckpointTuple | None:
         return await self._inner.aget_tuple(config)
@@ -212,10 +263,38 @@ async def get_checkpointer(
                 _CHECKPOINTER_CAPABILITIES = CheckpointerCapabilities.from_type(
                     type(inner)
                 )
+            caps = _CHECKPOINTER_CAPABILITIES
             await logger.ainfo(
-                f"Using custom checkpointer: {inner}",
+                f"Using custom checkpointer: {type(inner).__name__}",
                 kind=str(type(inner)),
             )
+            if not caps.has_adelete_thread:
+                await logger.awarning(
+                    "Custom checkpointer missing adelete_thread: "
+                    "DELETE /threads/<id> will fail. "
+                    "Thread deletion and delete_all pruning are not supported."
+                )
+            if not caps.has_adelete_for_runs:
+                await logger.awarning(
+                    "Custom checkpointer missing adelete_for_runs: "
+                    "multitask_strategy='rollback' will not clean up "
+                    "checkpoints from cancelled runs. Thread state may "
+                    "reflect the rolled-back run until a new run completes."
+                )
+            if not caps.has_acopy_thread:
+                await logger.ainfo(
+                    "Custom checkpointer missing acopy_thread: "
+                    "using generic fallback (functional but slower). "
+                    "POST /threads/<id>/copy will re-insert checkpoints "
+                    "one-by-one via aput/aput_writes."
+                )
+            if not caps.has_aprune:
+                await logger.awarning(
+                    "Custom checkpointer missing aprune: "
+                    "thread history pruning (keep_latest) is not supported. "
+                    "Old checkpoints will accumulate and storage usage will "
+                    "grow without bound for long-lived threads."
+                )
         # Create a fresh adapter each time (not cached) - each gets own latest_iter
         if _CHECKPOINTER_CAPABILITIES is None:
             raise RuntimeError("Capabilities not initialized")
@@ -253,10 +332,11 @@ async def collect_checkpointer_from_env() -> None:
         return
 
     await logger.ainfo(
-        f"Heads up! You are configuring a custom checkpointer at {checkpointer_path}\n\n"
-        "This checkpointer will be used INSTEAD OF the default persistence backend.\n"
-        "The availability of some functionality, such as TTLs and pruning, may depend on the completion of your implementation.\n"
-        "Performance & feature support will depend on the quality of your implementation."
+        f"Configuring custom checkpointer at {checkpointer_path}\n\n"
+        "This replaces the default persistence backend.\n"
+        "Required methods: aget, aget_tuple, aput, aput_writes, alist.\n"
+        "Recommended methods: adelete_thread, adelete_for_runs, acopy_thread, aprune.\n"
+        "Missing methods will degrade functionality — see startup logs for details."
     )
 
     value = await run_in_executor(None, _load_checkpointer, checkpointer_path)

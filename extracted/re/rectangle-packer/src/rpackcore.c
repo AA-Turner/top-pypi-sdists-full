@@ -11,6 +11,7 @@ $ indent -kr --no-tabs rpackcore.c
 #include <string.h>
 #include <assert.h>
 #include <limits.h>
+#include <stdint.h>
 
 #include "rpackcore.h"
 
@@ -104,16 +105,21 @@ static CellLink *alloc_cell_link(size_t size, long end_pos)
 
 /* cut will 'split' an existing Cell and add another cell from the
    preallocated list of Cells after it. The end positions will be
-   adjusted accordingly. */
-static void
+   adjusted accordingly.
+
+   Return 0 on success and -1 on failure. */
+static int
 cut(CellLink * self, Cell * victim, long end_pos, size_t *src_i,
     size_t *dest_i)
 {
     Cell *new_cell = NULL;
+    if (self->jump_index >= self->size) {
+        return -1;
+    }
     new_cell = &self->cells[self->jump_index];
     new_cell->end_pos = victim->end_pos;
     new_cell->jump_index = *dest_i = self->jump_index;
-    self->jump_index++;         /* May overflow size if called to many times */
+    self->jump_index++;
 
     new_cell->prev = victim;
     new_cell->next = victim->next;
@@ -124,7 +130,7 @@ cut(CellLink * self, Cell * victim, long end_pos, size_t *src_i,
     }
 
     *src_i = victim->jump_index;
-    return;
+    return 0;
 }
 
 // =================================
@@ -141,13 +147,34 @@ cut(CellLink * self, Cell * victim, long end_pos, size_t *src_i,
 static JumpMatrix alloc_jump_matrix(size_t size)
 {
     size_t i, len = 0;
+    size_t row_ptr_bytes = 0;
+    size_t matrix_size = 0;
+    size_t matrix_bytes = 0;
     Cell **ptr, ***arr;
 
     if (size == 0) {
         size = 1;
     }
 
-    len = sizeof(Cell **) * size + sizeof(Cell *) * size * size;
+    if (size > SIZE_MAX / sizeof(Cell **)) {
+        return NULL;
+    }
+    row_ptr_bytes = sizeof(Cell **) * size;
+
+    if (size > SIZE_MAX / size) {
+        return NULL;
+    }
+    matrix_size = size * size;
+
+    if (matrix_size > SIZE_MAX / sizeof(Cell *)) {
+        return NULL;
+    }
+    matrix_bytes = sizeof(Cell *) * matrix_size;
+
+    if (row_ptr_bytes > SIZE_MAX - matrix_bytes) {
+        return NULL;
+    }
+    len = row_ptr_bytes + matrix_bytes;
     if ((arr = (Cell ***) malloc(len)) == NULL) {
         return NULL;
     }
@@ -260,8 +287,10 @@ void grid_clear(Grid * self)
 }
 
 /* grid_split will split the grid by cutting a column and a row in two
-   in such a way that the region `reg` will fit the grid */
-void grid_split(Grid * self, Region * reg)
+   in such a way that the region `reg` will fit the grid.
+
+   Return 0 on success and -1 on failure. */
+int grid_split(Grid * self, Region * reg)
 {
     size_t src_i, dest_i;
     Cell *r_cell = NULL;
@@ -271,12 +300,18 @@ void grid_split(Grid * self, Region * reg)
     assert(reg->col_end_pos <= reg->col_cell->end_pos);
 
     if (reg->row_end_pos < reg->row_cell->end_pos) {
-        cut(self->rows, reg->row_cell, reg->row_end_pos, &src_i, &dest_i);
+        if (cut(self->rows, reg->row_cell, reg->row_end_pos, &src_i, &dest_i)
+            != 0) {
+            return -1;
+        }
         copy_row(self->jump_matrix, src_i, dest_i, self->cols->jump_index);
     }
 
     if (reg->col_end_pos < reg->col_cell->end_pos) {
-        cut(self->cols, reg->col_cell, reg->col_end_pos, &src_i, &dest_i);
+        if (cut(self->cols, reg->col_cell, reg->col_end_pos, &src_i, &dest_i)
+            != 0) {
+            return -1;
+        }
         copy_col(self->jump_matrix, src_i, dest_i, self->rows->jump_index);
     }
 
@@ -301,7 +336,7 @@ void grid_split(Grid * self, Region * reg)
     }
 
     if (reg->col_cell_start == reg->col_cell) {
-        return;
+        return 0;
     }
 
     for (c_cell = reg->col_cell_start->next; c_cell != NULL;
@@ -314,7 +349,7 @@ void grid_split(Grid * self, Region * reg)
             break;
         }
     }
-    return;
+    return 0;
 }
 
 /* grid_find_region searches the grid for a free space that can
@@ -476,7 +511,10 @@ grid_search_bbox(Grid * grid, Rectangle * sizes, BBoxRestrictions * bbr)
                 grid_w = reg.col_end_pos;
             }
             assert(grid_w <= grid->width);
-            grid_split(grid, &reg);
+            if (grid_split(grid, &reg) != 0) {
+                reg.col_cell = NULL;
+                break;
+            }
         }
         /* All rectangles successfully packed? Update area. */
         if (reg.col_cell != NULL) {
@@ -551,7 +589,7 @@ static void test_cell_link_cut(void)
     assert(cl != NULL);
 
     size_t src_i, dest_i;
-    cut(cl, cl->head, 111, &src_i, &dest_i);
+    assert(cut(cl, cl->head, 111, &src_i, &dest_i) == 0);
 
     assert(cl->size == 100);
     assert(cl->end_pos == 1000);
@@ -567,7 +605,7 @@ static void test_cell_link_cut(void)
     assert(cl->cells[1].prev == cl->head);
     assert(cl->cells[1].end_pos == 1000);
 
-    cut(cl, cl->head, 11, &src_i, &dest_i);
+    assert(cut(cl, cl->head, 11, &src_i, &dest_i) == 0);
 
     assert(src_i == 0);
     assert(dest_i == 2);
@@ -578,6 +616,19 @@ static void test_cell_link_cut(void)
     clear_cell_link(cl);
     assert(cl->jump_index == 1);
 
+    free_cell_link(cl);
+}
+
+static void test_cell_link_cut_overflow(void)
+{
+    CellLink *cl = NULL;
+    size_t src_i = 0;
+    size_t dest_i = 0;
+    cl = alloc_cell_link(1, 1000);
+    assert(cl != NULL);
+    assert(cl->jump_index == 1);
+    assert(cut(cl, cl->head, 111, &src_i, &dest_i) == -1);
+    assert(cl->jump_index == 1);
     free_cell_link(cl);
 }
 
@@ -623,6 +674,13 @@ static void test_jump_matrix_copy(void)
     free(jm);
 }
 
+static void test_jump_matrix_size_overflow(void)
+{
+    JumpMatrix jm = NULL;
+    jm = alloc_jump_matrix(SIZE_MAX);
+    assert(jm == NULL);
+}
+
 static void test_grid(void)
 {
     Grid *grid = NULL;
@@ -648,7 +706,7 @@ static void test_grid_split(void)
     reg.row_end_pos = 30;
     reg.col_cell_start = reg.col_cell = grid->cols->head;
     reg.col_end_pos = 30;
-    grid_split(grid, &reg);
+    assert(grid_split(grid, &reg) == 0);
 
     assert(grid->rows->head->end_pos == 30);
     assert(grid->cols->head->end_pos == 30);
@@ -663,7 +721,7 @@ static void test_grid_split(void)
     reg.row_end_pos = 40;
     reg.col_cell_start = reg.col_cell = grid->cols->head;
     reg.col_end_pos = 10;
-    grid_split(grid, &reg);
+    assert(grid_split(grid, &reg) == 0);
 
     assert(grid->jump_matrix[0][0] == test_cell);
     assert(grid->jump_matrix[0][1] == NULL);
@@ -680,16 +738,35 @@ static void test_grid_split(void)
     grid_free(grid);
 }
 
+static void test_grid_split_overflow(void)
+{
+    Grid *grid = NULL;
+    Region reg;
+    grid = grid_alloc(1, 120, 50);
+    assert(grid != NULL);
+
+    reg.row_cell_start = reg.row_cell = grid->rows->head;
+    reg.row_end_pos = 30;
+    reg.col_cell_start = reg.col_cell = grid->cols->head;
+    reg.col_end_pos = 30;
+    assert(grid_split(grid, &reg) == -1);
+
+    grid_free(grid);
+}
+
 int main(void)
 {
     test_cell_link();
     test_cell_link_cut();
+    test_cell_link_cut_overflow();
     printf("CELL LINK: PASSED\n");
     test_jump_matrix();
     test_jump_matrix_copy();
+    test_jump_matrix_size_overflow();
     printf("JUMP MATRIX: PASSED\n");
     test_grid();
     test_grid_split();
+    test_grid_split_overflow();
     printf("GRID: PASSED\n");
     return 0;
 }

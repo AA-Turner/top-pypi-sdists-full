@@ -8,6 +8,7 @@ from uv_secure.configuration.configuration import (
     Configuration,
     OutputFormat,
     OverrideConfiguration,
+    SeverityLevel,
 )
 from uv_secure.configuration.exceptions import UvSecureConfigurationError
 
@@ -44,6 +45,10 @@ def config_cli_arg_factory(
     check_direct_dependency_maintenance_issues_only: bool | None,
     check_direct_dependency_vulnerabilities_only: bool | None,
     desc: bool | None,
+    show_severity: bool | None,
+    severity: SeverityLevel | None,
+    ignore_unfixed: bool | None,
+    allow_unused_ignores: bool | None,
     forbid_archived: bool | None,
     forbid_deprecated: bool | None,
     forbid_quarantined: bool | None,
@@ -53,6 +58,7 @@ def config_cli_arg_factory(
     ignore_pkgs: list[str] | None,
     format_type: OutputFormat | None,
     check_uv_tool: bool | None,
+    check_uv_secure: bool | None,
 ) -> OverrideConfiguration:
     """Build overrides from CLI arguments.
 
@@ -63,6 +69,10 @@ def config_cli_arg_factory(
         check_direct_dependency_vulnerabilities_only: Limit vulnerability checks to
             direct dependencies.
         desc: Whether to include vulnerability descriptions.
+        show_severity: Whether to show severity in columns output.
+        severity: Minimum severity threshold to report.
+        ignore_unfixed: Ignore vulnerabilities with no available fix versions.
+        allow_unused_ignores: Allow configured ignore IDs that do not match findings.
         forbid_archived: Reject archived packages when True.
         forbid_deprecated: Reject deprecated packages when True.
         forbid_quarantined: Reject quarantined packages when True.
@@ -72,6 +82,7 @@ def config_cli_arg_factory(
         ignore_pkgs: Package ignore strings in ``name:spec|spec`` format.
         format_type: Output format override.
         check_uv_tool: Toggle scanning of the globally installed uv CLI.
+        check_uv_secure: Toggle scanning of the installed uv-secure package.
 
     Returns:
         OverrideConfiguration: CLI override instance.
@@ -87,6 +98,10 @@ def config_cli_arg_factory(
         check_direct_dependency_maintenance_issues_only=check_direct_dependency_maintenance_issues_only,
         check_direct_dependency_vulnerabilities_only=check_direct_dependency_vulnerabilities_only,
         desc=desc,
+        show_severity=show_severity,
+        severity=severity,
+        ignore_unfixed=ignore_unfixed,
+        allow_unused_ignores=allow_unused_ignores,
         forbid_archived=forbid_archived,
         forbid_deprecated=forbid_deprecated,
         forbid_quarantined=forbid_quarantined,
@@ -96,6 +111,7 @@ def config_cli_arg_factory(
         ignore_packages=_parse_pkg_versions(ignore_pkgs),
         format=format_type,
         check_uv_tool=check_uv_tool,
+        check_uv_secure=check_uv_secure,
     )
 
 

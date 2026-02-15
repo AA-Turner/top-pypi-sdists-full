@@ -4,7 +4,7 @@ import threading
 
 from adam.commands.nodetool.utils_nodetools import NodeTools
 from adam.config import Config
-from adam.utils_cassandra.node_schedules import NodeSchedules
+from adam.utils_cassandra.node_restart_schedules import NodeRestartSchedules
 from adam.utils_cassandra.pod_service import cassandra
 from adam.utils_context import NULL
 from adam.repl_state import ReplState
@@ -63,7 +63,7 @@ class CassandraStatus:
 
             status_by_pod_name = {Pods.pod_name(v1pod): Pods.pod_status(v1pod) for v1pod in pods}
             ready_by_pod_name = {Pods.pod_name(v1pod): Pods.pod_ready(v1pod) for v1pod in pods}
-            restarts = NodeSchedules.restarts(namespace=state.namespace, ctx=ctx)
+            restarts = NodeRestartSchedules.restarts(namespace=state.namespace, ctx=ctx)
             in_restarts = 0
             for node in status:
                 if node['address'] in CassandraStatus.pods_by_ip and (pod := CassandraStatus.pods_by_ip[node['address']]):

@@ -11,7 +11,7 @@ The code is licensed under the MIT license.
 from collections import Counter
 from datetime import datetime
 from itertools import chain
-from typing import List
+from typing import List, Optional, Sequence, cast
 
 import numpy as np
 import pandas as pd
@@ -19,6 +19,21 @@ import pandas as pd
 from meteostat.core.providers import provider_service
 from meteostat.enumerations import Frequency
 from meteostat.typing import Station
+
+
+def safe_concat(
+    frames: Sequence[Optional[pd.DataFrame]], axis: int = 0, **kwargs
+) -> Optional[pd.DataFrame]:
+    """
+    Filter out None values from a list of DataFrames and concatenate the rest.
+
+    Returns None if no valid frames remain.
+    """
+    valid = [df for df in frames if df is not None]
+    if not valid:
+        return None
+    # Cast is safe: concatenating DataFrames always returns a DataFrame
+    return cast(pd.DataFrame, pd.concat(valid, axis=axis, **kwargs))
 
 
 def stations_to_df(stations: List[Station]) -> pd.DataFrame:
@@ -106,9 +121,19 @@ def fill_df(
 
 def localize(df: pd.DataFrame, timezone: str) -> pd.DataFrame:
     """
-    Convert time data to any time zone
+    Convert time data to any time zone.
+
+    Handles both timezone-naive (assumes UTC) and timezone-aware data.
     """
-    return df.tz_localize("UTC", level="time").tz_convert(timezone, level="time")
+    time_index = df.index.get_level_values("time")
+
+    # Check if already tz-aware
+    if hasattr(time_index, "tz") and time_index.tz is not None:
+        # Already aware - just convert
+        return df.tz_convert(timezone, level="time")
+    else:
+        # Naive - localize first, then convert
+        return df.tz_localize("UTC", level="time").tz_convert(timezone, level="time")
 
 
 def reshape_by_source(df: pd.DataFrame) -> pd.DataFrame:

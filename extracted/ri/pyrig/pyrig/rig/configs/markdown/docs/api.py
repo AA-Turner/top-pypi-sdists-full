@@ -25,37 +25,36 @@ class ApiConfigFile(MarkdownConfigFile):
     Examples:
         Generate docs/api.md::
 
-            ApiConfigFile()
+            ApiConfigFile.I.validate()
 
         Generated file::
 
             # API Reference
 
-            ::: myproject
+            ::: pyrig
 
     See Also:
         pyrig.rig.configs.docs.mkdocs.MkdocsConfigFile
         pyrig.rig.configs.pyproject.PyprojectConfigFile
     """
 
-    @classmethod
-    def parent_path(cls) -> Path:
+    def parent_path(self) -> Path:
         """Get the parent directory for api.md.
 
         Returns:
             Path: docs directory.
         """
-        return DocsBuilder.L.docs_dir()
+        return DocsBuilder.I.docs_dir()
 
-    @classmethod
-    def lines(cls) -> list[str]:
+    def lines(self) -> list[str]:
         """Get the api.md file content.
 
         Returns:
-            List of lines with "# API Reference" and `::: project_name` directive.
+            list[str]: Lines with "# API Reference" header and
+                `::: project_name` mkdocstrings directive.
 
         Note:
             Reads project name from pyproject.toml.
         """
-        project_name = PyprojectConfigFile.L.project_name()
+        project_name = PyprojectConfigFile.I.project_name()
         return ["# API Reference", "", f"::: {project_name}"]

@@ -13,6 +13,7 @@ from typing import Any, ClassVar
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import rasterio
 import torch
 from matplotlib.colors import ListedColormap
 from matplotlib.figure import Figure
@@ -23,10 +24,10 @@ from torch.utils.data import Dataset
 
 from .errors import DatasetNotFoundError
 from .geo import NonGeoDataset, RasterDataset
-from .utils import GeoSlice, Path, download_url, extract_archive
+from .utils import GeoSlice, Path, Sample, download_url, extract_archive
 
 
-class LandCoverAIBase(Dataset[dict[str, Any]], abc.ABC):
+class LandCoverAIBase(Dataset[Sample], abc.ABC):
     r"""Abstract base class for LandCover.ai Geo and NonGeo datasets.
 
     The `LandCover.ai <https://landcover.ai.linuxpolska.com/>`__ (Land Cover from
@@ -119,17 +120,17 @@ class LandCoverAIBase(Dataset[dict[str, Any]], abc.ABC):
         self._extract()
 
     @abc.abstractmethod
-    def __getitem__(self, query: Any) -> dict[str, Any]:
+    def __getitem__(self, index: Any) -> Sample:
         """Retrieve image, mask and metadata indexed by index.
 
         Args:
-            query: coordinates or an index
+            index: coordinates or an index
 
         Returns:
             sample of image, mask and metadata at that index
 
         Raises:
-            IndexError: if query is not found in the index
+            IndexError: if index is not found in the dataset
         """
 
     @abc.abstractmethod
@@ -145,10 +146,7 @@ class LandCoverAIBase(Dataset[dict[str, Any]], abc.ABC):
         extract_archive(os.path.join(self.root, self.filename))
 
     def plot(
-        self,
-        sample: dict[str, Tensor],
-        show_titles: bool = True,
-        suptitle: str | None = None,
+        self, sample: Sample, show_titles: bool = True, suptitle: str | None = None
     ) -> Figure:
         """Plot a sample from the dataset.
 
@@ -207,10 +205,11 @@ class LandCoverAIGeo(LandCoverAIBase, RasterDataset):
         root: Path = 'data',
         crs: CRS | None = None,
         res: float | tuple[float, float] | None = None,
-        transforms: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+        transforms: Callable[[Sample], Sample] | None = None,
         cache: bool = True,
         download: bool = False,
         checksum: bool = False,
+        time_series: bool = False,
     ) -> None:
         """Initialize a new LandCover.ai NonGeo dataset instance.
 
@@ -226,12 +225,25 @@ class LandCoverAIGeo(LandCoverAIBase, RasterDataset):
             cache: if True, cache file handle to speed up repeated sampling
             download: if True, download dataset and store it in the root directory
             checksum: if True, check the MD5 of the downloaded files (may be slow)
+            time_series: if True, stack data along the time series dimension
+                [T, C, H, W]. If False, merge data into a [C, H, W] mosaic.
 
         Raises:
             DatasetNotFoundError: If dataset is not found and *download* is False.
+
+        .. versionadded:: 0.9
+           The *time_series* parameter.
         """
         LandCoverAIBase.__init__(self, root, download, checksum)
-        RasterDataset.__init__(self, root, crs, res, transforms=transforms, cache=cache)
+        RasterDataset.__init__(
+            self,
+            root,
+            crs,
+            res,
+            transforms=transforms,
+            cache=cache,
+            time_series=time_series,
+        )
 
     def _verify_data(self) -> bool:
         """Verify if the images and masks are present."""
@@ -241,39 +253,40 @@ class LandCoverAIGeo(LandCoverAIBase, RasterDataset):
         masks = glob.glob(mask_query)
         return len(images) > 0 and len(images) == len(masks)
 
-    def __getitem__(self, query: GeoSlice) -> dict[str, Any]:
+    def __getitem__(self, index: GeoSlice) -> Sample:
         """Retrieve input, target, and/or metadata indexed by spatiotemporal slice.
 
         Args:
-            query: [xmin:xmax:xres, ymin:ymax:yres, tmin:tmax:tres] coordinates to index.
+            index: [xmin:xmax:xres, ymin:ymax:yres, tmin:tmax:tres] coordinates to index.
 
         Returns:
             Sample of input, target, and/or metadata at that index.
 
         Raises:
-            IndexError: If *query* is not found in the index.
+            IndexError: If *index* is not found in the dataset.
         """
-        x, y, t = self._disambiguate_slice(query)
+        x, y, t = self._disambiguate_slice(index)
         interval = pd.Interval(t.start, t.stop)
-        index = self.index.iloc[self.index.index.overlaps(interval)]
-        index = index.iloc[:: t.step]
-        index = index.cx[x.start : x.stop, y.start : y.stop]
+        df = self.index.iloc[self.index.index.overlaps(interval)]
+        df = df.iloc[:: t.step]
+        df = df.cx[x.start : x.stop, y.start : y.stop]
 
-        img_filepaths = index.filepath
+        img_filepaths = df.filepath
         mask_filepaths = img_filepaths.apply(lambda x: x.replace('images', 'masks'))
 
-        if index.empty:
+        if df.empty:
             raise IndexError(
-                f'query: {query} not found in index with bounds: {self.bounds}'
+                f'index: {index} not found in dataset with bounds: {self.bounds}'
             )
 
-        img = self._merge_files(img_filepaths, query, self.band_indexes)
-        mask = self._merge_files(mask_filepaths, query, self.band_indexes)
+        img = self._merge_or_stack(img_filepaths, index, self.band_indexes)
+        mask = self._merge_or_stack(mask_filepaths, index, self.band_indexes)
+        transform = rasterio.transform.from_origin(x.start, y.stop, x.step, y.step)
         sample = {
-            'crs': self.crs,
-            'bounds': query,
+            'bounds': self._slice_to_tensor(index),
             'image': img.float(),
             'mask': mask.long(),
+            'transform': torch.tensor(transform),
         }
 
         if self.transforms is not None:
@@ -307,7 +320,7 @@ class LandCoverAI(LandCoverAIBase, NonGeoDataset):
         self,
         root: Path = 'data',
         split: str = 'train',
-        transforms: Callable[[dict[str, Tensor]], dict[str, Tensor]] | None = None,
+        transforms: Callable[[Sample], Sample] | None = None,
         download: bool = False,
         checksum: bool = False,
     ) -> None:
@@ -334,7 +347,7 @@ class LandCoverAI(LandCoverAIBase, NonGeoDataset):
         with open(os.path.join(self.root, split + '.txt')) as f:
             self.ids = f.readlines()
 
-    def __getitem__(self, index: int) -> dict[str, Tensor]:
+    def __getitem__(self, index: int) -> Sample:
         """Return an index within the dataset.
 
         Args:

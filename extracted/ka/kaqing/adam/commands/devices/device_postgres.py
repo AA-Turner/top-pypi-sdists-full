@@ -4,6 +4,7 @@ from adam.commands.devices.device import Device
 from adam.commands.postgres.postgres_databases import PostgresDatabases, pg_path
 from adam.commands.postgres.utils_postgres import pg_database_names, pg_table_names, postgres
 from adam.repl_state import ReplState
+from adam.utils_job.job import Job
 from adam.utils_log import wait_log
 from adam.utils_tabulize import tabulize
 from adam.utils_context import NULL
@@ -130,13 +131,13 @@ class DevicePostgres(Command, Device):
 
             return '\t'.join([f'{ReplState.P}:>'] + (words if words else ['/']))
 
-    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str, retry = False):
+    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str, job: Job = None, ctx = NULL):
         with pg_path(state) as (_, database):
             if not database:
                 database = PostgresDatabases.default_db()
 
             if database:
-                return True, chain.retry(f'pg {cmd}', state) if retry else chain.run(f'pg {cmd}', state)
+                return True, chain.retry(f'pg {cmd}', job, state, ctx=ctx) if job else chain.run(f'pg {cmd}', state)
 
         return False, None
 

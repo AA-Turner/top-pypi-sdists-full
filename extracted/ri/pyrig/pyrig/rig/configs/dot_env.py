@@ -1,4 +1,4 @@
-"""Manages .env files for environment variables.
+"""Manage .env files for environment variables.
 
 Creates empty .env file for local environment variables and secrets.
 Users manage content manually. Automatically added to .gitignore.
@@ -18,7 +18,7 @@ from pyrig.rig.configs.base.dict_cf import DictConfigFile
 
 
 class DotEnvConfigFile(DictConfigFile):
-    """Manages .env files (read-only from pyrig's perspective).
+    """Manage .env files (read-only from pyrig's perspective).
 
     Creates empty .env if missing. Users edit manually. Included in .gitignore.
     dump() raises ValueError if config is non-empty.
@@ -27,43 +27,36 @@ class DotEnvConfigFile(DictConfigFile):
         dotenv.dotenv_values
     """
 
-    @classmethod
-    def _load(cls) -> dict[str, str | None]:
+    def _load(self) -> dict[str, str | None]:
         """Load environment variables from .env file."""
-        return dotenv_values(cls.path())
+        return dotenv_values(self.path())
 
-    @classmethod
-    def _dump(cls, config: dict[str, Any]) -> None:
+    def _dump(self, config: dict[str, Any]) -> None:
         """Prevent writing to .env (raises ValueError if config is non-empty)."""
         if config:
             msg = f"""
-Dumping to {cls.path()} is not allowed due to security reasons.
+Dumping to {self.path()} is not allowed due to security reasons.
 This file is managed manually. Please edit it directly.
 We highly discourage managing this ConfigFile via subclassing.
 """
             raise ValueError(msg)
 
-    @classmethod
-    def extension(cls) -> str:
+    def extension(self) -> str:
         """Return 'env' extension."""
         return "env"
 
-    @classmethod
-    def filename(cls) -> str:
+    def filename(self) -> str:
         """Return empty string to produce '.env' (not 'env.env')."""
         return ""
 
-    @classmethod
-    def parent_path(cls) -> Path:
+    def parent_path(self) -> Path:
         """Return project root."""
         return Path()
 
-    @classmethod
-    def _configs(cls) -> dict[str, Any]:
+    def _configs(self) -> dict[str, Any]:
         """Return empty dict (pyrig doesn't manage .env content)."""
         return {}
 
-    @classmethod
-    def is_correct(cls) -> bool:
+    def is_correct(self) -> bool:
         """Check if .env file exists."""
         return super().is_correct()

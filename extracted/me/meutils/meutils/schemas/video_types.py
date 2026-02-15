@@ -29,7 +29,7 @@ class Video(_Video):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     """Unique identifier for the video job."""
 
-    completed_at: int = Field(default_factory=lambda: int(time.time()))
+    # completed_at: int = Field(default_factory=lambda: int(time.time())) # 导致状态失败
     created_at: int = Field(default_factory=lambda: int(time.time()))
     """Unix timestamp (seconds) for when the job was created."""
 

@@ -27,15 +27,14 @@ class SharedSubcommandsConfigFile(CopyModuleOnlyDocstringConfigFile):
     Examples:
         Generate shared_subcommands.py::
 
-            SharedSubcommandsConfigFile()
+            SharedSubcommandsConfigFile.I.validate()
 
         Add shared subcommands::
 
             # In {package_name}/rig/cli/shared_subcommands.py
             def my_shared_command() -> None:
                 \"\"\"Shared command available in all projects.\"\"\"
-                from myproject.utils import shared_functionality
-                shared_functionality()
+                ...
 
         Functions are auto-discovered and registered as Typer commands.
 
@@ -45,8 +44,7 @@ class SharedSubcommandsConfigFile(CopyModuleOnlyDocstringConfigFile):
         pyrig.rig.cli.cli.add_shared_subcommands
     """
 
-    @classmethod
-    def src_module(cls) -> ModuleType:
+    def src_module(self) -> ModuleType:
         """Get the source module to copy docstring from.
 
         Returns:

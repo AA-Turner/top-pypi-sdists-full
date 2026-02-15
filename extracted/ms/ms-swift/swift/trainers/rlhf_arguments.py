@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
+from transformers.utils.versions import require_version
 from trl import CPOConfig as HfCPOConfig
 from trl import DPOConfig as HfDPOConfig
 from trl import GKDConfig as HfGKDConfig
@@ -58,6 +59,7 @@ class GKDConfig(RolloutTrainerArgumentsMixin, SwiftArgumentsMixin, HfGKDConfig):
 class GRPOConfig(GRPOArgumentsMixin, SwiftArgumentsMixin, HfGRPOConfig):
 
     def __post_init__(self):
+        require_version('trl>=0.20')
         GRPOArgumentsMixin.__post_init__(self)
         SwiftArgumentsMixin.__post_init__(self)
         if self.vllm_reasoning_parser is not None:
@@ -75,24 +77,11 @@ class GRPOConfig(GRPOArgumentsMixin, SwiftArgumentsMixin, HfGRPOConfig):
         # https://github.com/modelscope/ms-swift/issues/3863
         self.dataloader_drop_last = True
 
-        num_processes = self.world_size
-        if self.steps_per_generation is None:
-            self.steps_per_generation = self.gradient_accumulation_steps
-        if self.generation_batch_size is None:
-            self.generation_batch_size = self.per_device_train_batch_size * num_processes * self.steps_per_generation
-
         self.check_num_generations()
 
     def check_num_generations(self):
         # check num_generations for trl < 0.18
         num_processes = self.world_size
-
-        if self.generation_batch_size % (self.per_device_train_batch_size * num_processes) != 0:
-            raise ValueError(
-                f'generation_batch_size ({self.generation_batch_size}) must be divisible by the global batch size '
-                f'({self.per_device_train_batch_size * num_processes}).')
-
-        self.steps_per_generation = self.generation_batch_size // (self.per_device_train_batch_size * num_processes)
 
         # Check if the effective batch size can be divided by the number of generations
         if self.num_generations < 2:

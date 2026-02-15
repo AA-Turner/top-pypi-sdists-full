@@ -12,12 +12,12 @@ import numpy as np
 import pandas as pd
 import torch
 from matplotlib.figure import Figure
-from torch import Tensor
 
 from .errors import DatasetNotFoundError, RGBBandsMissingError
 from .geo import NonGeoDataset
 from .utils import (
     Path,
+    Sample,
     download_and_extract_archive,
     download_url,
     extract_archive,
@@ -148,7 +148,7 @@ class DL4GAMAlps(NonGeoDataset):
         version: str = 'small',
         bands: Sequence[str] = rgb_nir_swir_bands,
         extra_features: Sequence[str] | None = None,
-        transforms: Callable[[dict[str, Tensor]], dict[str, Tensor]] | None = None,
+        transforms: Callable[[Sample], Sample] | None = None,
         download: bool = False,
         checksum: bool = False,
     ) -> None:
@@ -224,7 +224,7 @@ class DL4GAMAlps(NonGeoDataset):
         """
         return len(self.fp_patches)
 
-    def __getitem__(self, index: int) -> dict[str, Tensor]:
+    def __getitem__(self, index: int) -> Sample:
         """Load the NetCDF file for the given index and return the sample as a dict.
 
         Args:
@@ -332,7 +332,7 @@ class DL4GAMAlps(NonGeoDataset):
 
     def plot(
         self,
-        sample: dict[str, Tensor],
+        sample: Sample,
         show_titles: bool = True,
         suptitle: str | None = None,
         clip_extrema: bool = True,
@@ -340,7 +340,7 @@ class DL4GAMAlps(NonGeoDataset):
         """Plot a sample from the dataset.
 
         Args:
-            sample: a sample returned by :meth:`DL4GAMAlps.__getitem__`
+            sample: a sample returned by :meth:`__getitem__`
             show_titles: flag indicating whether to show titles above each panel
             suptitle: optional string to use as a suptitle
             clip_extrema: flag indicating whether to clip the lowest/highest 2.5% of the

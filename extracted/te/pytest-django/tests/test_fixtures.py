@@ -4,9 +4,13 @@ Not quite all fixtures are tested here, the db and transactional_db
 fixtures are tested in test_database.
 """
 
+from __future__ import annotations
+
+import os
 import socket
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generator
+from typing import TYPE_CHECKING
 from urllib.error import HTTPError
 from urllib.request import urlopen
 
@@ -22,6 +26,12 @@ from .helpers import DjangoPytester
 
 from pytest_django import DjangoAssertNumQueries, DjangoCaptureOnCommitCallbacks, DjangoDbBlocker
 from pytest_django_test.app.models import Item
+
+
+if TYPE_CHECKING:
+    from pytest_django.django_compat import _User, _UserModel
+    from pytest_django.fixtures import SettingsWrapper
+    from pytest_django.live_server_helper import LiveServer
 
 
 @contextmanager
@@ -51,7 +61,10 @@ def test_admin_client(admin_client: Client) -> None:
     assert force_str(resp.content) == "You are an admin"
 
 
-def test_admin_client_no_db_marker(admin_client: Client) -> None:
+def test_admin_client_no_db_marker(
+    db: None,  # noqa: ARG001
+    admin_client: Client,
+) -> None:
     assert isinstance(admin_client, Client)
     resp = admin_client.get("/admin-required/")
     assert force_str(resp.content) == "You are an admin"
@@ -59,14 +72,13 @@ def test_admin_client_no_db_marker(admin_client: Client) -> None:
 
 # For test below.
 @pytest.fixture
-def existing_admin_user(django_user_model):
+def existing_admin_user(django_user_model: _UserModel) -> _User:
     return django_user_model._default_manager.create_superuser("admin", None, None)
 
 
+@pytest.mark.django_db
+@pytest.mark.usefixtures("existing_admin_user", "admin_user")
 def test_admin_client_existing_user(
-    db: None,
-    existing_admin_user,
-    admin_user,
     admin_client: Client,
 ) -> None:
     resp = admin_client.get("/admin-required/")
@@ -137,7 +149,7 @@ def test_django_assert_max_num_queries_db(
 @pytest.mark.django_db(transaction=True)
 def test_django_assert_num_queries_transactional_db(
     request: pytest.FixtureRequest,
-    transactional_db: None,
+    transactional_db: None,  # noqa: ARG001
     django_assert_num_queries: DjangoAssertNumQueries,
 ) -> None:
     with nonverbose_config(request.config):
@@ -366,7 +378,13 @@ class TestSettings:
     def test_signals(self, settings) -> None:
         result = []
 
-        def assert_signal(signal, sender, setting, value, enter) -> None:
+        def assert_signal(
+            signal,  # noqa: ARG001
+            sender,  # noqa: ARG001
+            setting,
+            value,
+            enter,
+        ) -> None:
             result.append((setting, value, enter))
 
         from django.test.signals import setting_changed
@@ -401,10 +419,12 @@ class TestSettings:
                                                         '<<does not exist>>')}
                     fmt_dict.update(kwargs)
 
-                    print('Setting changed: '
-                          'enter=%(enter)s,setting=%(setting)s,'
-                          'value=%(value)s,actual_value=%(actual_value)s'
-                          % fmt_dict)
+                    print(
+                        'Setting changed: '
+                        'enter=%(enter)s,setting=%(setting)s,'
+                        'value=%(value)s,actual_value=%(actual_value)s'
+                        % fmt_dict
+                    )
 
                 setting_changed.connect(receiver, weak=False)
 
@@ -416,7 +436,7 @@ class TestSettings:
 
             def test_set_non_existent(settings):
                 settings.FOOBAR = 'abc123'
-         """
+        """
         )
 
         result = django_pytester.runpytest_subprocess("--tb=short", "-v", "-s")
@@ -443,6 +463,7 @@ class TestSettings:
 
 
 class TestLiveServer:
+    @pytest.mark.skipif("PYTEST_XDIST_WORKER" in os.environ, reason="xdist in use")
     def test_settings_before(self) -> None:
         from django.conf import settings
 
@@ -452,12 +473,17 @@ class TestLiveServer:
         )
         TestLiveServer._test_settings_before_run = True  # type: ignore[attr-defined]
 
-    def test_url(self, live_server) -> None:
+    def test_url(self, live_server: LiveServer) -> None:
         assert live_server.url == force_str(live_server)
 
-    def test_change_settings(self, live_server, settings) -> None:
+    def test_change_settings(
+        self,
+        live_server: LiveServer,
+        settings: SettingsWrapper,  # noqa: ARG002
+    ) -> None:
         assert live_server.url == force_str(live_server)
 
+    @pytest.mark.skipif("PYTEST_XDIST_WORKER" in os.environ, reason="xdist in use")
     def test_settings_restored(self) -> None:
         """Ensure that settings are restored after test_settings_before."""
         from django.conf import settings
@@ -469,7 +495,7 @@ class TestLiveServer:
         )
         assert settings.ALLOWED_HOSTS == ["testserver"]
 
-    def test_transactions(self, live_server) -> None:
+    def test_transactions(self, live_server: LiveServer) -> None:  # noqa: ARG002
         if not connection.features.supports_transactions:
             pytest.skip("transactions required for this test")
 
@@ -482,12 +508,20 @@ class TestLiveServer:
         response_data = urlopen(live_server + "/item_count/").read()
         assert force_str(response_data) == "Item count: 1"
 
-    def test_fixture_db(self, db: None, live_server) -> None:
+    def test_fixture_db(
+        self,
+        db: None,  # noqa: ARG002
+        live_server: LiveServer,
+    ) -> None:
         Item.objects.create(name="foo")
         response_data = urlopen(live_server + "/item_count/").read()
         assert force_str(response_data) == "Item count: 1"
 
-    def test_fixture_transactional_db(self, transactional_db: None, live_server) -> None:
+    def test_fixture_transactional_db(
+        self,
+        transactional_db: None,  # noqa: ARG002
+        live_server: LiveServer,
+    ) -> None:
         Item.objects.create(name="foo")
         response_data = urlopen(live_server + "/item_count/").read()
         assert force_str(response_data) == "Item count: 1"
@@ -499,24 +533,32 @@ class TestLiveServer:
         item: Item = Item.objects.create(name="foo")
         return item
 
-    def test_item(self, item: Item, live_server) -> None:
+    def test_item(self, item: Item, live_server: LiveServer) -> None:
         pass
 
     @pytest.fixture
-    def item_db(self, db: None) -> Item:
+    def item_db(self, db: None) -> Item:  # noqa: ARG002
         item: Item = Item.objects.create(name="foo")
         return item
 
-    def test_item_db(self, item_db: Item, live_server) -> None:
+    def test_item_db(
+        self,
+        item_db: Item,  # noqa: ARG002
+        live_server,
+    ) -> None:
         response_data = urlopen(live_server + "/item_count/").read()
         assert force_str(response_data) == "Item count: 1"
 
     @pytest.fixture
-    def item_transactional_db(self, transactional_db: None) -> Item:
+    def item_transactional_db(self, transactional_db: None) -> Item:  # noqa: ARG002
         item: Item = Item.objects.create(name="foo")
         return item
 
-    def test_item_transactional_db(self, item_transactional_db: Item, live_server) -> None:
+    def test_item_transactional_db(
+        self,
+        item_transactional_db: Item,  # noqa: ARG002
+        live_server: LiveServer,
+    ) -> None:
         response_data = urlopen(live_server + "/item_count/").read()
         assert force_str(response_data) == "Item count: 1"
 
@@ -537,7 +579,6 @@ class TestLiveServer:
     def test_serve_static_with_staticfiles_app(
         self,
         django_pytester: DjangoPytester,
-        settings,
     ) -> None:
         """
         LiveServer always serves statics with ``django.contrib.staticfiles``
@@ -562,7 +603,7 @@ class TestLiveServer:
         result.stdout.fnmatch_lines(["*test_a*PASSED*"])
         assert result.ret == 0
 
-    def test_serve_static_dj17_without_staticfiles_app(self, live_server, settings) -> None:
+    def test_serve_static_dj17_without_staticfiles_app(self, live_server) -> None:
         """
         Because ``django.contrib.staticfiles`` is not installed
         LiveServer can not serve statics with django >= 1.7 .
@@ -725,7 +766,7 @@ class Test_django_db_blocker:
     def test_block_manually(self, django_db_blocker: DjangoDbBlocker) -> None:
         try:
             django_db_blocker.block()
-            with pytest.raises(RuntimeError):
+            with pytest.raises(RuntimeError, match="^Database access not allowed,"):
                 Item.objects.exists()
         finally:
             django_db_blocker.restore()
@@ -733,7 +774,7 @@ class Test_django_db_blocker:
     @pytest.mark.django_db
     def test_block_with_block(self, django_db_blocker: DjangoDbBlocker) -> None:
         with django_db_blocker.block():
-            with pytest.raises(RuntimeError):
+            with pytest.raises(RuntimeError, match="^Database access not allowed,"):
                 Item.objects.exists()
 
     def test_unblock_manually(self, django_db_blocker: DjangoDbBlocker) -> None:
@@ -782,8 +823,7 @@ def test_mail_message_uses_django_mail_dnsname_fixture(django_pytester: DjangoPy
             return 'from.django_mail_dnsname'
 
         def test_mailbox_inner(mailoutbox):
-            mail.send_mail('subject', 'body', 'from@example.com',
-                           ['to@example.com'])
+            mail.send_mail('subject', 'body', 'from@example.com', ['to@example.com'])
             m = mailoutbox[0]
             message = m.message()
             assert message['Message-ID'].endswith('@from.django_mail_dnsname>')
@@ -814,8 +854,9 @@ def test_mail_message_dns_patching_can_be_skipped(django_pytester: DjangoPyteste
             mocked_make_msgid.called = []
 
             monkeypatch.setattr(mail.message, 'make_msgid', mocked_make_msgid)
-            mail.send_mail('subject', 'body', 'from@example.com',
-                           ['to@example.com'])
+            mail.send_mail(
+                'subject', 'body', 'from@example.com', ['to@example.com']
+            )
             m = mailoutbox[0]
             assert len(mocked_make_msgid.called) == 1
 
@@ -825,3 +866,62 @@ def test_mail_message_dns_patching_can_be_skipped(django_pytester: DjangoPyteste
     result = django_pytester.runpytest_subprocess("--tb=short", "-vv", "-s")
     result.stdout.fnmatch_lines(["*test_mailbox_inner*", "django_mail_dnsname_mark", "PASSED*"])
     assert result.ret == 0
+
+
+@pytest.mark.django_project(
+    create_manage_py=True,
+    extra_settings="""
+    EMAIL_BACKEND = "django.core.mail.backends.dummy.EmailBackend"
+    """,
+)
+def test_mail_auto_fixture_misconfigured(django_pytester: DjangoPytester) -> None:
+    """
+    django_test_environment fixture can be overridden by user, and that would break mailoutbox fixture.
+
+    Normally settings.EMAIL_BACKEND is set to "django.core.mail.backends.locmem.EmailBackend" by django,
+    along with mail.outbox = []. If this function doesn't run for whatever reason, the
+    mailoutbox fixture will not work properly.
+    """
+    django_pytester.create_test_module(
+        """
+        import pytest
+
+        @pytest.fixture(autouse=True, scope="session")
+        def django_test_environment(request):
+            yield
+        """,
+        filename="conftest.py",
+    )
+
+    django_pytester.create_test_module(
+        """
+        def test_with_fixture(settings, mailoutbox):
+            assert mailoutbox == []
+            assert settings.EMAIL_BACKEND == "django.core.mail.backends.dummy.EmailBackend"
+
+        def test_without_fixture():
+            from django.core import mail
+            assert not hasattr(mail, "outbox")
+        """
+    )
+    result = django_pytester.runpytest_subprocess()
+    result.assert_outcomes(passed=2)
+
+
+@pytest.mark.django_project(create_settings=False)
+def test_no_settings(django_pytester: DjangoPytester) -> None:
+    django_pytester.create_test_module(
+        """
+        def test_skipped_settings(settings):
+            assert False
+
+        def test_skipped_mailoutbox(mailoutbox):
+            assert False
+
+        def test_mail():
+            from django.core import mail
+            assert not hasattr(mail, "outbox")
+        """
+    )
+    result = django_pytester.runpytest_subprocess()
+    result.assert_outcomes(passed=1, skipped=2)

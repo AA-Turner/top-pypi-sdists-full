@@ -334,11 +334,14 @@ class Block(_message.Message):
         DISABLED_FIELD_NUMBER: _builtins.int
         ICON_FIELD_NUMBER: _builtins.int
         TYPE_FIELD_NUMBER: _builtins.int
+        OPEN_FIELD_NUMBER: _builtins.int
         label: _builtins.str
         help: _builtins.str
         disabled: _builtins.bool
         icon: _builtins.str
         type: _builtins.str
+        open: _builtins.bool
+        """Initial open state (used with on_change)."""
         def __init__(
             self,
             *,
@@ -347,9 +350,15 @@ class Block(_message.Message):
             disabled: _builtins.bool = ...,
             icon: _builtins.str = ...,
             type: _builtins.str = ...,
+            open: _builtins.bool | None = ...,
         ) -> None: ...
-        _ClearFieldArgType: _TypeAlias = _typing.Literal["disabled", b"disabled", "help", b"help", "icon", b"icon", "label", b"label", "type", b"type"]  # noqa: Y015
+        _HasFieldArgType: _TypeAlias = _typing.Literal["_open", b"_open", "open", b"open"]  # noqa: Y015
+        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["_open", b"_open", "disabled", b"disabled", "help", b"help", "icon", b"icon", "label", b"label", "open", b"open", "type", b"type"]  # noqa: Y015
         def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+        _WhichOneofReturnType__open: _TypeAlias = _typing.Literal["open"]  # noqa: Y015
+        _WhichOneofArgType__open: _TypeAlias = _typing.Literal["_open", b"_open"]  # noqa: Y015
+        def WhichOneof(self, oneof_group: _WhichOneofArgType__open) -> _WhichOneofReturnType__open | None: ...
 
     @_typing.final
     class ChatMessage(_message.Message):

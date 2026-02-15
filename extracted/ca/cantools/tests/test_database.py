@@ -12,8 +12,8 @@ from io import StringIO
 from pathlib import Path
 from xml.etree import ElementTree
 
-import textparser
-from parameterized import parameterized
+import textparser  # type: ignore
+from parameterized import parameterized  # type: ignore
 
 import cantools.autosar
 import cantools.database
@@ -52,26 +52,14 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
     def assert_dbc_dump(self, db, filename):
         actual_str = db.as_dbc_string()
-        actual_db = cantools.database.load_string(actual_str)
-        # open(filename, 'wb').write(actual.encode('cp1252'))
+        dumped_db = cantools.database.load_string(actual_str)
 
         with open(filename, 'rb') as fin:
             expected_str = fin.read().decode('cp1252')
             expected_db = cantools.database.load_string(expected_str)
 
-        self.assertTrue(actual_db.is_similar(expected_db))
-
-    def assert_sym_equal(self, db):
-        sym_str = db.as_sym_string()
-        cantools.database.load_string(sym_str)
-
-        self.assertTrue(db.is_similar(db, include_format_specifics=False))
-
-    def assert_kcd_equal(self, db):
-        kcd_str = db.as_kcd_string()
-        cantools.database.load_string(kcd_str)
-
-        self.assertTrue(db.is_similar(db, include_format_specifics=False))
+        diff = "\n".join(map(str, expected_db._differences(dumped_db)))
+        self.assertTrue(len(diff) == 0, diff)
 
     def tearDown(self):
         if os.path.exists(self.cache_dir):
@@ -108,8 +96,6 @@ class CanToolsDatabaseTest(unittest.TestCase):
 
         self.assertEqual(i, 15)
         self.assert_dbc_dump(db, filename)
-        self.assert_sym_equal(db)
-        self.assert_kcd_equal(db)
 
     def test_dbc_signal_initial_value(self):
         filename = 'tests/files/dbc/vehicle.dbc'
@@ -4355,11 +4341,16 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(signal_group.signal_names[1], 'SSS12345678901234567890123456789012')
 
     def test_long_names_converter(self):
-        lnc = LongNamesConverter()
-        self.assertEqual(lnc.convert("SSSSSSSSSSSSSSSSSSSSSSSSSSSXLLLLA"), "SSSSSSSSSSSSSSSSSSSSSSSSSSSXLLLL")
-        self.assertEqual(lnc.convert("SSSSSSSSSSSSSSSSSSSSSSSSSSSXLLLLB"), "SSSSSSSSSSSSSSSSSSSSSSSSSSS_0000")
-        self.assertEqual(lnc.convert("SSSSSSSSSSSSSSSSSSSSSSSSSSSYLLLLA"), "SSSSSSSSSSSSSSSSSSSSSSSSSSSYLLLL")
-        self.assertEqual(lnc.convert("SSSSSSSSSSSSSSSSSSSSSSSSSSSYLLLLB"), "SSSSSSSSSSSSSSSSSSSSSSSSSSS_0001")
+        lnc = LongNamesConverter([
+            "SSSSSSSSSSSSSSSSSSSSSSSSSSSXLLLLA",
+            "SSSSSSSSSSSSSSSSSSSSSSSSSSSXLLLLB",
+            "SSSSSSSSSSSSSSSSSSSSSSSSSSSYLLLLA",
+            "SSSSSSSSSSSSSSSSSSSSSSSSSSSYLLLLB",
+        ])
+        self.assertEqual(lnc.long_to_short["SSSSSSSSSSSSSSSSSSSSSSSSSSSXLLLLA"], "SSSSSSSSSSSSSSSSSSSSSSSSSSSXLLLL")
+        self.assertEqual(lnc.long_to_short["SSSSSSSSSSSSSSSSSSSSSSSSSSSXLLLLB"], "SSSSSSSSSSSSSSSSSSSSSSSSSSS_0000")
+        self.assertEqual(lnc.long_to_short["SSSSSSSSSSSSSSSSSSSSSSSSSSSYLLLLA"], "SSSSSSSSSSSSSSSSSSSSSSSSSSSYLLLL")
+        self.assertEqual(lnc.long_to_short["SSSSSSSSSSSSSSSSSSSSSSSSSSSYLLLLB"], "SSSSSSSSSSSSSSSSSSSSSSSSSSS_0001")
 
     def test_illegal_namespace(self):
         with self.assertRaises(UnsupportedDatabaseFormatError) as cm:
@@ -6403,6 +6394,34 @@ class CanToolsDatabaseTest(unittest.TestCase):
             self.assertEqual(e_sym_msg, str(unpickled.e_sym))
             self.assertEqual(e_cdd_msg, str(unpickled.e_cdd))
             self.assertEqual(repr(exc), repr(unpickled))
+
+    @parameterized.expand([
+        ('dbc', 'abs.dbc'),
+        ('dbc', 'choices.dbc'),
+        ('dbc', 'emc32.dbc'),
+        # ('dbc', 'foobar.dbc'),  # TODO: add CANFD_BRS
+        ('dbc', 'j1939.dbc'),
+        ('dbc', 'long_names.dbc'),
+        ('dbc', 'long_names_multiple_relations.dbc'),
+        ('dbc', 'motohawk.dbc'),
+        ('dbc', 'multiplex.dbc'),
+        ('dbc', 'sig_groups.dbc'),
+        ('dbc', 'vehicle.dbc'),
+        ('kcd', 'vehicle.kcd'),
+        # ('kcd', 'tester.kcd'),  # TODO: fix bus name
+        ('sym', 'multiplexed_variables.sym'),
+        ('sym', 'receive-6.0.sym'),
+        ('sym', 'send-6.0.sym'),
+    ])
+    def test_dump_and_load_equivalence(self, fmt, name):
+        db_path = Path(__file__).parent / 'files' / fmt / name
+        expected_db = cantools.database.load_file(db_path, database_format=fmt)
+
+        dumped_str = getattr(expected_db, f'as_{fmt}_string')()
+        dumped_db = cantools.database.load_string(dumped_str, database_format=fmt)
+
+        diff = "\n".join(map(str, expected_db._differences(dumped_db)))
+        self.assertTrue(len(diff) == 0, diff)
 
 # This file is not '__main__' when executed via 'python setup.py3
 # test'.

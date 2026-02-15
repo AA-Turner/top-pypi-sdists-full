@@ -4,23 +4,23 @@ This module provides the abstract base class for all builders in the pyrig frame
 Builders are specialized configuration file handlers that create build artifacts
 (executables, documentation, packages, etc.) rather than configuration files.
 
-The :class:`BuilderConfigFile` extends :class:`ConfigFile` but repurposes its
-interface for build operations:
+`BuilderConfigFile` extends `ListConfigFile` but repurposes its interface for build
+operations:
 
-- ``load()`` returns existing artifacts from the output directory
-- ``dump()`` triggers the build process
-- ``create_file()`` creates the output directory structure
+- `load()` returns existing artifacts from the output directory
+- `dump()` triggers the build process
+- `create_file()` creates the output directory structure
 
-Subclasses implement :meth:`~BuilderConfigFile.create_artifacts` to define their
-specific build logic. The framework handles temporary directory management,
-artifact collection, and platform-specific naming.
+Subclasses implement `create_artifacts()` to define their specific build logic.
+The framework handles temporary directory management, artifact collection, and
+platform-specific naming.
 
 Example:
-    ::
+    Basic builder implementation:
 
         class MyBuilder(BuilderConfigFile):
-            @classmethod
-            def create_artifacts(cls, temp_artifacts_dir: Path) -> None:
+
+            def create_artifacts(self, temp_artifacts_dir: Path) -> None:
                 output = temp_artifacts_dir / "my_app.exe"
                 # ... build logic ...
                 output.write_bytes(b"executable content")
@@ -55,35 +55,25 @@ class BuilderConfigFile(ListConfigFile):
     The build lifecycle:
 
     1. A temporary directory is created
-    2. :meth:`create_artifacts` is called (implemented by subclasses)
+    2. `create_artifacts` is called (implemented by subclasses)
     3. Artifacts are collected from the temporary directory
     4. Artifacts are renamed with platform suffixes (e.g., ``-Linux``, ``-Windows``)
     5. Artifacts are moved to the final output directory (default: ``dist/``)
 
-    Subclasses must implement :meth:`create_artifacts` to define their build logic.
-
-    Attributes:
-        ARTIFACTS_DIR_NAME: Default output directory name (``"dist"``).
+    Subclasses must implement `create_artifacts` to define their build logic.
 
     Example:
-        ::
+        Basic builder subclass:
 
             class ExecutableBuilder(BuilderConfigFile):
-                @classmethod
-                def create_artifacts(cls, temp_artifacts_dir: Path) -> None:
-                    exe_path = temp_artifacts_dir / f"{cls.app_name()}.exe"
-                    # ... compile and create executable ...
 
-    See Also:
-        :class:`~pyrig.rig.configs.base.list_cf.ListConfigFile`: Parent class providing
-            the list-based configuration file interface.
+                def create_artifacts(self, temp_artifacts_dir: Path) -> None:
+                    exe_path = temp_artifacts_dir / f"{self.app_name()}.exe"
+                    # ... compile and create executable ...
     """
 
-    ARTIFACTS_DIR_NAME = "dist"
-
-    @classmethod
     @abstractmethod
-    def create_artifacts(cls, temp_artifacts_dir: Path) -> None:
+    def create_artifacts(self, temp_artifacts_dir: Path) -> None:
         """Create artifacts in the temporary directory.
 
         Subclasses must implement this method to define their build logic. All
@@ -97,16 +87,24 @@ class BuilderConfigFile(ListConfigFile):
                 with platform-specific naming.
 
         Example:
-            ::
+            Subclass implementation:
 
-                @classmethod
-                def create_artifacts(cls, temp_artifacts_dir: Path) -> None:
+
+                def create_artifacts(self, temp_artifacts_dir: Path) -> None:
                     output = temp_artifacts_dir / "docs.zip"
                     output.write_text("documentation")
         """
 
     @classmethod
-    def parent_path(cls) -> Path:
+    def definition_package(cls) -> ModuleType:
+        """Get the package containing builder subclass definitions.
+
+        Default is `pyrig.rig.builders`, overriding the base default of
+        `pyrig.rig.configs`. Can be overridden by subclasses.
+        """
+        return builders
+
+    def parent_path(self) -> Path:
         """Get the parent directory for artifacts.
 
         For builders, this is the directory where artifacts are stored. The default
@@ -115,90 +113,83 @@ class BuilderConfigFile(ListConfigFile):
         Returns:
             Path to the artifacts directory (e.g., "dist").
         """
-        return Path(cls.ARTIFACTS_DIR_NAME)
+        return Path(self.dist_dir_name())
 
-    @classmethod
-    def _load(cls) -> list[Path]:
+    def _load(self) -> list[Path]:
         """Get all artifacts from the output directory.
 
         Returns:
             List of artifact paths (non-recursive).
         """
-        return list(cls.parent_path().glob("*"))
+        return list(self.parent_path().glob("*"))
 
-    @classmethod
-    def _dump(cls, config: list[Path]) -> None:  # noqa: ARG003
+    def _dump(self, config: list[Path]) -> None:  # noqa: ARG002
         """Build artifacts.
 
         Args:
             config: Ignored. Required by parent class interface.
         """
-        cls.build()
+        self.build()
 
-    @classmethod
-    def extension(cls) -> str:
+    def extension(self) -> str:
         """Return empty string (builders don't use file extensions)."""
         return ""
 
-    @classmethod
-    def _configs(cls) -> list[Path]:
+    def _configs(self) -> list[Path]:
         """Return empty list (builders don't use config lists)."""
         return []
 
-    @classmethod
-    def is_correct(cls) -> bool:
+    def is_correct(self) -> bool:
         """Check if the builder has created any artifacts.
 
         Returns:
             True if at least one artifact was created and exists.
         """
-        return bool(cls.load())
+        return bool(self.load())
 
-    @classmethod
-    def create_file(cls) -> None:
+    def create_file(self) -> None:
         """Create the parent directory for artifacts.
 
-        Not creating the file itself, as the file creation is handled by the
-        create_artifacts() method.
+        Does not create a file itself; file creation is handled by
+        `create_artifacts`.
         """
-        cls.parent_path().mkdir(parents=True, exist_ok=True)
+        self.parent_path().mkdir(parents=True, exist_ok=True)
 
     @classmethod
-    def definition_package(cls) -> ModuleType:
-        """Get the package where the BuilderConfigFile subclasses are to be defined.
+    def dist_dir_name(cls) -> str:
+        """Get the name of the artifacts directory.
 
-        Default is pyrig.rig.builders, which overrides the default pyrig.rig.configs.
-        But can be overridden by subclasses to define their own package.
+        Default is "dist", but can be overridden by subclasses.
+        Is a classmethod unlike the rest of the interface
+        because it's used in WorkflowConfigFile subclasses and BuilderConfigFile
+        itself is abstract, so it can't be instantiated to call instance methods.
 
         Returns:
-            Package module where the BuilderConfigFile subclass is defined.
+            Name of the artifacts directory (e.g., "dist").
         """
-        return builders
+        return "dist"
 
-    @classmethod
-    def build(cls) -> None:
+    def build(self) -> None:
         """Execute the complete build process.
 
         Main orchestration method that manages the build lifecycle: creates a
         temporary directory, invokes `create_artifacts`, collects artifacts,
         renames them with platform-specific suffixes, and moves them to the
-        final output directory.
-
-        See Also:
-            create_artifacts: Subclass-implemented method that creates artifacts
-            rename_artifacts: Adds platform suffixes and moves to output
+        final output directory. Delegates to `create_artifacts` for the actual
+        build and `rename_artifacts` for platform-specific output naming.
         """
-        logger.debug("Building artifacts with %s", cls.__name__)
+        logger.debug("Building artifacts with %s", self.__class__.__name__)
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir_path = Path(temp_dir)
-            temp_artifacts_dir = cls.temp_artifacts_path(temp_dir_path)
-            cls.create_artifacts(temp_artifacts_dir)
-            artifacts = cls.temp_artifacts(temp_artifacts_dir)
-            cls.rename_artifacts(artifacts)
-        logger.debug("Built %d artifact(s) with %s", len(artifacts), cls.__name__)
+            temp_artifacts_dir = self.temp_artifacts_path(temp_dir_path)
+            self.create_artifacts(temp_artifacts_dir)
+            artifacts = self.temp_artifacts(temp_artifacts_dir)
+            self.rename_artifacts(artifacts)
+        logger.debug(
+            "Built %d artifact(s) with %s", len(artifacts), self.__class__.__name__
+        )
 
-    @classmethod
-    def rename_artifacts(cls, artifacts: list[Path]) -> None:
+    def rename_artifacts(self, artifacts: list[Path]) -> None:
         """Move artifacts to output directory with platform-specific names.
 
         Renames artifacts with platform-specific suffixes (`-Linux`, `-Windows`,
@@ -208,46 +199,38 @@ class BuilderConfigFile(ListConfigFile):
             artifacts: List of artifact paths from the temporary directory.
         """
         for artifact in artifacts:
-            cls.rename_artifact(artifact)
+            self.rename_artifact(artifact)
 
-    @classmethod
-    def rename_artifact(cls, artifact: Path) -> None:
-        """Rename a single artifact with platform-specific suffix.
+    def rename_artifact(self, artifact: Path) -> None:
+        """Move a single artifact to the output directory with a platform-specific name.
 
         Args:
-            artifact: Path to the artifact.
+            artifact: Path to the artifact in the temporary build directory.
         """
-        platform_specific_path = cls.platform_specific_path(artifact)
+        platform_specific_path = self.platform_specific_path(artifact)
         logger.debug("Moving artifact: %s to: %s", artifact, platform_specific_path)
+        # create the platform-specific path's parent directory if it doesn't exist
+        platform_specific_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(artifact), str(platform_specific_path))
         logger.info("Created artifact: %s", platform_specific_path.name)
 
-    @classmethod
-    def platform_specific_path(cls, artifact: Path) -> Path:
-        """Get the platform-specific path for an artifact.
+    def platform_specific_path(self, artifact: Path) -> Path:
+        """Get the platform-specific output path for an artifact.
 
         Args:
             artifact: Path to the artifact.
-
-        Returns:
-            Platform-specific path for the artifact.
         """
-        return cls.parent_path() / cls.platform_specific_name(artifact)
+        return self.parent_path() / self.platform_specific_name(artifact)
 
-    @classmethod
-    def platform_specific_name(cls, artifact: Path) -> str:
-        """Get the platform-specific name for an artifact.
+    def platform_specific_name(self, artifact: Path) -> str:
+        """Generate a platform-specific filename (e.g., ``myapp-Linux.exe``).
 
         Args:
             artifact: Path to the artifact.
-
-        Returns:
-            Platform-specific name for the artifact.
         """
         return f"{artifact.stem}-{platform.system()}{artifact.suffix}"
 
-    @classmethod
-    def temp_artifacts(cls, temp_artifacts_dir: Path) -> list[Path]:
+    def temp_artifacts(self, temp_artifacts_dir: Path) -> list[Path]:
         """Get all artifacts from the temporary build directory.
 
         Args:
@@ -259,8 +242,7 @@ class BuilderConfigFile(ListConfigFile):
         """
         return list(temp_artifacts_dir.glob("*"))
 
-    @classmethod
-    def temp_artifacts_path(cls, temp_dir: Path) -> Path:
+    def temp_artifacts_path(self, temp_dir: Path) -> Path:
         """Create and return the temporary artifacts subdirectory.
 
         Args:
@@ -269,75 +251,40 @@ class BuilderConfigFile(ListConfigFile):
         Returns:
             Path to the created artifacts subdirectory.
         """
-        path = temp_dir / cls.ARTIFACTS_DIR_NAME
+        path = temp_dir / self.dist_dir_name()
         path.mkdir(parents=True, exist_ok=True)
         return path
 
-    @classmethod
-    def app_name(cls) -> str:
-        """Get the application name from pyproject.toml.
+    def app_name(self) -> str:
+        """Return the application name from pyproject.toml."""
+        return PyprojectConfigFile.I.project_name()
 
-        Returns:
-            Project name from pyproject.toml.
-        """
-        return PyprojectConfigFile.L.project_name()
-
-    @classmethod
-    def root_path(cls) -> Path:
-        """Get the project root directory path.
-
-        Returns:
-            Absolute path to the project root directory.
-        """
-        src_package = import_module(PyprojectConfigFile.L.package_name())
+    def root_path(self) -> Path:
+        """Return the absolute path to the project root directory."""
+        src_package = import_module(PyprojectConfigFile.I.package_name())
         src_path = ModulePath.package_type_to_dir_path(src_package)
         return src_path.parent
 
-    @classmethod
-    def main_path(cls) -> Path:
-        """Get the absolute path to the main.py entry point.
+    def main_path(self) -> Path:
+        """Return the absolute path to the main.py entry point."""
+        return self.src_package_path() / self.main_path_relative_to_src_package()
 
-        Returns:
-            Absolute path to main.py.
-        """
-        return cls.src_package_path() / cls.main_path_relative_to_src_package()
+    def resources_path(self) -> Path:
+        """Return the absolute path to the resources directory."""
+        return self.src_package_path() / self.resources_path_relative_to_src_package()
 
-    @classmethod
-    def resources_path(cls) -> Path:
-        """Get the absolute path to the resources directory.
+    def src_package_path(self) -> Path:
+        """Return the absolute path to the source package directory."""
+        return self.root_path() / PyprojectConfigFile.I.package_name()
 
-        Returns:
-            Absolute path to the resources directory.
-        """
-        return cls.src_package_path() / cls.resources_path_relative_to_src_package()
-
-    @classmethod
-    def src_package_path(cls) -> Path:
-        """Get the absolute path to the source package.
-
-        Returns:
-            Absolute path to the source package directory.
-        """
-        return cls.root_path() / PyprojectConfigFile.L.package_name()
-
-    @classmethod
-    def main_path_relative_to_src_package(cls) -> Path:
-        """Get the relative path to main.py from the source package.
-
-        Returns:
-            Relative path from source package to main.py.
-        """
+    def main_path_relative_to_src_package(self) -> Path:
+        """Return the relative path to main.py from the source package."""
         project_main_file = ModulePath.module_name_to_relative_file_path(main.__name__)
         pyrig_package_dir = ModulePath.package_name_to_relative_dir_path(pyrig.__name__)
         return project_main_file.relative_to(pyrig_package_dir)
 
-    @classmethod
-    def resources_path_relative_to_src_package(cls) -> Path:
-        """Get the relative path to resources from the source package.
-
-        Returns:
-            Relative path from source package to resources directory.
-        """
+    def resources_path_relative_to_src_package(self) -> Path:
+        """Return the relative path to the resources directory from the src package."""
         resources_path = ModulePath.package_name_to_relative_dir_path(
             resources.__name__
         )

@@ -5,8 +5,8 @@ Enforces code quality standards via linters, formatters, and checks.
 
 Example:
     >>> from pyrig.rig.tools.pre_committer import PreCommitter
-    >>> PreCommitter.L.install_args().run()
-    >>> PreCommitter.L.run_all_files_args().run()
+    >>> PreCommitter.I.install_args().run()
+    >>> PreCommitter.I.run_all_files_args().run()
 """
 
 from pyrig.rig.tools.base.base import Tool, ToolGroup
@@ -24,12 +24,11 @@ class PreCommitter(Tool):
         - Verbosity: Control output detail
 
     Example:
-        >>> PreCommitter.L.install_args().run()
-        >>> PreCommitter.L.run_all_files_args().run()
+        >>> PreCommitter.I.install_args().run()
+        >>> PreCommitter.I.run_all_files_args().run()
     """
 
-    @classmethod
-    def name(cls) -> str:
+    def name(self) -> str:
         """Get tool name.
 
         Returns:
@@ -37,24 +36,22 @@ class PreCommitter(Tool):
         """
         return "prek"
 
-    @classmethod
-    def group(cls) -> str:
-        """Returns the group the tools belongs to.
+    def group(self) -> str:
+        """Returns the group the tool belongs to.
 
-        E.g. testing, tool, code-quality etc...
+        Returns:
+            'code-quality'
         """
         return ToolGroup.CODE_QUALITY
 
-    @classmethod
-    def badge_urls(cls) -> tuple[str, str]:
-        """Returns the badge and connected page."""
+    def badge_urls(self) -> tuple[str, str]:
+        """Get prek badge image URL and project page URL."""
         return (
             "https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/j178/prek/master/docs/assets/badge-v0.json",
             "https://github.com/j178/prek",
         )
 
-    @classmethod
-    def install_args(cls, *args: str) -> Args:
+    def install_args(self, *args: str) -> Args:
         """Construct prek install arguments.
 
         Args:
@@ -63,10 +60,9 @@ class PreCommitter(Tool):
         Returns:
             Args for 'prek install'.
         """
-        return cls.args("install", *args)
+        return self.args("install", *args)
 
-    @classmethod
-    def run_args(cls, *args: str) -> Args:
+    def run_args(self, *args: str) -> Args:
         """Construct prek run arguments.
 
         Args:
@@ -75,10 +71,9 @@ class PreCommitter(Tool):
         Returns:
             Args for 'prek run'.
         """
-        return cls.args("run", *args)
+        return self.args("run", *args)
 
-    @classmethod
-    def run_all_files_args(cls, *args: str) -> Args:
+    def run_all_files_args(self, *args: str) -> Args:
         """Construct prek run arguments for all files.
 
         Args:
@@ -87,4 +82,4 @@ class PreCommitter(Tool):
         Returns:
             Args for 'prek run --all-files'.
         """
-        return cls.run_args("--all-files", *args)
+        return self.run_args("--all-files", *args)

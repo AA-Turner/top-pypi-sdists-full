@@ -1,7 +1,7 @@
 """Module content copying configuration management.
 
-Provides CopyModuleConfigFile for replicating module content with path transformation
-(pyrig.X -> tarproject.X).
+Provides `CopyModuleConfigFile` for replicating module content with path
+transformation (e.g. `pyrig.src.X` -> `<project>.src.X`).
 
 Example:
     >>> from types import ModuleType
@@ -9,11 +9,11 @@ Example:
     >>> import pyrig.src.string_
     >>>
     >>> class StringModuleCopy(CopyModuleConfigFile):
-    ...     @classmethod
-    ...     def src_module(cls) -> ModuleType:
+    ...
+    ...     def src_module(self) -> ModuleType:
     ...         return pyrig.src.string_
     >>>
-    >>> StringModuleCopy()  # Copies pyrig/src/string.py -> myproject/src/string.py
+    >>> StringModuleCopy()  # Copies pyrig/src/string_.py -> <project>/src/string_.py
 """
 
 from abc import abstractmethod
@@ -33,8 +33,8 @@ from pyrig.src.modules.path import ModulePath
 class CopyModuleConfigFile(PythonPackageConfigFile):
     """Base class for copying module content with path transformation.
 
-    Copies source module content to target location, transforming paths
-    (pyrig.X -> tarproject.X).
+    Copy source module content to target location, transforming import paths
+    (e.g. `pyrig.src.X` -> `<project>.src.X`).
 
     Subclasses must implement:
         - `src_module`: Return the source module to copy
@@ -45,17 +45,15 @@ class CopyModuleConfigFile(PythonPackageConfigFile):
         pyrig.src.modules.module: Module manipulation utilities
     """
 
-    @classmethod
     @abstractmethod
-    def src_module(cls) -> ModuleType:
+    def src_module(self) -> ModuleType:
         """Return the source module to copy.
 
         Returns:
             Module whose content will be copied.
         """
 
-    @classmethod
-    def parent_path(cls) -> Path:
+    def parent_path(self) -> Path:
         """Get target directory by transforming source module path.
 
         Replaces leading package name (pyrig) with target project's package name.
@@ -63,29 +61,27 @@ class CopyModuleConfigFile(PythonPackageConfigFile):
         Returns:
             Target directory path for copied module.
         """
-        src_module = cls.src_module()
+        src_module = self.src_module()
         new_module_name = module_name_replacing_start_module(
-            src_module, PyprojectConfigFile.L.package_name()
+            src_module, PyprojectConfigFile.I.package_name()
         )
         new_module_path = ModulePath.module_name_to_relative_file_path(new_module_name)
         return new_module_path.parent
 
-    @classmethod
-    def lines(cls) -> list[str]:
+    def lines(self) -> list[str]:
         """Return source module's content as list of lines.
 
         Returns:
             Full source code of the module as list of lines.
         """
-        src_module = cls.src_module()
+        src_module = self.src_module()
         return [*module_content_as_str(src_module).splitlines()]
 
-    @classmethod
-    def filename(cls) -> str:
+    def filename(self) -> str:
         """Return module's isolated name (last component).
 
         Returns:
-            Module name without package prefix or extension.
+            Last component of the module's dotted name.
         """
-        src_module = cls.src_module()
+        src_module = self.src_module()
         return isolated_obj_name(src_module)

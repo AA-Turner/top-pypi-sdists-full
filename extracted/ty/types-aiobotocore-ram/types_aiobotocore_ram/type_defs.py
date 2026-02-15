@@ -51,6 +51,7 @@ __all__ = (
     "AssociateResourceShareRequestTypeDef",
     "AssociateResourceShareResponseTypeDef",
     "AssociatedPermissionTypeDef",
+    "AssociatedSourceTypeDef",
     "CreatePermissionRequestTypeDef",
     "CreatePermissionResponseTypeDef",
     "CreatePermissionVersionRequestTypeDef",
@@ -102,6 +103,9 @@ __all__ = (
     "ListResourcesRequestPaginateTypeDef",
     "ListResourcesRequestTypeDef",
     "ListResourcesResponseTypeDef",
+    "ListSourceAssociationsRequestPaginateTypeDef",
+    "ListSourceAssociationsRequestTypeDef",
+    "ListSourceAssociationsResponseTypeDef",
     "PaginatorConfigTypeDef",
     "PrincipalTypeDef",
     "PromotePermissionCreatedFromPolicyRequestTypeDef",
@@ -182,6 +186,16 @@ class AssociatedPermissionTypeDef(TypedDict):
     featureSet: NotRequired[PermissionFeatureSetType]
     lastUpdatedTime: NotRequired[datetime]
     resourceShareArn: NotRequired[str]
+
+
+class AssociatedSourceTypeDef(TypedDict):
+    resourceShareArn: NotRequired[str]
+    sourceId: NotRequired[str]
+    sourceType: NotRequired[str]
+    status: NotRequired[str]
+    lastUpdatedTime: NotRequired[datetime]
+    creationTime: NotRequired[datetime]
+    statusMessage: NotRequired[str]
 
 
 class TagTypeDef(TypedDict):
@@ -386,6 +400,15 @@ class ListResourcesRequestTypeDef(TypedDict):
     resourceRegionScope: NotRequired[ResourceRegionScopeFilterType]
 
 
+class ListSourceAssociationsRequestTypeDef(TypedDict):
+    resourceShareArns: NotRequired[Sequence[str]]
+    sourceId: NotRequired[str]
+    sourceType: NotRequired[str]
+    associationStatus: NotRequired[ResourceShareAssociationStatusType]
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+
 class PromotePermissionCreatedFromPolicyRequestTypeDef(TypedDict):
     permissionArn: str
     name: str
@@ -517,6 +540,12 @@ class ListPermissionAssociationsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ListSourceAssociationsResponseTypeDef(TypedDict):
+    sourceAssociations: list[AssociatedSourceTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class CreatePermissionRequestTypeDef(TypedDict):
     name: str
     resourceType: str
@@ -623,6 +652,14 @@ class ListResourcesRequestPaginateTypeDef(TypedDict):
     resourceArns: NotRequired[Sequence[str]]
     resourceShareArns: NotRequired[Sequence[str]]
     resourceRegionScope: NotRequired[ResourceRegionScopeFilterType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListSourceAssociationsRequestPaginateTypeDef(TypedDict):
+    resourceShareArns: NotRequired[Sequence[str]]
+    sourceId: NotRequired[str]
+    sourceType: NotRequired[str]
+    associationStatus: NotRequired[ResourceShareAssociationStatusType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 

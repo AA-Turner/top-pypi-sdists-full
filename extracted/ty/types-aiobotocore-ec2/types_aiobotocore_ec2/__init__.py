@@ -105,6 +105,9 @@ Usage::
         DescribeRouteTablesPaginator,
         DescribeScheduledInstanceAvailabilityPaginator,
         DescribeScheduledInstancesPaginator,
+        DescribeSecondaryInterfacesPaginator,
+        DescribeSecondaryNetworksPaginator,
+        DescribeSecondarySubnetsPaginator,
         DescribeSecurityGroupRulesPaginator,
         DescribeSecurityGroupVpcAssociationsPaginator,
         DescribeSecurityGroupsPaginator,
@@ -200,6 +203,10 @@ Usage::
         SearchLocalGatewayRoutesPaginator,
         SearchTransitGatewayMulticastGroupsPaginator,
         SearchTransitGatewayRoutesPaginator,
+        SecondaryNetworkCreateCompleteWaiter,
+        SecondaryNetworkDeleteCompleteWaiter,
+        SecondarySubnetCreateCompleteWaiter,
+        SecondarySubnetDeleteCompleteWaiter,
         SecurityGroupExistsWaiter,
         SecurityGroupVpcAssociationAssociatedWaiter,
         SecurityGroupVpcAssociationDisassociatedWaiter,
@@ -248,6 +255,10 @@ Usage::
     nat_gateway_deleted_waiter: NatGatewayDeletedWaiter = client.get_waiter("nat_gateway_deleted")
     network_interface_available_waiter: NetworkInterfaceAvailableWaiter = client.get_waiter("network_interface_available")
     password_data_available_waiter: PasswordDataAvailableWaiter = client.get_waiter("password_data_available")
+    secondary_network_create_complete_waiter: SecondaryNetworkCreateCompleteWaiter = client.get_waiter("secondary_network_create_complete")
+    secondary_network_delete_complete_waiter: SecondaryNetworkDeleteCompleteWaiter = client.get_waiter("secondary_network_delete_complete")
+    secondary_subnet_create_complete_waiter: SecondarySubnetCreateCompleteWaiter = client.get_waiter("secondary_subnet_create_complete")
+    secondary_subnet_delete_complete_waiter: SecondarySubnetDeleteCompleteWaiter = client.get_waiter("secondary_subnet_delete_complete")
     security_group_exists_waiter: SecurityGroupExistsWaiter = client.get_waiter("security_group_exists")
     security_group_vpc_association_associated_waiter: SecurityGroupVpcAssociationAssociatedWaiter = client.get_waiter("security_group_vpc_association_associated")
     security_group_vpc_association_disassociated_waiter: SecurityGroupVpcAssociationDisassociatedWaiter = client.get_waiter("security_group_vpc_association_disassociated")
@@ -356,6 +367,9 @@ Usage::
     describe_route_tables_paginator: DescribeRouteTablesPaginator = client.get_paginator("describe_route_tables")
     describe_scheduled_instance_availability_paginator: DescribeScheduledInstanceAvailabilityPaginator = client.get_paginator("describe_scheduled_instance_availability")
     describe_scheduled_instances_paginator: DescribeScheduledInstancesPaginator = client.get_paginator("describe_scheduled_instances")
+    describe_secondary_interfaces_paginator: DescribeSecondaryInterfacesPaginator = client.get_paginator("describe_secondary_interfaces")
+    describe_secondary_networks_paginator: DescribeSecondaryNetworksPaginator = client.get_paginator("describe_secondary_networks")
+    describe_secondary_subnets_paginator: DescribeSecondarySubnetsPaginator = client.get_paginator("describe_secondary_subnets")
     describe_security_group_rules_paginator: DescribeSecurityGroupRulesPaginator = client.get_paginator("describe_security_group_rules")
     describe_security_group_vpc_associations_paginator: DescribeSecurityGroupVpcAssociationsPaginator = client.get_paginator("describe_security_group_vpc_associations")
     describe_security_groups_paginator: DescribeSecurityGroupsPaginator = client.get_paginator("describe_security_groups")
@@ -527,6 +541,9 @@ from .paginator import (
     DescribeRouteTablesPaginator,
     DescribeScheduledInstanceAvailabilityPaginator,
     DescribeScheduledInstancesPaginator,
+    DescribeSecondaryInterfacesPaginator,
+    DescribeSecondaryNetworksPaginator,
+    DescribeSecondarySubnetsPaginator,
     DescribeSecurityGroupRulesPaginator,
     DescribeSecurityGroupsPaginator,
     DescribeSecurityGroupVpcAssociationsPaginator,
@@ -627,6 +644,10 @@ from .waiter import (
     NatGatewayDeletedWaiter,
     NetworkInterfaceAvailableWaiter,
     PasswordDataAvailableWaiter,
+    SecondaryNetworkCreateCompleteWaiter,
+    SecondaryNetworkDeleteCompleteWaiter,
+    SecondarySubnetCreateCompleteWaiter,
+    SecondarySubnetDeleteCompleteWaiter,
     SecurityGroupExistsWaiter,
     SecurityGroupVpcAssociationAssociatedWaiter,
     SecurityGroupVpcAssociationDisassociatedWaiter,
@@ -755,6 +776,9 @@ __all__ = (
     "DescribeRouteTablesPaginator",
     "DescribeScheduledInstanceAvailabilityPaginator",
     "DescribeScheduledInstancesPaginator",
+    "DescribeSecondaryInterfacesPaginator",
+    "DescribeSecondaryNetworksPaginator",
+    "DescribeSecondarySubnetsPaginator",
     "DescribeSecurityGroupRulesPaginator",
     "DescribeSecurityGroupVpcAssociationsPaginator",
     "DescribeSecurityGroupsPaginator",
@@ -850,6 +874,10 @@ __all__ = (
     "SearchLocalGatewayRoutesPaginator",
     "SearchTransitGatewayMulticastGroupsPaginator",
     "SearchTransitGatewayRoutesPaginator",
+    "SecondaryNetworkCreateCompleteWaiter",
+    "SecondaryNetworkDeleteCompleteWaiter",
+    "SecondarySubnetCreateCompleteWaiter",
+    "SecondarySubnetDeleteCompleteWaiter",
     "SecurityGroupExistsWaiter",
     "SecurityGroupVpcAssociationAssociatedWaiter",
     "SecurityGroupVpcAssociationDisassociatedWaiter",

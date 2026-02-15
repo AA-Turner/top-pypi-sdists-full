@@ -17,6 +17,7 @@ Example:
 import logging
 import subprocess  # nosec: B404
 from collections.abc import Sequence
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -37,29 +38,30 @@ def run_subprocess(  # noqa: PLR0913
 ) -> subprocess.CompletedProcess[Any]:
     """Execute subprocess with enhanced error logging.
 
-    Wrapper around subprocess.run() that logs command, exit code, stdout, and stderr
-    when CalledProcessError is raised, before re-raising the exception. Used as the
-    underlying execution mechanism for all Tool command wrappers (PackageManager,
-    Linter, ContainerEngine, etc.).
+    Wrapper around `subprocess.run()` that logs command, exit code, stdout, and stderr
+    when `CalledProcessError` is raised, before re-raising the exception. Used as the
+    underlying execution mechanism for all `Tool` command wrappers (`PackageManager`,
+    `Linter`, `ContainerEngine`, etc.).
 
     Args:
         args: Command and arguments as sequence (e.g., ["git", "status"]).
         input_: Data to send to stdin (string or bytes). Defaults to None.
         capture_output: If True (default), captures stdout/stderr.
         timeout: Maximum seconds to wait. None (default) means no timeout.
-        check: If True (default), raises CalledProcessError on non-zero exit.
+        check: If True (default), raises `CalledProcessError` on non-zero exit.
         cwd: Working directory. Defaults to current directory.
-        shell: Must be False. Raises ValueError if True (shell mode is
+        shell: Must be False. Raises `ValueError` if True (shell mode is
             forbidden in pyrig for security reasons).
         text: If True (default), stdout and stderr are decoded as text.
-        **kwargs: Additional arguments passed to subprocess.run().
+        **kwargs: Additional arguments passed to `subprocess.run()`.
 
     Returns:
-        CompletedProcess with args, returncode, stdout, stderr.
+        `CompletedProcess` with args, returncode, stdout, stderr.
 
     Raises:
-        ValueError: If shell=True is passed.
-        subprocess.CalledProcessError: If process returns non-zero exit and check=True.
+        ValueError: If `shell=True` is passed.
+        subprocess.CalledProcessError:
+            If process returns non-zero exit and `check=True`.
             Error details are logged before re-raising.
         subprocess.TimeoutExpired: If process exceeds timeout.
 
@@ -97,12 +99,32 @@ def run_subprocess(  # noqa: PLR0913
         return result
 
 
+@cache
+def run_subprocess_cached(
+    args: tuple[str, ...], **kwargs: Any
+) -> subprocess.CompletedProcess[Any]:
+    """Cached version of run_subprocess.
+
+    Caches results of subprocess calls based on arguments. Useful for commands
+    that are called multiple times with the same arguments during a run,
+    as setting up and running a subprocess always has some overhead.
+
+    args is a tuple to ensure immutability and hashability for caching.
+
+    Args:
+        args: Command and arguments as tuple (e.g., ("git", "status")).
+        **kwargs: Additional arguments passed to `run_subprocess()`.
+    """
+    return run_subprocess(args, **kwargs)
+
+
 class Args(tuple[str, ...]):
     """Immutable command-line arguments container with execution capabilities.
 
     Tuple subclass representing a complete command ready for execution.
-    Returned by all Tool.*_args methods (e.g., PackageManager.sync_args,
-    Linter.check_args) to provide a consistent interface for building, inspecting,
+    Returned by all `Tool.*_args` methods
+    (e.g., `PackageManager.I.install_dependencies_args`, `Linter.I.check_args`)
+    to provide a consistent interface for building, inspecting,
     and executing subprocess commands.
 
     The class enables a fluent API pattern where commands can be built incrementally
@@ -139,7 +161,8 @@ class Args(tuple[str, ...]):
         """Execute command via subprocess.
 
         Args:
-            *args: Additional arguments appended to command.
+            *args: Additional arguments to append to the command. These are
+                concatenated with the Args instance to form the complete command.
             **kwargs: Keyword arguments passed to run_subprocess
                 (check, capture_output, cwd, etc.).
 
@@ -147,6 +170,24 @@ class Args(tuple[str, ...]):
             CompletedProcess from subprocess execution.
 
         Raises:
-            subprocess.CalledProcessError: If check=True and command fails.
+            subprocess.CalledProcessError: If `check=True` and command fails.
         """
         return run_subprocess((*self, *args), **kwargs)
+
+    def run_cached(self, *args: str, **kwargs: Any) -> subprocess.CompletedProcess[Any]:
+        """Execute command via cached subprocess.
+
+        Uses `run_subprocess_cached` to cache results based on command arguments.
+
+        Args:
+            *args: Additional arguments appended to command.
+            **kwargs: Keyword arguments passed to run_subprocess_cached
+                (check, capture_output, cwd, etc.).
+
+        Returns:
+            CompletedProcess from subprocess execution.
+
+        Raises:
+            subprocess.CalledProcessError: If `check=True` and command fails.
+        """
+        return run_subprocess_cached((*self, *args), **kwargs)

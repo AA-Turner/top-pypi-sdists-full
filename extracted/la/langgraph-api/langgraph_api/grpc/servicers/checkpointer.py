@@ -109,9 +109,10 @@ class CheckpointerServicerImpl(CheckpointerServicer):
             raise RuntimeError("Checkpointer capabilities not yet initialized")
         return checkpointer_pb2.Capabilities(
             supports_delete_thread=caps.has_adelete_thread,
-            supports_prune=caps.has_aprune,
-            supports_delete_for_runs=caps.has_adelete_for_runs,
-            supports_copy_thread=caps.has_acopy_thread,
+            # The adapter provides generic fallbacks for these, so always True.
+            supports_prune=True,
+            supports_delete_for_runs=True,
+            supports_copy_thread=True,
         )
 
     async def List(
@@ -195,13 +196,6 @@ class CheckpointerServicerImpl(CheckpointerServicer):
     ) -> Empty:
         """Delete all checkpoints and writes for a set of runs (rollbacks)."""
         try:
-            caps = api_checkpointer.get_checkpointer_capabilities()
-            if caps is None or not caps.has_adelete_for_runs:
-                context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-                context.set_details(
-                    "Custom checkpointer does not implement adelete_for_runs"
-                )
-                raise NotImplementedError("adelete_for_runs not implemented")
             checkpointer = cast("Any", await api_checkpointer.get_checkpointer())
             await checkpointer.adelete_for_runs(list(request.run_ids))
             return Empty()
@@ -219,13 +213,6 @@ class CheckpointerServicerImpl(CheckpointerServicer):
     ) -> Empty:
         """Copy checkpoint data from one thread to another."""
         try:
-            caps = api_checkpointer.get_checkpointer_capabilities()
-            if caps is None or not caps.has_acopy_thread:
-                context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-                context.set_details(
-                    "Custom checkpointer does not implement acopy_thread"
-                )
-                raise NotImplementedError("acopy_thread not implemented")
             checkpointer = cast("Any", await api_checkpointer.get_checkpointer())
             await checkpointer.acopy_thread(
                 request.from_thread_id, request.to_thread_id
@@ -245,11 +232,6 @@ class CheckpointerServicerImpl(CheckpointerServicer):
     ) -> Empty:
         """Delete checkpoints and related data for a set of threads."""
         try:
-            caps = api_checkpointer.get_checkpointer_capabilities()
-            if caps is None or not caps.has_aprune:
-                context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-                context.set_details("Custom checkpointer does not implement aprune")
-                raise NotImplementedError("aprune not implemented")
             checkpointer = cast("Any", await api_checkpointer.get_checkpointer())
             strategy = prune_strategy_from_proto(request.strategy)
             await checkpointer.aprune(list(request.thread_ids), strategy=strategy)

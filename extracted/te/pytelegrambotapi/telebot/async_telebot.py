@@ -2989,6 +2989,26 @@ class AsyncTeleBot:
         result = await asyncio_helper.get_user_profile_photos(self.token, user_id, offset, limit)
         return types.UserProfilePhotos.de_json(result)
 
+    async def get_user_profile_audios(self, user_id: int, offset: Optional[int]=None, limit: Optional[int]=None) -> types.UserProfileAudios:
+        """
+        Use this method to get a list of profile audios for a user. Returns a UserProfileAudios object.
+
+        Telegram documentation: https://core.telegram.org/bots/api#getuserprofileaudios
+
+        :param user_id: Unique identifier of the target user
+        :type user_id: :obj:`int`
+
+        :param offset: Sequential number of the first audio to be returned. By default, all audios are returned.
+        :type offset: :obj:`int`
+
+        :param limit: Limits the number of audios to be retrieved. Values between 1-100 are accepted. Defaults to 100.
+        :type limit: :obj:`int`
+
+        :return: If successful, returns a UserProfileAudios object.
+        :rtype: :class:`telebot.types.UserProfileAudios`
+        """
+        return types.UserProfileAudios.de_json(await asyncio_helper.get_user_profile_audios(self.token, user_id, offset=offset, limit=limit))
+
     async def set_user_emoji_status(self, user_id: int, emoji_status_custom_emoji_id: Optional[str]=None, emoji_status_expiration_date: Optional[int]=None) -> bool:
         """
         Use this method to change the emoji status for a given user that previously allowed the bot to manage their emoji status via the Mini App method requestEmojiStatusAccess.
@@ -6533,6 +6553,31 @@ class AsyncTeleBot:
         result = await asyncio_helper.get_my_name(self.token, language_code)
         return types.BotName.de_json(result)
 
+    async def set_my_profile_photo(self, photo: types.InputProfilePhoto) -> bool:
+        """
+        Use this method to change the profile photo of the bot. Returns True on success.
+
+        Telegram documentation: https://core.telegram.org/bots/api#setmyprofilephoto
+
+        :param photo: InputProfilePhoto: The new profile photo to set
+        :type photo: :class:`telebot.types.InputProfilePhoto`
+
+        :return: True on success.
+        :rtype: :obj:`bool`
+        """
+        return await asyncio_helper.set_my_profile_photo(self.token, photo)
+
+    async def remove_my_profile_photo(self) -> bool:
+        """
+        Use this method to remove the profile photo of the bot. Requires no parameters. Returns True on success.
+
+        Telegram documentation: https://core.telegram.org/bots/api#removemyprofilephoto
+
+        :return: True on success.
+        :rtype: :obj:`bool`
+        """
+        return await asyncio_helper.remove_my_profile_photo(self.token)
+
     async def set_chat_menu_button(self, chat_id: Union[int, str]=None,
                 menu_button: types.MenuButton=None) -> bool:
         """
@@ -9193,8 +9238,8 @@ class AsyncTeleBot:
             chat_id: int, name: str, icon_color: Optional[int]=None,
             icon_custom_emoji_id: Optional[str]=None) -> types.ForumTopic:
         """
-        Use this method to create a topic in a forum supergroup chat. The bot must be an administrator
-        in the chat for this to work and must have the can_manage_topics administrator rights.
+        Use this method to create a topic in a forum supergroup chat or a private chat with a user. In the case of a supergroup chat the bot
+        must be an administrator in the chat for this to work and must have the can_manage_topics administrator right.
         Returns information about the created topic as a ForumTopic object.
 
         Telegram documentation: https://core.telegram.org/bots/api#createforumtopic

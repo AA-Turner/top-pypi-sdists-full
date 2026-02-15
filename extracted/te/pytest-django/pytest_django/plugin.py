@@ -12,8 +12,10 @@ import os
 import pathlib
 import sys
 import types
+from collections.abc import Generator
+from contextlib import AbstractContextManager
 from functools import reduce
-from typing import TYPE_CHECKING, ContextManager, Generator, List, NoReturn
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -52,7 +54,10 @@ from .lazy_django import django_settings_is_configured, skip_if_no_django
 
 
 if TYPE_CHECKING:
+    from typing import Any, NoReturn
+
     import django
+    import django.apps.registry
 
 
 SETTINGS_MODULE_ENV = "DJANGO_SETTINGS_MODULE"
@@ -184,7 +189,7 @@ def _handle_import_error(extra_message: str) -> Generator[None, None, None]:
         raise ImportError(msg) from None
 
 
-def _add_django_project_to_path(args) -> str:
+def _add_django_project_to_path(args: list[str]) -> str:
     def is_django_project(path: pathlib.Path) -> bool:
         try:
             return path.is_dir() and (path / "manage.py").exists()
@@ -196,7 +201,7 @@ def _add_django_project_to_path(args) -> str:
         arg = arg.split("::", 1)[0]
         return pathlib.Path(arg)
 
-    def find_django_path(args) -> pathlib.Path | None:
+    def find_django_path(args: list[str]) -> pathlib.Path | None:
         str_args = (str(arg) for arg in args)
         path_args = [arg_to_path(x) for x in str_args if not x.startswith("-")]
 
@@ -259,7 +264,7 @@ def _get_boolean_value(
         ) from None
 
 
-report_header_key = pytest.StashKey[List[str]]()
+report_header_key = pytest.StashKey[list[str]]()
 
 
 @pytest.hookimpl()
@@ -289,6 +294,10 @@ def pytest_load_initial_conftests(
         "the `urls` attribute of Django's `TestCase` objects.  *modstr* is "
         "a string specifying the module of a URL config, e.g. "
         '"my_app.test_urls".',
+    )
+    early_config.addinivalue_line(
+        "markers",
+        "django_isolate_apps(*app_labels): isolate Django's app registry for this test.",
     )
     early_config.addinivalue_line(
         "markers",
@@ -441,6 +450,9 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 
     from django.test import TestCase, TransactionTestCase
 
+    # Reorder the tests as Django does:
+    # https://docs.djangoproject.com/en/6.0/topics/testing/overview/#order-in-which-tests-are-executed
+
     def get_order_number(test: pytest.Item) -> int:
         test_cls = getattr(test, "cls", None)
         if test_cls and issubclass(test_cls, TransactionTestCase):
@@ -463,7 +475,9 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
                 uses_db = False
                 transactional = False
             fixtures = getattr(test, "fixturenames", [])
-            transactional = transactional or "transactional_db" in fixtures
+            transactional = transactional or (
+                "transactional_db" in fixtures or "live_server" in fixtures
+            )
             uses_db = uses_db or "db" in fixtures
 
         if transactional:
@@ -569,7 +583,7 @@ def _django_setup_unittest(
 
     original_runtest = TestCaseFunction.runtest
 
-    def non_debugging_runtest(self) -> None:
+    def non_debugging_runtest(self) -> None:  # noqa: ANN001
         self._testcase(result=self)
 
     from django.test import SimpleTestCase
@@ -599,24 +613,26 @@ def _dj_autoclear_mailbox() -> None:
 
     from django.core import mail
 
-    del mail.outbox[:]
+    if hasattr(mail, "outbox"):
+        mail.outbox.clear()
 
 
-@pytest.fixture()
+@pytest.fixture
 def mailoutbox(
-    django_mail_patch_dns: None,
+    django_mail_patch_dns: None,  # noqa: ARG001
     _dj_autoclear_mailbox: None,
 ) -> list[django.core.mail.EmailMessage] | None:
     """A clean email outbox to which Django-generated emails are sent."""
-    if not django_settings_is_configured():
-        return None
+    skip_if_no_django()
 
     from django.core import mail
 
-    return mail.outbox  # type: ignore[no-any-return]
+    if hasattr(mail, "outbox"):
+        return mail.outbox  # type: ignore[no-any-return]
+    return []
 
 
-@pytest.fixture()
+@pytest.fixture
 def django_mail_patch_dns(
     monkeypatch: pytest.MonkeyPatch,
     django_mail_dnsname: str,
@@ -627,7 +643,7 @@ def django_mail_patch_dns(
     monkeypatch.setattr(mail.message, "DNS_NAME", django_mail_dnsname)
 
 
-@pytest.fixture()
+@pytest.fixture
 def django_mail_dnsname() -> str:
     """Return server dns name for using in email messages."""
     return "fake-tests.example.com"
@@ -656,6 +672,39 @@ def _django_set_urlconf(request: pytest.FixtureRequest) -> Generator[None, None,
         # https://github.com/django/django/blob/main/django/test/signals.py#L152
         clear_url_caches()
         set_urlconf(None)
+
+
+@pytest.fixture(autouse=True)
+def _django_isolate_apps(
+    request: pytest.FixtureRequest,
+) -> Generator[django.apps.registry.Apps, None, None]:
+    """Apply the @pytest.mark.django_isolate_apps marker if present, internal to pytest-django."""
+    marker: pytest.Mark | None = request.node.get_closest_marker("django_isolate_apps")
+    if not marker:
+        yield None
+        return
+
+    skip_if_no_django()
+
+    from django.test.utils import isolate_apps
+
+    app_labels = validate_django_isolate_apps(marker)
+
+    with isolate_apps(*app_labels) as apps:
+        yield apps
+
+
+@pytest.fixture
+def django_isolated_apps(
+    _django_isolate_apps: django.apps.registry.Apps | None,
+) -> django.apps.registry.Apps:
+    """Access the isolated Apps registry instance for tests marked with
+    @pytest.mark.django_isolate_apps(...)."""
+    if _django_isolate_apps is None:
+        raise pytest.UsageError(
+            "The django_isolated_apps fixture requires @pytest.mark.django_isolate_apps([...])."
+        )
+    return _django_isolate_apps
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -827,7 +876,7 @@ class DjangoDbBlocker:
     def _save_active_wrapper(self) -> None:
         self._history.append(self._dj_db_wrapper.ensure_connection)
 
-    def _blocking_wrapper(*args, **kwargs) -> NoReturn:
+    def _blocking_wrapper(*args: Any, **kwargs: Any) -> NoReturn:  # noqa: ARG002
         __tracebackhide__ = True
         raise RuntimeError(
             "Database access not allowed, "
@@ -835,13 +884,13 @@ class DjangoDbBlocker:
             '"db" or "transactional_db" fixtures to enable it.'
         )
 
-    def unblock(self) -> ContextManager[None]:
+    def unblock(self) -> AbstractContextManager[None]:
         """Enable access to the Django database."""
         self._save_active_wrapper()
         self._dj_db_wrapper.ensure_connection = self._real_ensure_connection
         return _DatabaseBlockerContextManager(self)
 
-    def block(self) -> ContextManager[None]:
+    def block(self) -> AbstractContextManager[None]:
         """Disable access to the Django database."""
         self._save_active_wrapper()
         self._dj_db_wrapper.ensure_connection = self._blocking_wrapper
@@ -874,5 +923,16 @@ def validate_urls(marker: pytest.Mark) -> list[str]:
 
     def apifun(urls: list[str]) -> list[str]:
         return urls
+
+    return apifun(*marker.args, **marker.kwargs)
+
+
+def validate_django_isolate_apps(marker: pytest.Mark) -> tuple[str, ...]:
+    """Validate the django_isolate_apps marker."""
+
+    def apifun(*app_labels: str) -> tuple[str, ...]:
+        if not app_labels:
+            raise ValueError("@pytest.mark.django_isolate_apps requires at least one app label")
+        return app_labels
 
     return apifun(*marker.args, **marker.kwargs)

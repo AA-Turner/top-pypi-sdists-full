@@ -49,6 +49,10 @@ __all__ = [
     'NamespaceScheduledTaskActionArgsDict',
     'NamespaceScheduledTaskActionMetricExtractionArgs',
     'NamespaceScheduledTaskActionMetricExtractionArgsDict',
+    'NamespaceScheduledTaskActionMetricExtractionMetricCollectionArgs',
+    'NamespaceScheduledTaskActionMetricExtractionMetricCollectionArgsDict',
+    'NamespaceScheduledTaskActionMetricExtractionMetricCollectionDimensionArgs',
+    'NamespaceScheduledTaskActionMetricExtractionMetricCollectionDimensionArgsDict',
     'NamespaceScheduledTaskActionTemplateDetailsArgs',
     'NamespaceScheduledTaskActionTemplateDetailsArgsDict',
     'NamespaceScheduledTaskActionTemplateDetailsTemplateParamArgs',
@@ -91,16 +95,11 @@ __all__ = [
     'GetNamespacesFilterArgsDict',
 ]
 
-MYPY = False
-
-if not MYPY:
-    class LogAnalyticsEntityMetadataArgsDict(TypedDict):
-        items: NotRequired[pulumi.Input[Sequence[pulumi.Input['LogAnalyticsEntityMetadataItemArgsDict']]]]
-        """
-        (Updatable) An array of entity metadata details.
-        """
-elif False:
-    LogAnalyticsEntityMetadataArgsDict: TypeAlias = Mapping[str, Any]
+class LogAnalyticsEntityMetadataArgsDict(TypedDict):
+    items: NotRequired[pulumi.Input[Sequence[pulumi.Input['LogAnalyticsEntityMetadataItemArgsDict']]]]
+    """
+    (Updatable) An array of entity metadata details.
+    """
 
 @pulumi.input_type
 class LogAnalyticsEntityMetadataArgs:
@@ -125,22 +124,19 @@ class LogAnalyticsEntityMetadataArgs:
         pulumi.set(self, "items", value)
 
 
-if not MYPY:
-    class LogAnalyticsEntityMetadataItemArgsDict(TypedDict):
-        name: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        (Updatable) The metadata name.
-        """
-        type: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        (Updatable) The metadata type.
-        """
-        value: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        (Updatable) The metadata value.
-        """
-elif False:
-    LogAnalyticsEntityMetadataItemArgsDict: TypeAlias = Mapping[str, Any]
+class LogAnalyticsEntityMetadataItemArgsDict(TypedDict):
+    name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    (Updatable) The metadata name.
+    """
+    type: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    (Updatable) The metadata type.
+    """
+    value: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    (Updatable) The metadata value.
+    """
 
 @pulumi.input_type
 class LogAnalyticsEntityMetadataItemArgs:
@@ -197,22 +193,19 @@ class LogAnalyticsEntityMetadataItemArgs:
         pulumi.set(self, "value", value)
 
 
-if not MYPY:
-    class LogAnalyticsEntityTypePropertyArgsDict(TypedDict):
-        name: pulumi.Input[_builtins.str]
-        """
-        Log analytics entity type property name. 
+class LogAnalyticsEntityTypePropertyArgsDict(TypedDict):
+    name: pulumi.Input[_builtins.str]
+    """
+    Log analytics entity type property name. 
 
 
-        ** IMPORTANT **
-        Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
-        """
-        description: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Description for the log analytics entity type property.
-        """
-elif False:
-    LogAnalyticsEntityTypePropertyArgsDict: TypeAlias = Mapping[str, Any]
+    ** IMPORTANT **
+    Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
+    """
+    description: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Description for the log analytics entity type property.
+    """
 
 @pulumi.input_type
 class LogAnalyticsEntityTypePropertyArgs:
@@ -260,46 +253,43 @@ class LogAnalyticsEntityTypePropertyArgs:
         pulumi.set(self, "description", value)
 
 
-if not MYPY:
-    class LogAnalyticsImportCustomContentChangeListArgsDict(TypedDict):
-        conflict_field_display_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
-        """
-        A list of field display names with conflicts.
-        """
-        conflict_parser_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
-        """
-        A list of parser names with conflicts.
-        """
-        conflict_source_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
-        """
-        A list of source names with conflicts.
-        """
-        created_field_display_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
-        """
-        An array of created field display names.
-        """
-        created_parser_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
-        """
-        An array of created parser names.
-        """
-        created_source_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
-        """
-        An array of created source names.
-        """
-        updated_field_display_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
-        """
-        An array of updated field display names.
-        """
-        updated_parser_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
-        """
-        An array of updated parser names.
-        """
-        updated_source_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
-        """
-        An array of updated source names.
-        """
-elif False:
-    LogAnalyticsImportCustomContentChangeListArgsDict: TypeAlias = Mapping[str, Any]
+class LogAnalyticsImportCustomContentChangeListArgsDict(TypedDict):
+    conflict_field_display_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    A list of field display names with conflicts.
+    """
+    conflict_parser_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    A list of parser names with conflicts.
+    """
+    conflict_source_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    A list of source names with conflicts.
+    """
+    created_field_display_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    An array of created field display names.
+    """
+    created_parser_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    An array of created parser names.
+    """
+    created_source_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    An array of created source names.
+    """
+    updated_field_display_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    An array of updated field display names.
+    """
+    updated_parser_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    An array of updated parser names.
+    """
+    updated_source_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    An array of updated source names.
+    """
 
 @pulumi.input_type
 class LogAnalyticsImportCustomContentChangeListArgs:
@@ -452,14 +442,11 @@ class LogAnalyticsImportCustomContentChangeListArgs:
         pulumi.set(self, "updated_source_names", value)
 
 
-if not MYPY:
-    class LogAnalyticsObjectCollectionRuleOverrideArgsDict(TypedDict):
-        match_type: NotRequired[pulumi.Input[_builtins.str]]
-        match_value: NotRequired[pulumi.Input[_builtins.str]]
-        property_name: NotRequired[pulumi.Input[_builtins.str]]
-        property_value: NotRequired[pulumi.Input[_builtins.str]]
-elif False:
-    LogAnalyticsObjectCollectionRuleOverrideArgsDict: TypeAlias = Mapping[str, Any]
+class LogAnalyticsObjectCollectionRuleOverrideArgsDict(TypedDict):
+    match_type: NotRequired[pulumi.Input[_builtins.str]]
+    match_value: NotRequired[pulumi.Input[_builtins.str]]
+    property_name: NotRequired[pulumi.Input[_builtins.str]]
+    property_value: NotRequired[pulumi.Input[_builtins.str]]
 
 @pulumi.input_type
 class LogAnalyticsObjectCollectionRuleOverrideArgs:
@@ -514,18 +501,15 @@ class LogAnalyticsObjectCollectionRuleOverrideArgs:
         pulumi.set(self, "property_value", value)
 
 
-if not MYPY:
-    class LogAnalyticsPreferencesManagementItemArgsDict(TypedDict):
-        name: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The preference name.
-        """
-        value: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The preference value.
-        """
-elif False:
-    LogAnalyticsPreferencesManagementItemArgsDict: TypeAlias = Mapping[str, Any]
+class LogAnalyticsPreferencesManagementItemArgsDict(TypedDict):
+    name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The preference name.
+    """
+    value: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The preference value.
+    """
 
 @pulumi.input_type
 class LogAnalyticsPreferencesManagementItemArgs:
@@ -566,22 +550,19 @@ class LogAnalyticsPreferencesManagementItemArgs:
         pulumi.set(self, "value", value)
 
 
-if not MYPY:
-    class NamespaceAssociationAssociationPropertyArgsDict(TypedDict):
-        name: pulumi.Input[_builtins.str]
-        """
-        The name of the association property.
-        """
-        patterns: NotRequired[pulumi.Input[Sequence[pulumi.Input['NamespaceAssociationAssociationPropertyPatternArgsDict']]]]
-        """
-        A list of pattern level overrides for this property.
-        """
-        value: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The value of the association property.
-        """
-elif False:
-    NamespaceAssociationAssociationPropertyArgsDict: TypeAlias = Mapping[str, Any]
+class NamespaceAssociationAssociationPropertyArgsDict(TypedDict):
+    name: pulumi.Input[_builtins.str]
+    """
+    The name of the association property.
+    """
+    patterns: NotRequired[pulumi.Input[Sequence[pulumi.Input['NamespaceAssociationAssociationPropertyPatternArgsDict']]]]
+    """
+    A list of pattern level overrides for this property.
+    """
+    value: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The value of the association property.
+    """
 
 @pulumi.input_type
 class NamespaceAssociationAssociationPropertyArgs:
@@ -637,19 +618,16 @@ class NamespaceAssociationAssociationPropertyArgs:
         pulumi.set(self, "value", value)
 
 
-if not MYPY:
-    class NamespaceAssociationAssociationPropertyPatternArgsDict(TypedDict):
-        id: pulumi.Input[_builtins.str]
-        """
-        The pattern id.
-        """
-        value: pulumi.Input[_builtins.str]
-        """
-        (Updatable) The value of the property.
-        """
-        effective_level: NotRequired[pulumi.Input[_builtins.str]]
-elif False:
-    NamespaceAssociationAssociationPropertyPatternArgsDict: TypeAlias = Mapping[str, Any]
+class NamespaceAssociationAssociationPropertyPatternArgsDict(TypedDict):
+    id: pulumi.Input[_builtins.str]
+    """
+    The pattern id.
+    """
+    value: pulumi.Input[_builtins.str]
+    """
+    (Updatable) The value of the property.
+    """
+    effective_level: NotRequired[pulumi.Input[_builtins.str]]
 
 @pulumi.input_type
 class NamespaceAssociationAssociationPropertyPatternArgs:
@@ -700,34 +678,31 @@ class NamespaceAssociationAssociationPropertyPatternArgs:
         pulumi.set(self, "effective_level", value)
 
 
-if not MYPY:
-    class NamespaceIngestTimeRuleActionArgsDict(TypedDict):
-        compartment_id: pulumi.Input[_builtins.str]
-        """
-        (Updatable) The compartment OCID (https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the extracted metric.
-        """
-        metric_name: pulumi.Input[_builtins.str]
-        """
-        (Updatable) The metric name of the extracted metric. A valid value starts with an alphabetical character and includes only alphanumeric characters, periods (.), underscores (_), hyphens (-), and dollar signs ($).
-        """
-        namespace: pulumi.Input[_builtins.str]
-        """
-        (Updatable) The namespace of the extracted metric. A valid value starts with an alphabetical character and includes only alphanumeric characters and underscores (_).
-        """
-        type: pulumi.Input[_builtins.str]
-        """
-        (Updatable) Discriminator.
-        """
-        dimensions: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
-        """
-        (Updatable) Additional dimensions to publish for the extracted metric. A valid list contains the source field names whose values are to be published as dimensions. The source name itself is specified using a special macro SOURCE_NAME
-        """
-        resource_group: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        (Updatable) The resourceGroup of the extracted metric. A valid value starts with an alphabetical character and includes only alphanumeric characters, periods (.), underscores (_), hyphens (-), and dollar signs ($).
-        """
-elif False:
-    NamespaceIngestTimeRuleActionArgsDict: TypeAlias = Mapping[str, Any]
+class NamespaceIngestTimeRuleActionArgsDict(TypedDict):
+    compartment_id: pulumi.Input[_builtins.str]
+    """
+    (Updatable) The compartment OCID (https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the extracted metric.
+    """
+    metric_name: pulumi.Input[_builtins.str]
+    """
+    (Updatable) The metric name of the extracted metric. A valid value starts with an alphabetical character and includes only alphanumeric characters, periods (.), underscores (_), hyphens (-), and dollar signs ($).
+    """
+    namespace: pulumi.Input[_builtins.str]
+    """
+    (Updatable) The namespace of the extracted metric. A valid value starts with an alphabetical character and includes only alphanumeric characters and underscores (_).
+    """
+    type: pulumi.Input[_builtins.str]
+    """
+    (Updatable) Discriminator.
+    """
+    dimensions: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    (Updatable) Additional dimensions to publish for the extracted metric. A valid list contains the source field names whose values are to be published as dimensions. The source name itself is specified using a special macro SOURCE_NAME
+    """
+    resource_group: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    (Updatable) The resourceGroup of the extracted metric. A valid value starts with an alphabetical character and includes only alphanumeric characters, periods (.), underscores (_), hyphens (-), and dollar signs ($).
+    """
 
 @pulumi.input_type
 class NamespaceIngestTimeRuleActionArgs:
@@ -828,30 +803,27 @@ class NamespaceIngestTimeRuleActionArgs:
         pulumi.set(self, "resource_group", value)
 
 
-if not MYPY:
-    class NamespaceIngestTimeRuleConditionsArgsDict(TypedDict):
-        field_name: pulumi.Input[_builtins.str]
-        """
-        (Updatable) The field name to be evaluated.
-        """
-        field_operator: pulumi.Input[_builtins.str]
-        """
-        (Updatable) The operator to be used for evaluating the field.
-        """
-        field_value: pulumi.Input[_builtins.str]
-        """
-        (Updatable) The field value to be evaluated.
-        """
-        kind: pulumi.Input[_builtins.str]
-        """
-        (Updatable) Discriminator.
-        """
-        additional_conditions: NotRequired[pulumi.Input[Sequence[pulumi.Input['NamespaceIngestTimeRuleConditionsAdditionalConditionArgsDict']]]]
-        """
-        (Updatable) Optional additional condition(s) to be evaluated.
-        """
-elif False:
-    NamespaceIngestTimeRuleConditionsArgsDict: TypeAlias = Mapping[str, Any]
+class NamespaceIngestTimeRuleConditionsArgsDict(TypedDict):
+    field_name: pulumi.Input[_builtins.str]
+    """
+    (Updatable) The field name to be evaluated.
+    """
+    field_operator: pulumi.Input[_builtins.str]
+    """
+    (Updatable) The operator to be used for evaluating the field.
+    """
+    field_value: pulumi.Input[_builtins.str]
+    """
+    (Updatable) The field value to be evaluated.
+    """
+    kind: pulumi.Input[_builtins.str]
+    """
+    (Updatable) Discriminator.
+    """
+    additional_conditions: NotRequired[pulumi.Input[Sequence[pulumi.Input['NamespaceIngestTimeRuleConditionsAdditionalConditionArgsDict']]]]
+    """
+    (Updatable) Optional additional condition(s) to be evaluated.
+    """
 
 @pulumi.input_type
 class NamespaceIngestTimeRuleConditionsArgs:
@@ -936,22 +908,19 @@ class NamespaceIngestTimeRuleConditionsArgs:
         pulumi.set(self, "additional_conditions", value)
 
 
-if not MYPY:
-    class NamespaceIngestTimeRuleConditionsAdditionalConditionArgsDict(TypedDict):
-        condition_field: pulumi.Input[_builtins.str]
-        """
-        (Updatable) The additional field name to be evaluated.
-        """
-        condition_operator: pulumi.Input[_builtins.str]
-        """
-        (Updatable) The operator to be used for evaluating the additional field.
-        """
-        condition_value: pulumi.Input[_builtins.str]
-        """
-        (Updatable) The additional field value to be evaluated.
-        """
-elif False:
-    NamespaceIngestTimeRuleConditionsAdditionalConditionArgsDict: TypeAlias = Mapping[str, Any]
+class NamespaceIngestTimeRuleConditionsAdditionalConditionArgsDict(TypedDict):
+    condition_field: pulumi.Input[_builtins.str]
+    """
+    (Updatable) The additional field name to be evaluated.
+    """
+    condition_operator: pulumi.Input[_builtins.str]
+    """
+    (Updatable) The operator to be used for evaluating the additional field.
+    """
+    condition_value: pulumi.Input[_builtins.str]
+    """
+    (Updatable) The additional field value to be evaluated.
+    """
 
 @pulumi.input_type
 class NamespaceIngestTimeRuleConditionsAdditionalConditionArgs:
@@ -1005,30 +974,27 @@ class NamespaceIngestTimeRuleConditionsAdditionalConditionArgs:
         pulumi.set(self, "condition_value", value)
 
 
-if not MYPY:
-    class NamespaceLookupCategoryArgsDict(TypedDict):
-        description: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        (Updatable) The category description.
-        """
-        display_name: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        (Updatable) The category display name.
-        """
-        is_system: NotRequired[pulumi.Input[_builtins.bool]]
-        """
-        (Updatable) The system flag. A value of false denotes a user-created category. A value of true denotes an Oracle-defined category.
-        """
-        name: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        (Updatable) The unique name that identifies the category.
-        """
-        type: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        (Updatable) The category type. Values include "PRODUCT", "TIER", "VENDOR" and "GENERIC".
-        """
-elif False:
-    NamespaceLookupCategoryArgsDict: TypeAlias = Mapping[str, Any]
+class NamespaceLookupCategoryArgsDict(TypedDict):
+    description: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    (Updatable) The category description.
+    """
+    display_name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    (Updatable) The category display name.
+    """
+    is_system: NotRequired[pulumi.Input[_builtins.bool]]
+    """
+    (Updatable) The system flag. A value of false denotes a user-created category. A value of true denotes an Oracle-defined category.
+    """
+    name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    (Updatable) The unique name that identifies the category.
+    """
+    type: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    (Updatable) The category type. Values include "PRODUCT", "TIER", "VENDOR" and "GENERIC".
+    """
 
 @pulumi.input_type
 class NamespaceLookupCategoryArgs:
@@ -1117,38 +1083,35 @@ class NamespaceLookupCategoryArgs:
         pulumi.set(self, "type", value)
 
 
-if not MYPY:
-    class NamespaceLookupFieldArgsDict(TypedDict):
-        common_field_name: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        (Updatable) The common field name.
-        """
-        default_match_value: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        (Updatable) The default match value.
-        """
-        display_name: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        (Updatable) The display name.
-        """
-        is_common_field: NotRequired[pulumi.Input[_builtins.bool]]
-        """
-        (Updatable) A flag indicating whether or not the field is a common field.
-        """
-        match_operator: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        (Updatable) The match operator.
-        """
-        name: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        (Updatable) The field name.
-        """
-        position: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        (Updatable) The position.
-        """
-elif False:
-    NamespaceLookupFieldArgsDict: TypeAlias = Mapping[str, Any]
+class NamespaceLookupFieldArgsDict(TypedDict):
+    common_field_name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    (Updatable) The common field name.
+    """
+    default_match_value: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    (Updatable) The default match value.
+    """
+    display_name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    (Updatable) The display name.
+    """
+    is_common_field: NotRequired[pulumi.Input[_builtins.bool]]
+    """
+    (Updatable) A flag indicating whether or not the field is a common field.
+    """
+    match_operator: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    (Updatable) The match operator.
+    """
+    name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    (Updatable) The field name.
+    """
+    position: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    (Updatable) The position.
+    """
 
 @pulumi.input_type
 class NamespaceLookupFieldArgs:
@@ -1269,18 +1232,15 @@ class NamespaceLookupFieldArgs:
         pulumi.set(self, "position", value)
 
 
-if not MYPY:
-    class NamespaceLookupReferringSourceArgsDict(TypedDict):
-        canonical_link: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The canonical link.
-        """
-        total_count: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The total count.
-        """
-elif False:
-    NamespaceLookupReferringSourceArgsDict: TypeAlias = Mapping[str, Any]
+class NamespaceLookupReferringSourceArgsDict(TypedDict):
+    canonical_link: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The canonical link.
+    """
+    total_count: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The total count.
+    """
 
 @pulumi.input_type
 class NamespaceLookupReferringSourceArgs:
@@ -1321,30 +1281,27 @@ class NamespaceLookupReferringSourceArgs:
         pulumi.set(self, "total_count", value)
 
 
-if not MYPY:
-    class NamespaceLookupStatusSummaryArgsDict(TypedDict):
-        chunks_processed: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The number of chunks processed.
-        """
-        failure_details: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The failure details, if any.
-        """
-        filename: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The filename.
-        """
-        status: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The status.
-        """
-        total_chunks: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The total number of chunks.
-        """
-elif False:
-    NamespaceLookupStatusSummaryArgsDict: TypeAlias = Mapping[str, Any]
+class NamespaceLookupStatusSummaryArgsDict(TypedDict):
+    chunks_processed: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The number of chunks processed.
+    """
+    failure_details: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The failure details, if any.
+    """
+    filename: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The filename.
+    """
+    status: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The status.
+    """
+    total_chunks: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The total number of chunks.
+    """
 
 @pulumi.input_type
 class NamespaceLookupStatusSummaryArgs:
@@ -1433,46 +1390,43 @@ class NamespaceLookupStatusSummaryArgs:
         pulumi.set(self, "total_chunks", value)
 
 
-if not MYPY:
-    class NamespaceScheduledTaskActionArgsDict(TypedDict):
-        type: pulumi.Input[_builtins.str]
-        """
-        Action type discriminator.
-        """
-        compartment_id_in_subtree: NotRequired[pulumi.Input[_builtins.bool]]
-        """
-        if true, purge child compartments data
-        """
-        data_type: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        the type of the log data to be purged
-        """
-        metric_extraction: NotRequired[pulumi.Input['NamespaceScheduledTaskActionMetricExtractionArgsDict']]
-        """
-        Specify metric extraction for SAVED_SEARCH scheduled task execution to post to Oracle Cloud Infrastructure Monitoring.
-        """
-        purge_compartment_id: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        the compartment OCID under which the data will be purged
-        """
-        purge_duration: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The duration of data to be retained, which is used to calculate the timeDataEnded when the task fires. The value should be negative. Purge duration in ISO 8601 extended format as described in https://en.wikipedia.org/wiki/ISO_8601#Durations. The largest supported unit is D, e.g. -P365D (not -P1Y) or -P14D (not -P2W).
-        """
-        query_string: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Purge query string.
-        """
-        saved_search_id: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The ManagementSavedSearch id [OCID] utilized in the action.  Should not be provided when a template ID is present.
-        """
-        template_details: NotRequired[pulumi.Input['NamespaceScheduledTaskActionTemplateDetailsArgsDict']]
-        """
-        details for scheduled task using template
-        """
-elif False:
-    NamespaceScheduledTaskActionArgsDict: TypeAlias = Mapping[str, Any]
+class NamespaceScheduledTaskActionArgsDict(TypedDict):
+    type: pulumi.Input[_builtins.str]
+    """
+    Action type discriminator.
+    """
+    compartment_id_in_subtree: NotRequired[pulumi.Input[_builtins.bool]]
+    """
+    if true, purge child compartments data
+    """
+    data_type: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    the type of the log data to be purged
+    """
+    metric_extraction: NotRequired[pulumi.Input['NamespaceScheduledTaskActionMetricExtractionArgsDict']]
+    """
+    Specify metric extraction for SAVED_SEARCH scheduled task execution to post to Oracle Cloud Infrastructure Monitoring.
+    """
+    purge_compartment_id: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    the compartment OCID under which the data will be purged
+    """
+    purge_duration: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The duration of data to be retained, which is used to calculate the timeDataEnded when the task fires. The value should be negative. Purge duration in ISO 8601 extended format as described in https://en.wikipedia.org/wiki/ISO_8601#Durations. The largest supported unit is D, e.g. -P365D (not -P1Y) or -P14D (not -P2W).
+    """
+    query_string: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Purge query string.
+    """
+    saved_search_id: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The ManagementSavedSearch id [OCID] utilized in the action.  Should not be provided when a template ID is present.
+    """
+    template_details: NotRequired[pulumi.Input['NamespaceScheduledTaskActionTemplateDetailsArgsDict']]
+    """
+    details for scheduled task using template
+    """
 
 @pulumi.input_type
 class NamespaceScheduledTaskActionArgs:
@@ -1624,42 +1578,47 @@ class NamespaceScheduledTaskActionArgs:
         pulumi.set(self, "template_details", value)
 
 
-if not MYPY:
-    class NamespaceScheduledTaskActionMetricExtractionArgsDict(TypedDict):
-        compartment_id: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        (Updatable) The compartment OCID (https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the extracted metric.
-        """
-        metric_name: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The metric name of the extracted metric. A valid value starts with an alphabetical character and includes only alphanumeric characters, periods (.), underscores (_), hyphens (-), and dollar signs ($).
-        """
-        namespace: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The namespace of the extracted metric. A valid value starts with an alphabetical character and includes only alphanumeric characters and underscores (_).
-        """
-        resource_group: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The resource group of the extracted metric. A valid value starts with an alphabetical character and includes only alphanumeric characters, periods (.), underscores (_), hyphens (-), and dollar signs ($).
-        """
-elif False:
-    NamespaceScheduledTaskActionMetricExtractionArgsDict: TypeAlias = Mapping[str, Any]
+class NamespaceScheduledTaskActionMetricExtractionArgsDict(TypedDict):
+    compartment_id: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    (Updatable) The compartment OCID (https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the extracted metric.
+    """
+    metric_collections: NotRequired[pulumi.Input[Sequence[pulumi.Input['NamespaceScheduledTaskActionMetricExtractionMetricCollectionArgsDict']]]]
+    """
+    Details for the metrics to be collected.
+    """
+    metric_name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The metric name of the extracted metric. A valid value starts with an alphabetical character and includes only alphanumeric characters, periods (.), underscores (_), hyphens (-), and dollar signs ($).
+    """
+    namespace: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The namespace of the extracted metric. A valid value starts with an alphabetical character and includes only alphanumeric characters and underscores (_).
+    """
+    resource_group: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The resource group of the extracted metric. A valid value starts with an alphabetical character and includes only alphanumeric characters, periods (.), underscores (_), hyphens (-), and dollar signs ($).
+    """
 
 @pulumi.input_type
 class NamespaceScheduledTaskActionMetricExtractionArgs:
     def __init__(__self__, *,
                  compartment_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 metric_collections: Optional[pulumi.Input[Sequence[pulumi.Input['NamespaceScheduledTaskActionMetricExtractionMetricCollectionArgs']]]] = None,
                  metric_name: Optional[pulumi.Input[_builtins.str]] = None,
                  namespace: Optional[pulumi.Input[_builtins.str]] = None,
                  resource_group: Optional[pulumi.Input[_builtins.str]] = None):
         """
         :param pulumi.Input[_builtins.str] compartment_id: (Updatable) The compartment OCID (https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the extracted metric.
+        :param pulumi.Input[Sequence[pulumi.Input['NamespaceScheduledTaskActionMetricExtractionMetricCollectionArgs']]] metric_collections: Details for the metrics to be collected.
         :param pulumi.Input[_builtins.str] metric_name: The metric name of the extracted metric. A valid value starts with an alphabetical character and includes only alphanumeric characters, periods (.), underscores (_), hyphens (-), and dollar signs ($).
         :param pulumi.Input[_builtins.str] namespace: The namespace of the extracted metric. A valid value starts with an alphabetical character and includes only alphanumeric characters and underscores (_).
         :param pulumi.Input[_builtins.str] resource_group: The resource group of the extracted metric. A valid value starts with an alphabetical character and includes only alphanumeric characters, periods (.), underscores (_), hyphens (-), and dollar signs ($).
         """
         if compartment_id is not None:
             pulumi.set(__self__, "compartment_id", compartment_id)
+        if metric_collections is not None:
+            pulumi.set(__self__, "metric_collections", metric_collections)
         if metric_name is not None:
             pulumi.set(__self__, "metric_name", metric_name)
         if namespace is not None:
@@ -1678,6 +1637,18 @@ class NamespaceScheduledTaskActionMetricExtractionArgs:
     @compartment_id.setter
     def compartment_id(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "compartment_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="metricCollections")
+    def metric_collections(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['NamespaceScheduledTaskActionMetricExtractionMetricCollectionArgs']]]]:
+        """
+        Details for the metrics to be collected.
+        """
+        return pulumi.get(self, "metric_collections")
+
+    @metric_collections.setter
+    def metric_collections(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['NamespaceScheduledTaskActionMetricExtractionMetricCollectionArgs']]]]):
+        pulumi.set(self, "metric_collections", value)
 
     @_builtins.property
     @pulumi.getter(name="metricName")
@@ -1716,18 +1687,153 @@ class NamespaceScheduledTaskActionMetricExtractionArgs:
         pulumi.set(self, "resource_group", value)
 
 
-if not MYPY:
-    class NamespaceScheduledTaskActionTemplateDetailsArgsDict(TypedDict):
-        template_id: NotRequired[pulumi.Input[_builtins.str]]
+class NamespaceScheduledTaskActionMetricExtractionMetricCollectionArgsDict(TypedDict):
+    dimensions: NotRequired[pulumi.Input[Sequence[pulumi.Input['NamespaceScheduledTaskActionMetricExtractionMetricCollectionDimensionArgsDict']]]]
+    """
+    Selected dimension fields for the metric collection.
+    """
+    metric_name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The metric name for this metric collection. A valid value starts with an alphabetical character and includes only alphanumeric characters, periods (.), underscores (_), hyphens (-), and dollar signs ($).
+    """
+    metric_query_field_name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Output field in the query to be used as the metric value.
+    """
+    query_table_name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Output table in the query.
+    """
+
+@pulumi.input_type
+class NamespaceScheduledTaskActionMetricExtractionMetricCollectionArgs:
+    def __init__(__self__, *,
+                 dimensions: Optional[pulumi.Input[Sequence[pulumi.Input['NamespaceScheduledTaskActionMetricExtractionMetricCollectionDimensionArgs']]]] = None,
+                 metric_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 metric_query_field_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 query_table_name: Optional[pulumi.Input[_builtins.str]] = None):
         """
-        The template Id of a particular template.  Should not be provided when a saved search ID is present.
+        :param pulumi.Input[Sequence[pulumi.Input['NamespaceScheduledTaskActionMetricExtractionMetricCollectionDimensionArgs']]] dimensions: Selected dimension fields for the metric collection.
+        :param pulumi.Input[_builtins.str] metric_name: The metric name for this metric collection. A valid value starts with an alphabetical character and includes only alphanumeric characters, periods (.), underscores (_), hyphens (-), and dollar signs ($).
+        :param pulumi.Input[_builtins.str] metric_query_field_name: Output field in the query to be used as the metric value.
+        :param pulumi.Input[_builtins.str] query_table_name: Output table in the query.
         """
-        template_params: NotRequired[pulumi.Input[Sequence[pulumi.Input['NamespaceScheduledTaskActionTemplateDetailsTemplateParamArgsDict']]]]
+        if dimensions is not None:
+            pulumi.set(__self__, "dimensions", dimensions)
+        if metric_name is not None:
+            pulumi.set(__self__, "metric_name", metric_name)
+        if metric_query_field_name is not None:
+            pulumi.set(__self__, "metric_query_field_name", metric_query_field_name)
+        if query_table_name is not None:
+            pulumi.set(__self__, "query_table_name", query_table_name)
+
+    @_builtins.property
+    @pulumi.getter
+    def dimensions(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['NamespaceScheduledTaskActionMetricExtractionMetricCollectionDimensionArgs']]]]:
         """
-        To store macro params.
+        Selected dimension fields for the metric collection.
         """
-elif False:
-    NamespaceScheduledTaskActionTemplateDetailsArgsDict: TypeAlias = Mapping[str, Any]
+        return pulumi.get(self, "dimensions")
+
+    @dimensions.setter
+    def dimensions(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['NamespaceScheduledTaskActionMetricExtractionMetricCollectionDimensionArgs']]]]):
+        pulumi.set(self, "dimensions", value)
+
+    @_builtins.property
+    @pulumi.getter(name="metricName")
+    def metric_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The metric name for this metric collection. A valid value starts with an alphabetical character and includes only alphanumeric characters, periods (.), underscores (_), hyphens (-), and dollar signs ($).
+        """
+        return pulumi.get(self, "metric_name")
+
+    @metric_name.setter
+    def metric_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "metric_name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="metricQueryFieldName")
+    def metric_query_field_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Output field in the query to be used as the metric value.
+        """
+        return pulumi.get(self, "metric_query_field_name")
+
+    @metric_query_field_name.setter
+    def metric_query_field_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "metric_query_field_name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="queryTableName")
+    def query_table_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Output table in the query.
+        """
+        return pulumi.get(self, "query_table_name")
+
+    @query_table_name.setter
+    def query_table_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "query_table_name", value)
+
+
+class NamespaceScheduledTaskActionMetricExtractionMetricCollectionDimensionArgsDict(TypedDict):
+    dimension_name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Dimension name to be stored with the metric.
+    """
+    query_field_name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Output field in the query to be used as the source for the metric dimension.
+    """
+
+@pulumi.input_type
+class NamespaceScheduledTaskActionMetricExtractionMetricCollectionDimensionArgs:
+    def __init__(__self__, *,
+                 dimension_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 query_field_name: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] dimension_name: Dimension name to be stored with the metric.
+        :param pulumi.Input[_builtins.str] query_field_name: Output field in the query to be used as the source for the metric dimension.
+        """
+        if dimension_name is not None:
+            pulumi.set(__self__, "dimension_name", dimension_name)
+        if query_field_name is not None:
+            pulumi.set(__self__, "query_field_name", query_field_name)
+
+    @_builtins.property
+    @pulumi.getter(name="dimensionName")
+    def dimension_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Dimension name to be stored with the metric.
+        """
+        return pulumi.get(self, "dimension_name")
+
+    @dimension_name.setter
+    def dimension_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "dimension_name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="queryFieldName")
+    def query_field_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Output field in the query to be used as the source for the metric dimension.
+        """
+        return pulumi.get(self, "query_field_name")
+
+    @query_field_name.setter
+    def query_field_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "query_field_name", value)
+
+
+class NamespaceScheduledTaskActionTemplateDetailsArgsDict(TypedDict):
+    template_id: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The template Id of a particular template.  Should not be provided when a saved search ID is present.
+    """
+    template_params: NotRequired[pulumi.Input[Sequence[pulumi.Input['NamespaceScheduledTaskActionTemplateDetailsTemplateParamArgsDict']]]]
+    """
+    To store macro params.
+    """
 
 @pulumi.input_type
 class NamespaceScheduledTaskActionTemplateDetailsArgs:
@@ -1768,18 +1874,15 @@ class NamespaceScheduledTaskActionTemplateDetailsArgs:
         pulumi.set(self, "template_params", value)
 
 
-if not MYPY:
-    class NamespaceScheduledTaskActionTemplateDetailsTemplateParamArgsDict(TypedDict):
-        key_field: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Contains a template parameter's name.
-        """
-        value_field: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Contains the desired value for a given parameter.
-        """
-elif False:
-    NamespaceScheduledTaskActionTemplateDetailsTemplateParamArgsDict: TypeAlias = Mapping[str, Any]
+class NamespaceScheduledTaskActionTemplateDetailsTemplateParamArgsDict(TypedDict):
+    key_field: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Contains a template parameter's name.
+    """
+    value_field: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Contains the desired value for a given parameter.
+    """
 
 @pulumi.input_type
 class NamespaceScheduledTaskActionTemplateDetailsTemplateParamArgs:
@@ -1820,11 +1923,8 @@ class NamespaceScheduledTaskActionTemplateDetailsTemplateParamArgs:
         pulumi.set(self, "value_field", value)
 
 
-if not MYPY:
-    class NamespaceScheduledTaskSchedulesArgsDict(TypedDict):
-        schedules: pulumi.Input[Sequence[pulumi.Input['NamespaceScheduledTaskSchedulesScheduleArgsDict']]]
-elif False:
-    NamespaceScheduledTaskSchedulesArgsDict: TypeAlias = Mapping[str, Any]
+class NamespaceScheduledTaskSchedulesArgsDict(TypedDict):
+    schedules: pulumi.Input[Sequence[pulumi.Input['NamespaceScheduledTaskSchedulesScheduleArgsDict']]]
 
 @pulumi.input_type
 class NamespaceScheduledTaskSchedulesArgs:
@@ -1842,34 +1942,39 @@ class NamespaceScheduledTaskSchedulesArgs:
         pulumi.set(self, "schedules", value)
 
 
-if not MYPY:
-    class NamespaceScheduledTaskSchedulesScheduleArgsDict(TypedDict):
-        type: pulumi.Input[_builtins.str]
-        """
-        Schedule type discriminator.
-        """
-        expression: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Value in cron format.
-        """
-        misfire_policy: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Schedule misfire retry policy.
-        """
-        recurring_interval: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Recurring interval in ISO 8601 extended format as described in https://en.wikipedia.org/wiki/ISO_8601#Durations. The largest supported unit is D, e.g. P14D (not P2W). The value must be at least 5 minutes (PT5M) and at most 3 weeks (P21D or PT30240M).
-        """
-        repeat_count: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        Number of times (0-based) to execute until auto-stop. Default value -1 will execute indefinitely. Value 0 will execute once.
-        """
-        time_zone: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Time zone, by default UTC.
-        """
-elif False:
-    NamespaceScheduledTaskSchedulesScheduleArgsDict: TypeAlias = Mapping[str, Any]
+class NamespaceScheduledTaskSchedulesScheduleArgsDict(TypedDict):
+    type: pulumi.Input[_builtins.str]
+    """
+    Schedule type discriminator.
+    """
+    expression: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Value in cron format.
+    """
+    misfire_policy: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Schedule misfire retry policy.
+    """
+    query_offset_secs: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Number of seconds to offset the query time window by to accommodate capture late arriving data. For example, a schedule run at 12:00 with a 10 minute interval and queryOffsetSecs=120 will use the query time window of 11:48-11:58 rather than 11:50-12:00 without queryOffsetSecs.
+    """
+    recurring_interval: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Recurring interval in ISO 8601 extended format as described in https://en.wikipedia.org/wiki/ISO_8601#Durations. The largest supported unit is D, e.g. P14D (not P2W). The value must be at least 5 minutes (PT5M) and at most 3 weeks (P21D or PT30240M).
+    """
+    repeat_count: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Number of times (0-based) to execute until auto-stop. Default value -1 will execute indefinitely. Value 0 will execute once.
+    """
+    time_end: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    End time for the schedule, even if the schedule would otherwise have remaining executions.
+    """
+    time_zone: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Time zone, by default UTC.
+    """
 
 @pulumi.input_type
 class NamespaceScheduledTaskSchedulesScheduleArgs:
@@ -1877,15 +1982,19 @@ class NamespaceScheduledTaskSchedulesScheduleArgs:
                  type: pulumi.Input[_builtins.str],
                  expression: Optional[pulumi.Input[_builtins.str]] = None,
                  misfire_policy: Optional[pulumi.Input[_builtins.str]] = None,
+                 query_offset_secs: Optional[pulumi.Input[_builtins.int]] = None,
                  recurring_interval: Optional[pulumi.Input[_builtins.str]] = None,
                  repeat_count: Optional[pulumi.Input[_builtins.int]] = None,
+                 time_end: Optional[pulumi.Input[_builtins.str]] = None,
                  time_zone: Optional[pulumi.Input[_builtins.str]] = None):
         """
         :param pulumi.Input[_builtins.str] type: Schedule type discriminator.
         :param pulumi.Input[_builtins.str] expression: Value in cron format.
         :param pulumi.Input[_builtins.str] misfire_policy: Schedule misfire retry policy.
+        :param pulumi.Input[_builtins.int] query_offset_secs: Number of seconds to offset the query time window by to accommodate capture late arriving data. For example, a schedule run at 12:00 with a 10 minute interval and queryOffsetSecs=120 will use the query time window of 11:48-11:58 rather than 11:50-12:00 without queryOffsetSecs.
         :param pulumi.Input[_builtins.str] recurring_interval: Recurring interval in ISO 8601 extended format as described in https://en.wikipedia.org/wiki/ISO_8601#Durations. The largest supported unit is D, e.g. P14D (not P2W). The value must be at least 5 minutes (PT5M) and at most 3 weeks (P21D or PT30240M).
         :param pulumi.Input[_builtins.int] repeat_count: Number of times (0-based) to execute until auto-stop. Default value -1 will execute indefinitely. Value 0 will execute once.
+        :param pulumi.Input[_builtins.str] time_end: End time for the schedule, even if the schedule would otherwise have remaining executions.
         :param pulumi.Input[_builtins.str] time_zone: Time zone, by default UTC.
         """
         pulumi.set(__self__, "type", type)
@@ -1893,10 +2002,14 @@ class NamespaceScheduledTaskSchedulesScheduleArgs:
             pulumi.set(__self__, "expression", expression)
         if misfire_policy is not None:
             pulumi.set(__self__, "misfire_policy", misfire_policy)
+        if query_offset_secs is not None:
+            pulumi.set(__self__, "query_offset_secs", query_offset_secs)
         if recurring_interval is not None:
             pulumi.set(__self__, "recurring_interval", recurring_interval)
         if repeat_count is not None:
             pulumi.set(__self__, "repeat_count", repeat_count)
+        if time_end is not None:
+            pulumi.set(__self__, "time_end", time_end)
         if time_zone is not None:
             pulumi.set(__self__, "time_zone", time_zone)
 
@@ -1937,6 +2050,18 @@ class NamespaceScheduledTaskSchedulesScheduleArgs:
         pulumi.set(self, "misfire_policy", value)
 
     @_builtins.property
+    @pulumi.getter(name="queryOffsetSecs")
+    def query_offset_secs(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Number of seconds to offset the query time window by to accommodate capture late arriving data. For example, a schedule run at 12:00 with a 10 minute interval and queryOffsetSecs=120 will use the query time window of 11:48-11:58 rather than 11:50-12:00 without queryOffsetSecs.
+        """
+        return pulumi.get(self, "query_offset_secs")
+
+    @query_offset_secs.setter
+    def query_offset_secs(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "query_offset_secs", value)
+
+    @_builtins.property
     @pulumi.getter(name="recurringInterval")
     def recurring_interval(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -1961,6 +2086,18 @@ class NamespaceScheduledTaskSchedulesScheduleArgs:
         pulumi.set(self, "repeat_count", value)
 
     @_builtins.property
+    @pulumi.getter(name="timeEnd")
+    def time_end(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        End time for the schedule, even if the schedule would otherwise have remaining executions.
+        """
+        return pulumi.get(self, "time_end")
+
+    @time_end.setter
+    def time_end(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "time_end", value)
+
+    @_builtins.property
     @pulumi.getter(name="timeZone")
     def time_zone(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -1973,32 +2110,37 @@ class NamespaceScheduledTaskSchedulesScheduleArgs:
         pulumi.set(self, "time_zone", value)
 
 
-if not MYPY:
-    class NamespaceStorageArchivalConfigArchivingConfigurationArgsDict(TypedDict):
-        active_storage_duration: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        (Updatable) This is the duration data in active storage before data is archived, as described in https://en.wikipedia.org/wiki/ISO_8601#Durations. The largest supported unit is D, e.g. P365D (not P1Y) or P14D (not P2W).
-        """
-        archival_storage_duration: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        (Updatable) This is the duration before archived data is deleted from object storage, as described in https://en.wikipedia.org/wiki/ISO_8601#Durations The largest supported unit is D, e.g. P365D (not P1Y) or P14D (not P2W).
-        """
-elif False:
-    NamespaceStorageArchivalConfigArchivingConfigurationArgsDict: TypeAlias = Mapping[str, Any]
+class NamespaceStorageArchivalConfigArchivingConfigurationArgsDict(TypedDict):
+    active_storage_duration: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    (Updatable) This is the duration data in active storage before data is archived, as described in https://en.wikipedia.org/wiki/ISO_8601#Durations. The largest supported unit is D, e.g. P365D (not P1Y) or P14D (not P2W).
+    """
+    archival_storage_duration: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    (Updatable) This is the duration before archived data is deleted from object storage, as described in https://en.wikipedia.org/wiki/ISO_8601#Durations The largest supported unit is D, e.g. P365D (not P1Y) or P14D (not P2W).
+    """
+    time_oldest_active_bucket_ended: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    (Updatable) end time of the oldest active CoreGroup
+    """
 
 @pulumi.input_type
 class NamespaceStorageArchivalConfigArchivingConfigurationArgs:
     def __init__(__self__, *,
                  active_storage_duration: Optional[pulumi.Input[_builtins.str]] = None,
-                 archival_storage_duration: Optional[pulumi.Input[_builtins.str]] = None):
+                 archival_storage_duration: Optional[pulumi.Input[_builtins.str]] = None,
+                 time_oldest_active_bucket_ended: Optional[pulumi.Input[_builtins.str]] = None):
         """
         :param pulumi.Input[_builtins.str] active_storage_duration: (Updatable) This is the duration data in active storage before data is archived, as described in https://en.wikipedia.org/wiki/ISO_8601#Durations. The largest supported unit is D, e.g. P365D (not P1Y) or P14D (not P2W).
         :param pulumi.Input[_builtins.str] archival_storage_duration: (Updatable) This is the duration before archived data is deleted from object storage, as described in https://en.wikipedia.org/wiki/ISO_8601#Durations The largest supported unit is D, e.g. P365D (not P1Y) or P14D (not P2W).
+        :param pulumi.Input[_builtins.str] time_oldest_active_bucket_ended: (Updatable) end time of the oldest active CoreGroup
         """
         if active_storage_duration is not None:
             pulumi.set(__self__, "active_storage_duration", active_storage_duration)
         if archival_storage_duration is not None:
             pulumi.set(__self__, "archival_storage_duration", archival_storage_duration)
+        if time_oldest_active_bucket_ended is not None:
+            pulumi.set(__self__, "time_oldest_active_bucket_ended", time_oldest_active_bucket_ended)
 
     @_builtins.property
     @pulumi.getter(name="activeStorageDuration")
@@ -2024,17 +2166,26 @@ class NamespaceStorageArchivalConfigArchivingConfigurationArgs:
     def archival_storage_duration(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "archival_storage_duration", value)
 
+    @_builtins.property
+    @pulumi.getter(name="timeOldestActiveBucketEnded")
+    def time_oldest_active_bucket_ended(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Updatable) end time of the oldest active CoreGroup
+        """
+        return pulumi.get(self, "time_oldest_active_bucket_ended")
 
-if not MYPY:
-    class GetLogAnalyticsEntitiesFilterArgsDict(TypedDict):
-        name: _builtins.str
-        """
-        A filter to return only log analytics entities whose name matches the entire name given. The match is case-insensitive.
-        """
-        values: Sequence[_builtins.str]
-        regex: NotRequired[_builtins.bool]
-elif False:
-    GetLogAnalyticsEntitiesFilterArgsDict: TypeAlias = Mapping[str, Any]
+    @time_oldest_active_bucket_ended.setter
+    def time_oldest_active_bucket_ended(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "time_oldest_active_bucket_ended", value)
+
+
+class GetLogAnalyticsEntitiesFilterArgsDict(TypedDict):
+    name: _builtins.str
+    """
+    A filter to return only log analytics entities whose name matches the entire name given. The match is case-insensitive.
+    """
+    values: Sequence[_builtins.str]
+    regex: NotRequired[_builtins.bool]
 
 @pulumi.input_type
 class GetLogAnalyticsEntitiesFilterArgs:
@@ -2081,16 +2232,13 @@ class GetLogAnalyticsEntitiesFilterArgs:
         pulumi.set(self, "regex", value)
 
 
-if not MYPY:
-    class GetLogAnalyticsEntityAssociationsListFilterArgsDict(TypedDict):
-        name: _builtins.str
-        """
-        Log analytics entity name.
-        """
-        values: Sequence[_builtins.str]
-        regex: NotRequired[_builtins.bool]
-elif False:
-    GetLogAnalyticsEntityAssociationsListFilterArgsDict: TypeAlias = Mapping[str, Any]
+class GetLogAnalyticsEntityAssociationsListFilterArgsDict(TypedDict):
+    name: _builtins.str
+    """
+    Log analytics entity name.
+    """
+    values: Sequence[_builtins.str]
+    regex: NotRequired[_builtins.bool]
 
 @pulumi.input_type
 class GetLogAnalyticsEntityAssociationsListFilterArgs:
@@ -2137,16 +2285,13 @@ class GetLogAnalyticsEntityAssociationsListFilterArgs:
         pulumi.set(self, "regex", value)
 
 
-if not MYPY:
-    class GetLogAnalyticsEntityTopologyFilterArgsDict(TypedDict):
-        name: _builtins.str
-        """
-        Log analytics entity name.
-        """
-        values: Sequence[_builtins.str]
-        regex: NotRequired[_builtins.bool]
-elif False:
-    GetLogAnalyticsEntityTopologyFilterArgsDict: TypeAlias = Mapping[str, Any]
+class GetLogAnalyticsEntityTopologyFilterArgsDict(TypedDict):
+    name: _builtins.str
+    """
+    Log analytics entity name.
+    """
+    values: Sequence[_builtins.str]
+    regex: NotRequired[_builtins.bool]
 
 @pulumi.input_type
 class GetLogAnalyticsEntityTopologyFilterArgs:
@@ -2193,16 +2338,13 @@ class GetLogAnalyticsEntityTopologyFilterArgs:
         pulumi.set(self, "regex", value)
 
 
-if not MYPY:
-    class GetLogAnalyticsEntityTypesFilterArgsDict(TypedDict):
-        name: _builtins.str
-        """
-        A filter to return only log analytics entity types whose name matches the entire name given. The match is case-insensitive.
-        """
-        values: Sequence[_builtins.str]
-        regex: NotRequired[_builtins.bool]
-elif False:
-    GetLogAnalyticsEntityTypesFilterArgsDict: TypeAlias = Mapping[str, Any]
+class GetLogAnalyticsEntityTypesFilterArgsDict(TypedDict):
+    name: _builtins.str
+    """
+    A filter to return only log analytics entity types whose name matches the entire name given. The match is case-insensitive.
+    """
+    values: Sequence[_builtins.str]
+    regex: NotRequired[_builtins.bool]
 
 @pulumi.input_type
 class GetLogAnalyticsEntityTypesFilterArgs:
@@ -2249,13 +2391,10 @@ class GetLogAnalyticsEntityTypesFilterArgs:
         pulumi.set(self, "regex", value)
 
 
-if not MYPY:
-    class GetLogAnalyticsLogGroupsFilterArgsDict(TypedDict):
-        name: _builtins.str
-        values: Sequence[_builtins.str]
-        regex: NotRequired[_builtins.bool]
-elif False:
-    GetLogAnalyticsLogGroupsFilterArgsDict: TypeAlias = Mapping[str, Any]
+class GetLogAnalyticsLogGroupsFilterArgsDict(TypedDict):
+    name: _builtins.str
+    values: Sequence[_builtins.str]
+    regex: NotRequired[_builtins.bool]
 
 @pulumi.input_type
 class GetLogAnalyticsLogGroupsFilterArgs:
@@ -2296,16 +2435,13 @@ class GetLogAnalyticsLogGroupsFilterArgs:
         pulumi.set(self, "regex", value)
 
 
-if not MYPY:
-    class GetLogAnalyticsObjectCollectionRulesFilterArgsDict(TypedDict):
-        name: _builtins.str
-        """
-        A filter to return rules only matching with this name.
-        """
-        values: Sequence[_builtins.str]
-        regex: NotRequired[_builtins.bool]
-elif False:
-    GetLogAnalyticsObjectCollectionRulesFilterArgsDict: TypeAlias = Mapping[str, Any]
+class GetLogAnalyticsObjectCollectionRulesFilterArgsDict(TypedDict):
+    name: _builtins.str
+    """
+    A filter to return rules only matching with this name.
+    """
+    values: Sequence[_builtins.str]
+    regex: NotRequired[_builtins.bool]
 
 @pulumi.input_type
 class GetLogAnalyticsObjectCollectionRulesFilterArgs:
@@ -2352,16 +2488,13 @@ class GetLogAnalyticsObjectCollectionRulesFilterArgs:
         pulumi.set(self, "regex", value)
 
 
-if not MYPY:
-    class GetNamespaceEffectivePropertiesFilterArgsDict(TypedDict):
-        name: _builtins.str
-        """
-        The property name used for filtering.
-        """
-        values: Sequence[_builtins.str]
-        regex: NotRequired[_builtins.bool]
-elif False:
-    GetNamespaceEffectivePropertiesFilterArgsDict: TypeAlias = Mapping[str, Any]
+class GetNamespaceEffectivePropertiesFilterArgsDict(TypedDict):
+    name: _builtins.str
+    """
+    The property name used for filtering.
+    """
+    values: Sequence[_builtins.str]
+    regex: NotRequired[_builtins.bool]
 
 @pulumi.input_type
 class GetNamespaceEffectivePropertiesFilterArgs:
@@ -2408,13 +2541,10 @@ class GetNamespaceEffectivePropertiesFilterArgs:
         pulumi.set(self, "regex", value)
 
 
-if not MYPY:
-    class GetNamespaceIngestTimeRulesFilterArgsDict(TypedDict):
-        name: _builtins.str
-        values: Sequence[_builtins.str]
-        regex: NotRequired[_builtins.bool]
-elif False:
-    GetNamespaceIngestTimeRulesFilterArgsDict: TypeAlias = Mapping[str, Any]
+class GetNamespaceIngestTimeRulesFilterArgsDict(TypedDict):
+    name: _builtins.str
+    values: Sequence[_builtins.str]
+    regex: NotRequired[_builtins.bool]
 
 @pulumi.input_type
 class GetNamespaceIngestTimeRulesFilterArgs:
@@ -2455,16 +2585,13 @@ class GetNamespaceIngestTimeRulesFilterArgs:
         pulumi.set(self, "regex", value)
 
 
-if not MYPY:
-    class GetNamespaceParserActionsFilterArgsDict(TypedDict):
-        name: _builtins.str
-        """
-        The parser action name used for filtering.
-        """
-        values: Sequence[_builtins.str]
-        regex: NotRequired[_builtins.bool]
-elif False:
-    GetNamespaceParserActionsFilterArgsDict: TypeAlias = Mapping[str, Any]
+class GetNamespaceParserActionsFilterArgsDict(TypedDict):
+    name: _builtins.str
+    """
+    The parser action name used for filtering.
+    """
+    values: Sequence[_builtins.str]
+    regex: NotRequired[_builtins.bool]
 
 @pulumi.input_type
 class GetNamespaceParserActionsFilterArgs:
@@ -2511,16 +2638,13 @@ class GetNamespaceParserActionsFilterArgs:
         pulumi.set(self, "regex", value)
 
 
-if not MYPY:
-    class GetNamespacePropertiesMetadataFilterArgsDict(TypedDict):
-        name: _builtins.str
-        """
-        The property name used for filtering.
-        """
-        values: Sequence[_builtins.str]
-        regex: NotRequired[_builtins.bool]
-elif False:
-    GetNamespacePropertiesMetadataFilterArgsDict: TypeAlias = Mapping[str, Any]
+class GetNamespacePropertiesMetadataFilterArgsDict(TypedDict):
+    name: _builtins.str
+    """
+    The property name used for filtering.
+    """
+    values: Sequence[_builtins.str]
+    regex: NotRequired[_builtins.bool]
 
 @pulumi.input_type
 class GetNamespacePropertiesMetadataFilterArgs:
@@ -2567,13 +2691,10 @@ class GetNamespacePropertiesMetadataFilterArgs:
         pulumi.set(self, "regex", value)
 
 
-if not MYPY:
-    class GetNamespaceRulesFilterArgsDict(TypedDict):
-        name: _builtins.str
-        values: Sequence[_builtins.str]
-        regex: NotRequired[_builtins.bool]
-elif False:
-    GetNamespaceRulesFilterArgsDict: TypeAlias = Mapping[str, Any]
+class GetNamespaceRulesFilterArgsDict(TypedDict):
+    name: _builtins.str
+    values: Sequence[_builtins.str]
+    regex: NotRequired[_builtins.bool]
 
 @pulumi.input_type
 class GetNamespaceRulesFilterArgs:
@@ -2614,13 +2735,10 @@ class GetNamespaceRulesFilterArgs:
         pulumi.set(self, "regex", value)
 
 
-if not MYPY:
-    class GetNamespaceScheduledTasksFilterArgsDict(TypedDict):
-        name: _builtins.str
-        values: Sequence[_builtins.str]
-        regex: NotRequired[_builtins.bool]
-elif False:
-    GetNamespaceScheduledTasksFilterArgsDict: TypeAlias = Mapping[str, Any]
+class GetNamespaceScheduledTasksFilterArgsDict(TypedDict):
+    name: _builtins.str
+    values: Sequence[_builtins.str]
+    regex: NotRequired[_builtins.bool]
 
 @pulumi.input_type
 class GetNamespaceScheduledTasksFilterArgs:
@@ -2661,13 +2779,10 @@ class GetNamespaceScheduledTasksFilterArgs:
         pulumi.set(self, "regex", value)
 
 
-if not MYPY:
-    class GetNamespaceStorageOverlappingRecallsFilterArgsDict(TypedDict):
-        name: _builtins.str
-        values: Sequence[_builtins.str]
-        regex: NotRequired[_builtins.bool]
-elif False:
-    GetNamespaceStorageOverlappingRecallsFilterArgsDict: TypeAlias = Mapping[str, Any]
+class GetNamespaceStorageOverlappingRecallsFilterArgsDict(TypedDict):
+    name: _builtins.str
+    values: Sequence[_builtins.str]
+    regex: NotRequired[_builtins.bool]
 
 @pulumi.input_type
 class GetNamespaceStorageOverlappingRecallsFilterArgs:
@@ -2708,16 +2823,13 @@ class GetNamespaceStorageOverlappingRecallsFilterArgs:
         pulumi.set(self, "regex", value)
 
 
-if not MYPY:
-    class GetNamespaceTemplatesFilterArgsDict(TypedDict):
-        name: _builtins.str
-        """
-        The template name used for filtering.
-        """
-        values: Sequence[_builtins.str]
-        regex: NotRequired[_builtins.bool]
-elif False:
-    GetNamespaceTemplatesFilterArgsDict: TypeAlias = Mapping[str, Any]
+class GetNamespaceTemplatesFilterArgsDict(TypedDict):
+    name: _builtins.str
+    """
+    The template name used for filtering.
+    """
+    values: Sequence[_builtins.str]
+    regex: NotRequired[_builtins.bool]
 
 @pulumi.input_type
 class GetNamespaceTemplatesFilterArgs:
@@ -2764,13 +2876,10 @@ class GetNamespaceTemplatesFilterArgs:
         pulumi.set(self, "regex", value)
 
 
-if not MYPY:
-    class GetNamespacesFilterArgsDict(TypedDict):
-        name: _builtins.str
-        values: Sequence[_builtins.str]
-        regex: NotRequired[_builtins.bool]
-elif False:
-    GetNamespacesFilterArgsDict: TypeAlias = Mapping[str, Any]
+class GetNamespacesFilterArgsDict(TypedDict):
+    name: _builtins.str
+    values: Sequence[_builtins.str]
+    regex: NotRequired[_builtins.bool]
 
 @pulumi.input_type
 class GetNamespacesFilterArgs:

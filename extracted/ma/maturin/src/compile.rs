@@ -1,6 +1,6 @@
 #[cfg(feature = "zig")]
 use crate::PlatformTag;
-use crate::target::RUST_1_64_0;
+use crate::target::{RUST_1_64_0, RUST_1_93_0};
 use crate::{BridgeModel, BuildContext, PythonInterpreter, Target};
 use anyhow::{Context, Result, anyhow, bail};
 use cargo_metadata::CrateType;
@@ -245,13 +245,18 @@ fn cargo_build_command(
             cargo_rustc.args.extend(mac_args);
         }
     } else if target.is_emscripten() {
-        // Allow user to override these default flags
-        if !rustflags
-            .flags
-            .iter()
-            .any(|f| f.contains("link-native-libraries"))
+        // The -Z link-native-libraries=no flag is needed for older Rust versions
+        // where Emscripten builds fail without it due to the behavior that it links
+        // libc automatically.
+        // From Rust 1.93.0, it is possible to build Emscripten with stable toolchain
+        // and this flag can be and should be removed.
+        if target.rustc_version.semver < RUST_1_93_0
+            && !rustflags
+                .flags
+                .iter()
+                .any(|f| f.contains("link-native-libraries"))
         {
-            debug!("Setting `-Z link-native-libraries=no` for Emscripten");
+            debug!("Setting `-Z link-native-libraries=no` for Emscripten (rust < 1.93.0)");
             rustflags.push("-Z");
             rustflags.push("link-native-libraries=no");
         }
@@ -559,12 +564,33 @@ fn compile_target(
             }
             // See https://doc.rust-lang.org/cargo/reference/external-tools.html#build-script-output
             cargo_metadata::Message::BuildScriptExecuted(msg) => {
-                for path in msg.linked_paths.iter().map(|p| p.as_str()) {
-                    // `linked_paths` may include a "KIND=" prefix in the string where KIND is the library kind
-                    if let Some(index) = path.find('=') {
-                        linked_paths.push(path[index + 1..].to_string());
+                // Check if there are any dylib libraries in linked_libs
+                // Syntax: [KIND[:MODIFIERS]=]NAME[:RENAME]
+                // See https://doc.rust-lang.org/cargo/reference/build-scripts.html#rustc-link-lib
+                let has_dylib = msg.linked_libs.iter().map(|l| l.as_str()).any(|lib| {
+                    if let Some(index) = lib.find('=') {
+                        let kind = &lib[..index];
+                        // KIND could have modifiers like "dylib:+verbatim"
+                        kind.starts_with("dylib")
                     } else {
-                        linked_paths.push(path.to_string());
+                        // No KIND prefix means it defaults to dylib (on most platforms)
+                        true
+                    }
+                });
+                // Only add linked_paths if there are dylib libraries
+                if has_dylib {
+                    for path in msg.linked_paths.iter().map(|p| p.as_str()) {
+                        // `linked_paths` may include a "KIND=" prefix in the string where KIND is the library kind
+                        // We only add paths with KIND of "native" or "all" (default when no KIND specified)
+                        if let Some(index) = path.find('=') {
+                            let kind = &path[..index];
+                            if kind == "native" || kind == "all" {
+                                linked_paths.push(path[index + 1..].to_string());
+                            }
+                        } else {
+                            // No KIND prefix means default "all"
+                            linked_paths.push(path.to_string());
+                        }
                     }
                 }
             }
@@ -647,11 +673,11 @@ pub fn warn_missing_py_init(artifact: &Path, module_name: &str) -> Result<()> {
         }
         goblin::Object::PE(pe) => {
             for sym in &pe.exports {
-                if let Some(sym_name) = sym.name {
-                    if py_init == sym_name {
-                        found = true;
-                        break;
-                    }
+                if let Some(sym_name) = sym.name
+                    && py_init == sym_name
+                {
+                    found = true;
+                    break;
                 }
             }
         }

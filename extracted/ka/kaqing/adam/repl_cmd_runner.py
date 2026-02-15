@@ -12,7 +12,7 @@ from adam.repl_session import ReplSession
 from adam.repl_state import ReplState
 from adam.sql.async_executor import AsyncExecutor
 from adam.utils_audits import Audits, audit
-from adam.utils_context import NULL
+from adam.utils_context import NULL, Context
 from adam.utils_global import thread_local
 from adam.utils_job.job import Job
 from adam.utils_log import CommandLog, clear_wait_log_flag, debug_trace, log2, log_timing
@@ -30,7 +30,8 @@ def run_command(state: ReplState,
                 cmd_list: list[Command] = None,
                 cmds: Command = None,
                 audit_submit: callable = None,
-                job: Job = None):
+                job: Job = None,
+                ctx: Context = None):
     if not session:
         session = ReplSession().prompt_session
 
@@ -57,11 +58,11 @@ def run_command(state: ReplState,
             cmd = f'bash {cmd}'
         else:
             finalizers, cmd = filtered(state, cmd)
-            target, cmd = targetted(state, cmd)
+            targetted_state, cmd = targetted(state, cmd)
 
         try:
-            if cmd and cmd.strip(' ') and not (result := cmds.retry(cmd, job, target) if job else cmds.run(cmd, target)):
-                result = try_device_default_action(target, cmds, cmd_list, cmd, retry=job)
+            if cmd and cmd.strip(' ') and not (result := cmds.retry(cmd, job, targetted_state, ctx=ctx) if job else cmds.run(cmd, targetted_state)):
+                result = try_device_default_action(targetted_state, cmds, cmd_list, cmd, job=job)
         except InvalidStateException:
             pass
         except InvalidArgumentsException:
@@ -86,11 +87,11 @@ def run_command(state: ReplState,
             log_timing(f'command {cmd}', s0=s0)
 
         if finalizers:
-            for c in finalizers:
+            for finalizer in finalizers:
                 try:
-                    c()
+                    finalizer(result)
                 except:
-                    if Config().is_debug():
+                    # if Config().is_debug():
                         traceback.print_exc()
 
         # offload audit logging
@@ -103,10 +104,13 @@ def run_command(state: ReplState,
 
         CommandLog.close_log_file()
 
-    return True
+    return result or state
 
 def filtered(state: ReplState, cmd: str) -> tuple[list[Callable[[], None]], str]:
     cmd_filters: list[CommandFilter] = ReplCommands.filters()
+    # TODO SEAN optimize this
+    for f in cmd_filters:
+        f.run_command = run_command
 
     if not cmd_filters:
         return [], cmd
@@ -164,8 +168,8 @@ def cmd_list_n_chain(run_command: callable = None) -> tuple[list[Command], Comma
 
     return cmd_list, cmds
 
-def try_device_default_action(state: ReplState, cmds: Command, cmd_list: list[Command], cmd: str, ctx = NULL):
-    action_taken, result = device(state).try_fallback_action(cmds, state, cmd)
+def try_device_default_action(state: ReplState, cmds: Command, cmd_list: list[Command], cmd: str, job: Job = None, ctx = NULL):
+    action_taken, result = device(state).try_fallback_action(cmds, state, cmd, job=job, ctx=ctx)
 
     if not action_taken:
         ctx=ctx.copy(show_out=True)

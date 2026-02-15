@@ -6,7 +6,7 @@
 import csv
 import os
 from collections.abc import Callable, Iterable
-from typing import Any
+from typing import Any, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,7 +16,13 @@ from pyproj import CRS
 
 from .errors import DatasetNotFoundError
 from .geo import VectorDataset
-from .utils import Path, check_integrity, download_and_extract_archive, download_url
+from .utils import (
+    Path,
+    Sample,
+    check_integrity,
+    download_and_extract_archive,
+    download_url,
+)
 
 
 class EuroCrops(VectorDataset):
@@ -89,7 +95,7 @@ class EuroCrops(VectorDataset):
         crs: CRS | None = None,
         res: float | tuple[float, float] = (0.00001, 0.00001),
         classes: list[str] | None = None,
-        transforms: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+        transforms: Callable[[Sample], Sample] | None = None,
         download: bool = False,
         checksum: bool = False,
     ) -> None:
@@ -144,13 +150,14 @@ class EuroCrops(VectorDataset):
             return True
 
         assert isinstance(self.paths, str | os.PathLike)
+        paths = cast(Path, self.paths)
 
-        filepath = os.path.join(self.paths, self.hcat_fname)
+        filepath = os.path.join(paths, self.hcat_fname)
         if not check_integrity(filepath, self.hcat_md5 if self.checksum else None):
             return False
 
         for fname, md5 in self.zenodo_files:
-            filepath = os.path.join(self.paths, fname)
+            filepath = os.path.join(paths, fname)
             if not check_integrity(filepath, md5 if self.checksum else None):
                 return False
         return True
@@ -161,14 +168,15 @@ class EuroCrops(VectorDataset):
             print('Files already downloaded and verified')
             return
         assert isinstance(self.paths, str | os.PathLike)
+        paths = cast(Path, self.paths)
         download_url(
             self.base_url + self.hcat_fname,
-            self.paths,
+            paths,
             md5=self.hcat_md5 if self.checksum else None,
         )
         for fname, md5 in self.zenodo_files:
             download_and_extract_archive(
-                self.base_url + fname, self.paths, md5=md5 if self.checksum else None
+                self.base_url + fname, paths, md5=md5 if self.checksum else None
             )
 
     def _load_class_map(self, classes: list[str] | None) -> None:
@@ -183,8 +191,9 @@ class EuroCrops(VectorDataset):
         """
         if not classes:
             assert isinstance(self.paths, str | os.PathLike)
+            paths = cast(Path, self.paths)
             classes = []
-            filepath = os.path.join(self.paths, self.hcat_fname)
+            filepath = os.path.join(paths, self.hcat_fname)
             with open(filepath) as f:
                 reader = csv.DictReader(f)
                 for row in reader:
@@ -226,10 +235,7 @@ class EuroCrops(VectorDataset):
         return 0
 
     def plot(
-        self,
-        sample: dict[str, Any],
-        show_titles: bool = True,
-        suptitle: str | None = None,
+        self, sample: Sample, show_titles: bool = True, suptitle: str | None = None
     ) -> Figure:
         """Plot a sample from the dataset.
 

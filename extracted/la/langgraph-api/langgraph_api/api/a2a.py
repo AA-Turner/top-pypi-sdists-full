@@ -90,7 +90,60 @@ ERROR_CODE_INVALID_AGENT_RESPONSE = -32006
 # Constants and Configuration
 # ============================================================================
 
-A2A_PROTOCOL_VERSION = "0.3.0"
+A2A_PROTOCOL_VERSION = "1.0"
+
+# ============================================================================
+# Legacy (v0.x) format helpers
+# ============================================================================
+
+# Maps for downgrading v1.0 → v0.x values in responses.
+_ROLE_V1_TO_LEGACY: dict[str, str] = {
+    "ROLE_USER": "user",
+    "ROLE_AGENT": "agent",
+}
+_STATE_V1_TO_LEGACY: dict[str, str] = {
+    "TASK_STATE_SUBMITTED": "submitted",
+    "TASK_STATE_WORKING": "working",
+    "TASK_STATE_COMPLETED": "completed",
+    "TASK_STATE_FAILED": "failed",
+    "TASK_STATE_CANCELED": "canceled",
+    "TASK_STATE_INPUT_REQUIRED": "input-required",
+    "TASK_STATE_REJECTED": "rejected",
+    "TASK_STATE_AUTH_REQUIRED": "auth-required",
+}
+# Maps for upgrading v0.x → v1.0 values on input.
+_ROLE_LEGACY_TO_V1: dict[str, str] = {v: k for k, v in _ROLE_V1_TO_LEGACY.items()}
+_STATE_LEGACY_TO_V1: dict[str, str] = {v: k for k, v in _STATE_V1_TO_LEGACY.items()}
+
+
+def _normalize_input_role(role: str) -> str:
+    """Normalize incoming role to v1.0 format (accept both old and new)."""
+    return _ROLE_LEGACY_TO_V1.get(role, role)
+
+
+def _downgrade_response(data: Any) -> Any:
+    """Recursively convert v1.0 roles/states to v0.x format in a response.
+
+    Also unwraps the v1.0 ``{"result": {"task": {...}}}`` wrapping to
+    the v0.x ``{"result": {id, contextId, ...}}`` shape expected by
+    ``a2a-sdk`` <=0.3.x.
+    """
+    if isinstance(data, dict):
+        out: dict[str, Any] = {}
+        for k, v in data.items():
+            if k == "role" and isinstance(v, str):
+                out[k] = _ROLE_V1_TO_LEGACY.get(v, v)
+            elif k == "state" and isinstance(v, str):
+                out[k] = _STATE_V1_TO_LEGACY.get(v, v)
+            elif k == "result" and isinstance(v, dict) and list(v.keys()) == ["task"]:
+                # Unwrap v1.0 {"result": {"task": {…}}} → {"result": {…}}
+                out[k] = _downgrade_response(v["task"])
+            else:
+                out[k] = _downgrade_response(v)
+        return out
+    if isinstance(data, list):
+        return [_downgrade_response(item) for item in data]
+    return data
 
 
 @functools.lru_cache(maxsize=1)
@@ -192,7 +245,7 @@ async def _validate_supports_messages(
             ) from e
 
     # Validate messages field only if there are text parts
-    has_text_parts = any(part.get("kind") == "text" for part in parts)
+    has_text_parts = any("text" in part for part in parts)
     if has_text_parts:
         input_schema = schemas.get("input_schema") or schemas.get("state_schema")
         if not input_schema:
@@ -250,7 +303,7 @@ def _extract_resume_from_parts(
     """
     resume_values = []
     for part in parts:
-        if part.get("kind") != "data":
+        if "data" not in part:
             continue
         part_data = part.get("data")
         if not isinstance(part_data, dict):
@@ -272,7 +325,7 @@ def _extract_resume_from_parts(
 def _extract_text_from_parts(parts: list[dict[str, Any]]) -> str | None:
     texts: list[str] = []
     for part in parts:
-        if part.get("kind") != "text":
+        if "text" not in part:
             continue
         text = part.get("text")
         if isinstance(text, str):
@@ -394,20 +447,15 @@ def _process_a2a_message_parts(
     additional_data = {}
 
     for part in parts:
-        part_kind = part.get("kind")
-
-        if part_kind == "text":
+        if "text" in part:
             # Text parts become messages with role based on A2A message role
-            if "text" not in part:
-                raise ValueError("TextPart must contain a 'text' field")
-
             # Map A2A role to LangGraph role
-            langgraph_role = "human" if message_role == "user" else "assistant"
+            langgraph_role = "human" if message_role == "ROLE_USER" else "assistant"
             messages.append(
                 {"role": langgraph_role, "content": part["text"], "id": message_id}
             )
 
-        elif part_kind == "data":
+        elif "data" in part:
             # Data parts become structured input parameters
             part_data = part.get("data", {})
             if not isinstance(part_data, dict):
@@ -418,8 +466,8 @@ def _process_a2a_message_parts(
 
         else:
             raise ValueError(
-                f"Unsupported part kind '{part_kind}'. "
-                f"A2A agents support 'text' and 'data' parts only."
+                "Unsupported part type. "
+                "A2A agents support 'text' and 'data' parts only."
             )
 
     if not messages and not additional_data:
@@ -488,7 +536,6 @@ def _create_interrupt_artifact(interrupts: list[dict[str, Any]]) -> dict[str, An
     """
     interrupt_parts = [
         {
-            "kind": "data",
             "data": {
                 "id": interrupt_obj.get("id"),
                 "value": interrupt_obj.get("value"),
@@ -509,7 +556,7 @@ def _lc_stream_items_to_a2a_message(
     *,
     task_id: str,
     context_id: str,
-    role: Literal["agent", "user"] = "agent",
+    role: Literal["ROLE_AGENT", "ROLE_USER"] = "ROLE_AGENT",
 ) -> dict[str, Any]:
     """Convert LangChain stream "messages/*" items into a valid A2A Message.
 
@@ -553,13 +600,13 @@ def _lc_stream_items_to_a2a_message(
 
     parts: list[dict[str, Any]] = []
     if text_parts:
-        parts.append({"kind": "text", "text": "".join(text_parts)})
+        parts.append({"text": "".join(text_parts)})
     if extra_data:
-        parts.append({"kind": "data", "data": extra_data})
+        parts.append({"data": extra_data})
 
     # Ensure we always produce a minimally valid A2A Message
     if not parts:
-        parts = [{"kind": "text", "text": ""}]
+        parts = [{"text": ""}]
 
     return {
         "role": role,
@@ -567,7 +614,6 @@ def _lc_stream_items_to_a2a_message(
         "messageId": str(uuid.uuid4()),
         "taskId": task_id,
         "contextId": context_id,
-        "kind": "message",
     }
 
 
@@ -584,7 +630,7 @@ def _lc_items_to_status_update_event(
     and keeps message content within the status update per spec.
     """
     message = _lc_stream_items_to_a2a_message(
-        items, task_id=task_id, context_id=context_id, role="agent"
+        items, task_id=task_id, context_id=context_id, role="ROLE_AGENT"
     )
     return {
         "taskId": task_id,
@@ -748,16 +794,19 @@ def _convert_messages_to_a2a_format(
             id = msg.get("id") or str(uuid7())
 
             # Support both LangChain style (type: "human"/"ai") and OpenAI style (role: "user"/"assistant")
-            # Map to A2A roles: "human"/"user" -> "user", everything else -> "agent"
-            a2a_role = "user" if msg_type == "human" or msg_role == "user" else "agent"
+            # Map to A2A roles: "human"/"user" -> "ROLE_USER", everything else -> "ROLE_AGENT"
+            a2a_role = (
+                "ROLE_USER"
+                if msg_type == "human" or msg_role == "user"
+                else "ROLE_AGENT"
+            )
 
             a2a_message = {
                 "role": a2a_role,
-                "parts": [{"kind": "text", "text": str(content)}],
+                "parts": [{"text": str(content)}],
                 "messageId": id,
                 "taskId": task_id,
                 "contextId": context_id,
-                "kind": "message",
             }
             a2a_messages.append(a2a_message)
 
@@ -791,29 +840,26 @@ async def _create_task_response(
         "id": task_id,
         "contextId": context_id,
         "history": thread_history,
-        "kind": "task",
     }
 
     if "__error__" in result:
         base_task["status"] = {
-            "state": "failed",
+            "state": "TASK_STATE_FAILED",
             "message": {
-                "role": "agent",
+                "role": "ROLE_AGENT",
                 "parts": [
                     {
-                        "kind": "text",
                         "text": f"Error executing assistant: {result['__error__']['error']}",
                     }
                 ],
                 "messageId": str(uuid.uuid4()),
                 "taskId": task_id,
                 "contextId": context_id,
-                "kind": "message",
             },
         }
     elif "__interrupt__" in result:
         base_task["status"] = {
-            "state": "input-required",
+            "state": "TASK_STATE_INPUT_REQUIRED",
             "timestamp": datetime.now(UTC).isoformat(),
         }
         base_task["artifacts"] = [_create_interrupt_artifact(result["__interrupt__"])]
@@ -826,7 +872,6 @@ async def _create_task_response(
                 "description": f"Response from assistant {assistant_id}",
                 "parts": [
                     {
-                        "kind": "text",
                         "text": _extract_a2a_response(result),
                     }
                 ],
@@ -834,12 +879,12 @@ async def _create_task_response(
         ]
 
         base_task["status"] = {
-            "state": "completed",
+            "state": "TASK_STATE_COMPLETED",
             "timestamp": datetime.now(UTC).isoformat(),
         }
         base_task["artifacts"] = artifacts
 
-    return {"result": base_task}
+    return {"result": {"task": base_task}}
 
 
 # ============================================================================
@@ -903,6 +948,22 @@ async def handle_post_request(request: ApiRequest, assistant_id: str) -> Respons
     id_ = message.get("id")
     method = message.get("method")
 
+    # Backward-compat: normalize old A2A v0.x method names to v1.0 names.
+    # The official a2a-sdk (0.3.x) still sends old names.
+    _METHOD_ALIASES: dict[str, str] = {
+        "message/send": "SendMessage",
+        "message/stream": "SendStreamingMessage",
+        "tasks/get": "GetTask",
+        "tasks/cancel": "CancelTask",
+    }
+    if isinstance(method, str) and method in _METHOD_ALIASES:
+        # Tag the request so response formatters can use legacy field values
+        request.state.a2a_legacy = True
+        method = _METHOD_ALIASES[method]
+        message = {**message, "method": method}
+    else:
+        request.state.a2a_legacy = False
+
     # Validate id type: JSON-RPC 2.0 requires id to be String, Number, or Null
     # Objects and arrays are not valid id types
     if id_ is not None and not isinstance(id_, (str, int, float)):
@@ -923,12 +984,12 @@ async def handle_post_request(request: ApiRequest, assistant_id: str) -> Respons
 
     # Validate method is a known A2A method
     known_methods = {
-        "message/send",
-        "message/stream",
-        "tasks/get",
-        "tasks/cancel",
-        "agent/authenticatedExtendedCard",
-        "agent/getAuthenticatedExtendedCard",
+        "SendMessage",
+        "SendStreamingMessage",
+        "GetTask",
+        "CancelTask",
+        "ListTasks",
+        "GetExtendedAgentCard",
     }
     if method is not None and method not in known_methods:
         return create_jsonrpc_error_response(
@@ -938,7 +999,7 @@ async def handle_post_request(request: ApiRequest, assistant_id: str) -> Respons
         )
 
     params = message.get("params", {})
-    if method in ("message/send", "message/stream"):
+    if method in ("SendMessage", "SendStreamingMessage"):
         if not isinstance(params, dict):
             return create_jsonrpc_error_response(
                 ERROR_CODE_INVALID_PARAMS,
@@ -954,7 +1015,7 @@ async def handle_post_request(request: ApiRequest, assistant_id: str) -> Respons
             )
 
     accept_header = request.headers.get("Accept") or ""
-    if method == "message/stream":
+    if method == "SendStreamingMessage":
         if not _accepts_media_type(accept_header, "text/event-stream"):
             return create_error_response(
                 "Accept header must include text/event-stream for streaming", 400
@@ -1068,20 +1129,17 @@ async def handle_jsonrpc_request(
     method = message["method"]
     params = message.get("params", {})
     # Route to appropriate A2A method handler
-    if method == "message/stream":
+    if method == "SendStreamingMessage":
         return await handle_message_stream(request, params, assistant_id, message["id"])
-    elif method == "message/send":
+    elif method == "SendMessage":
         result_or_error = await handle_message_send(request, params, assistant_id)
-    elif method == "tasks/get":
+    elif method == "GetTask":
         result_or_error = await handle_tasks_get(request, params)
-    elif method == "tasks/cancel":
+    elif method == "CancelTask":
         result_or_error = await handle_tasks_cancel(request, params)
-    elif method in (
-        "agent/getAuthenticatedExtendedCard",
-        "agent/authenticatedExtendedCard",
-    ):
-        # Return the agent card as the "extended" card
-        # (note that we don't have auth differentiation today)
+    elif method == "ListTasks":
+        result_or_error = await handle_list_tasks(request, params)
+    elif method == "GetExtendedAgentCard":
         result_or_error = await handle_get_extended_card(request, assistant_id)
     else:
         result_or_error = {
@@ -1097,13 +1155,14 @@ async def handle_jsonrpc_request(
             "Internal server error. Invalid response format in A2A implementation"
         )
 
-    return JSONResponse(
-        {
-            "jsonrpc": "2.0",
-            "id": message["id"],
-            **result_or_error,
-        }
-    )
+    response_body: dict[str, Any] = {
+        "jsonrpc": "2.0",
+        "id": message["id"],
+        **result_or_error,
+    }
+    if getattr(request.state, "a2a_legacy", False):
+        response_body = _downgrade_response(response_body)
+    return JSONResponse(response_body)
 
 
 def handle_jsonrpc_response() -> Response:
@@ -1202,9 +1261,7 @@ async def handle_message_send(
 
         # Process A2A message parts into LangChain messages format
         try:
-            message_role = message.get(
-                "role", "user"
-            )  # Default to "user" if role not specified
+            message_role = _normalize_input_role(message.get("role", "ROLE_USER"))
             input_content = _process_a2a_message_parts(parts, message_role, message_id)
         except ValueError as e:
             return {
@@ -1420,25 +1477,25 @@ async def handle_tasks_get(
         lg_status = run_info.get("status", "unknown")
 
         if lg_status == "pending":
-            a2a_state = "submitted"
+            a2a_state = "TASK_STATE_SUBMITTED"
         elif lg_status == "running":
-            a2a_state = "working"
+            a2a_state = "TASK_STATE_WORKING"
         elif lg_status == "success":
             # Hack hack: if the thread **at present** is interrupted, assume
             # the run also is interrupted
             if thread_info.get("status") == "interrupted":
-                a2a_state = "input-required"
+                a2a_state = "TASK_STATE_INPUT_REQUIRED"
             else:
                 # Inspect whether there are next tasks
-                a2a_state = "completed"
+                a2a_state = "TASK_STATE_COMPLETED"
         elif (
             lg_status == "interrupted"
         ):  # Note that this is if you interrupt FROM the outside (i.e., with double texting)
-            a2a_state = "input-required"
+            a2a_state = "TASK_STATE_INPUT_REQUIRED"
         elif lg_status in ["error", "timeout"]:
-            a2a_state = "failed"
+            a2a_state = "TASK_STATE_FAILED"
         else:
-            a2a_state = "submitted"
+            a2a_state = "TASK_STATE_SUBMITTED"
 
         try:
             task_run_id = run_info.get("run_id")
@@ -1457,26 +1514,23 @@ async def handle_tasks_get(
             "id": task_id,
             "contextId": context_id,
             "history": thread_history,
-            "kind": "task",
             "status": {
                 "state": a2a_state,
             },
         }
 
         # Add result message if completed
-        if a2a_state == "completed":
+        if a2a_state == "TASK_STATE_COMPLETED":
             task_response["status"]["message"] = {
-                "role": "agent",
-                "parts": [{"kind": "text", "text": "Task completed successfully"}],
+                "role": "ROLE_AGENT",
+                "parts": [{"text": "Task completed successfully"}],
                 "messageId": str(uuid.uuid4()),
                 "taskId": task_id,
             }
-        elif a2a_state == "failed":
+        elif a2a_state == "TASK_STATE_FAILED":
             task_response["status"]["message"] = {
-                "role": "agent",
-                "parts": [
-                    {"kind": "text", "text": f"Task failed with status: {lg_status}"}
-                ],
+                "role": "ROLE_AGENT",
+                "parts": [{"text": f"Task failed with status: {lg_status}"}],
                 "messageId": str(uuid.uuid4()),
                 "taskId": task_id,
             }
@@ -1576,14 +1630,12 @@ async def handle_tasks_cancel(
         task_response = {
             "id": task_id_raw,
             "contextId": context_id,
-            "kind": "task",
             "status": {
-                "state": "canceled",
+                "state": "TASK_STATE_CANCELED",
                 "message": {
-                    "role": "agent",
+                    "role": "ROLE_AGENT",
                     "parts": [
                         {
-                            "kind": "text",
                             "text": f"Task cancel acknowledged (was: {lg_status})",
                         }
                     ],
@@ -1616,12 +1668,11 @@ async def handle_tasks_cancel(
     task_response = {
         "id": task_id_raw,
         "contextId": context_id,
-        "kind": "task",
         "status": {
-            "state": "canceled",
+            "state": "TASK_STATE_CANCELED",
             "message": {
-                "role": "agent",
-                "parts": [{"kind": "text", "text": "Task was canceled"}],
+                "role": "ROLE_AGENT",
+                "parts": [{"text": "Task was canceled"}],
                 "messageId": str(uuid.uuid4()),
                 "taskId": task_id_raw,
             },
@@ -1629,6 +1680,227 @@ async def handle_tasks_cancel(
     }
 
     return {"result": task_response}
+
+
+def _lg_status_to_a2a_state(lg_status: str) -> str:
+    """Map a LangGraph run status to an A2A task state."""
+    mapping = {
+        "pending": "TASK_STATE_SUBMITTED",
+        "running": "TASK_STATE_WORKING",
+        "success": "TASK_STATE_COMPLETED",
+        "interrupted": "TASK_STATE_INPUT_REQUIRED",
+        "error": "TASK_STATE_FAILED",
+        "timeout": "TASK_STATE_FAILED",
+    }
+    return mapping.get(lg_status, "TASK_STATE_SUBMITTED")
+
+
+async def handle_list_tasks(
+    request: ApiRequest, params: dict[str, Any]
+) -> dict[str, Any]:
+    """Handle ListTasks requests to list tasks with filtering and pagination.
+
+    Supports:
+    - contextId filter (maps to thread_id)
+    - status filter (A2A task state)
+    - statusTimestampAfter filter (ISO 8601 timestamp)
+    - pageSize / pageToken pagination
+    - historyLength for including message history
+    - includeArtifacts for including artifacts
+
+    Args:
+        request: HTTP request for auth/headers
+        params: ListTasksParams
+
+    Returns:
+        {"result": ListTasksResult} or {"error": JsonRpcErrorObject}
+    """
+    # --- Validate params ---
+    raw_page_size = params.get("pageSize")
+    if raw_page_size is not None and (
+        not isinstance(raw_page_size, int) or raw_page_size < 1 or raw_page_size > 100
+    ):
+        return {
+            "error": {
+                "code": ERROR_CODE_INVALID_PARAMS,
+                "message": "pageSize must be an integer between 1 and 100.",
+            }
+        }
+    requested_page_size: int = raw_page_size if raw_page_size is not None else 50
+
+    raw_history_length = params.get("historyLength")
+    if raw_history_length is not None and (
+        not isinstance(raw_history_length, int) or raw_history_length < 0
+    ):
+        return {
+            "error": {
+                "code": ERROR_CODE_INVALID_PARAMS,
+                "message": "historyLength must be a non-negative integer.",
+            }
+        }
+    history_length: int = raw_history_length if raw_history_length is not None else 0
+
+    valid_states = {
+        "TASK_STATE_SUBMITTED",
+        "TASK_STATE_WORKING",
+        "TASK_STATE_COMPLETED",
+        "TASK_STATE_FAILED",
+        "TASK_STATE_CANCELED",
+        "TASK_STATE_INPUT_REQUIRED",
+        "TASK_STATE_REJECTED",
+        "TASK_STATE_AUTH_REQUIRED",
+    }
+    status_filter = params.get("status")
+    # Normalize legacy state values (e.g. "completed" → "TASK_STATE_COMPLETED")
+    if status_filter is not None and status_filter in _STATE_LEGACY_TO_V1:
+        status_filter = _STATE_LEGACY_TO_V1[status_filter]
+    if status_filter is not None and status_filter not in valid_states:
+        return {
+            "error": {
+                "code": ERROR_CODE_INVALID_PARAMS,
+                "message": f"Invalid status value: '{status_filter}'.",
+            }
+        }
+
+    status_timestamp_after = params.get("statusTimestampAfter")
+    if status_timestamp_after is not None:
+        try:
+            if isinstance(status_timestamp_after, str):
+                datetime.fromisoformat(status_timestamp_after.replace("Z", "+00:00"))
+            else:
+                raise ValueError("Not a string")
+        except (ValueError, TypeError):
+            return {
+                "error": {
+                    "code": ERROR_CODE_INVALID_PARAMS,
+                    "message": "statusTimestampAfter must be a valid ISO 8601 timestamp.",
+                }
+            }
+
+    page_token = params.get("pageToken")
+    if page_token is not None:
+        if not isinstance(page_token, str):
+            return {
+                "error": {
+                    "code": ERROR_CODE_INVALID_PARAMS,
+                    "message": "pageToken must be a string.",
+                }
+            }
+        # Our page tokens are numeric offsets; reject non-numeric tokens
+        if page_token != "":
+            try:
+                int(page_token)
+            except (ValueError, TypeError):
+                return {
+                    "error": {
+                        "code": ERROR_CODE_INVALID_PARAMS,
+                        "message": "Invalid pageToken.",
+                    }
+                }
+
+    include_artifacts = params.get("includeArtifacts", False)
+    context_id = params.get("contextId")
+
+    client = _client()
+
+    try:
+        # Determine which threads to search
+        if context_id:
+            thread_ids = [context_id]
+        else:
+            threads = await client.threads.search(
+                limit=1000,
+                headers=request.headers,
+            )
+            thread_ids = [t["thread_id"] for t in threads]
+
+        # Collect all runs from matching threads
+        all_tasks: list[dict[str, Any]] = []
+        for tid in thread_ids:
+            try:
+                runs = await client.runs.list(
+                    tid,
+                    limit=100,
+                    headers=request.headers,
+                )
+            except Exception:
+                continue
+
+            for run in runs:
+                task_id = _make_task_id(tid, run["run_id"])
+                a2a_state = _lg_status_to_a2a_state(run.get("status", "unknown"))
+
+                if status_filter and a2a_state != status_filter:
+                    continue
+
+                timestamp = run.get("updated_at") or run.get("created_at") or ""
+                if hasattr(timestamp, "isoformat"):
+                    timestamp = timestamp.isoformat()
+
+                if status_timestamp_after and timestamp:
+                    try:
+                        if timestamp < status_timestamp_after:
+                            continue
+                    except (TypeError, ValueError):
+                        pass
+
+                task: dict[str, Any] = {
+                    "id": task_id,
+                    "contextId": tid,
+                    "status": {
+                        "state": a2a_state,
+                        "timestamp": timestamp,
+                    },
+                }
+
+                if history_length > 0:
+                    try:
+                        messages = await _get_historical_messages_for_task(
+                            tid, run["run_id"], request.headers, history_length
+                        )
+                        task["history"] = _convert_messages_to_a2a_format(
+                            messages, task_id, tid
+                        )
+                    except Exception:
+                        task["history"] = []
+                else:
+                    task["history"] = []
+
+                if not include_artifacts:
+                    task["artifacts"] = []
+
+                all_tasks.append(task)
+
+        # Sort by timestamp descending (newest first)
+        all_tasks.sort(
+            key=lambda t: t["status"].get("timestamp", ""),
+            reverse=True,
+        )
+
+        total_size = len(all_tasks)
+        offset = int(page_token) if page_token else 0
+
+        page_tasks = all_tasks[offset : offset + requested_page_size]
+        next_offset = offset + len(page_tasks)
+        next_page_token = str(next_offset) if next_offset < total_size else ""
+
+        return {
+            "result": {
+                "tasks": page_tasks,
+                "totalSize": total_size,
+                "pageSize": len(page_tasks) if page_tasks else 0,
+                "nextPageToken": next_page_token,
+            }
+        }
+
+    except Exception:
+        logger.exception("Error in ListTasks")
+        return {
+            "error": {
+                "code": ERROR_CODE_INTERNAL_ERROR,
+                "message": "Internal server error",
+            }
+        }
 
 
 async def handle_get_extended_card(
@@ -1735,12 +2007,19 @@ async def generate_agent_card(request: ApiRequest, assistant_id: str) -> dict[st
             base_url = f"{scheme}://{host}"
     agent_path = f"/a2a/{assistant_id}"
 
+    agent_url = f"{base_url}{agent_path}"
+
     return {
-        "protocolVersion": A2A_PROTOCOL_VERSION,
         "name": assistant_name,
         "description": assistant_description,
-        "url": f"{base_url}{agent_path}",
-        "preferredTransport": "JSONRPC",
+        "url": agent_url,
+        "supportedInterfaces": [
+            {
+                "url": agent_url,
+                "protocolBinding": "jsonrpc",
+                "protocolVersion": "1.0",
+            },
+        ],
         "capabilities": {
             "streaming": True,
             "pushNotifications": False,  # Not implemented yet
@@ -1926,7 +2205,7 @@ async def handle_message_stream(
 
             # Process A2A message parts into LangChain messages format
             try:
-                message_role = message.get("role", "user")
+                message_role = _normalize_input_role(message.get("role", "ROLE_USER"))
                 input_content = _process_a2a_message_parts(
                     parts, message_role, message_id
                 )
@@ -2041,16 +2320,17 @@ async def handle_message_stream(
                         **message,
                         "taskId": task_id,
                         "contextId": context_id,
-                        "kind": "message",
                     }
                 ],
-                "kind": "task",
                 "status": {
-                    "state": "submitted",
+                    "state": "TASK_STATE_SUBMITTED",
                     "timestamp": datetime.now(UTC).isoformat(),
                 },
             }
-            yield (b"message", {"jsonrpc": "2.0", "id": rpc_id, "result": initial_task})
+            yield (
+                b"message",
+                {"jsonrpc": "2.0", "id": rpc_id, "result": {"task": initial_task}},
+            )
 
             result = None
             err = None
@@ -2065,12 +2345,11 @@ async def handle_message_stream(
                                 try:
                                     final_text = _extract_a2a_response(result)
                                     final_message = {
-                                        "role": "agent",
-                                        "parts": [{"kind": "text", "text": final_text}],
+                                        "role": "ROLE_AGENT",
+                                        "parts": [{"text": final_text}],
                                         "messageId": str(uuid.uuid4()),
                                         "taskId": task_id,
                                         "contextId": context_id,
-                                        "kind": "message",
                                     }
                                 except Exception:
                                     await logger.aexception(
@@ -2079,19 +2358,18 @@ async def handle_message_stream(
                                     )
                             if final_message is None:
                                 final_message = {
-                                    "role": "agent",
-                                    "parts": [{"kind": "text", "text": str(result)}],
+                                    "role": "ROLE_AGENT",
+                                    "parts": [{"text": str(result)}],
                                     "messageId": str(uuid.uuid4()),
                                     "taskId": task_id,
                                     "contextId": context_id,
-                                    "kind": "message",
                                 }
                             # Check if result contains an interrupt
                             final_state = (
-                                "input-required"
+                                "TASK_STATE_INPUT_REQUIRED"
                                 if isinstance(result, dict)
                                 and "__interrupt__" in result
-                                else "completed"
+                                else "TASK_STATE_COMPLETED"
                             )
                             completed = {
                                 "taskId": task_id,
@@ -2126,7 +2404,7 @@ async def handle_message_stream(
                                         "taskId": task_id,
                                         "contextId": context_id,
                                         "kind": "status-update",
-                                        "status": {"state": "working"},
+                                        "status": {"state": "TASK_STATE_WORKING"},
                                         "final": False,
                                     },
                                 },
@@ -2144,7 +2422,7 @@ async def handle_message_stream(
                                 items,
                                 task_id=task_id,
                                 context_id=context_id,
-                                state="working",
+                                state="TASK_STATE_WORKING",
                             )
                             yield (
                                 b"message",
@@ -2170,20 +2448,19 @@ async def handle_message_stream(
                 )
                 await logger.aerror("Failed to process message stream", err=err)
                 final_message = {
-                    "role": "agent",
-                    "parts": [{"kind": "text", "text": str(msg or "")}],
+                    "role": "ROLE_AGENT",
+                    "parts": [{"text": str(msg or "")}],
                     "messageId": str(uuid.uuid4()),
                     "taskId": task_id,
                     "contextId": context_id,
-                    "kind": "message",
                 }
             # Determine final state: failed > input-required > completed
             if err:
-                fallback_state = "failed"
+                fallback_state = "TASK_STATE_FAILED"
             elif isinstance(result, dict) and "__interrupt__" in result:
-                fallback_state = "input-required"
+                fallback_state = "TASK_STATE_INPUT_REQUIRED"
             else:
-                fallback_state = "completed"
+                fallback_state = "TASK_STATE_COMPLETED"
             fallback = {
                 "taskId": task_id,
                 "contextId": context_id,
@@ -2218,8 +2495,13 @@ async def handle_message_stream(
                 },
             )
 
+    legacy = getattr(request.state, "a2a_legacy", False)
+
     async def consume_():
         async for chunk in stream_body():
+            if legacy:
+                event_type, data = chunk
+                chunk = (event_type, _downgrade_response(data))
             await logger.adebug("A2A.stream_body: Yielding chunk", chunk=chunk)
             yield chunk
 

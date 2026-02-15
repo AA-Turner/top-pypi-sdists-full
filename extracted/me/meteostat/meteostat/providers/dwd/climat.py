@@ -15,6 +15,7 @@ from meteostat.enumerations import TTL, Parameter
 from meteostat.typing import ProviderRequest, Station
 from meteostat.core.cache import cache_service
 from meteostat.providers.dwd.shared import get_ftp_connection
+from meteostat.utils.data import safe_concat
 
 # Constants
 BASE_DIR = "/climate_environment/CDC/observations_global/CLIMAT/monthly/qc/"
@@ -87,18 +88,20 @@ def get_df(parameter: str, mode: str, station_code: str) -> Optional[pd.DataFram
         return None
 
     ftp = get_ftp_connection()
-    search_term = station_code if mode == "recent" else f"{station_code}_"
-    remote_file = find_file(ftp, mode, param_config["dir"], search_term)
+    try:
+        search_term = station_code if mode == "recent" else f"{station_code}_"
+        remote_file = find_file(ftp, mode, param_config["dir"], search_term)
 
-    if not remote_file:
-        logger.debug(
-            f"No file found for parameter '{parameter}', mode '{mode}', station '{station_code}'"
-        )
-        return None
+        if not remote_file:
+            logger.debug(
+                f"No file found for parameter '{parameter}', mode '{mode}', station '{station_code}'"
+            )
+            return None
 
-    buffer = BytesIO()
-    ftp.retrbinary(f"RETR {remote_file}", buffer.write)
-    ftp.close()
+        buffer = BytesIO()
+        ftp.retrbinary(f"RETR {remote_file}", buffer.write)
+    finally:
+        ftp.quit()
 
     buffer.seek(0)
     df = pd.read_csv(buffer, sep=";").rename(columns=lambda col: col.strip().lower())
@@ -145,13 +148,13 @@ def get_parameter(
         return None
 
 
-def fetch(req: ProviderRequest) -> pd.DataFrame:
+def fetch(req: ProviderRequest) -> Optional[pd.DataFrame]:
     """
     Entry point to fetch all requested parameters for a station query.
     """
     station_code = req.station.identifiers.get("wmo")
     if not station_code:
-        return pd.DataFrame()
+        return None
 
     modes = ["historical"]
     if (datetime.now() - req.end).days < 5 * 365:
@@ -163,4 +166,4 @@ def fetch(req: ProviderRequest) -> pd.DataFrame:
         if param in PARAMETER_CONFIGS
     ]
 
-    return pd.concat([df for df in data_frames if df is not None], axis=1)
+    return safe_concat(data_frames, axis=1)

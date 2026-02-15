@@ -21,6 +21,8 @@ from meutils.apis.fal.images import generate as fal_generate
 
 from meutils.apis.gitee.image_to_3d import generate as image_to_3d_generate
 from meutils.apis.gitee.openai_images import generate as gitee_images_generate
+from meutils.apis.gitee.formdata_images import generate as gitee_formdata_generate
+
 from meutils.apis.volcengine_apis.images import generate as volc_generate
 from meutils.apis.images.recraft import generate as recraft_generate
 from meutils.apis.jimeng.images import generate as jimeng_generate
@@ -68,12 +70,10 @@ async def generate(
     if 'baidu' in base_url:
         return await baidu_generate(request)
 
-    if 'gitee' in base_url:  # textin todo apikey
-        # return await Textin(api_key).image_watermark_remove(request)
-        return await Textin().image_watermark_remove(request)
+    if 'gitee' in base_url:
+        return await gitee_formdata_generate(request, api_key)
 
     if 'textin' in base_url:  # textin todo apikey
-        # return await Textin(api_key).image_watermark_remove(request)
         return await Textin().image_watermark_remove(request)
 
     if "netmind" in base_url:  # modelscope
@@ -321,6 +321,10 @@ if __name__ == '__main__':
     model = "high_aes_general_v50"
 
     api_key = "4a7a0a0515b0a972a879170a065c795e"
+
+    base_url = "https://ai.gitee.com/v1"
+    api_key = os.getenv("GITEE_API_KEY")
+    model = "RMBG-2.0"
 
     request = ImageRequest(
         model=model,

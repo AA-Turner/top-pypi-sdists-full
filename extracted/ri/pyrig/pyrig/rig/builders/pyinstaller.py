@@ -3,53 +3,36 @@
 Provides the `PyInstallerBuilder` abstract base class for creating platform-specific
 standalone executables from pyrig projects using PyInstaller.
 
-Extends the BuilderConfigFile base class with PyInstaller-specific functionality
+Extends the `BuilderConfigFile` base class with PyInstaller-specific functionality
 including resource bundling, icon conversion, and PyInstaller configuration.
+Features include single-file executables (`--onefile`), automatic resource bundling
+from multiple packages, platform-specific icon conversion (PNG to ICO/ICNS),
+multi-package resource discovery, and no console window (`--noconsole`).
 
-Key Features:
-    - Single-file executables (`--onefile`)
-    - Automatic resource bundling from multiple packages
-    - Platform-specific icon conversion (PNG → ICO/ICNS)
-    - Multi-package resource discovery
-    - No console window (`--noconsole`)
+Resources are collected from two sources: default resources (all `resources` modules
+from packages depending on pyrig, discovered automatically) and additional resources
+(packages specified by `additional_resource_packages()`). All resources are bundled
+using PyInstaller's `--add-data` option and are accessible at runtime via
+`importlib.resources` or `pyrig.src.resource`.
 
-Resource Bundling:
-    Resources are collected from two sources:
-
-    1. **Default resources** (automatic): All `resources` modules from packages
-       depending on pyrig
-    2. **Additional resources** (subclass-specified): Packages specified by
-       `additional_resource_packages()`
-
-    All resources are bundled using PyInstaller's `--add-data` option and are
-    accessible at runtime via `importlib.resources` or `pyrig.src.resource`.
-
-Icon Conversion:
-    Expects an `icon.png` file in the resources directory and converts it to
-    the appropriate format:
-    - Windows: PNG → ICO
-    - macOS: PNG → ICNS
-    - Linux: PNG (no conversion)
+Icon conversion expects an `icon.png` file in the resources directory and converts
+it to the appropriate format per platform (Windows: ICO, macOS: ICNS, Linux: PNG).
 
 Example:
-    Create a builder for your application::
+    Create a builder for your application:
 
         from types import ModuleType
         from pyrig.rig.builders.pyinstaller import PyInstallerBuilder
-        import myapp.resources
+        from pyrig import resources
 
-        class MyAppBuilder(PyInstallerBuilder):
-            @classmethod
-            def additional_resource_packages(cls) -> list[ModuleType]:
-                return [myapp.resources]
+        class AppBuilder(PyInstallerBuilder):
 
-    Build the executable::
+            def additional_resource_packages(self) -> list[ModuleType]:
+                return [resources]
+
+    Build the executable:
 
         $ uv run pyrig build
-
-See Also:
-    pyrig.rig.builders.base.base.BuilderConfigFile: Base builder class
-    pyrig.src.resource: Runtime resource access utilities
 """
 
 import os
@@ -71,42 +54,37 @@ from pyrig.src.modules.package import discover_equivalent_modules_across_depende
 class PyInstallerBuilder(BuilderConfigFile):
     """Abstract builder for creating PyInstaller standalone executables.
 
-    Extends the BuilderConfigFile base class to provide PyInstaller-specific
-    functionality for creating single-file executables. Handles PyInstaller
-    configuration, resource bundling, and icon conversion.
+    Extends `BuilderConfigFile` to provide PyInstaller-specific functionality for
+    creating single-file executables. Handles PyInstaller configuration, resource
+    bundling, and icon conversion.
 
     Creates executables with:
-        - Single-file executable (`--onefile`)
-        - No console window (`--noconsole`)
-        - Platform-specific icon (ICO/ICNS/PNG)
-        - All resources bundled and accessible at runtime
-        - Clean build (`--clean`)
+
+    - Single-file executable (`--onefile`)
+    - No console window (`--noconsole`)
+    - Platform-specific icon (ICO/ICNS/PNG)
+    - All resources bundled and accessible at runtime
+    - Clean build (`--clean`)
 
     Resources are automatically discovered from packages depending on pyrig, plus
-    additional packages specified by `additional_resource_packages()`.
-
-    Subclasses must implement:
-        additional_resource_packages: Return list of additional resource packages.
+    additional packages specified by `additional_resource_packages()`. Subclasses
+    must implement `additional_resource_packages()` to return a list of additional
+    resource packages.
 
     Example:
-        Basic PyInstaller builder::
+        Basic PyInstaller builder:
 
             from types import ModuleType
             from pyrig.rig.builders.pyinstaller import PyInstallerBuilder
-            import myapp.resources
+            from pyrig import resources
 
-            class MyAppBuilder(PyInstallerBuilder):
-                @classmethod
-                def additional_resource_packages(cls) -> list[ModuleType]:
-                    return [myapp.resources]
+            class AppBuilder(PyInstallerBuilder):
 
-    See Also:
-        BuilderConfigFile: Base class providing build orchestration
-        pyinstaller_options: PyInstaller configuration
+                def additional_resource_packages(self) -> list[ModuleType]:
+                    return [resources]
     """
 
-    @classmethod
-    def create_artifacts(cls, temp_artifacts_dir: Path) -> None:
+    def create_artifacts(self, temp_artifacts_dir: Path) -> None:
         """Build a PyInstaller executable.
 
         Constructs PyInstaller command-line options and invokes PyInstaller to
@@ -115,12 +93,11 @@ class PyInstallerBuilder(BuilderConfigFile):
         Args:
             temp_artifacts_dir: Temporary directory where the exe will be created.
         """
-        options = cls.pyinstaller_options(temp_artifacts_dir)
+        options = self.pyinstaller_options(temp_artifacts_dir)
         run(options)
 
-    @classmethod
     @abstractmethod
-    def additional_resource_packages(cls) -> list[ModuleType]:
+    def additional_resource_packages(self) -> list[ModuleType]:
         """Return packages containing additional resources to bundle.
 
         Subclasses must implement this method to specify resource packages beyond
@@ -131,17 +108,15 @@ class PyInstallerBuilder(BuilderConfigFile):
             List of module objects representing resource packages.
 
         Example:
-            ::
+            Subclass implementation:
 
-                @classmethod
-                def additional_resource_packages(cls) -> list[ModuleType]:
-                    import myapp.resources
-                    import myapp.plugins.resources
-                    return [myapp.resources, myapp.plugins.resources]
+
+                def additional_resource_packages(self) -> list[ModuleType]:
+                    from pyrig import resources
+                    return [resources]
         """
 
-    @classmethod
-    def default_additional_resource_packages(cls) -> list[ModuleType]:
+    def default_additional_resource_packages(self) -> list[ModuleType]:
         """Get resource packages from all pyrig-dependent packages.
 
         Automatically discovers all `resources` modules from packages that depend
@@ -154,8 +129,7 @@ class PyInstallerBuilder(BuilderConfigFile):
         """
         return discover_equivalent_modules_across_dependents(resources, pyrig)
 
-    @classmethod
-    def all_resource_packages(cls) -> list[ModuleType]:
+    def all_resource_packages(self) -> list[ModuleType]:
         """Get all resource packages to bundle in the executable.
 
         Combines auto-discovered resource packages with additional packages
@@ -165,12 +139,11 @@ class PyInstallerBuilder(BuilderConfigFile):
             List of all resource packages to bundle.
         """
         return [
-            *cls.default_additional_resource_packages(),
-            *cls.additional_resource_packages(),
+            *self.default_additional_resource_packages(),
+            *self.additional_resource_packages(),
         ]
 
-    @classmethod
-    def add_datas(cls) -> list[tuple[str, str]]:
+    def add_datas(self) -> list[tuple[str, str]]:
         """Build the --add-data arguments for PyInstaller.
 
         Collects all data files from all resource packages and formats them as
@@ -181,14 +154,13 @@ class PyInstallerBuilder(BuilderConfigFile):
             --add-data argument.
         """
         add_datas: list[tuple[str, str]] = []
-        resources_packages = cls.all_resource_packages()
+        resources_packages = self.all_resource_packages()
         for package in resources_packages:
             package_datas = collect_data_files(package.__name__, include_py_files=True)
             add_datas.extend(package_datas)
         return add_datas
 
-    @classmethod
-    def pyinstaller_options(cls, temp_artifacts_dir: Path) -> list[str]:
+    def pyinstaller_options(self, temp_artifacts_dir: Path) -> list[str]:
         """Build the complete PyInstaller command-line options.
 
         Constructs the full list of command-line arguments for PyInstaller,
@@ -203,28 +175,27 @@ class PyInstallerBuilder(BuilderConfigFile):
         temp_dir = temp_artifacts_dir.parent
 
         options = [
-            str(cls.main_path()),
+            str(self.main_path()),
             "--name",
-            cls.app_name(),
+            self.app_name(),
             "--clean",
             "--noconfirm",
             "--onefile",
             "--noconsole",
             "--workpath",
-            str(cls.temp_workpath(temp_dir)),
+            str(self.temp_workpath(temp_dir)),
             "--specpath",
-            str(cls.temp_specpath(temp_dir)),
+            str(self.temp_specpath(temp_dir)),
             "--distpath",
-            str(cls.temp_distpath(temp_dir)),
+            str(self.temp_distpath(temp_dir)),
             "--icon",
-            str(cls.app_icon_path(temp_dir)),
+            str(self.app_icon_path(temp_dir)),
         ]
-        for src, dest in cls.add_datas():
+        for src, dest in self.add_datas():
             options.extend(["--add-data", f"{src}{os.pathsep}{dest}"])
         return options
 
-    @classmethod
-    def temp_distpath(cls, temp_dir: Path) -> Path:
+    def temp_distpath(self, temp_dir: Path) -> Path:
         """Get the temporary distribution output path.
 
         Args:
@@ -233,10 +204,9 @@ class PyInstallerBuilder(BuilderConfigFile):
         Returns:
             Path where PyInstaller will write the executable.
         """
-        return cls.temp_artifacts_path(temp_dir)
+        return self.temp_artifacts_path(temp_dir)
 
-    @classmethod
-    def temp_workpath(cls, temp_dir: Path) -> Path:
+    def temp_workpath(self, temp_dir: Path) -> Path:
         """Get the temporary work directory for PyInstaller.
 
         Args:
@@ -249,8 +219,7 @@ class PyInstallerBuilder(BuilderConfigFile):
         path.mkdir(parents=True, exist_ok=True)
         return path
 
-    @classmethod
-    def temp_specpath(cls, temp_dir: Path) -> Path:
+    def temp_specpath(self, temp_dir: Path) -> Path:
         """Get the temporary spec file directory.
 
         Args:
@@ -263,8 +232,7 @@ class PyInstallerBuilder(BuilderConfigFile):
         path.mkdir(parents=True, exist_ok=True)
         return path
 
-    @classmethod
-    def app_icon_path(cls, temp_dir: Path) -> Path:
+    def app_icon_path(self, temp_dir: Path) -> Path:
         """Get the platform-appropriate icon path.
 
         Converts the PNG icon to the appropriate format for the current platform:
@@ -277,13 +245,12 @@ class PyInstallerBuilder(BuilderConfigFile):
             Path to the converted icon file.
         """
         if platform.system() == "Windows":
-            return cls.convert_png_to_format("ico", temp_dir)
+            return self.convert_png_to_format("ico", temp_dir)
         if platform.system() == "Darwin":
-            return cls.convert_png_to_format("icns", temp_dir)
-        return cls.convert_png_to_format("png", temp_dir)
+            return self.convert_png_to_format("icns", temp_dir)
+        return self.convert_png_to_format("png", temp_dir)
 
-    @classmethod
-    def convert_png_to_format(cls, file_format: str, temp_dir_path: Path) -> Path:
+    def convert_png_to_format(self, file_format: str, temp_dir_path: Path) -> Path:
         """Convert the application icon PNG to another format.
 
         Uses PIL/Pillow to convert the source PNG icon to the specified format
@@ -298,13 +265,12 @@ class PyInstallerBuilder(BuilderConfigFile):
             Path to the converted icon file.
         """
         output_path = temp_dir_path / f"icon.{file_format}"
-        png_path = cls.app_icon_png_path()
+        png_path = self.app_icon_png_path()
         img = Image.open(png_path)
         img.save(output_path, format=file_format.upper())
         return output_path
 
-    @classmethod
-    def app_icon_png_path(cls) -> Path:
+    def app_icon_png_path(self) -> Path:
         """Get the path to the application icon PNG.
 
         Returns the path to the source PNG icon file. Override this method to
@@ -313,4 +279,4 @@ class PyInstallerBuilder(BuilderConfigFile):
         Returns:
             Absolute path to the PNG icon file (`<src_package>/resources/icon.png`).
         """
-        return cls.resources_path() / "icon.png"
+        return self.resources_path() / "icon.png"

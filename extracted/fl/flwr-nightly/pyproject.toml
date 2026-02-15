@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "flwr-nightly"
-version = "1.27.0.dev20260213"
+version = "1.27.0.dev20260214"
 description = "Flower: A Friendly Federated AI Framework"
 license = "Apache-2.0"
 authors = ["The Flower Authors <hello@flower.ai>"]
@@ -186,8 +186,8 @@ patterns = ["*.py"]
 ignore_patterns = []
 
 [tool.mypy]
-ignore_missing_imports = true
 strict = true
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["importlib.metadata.*", "importlib_metadata.*"]

@@ -14,9 +14,9 @@ logger = logging.getLogger(__name__)
 def build_artifacts() -> None:
     """Build all project artifacts.
 
-    Discovers and invokes all non-abstract BuilderConfigFile subclasses to create
-    distributable artifacts.
+    Discovers and validates all non-abstract BuilderConfigFile subclasses to
+    create distributable artifacts.
     """
     logger.info("Building all artifacts")
-    BuilderConfigFile.init_all_subclasses()
+    BuilderConfigFile.validate_all_subclasses()
     logger.info("Artifact build complete")

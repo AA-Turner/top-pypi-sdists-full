@@ -36,6 +36,7 @@ from .literals import (
     EventTypeType,
     HubNetworkModeType,
     LogLevelType,
+    ManagedThingAssociationStatusType,
     OtaStatusType,
     OtaTaskExecutionStatusType,
     OtaTypeType,
@@ -59,8 +60,11 @@ else:
 __all__ = (
     "AbortConfigCriteriaTypeDef",
     "AccountAssociationItemTypeDef",
+    "AuthConfigOutputTypeDef",
     "AuthConfigTypeDef",
+    "AuthConfigUnionTypeDef",
     "AuthConfigUpdateTypeDef",
+    "AuthMaterialTypeDef",
     "CapabilityActionTypeDef",
     "CapabilityReportCapabilityOutputTypeDef",
     "CapabilityReportCapabilityTypeDef",
@@ -119,6 +123,8 @@ __all__ = (
     "EndpointConfigTypeDef",
     "EventLogConfigurationSummaryTypeDef",
     "ExponentialRolloutRateTypeDef",
+    "GeneralAuthorizationNameTypeDef",
+    "GeneralAuthorizationUpdateTypeDef",
     "GetAccountAssociationRequestTypeDef",
     "GetAccountAssociationResponseTypeDef",
     "GetCloudConnectorRequestTypeDef",
@@ -301,6 +307,10 @@ class AccountAssociationItemTypeDef(TypedDict):
     Description: NotRequired[str]
     Arn: NotRequired[str]
 
+class SecretsManagerTypeDef(TypedDict):
+    arn: str
+    versionId: str
+
 class CapabilityActionTypeDef(TypedDict):
     name: str
     ref: NotRequired[str]
@@ -347,12 +357,8 @@ class ConnectorDestinationSummaryTypeDef(TypedDict):
     CloudConnectorId: NotRequired[str]
     Id: NotRequired[str]
 
-class CreateAccountAssociationRequestTypeDef(TypedDict):
-    ConnectorDestinationId: str
-    ClientToken: NotRequired[str]
-    Name: NotRequired[str]
-    Description: NotRequired[str]
-    Tags: NotRequired[Mapping[str, str]]
+class GeneralAuthorizationNameTypeDef(TypedDict):
+    AuthMaterialName: NotRequired[str]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
@@ -360,10 +366,6 @@ class ResponseMetadataTypeDef(TypedDict):
     HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
-
-class SecretsManagerTypeDef(TypedDict):
-    arn: str
-    versionId: str
 
 class CreateCredentialLockerRequestTypeDef(TypedDict):
     Name: NotRequired[str]
@@ -399,6 +401,7 @@ class CreateNotificationConfigurationRequestTypeDef(TypedDict):
 class CreateProvisioningProfileRequestTypeDef(TypedDict):
     ProvisioningType: ProvisioningTypeType
     CaCertificate: NotRequired[str]
+    ClaimCertificate: NotRequired[str]
     Name: NotRequired[str]
     ClientToken: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
@@ -624,6 +627,7 @@ class ListManagedThingAccountAssociationsRequestTypeDef(TypedDict):
 class ManagedThingAssociationTypeDef(TypedDict):
     ManagedThingId: NotRequired[str]
     AccountAssociationId: NotRequired[str]
+    ManagedThingAssociationStatus: NotRequired[ManagedThingAssociationStatusType]
 
 class ListManagedThingSchemasRequestTypeDef(TypedDict):
     Identifier: str
@@ -813,6 +817,7 @@ StartDeviceDiscoveryRequestTypeDef = TypedDict(
         "AuthenticationMaterialType": NotRequired[Literal["ZWAVE_INSTALL_CODE"]],
         "ClientToken": NotRequired[str],
         "Tags": NotRequired[Mapping[str, str]],
+        "ConnectorDeviceIdList": NotRequired[Sequence[str]],
         "Protocol": NotRequired[ProtocolTypeType],
         "EndDeviceIdentifier": NotRequired[str],
     },
@@ -871,6 +876,10 @@ class OtaTaskAbortConfigOutputTypeDef(TypedDict):
 class OtaTaskAbortConfigTypeDef(TypedDict):
     AbortConfigCriteriaList: NotRequired[Sequence[AbortConfigCriteriaTypeDef]]
 
+class AuthMaterialTypeDef(TypedDict):
+    SecretsManager: SecretsManagerTypeDef
+    AuthMaterialName: str
+
 CommandCapabilityTypeDef = TypedDict(
     "CommandCapabilityTypeDef",
     {
@@ -900,6 +909,14 @@ CapabilityReportEndpointTypeDef = TypedDict(
 class ConfigurationStatusTypeDef(TypedDict):
     state: ConfigurationStateType
     error: NotRequired[ConfigurationErrorTypeDef]
+
+class CreateAccountAssociationRequestTypeDef(TypedDict):
+    ConnectorDestinationId: str
+    ClientToken: NotRequired[str]
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
+    GeneralAuthorization: NotRequired[GeneralAuthorizationNameTypeDef]
 
 class CreateAccountAssociationResponseTypeDef(TypedDict):
     OAuthAuthorizationUrl: str
@@ -972,6 +989,7 @@ class GetAccountAssociationResponseTypeDef(TypedDict):
     Arn: str
     OAuthAuthorizationUrl: str
     Tags: dict[str, str]
+    GeneralAuthorization: GeneralAuthorizationNameTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetCredentialLockerResponseTypeDef(TypedDict):
@@ -1379,6 +1397,10 @@ class StateEndpointTypeDef(TypedDict):
     endpointId: str
     capabilities: list[StateCapabilityTypeDef]
 
+class GeneralAuthorizationUpdateTypeDef(TypedDict):
+    AuthMaterialsToAdd: NotRequired[Sequence[AuthMaterialTypeDef]]
+    AuthMaterialsToUpdate: NotRequired[Sequence[AuthMaterialTypeDef]]
+
 class CommandEndpointTypeDef(TypedDict):
     endpointId: str
     capabilities: Sequence[CommandCapabilityTypeDef]
@@ -1453,11 +1475,13 @@ MatterCapabilityReportEndpointTypeDef = TypedDict(
     },
 )
 
+class AuthConfigOutputTypeDef(TypedDict):
+    oAuth: NotRequired[OAuthConfigTypeDef]
+    GeneralAuthorization: NotRequired[list[AuthMaterialTypeDef]]
+
 class AuthConfigTypeDef(TypedDict):
     oAuth: NotRequired[OAuthConfigTypeDef]
-
-class AuthConfigUpdateTypeDef(TypedDict):
-    oAuthUpdate: NotRequired[OAuthUpdateTypeDef]
+    GeneralAuthorization: NotRequired[Sequence[AuthMaterialTypeDef]]
 
 OtaTaskExecutionRetryConfigUnionTypeDef = Union[
     OtaTaskExecutionRetryConfigTypeDef, OtaTaskExecutionRetryConfigOutputTypeDef
@@ -1499,6 +1523,10 @@ class GetManagedThingStateResponseTypeDef(TypedDict):
     Endpoints: list[StateEndpointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class AuthConfigUpdateTypeDef(TypedDict):
+    oAuthUpdate: NotRequired[OAuthUpdateTypeDef]
+    GeneralAuthorizationUpdate: NotRequired[GeneralAuthorizationUpdateTypeDef]
+
 class SendManagedThingCommandRequestTypeDef(TypedDict):
     ManagedThingId: str
     Endpoints: Sequence[CommandEndpointTypeDef]
@@ -1533,34 +1561,18 @@ class MatterCapabilityReportTypeDef(TypedDict):
     endpoints: Sequence[MatterCapabilityReportEndpointTypeDef]
     nodeId: NotRequired[str]
 
-class CreateConnectorDestinationRequestTypeDef(TypedDict):
-    CloudConnectorId: str
-    AuthType: Literal["OAUTH"]
-    AuthConfig: AuthConfigTypeDef
-    SecretsManager: SecretsManagerTypeDef
-    Name: NotRequired[str]
-    Description: NotRequired[str]
-    ClientToken: NotRequired[str]
-
 class GetConnectorDestinationResponseTypeDef(TypedDict):
     Name: str
     Description: str
     CloudConnectorId: str
     Id: str
     AuthType: Literal["OAUTH"]
-    AuthConfig: AuthConfigTypeDef
+    AuthConfig: AuthConfigOutputTypeDef
     SecretsManager: SecretsManagerTypeDef
     OAuthCompleteRedirectUrl: str
     ResponseMetadata: ResponseMetadataTypeDef
 
-class UpdateConnectorDestinationRequestTypeDef(TypedDict):
-    Identifier: str
-    Description: NotRequired[str]
-    Name: NotRequired[str]
-    AuthType: NotRequired[Literal["OAUTH"]]
-    AuthConfig: NotRequired[AuthConfigUpdateTypeDef]
-    SecretsManager: NotRequired[SecretsManagerTypeDef]
-
+AuthConfigUnionTypeDef = Union[AuthConfigTypeDef, AuthConfigOutputTypeDef]
 CreateOtaTaskRequestTypeDef = TypedDict(
     "CreateOtaTaskRequestTypeDef",
     {
@@ -1578,6 +1590,14 @@ CreateOtaTaskRequestTypeDef = TypedDict(
         "Tags": NotRequired[Mapping[str, str]],
     },
 )
+
+class UpdateConnectorDestinationRequestTypeDef(TypedDict):
+    Identifier: str
+    Description: NotRequired[str]
+    Name: NotRequired[str]
+    AuthType: NotRequired[Literal["OAUTH"]]
+    AuthConfig: NotRequired[AuthConfigUpdateTypeDef]
+    SecretsManager: NotRequired[SecretsManagerTypeDef]
 
 class CreateManagedThingRequestTypeDef(TypedDict):
     Role: RoleType
@@ -1630,6 +1650,15 @@ class DeviceTypeDef(TypedDict):
     ConnectorDeviceName: NotRequired[str]
     CapabilitySchemas: NotRequired[Sequence[CapabilitySchemaItemTypeDef]]
     DeviceMetadata: NotRequired[Mapping[str, Any]]
+
+class CreateConnectorDestinationRequestTypeDef(TypedDict):
+    CloudConnectorId: str
+    AuthConfig: AuthConfigUnionTypeDef
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+    AuthType: NotRequired[Literal["OAUTH"]]
+    SecretsManager: NotRequired[SecretsManagerTypeDef]
+    ClientToken: NotRequired[str]
 
 class CreateOtaTaskConfigurationRequestTypeDef(TypedDict):
     Description: NotRequired[str]

@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_transfer.type_defs import As2ConnectorConfigTypeDef
+    from types_aiobotocore_transfer.type_defs import As2AsyncMdnConnectorConfigOutputTypeDef
 
-    data: As2ConnectorConfigTypeDef = ...
+    data: As2AsyncMdnConnectorConfigOutputTypeDef = ...
     ```
 """
 
@@ -69,7 +69,11 @@ else:
     from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
+    "As2AsyncMdnConnectorConfigOutputTypeDef",
+    "As2AsyncMdnConnectorConfigTypeDef",
+    "As2ConnectorConfigOutputTypeDef",
     "As2ConnectorConfigTypeDef",
+    "As2ConnectorConfigUnionTypeDef",
     "BlobTypeDef",
     "ConnectorEgressConfigTypeDef",
     "ConnectorFileTransferResultTypeDef",
@@ -92,6 +96,7 @@ __all__ = (
     "CreateWorkflowRequestTypeDef",
     "CreateWorkflowResponseTypeDef",
     "CustomDirectoriesTypeTypeDef",
+    "CustomHttpHeaderTypeDef",
     "CustomStepDetailsTypeDef",
     "DecryptStepDetailsTypeDef",
     "DeleteAccessRequestTypeDef",
@@ -307,17 +312,13 @@ __all__ = (
     "WorkflowStepUnionTypeDef",
 )
 
-class As2ConnectorConfigTypeDef(TypedDict):
-    LocalProfileId: NotRequired[str]
-    PartnerProfileId: NotRequired[str]
-    MessageSubject: NotRequired[str]
-    Compression: NotRequired[CompressionEnumType]
-    EncryptionAlgorithm: NotRequired[EncryptionAlgType]
-    SigningAlgorithm: NotRequired[SigningAlgType]
-    MdnSigningAlgorithm: NotRequired[MdnSigningAlgType]
-    MdnResponse: NotRequired[MdnResponseType]
-    BasicAuthSecretId: NotRequired[str]
-    PreserveContentType: NotRequired[PreserveContentTypeType]
+class As2AsyncMdnConnectorConfigOutputTypeDef(TypedDict):
+    Url: NotRequired[str]
+    ServerIds: NotRequired[list[str]]
+
+class As2AsyncMdnConnectorConfigTypeDef(TypedDict):
+    Url: NotRequired[str]
+    ServerIds: NotRequired[Sequence[str]]
 
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 
@@ -370,6 +371,10 @@ class S3StorageOptionsTypeDef(TypedDict):
 
 class WebAppUnitsTypeDef(TypedDict):
     Provisioned: NotRequired[int]
+
+class CustomHttpHeaderTypeDef(TypedDict):
+    Key: NotRequired[str]
+    Value: NotRequired[str]
 
 class CustomStepDetailsTypeDef(TypedDict):
     Name: NotRequired[str]
@@ -771,13 +776,6 @@ class StartDirectoryListingRequestTypeDef(TypedDict):
     OutputDirectoryPath: str
     MaxItems: NotRequired[int]
 
-class StartFileTransferRequestTypeDef(TypedDict):
-    ConnectorId: str
-    SendFilePaths: NotRequired[Sequence[str]]
-    RetrieveFilePaths: NotRequired[Sequence[str]]
-    LocalDirectoryPath: NotRequired[str]
-    RemoteDirectoryPath: NotRequired[str]
-
 class StartRemoteDeleteRequestTypeDef(TypedDict):
     ConnectorId: str
     DeletePath: str
@@ -834,6 +832,32 @@ class WebAppVpcConfigTypeDef(TypedDict):
 class WorkflowDetailTypeDef(TypedDict):
     WorkflowId: str
     ExecutionRole: str
+
+class As2ConnectorConfigOutputTypeDef(TypedDict):
+    LocalProfileId: NotRequired[str]
+    PartnerProfileId: NotRequired[str]
+    MessageSubject: NotRequired[str]
+    Compression: NotRequired[CompressionEnumType]
+    EncryptionAlgorithm: NotRequired[EncryptionAlgType]
+    SigningAlgorithm: NotRequired[SigningAlgType]
+    MdnSigningAlgorithm: NotRequired[MdnSigningAlgType]
+    MdnResponse: NotRequired[MdnResponseType]
+    BasicAuthSecretId: NotRequired[str]
+    PreserveContentType: NotRequired[PreserveContentTypeType]
+    AsyncMdnConfig: NotRequired[As2AsyncMdnConnectorConfigOutputTypeDef]
+
+class As2ConnectorConfigTypeDef(TypedDict):
+    LocalProfileId: NotRequired[str]
+    PartnerProfileId: NotRequired[str]
+    MessageSubject: NotRequired[str]
+    Compression: NotRequired[CompressionEnumType]
+    EncryptionAlgorithm: NotRequired[EncryptionAlgType]
+    SigningAlgorithm: NotRequired[SigningAlgType]
+    MdnSigningAlgorithm: NotRequired[MdnSigningAlgType]
+    MdnResponse: NotRequired[MdnResponseType]
+    BasicAuthSecretId: NotRequired[str]
+    PreserveContentType: NotRequired[PreserveContentTypeType]
+    AsyncMdnConfig: NotRequired[As2AsyncMdnConnectorConfigTypeDef]
 
 class UpdateWebAppCustomizationRequestTypeDef(TypedDict):
     WebAppId: str
@@ -1076,6 +1100,14 @@ class TagResourceRequestTypeDef(TypedDict):
     Arn: str
     Tags: Sequence[TagTypeDef]
 
+class StartFileTransferRequestTypeDef(TypedDict):
+    ConnectorId: str
+    SendFilePaths: NotRequired[Sequence[str]]
+    RetrieveFilePaths: NotRequired[Sequence[str]]
+    LocalDirectoryPath: NotRequired[str]
+    RemoteDirectoryPath: NotRequired[str]
+    CustomHttpHeaders: NotRequired[Sequence[CustomHttpHeaderTypeDef]]
+
 class DescribeSecurityPolicyResponseTypeDef(TypedDict):
     SecurityPolicy: DescribedSecurityPolicyTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1303,6 +1335,8 @@ class WorkflowDetailsTypeDef(TypedDict):
     OnUpload: NotRequired[Sequence[WorkflowDetailTypeDef]]
     OnPartialUpload: NotRequired[Sequence[WorkflowDetailTypeDef]]
 
+As2ConnectorConfigUnionTypeDef = Union[As2ConnectorConfigTypeDef, As2ConnectorConfigOutputTypeDef]
+
 class DescribeAgreementResponseTypeDef(TypedDict):
     Agreement: DescribedAgreementTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1330,7 +1364,7 @@ class DescribedConnectorTypeDef(TypedDict):
     Status: ConnectorStatusType
     ConnectorId: NotRequired[str]
     Url: NotRequired[str]
-    As2Config: NotRequired[As2ConnectorConfigTypeDef]
+    As2Config: NotRequired[As2ConnectorConfigOutputTypeDef]
     AccessRole: NotRequired[str]
     LoggingRole: NotRequired[str]
     Tags: NotRequired[list[TagTypeDef]]
@@ -1428,26 +1462,6 @@ class ListedExecutionTypeDef(TypedDict):
     ServiceMetadata: NotRequired[ServiceMetadataTypeDef]
     Status: NotRequired[ExecutionStatusType]
 
-class CreateConnectorRequestTypeDef(TypedDict):
-    AccessRole: str
-    Url: NotRequired[str]
-    As2Config: NotRequired[As2ConnectorConfigTypeDef]
-    LoggingRole: NotRequired[str]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-    SftpConfig: NotRequired[SftpConnectorConfigUnionTypeDef]
-    SecurityPolicyName: NotRequired[str]
-    EgressConfig: NotRequired[ConnectorEgressConfigTypeDef]
-
-class UpdateConnectorRequestTypeDef(TypedDict):
-    ConnectorId: str
-    Url: NotRequired[str]
-    As2Config: NotRequired[As2ConnectorConfigTypeDef]
-    AccessRole: NotRequired[str]
-    LoggingRole: NotRequired[str]
-    SftpConfig: NotRequired[SftpConnectorConfigUnionTypeDef]
-    SecurityPolicyName: NotRequired[str]
-    EgressConfig: NotRequired[UpdateConnectorEgressConfigTypeDef]
-
 class UpdateWebAppRequestTypeDef(TypedDict):
     WebAppId: str
     IdentityProviderDetails: NotRequired[UpdateWebAppIdentityProviderDetailsTypeDef]
@@ -1489,6 +1503,26 @@ class DescribedServerTypeDef(TypedDict):
     IpAddressType: NotRequired[IpAddressTypeType]
 
 WorkflowDetailsUnionTypeDef = Union[WorkflowDetailsTypeDef, WorkflowDetailsOutputTypeDef]
+
+class CreateConnectorRequestTypeDef(TypedDict):
+    AccessRole: str
+    Url: NotRequired[str]
+    As2Config: NotRequired[As2ConnectorConfigUnionTypeDef]
+    LoggingRole: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    SftpConfig: NotRequired[SftpConnectorConfigUnionTypeDef]
+    SecurityPolicyName: NotRequired[str]
+    EgressConfig: NotRequired[ConnectorEgressConfigTypeDef]
+
+class UpdateConnectorRequestTypeDef(TypedDict):
+    ConnectorId: str
+    Url: NotRequired[str]
+    As2Config: NotRequired[As2ConnectorConfigUnionTypeDef]
+    AccessRole: NotRequired[str]
+    LoggingRole: NotRequired[str]
+    SftpConfig: NotRequired[SftpConnectorConfigUnionTypeDef]
+    SecurityPolicyName: NotRequired[str]
+    EgressConfig: NotRequired[UpdateConnectorEgressConfigTypeDef]
 
 class DescribeConnectorResponseTypeDef(TypedDict):
     Connector: DescribedConnectorTypeDef

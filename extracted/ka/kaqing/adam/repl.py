@@ -15,6 +15,7 @@ from adam.repl_session import ReplSession
 from adam.repl_state import ReplState
 from adam.utils_audits import Audits, audit
 from adam.utils_color import Color, colored_text
+from adam.utils_job.job_scheduler import JobScheduler
 from adam.utils_k8s.kube_context import KubeContext
 from adam.utils import deep_sort_dict
 from adam.utils_log import Log, log2, log_exc, log_timing
@@ -57,6 +58,8 @@ def enter_repl(state: ReplState):
     def _(event):
         event.app.current_buffer.text = ''
 
+    JobScheduler.run_command = run_command
+
     with audit() as submit:
         # warm up AWS lambda - this log line may timeout and get lost, which is fine
         submit(Audits.log, 'entering kaqing repl', state.namespace, 'z', 0.0)
@@ -91,7 +94,7 @@ def repl_completer(state: ReplState, cmd_list: list[Command]):
                     completions = log_timing(c.command(), lambda: deep_sort_dict(merge_completions(completions, c.completion(state))))
 
             # print(json.dumps(completions, indent=4))
-            completer = SetCompleter(['time', 'debug'], completions, at_least=0)
+            completer = SetCompleter(['debug', 'schedule', 'time'], completions, at_least=0)
 
     return completer
 

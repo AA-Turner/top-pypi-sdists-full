@@ -6,7 +6,7 @@ use pyo3::types::{PyBytes, PyDict};
 
 /// Python wrapper for inline image extraction configuration
 #[cfg(feature = "inline-images")]
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Clone)]
 pub struct InlineImageConfig {
     #[pyo3(get, set)]

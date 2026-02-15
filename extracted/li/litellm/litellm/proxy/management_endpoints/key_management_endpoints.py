@@ -628,10 +628,11 @@ async def _common_key_generation_helper(  # noqa: PLR0915
 
     # Validate user-provided key format
     if data.key is not None and not data.key.startswith("sk-"):
+        _masked = "{}****{}".format(data.key[:4], data.key[-4:]) if len(data.key) > 8 else "****"
         raise HTTPException(
             status_code=400,
             detail={
-                "error": f"Invalid key format. LiteLLM Virtual Key must start with 'sk-'. Received: {data.key}"
+                "error": f"Invalid key format. LiteLLM Virtual Key must start with 'sk-'. Received: {_masked}"
             },
         )
 
@@ -1044,6 +1045,7 @@ async def generate_key_fn(
     - rotation_interval: Optional[str] - How often to auto-rotate this key (e.g., '30s', '30m', '30h', '30d'). Required if auto_rotate=True.
     - allowed_vector_store_indexes: Optional[List[dict]] - List of allowed vector store indexes for the key. Example - [{"index_name": "my-index", "index_permissions": ["write", "read"]}]. If specified, the key will only be able to use these specific vector store indexes. Create index, using `/v1/indexes` endpoint.
     - router_settings: Optional[UpdateRouterConfig] - key-specific router settings. Example - {"model_group_retry_policy": {"max_retries": 5}}. IF null or {} then no router settings.
+    - access_group_ids: Optional[List[str]] - List of access group IDs to associate with the key. Access groups define which models a key can access. Example - ["access_group_1", "access_group_2"].
 
     Examples:
 
@@ -1597,7 +1599,7 @@ async def _process_single_key_update(
                 status_code=500,
                 detail={"error": "Team object not found for team change validation"},
             )
-        validate_key_team_change(
+        await validate_key_team_change(
             key=existing_key_row,
             team=team_obj,
             change_initiated_by=user_api_key_dict,
@@ -1712,7 +1714,8 @@ async def update_key_fn(
     - rotation_interval: Optional[str] - How often to rotate this key (e.g., '30d', '90d'). Required if auto_rotate=True
     - allowed_vector_store_indexes: Optional[List[dict]] - List of allowed vector store indexes for the key. Example - [{"index_name": "my-index", "index_permissions": ["write", "read"]}]. If specified, the key will only be able to use these specific vector store indexes. Create index, using `/v1/indexes` endpoint.
     - router_settings: Optional[UpdateRouterConfig] - key-specific router settings. Example - {"model_group_retry_policy": {"max_retries": 5}}. IF null or {} then no router settings.
-    
+    - access_group_ids: Optional[List[str]] - List of access group IDs to associate with the key. Access groups define which models a key can access. Example - ["access_group_1", "access_group_2"].
+
     Example:
     ```bash
     curl --location 'http://0.0.0.0:4000/key/update' \
@@ -1825,7 +1828,7 @@ async def update_key_fn(
                         "error": "Team object not found for team change validation"
                     },
                 )
-            validate_key_team_change(
+            await validate_key_team_change(
                 key=existing_key_row,
                 team=team_obj,
                 change_initiated_by=user_api_key_dict,
@@ -2059,7 +2062,7 @@ async def bulk_update_keys(
     )
 
 
-def validate_key_team_change(
+async def validate_key_team_change(
     key: LiteLLM_VerificationToken,
     team: LiteLLM_TeamTable,
     change_initiated_by: UserAPIKeyAuth,
@@ -2076,7 +2079,7 @@ def validate_key_team_change(
     # Check if the team has access to the key's models
     if len(key.models) > 0:
         for model in key.models:
-            can_team_access_model(
+            await can_team_access_model(
                 model=model,
                 team_object=team,
                 llm_router=llm_router,
@@ -2476,6 +2479,7 @@ async def generate_key_helper_fn(  # noqa: PLR0915
     auto_rotate: Optional[bool] = None,
     rotation_interval: Optional[str] = None,
     router_settings: Optional[dict] = None,
+    access_group_ids: Optional[list] = None,
 ):
     from litellm.proxy.proxy_server import premium_user, prisma_client
 
@@ -2592,6 +2596,7 @@ async def generate_key_helper_fn(  # noqa: PLR0915
             "allowed_routes": allowed_routes or [],
             "object_permission_id": object_permission_id,
             "router_settings": router_settings_json,
+            "access_group_ids": access_group_ids or [],
         }
 
         # Add rotation fields if auto_rotate is enabled

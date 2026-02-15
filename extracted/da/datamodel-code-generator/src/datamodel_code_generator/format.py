@@ -75,6 +75,12 @@ class PythonVersion(Enum):
     PY_314 = "3.14"
 
     @cached_property
+    def version_key(self) -> tuple[int, int]:
+        """Return (major, minor) tuple for version comparison."""
+        major, minor = self.value.split(".")
+        return int(major), int(minor)
+
+    @cached_property
     def _is_py_310_or_later(self) -> bool:  # pragma: no cover
         return True  # 3.10+ always true since minimum is PY_310
 
@@ -386,29 +392,23 @@ class CodeFormatter:
         return result.stdout.decode(self.encoding)
 
     def apply_ruff_check_and_format(self, code: str) -> str:
-        """Run ruff check and format in a single pipeline for better performance."""
+        """Run ruff check and format sequentially for reliable processing."""
         ruff_path = self._find_ruff_path()
-        check_proc = subprocess.Popen(  # noqa: S603
-            [ruff_path, "check", "--fix", "--unsafe-fixes", "-"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+        check_result = subprocess.run(  # noqa: S603
+            (ruff_path, "check", "--fix", "--unsafe-fixes", "-"),
+            input=code.encode(self.encoding),
+            capture_output=True,
+            check=False,
             cwd=self.settings_path,
         )
-        format_proc = subprocess.Popen(  # noqa: S603
-            [ruff_path, "format", "-"],
-            stdin=check_proc.stdout,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+        format_result = subprocess.run(  # noqa: S603
+            (ruff_path, "format", "-"),
+            input=check_result.stdout,
+            capture_output=True,
+            check=False,
             cwd=self.settings_path,
         )
-        if check_proc.stdout:  # pragma: no branch
-            check_proc.stdout.close()
-        check_proc.stdin.write(code.encode(self.encoding))  # type: ignore[union-attr]
-        check_proc.stdin.close()  # type: ignore[union-attr]
-        stdout, _ = format_proc.communicate()
-        check_proc.wait()
-        return stdout.decode(self.encoding)
+        return format_result.stdout.decode(self.encoding)
 
     @staticmethod
     def _find_ruff_path() -> str:

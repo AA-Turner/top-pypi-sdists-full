@@ -71,7 +71,7 @@ cdef int rectangle_height_cmp(const void *a, const void *b) noexcept nogil:
 
 
 cdef int rectangle_area_cmp(const void *a, const void *b) noexcept nogil:
-    cdef int area_a, area_b
+    cdef long area_a, area_b
     area_a = (<Rectangle*>a)[0].area
     area_b = (<Rectangle*>b)[0].area
     if area_a < area_b:
@@ -82,12 +82,24 @@ cdef int rectangle_area_cmp(const void *a, const void *b) noexcept nogil:
         return -1
 
 
+cdef inline bint positive_area_overflows_long(long width, long height) noexcept nogil:
+    return width > 0 and height > 0 and width > LONG_MAX // height
+
+
+cdef inline long safe_bbox_area(long width, long height) noexcept nogil:
+    if width <= 0 or height <= 0:
+        return -1
+    if positive_area_overflows_long(width, height):
+        return LONG_MAX
+    return width * height
+
+
 cdef class RectangleSet:
     """Container for a set of rectangles to be packed."""
 
     cdef:
         Rectangle *rectangles
-        Py_ssize_t length
+        size_t length
         long sum_width
         long sum_height
 
@@ -103,7 +115,7 @@ cdef class RectangleSet:
     def __cinit__(self, sizes):
         cdef:
             size_t i
-            long w, h
+            long w, h, rect_area
 
         if len(sizes) == 0:
             raise ValueError('Empty sizes')
@@ -142,14 +154,19 @@ cdef class RectangleSet:
             if h < self.min_height:
                 self.min_height = h
 
-            self.area += w*h
+            if positive_area_overflows_long(w, h):
+                raise OverflowError("Rectangle area too large")
+            rect_area = w*h
+            if self.area > LONG_MAX - rect_area:
+                raise OverflowError("Total rectangle area too large")
+            self.area += rect_area
 
             self.rectangles[i].width = w
             self.rectangles[i].height = h
             self.rectangles[i].x = NO_POSITION
             self.rectangles[i].y = NO_POSITION
             self.rectangles[i].index = i
-            self.rectangles[i].area = w*h
+            self.rectangles[i].area = rect_area
             self.rectangles[i].wide = (w >= h)
             self.rectangles[i].rotated = False
             i += 1
@@ -264,6 +281,7 @@ cdef class Grid:
 
     cdef int pack(self, RectangleSet rset, long width, long height) except -1:
         cdef size_t i = 0
+        cdef int split_status
         cdef Region reg
         if self.cgrid.size + 1 < rset.length:
             raise PackingImpossibleError(
@@ -281,7 +299,11 @@ cdef class Grid:
                     return 1
                 r.x = start_pos(reg.col_cell_start)
                 r.y = start_pos(reg.row_cell_start)
-                grid_split(self.cgrid, &reg)
+                split_status = grid_split(self.cgrid, &reg)
+                if split_status != 0:
+                    r.x = NO_POSITION
+                    r.y = NO_POSITION
+                    return 1
         return 0
 
 
@@ -346,7 +368,7 @@ def pack(sizes, long max_width, long max_height):
 
     rset.sort_by_height()
     w, h = grid.search_bbox(rset, &bbr)
-    area = w*h
+    area = safe_bbox_area(w, h)
     if 0 < area < bbr.max_area:
         bbr.max_area = area
         best_w = w
@@ -355,7 +377,7 @@ def pack(sizes, long max_width, long max_height):
 
     rset.sort_by_width()
     w, h = grid.search_bbox(rset, &bbr)
-    area = w*h
+    area = safe_bbox_area(w, h)
     if 0 < area < bbr.max_area:
         bbr.max_area = area
         best_w = w
@@ -371,7 +393,7 @@ def pack(sizes, long max_width, long max_height):
     bbr.max_height = max_width
 
     w, h = grid.search_bbox(rset, &bbr)
-    area = w*h
+    area = safe_bbox_area(w, h)
     if 0 < area < bbr.max_area:
         bbr.max_area = area
         best_w = w
@@ -380,7 +402,7 @@ def pack(sizes, long max_width, long max_height):
 
     rset.sort_by_width()
     w, h = grid.search_bbox(rset, &bbr)
-    area = w*h
+    area = safe_bbox_area(w, h)
     if 0 < area < bbr.max_area:
         bbr.max_area = area
         best_w = w

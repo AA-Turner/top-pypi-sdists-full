@@ -35,6 +35,7 @@ async def aget_myip():
         logger.error(e)
 
 
+@lru_cache()
 def get_myip():
     try:
         for base_url in base_urls:

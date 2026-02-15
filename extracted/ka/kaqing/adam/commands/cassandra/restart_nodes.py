@@ -1,8 +1,8 @@
 from adam.commands import extract_options, validate_args
 from adam.commands.command import Command
 from adam.utils_cassandra.node_restartability import NodeRestartability
-from adam.utils_cassandra.node_scheduler import NodeScheduler
-from adam.utils_cassandra.node_schedules import NodeSchedules
+from adam.utils_cassandra.node_restart_scheduler import NodeRestartScheduler
+from adam.utils_cassandra.node_restart_schedules import NodeRestartSchedules
 from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.statefulsets import StatefulSets
 from adam.repl_state import ReplState, RequiredState
@@ -44,14 +44,14 @@ class RestartNodes(Command):
                         if ctx.background:
                             # start with foreground, it becomes background if the node scheduler is not yet runnig during scheduling
                             for pod in args:
-                                NodeScheduler.schedule(state, pod, ctx.copy(background=False))
+                                NodeRestartScheduler.schedule(state, pod, ctx.copy(background=False))
                         else:
                             if not forced:
                                 for pod in args:
                                     ctx.log(f'[{pod}] Checking...')
                                     node: NodeRestartability = NodeRestartability.probe(state,
                                                                                         pod,
-                                                                                        in_restartings=NodeSchedules.restartings(ctx=ctx),
+                                                                                        in_restartings=NodeRestartSchedules.restartings(ctx=ctx),
                                                                                         ctx=ctx.copy(show_out=False))
                                     if not node.restartable():
                                         node.log(ctx=ctx.copy(text_color=Color.gray))

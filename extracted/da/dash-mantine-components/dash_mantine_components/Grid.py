@@ -4,13 +4,10 @@ import typing  # noqa: F401
 from typing_extensions import TypedDict, NotRequired, Literal # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
 
+ComponentSingleType = typing.Union[str, int, float, Component, None]
 ComponentType = typing.Union[
-    str,
-    int,
-    float,
-    Component,
-    None,
-    typing.Sequence[typing.Union[str, int, float, Component, None]],
+    ComponentSingleType,
+    typing.Sequence[ComponentSingleType],
 ]
 
 NumberType = typing.Union[
@@ -350,7 +347,7 @@ Keyword arguments:
     def __init__(
         self,
         children: typing.Optional[ComponentType] = None,
-        gutter: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        gutter: typing.Optional[typing.Union[str, NumberType, typing.Dict[str, typing.Any]]] = None,
         grow: typing.Optional[bool] = None,
         justify: typing.Optional[typing.Union[Literal["left"], Literal["right"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["space-around"], Literal["space-between"], Literal["space-evenly"], Literal["stretch"], Literal["center"], Literal["end"], Literal["flex-end"], Literal["flex-start"], Literal["start"], Literal["normal"]]] = None,
         align: typing.Optional[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["stretch"], Literal["center"], Literal["end"], Literal["flex-end"], Literal["flex-start"], Literal["start"], Literal["normal"], Literal["self-end"], Literal["self-start"], Literal["baseline"]]] = None,

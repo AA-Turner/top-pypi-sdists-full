@@ -40,7 +40,7 @@ def all_methods_from_cls(
         include_annotate: If False, excludes `__annotate__` (Python 3.14+).
 
     Returns:
-        List of method objects (Callable) sorted by line number.
+        List of method objects sorted by definition order.
     """
     methods = [
         (method, name)
@@ -128,9 +128,10 @@ def discover_all_subclasses[T: type](
         filtered out by other options).
 
     Example:
-        >>> # Discover all ConfigFile subclasses in myapp.rig.configs
-        >>> from myapp.rig import configs
-        >>> subclasses = subclasses(
+        >>> # Discover all ConfigFile subclasses in pyrig.rig.configs
+        >>> from pyrig.rig.configs.base.base import ConfigFile
+        >>> from pyrig.rig import configs
+        >>> discovered = discover_all_subclasses(
         ...     ConfigFile,
         ...     load_package_before=configs,
         ...     discard_parents=True,
@@ -143,8 +144,9 @@ def discover_all_subclasses[T: type](
         discovering deeply nested subclasses.
 
     See Also:
-        discard_parent_classes: Logic for filtering to leaf classes only
-        walk_package: Package traversal that triggers imports
+        `discard_parent_classes`: Logic for filtering to leaf classes only.
+        `pyrig.src.modules.imports.walk_package`: Package traversal that
+            triggers imports.
     """
     logger.debug("Discovering subclasses of %s", cls.__name__)
     if load_package_before:
@@ -188,7 +190,8 @@ def discard_parent_classes[T: type](
 
     Args:
         classes: List or set of class types to filter. The collection is modified
-            in place (elements are removed from the original collection).
+            in place (elements are removed from the original collection) by iterating
+            over a copy and removing parent classes from the original.
 
     Returns:
         The same collection instance with parent classes removed.

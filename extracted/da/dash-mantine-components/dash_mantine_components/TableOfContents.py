@@ -4,13 +4,10 @@ import typing  # noqa: F401
 from typing_extensions import TypedDict, NotRequired, Literal # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
 
+ComponentSingleType = typing.Union[str, int, float, Component, None]
 ComponentType = typing.Union[
-    str,
-    int,
-    float,
-    Component,
-    None,
-    typing.Sequence[typing.Union[str, int, float, Component, None]],
+    ComponentSingleType,
+    typing.Sequence[ComponentSingleType],
 ]
 
 NumberType = typing.Union[
@@ -323,7 +320,7 @@ Keyword arguments:
 - unstyled (boolean; optional):
     Remove all Mantine styling from the component.
 
-- variant (a value equal to: 'none', 'filled', 'light'; optional):
+- variant (a value equal to: 'none', 'light', 'filled'; optional):
     Controls active element style, `'filled'` by default.
 
 - visibleFrom (string; optional):
@@ -358,7 +355,7 @@ Keyword arguments:
 
     def __init__(
         self,
-        variant: typing.Optional[Literal["none", "filled", "light"]] = None,
+        variant: typing.Optional[Literal["none", "light", "filled"]] = None,
         color: typing.Optional[typing.Optional[str]] = None,
         size: typing.Optional[typing.Union[str, NumberType]] = None,
         autoContrast: typing.Optional[bool] = None,

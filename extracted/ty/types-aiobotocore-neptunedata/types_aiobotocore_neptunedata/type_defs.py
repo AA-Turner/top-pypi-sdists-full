@@ -480,6 +480,7 @@ StartLoaderJobInputTypeDef = TypedDict(
         "queueRequest": NotRequired[bool],
         "dependencies": NotRequired[Sequence[str]],
         "userProvidedEdgeIds": NotRequired[bool],
+        "edgeOnlyLoad": NotRequired[bool],
     },
 )
 StartMLDataProcessingJobInputTypeDef = TypedDict(

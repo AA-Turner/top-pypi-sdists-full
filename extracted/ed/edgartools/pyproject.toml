@@ -57,6 +57,7 @@ dependencies = [
   "jinja2>=3.1.0",
   "pyrate-limiter>=3.0.0",
   "httpxthrottlecache>=0.3.0",
+  "truststore>=0.9.0",
 ]
 dynamic = ["version"]
 
@@ -73,6 +74,7 @@ ai-dev = [
 
 data = [
     "duckdb>=1.0.0",            # SQL interface for company datasets
+    "zstandard>=0.20.0",        # Decompress datamule tar content
 ]
 
 test-harness = [

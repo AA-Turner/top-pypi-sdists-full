@@ -1,8 +1,8 @@
-# Copyright (c) 2025 Adam Karpierz
+# Copyright (c) 2026 Adam Karpierz
 # SPDX-License-Identifier: Zlib
 
 # /// script
-# dependencies = ["nox>=2025.11.12", "packaging>=26.0.0"]
+# dependencies = ["nox>=2026.2.9", "nox_ext", "nox_lib"]
 # ///
 
 from __future__ import annotations
@@ -18,9 +18,7 @@ import warnings
 
 import nox
 import nox_ext
-import packaging.version
-from rich.pretty import pprint
-from rich import print
+from nox_ext import print, pprint
 
 here = Path(__file__).resolve().parent
 env  = os.environ
@@ -32,8 +30,6 @@ PKG = nox.get_package_data(here)
 PYPROJECT   = nox.project.load_toml("pyproject.toml")
 PY_VERSIONS = nox.project.python_versions(PYPROJECT)
 PY_DEFAULT  = "3.13"
-
-PKG_TOP_LEVELS = ["pyc_wheel"]
 
 # Prevent Python from writing bytecode
 env["PYTHONDONTWRITEBYTECODE"] = "1"
@@ -47,14 +43,13 @@ rmtree   = partial(shutil.rmtree, ignore_errors=True)
 # Sessions
 
 @nox.session(python=[PY_DEFAULT], default=False,
-    tags=["prepare"], requires=["cleanup"])
+    requires=["cleanup"])
 def prepare(session: nox.Session) -> None:
     """Preparing the repository"""
     cmd = here/".aprep.cmd"
     if cmd.is_file(): subprocess.run([cmd])
 
-@nox.session(python=[PY_DEFAULT], default=False,
-    tags=["cleanup"])
+@nox.session(python=[PY_DEFAULT], default=False)
 def cleanup(session: nox.Session) -> None:
     """Cleaning the repository"""
 #no_package = true
@@ -75,8 +70,7 @@ def tests(session: nox.Session) -> None:
     session.py("--version")
     session.py("-m", "tests", *session.posargs)
 
-@nox.session(python=[PY_DEFAULT],
-    tags=["coverage"])
+@nox.session(python=[PY_DEFAULT])
 def coverage(session: nox.Session) -> None:
     """Running code coverage analysis"""
     session.install(".", "--group=coverage")
@@ -85,22 +79,21 @@ def coverage(session: nox.Session) -> None:
     session.py("-m", "coverage", "html", success_codes=range(0, 256))
     session.py("-m", "coverage", "report")
 
-@nox.session(python=[PY_DEFAULT],
-    tags=["docs"])
+@nox.session(python=[PY_DEFAULT])
 def docs(session: nox.Session) -> None:
     """Building documentation and running doc tests"""
     session.install(".", "--group=docs")
-    html_path = here/"build/docs/html"
+    html_dir = here/"build/docs/html"
     session.py("-m", "sphinxlint", "-i", "#arch", "-i", ".nox", "-i", ".tox",
                                    "-i", "build", "-i", "dist", "-i", ".mypy_cache")
     #session.run("python","-m", "sphinx.apidoc", "-f", *[session.site_packages/f"{item}/"
-    #                                                    for item in PKG_TOP_LEVELS])
-    session.py("-m", "sphinx.cmd.build", "-W", "-a", "-b", "html", "-E", here/"docs", here/"build/docs/html")
-    session.py("-m", "sphinx.cmd.build", "-W", "-a", "-b", "doctest",    here/"docs", here/"build/docs/html")
-    session.py("-m", "sphinx.cmd.build", "-W", "-a", "-b", "linkcheck",  here/"docs", here/"build/docs/html")
+    #                                                    for item in PKG.TOP_LEVELS])
+    session.py("-m", "sphinx.cmd.build", "-W", "-a", "-b", "html", "-E", here/"docs", html_dir)
+    session.py("-m", "sphinx.cmd.build", "-W", "-a", "-b", "doctest",    here/"docs", html_dir)
+    session.py("-m", "sphinx.cmd.build", "-W", "-a", "-b", "linkcheck",  here/"docs", html_dir)
 
 @nox.session(python=[PY_DEFAULT], default=False,
-    tags=["build"], requires=[f"{tests.name}-{item}" for item in tests.python] + ["docs"])
+    requires=["tests", "docs"])
 def build(session: nox.Session) -> None:
     """Building the package"""
     session.install("--group=build")
@@ -110,7 +103,7 @@ def build(session: nox.Session) -> None:
     session.py("-m", "twine", "check", "dist/*")
 
 @nox.session(python=[PY_DEFAULT], default=False,
-    tags=["publish"], requires=["build"])
+    requires=["build"])
 def publish(session: nox.Session) -> None:
     """Publishing the package and documentation"""
     session.install("--group=publish")
@@ -143,17 +136,14 @@ def publish(session: nox.Session) -> None:
     rmtree(gh_pages_dir)
     session.run("git", "worktree", "prune")
 
-@nox.session(python=[PY_DEFAULT],
-    tags=["typing"])
+@nox.session(python=[PY_DEFAULT])
 def typing(session: nox.Session) -> None:
     """Static type checking"""
     session.install(".", "--group=typing")
     session.py("-m", "mypy")
 
-@nox.session(python=[PY_DEFAULT],
-    tags=["lint"])
+@nox.session(python=[PY_DEFAULT])
 def lint(session: nox.Session) -> None:
     """Checking code style and quality"""
     session.install(".", "--group=lint")
-    session.py("-m", "flake8", *[session.site_packages/f"{item}/"
-                                 for item in PKG_TOP_LEVELS])
+    session.py("-m", "flake8", here/"src/")

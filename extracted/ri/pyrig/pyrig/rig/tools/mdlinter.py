@@ -1,12 +1,12 @@
 """Rumdl markdown linter wrapper.
 
-Provides type-safe wrapper for rumdl commands: check.
+Provides type-safe wrapper for rumdl commands: check, check --fix.
 Rumdl is a fast markdown linter written in Rust.
 
 Example:
     >>> from pyrig.rig.tools.mdlinter import MDLinter
-    >>> MDLinter.L.check_args().run()
-    >>> MDLinter.L.check_fix_args().run()
+    >>> MDLinter.I.check_args().run()
+    >>> MDLinter.I.check_fix_args().run()
 """
 
 from pyrig.rig.tools.base.base import Tool, ToolGroup
@@ -23,12 +23,11 @@ class MDLinter(Tool):
         - Auto-fix: Automatically fix markdown issues
 
     Example:
-        >>> MDLinter.L.check_args().run()
-        >>> MDLinter.L.check_fix_args().run()
+        >>> MDLinter.I.check_args().run()
+        >>> MDLinter.I.check_fix_args().run()
     """
 
-    @classmethod
-    def name(cls) -> str:
+    def name(self) -> str:
         """Get tool name.
 
         Returns:
@@ -36,24 +35,22 @@ class MDLinter(Tool):
         """
         return "rumdl"
 
-    @classmethod
-    def group(cls) -> str:
-        """Returns the group the tools belongs to.
+    def group(self) -> str:
+        """Returns the group the tool belongs to.
 
-        E.g. testing, tool, code-quality etc...
+        Returns:
+            `ToolGroup.CODE_QUALITY`
         """
         return ToolGroup.CODE_QUALITY
 
-    @classmethod
-    def badge_urls(cls) -> tuple[str, str]:
-        """Returns the badge and connected page."""
+    def badge_urls(self) -> tuple[str, str]:
+        """Return the badge and link URLs."""
         return (
             "https://img.shields.io/badge/markdown-rumdl-darkgreen",
             "https://github.com/rvben/rumdl",
         )
 
-    @classmethod
-    def check_args(cls, *args: str) -> Args:
+    def check_args(self, *args: str) -> Args:
         """Construct rumdl check arguments.
 
         Args:
@@ -62,10 +59,9 @@ class MDLinter(Tool):
         Returns:
             Args for 'rumdl check'.
         """
-        return cls.args("check", *args)
+        return self.args("check", *args)
 
-    @classmethod
-    def check_fix_args(cls, *args: str) -> Args:
+    def check_fix_args(self, *args: str) -> Args:
         """Construct rumdl check arguments with auto-fix.
 
         Args:
@@ -74,4 +70,4 @@ class MDLinter(Tool):
         Returns:
             Args for 'rumdl check --fix'.
         """
-        return cls.check_args("--fix", *args)
+        return self.check_args("--fix", *args)

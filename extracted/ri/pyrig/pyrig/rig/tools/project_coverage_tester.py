@@ -5,9 +5,9 @@ Shows coverage badge from Codecov.io.
 
 Example:
     >>> from pyrig.rig.tools.project_coverage_tester import (
-        ProjectCoverageTester,
-    )
-    >>> ProjectCoverageTester.L.remote_coverage_url()
+    ...     ProjectCoverageTester,
+    ... )
+    >>> ProjectCoverageTester.I.remote_coverage_url()
 """
 
 from pyrig.rig.tools.base.base import Tool, ToolGroup
@@ -26,11 +26,10 @@ class ProjectCoverageTester(Tool):
         - Coverage integration with remote services
 
     Example:
-        >>> ProjectCoverageTester.L.remote_coverage_url()
+        >>> ProjectCoverageTester.I.remote_coverage_url()
     """
 
-    @classmethod
-    def name(cls) -> str:
+    def name(self) -> str:
         """Get tool name.
 
         Returns:
@@ -38,30 +37,28 @@ class ProjectCoverageTester(Tool):
         """
         return "pytest-cov"
 
-    @classmethod
-    def group(cls) -> str:
-        """Returns the group the tools belongs to.
+    def group(self) -> str:
+        """Returns the group the tool belongs to.
 
-        E.g. testing, tool, code-quality etc...
+        Returns:
+            'testing'
         """
         return ToolGroup.TESTING
 
-    @classmethod
-    def badge_urls(cls) -> tuple[str, str]:
-        """Returns the badge and connected page."""
+    def badge_urls(self) -> tuple[str, str]:
+        """Get Codecov coverage badge image URL and dashboard URL."""
         return (
-            f"{cls.remote_coverage_url()}/branch/{VersionController.L.default_branch()}/graph/badge.svg",
-            cls.remote_coverage_url(),
+            f"{self.remote_coverage_url()}/branch/{VersionController.I.default_branch()}/graph/badge.svg",
+            self.remote_coverage_url(),
         )
 
-    @classmethod
-    def remote_coverage_url(cls) -> str:
+    def remote_coverage_url(self) -> str:
         """Construct Codecov dashboard URL.
 
         Returns:
             URL in format: `https://codecov.io/gh/{owner}/{repo}`
         """
-        owner, repo = VersionController.L.repo_owner_and_name(
+        owner, repo = VersionController.I.repo_owner_and_name(
             check_repo_url=False, url_encode=True
         )
         return f"https://codecov.io/gh/{owner}/{repo}"

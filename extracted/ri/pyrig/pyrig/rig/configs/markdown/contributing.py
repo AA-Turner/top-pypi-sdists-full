@@ -64,47 +64,31 @@ class ContributingConfigFile(MarkdownConfigFile):
     Examples:
         Generate CONTRIBUTING.md::
 
-            ContributingConfigFile()
+            ContributingConfigFile.I.validate()
 
     See Also:
         pyrig.rig.configs.base.markdown.MarkdownConfigFile
         pyrig.rig.configs.markdown.code_of_conduct.CodeOfConductConfigFile
     """
 
-    @classmethod
-    def filename(cls) -> str:
-        """Get the CONTRIBUTING filename.
-
-        Returns:
-            str: "CONTRIBUTING" (extension added by parent).
-        """
+    def filename(self) -> str:
+        """Return "CONTRIBUTING" as the filename."""
         return "CONTRIBUTING"
 
-    @classmethod
-    def parent_path(cls) -> Path:
-        """Get the parent directory for CONTRIBUTING.md.
-
-        Returns:
-            Path: Project root.
-        """
+    def parent_path(self) -> Path:
+        """Return project root as parent directory."""
         return Path()
 
-    @classmethod
-    def lines(cls) -> list[str]:
-        """Get the contributing template content.
-
-        Returns:
-            list[str]: Contributing template lines.
-        """
+    def lines(self) -> list[str]:
+        """Return the contributing template content as lines."""
         return [*CONTRIBUTING_TEMPLATE.splitlines()]
 
-    @classmethod
-    def is_correct(cls) -> bool:
+    def is_correct(self) -> bool:
         """Check if CONTRIBUTING.md exists and is non-empty.
 
         Returns:
-            bool: True if file exists with content, False otherwise.
+            True if file exists with content, False otherwise.
         """
-        return cls.path().exists() and bool(
-            cls.path().read_text(encoding="utf-8").strip()
+        return self.path().exists() and bool(
+            self.path().read_text(encoding="utf-8").strip()
         )

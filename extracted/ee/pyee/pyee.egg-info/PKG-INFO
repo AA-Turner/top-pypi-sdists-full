@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pyee
-Version: 13.0.0
+Version: 13.0.1
 Summary: A rough port of Node.js's EventEmitter to Python with a few tricks of its own
 Author-email: Josh Holbrook <josh.holbrook@gmail.com>
 License: MIT
@@ -48,6 +48,7 @@ Requires-Dist: trio-typing; python_version > "3.6" and extra == "dev"
 Requires-Dist: twine; extra == "dev"
 Requires-Dist: twisted; extra == "dev"
 Requires-Dist: validate-pyproject[all]; extra == "dev"
+Dynamic: license-file
 
 # pyee
 

@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, cast
 from .api import PlatformDirsABC
 
 
-class Android(PlatformDirsABC):
+class Android(PlatformDirsABC):  # noqa: PLR0904
     """
     Platform directories for Android.
 
@@ -119,9 +119,19 @@ class Android(PlatformDirsABC):
         return os.path.join(cast("str", _android_folder()), "files", "bin")  # noqa: PTH118
 
     @property
+    def site_bin_dir(self) -> str:
+        """:return: bin directory shared by users, same as `user_bin_dir`"""
+        return self.user_bin_dir
+
+    @property
     def user_applications_dir(self) -> str:
         """:return: applications directory tied to the user, same as `user_data_dir`"""
         return self.user_data_dir
+
+    @property
+    def site_applications_dir(self) -> str:
+        """:return: applications directory shared by users, same as `user_applications_dir`"""
+        return self.user_applications_dir
 
     @property
     def user_runtime_dir(self) -> str:

@@ -1885,7 +1885,7 @@ mod tests {
     #[test_case(&json!({"faz": 1}), &["Additional properties are not allowed (\'faz\' was unexpected)"], &["/additionalProperties"])]
     #[test_case(&json!({"faz": 1, "haz": 1}), &["Additional properties are not allowed (\'faz\', \'haz\' were unexpected)"], &["/additionalProperties"])]
     // `properties.foo` - should be a string & `patternProperties.^bar` - invalid
-    #[test_case(&json!({"foo": 3, "bar": 4}), &["4 is less than the minimum of 5", "3 is not of type \"string\""], &["/patternProperties/^bar/minimum", "/properties/foo/type"])]
+    #[test_case(&json!({"foo": 3, "bar": 4}), &["3 is not of type \"string\"","4 is less than the minimum of 5"], &["/patternProperties/^bar/minimum","/properties/foo/type"])]
     // `properties.barbaz` - valid; `patternProperties.^bar` - invalid
     #[test_case(&json!({"barbaz": 3}), &["3 is less than the minimum of 5"], &["/patternProperties/^bar/minimum"])]
     // `patternProperties.^bar` (should be >=5)
@@ -1893,7 +1893,7 @@ mod tests {
     // `patternProperties.spam$` (should be <=10)
     #[test_case(&json!({"spam": 11}), &["11 is greater than the maximum of 10"], &["/patternProperties/spam$/maximum"])]
     // `patternProperties` - both values are invalid
-    #[test_case(&json!({"bar": 4, "spam": 11}), &["4 is less than the minimum of 5", "11 is greater than the maximum of 10"], &["/patternProperties/^bar/minimum", "/patternProperties/spam$/maximum"])]
+    #[test_case(&json!({"bar": 4, "spam": 11}), &["11 is greater than the maximum of 10","4 is less than the minimum of 5"], &["/patternProperties/^bar/minimum", "/patternProperties/spam$/maximum"])]
     // `patternProperties` - `bar` is valid, `spam` is invalid
     #[test_case(&json!({"bar": 6, "spam": 11}), &["11 is greater than the maximum of 10"], &["/patternProperties/spam$/maximum"])]
     // `patternProperties` - `bar` is invalid, `spam` is valid
@@ -1906,16 +1906,16 @@ mod tests {
     #[test_case(
       &json!({"bar": 4, "spam": 11, "foo": 3, "faz": 1}),
       &[
-          "4 is less than the minimum of 5",
-          "3 is not of type \"string\"",
           "11 is greater than the maximum of 10",
-          "Additional properties are not allowed (\'faz\' was unexpected)"
+          "3 is not of type \"string\"",
+          "4 is less than the minimum of 5",
+          "Additional properties are not allowed (\'faz\' was unexpected)",
       ],
       &[
+          "/additionalProperties",
           "/patternProperties/^bar/minimum",
-          "/properties/foo/type",
           "/patternProperties/spam$/maximum",
-          "/additionalProperties"
+          "/properties/foo/type",
       ]
     )]
     fn schema_1_invalid(instance: &Value, expected: &[&str], locations: &[&str]) {
@@ -1962,7 +1962,7 @@ mod tests {
     // `patternProperties.spam$` (should be <=10)
     #[test_case(&json!({"spam": 11}), &["11 is greater than the maximum of 10"], &["/patternProperties/spam$/maximum"])]
     // `patternProperties` - both values are invalid
-    #[test_case(&json!({"bar": 4, "spam": 11}), &["4 is less than the minimum of 5", "11 is greater than the maximum of 10"], &["/patternProperties/^bar/minimum", "/patternProperties/spam$/maximum"])]
+    #[test_case(&json!({"bar": 4, "spam": 11}), &["11 is greater than the maximum of 10","4 is less than the minimum of 5"], &["/patternProperties/^bar/minimum", "/patternProperties/spam$/maximum"])]
     // `patternProperties` - `bar` is valid, `spam` is invalid
     #[test_case(&json!({"bar": 6, "spam": 11}), &["11 is greater than the maximum of 10"], &["/patternProperties/spam$/maximum"])]
     // `patternProperties` - `bar` is invalid, `spam` is valid
@@ -1975,14 +1975,14 @@ mod tests {
     #[test_case(
       &json!({"bar": 4, "spam": 11, "faz": 1}),
       &[
-          "4 is less than the minimum of 5",
           "11 is greater than the maximum of 10",
-          "Additional properties are not allowed (\'faz\' was unexpected)"
+          "4 is less than the minimum of 5",
+          "Additional properties are not allowed (\'faz\' was unexpected)",
       ],
       &[
+          "/additionalProperties",
           "/patternProperties/^bar/minimum",
           "/patternProperties/spam$/maximum",
-          "/additionalProperties"
       ]
     )]
     fn schema_2_invalid(instance: &Value, expected: &[&str], locations: &[&str]) {
@@ -2026,8 +2026,8 @@ mod tests {
             "Additional properties are not allowed (\'faz\' was unexpected)",
         ],
         &[
-            "/properties/foo/type",
             "/additionalProperties",
+            "/properties/foo/type",
         ]
     )]
     fn schema_3_invalid(instance: &Value, expected: &[&str], locations: &[&str]) {
@@ -2072,7 +2072,7 @@ mod tests {
         {"foo": 3, "bar": "a"}),
         &[
             "\"a\" is not of type \"integer\"",
-            "3 is not of type \"string\""
+            "3 is not of type \"string\"",
         ],
         &[
             "/additionalProperties/type",
@@ -2132,7 +2132,7 @@ mod tests {
     #[test_case(&json!({"faz": "a"}), &["\"a\" is not of type \"integer\""], &["/additionalProperties/type"])]
     #[test_case(&json!({"faz": "a", "haz": "a"}), &["\"a\" is not of type \"integer\"", "\"a\" is not of type \"integer\""], &["/additionalProperties/type", "/additionalProperties/type"])]
     // `properties.foo` - should be a string & `patternProperties.^bar` - invalid
-    #[test_case(&json!({"foo": 3, "bar": 4}), &["4 is less than the minimum of 5", "3 is not of type \"string\""], &["/patternProperties/^bar/minimum", "/properties/foo/type"])]
+    #[test_case(&json!({"foo": 3, "bar": 4}), &["3 is not of type \"string\"","4 is less than the minimum of 5"], &["/patternProperties/^bar/minimum","/properties/foo/type"])]
     // `properties.barbaz` - valid; `patternProperties.^bar` - invalid
     #[test_case(&json!({"barbaz": 3}), &["3 is less than the minimum of 5"], &["/patternProperties/^bar/minimum"])]
     // `patternProperties.^bar` (should be >=5)
@@ -2140,7 +2140,7 @@ mod tests {
     // `patternProperties.spam$` (should be <=10)
     #[test_case(&json!({"spam": 11}), &["11 is greater than the maximum of 10"], &["/patternProperties/spam$/maximum"])]
     // `patternProperties` - both values are invalid
-    #[test_case(&json!({"bar": 4, "spam": 11}), &["4 is less than the minimum of 5", "11 is greater than the maximum of 10"], &["/patternProperties/^bar/minimum", "/patternProperties/spam$/maximum"])]
+    #[test_case(&json!({"bar": 4, "spam": 11}), &["11 is greater than the maximum of 10","4 is less than the minimum of 5"], &["/patternProperties/^bar/minimum", "/patternProperties/spam$/maximum"])]
     // `patternProperties` - `bar` is valid, `spam` is invalid
     #[test_case(&json!({"bar": 6, "spam": 11}), &["11 is greater than the maximum of 10"], &["/patternProperties/spam$/maximum"])]
     // `patternProperties` - `bar` is invalid, `spam` is valid
@@ -2153,16 +2153,16 @@ mod tests {
     #[test_case(
       &json!({"bar": 4, "spam": 11, "foo": 3, "faz": "a", "fam": 42}),
       &[
-          "4 is less than the minimum of 5",
           "\"a\" is not of type \"integer\"",
-          "3 is not of type \"string\"",
           "11 is greater than the maximum of 10",
+          "3 is not of type \"string\"",
+          "4 is less than the minimum of 5",
       ],
       &[
-          "/patternProperties/^bar/minimum",
           "/additionalProperties/type",
-          "/properties/foo/type",
+          "/patternProperties/^bar/minimum",
           "/patternProperties/spam$/maximum",
+          "/properties/foo/type",
       ]
     )]
     fn schema_5_invalid(instance: &Value, expected: &[&str], locations: &[&str]) {
@@ -2208,13 +2208,13 @@ mod tests {
     #[test_case(&json!({"faz": "a"}), &["\"a\" is not of type \"integer\""], &["/additionalProperties/type"])]
     #[test_case(&json!({"faz": "a", "haz": "a"}), &["\"a\" is not of type \"integer\"", "\"a\" is not of type \"integer\""], &["/additionalProperties/type", "/additionalProperties/type"])]
     // `additionalProperties` - should be an integer & `patternProperties.^bar` - invalid
-    #[test_case(&json!({"foo": "a", "bar": 4}), &["4 is less than the minimum of 5", "\"a\" is not of type \"integer\""], &["/patternProperties/^bar/minimum", "/additionalProperties/type"])]
+    #[test_case(&json!({"foo": "a", "bar": 4}), &["\"a\" is not of type \"integer\"","4 is less than the minimum of 5"], &["/additionalProperties/type","/patternProperties/^bar/minimum"])]
     // `patternProperties.^bar` (should be >=5)
     #[test_case(&json!({"bar": 4}), &["4 is less than the minimum of 5"], &["/patternProperties/^bar/minimum"])]
     // `patternProperties.spam$` (should be <=10)
     #[test_case(&json!({"spam": 11}), &["11 is greater than the maximum of 10"], &["/patternProperties/spam$/maximum"])]
     // `patternProperties` - both values are invalid
-    #[test_case(&json!({"bar": 4, "spam": 11}), &["4 is less than the minimum of 5", "11 is greater than the maximum of 10"], &["/patternProperties/^bar/minimum", "/patternProperties/spam$/maximum"])]
+    #[test_case(&json!({"bar": 4, "spam": 11}), &["11 is greater than the maximum of 10","4 is less than the minimum of 5"], &["/patternProperties/^bar/minimum", "/patternProperties/spam$/maximum"])]
     // `patternProperties` - `bar` is valid, `spam` is invalid
     #[test_case(&json!({"bar": 6, "spam": 11}), &["11 is greater than the maximum of 10"], &["/patternProperties/spam$/maximum"])]
     // `patternProperties` - `bar` is invalid, `spam` is valid
@@ -2227,13 +2227,13 @@ mod tests {
     #[test_case(
       &json!({"bar": 4, "spam": 11, "faz": "a", "fam": 42}),
       &[
-          "4 is less than the minimum of 5",
           "\"a\" is not of type \"integer\"",
           "11 is greater than the maximum of 10",
+          "4 is less than the minimum of 5",
       ],
       &[
-          "/patternProperties/^bar/minimum",
           "/additionalProperties/type",
+          "/patternProperties/^bar/minimum",
           "/patternProperties/spam$/maximum",
       ]
     )]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest_httpserver
-Version: 1.1.4
+Version: 1.1.5
 Summary: pytest-httpserver is a httpserver for pytest
 License-Expression: MIT
 License-File: LICENSE

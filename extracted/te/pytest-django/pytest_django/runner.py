@@ -1,9 +1,12 @@
 from argparse import ArgumentParser
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 
 class TestRunner:
     """A Django test runner which uses pytest to discover and run tests when using `manage.py test`."""
+
+    __test__ = False
 
     def __init__(
         self,
@@ -11,7 +14,7 @@ class TestRunner:
         verbosity: int = 1,
         failfast: bool = False,
         keepdb: bool = False,
-        **kwargs: Any,
+        **kwargs: Any,  # noqa: ARG002
     ) -> None:
         self.verbosity = verbosity
         self.failfast = failfast
@@ -23,7 +26,11 @@ class TestRunner:
             "--keepdb", action="store_true", help="Preserves the test DB between runs."
         )
 
-    def run_tests(self, test_labels: Iterable[str], **kwargs: Any) -> int:
+    def run_tests(
+        self,
+        test_labels: Iterable[str],
+        **kwargs: Any,  # noqa: ARG002
+    ) -> int:
         """Run pytest and return the exitcode.
 
         It translates some of Django's test command option to pytest's.

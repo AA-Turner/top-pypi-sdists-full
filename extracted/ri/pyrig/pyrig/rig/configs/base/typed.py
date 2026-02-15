@@ -1,15 +1,15 @@
 """PEP 561 py.typed marker file management.
 
-Provides TypedConfigFile for creating empty py.typed files that indicate a package
-has inline type annotations.
+Provides TypedConfigFile base class for empty py.typed files that indicate a package
+supports type checking.
 
 Example:
     >>> from pathlib import Path
     >>> from pyrig.rig.configs.base.typed import TypedConfigFile
     >>>
     >>> class MyPackageTypedFile(TypedConfigFile):
-    ...     @classmethod
-    ...     def parent_path(cls) -> Path:
+    ...
+    ...     def parent_path(self) -> Path:
     ...         return Path("src/mypackage")
     >>>
     >>> MyPackageTypedFile()  # Creates src/mypackage/py.typed (empty file)
@@ -33,29 +33,23 @@ class TypedConfigFile(DictConfigFile):
         - `parent_path`: Package directory containing the py.typed file
 
     See Also:
+        pyrig.rig.configs.base.dict_cf.DictConfigFile: Parent class
         PEP 561: https://peps.python.org/pep-0561/
     """
 
-    @classmethod
-    def extension(cls) -> str:
+    def extension(self) -> str:
         """Return "typed"."""
         return "typed"
 
-    @classmethod
-    def _load(cls) -> dict[str, Any]:
-        """Return empty dict (marker file has no meaningful content).
-
-        Returns:
-            Empty dict.
-        """
+    def _load(self) -> dict[str, Any]:
+        """Load py.typed content as empty dict."""
         return {}
 
-    @classmethod
-    def _dump(cls, config: dict[str, Any]) -> None:
-        """Validate config is empty and do nothing (marker file has no content).
+    def _dump(self, config: dict[str, Any]) -> None:
+        """Reject non-empty config; py.typed marker files have no writable content.
 
         Args:
-            config: Must be empty dict.
+            config: Configuration dict. Must be empty.
 
         Raises:
             ValueError: If config is not empty.
@@ -64,11 +58,6 @@ class TypedConfigFile(DictConfigFile):
             msg = "Cannot dump to py.typed file."
             raise ValueError(msg)
 
-    @classmethod
-    def _configs(cls) -> dict[str, Any]:
-        """Return empty dict (marker file has no meaningful content).
-
-        Returns:
-            Empty dict.
-        """
+    def _configs(self) -> dict[str, Any]:
+        """Return expected configuration as empty dict."""
         return {}

@@ -4,13 +4,10 @@ import typing  # noqa: F401
 from typing_extensions import TypedDict, NotRequired, Literal # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
 
+ComponentSingleType = typing.Union[str, int, float, Component, None]
 ComponentType = typing.Union[
-    str,
-    int,
-    float,
-    Component,
-    None,
-    typing.Sequence[typing.Union[str, int, float, Component, None]],
+    ComponentSingleType,
+    typing.Sequence[ComponentSingleType],
 ]
 
 NumberType = typing.Union[
@@ -311,7 +308,7 @@ Keyword arguments:
     def __init__(
         self,
         children: typing.Optional[ComponentType] = None,
-        cols: typing.Optional[typing.Union[NumberType]] = None,
+        cols: typing.Optional[typing.Union[str, NumberType, typing.Dict[str, typing.Any]]] = None,
         spacing: typing.Optional[typing.Union[str, NumberType, typing.Dict[str, typing.Any]]] = None,
         verticalSpacing: typing.Optional[typing.Union[str, NumberType, typing.Dict[str, typing.Any]]] = None,
         type: typing.Optional[Literal["media", "container"]] = None,

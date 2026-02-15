@@ -171,6 +171,18 @@ ComputeType = Literal[
     "GRAPHICSPRO",
     "GRAPHICSPRO_G4DN",
     "GRAPHICS_G4DN",
+    "GRAPHICS_G6F_2XLARGE",
+    "GRAPHICS_G6F_4XLARGE",
+    "GRAPHICS_G6F_LARGE",
+    "GRAPHICS_G6F_XLARGE",
+    "GRAPHICS_G6_16XLARGE",
+    "GRAPHICS_G6_2XLARGE",
+    "GRAPHICS_G6_4XLARGE",
+    "GRAPHICS_G6_8XLARGE",
+    "GRAPHICS_G6_XLARGE",
+    "GRAPHICS_GR6F_4XLARGE",
+    "GRAPHICS_GR6_4XLARGE",
+    "GRAPHICS_GR6_8XLARGE",
     "PERFORMANCE",
     "POWER",
     "POWERPRO",
@@ -221,7 +233,7 @@ DescribeWorkspacesPoolsFilterOperatorType = Literal[
 ]
 EndpointEncryptionModeType = Literal["FIPS_VALIDATED", "STANDARD_TLS"]
 ImageAssociatedResourceTypeType = Literal["APPLICATION"]
-ImageComputeTypeType = Literal["BASE", "GRAPHICS_G4DN"]
+ImageComputeTypeType = Literal["BASE", "GRAPHICS_G4DN", "GRAPHICS_G6"]
 ImageTypeType = Literal["OWNED", "SHARED"]
 InternetFallbackProtocolType = Literal["PCOIP"]
 ListAccountLinksPaginatorName = Literal["list_account_links"]

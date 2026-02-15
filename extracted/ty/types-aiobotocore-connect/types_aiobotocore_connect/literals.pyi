@@ -38,6 +38,7 @@ __all__ = (
     "ChannelType",
     "ChatEventTypeType",
     "ComparisonType",
+    "ConfigurableNotificationPriorityType",
     "ConnectServiceName",
     "ContactFlowModuleStateType",
     "ContactFlowModuleStatusType",
@@ -165,6 +166,7 @@ __all__ = (
     "ListViewsPaginatorName",
     "ListWorkspacePagesPaginatorName",
     "ListWorkspacesPaginatorName",
+    "LocaleCodeType",
     "MediaStreamTypeType",
     "MediaTypeType",
     "MeetingFeatureStatusType",
@@ -173,6 +175,9 @@ __all__ = (
     "NextContactTypeType",
     "NotificationContentTypeType",
     "NotificationDeliveryTypeType",
+    "NotificationPriorityType",
+    "NotificationSourceType",
+    "NotificationStatusType",
     "NumberComparisonTypeType",
     "NumericQuestionPropertyAutomationLabelType",
     "OperationalStatusType",
@@ -266,6 +271,7 @@ __all__ = (
     "VisibilityType",
     "VocabularyLanguageCodeType",
     "VocabularyStateType",
+    "VoiceEnhancementModeType",
     "VoiceRecordingTrackType",
     "WorkspaceFontFamilyType",
 )
@@ -311,6 +317,7 @@ BooleanComparisonTypeType = Literal["IS_FALSE", "IS_TRUE"]
 ChannelType = Literal["CHAT", "EMAIL", "TASK", "VOICE"]
 ChatEventTypeType = Literal["DISCONNECT", "EVENT", "MESSAGE"]
 ComparisonType = Literal["LT"]
+ConfigurableNotificationPriorityType = Literal["HIGH", "LOW"]
 ContactFlowModuleStateType = Literal["ACTIVE", "ARCHIVED"]
 ContactFlowModuleStatusType = Literal["PUBLISHED", "SAVED"]
 ContactFlowStateType = Literal["ACTIVE", "ARCHIVED"]
@@ -631,6 +638,19 @@ ListViewVersionsPaginatorName = Literal["list_view_versions"]
 ListViewsPaginatorName = Literal["list_views"]
 ListWorkspacePagesPaginatorName = Literal["list_workspace_pages"]
 ListWorkspacesPaginatorName = Literal["list_workspaces"]
+LocaleCodeType = Literal[
+    "de_DE",
+    "en_US",
+    "es_ES",
+    "fr_FR",
+    "id_ID",
+    "it_IT",
+    "ja_JP",
+    "ko_KR",
+    "pt_BR",
+    "zh_CN",
+    "zh_TW",
+]
 MediaStreamTypeType = Literal["AUDIO", "VIDEO"]
 MediaTypeType = Literal[
     "IMAGE_LOGO_DARK_FAVICON",
@@ -644,6 +664,9 @@ MultiSelectQuestionRuleCategoryAutomationConditionType = Literal["NOT_PRESENT", 
 NextContactTypeType = Literal["QUICK_CONNECT"]
 NotificationContentTypeType = Literal["PLAIN_TEXT"]
 NotificationDeliveryTypeType = Literal["EMAIL"]
+NotificationPriorityType = Literal["HIGH", "LOW", "URGENT"]
+NotificationSourceType = Literal["CUSTOMER", "RULES", "SYSTEM"]
+NotificationStatusType = Literal["HIDDEN", "READ", "UNREAD"]
 NumberComparisonTypeType = Literal[
     "EQUAL", "GREATER", "GREATER_OR_EQUAL", "LESSER", "LESSER_OR_EQUAL", "NOT_EQUAL", "RANGE"
 ]
@@ -1083,6 +1106,7 @@ VocabularyLanguageCodeType = Literal[
 VocabularyStateType = Literal[
     "ACTIVE", "CREATION_FAILED", "CREATION_IN_PROGRESS", "DELETE_IN_PROGRESS"
 ]
+VoiceEnhancementModeType = Literal["NOISE_SUPPRESSION", "NONE", "VOICE_ISOLATION"]
 VoiceRecordingTrackType = Literal["ALL", "FROM_AGENT", "TO_AGENT"]
 WorkspaceFontFamilyType = Literal[
     "Arial", "Courier New", "Georgia", "Times New Roman", "Trebuchet", "Verdana"

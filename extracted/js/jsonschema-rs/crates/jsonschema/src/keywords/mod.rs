@@ -537,7 +537,7 @@ mod tests {
     #[test_case(&json!({"minimum": 3.0}), &json!(2.5), r"2.5 is less than the minimum of 3.0")]
     #[test_case(&json!({"maxItems": 2}), &json!([1, 2, 3]), r"[1,2,3] has more than 2 items")]
     #[test_case(&json!({"maxLength": 2}), &json!("foo"), r#""foo" is longer than 2 characters"#)]
-    #[test_case(&json!({"maxProperties": 2}), &json!({"foo": 1, "bar": 2, "baz": 3}), r#"{"bar":2,"baz":3,"foo":1} has more than 2 properties"#)]
+    #[test_case(&json!({"maxProperties": 2}), &json!({"bar": 2, "baz": 3, "foo": 1}), r#"{"bar":2,"baz":3,"foo":1} has more than 2 properties"#)]
     #[test_case(&json!({"minimum": 1.1}), &json!(0.6), r"0.6 is less than the minimum of 1.1")]
     #[test_case(&json!({"minItems": 1}), &json!([]), r"[] has less than 1 item")]
     #[test_case(&json!({"minLength": 2}), &json!("f"), r#""f" is shorter than 2 characters"#)]

@@ -126,7 +126,7 @@ class OpenAIVideos(object):
         else:
             raise ValueError(f"task_id not found: {task_id}")
 
-        logger.debug(api_key)
+        # logger.debug(api_key)
 
         task_id = task_id.replace("@", "/")  # 还原
 
@@ -213,7 +213,6 @@ if __name__ == '__main__':
         # seconds="4",
         size="720x1280",
     )
-    videos = OpenAIVideos(api_key=api_key, base_url=base_url)
 
     # video = arun(videos.create(request))
 
@@ -229,7 +228,11 @@ if __name__ == '__main__':
     task_id = "474208609112264706"
 
     base_url = 'seedance'
-    task_id = "cgt-20260213191024-btzgp"
+    task_id = "cgt-20260214045303-fwthc"
+    task_id = "cgt-20260214094312-28ghq"
+    task_id = "cgt-20260214170244-m2xzg"
+    task_id = "cgt-20260214200101-l64lw"
+    videos = OpenAIVideos(api_key=api_key, base_url=base_url)
     arun(videos.get(task_id))
 
     # video = arun(videos.create(request))
@@ -240,6 +243,8 @@ if __name__ == '__main__':
     # arun(videos.get(task_id))
 
     # wJCWwQ5x0CcVIWGzXEp-A
+
+
 
     # {
     #     "id": "35f26664-b847-4821-b940-3f244a641bf7",

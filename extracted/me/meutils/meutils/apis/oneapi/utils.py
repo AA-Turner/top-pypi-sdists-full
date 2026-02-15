@@ -77,7 +77,8 @@ async def polling_keys(biz: str, api_key: Optional[str] = None, batch_size: int 
             api_key=api_key
         )
         response = await client.audio.speech.create(model=biz, input=biz, voice=biz, extra_query={"biz": biz})
-        api_key = response.json().get("api_key")
+        logger.debug(bjson(response.json()))
+        api_key = response.json().get("api_key")  # todo 依赖内部服务
 
         # if api_key:
         #     # logger.debug(bjson(response))
@@ -150,4 +151,5 @@ if __name__ == '__main__':
     # arun(get_user_quota("sk-u8QN3zbulUFcCSvI9CIJ87OYsAONEQXGgSyEPyGC0sJhCFFJ"))
     # arun(polling_key("test"))
     # arun(polling_key('volc'))
-    arun(polling_keys('volc', batch_size=1))
+    # arun(polling_keys('volc', batch_size=1))
+    arun(polling_keys('sd2', batch_size=1))

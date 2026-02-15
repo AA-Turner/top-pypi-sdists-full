@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-hashicorp
-Version: 4.4.3
+Version: 4.5.0
 Summary: Provider package apache-airflow-providers-hashicorp for Apache Airflow
 Keywords: airflow-provider,hashicorp,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -28,8 +28,8 @@ Requires-Dist: hvac>=1.1.0
 Requires-Dist: boto3>=1.37.2 ; extra == "boto3"
 Requires-Dist: apache-airflow-providers-google ; extra == "google"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-hashicorp/4.4.3/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-hashicorp/4.4.3
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-hashicorp/4.5.0/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-hashicorp/4.5.0
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -62,7 +62,7 @@ Provides-Extra: google
 
 Package ``apache-airflow-providers-hashicorp``
 
-Release: ``4.4.3``
+Release: ``4.5.0``
 
 
 Hashicorp including `Hashicorp Vault <https://www.vaultproject.io/>`__
@@ -75,7 +75,7 @@ This is a provider package for ``hashicorp`` provider. All classes for this prov
 are in ``airflow.providers.hashicorp`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-hashicorp/4.4.3/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-hashicorp/4.5.0/>`_.
 
 Installation
 ------------
@@ -128,5 +128,5 @@ Extra       Dependencies
 ==========  ===================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-hashicorp/4.4.3/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-hashicorp/4.5.0/changelog.html>`_.
 

@@ -1,6 +1,6 @@
 from copy import copy
 import traceback
-from typing import Callable, TypeVar
+from typing import Callable, TypeVar, Union
 
 from adam.config_holder import ConfigHolder
 from adam.repl_session import ReplSession
@@ -18,8 +18,15 @@ class Context:
     PODS = 'pods'
     LOCAL = 'local'
 
-    def new(cmd: str = None, background = False, show_out = False, text_color: str = None, history = 'pods', debug: bool = None, job_id: str = None):
-        return Context(cmd, background=background, show_out=show_out, text_color=text_color, history=history, debug=debug, job_id=job_id)
+    def new(cmd: str = None,
+            background = False,
+            show_out = False,
+            text_color: str = None,
+            history = 'pods',
+            debug: bool = None,
+            bg_init_msg: Union[str, bool] = None,
+            job_id: str = None):
+        return Context(cmd, background=background, show_out=show_out, text_color=text_color, history=history, debug=debug, bg_init_msg=bg_init_msg, job_id=job_id)
 
     def copy(self,
              background: bool = None,
@@ -29,7 +36,7 @@ class Context:
              text_color: str = None,
              history: str = None,
              debug: bool = None,
-             bg_init_msg: str = None,
+             bg_init_msg: Union[str, bool] = None,
              job_id: str = None,
              cmd: str = None):
         ctx1 = copy(self)
@@ -59,6 +66,7 @@ class Context:
 
         if job_id is not None:
             ctx1.job_id = job_id
+            # ctx1._init_backgrounded(extra)
 
         if cmd is not None:
             ctx1.cmd = cmd
@@ -72,7 +80,7 @@ class Context:
                  text_color: str = None,
                  history = 'pods',
                  debug: bool = False,
-                 bg_init_msg: str = None,
+                 bg_init_msg: Union[str, bool] = None,
                  job_id: str = None):
         self.cmd = cmd
         if hasattr(thread_local, 'cmd'):
@@ -96,15 +104,16 @@ class Context:
 
     def _init_backgrounded(self, extra: dict[str, str] = {}):
         if not self.job_id:
-            self.job_id = Job.new_id()
+            self.job_id = Job.new_id(cmd=self.cmd)
 
-            bg_init_msg = self.bg_init_msg
-            if bg_init_msg is None:
-                bg_init_msg = '[{job_id}] Use :? to get the results.'
+            if self.bg_init_msg is not False:
+                bg_init_msg = self.bg_init_msg
+                if bg_init_msg is None:
+                    bg_init_msg = '[{job_id}] Use :? to get the results.'
 
-            bg_init_msg = bg_init_msg.replace('{job_id}', self.job_id)
-            if bg_init_msg:
-                log2(bg_init_msg)
+                bg_init_msg = bg_init_msg.replace('{job_id}', self.job_id)
+                if bg_init_msg:
+                    log2(bg_init_msg)
 
         log_file = Job.local_log_file(self.cmd, self.job_id, extra=extra)
         self.log_file = log_file
@@ -152,6 +161,13 @@ class Context:
     def submit(self, fn: Callable[..., T], /, *args, **kwargs):
         with offload(self.background) as submit:
             submit(fn, *args, **kwargs)
+
+    def switch_to_job_context(self, job_id: str):
+        job: Job = Job.job(job_id)
+        job_ctx = self.copy(cmd=job.command, job_id=job.job_id)
+        job_ctx._init_backgrounded()
+
+        return job_ctx
 
 # the null object pattern
 NULL = Context(None, background=False)

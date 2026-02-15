@@ -1,9 +1,10 @@
 """Directed graph implementation for package dependency analysis.
 
-Provides a generic DiGraph data structure with bidirectional traversal optimized
-for analyzing dependency relationships. This is the base class for ``DependencyGraph``
-in ``pyrig.src.modules.package``, which builds a graph of installed Python packages
-to enable pyrig's multi-package discovery system.
+Provides the ``DiGraph`` class, a generic directed graph with bidirectional
+traversal optimized for analyzing dependency relationships. ``DiGraph`` is the
+base class for ``pyrig.src.dependency_graph.DependencyGraph``, which builds a
+graph of installed Python packages to enable pyrig's multi-package discovery
+system.
 
 The graph maintains both forward and reverse edges, enabling efficient traversal
 in both directions: finding what a node depends on, and finding what depends on
@@ -11,10 +12,11 @@ a node (ancestors).
 """
 
 import heapq
+from abc import ABC, abstractmethod
 from collections import deque
 
 
-class DiGraph:
+class DiGraph(ABC):
     """Directed graph data structure with bidirectional edge traversal.
 
     A generic directed graph implementation optimized for dependency analysis.
@@ -33,10 +35,15 @@ class DiGraph:
     """
 
     def __init__(self) -> None:
-        """Initialize an empty directed graph with no nodes or edges."""
+        """Initialize and build the graph structure."""
         self._nodes: set[str] = set()
         self._edges: dict[str, set[str]] = {}  # node -> outgoing neighbors
         self._reverse_edges: dict[str, set[str]] = {}  # node -> incoming neighbors
+        self.build()
+
+    @abstractmethod
+    def build(self) -> None:
+        """Build the graph structure."""
 
     def add_node(self, node: str) -> None:
         """Add a node to the graph. Idempotent if node already exists.
@@ -131,9 +138,9 @@ class DiGraph:
         source to target. In dependency graph context, this represents the
         dependency depth between packages.
 
-        Used by ``HealthCheckWorkflow`` to calculate cron schedule offsets based
-        on dependency depth to pyrig, ensuring dependent packages run health
-        checks after their dependencies.
+        Used by `pyrig.rig.configs.workflows.health_check.HealthCheckWorkflowConfigFile`
+        to calculate cron schedule offsets based on dependency depth to pyrig,
+        ensuring dependent packages run health checks after their dependencies.
 
         Args:
             source: Starting node.

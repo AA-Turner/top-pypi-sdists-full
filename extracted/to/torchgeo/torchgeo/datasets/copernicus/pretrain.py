@@ -13,10 +13,10 @@ from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
 from torch.utils.data import IterableDataset
 
-from ..utils import lazy_import, percentile_normalization
+from ..utils import Sample, lazy_import, percentile_normalization
 
 
-class CopernicusPretrain(IterableDataset[dict[str, Any]]):
+class CopernicusPretrain(IterableDataset[Sample]):
     """Copernicus-Pretrain dataset.
 
     Copernicus-Pretrain is an extension of the SSL4EO-S12 dataset to all major Sentinel
@@ -117,7 +117,7 @@ class CopernicusPretrain(IterableDataset[dict[str, Any]]):
         """
         return iter(self.dataset)
 
-    def _has_all_modalities(self, sample: dict[str, Any]) -> bool:
+    def _has_all_modalities(self, sample: Sample) -> bool:
         """Selection function: filter samples with all required modalities.
 
         Args:
@@ -139,7 +139,7 @@ class CopernicusPretrain(IterableDataset[dict[str, Any]]):
         ]
         return all(key in sample for key in required_keys)
 
-    def _sample_one_local_patch(self, sample: dict[str, Any]) -> dict[str, Any]:
+    def _sample_one_local_patch(self, sample: Sample) -> dict[str, Any]:
         """Mapping function: randomly select one local patch for S1 and S2.
 
         Args:
@@ -156,7 +156,7 @@ class CopernicusPretrain(IterableDataset[dict[str, Any]]):
         sample['json']['s1_grd'], sample['json']['s2_toa'] = meta_s1[idx], meta_s2[idx]
         return sample
 
-    def _sample_one_time_stamp(self, sample: dict[str, Any]) -> dict[str, Any]:
+    def _sample_one_time_stamp(self, sample: Sample) -> dict[str, Any]:
         """Mapping function: randomly select one timestamp for all modalities.
 
         Args:
@@ -177,10 +177,7 @@ class CopernicusPretrain(IterableDataset[dict[str, Any]]):
         return sample
 
     def plot(
-        self,
-        sample: dict[str, Any],
-        show_titles: bool = True,
-        suptitle: str | None = None,
+        self, sample: Sample, show_titles: bool = True, suptitle: str | None = None
     ) -> Figure:
         """Plot a sample from the dataset.
 

@@ -54,10 +54,10 @@ Source = "https://github.com/Stranger6667/jsonschema"
 Funding = 'https://github.com/sponsors/Stranger6667'
 
 [tool.maturin]
-python-source = "python"
 strip = true
 include = [{ path = "rust-toolchain.toml", format = ["sdist", "wheel"] }]
 manifest-path = "crates/jsonschema-py/Cargo.toml"
+python-source = "python"
 
 [tool.ruff]
 line-length = 120

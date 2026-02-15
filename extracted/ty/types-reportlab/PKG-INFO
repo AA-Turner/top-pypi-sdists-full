@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-reportlab
-Version: 4.4.9.20260117
+Version: 4.4.9.20260215
 Summary: Typing stubs for reportlab
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -10,7 +10,7 @@ Project-URL: Issue tracker, https://github.com/python/typeshed/issues
 Project-URL: Chat, https://gitter.im/python/typing
 Classifier: Programming Language :: Python :: 3
 Classifier: Typing :: Stubs Only
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Dynamic: license-file
@@ -35,4 +35,4 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`b94c9e8e48f552b2f2b979b69937b0e4848675cf`](https://github.com/python/typeshed/commit/b94c9e8e48f552b2f2b979b69937b0e4848675cf).
+[`7ad79d00cc532173a204de0405f04daeafc655f3`](https://github.com/python/typeshed/commit/7ad79d00cc532173a204de0405f04daeafc655f3).

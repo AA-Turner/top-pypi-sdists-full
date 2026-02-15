@@ -25,6 +25,7 @@ KLING = "https://open.feishu.cn/open-apis/bot/v2/hook/e9a850c2-d171-4637-b976-ee
 
 VOLC = "https://open.feishu.cn/open-apis/bot/v2/hook/d487ce4f-3c2b-44db-a5b4-7ee4c5e03b4f"
 
+# "https://open.feishu.cn/open-apis/bot/v2/hook/dc1eda96-348e-4cb5-9c7c-2d87d584ca18"
 
 @background_task
 def send_message(
@@ -126,13 +127,17 @@ send_message_for_try_catch = partial(send_message, url=try_catch_feishu_url)
 
 send_message_for_volc = partial(send_message, url=VOLC)
 
+
+send_message_for_videos = partial(send_message, url=VIDEOS)
+
+
 if __name__ == '__main__':
     # send_message("xxx", title=None)
     # send_message(None, title=None)
 
     # send_message_for_images("xxxxxxxx", title=None)
 
-    send_message_for_tasks("xxxxxxxx")
+    send_message_for_videos("xxxxxxxx")
     # @catch(task_name='这是一个任务名')
     # def f():
     #     time.sleep(3)

@@ -215,6 +215,7 @@ from .type_defs import (
     InstanceMetadataOptionsResponseTypeDef,
     InstanceNetworkInterfaceTypeDef,
     InstanceNetworkPerformanceOptionsTypeDef,
+    InstanceSecondaryInterfaceTypeDef,
     InstanceStateTypeDef,
     InternetGatewayAttachmentTypeDef,
     InternetGatewayCreateTagsRequestTypeDef,
@@ -3336,6 +3337,7 @@ class Instance(AIOBoto3ServiceResource):
     current_instance_boot_mode: Awaitable[InstanceBootModeValuesType]
     network_performance_options: Awaitable[InstanceNetworkPerformanceOptionsTypeDef]
     operator: Awaitable[OperatorResponseTypeDef]
+    secondary_interfaces: Awaitable[list[InstanceSecondaryInterfaceTypeDef]]
     instance_id: Awaitable[str]
     image_id: Awaitable[str]
     state: Awaitable[InstanceStateTypeDef]

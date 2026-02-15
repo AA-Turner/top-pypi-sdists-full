@@ -21,26 +21,16 @@ class DotScratchConfigFile(PythonConfigFile):
     Examples:
         Generate .scratch.py::
 
-            DotScratchConfigFile()
-
-        Use for experimentation::
-
-            # In .scratch.py
-            from myproject import some_module
-
-            # Test code here - won't be committed
-            result = some_module.test_function()
-            print(result)
+            DotScratchConfigFile.I.validate()
 
     Note:
-        Automatically added to .gitignore by GitignoreConfigFile.
+        Automatically added to .gitignore by GitignoreConfigFile.I.
 
     See Also:
         pyrig.rig.configs.git.gitignore.GitignoreConfigFile
     """
 
-    @classmethod
-    def filename(cls) -> str:
+    def filename(self) -> str:
         """Get the scratch filename.
 
         Returns:
@@ -48,8 +38,7 @@ class DotScratchConfigFile(PythonConfigFile):
         """
         return ".scratch"
 
-    @classmethod
-    def parent_path(cls) -> Path:
+    def parent_path(self) -> Path:
         """Get the parent directory for .scratch.py.
 
         Returns:
@@ -57,20 +46,18 @@ class DotScratchConfigFile(PythonConfigFile):
         """
         return Path()
 
-    @classmethod
-    def lines(cls) -> list[str]:
+    def lines(self) -> list[str]:
         """Get the .scratch.py file content.
 
         Returns:
-            List of lines with Python docstring.
+            list[str]: Content lines for the scratch file.
         """
         return ['"""This file is for scratch work and is ignored by git."""']
 
-    @classmethod
-    def is_correct(cls) -> bool:
+    def is_correct(self) -> bool:
         """Check if the .scratch.py file is valid.
 
         Returns:
-            True if the file exists.
+            bool: True if the file exists.
         """
-        return cls.path().exists()
+        return self.path().exists()

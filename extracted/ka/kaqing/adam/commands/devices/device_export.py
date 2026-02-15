@@ -3,6 +3,7 @@ from adam.commands.devices.device import Device
 from adam.commands.export.export_databases import ExportDatabases, export_db
 from adam.config import Config
 from adam.repl_state import ReplState
+from adam.utils_job.job import Job
 from adam.utils_log import log2, wait_log
 from adam.utils_tabulize import tabulize
 from adam.utils_context import NULL
@@ -70,11 +71,11 @@ class DeviceExport(Command, Device):
 
         return '\t'.join([f'{ReplState.X}:>'] + (words if words else ['/']))
 
-    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str, retry = False):
+    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str, job: Job = None, ctx = NULL):
         if cmd.startswith('select '):
             cmd = f'xelect {cmd[7:]}'
 
-        result = chain.retry(cmd, state) if retry else chain.run(cmd, state)
+        result = chain.retry(cmd, job, state, ctx=ctx) if job else chain.run(cmd, state)
         if type(result) is ReplState:
             if state.export_session and not result.export_session:
                 state.export_session = None

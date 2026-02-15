@@ -20,7 +20,7 @@ class CommandFilter:
 
             Config().set(config_key, value)
 
-            return lambda: Config().set(config_key, final_value), cmd
+            return lambda results: Config().set(config_key, final_value), cmd
 
         return None, cmd
 

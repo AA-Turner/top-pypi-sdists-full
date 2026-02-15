@@ -29,6 +29,11 @@ class Tasks(object):
     def __init__(self, api_key: str):
         self.api_key = api_key
 
+        self.user_id = ""
+        if "AccountID=" in api_key:
+            self.user_id = api_key.split("AccountID=")[1].split(';')[0]
+            logger.debug(f"user_id: {self.user_id}")
+
         default_headers = {
             "x-csrf-token": api_key.split("csrfToken=")[1].split(';')[0],
             "Cookie": api_key
@@ -85,7 +90,7 @@ class Tasks(object):
                 "watermark": false
             }'
         """
-        video_request = SoraVideoRequest()
+        video_request = SoraVideoRequest(model="doubao-seedance-2-0-260128")
         if request.messages:  # chat doubao-seedance-1-5-pro-251215_5s_720p
             video_request.prompt = request.last_user_content
             if '_' not in request.model:
@@ -223,13 +228,18 @@ class Tasks(object):
                 payload["FirstFrameImageTosLocation"] = urls[0]
                 payload["LastFrameImageTosLocation"] = urls[1]
 
-        if request.first_frame_image:
-            payload["VideoTaskType"] = "first_frame"
-            payload["FirstFrameImageTosLocation"] = await upload(request.first_frame_image, api_key=self.api_key)
+        if request.first_frame_image or request.last_frame_image:
+            first_frame_image, last_frame_image = await upload(
+                [request.first_frame_image, request.last_frame_image],
+                api_key=self.api_key
+            )
+            if first_frame_image:
+                payload["VideoTaskType"] = "first_frame"
+                payload["FirstFrameImageTosLocation"] = first_frame_image
 
-        if request.last_frame_image:
-            payload["VideoTaskType"] = "first_last_frame"
-            payload["LastFrameImageTosLocation"] = await upload(request.last_frame_image, api_key=self.api_key)
+            if last_frame_image:
+                payload["VideoTaskType"] = "first_last_frame"
+                payload["LastFrameImageTosLocation"] = last_frame_image
 
         logger.debug(bjson(payload))
 
@@ -277,17 +287,19 @@ class Tasks(object):
                     elif request.model == "sora-2":  # 逆向
                         payload['Duration'] = 15
 
+            # 拼接用户id
+            # task_id = f"{self.user_id}::{task_id}"
             video = Video(id=task_id)
             return video
 
         elif e := response.get("ResponseMetadata", {}).get("Error"):
+            if any(i in str(e) for i in {"QuotaExceeded", "NotLogin"}):
+                raise Exception(f"QuotaExceeded")  # 走兜底
+
             error = {
                 "code": e.get("Code", "400"),
                 "message": e.get("Message", str(e))
             }
-            if "QuotaExceeded" in str(e):  # 切备用渠道
-                error = "未知错误，请重试"
-                raise ValueError(error)
 
             video = Video(status="failed", error=error)
 
@@ -337,6 +349,7 @@ if __name__ == "__main__":
     api_key = """ve_doc_history=82379%2C6269%2C6256%2C85128%2C86081%2C6348%2C85621%2C6260;_qimei_fingerprint=dd38b822c43601e30b795b0bb06bc28b;hasUserBehavior=1;monitor_huoshan_web_id=7467761534115284489;referrer_title=%E5%88%9B%E5%BB%BA%E8%A7%86%E9%A2%91%E7%94%9F%E6%88%90%E4%BB%BB%E5%8A%A1%20API--%E7%81%AB%E5%B1%B1%E6%96%B9%E8%88%9F%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%9C%8D%E5%8A%A1%E5%B9%B3%E5%8F%B0-%E7%81%AB%E5%B1%B1%E5%BC%95%E6%93%8E;AccountID=2104716667;user_locale=zh;signin_i18next=zh;monitor_session_id_flag=1;monitor_traceid_base_cookie=1418;volcengineLoginMethod=pwd;_tea_utm_cache_3569={%22utm_source%22:%22coopensrc%22%2C%22utm_medium%22:%22github%22%2C%22utm_campaign%22:%22doubao%22%2C%22utm_term%22:%22project%22%2C%22utm_content%22:%22aidrawio%22};volcfe-uuid=0701f6f2-a611-4599-a2fc-57cb015ff828;userInfo=eyJhbGciOiJSUzI1NiIsImtpZCI6ImE5YzBkZmFjYmZiNDExZjA4OWMwMDAxNjNlMDcwOGJkIn0.eyJhY2NfaSI6MjEwNDcxNjY2NywiYXVkIjpbImNvbnNvbGUudm9sY2VuZ2luZS5jb20iXSwiZXhwIjoxNzczNDc3MzIxLCJpIjoiYzUxNTFmMzUwN2VkMTFmMTllYTUzNDM2YWMxMjAwYzciLCJpZF9uIjoiODQzMuaJi-acuueUqOaItyNaY1JzUnkiLCJtc2ciOm51bGwsInBpZCI6IjBkMDQ2ZDlkLTg4NTYtNDhiNy1iZGMzLWQ0OTI4ODQ3Njc2YiIsInNzX24iOiI4NDMy5omL5py655So5oi3I1pjUnNSeSIsInQiOiJBY2NvdW50IiwidG9waWMiOiJzaWduaW5fdXNlcl9pbmZvIiwidmVyc2lvbiI6InYxIiwiemlwIjoiIn0.gfVFCXMedtkYoGFpObMWKulX5QPrdSDadKKyxMl7TecUX4gxF53E4NaZjMfDruLDu7gIlIEhbLyUzMvOJtUFyVtP1VIZDXD1zOLf7T-nKO4WH4MEEHf6F-ERzjMabSQfotnaEeMyysjbetQJ38UEA6hF_C70zo-hv_sIKdMVMTqLt2J7Sf1ry0qNDGEMBQzOB6hNB5amF6NB9GByLZEl-RjovAbB3SkarTSpWLnekrUxyJXD-SIdN80kKOrnlugyMFCE_NPVuZ4ZFgTyKJt1o0Yp_-jb1GBJDUeY2Tq-vDjalIvT9q-PJE4MCw9Bb4VIkaVFfobO1sDiOocvu00gTg;__tea_cache_tokens_3569={%22web_id%22:%227467761534115284489%22%2C%22user_unique_id%22:%227467761534115284489%22%2C%22timestamp%22:1770885409545%2C%22_type_%22:%22default%22};volc-design-locale=zh;_qimei_h38=47aeffd76da9e4a25cf291fa0300000d619a11;finance-hub-sdk-lang=zh;p_c_check=1;volc_platform_clear_user_locale=1;__spti=11_000JnXNrWATPtPrMwlQ3ilQxfn2UtC;__sptiho=0B11_000JnXNrWATPtPrMwlQ3ilQxfn2UtC_bEv/KoxCOM4AcC;_qimei_i_1=5ac22586920b058d97c3f9360fd57ab5f3bfa6f4410d018bb5d979582593206c616363933980b3ddd790cf8f;_qimei_i_3=57ca79d3970c52d9c497aa625d8027e5a6bcf0f71a5b04d4e0872b502092276d32633f973989e28184b1;_qimei_uuid42=19c180a1723100cab20e31b701a4124555c551b916;_tea_utm_cache_520918={%22utm_source%22:%22coopensrc%22%2C%22utm_medium%22:%22github%22%2C%22utm_campaign%22:%22doubao%22%2C%22utm_term%22:%22project%22%2C%22utm_content%22:%22aidrawio%22};csrfToken=b6b2764fc8bf2869340ddeaa2d5b81ac;digest=eyJhbGciOiJSUzI1NiIsImtpZCI6ImE5YzBkZmFjYmZiNDExZjA4OWMwMDAxNjNlMDcwOGJkIn0.eyJhdWQiOlsiY29uc29sZS52b2xjZW5naW5lLmNvbSJdLCJleHAiOjE3NzEwNTgxMjEsImlhdCI6MTc3MDg4NTMyMSwiaXNzIjoiaHR0cHM6Ly9zaWduaW4udm9sY2VuZ2luZS5jb20iLCJqdGkiOiIwZDA0NmQ5ZC04ODU2LTQ4YjctYmRjMy1kNDkyODg0NzY3NmIiLCJtc2ciOiJINHNJQUFBQUFBQUMvK0tTNDJMeFM4eE5GZUl5TWpRd01UYzBNek16bHppMGNOc1pOb1dUSUZMSW40dmRNVGs1dnpTdlJPRDNyYk92MmFYRUxVeU1qWjUxZGorYnMrdjVsQlhQT3JZclJ5VUhGUWRWS29ITjBXSkx6cy9OemMvendxVU1FQUFBLy8vSzNjZTVjUUFBQUE9PSIsIm5hbWUiOiI4NDMy5omL5py655So5oi3I1pjUnNSeSIsInN1YiI6IjIxMDQ3MTY2NjciLCJ0b3BpYyI6InNpZ25pbl9jcmVkZW50aWFsIiwidHJuIjoidHJuOmlhbTo6MjEwNDcxNjY2Nzpyb290IiwidmVyc2lvbiI6InYxIiwiemlwIjoiZ3ppcCJ9.Z-eEz3F4-7zEBTycZtzF2L0DjTnNMvmWMai7yfbsbK4VAvzlw8l0XJ4qxzch9RcIZKvK_Hp_iKzitotsFQHQHhmElcF1l5X3CgGhB4bM4DHKbvU1Q8rwn2IqMZeVjPnVcaA9U6G9nCCYtmgdWfiilPO3EyC7Wirx7TBhRkW2IcFtZhO_Ft5IN25A7TVWioaWuRTqAlKUsFujENgx23uQ2VPhKx6q8_vp4vbmRC-vshFM2osYq-3o_shi3bKS-S-eZjLdOKqfRlY5qsf_SBDpv08yXVIntzGlHKAO1jzrBxwDRQZp5aDv4J6RYtoJKsyE9-ISbrb_p3BD4h2kbuIHQA;gfkadpd=520918,36088|3569,42874;i18next=zh;isIntranet=0;login_scene=11;monitor_session_id=0137731691764811011;monitor_utm=%257B%2522utm_campaign%2522%253A%2522doubao%2522%252C%2522utm_content%2522%253A%2522aidrawio%2522%252C%2522utm_medium%2522%253A%2522github%2522%252C%2522utm_source%2522%253A%2522coopensrc%2522%252C%2522utm_term%2522%253A%2522project%2522%257D;s_v_web_id=verify_mjjfj194_6wx9uxHT_RbvK_42dT_BQQF_Am4VHcR3e6qJ;top_region=;vcloudWebId=0d8e34f9-2a27-4f3b-a86a-10cb562dbf67;VOLCFE_im_uuid=1770641165069598896"""
 
     api_key = """ve_doc_history=82379%2C6269%2C6256%2C85128%2C86081%2C6348%2C85621%2C6260;_qimei_fingerprint=dd38b822c43601e30b795b0bb06bc28b;hasUserBehavior=1;monitor_huoshan_web_id=7467761534115284489;referrer_title=%E5%88%9B%E5%BB%BA%E8%A7%86%E9%A2%91%E7%94%9F%E6%88%90%E4%BB%BB%E5%8A%A1%20API--%E7%81%AB%E5%B1%B1%E6%96%B9%E8%88%9F%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%9C%8D%E5%8A%A1%E5%B9%B3%E5%8F%B0-%E7%81%AB%E5%B1%B1%E5%BC%95%E6%93%8E;AccountID=2109091919;user_locale=zh;signin_i18next=zh;monitor_session_id_flag=1;monitor_traceid_base_cookie=1419;volcengineLoginMethod=pwd;_tea_utm_cache_3569={%22utm_source%22:%22coopensrc%22%2C%22utm_medium%22:%22github%22%2C%22utm_campaign%22:%22doubao%22%2C%22utm_term%22:%22project%22%2C%22utm_content%22:%22aidrawio%22};volcfe-uuid=0701f6f2-a611-4599-a2fc-57cb015ff828;userInfo=eyJhbGciOiJSUzI1NiIsImtpZCI6ImE5YzBkZmFjYmZiNDExZjA4OWMwMDAxNjNlMDcwOGJkIn0.eyJhY2NfaSI6MjEwOTA5MTkxOSwiYXVkIjpbImNvbnNvbGUudm9sY2VuZ2luZS5jb20iXSwiZXhwIjoxNzczNDk5Mzk0LCJpIjoiMjk2OTc3MmEwODIxMTFmMTlhZjEzNDM2YWMxMjAwM2YiLCJpZF9uIjoiMDQzNeaJi-acuueUqOaItyN5SFNrTXQiLCJtc2ciOm51bGwsInBpZCI6ImNkNDlmYTg3LWI3NzUtNDQwNS1iOTkzLTVmOTA0NTMyNDg5MSIsInNzX24iOiIwNDM15omL5py655So5oi3I3lIU2tNdCIsInQiOiJBY2NvdW50IiwidG9waWMiOiJzaWduaW5fdXNlcl9pbmZvIiwidmVyc2lvbiI6InYxIiwiemlwIjoiIn0.cdpiB9xgcokJBJzG-S_BIdllMusycBqNLL8VNEnmlFI5i0fYstJUbAvLC-nbouHZjLhX9XzT45RjIqbFa-f1dnQHE6SmMf_CCPuxoZOpd7UnJTbCqQiKO_KRkdshxpuIxx7mV74ziS3UQWcNARIH663BxmsMsPWFx7Tntx3QOCdu_zljgJkjbxJZhcBhGOqGC2CMZXocr0MorPpcEVtXPOsRi9ulCBMSSH4kI5z4iigbliLyoYcsD3vNCmGO_vTOPDAdyEwGE395FwAnlB62JGnwVAreHvdPLE3YFMBII2JdDT03TGOrb1VFP6tLj2xOAWCDlVJnxRkW2fDZ16d71Q;__tea_cache_tokens_3569={%22web_id%22:%227467761534115284489%22%2C%22user_unique_id%22:%227467761534115284489%22%2C%22timestamp%22:1770907429996%2C%22_type_%22:%22default%22};volc-design-locale=zh;_qimei_h38=94cee221b20e31b701a412450300000ce19c18;finance-hub-sdk-lang=zh;p_c_check=1;volc_platform_clear_user_locale=1;__spti=11_000JnXNrWATPtPrMwlQ3ilQxfn2UtC;__sptiho=0B11_000JnXNrWATPtPrMwlQ3ilQxfn2UtC_bEv/KoxCOM4AcC;_qimei_i_1=5eea2c8b9109058ec395ff62598426e3f6bca3f1130a0783b68b2d582593206c616364c03980b1ddde92f7cc;_qimei_i_3=57ca79d3970c52d9c497aa625d8027e5a6bcf0f71a5b04d4e0872b502092276d32633f973989e28184b1;_qimei_uuid42=19c180a1723100cab20e31b701a4124555c551b916;_tea_utm_cache_520918={%22utm_source%22:%22coopensrc%22%2C%22utm_medium%22:%22github%22%2C%22utm_campaign%22:%22doubao%22%2C%22utm_term%22:%22project%22%2C%22utm_content%22:%22aidrawio%22};csrfToken=499beb4542dac5d353afbb1fffd981eb;digest=eyJhbGciOiJSUzI1NiIsImtpZCI6ImE5ZDM1YTQ4YmZiNDExZjA4OWMwMDAxNjNlMDcwOGJkIn0.eyJhdWQiOlsiY29uc29sZS52b2xjZW5naW5lLmNvbSJdLCJleHAiOjE3NzEwODAxOTQsImlhdCI6MTc3MDkwNzM5NCwiaXNzIjoiaHR0cHM6Ly9zaWduaW4udm9sY2VuZ2luZS5jb20iLCJqdGkiOiJjZDQ5ZmE4Ny1iNzc1LTQ0MDUtYjk5My01ZjkwNDUzMjQ4OTEiLCJtc2ciOiJINHNJQUFBQUFBQUMvK0tTNDJMeFM4eE5GZUl5TWpTd05MQTB0RFMwbFBoNWR2c1pOb1dtYzl2UHNBbjVjN0U3SmlmbmwrYVZDSngvY09NdHU1UzRnWW14NmJQTzdtZHpkajJmc3VKWngzYmxTby9nYk44U0piQTVXbXpKK2JtNStYbGV1SlFCQWdBQS8vOTdrMG13Y1FBQUFBPT0iLCJuYW1lIjoiMDQzNeaJi-acuueUqOaItyN5SFNrTXQiLCJzdWIiOiIyMTA5MDkxOTE5IiwidG9waWMiOiJzaWduaW5fY3JlZGVudGlhbCIsInRybiI6InRybjppYW06OjIxMDkwOTE5MTk6cm9vdCIsInZlcnNpb24iOiJ2MSIsInppcCI6Imd6aXAifQ.fw4LobnAByUwIaCOWhOOvF5igRzIo_l5lBme2SmfeT5vwky01EI2iBDBayuv_O39Uvl-MzS5Gmg2-tXFN7tqEyH2ERa1ymuZETFkFu3P-su9Uqb1VZnFpkaZsjHzhCTWIxvwDLmBCZM0aLN_LOBjhDyoRjd6agYr8XLrTM3UzVRb-MUg_yYBBSttvUpZdM4pLQ3magTu0xJQY0OfLg4IBTezfg84XsQJkh0wGaJI1N-_aXTTXTFBOBahMS8fKJrNG-mgV52xMxBqS_pt3piGwn3ssMVeD5JD5K474FMKxIhgwJUkdePfsVACAjBhaLmV6AmYX4UXo7lTmjHHIZnp3Q;gfkadpd=520918,36088|3569,42874;i18next=zh;isIntranet=0;login_scene=11;monitor_session_id=0008375069127979375;monitor_tracing_cookie=[];monitor_utm=%257B%2522utm_campaign%2522%253A%2522doubao%2522%252C%2522utm_content%2522%253A%2522aidrawio%2522%252C%2522utm_medium%2522%253A%2522github%2522%252C%2522utm_source%2522%253A%2522coopensrc%2522%252C%2522utm_term%2522%253A%2522project%2522%257D;s_v_web_id=verify_mjjfj194_6wx9uxHT_RbvK_42dT_BQQF_Am4VHcR3e6qJ;top_region=;vcloudWebId=0d8e34f9-2a27-4f3b-a86a-10cb562dbf67;VOLCFE_im_uuid=1770641165069598896"""
+    api_key = """ve_doc_history=82379%2C6269%2C6256%2C85128%2C86081%2C6348%2C85621%2C6260;_qimei_fingerprint=dd38b822c43601e30b795b0bb06bc28b;hasUserBehavior=1;monitor_huoshan_web_id=7467761534115284489;referrer_title=%E7%81%AB%E5%B1%B1%E5%BC%95%E6%93%8E-%E4%BD%A0%E7%9A%84AI%E4%BA%91;AccountID=2109743247;user_locale=zh;signin_i18next=zh;monitor_session_id_flag=1;monitor_traceid_base_cookie=1423;volcengineLoginMethod=pwd;_tea_utm_cache_3569={%22utm_source%22:%22coopensrc%22%2C%22utm_medium%22:%22github%22%2C%22utm_campaign%22:%22doubao%22%2C%22utm_term%22:%22project%22%2C%22utm_content%22:%22aidrawio%22};volcfe-uuid=0701f6f2-a611-4599-a2fc-57cb015ff828;userInfo=eyJhbGciOiJSUzI1NiIsImtpZCI6ImE5YzBkZmFjYmZiNDExZjA4OWMwMDAxNjNlMDcwOGJkIn0.eyJhY2NfaSI6MjEwOTc0MzI0NywiYXVkIjpbImNvbnNvbGUudm9sY2VuZ2luZS5jb20iXSwiZXhwIjoxNzczNTk2MTI5LCJpIjoiNjQ2MDRkNTIwOTAyMTFmMTlmYjgzNDM2YWMxMjAwYmUiLCJpZF9uIjoiNDgyMeaJi-acuueUqOaItyN1Wm50VHMiLCJtc2ciOm51bGwsInBpZCI6ImE4ZTk5MzUyLTBmNDUtNDRjMS04YTg1LWQ2Mzg3MmI0YzUxYyIsInNzX24iOiI0ODIx5omL5py655So5oi3I3VabnRUcyIsInQiOiJBY2NvdW50IiwidG9waWMiOiJzaWduaW5fdXNlcl9pbmZvIiwidmVyc2lvbiI6InYxIiwiemlwIjoiIn0.VFX4bvxf8qrFPQe3oZYtoUAX2WL0KpBEUZJyV5YlwPW3bDinK2QCV0i9njwGlUv-NOWiRd6qCmUtlWyX61wGKFjDIEs0luZt-LTpDntz219D2FDxim3Ez2hEA9c95D0Kymvcm_snfmx21QXIBHy4AFNpOWXcXanXHRP1rsjzItk56iGz_uCEqiXqGvDf_Z6WTMe-5U668tQhEV8izFI1CZqHVqHz0aMMfNWU8vKqGLaQZ42YFHtO1bY387UxXn7v4Hdl7zHUbRwxuUVG9x8ZeNzBHZnfD-hsVzWqi0koEX-bh3bjGhWrk6VkVIbVZBkTgXU5KURrPKq9ktKAvN7P3g;__tea_cache_tokens_3569={%22web_id%22:%227467761534115284489%22%2C%22user_unique_id%22:%227467761534115284489%22%2C%22timestamp%22:1771030034253%2C%22_type_%22:%22default%22};volc-design-locale=zh;_qimei_h38=94cee221b20e31b701a412450300000ce19c18;finance-hub-sdk-lang=zh;p_c_check=1;volc_platform_clear_user_locale=1;__spti=11_000JnXNrWATPtPrMwlQ3ilQxfn2UtC;__sptiho=0B11_000JnXNrWATPtPrMwlQ3ilQxfn2UtC_bEv/KoxCOM4AcC;_qimei_i_1=66d87f8b9109058ec395ff62598426e3f6bca3f1130a0783b68b2d582593206c616364c03980b1dddeaaa7c5;_qimei_i_3=57ca79d3970c52d9c497aa625d8027e5a6bcf0f71a5b04d4e0872b502092276d32633f973989e28184b1;_qimei_uuid42=19c180a1723100cab20e31b701a4124555c551b916;_tea_utm_cache_520918={%22utm_source%22:%22coopensrc%22%2C%22utm_medium%22:%22github%22%2C%22utm_campaign%22:%22doubao%22%2C%22utm_term%22:%22project%22%2C%22utm_content%22:%22aidrawio%22};csrfToken=3491b1a53d1625d7135f17ecb6c83301;digest=eyJhbGciOiJSUzI1NiIsImtpZCI6ImE5YzBkZmFjYmZiNDExZjA4OWMwMDAxNjNlMDcwOGJkIn0.eyJhdWQiOlsiY29uc29sZS52b2xjZW5naW5lLmNvbSJdLCJleHAiOjE3NzExNzY5MjksImlhdCI6MTc3MTAwNDEyOSwiaXNzIjoiaHR0cHM6Ly9zaWduaW4udm9sY2VuZ2luZS5jb20iLCJqdGkiOiJhOGU5OTM1Mi0wZjQ1LTQ0YzEtOGE4NS1kNjM4NzJiNGM1MWMiLCJtc2ciOiJINHNJQUFBQUFBQUMvK0tTNDJMeFM4eE5GZUl5TWpTd05EY3hOakl4bDdoOWNPOFpOb1ZISUZMSW40dmRNVGs1dnpTdlJLRC9ZTU03ZGlseEV3c2p3MmVkM2MvbTdIbytaY1d6anUzS3BWRjVKU0hGU21CenROaVM4M056OC9POGNDa0RCQUFBLy8vWVBXOFRjUUFBQUE9PSIsIm5hbWUiOiI0ODIx5omL5py655So5oi3I3VabnRUcyIsInN1YiI6IjIxMDk3NDMyNDciLCJ0b3BpYyI6InNpZ25pbl9jcmVkZW50aWFsIiwidHJuIjoidHJuOmlhbTo6MjEwOTc0MzI0Nzpyb290IiwidmVyc2lvbiI6InYxIiwiemlwIjoiZ3ppcCJ9.qwGgvtbf6DdKmtcrLLF8sAJmgyARXbn3J4sKbZXRUZWfXKMmN8hHPwXZfG41UKancOG9yxymjgFtl6NS0BAj52WxrNH4e-xC_Uelivs5Ti564sXOWBXyHRlt4zUUSuNYY_aR0AxDsZaftKP4g2ry-vLkOvAuyCFqGT8nrKSxu09fkGL-HzCYuL9U7yK7zco6Keno19c2Wlmll_ueFEkpoMBGl4i8Y4Uti6v93FfSx2KY683HCCUD78lbCFgLSmqGmJ3GLgEuxNAi2m7lex6mVCbHN40Hcn9N8dHaSmVz1EgzDIgNtAkkq5fxNwN5Iz_N0gkLfFRceMgqZbWh5h5SsA;gfkadpd=3569,42874|520918,36088;i18next=zh;isIntranet=0;login_scene=11;monitor_session_id=1896580763093473554;monitor_utm=%257B%2522utm_campaign%2522%253A%2522doubao%2522%252C%2522utm_content%2522%253A%2522aidrawio%2522%252C%2522utm_medium%2522%253A%2522github%2522%252C%2522utm_source%2522%253A%2522coopensrc%2522%252C%2522utm_term%2522%253A%2522project%2522%257D;s_v_web_id=verify_mjjfj194_6wx9uxHT_RbvK_42dT_BQQF_Am4VHcR3e6qJ;top_region=;user_locale=zh;vcloudWebId=0d8e34f9-2a27-4f3b-a86a-10cb562dbf67;VOLCFE_im_uuid=1770641165069598896"""
     request = SoraVideoRequest(
         # prompt="【图片 1】【图片 2】融合起",
         prompt="孙悟空",

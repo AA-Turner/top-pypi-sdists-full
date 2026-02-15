@@ -4,9 +4,9 @@ Provides type-safe wrapper for Git commands: init, add, commit, push, tag, confi
 
 Example:
     >>> from pyrig.rig.tools.version_controller import VersionController
-    >>> VersionController.L.add_all_args().run()
-    >>> VersionController.L.commit_no_verify_args("Update docs").run()
-    >>> VersionController.L.push_args().run()
+    >>> VersionController.I.add_all_args().run()
+    >>> VersionController.I.commit_no_verify_args(msg="Update docs").run()
+    >>> VersionController.I.push_args().run()
 """
 
 import logging
@@ -35,13 +35,12 @@ class VersionController(Tool):
         - Configuration: user name/email
 
     Example:
-        >>> VersionController.L.init_args().run()
-        >>> VersionController.L.add_all_args().run()
-        >>> VersionController.L.commit_no_verify_args("Initial commit").run()
+        >>> VersionController.I.init_args().run()
+        >>> VersionController.I.add_all_args().run()
+        >>> VersionController.I.commit_no_verify_args(msg="Initial commit").run()
     """
 
-    @classmethod
-    def name(cls) -> str:
+    def name(self) -> str:
         """Get tool name.
 
         Returns:
@@ -49,34 +48,31 @@ class VersionController(Tool):
         """
         return "git"
 
-    @classmethod
-    def group(cls) -> str:
-        """Returns the group the tools belongs to.
+    def group(self) -> str:
+        """Returns the group the tool belongs to.
 
-        E.g. testing, tool, code-quality etc...
+        Returns:
+            `ToolGroup.TOOLING`
         """
         return ToolGroup.TOOLING
 
-    @classmethod
-    def badge_urls(cls) -> tuple[str, str]:
-        """Returns the badge and connected page."""
+    def badge_urls(self) -> tuple[str, str]:
+        """Return the badge and linked page URLs."""
         return (
             "https://img.shields.io/badge/Git-F05032?logo=git&logoColor=white",
             "https://git-scm.com",
         )
 
-    @classmethod
-    def dev_dependencies(cls) -> list[str]:
-        """Get tool dependencies.
+    def dev_dependencies(self) -> list[str]:
+        """Get development dependencies.
 
         Returns:
-            List of tool dependencies.
+            Empty list (git is a system dependency).
         """
         # git is a system dependency, so we don't have a dev dependency for it
         return []
 
-    @classmethod
-    def default_branch(cls) -> str:
+    def default_branch(self) -> str:
         """Get the default branch name.
 
         Returns:
@@ -84,8 +80,7 @@ class VersionController(Tool):
         """
         return "main"
 
-    @classmethod
-    def ignore_filename(cls) -> str:
+    def ignore_filename(self) -> str:
         """Get the filename for .gitignore.
 
         Returns:
@@ -93,17 +88,15 @@ class VersionController(Tool):
         """
         return ".gitignore"
 
-    @classmethod
-    def default_ruleset_name(cls) -> str:
+    def default_ruleset_name(self) -> str:
         """Get the default branch protection ruleset name.
 
         Returns:
             Default ruleset name.
         """
-        return f"{cls.default_branch()}-protection"
+        return f"{self.default_branch()}-protection"
 
-    @classmethod
-    def init_args(cls, *args: str) -> Args:
+    def init_args(self, *args: str) -> Args:
         """Construct git init arguments.
 
         Args:
@@ -112,10 +105,9 @@ class VersionController(Tool):
         Returns:
             Args for 'git init'.
         """
-        return cls.args("init", *args)
+        return self.args("init", *args)
 
-    @classmethod
-    def add_args(cls, *args: str) -> Args:
+    def add_args(self, *args: str) -> Args:
         """Construct git add arguments.
 
         Args:
@@ -124,10 +116,9 @@ class VersionController(Tool):
         Returns:
             Args for 'git add'.
         """
-        return cls.args("add", *args)
+        return self.args("add", *args)
 
-    @classmethod
-    def add_all_args(cls, *args: str) -> Args:
+    def add_all_args(self, *args: str) -> Args:
         """Construct git add arguments for all files.
 
         Args:
@@ -136,10 +127,9 @@ class VersionController(Tool):
         Returns:
             Args for 'git add .'.
         """
-        return cls.add_args(".", *args)
+        return self.add_args(".", *args)
 
-    @classmethod
-    def add_pyproject_toml_args(cls, *args: str) -> Args:
+    def add_pyproject_toml_args(self, *args: str) -> Args:
         """Construct git add arguments for pyproject.toml.
 
         Args:
@@ -148,10 +138,9 @@ class VersionController(Tool):
         Returns:
             Args for 'git add pyproject.toml'.
         """
-        return cls.add_args("pyproject.toml", *args)
+        return self.add_args("pyproject.toml", *args)
 
-    @classmethod
-    def add_pyproject_toml_and_lock_file_args(cls, *args: str) -> Args:
+    def add_pyproject_toml_and_lock_file_args(self, *args: str) -> Args:
         """Construct git add arguments for pyproject.toml and uv.lock.
 
         Args:
@@ -160,10 +149,9 @@ class VersionController(Tool):
         Returns:
             Args for 'git add pyproject.toml uv.lock'.
         """
-        return cls.add_pyproject_toml_args("uv.lock", *args)
+        return self.add_pyproject_toml_args("uv.lock", *args)
 
-    @classmethod
-    def commit_args(cls, *args: str) -> Args:
+    def commit_args(self, *args: str) -> Args:
         """Construct git commit arguments.
 
         Args:
@@ -172,10 +160,9 @@ class VersionController(Tool):
         Returns:
             Args for 'git commit'.
         """
-        return cls.args("commit", *args)
+        return self.args("commit", *args)
 
-    @classmethod
-    def commit_no_verify_args(cls, *args: str, msg: str) -> Args:
+    def commit_no_verify_args(self, *args: str, msg: str) -> Args:
         """Construct git commit arguments with no verification.
 
         Args:
@@ -185,10 +172,9 @@ class VersionController(Tool):
         Returns:
             Args for 'git commit --no-verify -m <msg>'.
         """
-        return cls.commit_args("--no-verify", "-m", msg, *args)
+        return self.commit_args("--no-verify", "-m", msg, *args)
 
-    @classmethod
-    def push_args(cls, *args: str) -> Args:
+    def push_args(self, *args: str) -> Args:
         """Construct git push arguments.
 
         Args:
@@ -197,10 +183,9 @@ class VersionController(Tool):
         Returns:
             Args for 'git push'.
         """
-        return cls.args("push", *args)
+        return self.args("push", *args)
 
-    @classmethod
-    def push_origin_args(cls, *args: str) -> Args:
+    def push_origin_args(self, *args: str) -> Args:
         """Construct git push arguments for origin.
 
         Args:
@@ -209,10 +194,9 @@ class VersionController(Tool):
         Returns:
             Args for 'git push origin'.
         """
-        return cls.push_args("origin", *args)
+        return self.push_args("origin", *args)
 
-    @classmethod
-    def push_origin_tag_args(cls, *args: str, tag: str) -> Args:
+    def push_origin_tag_args(self, *args: str, tag: str) -> Args:
         """Construct git push arguments for origin and tag.
 
         Args:
@@ -222,10 +206,9 @@ class VersionController(Tool):
         Returns:
             Args for 'git push origin <tag>'.
         """
-        return cls.push_origin_args(tag, *args)
+        return self.push_origin_args(tag, *args)
 
-    @classmethod
-    def config_args(cls, *args: str) -> Args:
+    def config_args(self, *args: str) -> Args:
         """Construct git config arguments.
 
         Args:
@@ -234,10 +217,9 @@ class VersionController(Tool):
         Returns:
             Args for 'git config'.
         """
-        return cls.args("config", *args)
+        return self.args("config", *args)
 
-    @classmethod
-    def config_global_args(cls, *args: str) -> Args:
+    def config_global_args(self, *args: str) -> Args:
         """Construct git config arguments with --global flag.
 
         Args:
@@ -246,10 +228,9 @@ class VersionController(Tool):
         Returns:
             Args for 'git config --global'.
         """
-        return cls.config_args("--global", *args)
+        return self.config_args("--global", *args)
 
-    @classmethod
-    def config_local_args(cls, *args: str) -> Args:
+    def config_local_args(self, *args: str) -> Args:
         """Construct git config arguments with --local flag.
 
         Args:
@@ -258,10 +239,9 @@ class VersionController(Tool):
         Returns:
             Args for 'git config --local'.
         """
-        return cls.config_args("--local", *args)
+        return self.config_args("--local", *args)
 
-    @classmethod
-    def config_local_user_email_args(cls, *args: str, email: str) -> Args:
+    def config_local_user_email_args(self, *args: str, email: str) -> Args:
         """Construct git config arguments for local user email.
 
         Args:
@@ -271,10 +251,9 @@ class VersionController(Tool):
         Returns:
             Args for 'git config --local user.email <email>'.
         """
-        return cls.config_local_args("user.email", email, *args)
+        return self.config_local_args("user.email", email, *args)
 
-    @classmethod
-    def config_local_user_name_args(cls, *args: str, name: str) -> Args:
+    def config_local_user_name_args(self, *args: str, name: str) -> Args:
         """Construct git config arguments for local user name.
 
         Args:
@@ -284,10 +263,9 @@ class VersionController(Tool):
         Returns:
             Args for 'git config --local user.name <name>'.
         """
-        return cls.config_local_args("user.name", name, *args)
+        return self.config_local_args("user.name", name, *args)
 
-    @classmethod
-    def config_global_user_email_args(cls, *args: str, email: str) -> Args:
+    def config_global_user_email_args(self, *args: str, email: str) -> Args:
         """Construct git config arguments for global user email.
 
         Args:
@@ -297,10 +275,9 @@ class VersionController(Tool):
         Returns:
             Args for 'git config --global user.email <email>'.
         """
-        return cls.config_global_args("user.email", email, *args)
+        return self.config_global_args("user.email", email, *args)
 
-    @classmethod
-    def config_global_user_name_args(cls, *args: str, name: str) -> Args:
+    def config_global_user_name_args(self, *args: str, name: str) -> Args:
         """Construct git config arguments for global user name.
 
         Args:
@@ -310,10 +287,9 @@ class VersionController(Tool):
         Returns:
             Args for 'git config --global user.name <name>'.
         """
-        return cls.config_global_args("user.name", name, *args)
+        return self.config_global_args("user.name", name, *args)
 
-    @classmethod
-    def tag_args(cls, *args: str, tag: str) -> Args:
+    def tag_args(self, *args: str, tag: str) -> Args:
         """Construct git tag arguments.
 
         Args:
@@ -321,12 +297,11 @@ class VersionController(Tool):
             tag: Tag name.
 
         Returns:
-            Args for 'git tag'.
+            Args for 'git tag <tag>'.
         """
-        return cls.args("tag", tag, *args)
+        return self.args("tag", tag, *args)
 
-    @classmethod
-    def config_get_args(cls, *args: str) -> Args:
+    def config_get_args(self, *args: str) -> Args:
         """Construct git config get arguments.
 
         Args:
@@ -335,10 +310,9 @@ class VersionController(Tool):
         Returns:
             Args for 'git config --get'.
         """
-        return cls.config_args("--get", *args)
+        return self.config_args("--get", *args)
 
-    @classmethod
-    def config_remote_origin_url_args(cls, *args: str) -> Args:
+    def config_remote_origin_url_args(self, *args: str) -> Args:
         """Construct git config get remote origin URL arguments.
 
         Args:
@@ -347,10 +321,9 @@ class VersionController(Tool):
         Returns:
             Args for 'git config --get remote.origin.url'.
         """
-        return cls.config_get_args("remote.origin.url", *args)
+        return self.config_get_args("remote.origin.url", *args)
 
-    @classmethod
-    def config_get_user_name_args(cls, *args: str) -> Args:
+    def config_get_user_name_args(self, *args: str) -> Args:
         """Construct git config get user name arguments.
 
         Args:
@@ -359,10 +332,9 @@ class VersionController(Tool):
         Returns:
             Args for 'git config --get user.name'.
         """
-        return cls.config_get_args("user.name", *args)
+        return self.config_get_args("user.name", *args)
 
-    @classmethod
-    def config_get_user_email_args(cls, *args: str) -> Args:
+    def config_get_user_email_args(self, *args: str) -> Args:
         """Construct git config get user email arguments.
 
         Args:
@@ -371,10 +343,9 @@ class VersionController(Tool):
         Returns:
             Args for 'git config --get user.email'.
         """
-        return cls.config_get_args("user.email", *args)
+        return self.config_get_args("user.email", *args)
 
-    @classmethod
-    def diff_args(cls, *args: str) -> Args:
+    def diff_args(self, *args: str) -> Args:
         """Construct git diff arguments.
 
         Args:
@@ -383,10 +354,9 @@ class VersionController(Tool):
         Returns:
             Args for 'git diff'.
         """
-        return cls.args("diff", *args)
+        return self.args("diff", *args)
 
-    @classmethod
-    def diff_quiet_args(cls, *args: str) -> Args:
+    def diff_quiet_args(self, *args: str) -> Args:
         """Construct git diff arguments with --quiet flag.
 
         Args:
@@ -395,28 +365,35 @@ class VersionController(Tool):
         Returns:
             Args for 'git diff --quiet'.
         """
-        return cls.diff_args("--quiet", *args)
+        return self.diff_args("--quiet", *args)
 
-    @classmethod
-    @cache
-    def repo_owner_and_name(
-        cls,
+    def _repo_owner_and_name(
+        self,
         *,
         check_repo_url: bool = True,
         url_encode: bool = False,
     ) -> tuple[str, str]:
         """Get the repository owner and name.
 
+        Parses the git remote origin URL to extract owner and repo name.
+        Falls back to the git username and current working directory name
+        if no remote is configured.
+
+        Args:
+            check_repo_url: Whether to raise on missing remote. Defaults to True.
+            url_encode: Whether to percent-encode the returned strings.
+                Defaults to False.
+
         Returns:
             Tuple of (owner, repository_name).
         """
-        url = cls.repo_remote(check=check_repo_url)
+        url = self.repo_remote(check=check_repo_url)
         if not url:
             # we default to git username and repo name from cwd
             logger.debug(
                 "No git remote found, using git username and CWD for repo info"
             )
-            owner = cls.username()
+            owner = self.username()
             repo = project_name_from_cwd()
             logger.debug("Derived repository: %s/%s", owner, repo)
         else:
@@ -433,7 +410,31 @@ class VersionController(Tool):
 
     @classmethod
     @cache
-    def repo_remote(cls, *, check: bool = True) -> str:
+    def repo_owner_and_name(
+        cls, *, check_repo_url: bool = True, url_encode: bool = False
+    ) -> tuple[str, str]:
+        """Get the repository owner and name.
+
+        Wrapper around the instance method _repo_owner_and_name
+        to allow caching at the class level.
+
+        The user should override the instance method _repo_owner_and_name
+        for the actual logic, and this class method will handle caching and
+        provide a convenient interface.
+
+        Args:
+            check_repo_url: Whether to raise on missing remote. Defaults to True.
+            url_encode: Whether to percent-encode the returned strings.
+                Defaults to False.
+
+        Returns:
+            Tuple of (owner, repository_name).
+        """
+        return cls()._repo_owner_and_name(  # noqa: SLF001
+            check_repo_url=check_repo_url, url_encode=url_encode
+        )
+
+    def repo_remote(self, *, check: bool = True) -> str:
         """Get the remote origin URL from git config.
 
         Args:
@@ -446,72 +447,65 @@ class VersionController(Tool):
         Raises:
             subprocess.CalledProcessError: If check=True and command fails.
         """
-        args = cls.config_remote_origin_url_args()
-        stdout = args.run(check=check).stdout
+        args = self.config_remote_origin_url_args()
+        stdout = args.run_cached(check=check).stdout
         return stdout.strip()
 
-    @classmethod
-    @cache
-    def username(cls) -> str:
-        """Get git username from local config.
+    def username(self) -> str:
+        """Get git username from config.
 
         Returns:
-            Configured git username (cached).
+            Configured git username.
 
         Raises:
             subprocess.CalledProcessError: If user.name not configured.
         """
-        args = cls.config_get_user_name_args()
-        stdout = args.run().stdout
+        args = self.config_get_user_name_args()
+        stdout = args.run_cached().stdout
         return stdout.strip()
 
-    @classmethod
-    def has_unstaged_diff(cls) -> bool:
+    def has_unstaged_diff(self) -> bool:
         """Check if there are any unstaged changes.
 
         Returns:
             True if there are unstaged changes.
         """
-        args = cls.diff_quiet_args()
+        args = self.diff_quiet_args()
         completed_process = args.run(check=False)
         return completed_process.returncode != 0
 
-    @classmethod
-    def diff(cls) -> str:
+    def diff(self) -> str:
         """Get the diff output.
 
         Returns:
             Diff output.
         """
-        args = cls.diff_args()
+        args = self.diff_args()
         completed_process = args.run(check=False)
         return completed_process.stdout
 
-    @classmethod
-    def ignore_path(cls) -> Path:
+    def ignore_path(self) -> Path:
         """Get the path to the .gitignore file.
 
         Returns:
             Path to .gitignore.
         """
-        return Path(cls.ignore_filename())
+        return Path(self.ignore_filename())
 
-    @classmethod
-    def loaded_ignore(cls) -> list[str]:
+    def loaded_ignore(self) -> list[str]:
         """Get the loaded gitignore patterns.
 
         Returns:
             List of gitignore patterns.
         """
-        return cls.ignore_path().read_text(encoding="utf-8").splitlines()
+        return self.ignore_path().read_text(encoding="utf-8").splitlines()
 
-    @classmethod
-    def email(cls) -> str:
+    def email(self) -> str:
         """Get the email from git config.
 
         Returns:
             Email.
         """
-        args = cls.config_get_user_email_args()
-        stdout = args.run().stdout
+        args = self.config_get_user_email_args()
+        stdout = args.run_cached().stdout
         return stdout.strip()

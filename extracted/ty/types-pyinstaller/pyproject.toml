@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-pyinstaller"
-version = "6.18.0.20260115"
+version = "6.19.0.20260215"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for pyinstaller"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`pyinstaller`](https://github.com/pyinstaller/pyinstaller) package. It can be used by type checkers
 to check code that uses `pyinstaller`. This version of
 `types-pyinstaller` aims to provide accurate annotations for
-`pyinstaller==6.18.*`.
+`pyinstaller==6.19.*`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -29,13 +29,13 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`cd8b26b0ceef26cd84ab614088140d48680ac7f7`](https://github.com/python/typeshed/commit/cd8b26b0ceef26cd84ab614088140d48680ac7f7).
+[`7ad79d00cc532173a204de0405f04daeafc655f3`](https://github.com/python/typeshed/commit/7ad79d00cc532173a204de0405f04daeafc655f3).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = []
 
 [project.urls]
@@ -46,5 +46,5 @@ dependencies = []
 "Chat" = "https://gitter.im/python/typing"
 
 [tool.setuptools]
-packages = ['pyi_splash-stubs', 'PyInstaller-stubs']
+packages = ['PyInstaller-stubs', 'pyi_splash-stubs']
 include-package-data = false

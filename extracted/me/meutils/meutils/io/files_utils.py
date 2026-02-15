@@ -52,7 +52,7 @@ def base64_to_bytes(base64_image_string):
 
 
 async def to_bytes(
-        file: Union[UploadFile, str, bytes],
+        file: Union[UploadFile, str, bytes, list],
         headers: Optional[dict] = None
 ):
     """

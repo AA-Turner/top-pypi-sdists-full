@@ -5,6 +5,7 @@ from adam.commands.command import Command
 from adam.commands.devices.device import Device
 from adam.config import Config
 from adam.repl_state import ReplState
+from adam.utils_job.job import Job
 from adam.utils_log import wait_log
 from adam.utils_tabulize import tabulize
 from adam.utils_context import NULL
@@ -129,9 +130,9 @@ class DeviceApp(Command, Device):
 
         return '\t'.join([f'{ReplState.A}:>'] + (words if words else ['/']))
 
-    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str, retry = False):
+    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str, job: Job = None, ctx = NULL):
         if state.app_app:
-            return True, chain.retry(f'app {cmd}', state) if retry else chain.run(f'app {cmd}', state)
+            return True, chain.retry(f'app {cmd}', job, state, ctx=ctx) if job else chain.run(f'app {cmd}', state)
 
         return False, None
 

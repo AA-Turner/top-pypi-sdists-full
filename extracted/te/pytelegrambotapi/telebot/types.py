@@ -515,6 +515,9 @@ class User(JsonDeserializable, Dictionaryable, JsonSerializable):
     :param has_topics_enabled: Optional. True, if the bot has forum topic mode enabled in private chats. Returned only in getMe.
     :type has_topics_enabled: :obj:`bool`
 
+    :param allows_users_to_create_topics: Optional. True, if the bot allows users to create and delete topics in private chats. Returned only in getMe.
+    :type allows_users_to_create_topics: :obj:`bool`
+
     :return: Instance of the class
     :rtype: :class:`telebot.types.User`
     """
@@ -528,7 +531,7 @@ class User(JsonDeserializable, Dictionaryable, JsonSerializable):
     def __init__(self, id, is_bot, first_name, last_name=None, username=None, language_code=None,
                  can_join_groups=None, can_read_all_group_messages=None, supports_inline_queries=None, 
                  is_premium=None, added_to_attachment_menu=None, can_connect_to_business=None, 
-                 has_main_web_app=None, has_topics_enabled=None, **kwargs):
+                 has_main_web_app=None, has_topics_enabled=None, allows_users_to_create_topics=None, **kwargs):
         self.id: int = id
         self.is_bot: bool = is_bot
         self.first_name: str = first_name
@@ -543,6 +546,7 @@ class User(JsonDeserializable, Dictionaryable, JsonSerializable):
         self.can_connect_to_business: Optional[bool] = can_connect_to_business
         self.has_main_web_app: Optional[bool] = has_main_web_app
         self.has_topics_enabled: Optional[bool] = has_topics_enabled
+        self.allows_users_to_create_topics: Optional[bool] = allows_users_to_create_topics
 
     @property
     def full_name(self) -> str:
@@ -570,7 +574,10 @@ class User(JsonDeserializable, Dictionaryable, JsonSerializable):
                 'is_premium': self.is_premium,
                 'added_to_attachment_menu': self.added_to_attachment_menu,
                 'can_connect_to_business': self.can_connect_to_business,
-                'has_main_web_app': self.has_main_web_app}
+                'has_main_web_app': self.has_main_web_app,
+                'has_topics_enabled': self.has_topics_enabled,
+                'allows_users_to_create_topics': self.allows_users_to_create_topics
+                }
 
 
 # noinspection PyShadowingBuiltins
@@ -753,6 +760,9 @@ class ChatFullInfo(JsonDeserializable):
 
     :param paid_message_star_count: Optional. The number of Telegram Stars a general user have to pay to send a message to the chat
     :type paid_message_star_count: :obj:`int`
+    
+    :param first_profile_audio: Optional. For private chats, the first audio added to the profile of the user
+    :type first_profile_audio: :class:`telebot.types.Audio`
 
     :param unique_gift_colors: Optional. The color scheme based on a unique gift that must be used for the chat's name, message replies and link previews
     :type unique_gift_colors: :class:`telebot.types.UniqueGiftColors`
@@ -792,6 +802,8 @@ class ChatFullInfo(JsonDeserializable):
             obj['rating'] = UserRating.de_json(obj['rating'])
         if 'unique_gift_colors' in obj:
             obj['unique_gift_colors'] = UniqueGiftColors.de_json(obj['unique_gift_colors'])
+        if 'first_profile_audio' in obj:
+            obj['first_profile_audio'] = Audio.de_json(obj['first_profile_audio'])
         return cls(**obj)
 
     def __init__(self, id, type, title=None, username=None, first_name=None,
@@ -809,7 +821,7 @@ class ChatFullInfo(JsonDeserializable):
                 business_opening_hours=None, personal_chat=None, birthdate=None,
                 can_send_paid_media=None,
                 accepted_gift_types=None, is_direct_messages=None, parent_chat=None, rating=None, paid_message_star_count=None,
-                unique_gift_colors=None, **kwargs):
+                unique_gift_colors=None, first_profile_audio=None, **kwargs):
         self.id: int = id
         self.type: str = type
         self.title: Optional[str] = title
@@ -860,6 +872,7 @@ class ChatFullInfo(JsonDeserializable):
         self.rating: Optional[UserRating] = rating
         self.paid_message_star_count: Optional[int] = paid_message_star_count
         self.unique_gift_colors: Optional[UniqueGiftColors] = unique_gift_colors
+        self.first_profile_audio: Optional[Audio] = first_profile_audio
 
 
     @property
@@ -1125,6 +1138,12 @@ class Message(JsonDeserializable):
     :param left_chat_member: Optional. A member was removed from the group, information about them (this member may be
         the bot itself)
     :type left_chat_member: :class:`telebot.types.User`
+
+    :param chat_owner_left: Optional. Service message: chat owner has left
+    :type chat_owner_left: :class:`telebot.types.ChatOwnerLeft`
+
+    :param chat_owner_changed: Optional. Service message: chat owner has changed
+    :type chat_owner_changed: :class:`telebot.types.ChatOwnerChanged`
 
     :param new_chat_title: Optional. A chat title was changed to this value
     :type new_chat_title: :obj:`str`
@@ -1577,6 +1596,12 @@ class Message(JsonDeserializable):
         if 'suggested_post_refunded' in obj:
             opts['suggested_post_refunded'] = SuggestedPostRefunded.de_json(obj['suggested_post_refunded'])
             content_type = 'suggested_post_refunded'
+        if 'chat_owner_changed' in obj:
+            opts['chat_owner_changed'] = ChatOwnerChanged.de_json(obj['chat_owner_changed'])
+            content_type = 'chat_owner_changed'
+        if 'chat_owner_left' in obj:
+            opts['chat_owner_left'] = ChatOwnerLeft.de_json(obj['chat_owner_left'])
+            content_type = 'chat_owner_left'
 
         return cls(message_id, from_user, date, chat, content_type, opts, json_string)
 
@@ -1713,6 +1738,8 @@ class Message(JsonDeserializable):
         self.suggested_post_declined: Optional[SuggestedPostDeclined] = None
         self.suggested_post_paid: Optional[SuggestedPostPaid] = None
         self.suggested_post_refunded: Optional[SuggestedPostRefunded] = None
+        self.chat_owner_left: Optional[ChatOwnerLeft] = None
+        self.chat_owner_changed: Optional[ChatOwnerChanged] = None
 
         for key in options:
             setattr(self, key, options[key])
@@ -2164,6 +2191,9 @@ class Video(JsonDeserializable):
     :param start_timestamp: Optional. Timestamp in seconds from which the video will play in the message
     :type start_timestamp: :obj:`int`
 
+    :param qualities: Optional. List of available qualities of the video
+    :type qualities: List[:class:`telebot.types.VideoQuality`]
+
     :param file_name: Optional. Original filename as defined by sender
     :type file_name: :obj:`str`
 
@@ -2186,10 +2216,12 @@ class Video(JsonDeserializable):
             obj['thumbnail'] = PhotoSize.de_json(obj['thumbnail'])
         if 'cover' in obj:
             obj['cover'] = [PhotoSize.de_json(c) for c in obj['cover']]
+        if 'qualities' in obj:
+            obj['qualities'] = [VideoQuality.de_json(q) for q in obj['qualities']]
         return cls(**obj)
 
     def __init__(self, file_id, file_unique_id, width, height, duration, thumbnail=None, file_name=None, mime_type=None, file_size=None,
-                    cover=None, start_timestamp=None, **kwargs):
+                    cover=None, start_timestamp=None, qualities=None, **kwargs):
         self.file_id: str = file_id
         self.file_unique_id: str = file_unique_id
         self.width: int = width
@@ -2201,6 +2233,7 @@ class Video(JsonDeserializable):
         self.file_size: Optional[int] = file_size
         self.cover: Optional[List[PhotoSize]] = cover
         self.start_timestamp: Optional[int] = start_timestamp
+        self.qualities: Optional[List[VideoQuality]] = qualities
 
     @property
     def thumb(self) -> Optional[PhotoSize]:
@@ -2898,9 +2931,17 @@ class KeyboardButton(Dictionaryable, JsonSerializable):
 
     Telegram Documentation: https://core.telegram.org/bots/api#keyboardbutton
 
-    :param text: Text of the button. If none of the optional fields are used, it will be sent as a message when the button is
-        pressed
+    :param text: Text of the button. If none of the fields other than text, icon_custom_emoji_id, and style are used,
+        it will be sent as a message when the button is pressed
     :type text: :obj:`str`
+
+    :param icon_custom_emoji_id: Optional. Unique identifier of the custom emoji shown before the text of the button.
+        Can only be used by bots that purchased additional usernames on Fragment or in the messages directly sent by the bot to private, group and supergroup chats
+        if the owner of the bot has a Telegram Premium subscription.
+    :type icon_custom_emoji_id: :obj:`str`
+
+    :param style: Optional. Style of the button. Must be one of “danger” (red), “success” (green) or “primary” (blue). If omitted, then an app-specific style is used.
+    :type style: :obj:`str`
 
     :param request_contact: Optional. If True, the user's phone number will be sent as a contact when the button is
         pressed. Available in private chats only.
@@ -2935,7 +2976,8 @@ class KeyboardButton(Dictionaryable, JsonSerializable):
     def __init__(self, text: str, request_contact: Optional[bool]=None,
             request_location: Optional[bool]=None, request_poll: Optional[KeyboardButtonPollType]=None,
             web_app: Optional[WebAppInfo]=None, request_user: Optional[KeyboardButtonRequestUser]=None,
-            request_chat: Optional[KeyboardButtonRequestChat]=None, request_users: Optional[KeyboardButtonRequestUsers]=None):
+            request_chat: Optional[KeyboardButtonRequestChat]=None, request_users: Optional[KeyboardButtonRequestUsers]=None,
+            icon_custom_emoji_id: Optional[str]=None, style: Optional[str]=None, **kwargs):
         self.text: str = text
         self.request_contact: Optional[bool] = request_contact
         self.request_location: Optional[bool] = request_location
@@ -2943,6 +2985,8 @@ class KeyboardButton(Dictionaryable, JsonSerializable):
         self.web_app: Optional[WebAppInfo] = web_app
         self.request_chat: Optional[KeyboardButtonRequestChat] = request_chat
         self.request_users: Optional[KeyboardButtonRequestUsers] = request_users
+        self.icon_custom_emoji_id: Optional[str] = icon_custom_emoji_id
+        self.style: Optional[str] = style
         if request_user is not None:
             log_deprecation_warning('The parameter "request_user" is deprecated, use "request_users" instead')
             if self.request_users is None:
@@ -2967,6 +3011,10 @@ class KeyboardButton(Dictionaryable, JsonSerializable):
             json_dict['request_users'] = self.request_users.to_dict()
         if self.request_chat is not None:
             json_dict['request_chat'] = self.request_chat.to_dict()
+        if self.icon_custom_emoji_id is not None:
+            json_dict['icon_custom_emoji_id'] = self.icon_custom_emoji_id
+        if self.style is not None:
+            json_dict['style'] = self.style
         return json_dict
 
 
@@ -3090,6 +3138,15 @@ class InlineKeyboardButton(Dictionaryable, JsonSerializable, JsonDeserializable)
     :param text: Label text on the button
     :type text: :obj:`str`
 
+    :param icon_custom_emoji_id: Optional. Unique identifier of the custom emoji shown before the text of the button.
+        Can only be used by bots that purchased additional usernames on Fragment or in the messages directly sent by the bot to private,
+        group and supergroup chats if the owner of the bot has a Telegram Premium subscription.
+    :type icon_custom_emoji_id: :obj:`str`
+
+    :param style: Optional. Style of the button. Must be one of “danger” (red), “success” (green) or “primary” (blue). If omitted,
+        then an app-specific style is used.
+    :type style: :obj:`str`
+
     :param url: Optional. HTTP or tg:// URL to be opened when the button is pressed. Links tg://user?id=<user_id> can be
         used to mention a user by their ID without using a username, if this is allowed by their privacy settings.
     :type url: :obj:`str`
@@ -3155,7 +3212,7 @@ class InlineKeyboardButton(Dictionaryable, JsonSerializable, JsonDeserializable)
     def __init__(self, text: str, url: Optional[str]=None, callback_data: Optional[str]=None, web_app: Optional[WebAppInfo]=None,
             switch_inline_query: Optional[str]=None, switch_inline_query_current_chat: Optional[str]=None,
             switch_inline_query_chosen_chat: Optional[SwitchInlineQueryChosenChat]=None, callback_game=None, pay: Optional[bool]=None,
-            login_url: Optional[LoginUrl]=None, copy_text: Optional[CopyTextButton]=None, **kwargs):
+            login_url: Optional[LoginUrl]=None, copy_text: Optional[CopyTextButton]=None, icon_custom_emoji_id: Optional[str]=None, style: Optional[str]=None, **kwargs):
         self.text: str = text
         self.url: Optional[str] = url
         self.callback_data: Optional[str] = callback_data
@@ -3167,6 +3224,8 @@ class InlineKeyboardButton(Dictionaryable, JsonSerializable, JsonDeserializable)
         self.pay: Optional[bool] = pay
         self.login_url: Optional[LoginUrl] = login_url
         self.copy_text: Optional[CopyTextButton] = copy_text
+        self.icon_custom_emoji_id: Optional[str] = icon_custom_emoji_id
+        self.style: Optional[str] = style
 
     def to_json(self):
         return json.dumps(self.to_dict())
@@ -3193,6 +3252,10 @@ class InlineKeyboardButton(Dictionaryable, JsonSerializable, JsonDeserializable)
             json_dict['switch_inline_query_chosen_chat'] = self.switch_inline_query_chosen_chat.to_dict()
         if self.copy_text is not None:
             json_dict['copy_text'] = self.copy_text.to_dict()
+        if self.icon_custom_emoji_id is not None:
+            json_dict['icon_custom_emoji_id'] = self.icon_custom_emoji_id
+        if self.style is not None:
+            json_dict['style'] = self.style
         return json_dict
 
 
@@ -11969,6 +12032,9 @@ class UniqueGift(JsonDeserializable):
     :param is_premium: Optional. True, if the gift can only be purchased by Telegram Premium subscribers
     :type is_premium: :obj:`bool`
 
+    :param is_burned: Optional. True, if the gift was used to craft another gift and isn't available anymore
+    :type is_burned: :obj:`bool`
+
     :param colors: Optional. The color scheme that can be used by the gift's owner for the chat's name, replies to messages and link previews; for business account gifts and gifts that are currently on sale only
     :type colors: :class:`UniqueGiftColors`
     :param publisher_chat: Optional. Information about the chat that published the gift
@@ -11977,7 +12043,8 @@ class UniqueGift(JsonDeserializable):
     :return: Instance of the class
     :rtype: :class:`UniqueGift`
     """
-    def __init__(self, base_name, name, number, model, symbol, backdrop, gift_id, publisher_chat=None, is_from_blockchain=None, is_premium=None, colors=None, **kwargs):
+    def __init__(self, base_name, name, number, model, symbol, backdrop, gift_id, publisher_chat=None, is_from_blockchain=None, is_premium=None, colors=None,
+                    is_burned=None, **kwargs):
         self.base_name: str = base_name
         self.name: str = name
         self.number: int = number
@@ -11989,6 +12056,7 @@ class UniqueGift(JsonDeserializable):
         self.is_premium: Optional[bool] = is_premium
         self.colors: Optional[UniqueGiftColors] = colors
         self.publisher_chat: Optional[Chat] = publisher_chat
+        self.is_burned: Optional[bool] = is_burned
 
     @classmethod
     def de_json(cls, json_string):
@@ -12019,14 +12087,18 @@ class UniqueGiftModel(JsonDeserializable):
     :param rarity_per_mille: The number of unique gifts that receive this model for every 1000 gifts upgraded
     :type rarity_per_mille: :obj:`int`
 
+    :param rarity: Optional. Rarity of the model if it is a crafted model. Currently, can be “uncommon”, “rare”, “epic”, or “legendary”.
+    :type rarity: :obj:`str`
+
     :return: Instance of the class
     :rtype: :class:`UniqueGiftModel`
 
     """
-    def __init__(self, name, sticker, rarity_per_mille, **kwargs):
+    def __init__(self, name, sticker, rarity_per_mille, rarity=None, **kwargs):
         self.name: str = name
         self.sticker: Sticker = sticker
         self.rarity_per_mille: int = rarity_per_mille
+        self.rarity: Optional[str] = rarity
 
     @classmethod
     def de_json(cls, json_string):
@@ -13468,4 +13540,118 @@ class UserRating(JsonDeserializable):
         obj = cls.check_json(json_string)
         return cls(**obj)
     
+
+class ChatOwnerLeft(JsonDeserializable):
+    """
+    Describes a service message about the chat owner leaving the chat.
+
+    Telegram documentation: https://core.telegram.org/bots/api#chatownerleft
+
+    :param new_owner: Optional. The user which will be the new owner of the chat if the previous owner does not return to the chat
+    :type new_owner: :class:`User`
+
+    :return: Instance of the class
+    :rtype: :class:`ChatOwnerLeft`
+    """
+    def __init__(self, new_owner: Optional[User] = None, **kwargs):
+        self.new_owner: Optional[User] = new_owner
+        
+    @classmethod
+    def de_json(cls, json_string):
+        if json_string is None: return None
+        obj = cls.check_json(json_string)
+        if 'new_owner' in obj:
+            obj['new_owner'] = User.de_json(obj['new_owner'])
+        return cls(**obj)
+    
+class ChatOwnerChanged(JsonDeserializable):
+    """
+    Describes a service message about an ownership change in the chat.
+
+    Telegram documentation: https://core.telegram.org/bots/api#chatownerchanged
+
+    :param new_owner: The new owner of the chat
+    :type new_owner: :class:`User`
+
+    :return: Instance of the class
+    :rtype: :class:`ChatOwnerChanged`
+    """
+    def __init__(self, new_owner: User, **kwargs):
+        self.new_owner: User = new_owner
+
+    @classmethod
+    def de_json(cls, json_string):
+        if json_string is None: return None
+        obj = cls.check_json(json_string)
+        obj['new_owner'] = User.de_json(obj['new_owner'])
+        return cls(**obj)
+    
+class VideoQuality(JsonDeserializable):
+    """
+    This object represents a video file of a specific quality.
+
+    Telegram documentation: https://core.telegram.org/bots/api#videoquality
+
+    :param file_id: Identifier for this file, which can be used to download or reuse the file
+    :type file_id: :obj:`str`
+
+    :param file_unique_id: Unique identifier for this file, which is supposed to be the same over time and for different bots. Can't be used to download or reuse the file.
+    :type file_unique_id: :obj:`str`
+
+    :param width: Video width
+    :type width: :obj:`int`
+
+    :param height: Video height
+    :type height: :obj:`int`
+
+    :param codec: Codec that was used to encode the video, for example, “h264”, “h265”, or “av01”
+    :type codec: :obj:`str`
+
+    :param file_size: Optional. File size in bytes. It can be bigger than 2^31 and some programming languages may have difficulty/silent defects in interpreting it.
+        But it has at most 52 significant bits, so a signed 64-bit integer or double-precision float type are safe for storing this value.
+    :type file_size: :obj:`int`
+
+    :return: Instance of the class
+    :rtype: :class:`VideoQuality`
+    """
+    def __init__(self, file_id: str, file_unique_id: str, width: int, height: int, codec: str, file_size: Optional[int] = None, **kwargs):
+        self.file_id: str = file_id
+        self.file_unique_id: str = file_unique_id
+        self.width: int = width
+        self.height: int = height
+        self.codec: str = codec
+        self.file_size: Optional[int] = file_size
+
+    @classmethod
+    def de_json(cls, json_string):
+        if json_string is None: return None
+        obj = cls.check_json(json_string)
+        return cls(**obj)
+    
+
+class UserProfileAudios(JsonDeserializable):
+    """
+    This object represents the audios displayed on a user's profile.
+
+    Telegram documentation: https://core.telegram.org/bots/api#userprofileaudios
+
+    :param total_count: Total number of profile audios for the target user
+    :type total_count: :obj:`int`
+
+    :param audios: Requested profile audios
+    :type audios: :obj:`list` of :class:`Audio`
+
+    :return: Instance of the class
+    :rtype: :class:`UserProfileAudios`
+    """
+    def __init__(self, total_count: int, audios: List[Audio], **kwargs):
+        self.total_count: int = total_count
+        self.audios: List[Audio] = audios
+
+    @classmethod
+    def de_json(cls, json_string):
+        if json_string is None: return None
+        obj = cls.check_json(json_string)
+        obj['audios'] = [Audio.de_json(audio) for audio in obj['audios']]
+        return cls(**obj)
     

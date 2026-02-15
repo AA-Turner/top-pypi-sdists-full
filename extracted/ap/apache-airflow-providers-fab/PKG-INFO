@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-fab
-Version: 3.2.0
+Version: 3.3.0
 Summary: Provider package apache-airflow-providers-fab for Apache Airflow
 Keywords: airflow-provider,fab,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -40,8 +40,8 @@ Requires-Dist: cachetools>=6.0; python_version < '3.13'
 Requires-Dist: flask_limiter>3,<4,!=3.13
 Requires-Dist: kerberos>=1.3.0 ; extra == "kerberos" and ( python_version < '3.13')
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-fab/3.2.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-fab/3.2.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-fab/3.3.0/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-fab/3.3.0
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -73,7 +73,7 @@ Provides-Extra: kerberos
 
 Package ``apache-airflow-providers-fab``
 
-Release: ``3.2.0``
+Release: ``3.3.0``
 
 
 `Flask App Builder <https://flask-appbuilder.readthedocs.io/>`__
@@ -86,7 +86,7 @@ This is a provider package for ``fab`` provider. All classes for this provider p
 are in ``airflow.providers.fab`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-fab/3.2.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-fab/3.3.0/>`_.
 
 Installation
 ------------
@@ -150,5 +150,5 @@ Extra         Dependencies
 ============  ============================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-fab/3.2.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-fab/3.3.0/changelog.html>`_.
 

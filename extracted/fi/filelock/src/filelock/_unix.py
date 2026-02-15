@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+import warnings
 from contextlib import suppress
 from errno import EAGAIN, ENOSYS, EWOULDBLOCK
 from pathlib import Path
@@ -36,33 +37,38 @@ else:  # pragma: win32 no cover
     class UnixFileLock(BaseFileLock):
         """Uses the :func:`fcntl.flock` to hard lock the lock file on unix systems."""
 
-        def _acquire(self) -> None:
+        def _acquire(self) -> None:  # noqa: C901
             ensure_directory_exists(self.lock_file)
             open_flags = os.O_RDWR | os.O_TRUNC
             o_nofollow = getattr(os, "O_NOFOLLOW", None)
             if o_nofollow is not None:
                 open_flags |= o_nofollow
             open_flags |= os.O_CREAT
+            open_mode = self._open_mode()
             try:
-                fd = os.open(self.lock_file, open_flags, self._context.mode)
+                fd = os.open(self.lock_file, open_flags, open_mode)
             except PermissionError:
                 # Sticky-bit dirs (e.g. /tmp): O_CREAT fails if the file is owned by another user (#317).
                 # Fall back to opening the existing file without O_CREAT.
                 if not Path(self.lock_file).exists():
                     raise
                 try:
-                    fd = os.open(self.lock_file, open_flags & ~os.O_CREAT, self._context.mode)
+                    fd = os.open(self.lock_file, open_flags & ~os.O_CREAT, open_mode)
                 except FileNotFoundError:
                     return
-            with suppress(PermissionError):  # fchmod fails if the lock file is not owned by this UID
-                os.fchmod(fd, self._context.mode)
+            if self.has_explicit_mode:
+                with suppress(PermissionError):
+                    os.fchmod(fd, self._context.mode)
             try:
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except OSError as exception:
                 os.close(fd)
                 if exception.errno == ENOSYS:
-                    msg = "FileSystem does not appear to support flock; use SoftFileLock instead"
-                    raise NotImplementedError(msg) from exception
+                    with suppress(OSError):
+                        Path(self.lock_file).unlink()
+                    self._fallback_to_soft_lock()
+                    self._acquire()
+                    return
                 if exception.errno not in {EAGAIN, EWOULDBLOCK}:
                     raise
             else:
@@ -72,6 +78,14 @@ else:  # pragma: win32 no cover
                     os.close(fd)
                 else:
                     self._context.lock_file_fd = fd
+
+        def _fallback_to_soft_lock(self) -> None:
+            from ._soft import SoftFileLock  # noqa: PLC0415
+
+            warnings.warn("flock not supported on this filesystem, falling back to SoftFileLock", stacklevel=2)
+            from .asyncio import AsyncSoftFileLock, BaseAsyncFileLock  # noqa: PLC0415
+
+            self.__class__ = AsyncSoftFileLock if isinstance(self, BaseAsyncFileLock) else SoftFileLock
 
         def _release(self) -> None:
             fd = cast("int", self._context.lock_file_fd)

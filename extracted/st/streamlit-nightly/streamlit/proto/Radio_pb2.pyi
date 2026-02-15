@@ -49,6 +49,7 @@ class Radio(_message.Message):
     HORIZONTAL_FIELD_NUMBER: _builtins.int
     LABEL_VISIBILITY_FIELD_NUMBER: _builtins.int
     CAPTIONS_FIELD_NUMBER: _builtins.int
+    QUERY_PARAM_KEY_FIELD_NUMBER: _builtins.int
     id: _builtins.str
     label: _builtins.str
     default: _builtins.int
@@ -58,6 +59,8 @@ class Radio(_message.Message):
     set_value: _builtins.bool
     disabled: _builtins.bool
     horizontal: _builtins.bool
+    query_param_key: _builtins.str
+    """If set, widget value is bound to this query parameter key"""
     @_builtins.property
     def options(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]: ...
     @_builtins.property
@@ -79,17 +82,22 @@ class Radio(_message.Message):
         horizontal: _builtins.bool = ...,
         label_visibility: _LabelVisibility_pb2.LabelVisibility | None = ...,
         captions: _abc.Iterable[_builtins.str] | None = ...,
+        query_param_key: _builtins.str | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_default", b"_default", "_raw_value", b"_raw_value", "default", b"default", "label_visibility", b"label_visibility", "raw_value", b"raw_value"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_default", b"_default", "_query_param_key", b"_query_param_key", "_raw_value", b"_raw_value", "default", b"default", "label_visibility", b"label_visibility", "query_param_key", b"query_param_key", "raw_value", b"raw_value"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_default", b"_default", "_raw_value", b"_raw_value", "captions", b"captions", "default", b"default", "disabled", b"disabled", "form_id", b"form_id", "help", b"help", "horizontal", b"horizontal", "id", b"id", "label", b"label", "label_visibility", b"label_visibility", "options", b"options", "raw_value", b"raw_value", "set_value", b"set_value"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_default", b"_default", "_query_param_key", b"_query_param_key", "_raw_value", b"_raw_value", "captions", b"captions", "default", b"default", "disabled", b"disabled", "form_id", b"form_id", "help", b"help", "horizontal", b"horizontal", "id", b"id", "label", b"label", "label_visibility", b"label_visibility", "options", b"options", "query_param_key", b"query_param_key", "raw_value", b"raw_value", "set_value", b"set_value"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__default: _TypeAlias = _typing.Literal["default"]  # noqa: Y015
     _WhichOneofArgType__default: _TypeAlias = _typing.Literal["_default", b"_default"]  # noqa: Y015
+    _WhichOneofReturnType__query_param_key: _TypeAlias = _typing.Literal["query_param_key"]  # noqa: Y015
+    _WhichOneofArgType__query_param_key: _TypeAlias = _typing.Literal["_query_param_key", b"_query_param_key"]  # noqa: Y015
     _WhichOneofReturnType__raw_value: _TypeAlias = _typing.Literal["raw_value"]  # noqa: Y015
     _WhichOneofArgType__raw_value: _TypeAlias = _typing.Literal["_raw_value", b"_raw_value"]  # noqa: Y015
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__default) -> _WhichOneofReturnType__default | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__query_param_key) -> _WhichOneofReturnType__query_param_key | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__raw_value) -> _WhichOneofReturnType__raw_value | None: ...
 

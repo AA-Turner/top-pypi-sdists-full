@@ -36,7 +36,7 @@ class PrekConfigFile(TomlConfigFile):
     Examples:
         Generate prek.toml::
 
-            PrekConfigFile()
+            PrekConfigFile.I.validate()
 
         Install hooks::
 
@@ -46,22 +46,16 @@ class PrekConfigFile(TomlConfigFile):
         Must run `prek install` after generating config.
 
     See Also:
-        pyrig.rig.tools.base.base.Args
+        pyrig.src.processes.Args
         prek documentation: https://github.com/j178/prek
     """
 
-    @classmethod
-    def parent_path(cls) -> Path:
-        """Get the parent directory for prek.toml.
-
-        Returns:
-            Path: Project root.
-        """
+    def parent_path(self) -> Path:
+        """Get parent directory (project root)."""
         return Path()
 
-    @classmethod
     def hook(
-        cls,
+        self,
         name: str,
         args: Args,
         *,
@@ -94,8 +88,7 @@ class PrekConfigFile(TomlConfigFile):
         }
         return hook
 
-    @classmethod
-    def _configs(cls) -> dict[str, Any]:
+    def _configs(self) -> dict[str, Any]:
         """Get the complete prek configuration.
 
         Generates prek.toml with local hooks: format-code (ruff format),
@@ -109,25 +102,25 @@ class PrekConfigFile(TomlConfigFile):
             All hooks use system-installed tools (no remote repos).
         """
         hooks: list[dict[str, Any]] = [
-            cls.hook(
+            self.hook(
                 "format-code",
-                Linter.L.format_args(),
+                Linter.I.format_args(),
             ),
-            cls.hook(
+            self.hook(
                 "lint-code",
-                Linter.L.check_fix_args(),
+                Linter.I.check_fix_args(),
             ),
-            cls.hook(
+            self.hook(
                 "check-types",
-                TypeChecker.L.check_args(),
+                TypeChecker.I.check_args(),
             ),
-            cls.hook(
+            self.hook(
                 "check-security",
-                SecurityChecker.L.run_with_config_args(),
+                SecurityChecker.I.run_with_config_args(),
             ),
-            cls.hook(
+            self.hook(
                 "check-markdown",
-                MDLinter.L.check_fix_args(),
+                MDLinter.I.check_fix_args(),
             ),
         ]
         return {

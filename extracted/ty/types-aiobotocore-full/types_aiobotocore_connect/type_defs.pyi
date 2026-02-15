@@ -36,6 +36,7 @@ from .literals import (
     BooleanComparisonTypeType,
     ChannelType,
     ChatEventTypeType,
+    ConfigurableNotificationPriorityType,
     ContactFlowModuleStateType,
     ContactFlowModuleStatusType,
     ContactFlowStateType,
@@ -94,11 +95,15 @@ from .literals import (
     IntervalPeriodType,
     LexVersionType,
     ListFlowAssociationResourceTypeType,
+    LocaleCodeType,
     MediaStreamTypeType,
     MediaTypeType,
     MeetingFeatureStatusType,
     MonitorCapabilityType,
     MultiSelectQuestionRuleCategoryAutomationConditionType,
+    NotificationPriorityType,
+    NotificationSourceType,
+    NotificationStatusType,
     NumberComparisonTypeType,
     NumericQuestionPropertyAutomationLabelType,
     OperationalStatusType,
@@ -156,6 +161,7 @@ from .literals import (
     VisibilityType,
     VocabularyLanguageCodeType,
     VocabularyStateType,
+    VoiceEnhancementModeType,
     VoiceRecordingTrackType,
     WorkspaceFontFamilyType,
 )
@@ -170,6 +176,8 @@ __all__ = (
     "ActivateEvaluationFormRequestTypeDef",
     "ActivateEvaluationFormResponseTypeDef",
     "AdditionalEmailRecipientsTypeDef",
+    "AfterContactWorkConfigPerChannelTypeDef",
+    "AfterContactWorkConfigTypeDef",
     "AgentConfigOutputTypeDef",
     "AgentConfigTypeDef",
     "AgentConfigUnionTypeDef",
@@ -240,6 +248,7 @@ __all__ = (
     "AudioQualityMetricsInfoTypeDef",
     "AuthenticationProfileSummaryTypeDef",
     "AuthenticationProfileTypeDef",
+    "AutoAcceptConfigTypeDef",
     "AutoEvaluationConfigurationTypeDef",
     "AutoEvaluationDetailsTypeDef",
     "AutomaticFailConfigurationTypeDef",
@@ -357,6 +366,8 @@ __all__ = (
     "CreateInstanceResponseTypeDef",
     "CreateIntegrationAssociationRequestTypeDef",
     "CreateIntegrationAssociationResponseTypeDef",
+    "CreateNotificationRequestTypeDef",
+    "CreateNotificationResponseTypeDef",
     "CreateParticipantRequestTypeDef",
     "CreateParticipantResponseTypeDef",
     "CreatePersistentContactAssociationRequestTypeDef",
@@ -445,6 +456,7 @@ __all__ = (
     "DeleteHoursOfOperationRequestTypeDef",
     "DeleteInstanceRequestTypeDef",
     "DeleteIntegrationAssociationRequestTypeDef",
+    "DeleteNotificationRequestTypeDef",
     "DeletePredefinedAttributeRequestTypeDef",
     "DeletePromptRequestTypeDef",
     "DeletePushNotificationRegistrationRequestTypeDef",
@@ -498,6 +510,8 @@ __all__ = (
     "DescribeInstanceResponseTypeDef",
     "DescribeInstanceStorageConfigRequestTypeDef",
     "DescribeInstanceStorageConfigResponseTypeDef",
+    "DescribeNotificationRequestTypeDef",
+    "DescribeNotificationResponseTypeDef",
     "DescribePhoneNumberRequestTypeDef",
     "DescribePhoneNumberResponseTypeDef",
     "DescribePredefinedAttributeRequestTypeDef",
@@ -865,6 +879,8 @@ __all__ = (
     "ListLexBotsRequestPaginateTypeDef",
     "ListLexBotsRequestTypeDef",
     "ListLexBotsResponseTypeDef",
+    "ListNotificationsRequestTypeDef",
+    "ListNotificationsResponseTypeDef",
     "ListPhoneNumbersRequestPaginateTypeDef",
     "ListPhoneNumbersRequestTypeDef",
     "ListPhoneNumbersResponseTypeDef",
@@ -940,6 +956,8 @@ __all__ = (
     "ListUserHierarchyGroupsRequestPaginateTypeDef",
     "ListUserHierarchyGroupsRequestTypeDef",
     "ListUserHierarchyGroupsResponseTypeDef",
+    "ListUserNotificationsRequestTypeDef",
+    "ListUserNotificationsResponseTypeDef",
     "ListUserProficienciesRequestPaginateTypeDef",
     "ListUserProficienciesRequestTypeDef",
     "ListUserProficienciesResponseTypeDef",
@@ -989,6 +1007,10 @@ __all__ = (
     "NotificationRecipientTypeOutputTypeDef",
     "NotificationRecipientTypeTypeDef",
     "NotificationRecipientTypeUnionTypeDef",
+    "NotificationSearchCriteriaTypeDef",
+    "NotificationSearchFilterTypeDef",
+    "NotificationSearchSummaryTypeDef",
+    "NotificationTypeDef",
     "NumberConditionTypeDef",
     "NumberReferenceTypeDef",
     "NumericQuestionPropertyValueAutomationTypeDef",
@@ -1023,6 +1045,8 @@ __all__ = (
     "ParticipantTokenCredentialsTypeDef",
     "PauseContactRequestTypeDef",
     "PersistentChatTypeDef",
+    "PersistentConnectionConfigTypeDef",
+    "PhoneNumberConfigTypeDef",
     "PhoneNumberQuickConnectConfigTypeDef",
     "PhoneNumberStatusTypeDef",
     "PhoneNumberSummaryTypeDef",
@@ -1164,6 +1188,8 @@ __all__ = (
     "SearchHoursOfOperationsRequestPaginateTypeDef",
     "SearchHoursOfOperationsRequestTypeDef",
     "SearchHoursOfOperationsResponseTypeDef",
+    "SearchNotificationsRequestTypeDef",
+    "SearchNotificationsResponseTypeDef",
     "SearchPredefinedAttributesRequestPaginateTypeDef",
     "SearchPredefinedAttributesRequestTypeDef",
     "SearchPredefinedAttributesResponseTypeDef",
@@ -1356,6 +1382,7 @@ __all__ = (
     "UpdateHoursOfOperationRequestTypeDef",
     "UpdateInstanceAttributeRequestTypeDef",
     "UpdateInstanceStorageConfigRequestTypeDef",
+    "UpdateNotificationContentRequestTypeDef",
     "UpdateParticipantAuthenticationRequestTypeDef",
     "UpdateParticipantRoleConfigChannelInfoTypeDef",
     "UpdateParticipantRoleConfigRequestTypeDef",
@@ -1384,10 +1411,12 @@ __all__ = (
     "UpdateTaskTemplateResponseTypeDef",
     "UpdateTestCaseRequestTypeDef",
     "UpdateTrafficDistributionRequestTypeDef",
+    "UpdateUserConfigRequestTypeDef",
     "UpdateUserHierarchyGroupNameRequestTypeDef",
     "UpdateUserHierarchyRequestTypeDef",
     "UpdateUserHierarchyStructureRequestTypeDef",
     "UpdateUserIdentityInfoRequestTypeDef",
+    "UpdateUserNotificationStatusRequestTypeDef",
     "UpdateUserPhoneConfigRequestTypeDef",
     "UpdateUserProficienciesRequestTypeDef",
     "UpdateUserRoutingProfileRequestTypeDef",
@@ -1410,6 +1439,7 @@ __all__ = (
     "UserIdentityInfoLiteTypeDef",
     "UserIdentityInfoTypeDef",
     "UserInfoTypeDef",
+    "UserNotificationSummaryTypeDef",
     "UserPhoneConfigTypeDef",
     "UserProficiencyDisassociateTypeDef",
     "UserProficiencyTypeDef",
@@ -1437,6 +1467,7 @@ __all__ = (
     "VocabularySummaryTypeDef",
     "VocabularyTypeDef",
     "VoiceCallEntryPointParametersTypeDef",
+    "VoiceEnhancementConfigTypeDef",
     "VoiceRecordingConfigurationTypeDef",
     "WisdomInfoTypeDef",
     "WorkspaceAssociationSearchCriteriaPaginatorTypeDef",
@@ -1475,6 +1506,9 @@ class ResponseMetadataTypeDef(TypedDict):
 class EmailRecipientTypeDef(TypedDict):
     Address: NotRequired[str]
     DisplayName: NotRequired[str]
+
+class AfterContactWorkConfigTypeDef(TypedDict):
+    AfterContactWorkTimeLimit: NotRequired[int]
 
 class DistributionTypeDef(TypedDict):
     Region: str
@@ -1756,6 +1790,11 @@ class AuthenticationProfileTypeDef(TypedDict):
     MaxSessionDuration: NotRequired[int]
     SessionInactivityDuration: NotRequired[int]
     SessionInactivityHandlingEnabled: NotRequired[bool]
+
+class AutoAcceptConfigTypeDef(TypedDict):
+    Channel: ChannelType
+    AutoAccept: bool
+    AgentFirstCallbackAutoAccept: NotRequired[bool]
 
 class AutoEvaluationConfigurationTypeDef(TypedDict):
     Enabled: bool
@@ -2229,6 +2268,15 @@ class CreateUserHierarchyGroupRequestTypeDef(TypedDict):
     ParentGroupId: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
 
+class PersistentConnectionConfigTypeDef(TypedDict):
+    Channel: ChannelType
+    PersistentConnection: bool
+
+class PhoneNumberConfigTypeDef(TypedDict):
+    Channel: ChannelType
+    PhoneType: PhoneTypeType
+    PhoneNumber: NotRequired[str]
+
 class UserIdentityInfoTypeDef(TypedDict):
     FirstName: NotRequired[str]
     LastName: NotRequired[str]
@@ -2237,11 +2285,15 @@ class UserIdentityInfoTypeDef(TypedDict):
     Mobile: NotRequired[str]
 
 class UserPhoneConfigTypeDef(TypedDict):
-    PhoneType: PhoneTypeType
+    PhoneType: NotRequired[PhoneTypeType]
     AutoAccept: NotRequired[bool]
     AfterContactWorkTimeLimit: NotRequired[int]
     DeskPhoneNumber: NotRequired[str]
     PersistentConnection: NotRequired[bool]
+
+class VoiceEnhancementConfigTypeDef(TypedDict):
+    Channel: ChannelType
+    VoiceEnhancementMode: VoiceEnhancementModeType
 
 class ViewInputContentTypeDef(TypedDict):
     Template: NotRequired[str]
@@ -2405,6 +2457,10 @@ class DeleteIntegrationAssociationRequestTypeDef(TypedDict):
     InstanceId: str
     IntegrationAssociationId: str
 
+class DeleteNotificationRequestTypeDef(TypedDict):
+    InstanceId: str
+    NotificationId: str
+
 class DeletePredefinedAttributeRequestTypeDef(TypedDict):
     InstanceId: str
     Name: str
@@ -2556,6 +2612,22 @@ class DescribeInstanceStorageConfigRequestTypeDef(TypedDict):
     InstanceId: str
     AssociationId: str
     ResourceType: InstanceStorageResourceTypeType
+
+class DescribeNotificationRequestTypeDef(TypedDict):
+    InstanceId: str
+    NotificationId: str
+
+class NotificationTypeDef(TypedDict):
+    Id: str
+    Arn: str
+    LastModifiedTime: datetime
+    Content: NotRequired[dict[LocaleCodeType, str]]
+    Priority: NotRequired[NotificationPriorityType]
+    Recipients: NotRequired[list[str]]
+    CreatedAt: NotRequired[datetime]
+    ExpiresAt: NotRequired[datetime]
+    LastModifiedRegion: NotRequired[str]
+    Tags: NotRequired[dict[str, str]]
 
 class DescribePhoneNumberRequestTypeDef(TypedDict):
     PhoneNumberId: str
@@ -3291,6 +3363,11 @@ class ListLexBotsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class ListNotificationsRequestTypeDef(TypedDict):
+    InstanceId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
 class ListPhoneNumbersRequestTypeDef(TypedDict):
     InstanceId: str
     PhoneNumberTypes: NotRequired[Sequence[PhoneNumberTypeType]]
@@ -3559,6 +3636,23 @@ class ListUserHierarchyGroupsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class ListUserNotificationsRequestTypeDef(TypedDict):
+    InstanceId: str
+    UserId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class UserNotificationSummaryTypeDef(TypedDict):
+    NotificationId: NotRequired[str]
+    NotificationStatus: NotRequired[NotificationStatusType]
+    InstanceId: NotRequired[str]
+    RecipientId: NotRequired[str]
+    Content: NotRequired[dict[LocaleCodeType, str]]
+    Priority: NotRequired[NotificationPriorityType]
+    Source: NotRequired[NotificationSourceType]
+    CreatedAt: NotRequired[datetime]
+    ExpiresAt: NotRequired[datetime]
+
 class ListUserProficienciesRequestTypeDef(TypedDict):
     InstanceId: str
     UserId: str
@@ -3711,6 +3805,19 @@ class NotificationRecipientTypeOutputTypeDef(TypedDict):
 class NotificationRecipientTypeTypeDef(TypedDict):
     UserTags: NotRequired[Mapping[str, str]]
     UserIds: NotRequired[Sequence[str]]
+
+class NotificationSearchSummaryTypeDef(TypedDict):
+    Id: NotRequired[str]
+    Arn: NotRequired[str]
+    InstanceId: NotRequired[str]
+    Content: NotRequired[dict[LocaleCodeType, str]]
+    Priority: NotRequired[NotificationPriorityType]
+    Recipients: NotRequired[list[str]]
+    CreatedAt: NotRequired[datetime]
+    ExpiresAt: NotRequired[datetime]
+    LastModifiedRegion: NotRequired[str]
+    LastModifiedTime: NotRequired[datetime]
+    Tags: NotRequired[dict[str, str]]
 
 class NumberReferenceTypeDef(TypedDict):
     Name: NotRequired[str]
@@ -4165,6 +4272,11 @@ class UpdateInstanceAttributeRequestTypeDef(TypedDict):
     Value: str
     ClientToken: NotRequired[str]
 
+class UpdateNotificationContentRequestTypeDef(TypedDict):
+    InstanceId: str
+    NotificationId: str
+    Content: Mapping[LocaleCodeType, str]
+
 class UpdateParticipantAuthenticationRequestTypeDef(TypedDict):
     State: str
     InstanceId: str
@@ -4402,6 +4514,11 @@ class CreateIntegrationAssociationResponseTypeDef(TypedDict):
     IntegrationAssociationArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateNotificationResponseTypeDef(TypedDict):
+    NotificationId: str
+    NotificationArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreatePersistentContactAssociationResponseTypeDef(TypedDict):
     ContinuedFromContactId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -4635,6 +4752,11 @@ class AdditionalEmailRecipientsTypeDef(TypedDict):
     ToList: NotRequired[list[EmailRecipientTypeDef]]
     CcList: NotRequired[list[EmailRecipientTypeDef]]
 
+class AfterContactWorkConfigPerChannelTypeDef(TypedDict):
+    Channel: ChannelType
+    AfterContactWorkConfig: AfterContactWorkConfigTypeDef
+    AgentFirstCallbackAfterContactWorkConfig: NotRequired[AfterContactWorkConfigTypeDef]
+
 class AgentConfigOutputTypeDef(TypedDict):
     Distributions: list[DistributionTypeDef]
 
@@ -4743,6 +4865,11 @@ class HoursOfOperationSearchCriteriaPaginatorTypeDef(TypedDict):
     StringCondition: NotRequired[StringConditionTypeDef]
 
 class HoursOfOperationSearchCriteriaTypeDef(TypedDict):
+    OrConditions: NotRequired[Sequence[Mapping[str, Any]]]
+    AndConditions: NotRequired[Sequence[Mapping[str, Any]]]
+    StringCondition: NotRequired[StringConditionTypeDef]
+
+class NotificationSearchCriteriaTypeDef(TypedDict):
     OrConditions: NotRequired[Sequence[Mapping[str, Any]]]
     AndConditions: NotRequired[Sequence[Mapping[str, Any]]]
     StringCondition: NotRequired[StringConditionTypeDef]
@@ -5420,6 +5547,16 @@ class CreateContactFlowVersionRequestTypeDef(TypedDict):
     LastModifiedTime: NotRequired[TimestampTypeDef]
     LastModifiedRegion: NotRequired[str]
 
+class CreateNotificationRequestTypeDef(TypedDict):
+    InstanceId: str
+    Recipients: Sequence[str]
+    Content: Mapping[LocaleCodeType, str]
+    ExpiresAt: NotRequired[TimestampTypeDef]
+    Priority: NotRequired[ConfigurableNotificationPriorityType]
+    Tags: NotRequired[Mapping[str, str]]
+    PredefinedNotificationId: NotRequired[str]
+    ClientToken: NotRequired[str]
+
 class DataTableValueTypeDef(TypedDict):
     AttributeName: str
     Value: str
@@ -5451,6 +5588,14 @@ class UpdateContactScheduleRequestTypeDef(TypedDict):
     InstanceId: str
     ContactId: str
     ScheduledTime: TimestampTypeDef
+
+class UpdateUserNotificationStatusRequestTypeDef(TypedDict):
+    InstanceId: str
+    NotificationId: str
+    UserId: str
+    Status: NotificationStatusType
+    LastModifiedTime: NotRequired[TimestampTypeDef]
+    LastModifiedRegion: NotRequired[str]
 
 class TaskActionDefinitionOutputTypeDef(TypedDict):
     Name: str
@@ -5516,36 +5661,10 @@ class UpdateUserIdentityInfoRequestTypeDef(TypedDict):
     UserId: str
     InstanceId: str
 
-class CreateUserRequestTypeDef(TypedDict):
-    Username: str
-    PhoneConfig: UserPhoneConfigTypeDef
-    SecurityProfileIds: Sequence[str]
-    RoutingProfileId: str
-    InstanceId: str
-    Password: NotRequired[str]
-    IdentityInfo: NotRequired[UserIdentityInfoTypeDef]
-    DirectoryUserId: NotRequired[str]
-    HierarchyGroupId: NotRequired[str]
-    Tags: NotRequired[Mapping[str, str]]
-
 class UpdateUserPhoneConfigRequestTypeDef(TypedDict):
     PhoneConfig: UserPhoneConfigTypeDef
     UserId: str
     InstanceId: str
-
-class UserTypeDef(TypedDict):
-    Id: NotRequired[str]
-    Arn: NotRequired[str]
-    Username: NotRequired[str]
-    IdentityInfo: NotRequired[UserIdentityInfoTypeDef]
-    PhoneConfig: NotRequired[UserPhoneConfigTypeDef]
-    DirectoryUserId: NotRequired[str]
-    SecurityProfileIds: NotRequired[list[str]]
-    RoutingProfileId: NotRequired[str]
-    HierarchyGroupId: NotRequired[str]
-    Tags: NotRequired[dict[str, str]]
-    LastModifiedTime: NotRequired[datetime]
-    LastModifiedRegion: NotRequired[str]
 
 class CreateViewRequestTypeDef(TypedDict):
     InstanceId: str
@@ -5614,6 +5733,15 @@ class EvaluationSearchCriteriaTypeDef(TypedDict):
 
 class ListDefaultVocabulariesResponseTypeDef(TypedDict):
     DefaultVocabularyList: list[DefaultVocabularyTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class DescribeNotificationResponseTypeDef(TypedDict):
+    Notification: NotificationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListNotificationsResponseTypeDef(TypedDict):
+    NotificationSummaryList: list[NotificationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -6370,6 +6498,11 @@ class ListUseCasesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class ListUserNotificationsResponseTypeDef(TypedDict):
+    UserNotifications: list[UserNotificationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class ListUsersResponseTypeDef(TypedDict):
     UserSummaryList: list[UserSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6432,6 +6565,12 @@ class SendNotificationActionDefinitionOutputTypeDef(TypedDict):
 NotificationRecipientTypeUnionTypeDef = Union[
     NotificationRecipientTypeTypeDef, NotificationRecipientTypeOutputTypeDef
 ]
+
+class SearchNotificationsResponseTypeDef(TypedDict):
+    Notifications: list[NotificationSearchSummaryTypeDef]
+    ApproximateTotalCount: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class WorkspaceThemePaletteTypeDef(TypedDict):
     Header: NotRequired[PaletteHeaderTypeDef]
@@ -6610,18 +6749,6 @@ class TranscriptTypeDef(TypedDict):
     Criteria: Sequence[TranscriptCriteriaTypeDef]
     MatchType: NotRequired[SearchContactsMatchTypeType]
 
-class UserSearchSummaryTypeDef(TypedDict):
-    Arn: NotRequired[str]
-    DirectoryUserId: NotRequired[str]
-    HierarchyGroupId: NotRequired[str]
-    Id: NotRequired[str]
-    IdentityInfo: NotRequired[UserIdentityInfoLiteTypeDef]
-    PhoneConfig: NotRequired[UserPhoneConfigTypeDef]
-    RoutingProfileId: NotRequired[str]
-    SecurityProfileIds: NotRequired[list[str]]
-    Tags: NotRequired[dict[str, str]]
-    Username: NotRequired[str]
-
 class ValidationOutputTypeDef(TypedDict):
     MinLength: NotRequired[int]
     MaxLength: NotRequired[int]
@@ -6671,6 +6798,68 @@ class ListRulesResponseTypeDef(TypedDict):
     RuleSummaryList: list[RuleSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class CreateUserRequestTypeDef(TypedDict):
+    Username: str
+    SecurityProfileIds: Sequence[str]
+    RoutingProfileId: str
+    InstanceId: str
+    Password: NotRequired[str]
+    IdentityInfo: NotRequired[UserIdentityInfoTypeDef]
+    PhoneConfig: NotRequired[UserPhoneConfigTypeDef]
+    DirectoryUserId: NotRequired[str]
+    HierarchyGroupId: NotRequired[str]
+    AutoAcceptConfigs: NotRequired[Sequence[AutoAcceptConfigTypeDef]]
+    AfterContactWorkConfigs: NotRequired[Sequence[AfterContactWorkConfigPerChannelTypeDef]]
+    PhoneNumberConfigs: NotRequired[Sequence[PhoneNumberConfigTypeDef]]
+    PersistentConnectionConfigs: NotRequired[Sequence[PersistentConnectionConfigTypeDef]]
+    VoiceEnhancementConfigs: NotRequired[Sequence[VoiceEnhancementConfigTypeDef]]
+    Tags: NotRequired[Mapping[str, str]]
+
+class UpdateUserConfigRequestTypeDef(TypedDict):
+    UserId: str
+    InstanceId: str
+    AutoAcceptConfigs: NotRequired[Sequence[AutoAcceptConfigTypeDef]]
+    AfterContactWorkConfigs: NotRequired[Sequence[AfterContactWorkConfigPerChannelTypeDef]]
+    PhoneNumberConfigs: NotRequired[Sequence[PhoneNumberConfigTypeDef]]
+    PersistentConnectionConfigs: NotRequired[Sequence[PersistentConnectionConfigTypeDef]]
+    VoiceEnhancementConfigs: NotRequired[Sequence[VoiceEnhancementConfigTypeDef]]
+
+class UserSearchSummaryTypeDef(TypedDict):
+    Arn: NotRequired[str]
+    DirectoryUserId: NotRequired[str]
+    HierarchyGroupId: NotRequired[str]
+    Id: NotRequired[str]
+    IdentityInfo: NotRequired[UserIdentityInfoLiteTypeDef]
+    PhoneConfig: NotRequired[UserPhoneConfigTypeDef]
+    RoutingProfileId: NotRequired[str]
+    SecurityProfileIds: NotRequired[list[str]]
+    Tags: NotRequired[dict[str, str]]
+    Username: NotRequired[str]
+    AutoAcceptConfigs: NotRequired[list[AutoAcceptConfigTypeDef]]
+    AfterContactWorkConfigs: NotRequired[list[AfterContactWorkConfigPerChannelTypeDef]]
+    PhoneNumberConfigs: NotRequired[list[PhoneNumberConfigTypeDef]]
+    PersistentConnectionConfigs: NotRequired[list[PersistentConnectionConfigTypeDef]]
+    VoiceEnhancementConfigs: NotRequired[list[VoiceEnhancementConfigTypeDef]]
+
+class UserTypeDef(TypedDict):
+    Id: NotRequired[str]
+    Arn: NotRequired[str]
+    Username: NotRequired[str]
+    IdentityInfo: NotRequired[UserIdentityInfoTypeDef]
+    PhoneConfig: NotRequired[UserPhoneConfigTypeDef]
+    DirectoryUserId: NotRequired[str]
+    SecurityProfileIds: NotRequired[list[str]]
+    RoutingProfileId: NotRequired[str]
+    HierarchyGroupId: NotRequired[str]
+    Tags: NotRequired[dict[str, str]]
+    AutoAcceptConfigs: NotRequired[list[AutoAcceptConfigTypeDef]]
+    AfterContactWorkConfigs: NotRequired[list[AfterContactWorkConfigPerChannelTypeDef]]
+    PhoneNumberConfigs: NotRequired[list[PhoneNumberConfigTypeDef]]
+    PersistentConnectionConfigs: NotRequired[list[PersistentConnectionConfigTypeDef]]
+    VoiceEnhancementConfigs: NotRequired[list[VoiceEnhancementConfigTypeDef]]
+    LastModifiedTime: NotRequired[datetime]
+    LastModifiedRegion: NotRequired[str]
 
 AgentConfigUnionTypeDef = Union[AgentConfigTypeDef, AgentConfigOutputTypeDef]
 TelephonyConfigUnionTypeDef = Union[TelephonyConfigTypeDef, TelephonyConfigOutputTypeDef]
@@ -6930,10 +7119,6 @@ class SearchQueuesResponseTypeDef(TypedDict):
     ApproximateTotalCount: int
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
-
-class DescribeUserResponseTypeDef(TypedDict):
-    User: UserTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
 
 class RoutingProfileTypeDef(TypedDict):
     InstanceId: NotRequired[str]
@@ -7513,12 +7698,6 @@ class UpdateTestCaseRequestTypeDef(TypedDict):
 class ContactAnalysisTypeDef(TypedDict):
     Transcript: NotRequired[TranscriptTypeDef]
 
-class SearchUsersResponseTypeDef(TypedDict):
-    Users: list[UserSearchSummaryTypeDef]
-    ApproximateTotalCount: int
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
 class DataTableAttributeTypeDef(TypedDict):
     Name: str
     ValueType: DataTableAttributeValueTypeType
@@ -7557,6 +7736,16 @@ class UpdateViewContentResponseTypeDef(TypedDict):
     View: ViewTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class SearchUsersResponseTypeDef(TypedDict):
+    Users: list[UserSearchSummaryTypeDef]
+    ApproximateTotalCount: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class DescribeUserResponseTypeDef(TypedDict):
+    User: UserTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ExpressionOutputTypeDef(TypedDict):
     AttributeCondition: NotRequired[AttributeConditionOutputTypeDef]
     AndExpression: NotRequired[list[dict[str, Any]]]
@@ -7585,6 +7774,9 @@ class EvaluationFormSearchFilterTypeDef(TypedDict):
     AttributeFilter: NotRequired[ControlPlaneAttributeFilterTypeDef]
 
 class EvaluationSearchFilterTypeDef(TypedDict):
+    AttributeFilter: NotRequired[ControlPlaneAttributeFilterTypeDef]
+
+class NotificationSearchFilterTypeDef(TypedDict):
     AttributeFilter: NotRequired[ControlPlaneAttributeFilterTypeDef]
 
 class UserHierarchyGroupSearchFilterTypeDef(TypedDict):
@@ -8141,6 +8333,13 @@ class SearchContactEvaluationsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     SearchCriteria: NotRequired[EvaluationSearchCriteriaTypeDef]
     SearchFilter: NotRequired[EvaluationSearchFilterTypeDef]
+
+class SearchNotificationsRequestTypeDef(TypedDict):
+    InstanceId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    SearchFilter: NotRequired[NotificationSearchFilterTypeDef]
+    SearchCriteria: NotRequired[NotificationSearchCriteriaTypeDef]
 
 class SearchUserHierarchyGroupsRequestPaginateTypeDef(TypedDict):
     InstanceId: str

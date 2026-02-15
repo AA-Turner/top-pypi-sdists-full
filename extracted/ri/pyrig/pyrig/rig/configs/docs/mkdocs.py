@@ -25,47 +25,31 @@ class MkdocsConfigFile(YmlConfigFile):
     (Home, API), search, mermaid diagrams, and mkdocstrings for Google-style
     docstring API documentation.
 
-    Examples:
-        Generate mkdocs.yml::
-
-            MkdocsConfigFile()
-
-        Build and serve::
-
-            mkdocs build
-            mkdocs serve
+    Example:
+        >>> MkdocsConfigFile.I.validate()
 
     See Also:
         pyrig.rig.configs.pyproject.PyprojectConfigFile
         pyrig.rig.configs.markdown.docs.index.IndexConfigFile
     """
 
-    @classmethod
-    def parent_path(cls) -> Path:
-        """Get the parent directory for mkdocs.yml.
-
-        Returns:
-            Path: Project root.
-        """
+    def parent_path(self) -> Path:
+        """Return the project root directory."""
         return Path()
 
-    @classmethod
-    def _configs(cls) -> dict[str, Any] | list[Any]:
-        """Get the complete mkdocs.yml configuration.
+    def _configs(self) -> dict[str, Any] | list[Any]:
+        """Build the complete mkdocs.yml configuration.
 
-        Generates MkDocs configuration with Material theme, navigation (Home, API),
-        plugins (search, mermaid2, mkdocstrings), and dark/light mode toggle.
-
-        Returns:
-            dict[str, Any]: Complete mkdocs.yml configuration.
+        Include Material theme, navigation (Home, API), plugins (search,
+        mermaid2, mkdocstrings), and dark/light mode toggle.
 
         Note:
-            Reads project name from pyproject.toml.
+            The project name is read from pyproject.toml.
         """
         return {
-            "site_name": PyprojectConfigFile.L.project_name(),
+            "site_name": PyprojectConfigFile.I.project_name(),
             "nav": [
-                {"Home": IndexConfigFile.L.path().name},
+                {"Home": IndexConfigFile.I.path().name},
                 {"API": "api.md"},
             ],
             "plugins": [

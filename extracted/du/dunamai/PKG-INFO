@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dunamai
-Version: 1.25.0
+Version: 1.26.0
 Summary: Dynamic version generation
-Home-page: https://github.com/mtkennerly/dunamai
 License: MIT
+License-File: LICENSE
 Keywords: version,versioning,dynamic
 Author: Matthew T. Kennerly
 Author-email: mtkennerly@gmail.com
@@ -23,6 +23,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: importlib-metadata (>=1.6.0) ; python_version < "3.8"
 Requires-Dist: packaging (>=20.9)
 Project-URL: Repository, https://github.com/mtkennerly/dunamai

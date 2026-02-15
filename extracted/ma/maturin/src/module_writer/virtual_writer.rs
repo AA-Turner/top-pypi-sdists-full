@@ -70,8 +70,13 @@ impl<W: ModuleWriterInternal> VirtualWriter<W> {
     }
 
     /// Returns `true` if the given path should be excluded
-    fn exclude(&self, path: impl AsRef<Path>) -> bool {
+    pub(crate) fn exclude(&self, path: impl AsRef<Path>) -> bool {
         self.excludes.matched(path.as_ref(), false).is_whitelist()
+    }
+
+    /// Returns `true` if the given target path has already been added to the archive
+    pub(crate) fn contains_target(&self, target: impl AsRef<Path>) -> bool {
+        self.tracker.contains_key(target.as_ref())
     }
 
     /// Checks exclusions and previously tracked sources to determine if the
@@ -83,10 +88,10 @@ impl<W: ModuleWriterInternal> VirtualWriter<W> {
         target: PathBuf,
         source: Option<&Path>,
     ) -> Result<Option<VacantEntry<'_, PathBuf, ArchiveSource>>> {
-        if let Some(source) = source {
-            if self.exclude(source) {
-                return Ok(None);
-            }
+        if let Some(source) = source
+            && self.exclude(source)
+        {
+            return Ok(None);
         }
 
         if self.exclude(&target) {

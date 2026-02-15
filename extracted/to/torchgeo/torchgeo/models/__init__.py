@@ -26,6 +26,7 @@ from .fcn import FCN
 from .fcsiam import FCSiamConc, FCSiamDiff
 from .ltae import LTAE
 from .panopticon import Panopticon, Panopticon_Weights, panopticon_vitb14
+from .presto import Presto, Presto_Weights, presto
 from .rcf import MOSAIKS, RCF
 from .resnet import (
     ResNet18_Weights,
@@ -49,6 +50,8 @@ from .swin import (
     swin_v2_b,
     swin_v2_t,
 )
+from .tessera import Tessera, Tessera_Weights, tessera
+from .tilenet import TileNet, TileNet_Weights, tilenet
 from .unet import Unet_Weights, unet
 from .vit import (
     ViTBase14_DINOv2_Weights,
@@ -92,6 +95,8 @@ __all__ = (
     'FarSeg',
     'Panopticon',
     'Panopticon_Weights',
+    'Presto',
+    'Presto_Weights',
     'ResNet18_Weights',
     'ResNet50_Weights',
     'ResNet152_Weights',
@@ -103,6 +108,10 @@ __all__ = (
     'Swin_T_Weights',
     'Swin_V2_B_Weights',
     'Swin_V2_T_Weights',
+    'Tessera',
+    'Tessera_Weights',
+    'TileNet',
+    'TileNet_Weights',
     'Unet_Weights',
     'ViTBase14_DINOv2_Weights',
     'ViTBase16_Weights',
@@ -124,6 +133,7 @@ __all__ = (
     'get_weight',
     'list_models',
     'panopticon_vitb14',
+    'presto',
     'resnet18',
     'resnet50',
     'resnet152',
@@ -133,6 +143,8 @@ __all__ = (
     'swin_t',
     'swin_v2_b',
     'swin_v2_t',
+    'tessera',
+    'tilenet',
     'unet',
     'vit_base_patch14_dinov2',
     'vit_base_patch16_224',

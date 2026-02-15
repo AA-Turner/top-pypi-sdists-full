@@ -15,13 +15,13 @@ from torch import Tensor
 
 from .errors import DatasetNotFoundError
 from .geo import NonGeoClassificationDataset
-from .utils import Path, check_integrity, download_url, extract_archive
+from .utils import Path, Sample, check_integrity, download_url, extract_archive
 
 
 class UCMerced(NonGeoClassificationDataset):
     """UC Merced Land Use dataset.
 
-    The `UC Merced Land Use <http://weegee.vision.ucmerced.edu/datasets/landuse.html>`_
+    The `UC Merced Land Use <https://www.kaggle.com/datasets/abdulhasibuddin/uc-merced-land-use-dataset>`_
     dataset is a land use classification dataset of 2.1k 256x256 1ft resolution RGB
     images of urban locations around the U.S. extracted from the USGS National Map Urban
     Area Imagery collection with 21 land use classes (100 images per class).
@@ -88,7 +88,7 @@ class UCMerced(NonGeoClassificationDataset):
         self,
         root: Path = 'data',
         split: str = 'train',
-        transforms: Callable[[dict[str, Tensor]], dict[str, Tensor]] | None = None,
+        transforms: Callable[[Sample], Sample] | None = None,
         download: bool = False,
         checksum: bool = False,
     ) -> None:
@@ -136,7 +136,7 @@ class UCMerced(NonGeoClassificationDataset):
             the image and class label
         """
         img, label = super()._load_image(index)
-        img = F.resize(img, size=(256, 256), antialias=True)
+        img = F.resize(img, size=[256, 256], antialias=True)
         return img, label
 
     def _check_integrity(self) -> bool:
@@ -188,10 +188,7 @@ class UCMerced(NonGeoClassificationDataset):
         extract_archive(filepath)
 
     def plot(
-        self,
-        sample: dict[str, Tensor],
-        show_titles: bool = True,
-        suptitle: str | None = None,
+        self, sample: Sample, show_titles: bool = True, suptitle: str | None = None
     ) -> Figure:
         """Plot a sample from the dataset.
 

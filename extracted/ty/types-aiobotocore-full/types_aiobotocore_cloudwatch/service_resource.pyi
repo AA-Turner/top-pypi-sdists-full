@@ -36,6 +36,7 @@ from .client import CloudWatchClient
 from .literals import (
     AlarmTypeType,
     ComparisonOperatorType,
+    EvaluationStateType,
     StandardUnitType,
     StateValueType,
     StatisticType,
@@ -382,7 +383,7 @@ class Alarm(AIOBoto3ServiceResource):
     evaluate_low_sample_count_percentile: Awaitable[str]
     metrics: Awaitable[list[MetricDataQueryAlarmTypeDef]]
     threshold_metric_id: Awaitable[str]
-    evaluation_state: Awaitable[Literal["PARTIAL_DATA"]]
+    evaluation_state: Awaitable[EvaluationStateType]
     state_transitioned_timestamp: Awaitable[datetime]
     meta: CloudWatchResourceMeta  # type: ignore[override]
 

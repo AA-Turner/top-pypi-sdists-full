@@ -133,6 +133,7 @@ from .Burger import Burger
 from .Center import Center
 from .Code import Code
 from .Collapse import Collapse
+from .ColorSchemeToggle import ColorSchemeToggle
 from .Container import Container
 from .Divider import Divider
 from .Fieldset import Fieldset
@@ -331,6 +332,7 @@ __all__ = [
     "Center",
     "Code",
     "Collapse",
+    "ColorSchemeToggle",
     "Container",
     "Divider",
     "Fieldset",

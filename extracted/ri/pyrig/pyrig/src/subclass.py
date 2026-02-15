@@ -9,7 +9,7 @@ consistent discovery API.
 
 from abc import ABC, abstractmethod
 from types import ModuleType
-from typing import Any, Self
+from typing import Any, Self, TypeVar
 
 import pyrig
 from pyrig.src.modules.class_ import classproperty
@@ -17,6 +17,9 @@ from pyrig.src.modules.package import (
     discover_leaf_subclass_across_dependents,
     discover_subclasses_across_dependents,
 )
+from pyrig.src.singleton import Singleton
+
+T = TypeVar("T", bound="DependencySubclass")
 
 
 class DependencySubclass(ABC):
@@ -30,17 +33,17 @@ class DependencySubclass(ABC):
     @classmethod
     @abstractmethod
     def definition_package(cls) -> ModuleType:
-        """Get the package where the base classes subclasses are supposed to be defined.
+        """Get the package where this class's subclasses are defined.
 
-        Should be overridden by subclasses to define their own package.
+        Must be overridden by each subclass to specify its own package.
 
         Returns:
-            Package module where the ConfigFile subclass is defined.
+            Package module containing the concrete subclass definitions.
         """
 
     @classmethod
     @abstractmethod
-    def sorting_key[S: DependencySubclass](cls, subclass: type[S]) -> Any:
+    def sorting_key(cls, subclass: type[T]) -> Any:
         """Return a sort key for the given subclass.
 
         This key is used when ordering discovered subclasses. Implementations
@@ -48,15 +51,15 @@ class DependencySubclass(ABC):
         (for example, by priority or by name).
 
         Args:
-            subclass (type[S]): The subclass to compute a key for.
+            subclass: The subclass to compute a key for.
 
         Returns:
-            Any: A value suitable for use as a sort key.
+            A value suitable for use as a sort key.
         """
 
     @classmethod
     def base_dependency(cls) -> ModuleType:
-        """Returns the base dependency module for this subclass.
+        """Return the base dependency module for this subclass.
 
         This is used to discover subclasses across dependent packages.
 
@@ -69,13 +72,11 @@ class DependencySubclass(ABC):
     def subclasses(cls) -> list[type[Self]]:
         """Discover all non-abstract subclasses.
 
-        This discovers all non-abstract subclasses
-        of the class across dependent packages of the base dependency,
-        defined in the definition package, and sorts them
-        using the base dependency and definition package defined by the subclass.
+        Search all dependent packages of the base dependency, scoped to the
+        definition package, and return the results sorted by `sorting_key`.
 
         Returns:
-            List of subclass types.
+            Sorted list of concrete subclass types.
         """
         return sorted(
             discover_subclasses_across_dependents(
@@ -96,10 +97,24 @@ class DependencySubclass(ABC):
             Final leaf subclass type. Can be abstract.
 
         See Also:
-            subclasses: Get all subclasses regardless of priority
+            subclasses: Discover all concrete subclasses, sorted by sorting key.
         """
         return discover_leaf_subclass_across_dependents(
             cls=cls,
             dep=cls.base_dependency(),
             load_package_before=cls.definition_package(),
         )
+
+    @classproperty
+    def I(cls) -> Self:  # noqa: E743, N802, N805
+        """Get an instance of the final leaf subclass."""
+        return cls.L()
+
+
+class SingletonDependencySubclass(Singleton, DependencySubclass):
+    """Convenience base combining `Singleton` with `DependencySubclass`.
+
+    By inheriting from `Singleton`, the inherited `I` property returns a
+    cached singleton instance of the leaf subclass instead of creating a new
+    one on every access.
+    """

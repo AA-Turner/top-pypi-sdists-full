@@ -5,8 +5,8 @@ pyrig project through a comprehensive automated sequence.
 
 The initialization process executes steps in a specific order to ensure all
 dependencies and configurations are properly established. Each step is
-implemented as a separate function that returns Args objects, which are then
-executed sequentially via PackageManager. If any step fails, the process stops
+implemented as a separate function that returns `Args` objects, which are then
+executed sequentially via `PackageManager`. If any step fails, the process stops
 immediately.
 
 The initialization steps execute in the following order:
@@ -53,151 +53,106 @@ from pyrig.src.string_ import make_name_from_obj
 
 
 def initializing_version_control() -> Args:
-    """Get args to initialize version control.
-
-    Returns Args for initializing a git repository via `git init`.
-
-    Returns:
-        Args object for initializing version control.
-    """
-    return VersionController.L.init_args()
+    """Return args for initializing a git repository via `git init`."""
+    return VersionController.I.init_args()
 
 
 def adding_dev_dependencies() -> Args:
-    """Get args to install development dependencies.
-
-    Returns Args for adding pyrig's standard dev dependencies to pyproject.toml
-    via `uv add --group dev`.
+    """Return args for adding dev dependencies via `uv add --group dev`.
 
     Returns:
-        Args object for adding dev dependencies.
+        `Args` for adding pyrig's standard dev dependencies to
+        `pyproject.toml`.
     """
-    return PackageManager.L.add_dev_dependencies_args(
+    return PackageManager.I.add_dev_dependencies_args(
         *Tool.subclasses_dev_dependencies()
     )
 
 
 def creating_priority_config_files() -> Args:
-    """Get args to create essential configuration files.
+    """Return args for creating priority config files.
 
-    Returns Args for creating high-priority config files (pyproject.toml,
-    .gitignore, LICENSE) that other initialization steps depend on via
+    Creates high-priority config files (`pyproject.toml`, `.gitignore`,
+    `LICENSE`) that other initialization steps depend on via
     `pyrig mkroot --priority`.
-
-    Returns:
-        Args object for creating priority config files.
     """
     # local imports to avoid failure on init when dev deps are not installed yet.
-    return Pyrigger.L.cmd_args("--priority", cmd=mkroot)
+    return Pyrigger.I.cmd_args("--priority", cmd=mkroot)
 
 
 def syncing_venv() -> Args:
-    """Get args to sync virtual environment with dependencies.
+    """Return args for syncing the virtual environment via `uv sync`.
 
-    Returns Args for installing all dependencies from pyproject.toml via
-    `uv sync`. Run twice during initialization: after adding dev dependencies
-    and after creating priority config files.
-
-    Returns:
-        Args object for syncing the virtual environment.
+    Installs all dependencies from `pyproject.toml`. Called twice during
+    initialization: after adding dev dependencies and after creating
+    priority config files.
     """
-    return PackageManager.L.install_dependencies_args()
+    return PackageManager.I.install_dependencies_args()
 
 
 def creating_project_root() -> Args:
-    """Get args to create complete project structure and config files.
+    """Return args for creating project structure and config files.
 
-    Returns Args for generating all remaining configuration files and directory
-    structure via `pyrig mkroot`.
-
-    Returns:
-        Args object for creating the project root.
+    Generates all remaining configuration files and directory structure
+    via `pyrig mkroot`.
     """
-    return Pyrigger.L.cmd_args(cmd=mkroot)
+    return Pyrigger.I.cmd_args(cmd=mkroot)
 
 
 def creating_test_files() -> Args:
-    """Get args to generate test skeleton files for all source code.
+    """Return args for generating test skeletons via `pyrig mktests`.
 
-    Returns Args for creating test files mirroring the source package structure
-    with NotImplementedError placeholders via `pyrig mktests`.
-
-    Returns:
-        Args object for creating test files.
+    Creates test files mirroring the source package structure with
+    `NotImplementedError` placeholders.
     """
-    return Pyrigger.L.cmd_args(cmd=mktests)
+    return Pyrigger.I.cmd_args(cmd=mktests)
 
 
 def install_pre_commit_hooks() -> Args:
-    """Get args to install prek hooks.
-
-    Returns Args for installing prek hooks into the git repository via
-    `prek install`.
-
-    Returns:
-        Args object for installing prek hooks.
-    """
-    return PreCommitter.L.install_args()
+    """Return args for installing prek hooks via `prek install`."""
+    return PreCommitter.I.install_args()
 
 
 def add_all_files_to_version_control() -> Args:
-    """Get args to add all files to version control.
-
-    Returns Args for staging all files for commit via `git add .`.
-
-    Returns:
-        Args object for adding all files to version control.
-    """
-    return VersionController.L.add_all_args()
+    """Return args for staging all files via `git add .`."""
+    return VersionController.I.add_all_args()
 
 
 def running_pre_commit_hooks() -> Args:
-    """Get args to run prek hooks on all files.
+    """Return args for running prek hooks via `prek run --all-files`.
 
-    Returns Args for running formatters/linters on all files to ensure the
-    codebase follows style guidelines via `prek run --all-files`.
-
-    Returns:
-        Args object for running prek hooks.
+    Runs formatters and linters on all files to ensure the codebase follows
+    style guidelines.
     """
-    return PreCommitter.L.run_all_files_args()
+    return PreCommitter.I.run_all_files_args()
 
 
 def running_tests() -> Args:
-    """Get args to run the complete test suite.
+    """Return args for running the test suite via `pytest`.
 
-    Returns Args for validating that all generated code is syntactically correct
-    and the project is properly configured via `pytest`.
-
-    Returns:
-        Args object for running tests.
+    Validates that all generated code is syntactically correct and the project
+    is properly configured.
     """
-    return ProjectTester.L.test_args()
+    return ProjectTester.I.test_args()
 
 
 def committing_initial_changes() -> Args:
-    """Get args to create initial git commit with all changes.
+    """Return args for creating the initial git commit.
 
-    Returns Args for committing all configuration files, test skeletons, and
-    formatting changes with the message "pyrig: Initial commit".
-
-    Returns:
-        Args object for committing initial changes.
+    Commits all configuration files, test skeletons, and formatting changes
+    with the message "pyrig: Initial commit".
     """
     # changes were added by the run prek hooks step
-    return VersionController.L.commit_no_verify_args(
-        msg=f"{Pyrigger.name()}: Initial commit"
+    return VersionController.I.commit_no_verify_args(
+        msg=f"{Pyrigger.I.name()}: Initial commit"
     )
 
 
 def setup_steps() -> list[Callable[..., Any]]:
     """Return the ordered list of setup step functions for project initialization.
 
-    Each function in the returned list takes no arguments and returns an Args
-    object that can be executed via PackageManager.
-
-    Returns:
-        Ordered list of setup step functions.
+    Each function in the returned list takes no arguments and returns an `Args`
+    object that can be executed via `PackageManager`.
     """
     return [
         initializing_version_control,
@@ -221,7 +176,7 @@ def init_project() -> None:
     Executes the complete initialization sequence to transform a basic Python
     project into a fully-configured, production-ready pyrig project.
 
-    Each step returns an Args object that is executed via PackageManager. Steps
+    Each step returns an `Args` object that is executed via `PackageManager`. Steps
     are executed in order with a progress bar that updates after each step
     completes. If any step fails, the process stops immediately.
 
@@ -239,6 +194,6 @@ def init_project() -> None:
         for step in steps:
             step_name = make_name_from_obj(step, join_on=" ")
             progress.update(task, description=step_name)
-            PackageManager.L.run_args(*step()).run()
+            PackageManager.I.run_args(*step()).run()
             progress.advance(task)
         progress.update(task, description="[green]Initialization complete!")

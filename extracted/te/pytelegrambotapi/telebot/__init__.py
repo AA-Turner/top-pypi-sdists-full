@@ -1512,6 +1512,29 @@ class TeleBot:
             apihelper.get_user_profile_photos(self.token, user_id, offset=offset, limit=limit)
         )
 
+    def get_user_profile_audios(self, user_id: int, offset: Optional[int]=None,
+            limit: Optional[int]=None) -> types.UserProfileAudios:
+        """
+        Use this method to get a list of profile audios for a user. Returns a :class:`telebot.types.UserProfileAudios` object.
+
+        Telegram documentation: https://core.telegram.org/bots/api#getuserprofileaudios
+
+        :param user_id: Unique identifier of the target user
+        :type user_id: :obj:`int`
+
+        :param offset: Sequential number of the first audio to be returned. By default, all audios are returned.
+        :type offset: :obj:`int`
+
+        :param limit: Limits the number of audios to be retrieved. Values between 1-100 are accepted. Defaults to 100.
+        :type limit: :obj:`int`
+
+        :return: If the request is successful, a UserProfileAudios object is returned.
+        :rtype: :class:`telebot.types.UserProfileAudios`
+        """
+        return types.UserProfileAudios.de_json(
+            apihelper.get_user_profile_audios(self.token, user_id, offset=offset, limit=limit)
+        )
+
     def set_user_emoji_status(self, user_id: int, emoji_status_custom_emoji_id: Optional[str]=None, emoji_status_expiration_date: Optional[int]=None) -> bool:
         """
         Changes the emoji status for a given user that previously allowed the bot to manage their emoji status via the Mini App method requestEmojiStatusAccess. Returns True on success.
@@ -5048,6 +5071,31 @@ class TeleBot:
         return types.BotShortDescription.de_json(
             apihelper.get_my_short_description(self.token, language_code=language_code))
 
+    def set_my_profile_photo(self, photo: types.InputProfilePhoto) -> bool:
+        """
+        Use this method to change the profile photo of the bot. Returns True on success.
+
+        Telegram documentation: https://core.telegram.org/bots/api#setmyprofilephoto
+
+        :param photo: The new profile photo to set
+        :type photo: :class:`telebot.types.InputProfilePhoto`
+
+        :return: True on success.
+        :rtype: :obj:`bool`
+        """
+        return apihelper.set_my_profile_photo(self.token, photo)
+
+    def remove_my_profile_photo(self) -> bool:
+        """
+        Use this method to remove the profile photo of the bot. Requires no parameters. Returns True on success.
+
+        Telegram documentation: https://core.telegram.org/bots/api#removemyprofilephoto
+
+        :return: True on success.
+        :rtype: :obj:`bool`
+        """
+        return apihelper.remove_my_profile_photo(self.token)
+
 
     def set_chat_menu_button(self, chat_id: Union[int, str]=None, menu_button: types.MenuButton=None) -> bool:
         """
@@ -7758,7 +7806,7 @@ class TeleBot:
 
         :param sticker: File identifier of the sticker
         :return: On success, True is returned.
-        :rtype: :obj:`bool`
+    	:rtype: :obj:`bool`
         """
         return apihelper.delete_sticker_from_set(self.token, sticker)
 
@@ -7767,8 +7815,8 @@ class TeleBot:
             chat_id: int, name: str, icon_color: Optional[int]=None,
             icon_custom_emoji_id: Optional[str]=None) -> types.ForumTopic:
         """
-        Use this method to create a topic in a forum supergroup chat. The bot must be an administrator
-        in the chat for this to work and must have the can_manage_topics administrator rights.
+        Use this method to create a topic in a forum supergroup chat or a private chat with a user. In the case of a supergroup chat the bot
+        must be an administrator in the chat for this to work and must have the can_manage_topics administrator right.
         Returns information about the created topic as a ForumTopic object.
 
         Telegram documentation: https://core.telegram.org/bots/api#createforumtopic

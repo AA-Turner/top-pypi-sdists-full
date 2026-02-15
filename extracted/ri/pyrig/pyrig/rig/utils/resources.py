@@ -13,7 +13,7 @@ Functions:
     return_resource_content_on_fetch_error: HTTP request error fallback decorator
 
 Examples:
-    Fetch with fallback to resource file::
+    Fetch with fallback to resource file:
 
         >>> from pyrig.rig.utils.resources import (
         ...     return_resource_content_on_fetch_error
@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 P = ParamSpec("P")
 
 
-def return_resource_file_content_on_exceptions(
+def return_resource_file_content_on_exceptions_or_in_dep(
     resource_name: str,
     exceptions: tuple[type[Exception], ...],
     *,
@@ -55,6 +55,9 @@ def return_resource_file_content_on_exceptions(
 ) -> Callable[[Callable[P, str]], Callable[P, str]]:
     """Create a decorator that falls back to resource file content on exceptions.
 
+    Also returns resource content if not running in pyrig, but in a dependent project.
+    In pyrig development mode, successful results are written back to resource
+    files to keep them fresh and updated to recent changes in the external resource.
     Wraps a function returning a string. If the function raises specified exceptions,
     returns resource file content instead. In pyrig development mode, successful
     results are written back to keep resource files fresh.
@@ -62,12 +65,12 @@ def return_resource_file_content_on_exceptions(
     Uses tenacity but does not retry - catches exception once and returns fallback.
 
     Args:
-        resource_name: Resource file name (without path). E.g., "LATEST_VERSION"
-            refers to `pyrig/resources/LATEST_VERSION`. Must exist.
+        resource_name: Resource file name (without path). E.g., "LATEST_PYTHON_VERSION"
+            refers to `pyrig/resources/LATEST_PYTHON_VERSION`. Must exist.
         exceptions: Tuple of exception types that trigger fallback. Subclasses
             also trigger fallback.
         overwrite_resource: If True and in pyrig dev mode, write successful results
-            back to resource file and stage in git. Defaults to True.
+            back to resource file. Defaults to True.
         **tenacity_kwargs: Additional tenacity retry decorator arguments. Note that
             stop and retry_error_callback are already configured.
 
@@ -78,7 +81,7 @@ def return_resource_file_content_on_exceptions(
         FileNotFoundError: If resource file doesn't exist at decorator creation time.
 
     Examples:
-        Fallback to resource file on network errors::
+        Fallback to resource file on network errors:
 
             >>> @return_resource_file_content_on_exceptions(
             ...     "GITIGNORE",
@@ -111,6 +114,9 @@ def return_resource_file_content_on_exceptions(
 
         @wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> str:
+            if not src_package_is_pyrig():
+                # If not in pyrig, return resource content without calling the function
+                return content
             result = decorated_func(*args, **kwargs)
             if src_package_is_pyrig() and overwrite_resource and result != content:
                 path.write_text(result, encoding="utf-8")
@@ -140,13 +146,13 @@ def return_resource_content_on_fetch_error(
             E.g., "LATEST_PYTHON_VERSION" refers to
             `pyrig/resources/LATEST_PYTHON_VERSION`.
         overwrite_resource: If True and in pyrig dev mode, write successful results
-            back to resource file and stage in git. Defaults to True.
+            back to resource file. Defaults to True.
 
     Returns:
         Decorator function for HTTP request functions returning strings.
 
     Examples:
-        Fetch with fallback to resource file::
+        Fetch with fallback to resource file:
 
             >>> @return_resource_content_on_fetch_error("LATEST_PYTHON_VERSION")
             ... def fetch_latest_python_version() -> str:
@@ -162,7 +168,7 @@ def return_resource_content_on_fetch_error(
         return_resource_file_content_on_exceptions: For custom exception types.
     """
     exceptions = (RequestException,)
-    return return_resource_file_content_on_exceptions(
+    return return_resource_file_content_on_exceptions_or_in_dep(
         resource_name,
         exceptions,
         overwrite_resource=overwrite_resource,

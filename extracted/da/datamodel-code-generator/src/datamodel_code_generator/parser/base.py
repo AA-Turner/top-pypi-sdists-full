@@ -7,6 +7,7 @@ code generation.
 
 from __future__ import annotations
 
+import builtins
 import operator
 import os.path
 import re
@@ -82,7 +83,7 @@ from datamodel_code_generator.parser import DefaultPutDict, LiteralType
 from datamodel_code_generator.parser._graph import stable_toposort
 from datamodel_code_generator.parser._scc import find_circular_sccs, strongly_connected_components
 from datamodel_code_generator.reference import ModelResolver, ModelType, Reference
-from datamodel_code_generator.types import DataType, DataTypeManager
+from datamodel_code_generator.types import ANY, DataType, DataTypeManager
 from datamodel_code_generator.util import camel_to_snake, model_copy, model_dump
 
 if TYPE_CHECKING:
@@ -110,6 +111,43 @@ ModelName: TypeAlias = str
 ModelNames: TypeAlias = set[ModelName]
 ModelDeps: TypeAlias = dict[ModelName, set[ModelName]]
 OrderIndex: TypeAlias = dict[ModelName, int]
+
+_BUILTIN_NAMES: frozenset[str] = frozenset(name for name in builtins.__dict__ if not name.startswith("_"))
+_BUILTIN_NAMES_INTRODUCED_IN: dict[PythonVersion, frozenset[str]] = {
+    PythonVersion.PY_311: frozenset({"BaseExceptionGroup", "ExceptionGroup"}),
+    PythonVersion.PY_313: frozenset({"PythonFinalizationError"}),
+}
+_BUILTIN_CONTAINER_COLLISION_FLAGS: dict[str, str] = {
+    "list": "is_list",
+    "dict": "is_dict",
+    "set": "is_set",
+    "frozenset": "is_frozen_set",
+    "tuple": "is_tuple",
+}
+
+
+def _get_builtin_names_for_target(target_python_version: PythonVersion) -> frozenset[str]:
+    builtin_names = set(_BUILTIN_NAMES)
+    target_key = target_python_version.version_key
+
+    for introduced_version, names in _BUILTIN_NAMES_INTRODUCED_IN.items():
+        if target_key >= introduced_version.version_key:
+            builtin_names.update(names)
+        else:
+            builtin_names.difference_update(names)
+
+    return frozenset(builtin_names)
+
+
+def _is_builtin_type_collision(current_name: str, data_type: DataType) -> bool:
+    if data_type.type == current_name and not data_type.import_:
+        return True
+
+    if flag := _BUILTIN_CONTAINER_COLLISION_FLAGS.get(current_name):
+        return bool(getattr(data_type, flag))
+
+    return False
+
 
 ComponentId: TypeAlias = int
 Components: TypeAlias = list[list[ModelName]]
@@ -360,6 +398,29 @@ def iter_models_field_data_types(
         for field in model.fields:
             for data_type in field.data_type.all_data_types:
                 yield model, field, data_type
+
+
+def _alias_base_class_imports(
+    model: DataModel,
+    aliased_imports: dict[tuple[str | None, str], Import],
+) -> None:
+    """Apply aliased imports to a model's base classes and their _additional_imports."""
+    for base_class in model.base_classes:
+        if not base_class.import_:
+            continue
+        key = (base_class.import_.from_, base_class.import_.import_)
+        if key not in aliased_imports:
+            continue
+        old_import = base_class.import_
+        aliased_import = aliased_imports[key]
+        base_class.type = aliased_import.alias  # type: ignore[assignment]
+        base_class.import_ = aliased_import
+        for i, additional_import in enumerate(model._additional_imports):  # pragma: no branch  # noqa: SLF001
+            if (
+                additional_import.from_ == old_import.from_ and additional_import.import_ == old_import.import_
+            ):  # pragma: no branch
+                model._additional_imports[i] = aliased_import  # noqa: SLF001
+                break
 
 
 ReferenceMapSet = dict[str, set[str]]
@@ -879,6 +940,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.base_class: str | None = config.base_class
         self.base_class_map: dict[str, str | list[str]] | None = config.base_class_map
         self.target_python_version: PythonVersion = config.target_python_version
+        self.builtin_names: frozenset[str] = _get_builtin_names_for_target(self.target_python_version)
         self.results: list[DataModel] = []
         self.dump_resolve_reference_action: Callable[[Iterable[str]], str] | None = config.dump_resolve_reference_action
         self.validation: bool = config.validation
@@ -994,6 +1056,8 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             remove_special_field_name_prefix=config.remove_special_field_name_prefix,
             capitalise_enum_members=config.capitalise_enum_members,
             no_alias=config.no_alias,
+            use_subclass_enum=config.use_subclass_enum,
+            target_python_version=config.target_python_version,
             parent_scoped_naming=config.parent_scoped_naming,
             treat_dot_as_module=config.treat_dot_as_module,
             naming_strategy=config.naming_strategy,
@@ -1366,7 +1430,11 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                         ref_module and import_ == data_type.reference.short_name and ref_module[-1] == import_
                     )
 
-                    if from_ and (ref_module in internal_modules or is_module_class_collision):
+                    if (
+                        from_
+                        and not imports.use_exact
+                        and (ref_module in internal_modules or is_module_class_collision)
+                    ):
                         from_ = f"{from_}{import_}" if from_.endswith(".") else f"{from_}.{import_}"
                         import_ = data_type.reference.short_name
                         full_path = from_, import_
@@ -1453,6 +1521,15 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                 )
                 discriminator["propertyName"] = field_name
                 mapping = discriminator.get("mapping", {})
+                # Any type cannot be a discriminated union variant (Pydantic v2 rejects it)
+                has_any_variant = any(
+                    dt.type == ANY or (not dt.reference and not dt.data_types and not dt.literals and not dt.type)
+                    for dt in field.data_type.data_types
+                )
+                if has_any_variant:  # pragma: no cover
+                    field.extras.pop("discriminator", None)
+                    field.data_type.discriminator = None
+                    continue
                 for data_type in field.data_type.data_types:
                     if not data_type.reference:  # pragma: no cover
                         continue
@@ -1972,11 +2049,19 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                             )
                         discriminator = root_type_field.extras.get("discriminator")
                         if discriminator and isinstance(root_type_field, pydantic_model.DataModelField):
-                            prop_name = (
-                                discriminator.get("propertyName") if isinstance(discriminator, dict) else discriminator
+                            has_any_variant = any(
+                                dt.type == ANY
+                                or (not dt.reference and not dt.data_types and not dt.literals and not dt.type)
+                                for dt in copied_data_type.data_types
                             )
-                            if self._is_pydantic_v2_model():
-                                copied_data_type.discriminator = prop_name
+                            if not has_any_variant:  # pragma: no branch
+                                prop_name = (
+                                    discriminator.get("propertyName")
+                                    if isinstance(discriminator, dict)
+                                    else discriminator
+                                )
+                                if self._is_pydantic_v2_model():
+                                    copied_data_type.discriminator = prop_name
                         assert isinstance(data_type.parent, DataType)
                         data_type.parent.data_types.remove(data_type)
                         data_type.parent.data_types.append(copied_data_type)
@@ -1994,6 +2079,8 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                         if d.reference is None:
                             continue
                         from_, import_ = full_path = relative(model.module_name, d.full_name)
+                        if imports.use_exact:
+                            from_, import_ = full_path = exact_import(from_, import_, d.reference.short_name)
                         if from_ and import_:
                             alias = scoped_model_resolver.add(full_path, import_)
                             d.alias = (
@@ -2036,7 +2123,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         if not self.set_default_enum_member:
             return
         for _, model_field, data_type in iter_models_field_data_types(models):
-            if not model_field.default:
+            if model_field.default is None:
                 continue
             if data_type.reference and isinstance(data_type.reference.source, Enum):  # pragma: no cover
                 if isinstance(model_field.default, list):
@@ -2179,6 +2266,13 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                     if filed_name != new_filed_name:
                         field.alias = filed_name
                         field.name = new_filed_name
+
+                if (current_name := field.name) in self.builtin_names and any(
+                    _is_builtin_type_collision(current_name, dt) for dt in field.data_type.all_data_types
+                ):
+                    if field.alias is None:
+                        field.alias = filed_name
+                    field.name = f"{current_name}_"
 
     def __set_one_literal_on_default(self, models: list[DataModel]) -> None:
         if not self.use_one_literal_as_default:
@@ -2388,21 +2482,31 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         models: list[DataModel],
         all_model_field_names: set[str],
     ) -> None:
-        for _, model_field, data_type in iter_models_field_data_types(models):
-            if (
-                data_type
-                and data_type.import_
-                and data_type.type in all_model_field_names
-                and data_type.type == model_field.name
-            ):
-                alias = data_type.type + "_aliased"
-                data_type.type = alias
-                data_type.import_ = Import(
-                    from_=data_type.import_.from_,
-                    import_=data_type.import_.import_,
-                    alias=alias,
-                    reference_path=data_type.import_.reference_path,
-                )
+        aliased_imports: dict[tuple[str | None, str], Import] = {}
+        for _, _model_field, data_type in iter_models_field_data_types(models):
+            if data_type and data_type.import_ and data_type.type in all_model_field_names:
+                key = (data_type.import_.from_, data_type.import_.import_)
+                if key not in aliased_imports:
+                    aliased_imports[key] = Import(
+                        from_=data_type.import_.from_,
+                        import_=data_type.import_.import_,
+                        alias=data_type.type + "_aliased",
+                        reference_path=data_type.import_.reference_path,
+                    )
+
+        if not aliased_imports:
+            return
+
+        for _, _model_field, data_type in iter_models_field_data_types(models):
+            if data_type and data_type.import_:
+                key = (data_type.import_.from_, data_type.import_.import_)
+                if key in aliased_imports:
+                    aliased_import = aliased_imports[key]
+                    data_type.type = aliased_import.alias  # type: ignore[assignment]
+                    data_type.import_ = aliased_import
+
+        for model in models:
+            _alias_base_class_imports(model, aliased_imports)
 
     def __apply_generic_base_class(  # noqa: PLR0912, PLR0914, PLR0915
         self,
@@ -3290,6 +3394,12 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             contexts.append(ctx)
 
         self._finalize_modules(contexts, unused_models, model_to_module_models, module_to_import)
+
+        root_init: ModulePath = ("__init__.py",)
+        if root_init not in results:
+            top_level_dirs = {k[0] for k in results if len(k) >= 2}  # noqa: PLR2004
+            if len(top_level_dirs) > 1:
+                results[root_init] = Result(body="")
 
         future_imports = self.imports.extract_future()
         future_imports_str = str(future_imports)

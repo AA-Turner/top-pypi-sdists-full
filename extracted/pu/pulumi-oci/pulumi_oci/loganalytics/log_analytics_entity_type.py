@@ -27,7 +27,7 @@ class LogAnalyticsEntityTypeArgs:
                  properties: Optional[pulumi.Input[Sequence[pulumi.Input['LogAnalyticsEntityTypePropertyArgs']]]] = None):
         """
         The set of arguments for constructing a LogAnalyticsEntityType resource.
-        :param pulumi.Input[_builtins.str] namespace: The Logging Analytics namespace used for the request.
+        :param pulumi.Input[_builtins.str] namespace: The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
         :param pulumi.Input[_builtins.str] category: Log analytics entity type category. Category will be used for grouping and filtering.
         :param pulumi.Input[_builtins.str] name: Log analytics entity type name.
         :param pulumi.Input[Sequence[pulumi.Input['LogAnalyticsEntityTypePropertyArgs']]] properties: Log analytics entity type property definition.
@@ -44,7 +44,7 @@ class LogAnalyticsEntityTypeArgs:
     @pulumi.getter
     def namespace(self) -> pulumi.Input[_builtins.str]:
         """
-        The Logging Analytics namespace used for the request.
+        The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
         """
         return pulumi.get(self, "namespace")
 
@@ -108,7 +108,7 @@ class _LogAnalyticsEntityTypeState:
         :param pulumi.Input[_builtins.str] cloud_type: Log analytics entity type group. This can be CLOUD (OCI) or NON_CLOUD otherwise.
         :param pulumi.Input[_builtins.str] internal_name: Internal name for the log analytics entity type.
         :param pulumi.Input[_builtins.str] name: Log analytics entity type name.
-        :param pulumi.Input[_builtins.str] namespace: The Logging Analytics namespace used for the request.
+        :param pulumi.Input[_builtins.str] namespace: The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
         :param pulumi.Input[Sequence[pulumi.Input['LogAnalyticsEntityTypePropertyArgs']]] properties: Log analytics entity type property definition.
         :param pulumi.Input[_builtins.str] state: The current lifecycle state of the log analytics entity type.
         :param pulumi.Input[_builtins.str] time_created: Time the log analytics entity type was created. An RFC3339 formatted datetime string.
@@ -196,7 +196,7 @@ class _LogAnalyticsEntityTypeState:
     @pulumi.getter
     def namespace(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The Logging Analytics namespace used for the request.
+        The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
         """
         return pulumi.get(self, "namespace")
 
@@ -265,6 +265,13 @@ class LogAnalyticsEntityType(pulumi.CustomResource):
                  properties: Optional[pulumi.Input[Sequence[pulumi.Input[Union['LogAnalyticsEntityTypePropertyArgs', 'LogAnalyticsEntityTypePropertyArgsDict']]]]] = None,
                  __props__=None):
         """
+        This resource provides the Log Analytics Entity Type resource in Oracle Cloud Infrastructure Log Analytics service.
+        Api doc link for the resource: https://docs.oracle.com/iaas/api/#/en/logan-api-spec/latest/LogAnalyticsEntityType
+
+        Example terraform configs related to the resource : https://github.com/oracle/terraform-provider-oci/tree/master/examples/log_analytics
+
+        Add custom log analytics entity type.
+
         ## Example Usage
 
         ```python
@@ -293,7 +300,7 @@ class LogAnalyticsEntityType(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] category: Log analytics entity type category. Category will be used for grouping and filtering.
         :param pulumi.Input[_builtins.str] name: Log analytics entity type name.
-        :param pulumi.Input[_builtins.str] namespace: The Logging Analytics namespace used for the request.
+        :param pulumi.Input[_builtins.str] namespace: The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
         :param pulumi.Input[Sequence[pulumi.Input[Union['LogAnalyticsEntityTypePropertyArgs', 'LogAnalyticsEntityTypePropertyArgsDict']]]] properties: Log analytics entity type property definition.
         """
         ...
@@ -303,6 +310,13 @@ class LogAnalyticsEntityType(pulumi.CustomResource):
                  args: LogAnalyticsEntityTypeArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
+        This resource provides the Log Analytics Entity Type resource in Oracle Cloud Infrastructure Log Analytics service.
+        Api doc link for the resource: https://docs.oracle.com/iaas/api/#/en/logan-api-spec/latest/LogAnalyticsEntityType
+
+        Example terraform configs related to the resource : https://github.com/oracle/terraform-provider-oci/tree/master/examples/log_analytics
+
+        Add custom log analytics entity type.
+
         ## Example Usage
 
         ```python
@@ -398,7 +412,7 @@ class LogAnalyticsEntityType(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] cloud_type: Log analytics entity type group. This can be CLOUD (OCI) or NON_CLOUD otherwise.
         :param pulumi.Input[_builtins.str] internal_name: Internal name for the log analytics entity type.
         :param pulumi.Input[_builtins.str] name: Log analytics entity type name.
-        :param pulumi.Input[_builtins.str] namespace: The Logging Analytics namespace used for the request.
+        :param pulumi.Input[_builtins.str] namespace: The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
         :param pulumi.Input[Sequence[pulumi.Input[Union['LogAnalyticsEntityTypePropertyArgs', 'LogAnalyticsEntityTypePropertyArgsDict']]]] properties: Log analytics entity type property definition.
         :param pulumi.Input[_builtins.str] state: The current lifecycle state of the log analytics entity type.
         :param pulumi.Input[_builtins.str] time_created: Time the log analytics entity type was created. An RFC3339 formatted datetime string.
@@ -461,7 +475,7 @@ class LogAnalyticsEntityType(pulumi.CustomResource):
     @pulumi.getter
     def namespace(self) -> pulumi.Output[_builtins.str]:
         """
-        The Logging Analytics namespace used for the request.
+        The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get'
         """
         return pulumi.get(self, "namespace")
 

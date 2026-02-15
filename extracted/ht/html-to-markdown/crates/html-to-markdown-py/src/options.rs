@@ -5,7 +5,7 @@ use html_to_markdown_rs::{
 use pyo3::prelude::*;
 
 /// Python wrapper for PreprocessingOptions
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Clone)]
 pub struct PreprocessingOptions {
     #[pyo3(get, set)]
@@ -49,7 +49,7 @@ impl PreprocessingOptions {
 }
 
 /// Python wrapper for ConversionOptions
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Clone)]
 pub struct ConversionOptions {
     #[pyo3(get, set)]

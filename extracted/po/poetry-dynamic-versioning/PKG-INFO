@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: poetry-dynamic-versioning
-Version: 1.9.1
+Version: 1.10.0
 Summary: Plugin for Poetry to enable dynamic versioning based on VCS tags
-Home-page: https://github.com/mtkennerly/poetry-dynamic-versioning
 License: MIT
+License-File: LICENSE
 Keywords: poetry,plugin,version,versioning,dynamic
 Author: Matthew T. Kennerly
 Author-email: mtkennerly@gmail.com
@@ -22,12 +22,13 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Version Control
 Classifier: Topic :: Software Development :: Version Control :: Bazaar
 Classifier: Topic :: Software Development :: Version Control :: Git
 Classifier: Topic :: Software Development :: Version Control :: Mercurial
 Provides-Extra: plugin
-Requires-Dist: dunamai (>=1.25.0,<2.0.0)
+Requires-Dist: dunamai (>=1.26.0,<2.0.0)
 Requires-Dist: jinja2 (>=2.11.1,<4)
 Requires-Dist: poetry (>=1.2.0) ; extra == "plugin"
 Requires-Dist: tomlkit (>=0.4)
@@ -272,6 +273,8 @@ In your pyproject.toml file, you may configure the following options:
   * `latest-tag` (boolean, default: false):
     If true, then only check the latest tag for a version,
     rather than looking through all the tags until a suitable one is found to match the `pattern`.
+  * `highest-tag` (boolean, default: false):
+    If true, then select the numerically highest version, even if it is not the chronologically latest tag.
   * `bump` (boolean or table, default: false):
     If enabled, then increment the last part of the version `base` by 1,
     unless the `stage` is set,

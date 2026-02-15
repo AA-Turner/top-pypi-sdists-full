@@ -25,15 +25,16 @@ from .namedsignalvalue import NamedSignalValue
 if TYPE_CHECKING:
     from ..database import Database
     from ..database.can.attribute import Attribute
+    from ..database.can.environment_variable import EnvironmentVariable
     from ..database.can.message import Message
     from ..database.can.node import Node
     from ..database.can.signal import Signal
     from ..database.diagnostics import Data
 
 try:
-    import bitstruct.c
+    import bitstruct.c  # type: ignore
 except ImportError:
-    import bitstruct
+    import bitstruct  # type: ignore
 
 
 def format_or(items: list[int | str]) -> str:
@@ -431,10 +432,11 @@ SORT_SIGNALS_DEFAULT: Final = 'default'
 type_sort_signals = Callable[[list["Signal"]], list["Signal"]] | Literal['default'] | None
 
 type_sort_attribute = \
-    tuple[Literal['dbc'],     "Attribute", None,   None,      None] | \
-    tuple[Literal['node'],    "Attribute", "Node", None,      None] | \
-    tuple[Literal['message'], "Attribute", None,   "Message", None] | \
-    tuple[Literal['signal'],  "Attribute", None,   "Message", "Signal"]
+    tuple[Literal['dbc'],     "Attribute", None,   None,      None,     None] | \
+    tuple[Literal['node'],    "Attribute", "Node", None,      None,     None] | \
+    tuple[Literal['message'], "Attribute", None,   "Message", None,     None] | \
+    tuple[Literal['signal'],  "Attribute", None,   "Message", "Signal", None] | \
+    tuple[Literal['envvar'],  "Attribute", None,   None,      None,     "EnvironmentVariable"]
 
 type_sort_attributes = Callable[[list[type_sort_attribute]], list[type_sort_attribute]] | Literal['default'] | None
 

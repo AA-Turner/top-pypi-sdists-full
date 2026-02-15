@@ -7,9 +7,11 @@ from adam.commands.export.export_sessions import export_session
 from adam.repl_state import ReplState
 from adam.utils_color import Color
 from adam.utils_cassandra.cassandra_status import CassandraStatus
-from adam.utils_cassandra.node_schedules import NodeSchedules
+from adam.utils_cassandra.node_restart_schedules import NodeRestartSchedules
 from adam.utils_concurrent import parallelize
 from adam.directories import Directories
+from adam.utils_job.job_schedules import JobSchedules
+from adam.utils_job.job_status import JobStatus
 from adam.utils_job.utils_ps import LogLine, proc_for_pid
 from adam.utils_k8s.k8s_context import K8sContext
 from adam.utils_tabulize import tabulize
@@ -24,8 +26,8 @@ def show_last_results(state: ReplState, args: str = None, ctx = NULL):
     if job_id and isinstance(job_id, list):
         job_id = job_id[0]
 
-    cmd: Job = Job.last_job(job_id)
-    if not cmd:
+    job: Job = Job.last_job(job_id)
+    if not job:
         if job_id:
             log2(f'Last command with job_id: {job_id} was NOT found.')
         else:
@@ -33,18 +35,18 @@ def show_last_results(state: ReplState, args: str = None, ctx = NULL):
 
         return
 
-    show_last_results_with_local_log(state, cmd, ctx)
+    show_last_results_with_local_log(state, job, ctx)
 
-    if cmd and (tokens := cmd.command.strip(' &').split(' ')):
+    if job and (tokens := job.command.strip(' &').split(' ')):
         if tokens[0] in ['export']:
-            return show_last_results_for_export(state, cmd, ctx=ctx)
+            return show_last_results_for_export(state, job, ctx=ctx)
         elif tokens[0] in ['show', 'xelect', 'audit', 'sp', 'ss', 'st', 'stp']:
             return
-        elif tokens[0] == 'restart':
-            return show_last_results_for_background_jobs(state, cmd, ctx=ctx)
+        elif tokens[0] in ['restart']:
+            return show_last_results_for_node_schedules(state, job, ctx=ctx)
 
     # default to finding logs from pods
-    show_last_results_with_pod_logs(state, cmd, ctx=ctx)
+    show_last_results_with_pod_logs(state, job, ctx=ctx)
 
 def show_last_results_with_local_log(state: ReplState, job: Job, ctx = NULL):
         ctx.log2(f'[{job.job_id}] {job.command}')
@@ -64,16 +66,51 @@ def show_last_results_with_pod_logs(state: ReplState, job: Job, ctx = NULL):
                  separator='\t',
                  ctx=ctx)
 
-def find_failed_pods(state: ReplState, job: Job, ctx = NULL) -> list[str]:
+class PodJobStatus(JobStatus):
+    def __init__(self, job_id: str, failed_pods: list[str], running: int, succeeded: int, job: Job = None):
+        super().__init__()
+        self._job_id = job_id
+        self.failed_pods = failed_pods
+        self._running = running
+        self._succeeded = succeeded
+        self._job = job
+
+    def job_id(self) -> int:
+        return self._job_id
+
+    def is_running(self) -> int:
+        return self._running
+
+    def all_completed(self) -> bool:
+        return not self.failed() and not self._running
+
+    def succeeded(self) -> int:
+        return self._succeeded
+
+    def failed(self) -> int:
+        return len(self.failed_pods)
+
+    def running(self) -> int:
+        return self._running
+
+    def job(self) -> Job:
+        return self._job
+
+def find_job_status(state: ReplState, job: Job, ctx = NULL) -> PodJobStatus:
     pods = []
+    running = 0
+    succeeded = 0
 
     for pod, code in find_exit_codes(state, job, ctx):
-        # if code and code.isdigit():
-        #     pods.append(pod)
-        if code and code.isdigit() and int(code):
-            pods.append(pod)
+        if code and code.isdigit():
+            if int(code):
+                pods.append(pod)
+            else:
+                succeeded += 1
+        else:
+            running += 1
 
-    return pods
+    return PodJobStatus(job.job_id, pods, running, succeeded, job=job)
 
 def find_exit_codes(state: ReplState, job: Job, ctx = NULL) -> list[tuple[str, str]]:
     container = device(state).default_container(state)
@@ -93,10 +130,10 @@ def show_last_results_for_export(state: ReplState, job: Job, ctx = NULL):
         ctx.log2(f'show export session {session}', text_color='gray')
         sessions.show_session(session)
 
-def show_last_results_for_background_jobs(state: ReplState, job: Job, ctx = NULL):
+def show_last_results_for_node_schedules(state: ReplState, job: Job, ctx = NULL):
         lines = []
 
-        waiting_ons: dict[tuple[str, str], str] = NodeSchedules.waiting_ons()
+        waiting_ons: dict[tuple[str, str], str] = NodeRestartSchedules.waiting_ons()
         def wo(pod: tuple[str, str]):
             if pod in waiting_ons:
                 return waiting_ons[pod]
@@ -116,15 +153,15 @@ def show_last_results_for_background_jobs(state: ReplState, job: Job, ctx = NULL
 
         in_pending_or_restartings = set()
 
-        for k, v in sorted(list(NodeSchedules.restartings().items()), key=lambda kv: kv[0]):
+        for k, v in sorted(list(NodeRestartSchedules.restartings().items()), key=lambda kv: kv[0]):
             in_pending_or_restartings.add(k)
             lines.append(f'{strip_pod_name(k[0])}\t{k[1]}\tIn Restart\t{pod_status[k[0]]}\t{node_status(k[0])}\t{datetime.fromtimestamp(v).replace(microsecond=0)}\t-')
-        for k, v in sorted(list(NodeSchedules.pending().items()), key=lambda kv: kv[0]):
+        for k, v in sorted(list(NodeRestartSchedules.pending().items()), key=lambda kv: kv[0]):
             in_pending_or_restartings.add(k)
             lines.append(f'{strip_pod_name(k[0])}\t{k[1]}\tPending\t{pod_status[k[0]]}\t{node_status(k[0])}\t{datetime.fromtimestamp(v).replace(microsecond=0)}\t{wo(k)}')
 
         restarted_lines = []
-        for k, v in sorted(list(NodeSchedules.completed().items()), key=lambda kv: kv[0]):
+        for k, v in sorted(list(NodeRestartSchedules.completed().items()), key=lambda kv: kv[0]):
             if k not in in_pending_or_restartings:
                 restarted_lines.append(f'{strip_pod_name(k[0])}\t{k[1]}\tRestarted\t{pod_status[k[0]]}\t{node_status(k[0])}\t{datetime.fromtimestamp(v).replace(microsecond=0)}\t-')
 
@@ -139,6 +176,22 @@ def show_last_results_for_background_jobs(state: ReplState, job: Job, ctx = NULL
             ctx.log2('  *MC  node has more than one copy of some token ranges; cannot be restarted until the copies are relocated to other nodes')
         if any(d.startswith('GP: ') for d in waiting_ons.values()):
             ctx.log2('  *GP  node is in grace period after restart')
+
+def show_last_results_for_job_schedules(state: ReplState, job: Job, ctx = NULL):
+        lines = []
+
+        for k, v in sorted(list(JobSchedules._completed.items()), key=lambda kv: kv[0]):
+            status: JobStatus = v
+            lines.append(f'{status.job_id()}\tended\t{status.running()}\t{status.succeeded()}\t{status.failed()}\t{datetime.fromtimestamp(status.ts).replace(microsecond=0)}')
+        for k, v in sorted(list(JobSchedules.pending().items()), key=lambda kv: kv[0]):
+            status: JobStatus = v
+            lines.append(f'{status.job_id()}\trunning\t{status.running()}\t{status.succeeded()}\t{status.failed()}\t{datetime.fromtimestamp(status.ts).replace(microsecond=0)}')
+
+        tabulize(lines,
+                 header='JOB_ID\tSTATUS\tRUNNING\tSUCCEEDED\tFAILED\tSCHEDULED/COMPLETED',
+                 separator='\t',
+                 ctx=ctx)
+        ctx.log2()
 
 def find_logs_for_pod(pod: str, container: str, namespace: str, dir: str, job: Job, remote: bool, ctx = NULL):
     ctx = ctx.copy(show_out=True, text_color=Color.gray)
@@ -207,4 +260,17 @@ def show_local_log(cmd: Job, ctx = NULL):
         with open(log_file, 'r') as f:
             for line in f:
                 ctx.log2(line.strip('\r\n'))
-        # os.system(f'cat {log_file}')
+
+def retry_job(state: ReplState, job_id: str, run_command: callable, ctx = NULL):
+    job = Job.job(job_id)
+    if not job:
+        ctx.log2('Job not found.')
+        return state
+
+
+    # retry job should always background
+    cmd = job.command
+    if not cmd.endswith(' &'):
+        cmd = cmd + ' &'
+
+    return run_command(state, cmd, job=job, ctx=ctx)

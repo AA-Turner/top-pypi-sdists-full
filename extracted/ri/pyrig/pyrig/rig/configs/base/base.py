@@ -1,7 +1,7 @@
 """Abstract base class for declarative configuration file management.
 
 Provides ConfigFile for automated config management with automatic discovery,
-subset validation, intelligent merging, priority-based initialization, and
+subset validation, intelligent merging, priority-based validation, and
 parallel execution.
 
 Subclass Requirements:
@@ -31,13 +31,13 @@ Example:
         class MyAppConfigFile(TomlConfigFile):
             '''Manages myapp.toml configuration.'''
 
-            @classmethod
-            def parent_path(cls) -> Path:
+
+            def parent_path(self) -> Path:
                 '''Place in project root.'''
                 return Path()
 
-            @classmethod
-            def _configs(cls) -> dict[str, Any]:
+
+            def _configs(self) -> dict[str, Any]:
                 '''Define expected configuration.'''
                 return {
                     "app": {
@@ -46,9 +46,9 @@ Example:
                     }
                 }
 
-            @classmethod
-            def priority(cls) -> float:
-                '''Initialize after pyproject.toml.'''
+
+            def priority(self) -> float:
+                '''Validate after pyproject.toml.'''
                 return 50
 
     The system will automatically:
@@ -77,13 +77,13 @@ from typing import Any, Self
 from pyrig.rig import configs
 from pyrig.src.iterate import nested_structure_is_subset
 from pyrig.src.string_ import split_on_uppercase
-from pyrig.src.subclass import DependencySubclass
+from pyrig.src.subclass import SingletonDependencySubclass
 
 logger = logging.getLogger(__name__)
 
 
 class Priority:
-    """A class to represent priority levels for config file initialization."""
+    """Priority levels for config file validation ordering."""
 
     DEFAULT = 0
     LOW = DEFAULT + 10
@@ -91,7 +91,7 @@ class Priority:
     HIGH = MEDIUM + 10
 
 
-class ConfigFile[ConfigT: dict[str, Any] | list[Any]](DependencySubclass):
+class ConfigFile[ConfigT: dict[str, Any] | list[Any]](SingletonDependencySubclass):
     """Abstract base class for declarative configuration file management.
 
     Declarative, idempotent system for managing config files. Preserves user
@@ -109,7 +109,7 @@ class ConfigFile[ConfigT: dict[str, Any] | list[Any]](DependencySubclass):
         - `_dump(config)`: Write configuration to file - internal implementation
 
         Optionally override:
-        - `priority()`: Initialization priority (default 0)
+        - `priority()`: validation priority (default 0)
         - `filename()`: Filename without extension (auto-derived)
 
         Public API (already implemented with caching, do not override):
@@ -124,18 +124,16 @@ class ConfigFile[ConfigT: dict[str, Any] | list[Any]](DependencySubclass):
         pyrig.src.iterate.nested_structure_is_subset: Subset validation
     """
 
-    @classmethod
     @abstractmethod
-    def parent_path(cls) -> Path:
+    def parent_path(self) -> Path:
         """Return directory containing the config file.
 
         Returns:
             Path to parent directory, relative to project root.
         """
 
-    @classmethod
     @abstractmethod
-    def _load(cls) -> ConfigT:
+    def _load(self) -> ConfigT:
         """Load and parse configuration file.
 
         Returns:
@@ -143,27 +141,24 @@ class ConfigFile[ConfigT: dict[str, Any] | list[Any]](DependencySubclass):
             empty dict/list for empty files to support opt-out behavior.
         """
 
-    @classmethod
     @abstractmethod
-    def _dump(cls, config: ConfigT) -> None:
+    def _dump(self, config: ConfigT) -> None:
         """Write configuration to file.
 
         Args:
             config: Configuration to write (dict or list).
         """
 
-    @classmethod
     @abstractmethod
-    def extension(cls) -> str:
+    def extension(self) -> str:
         """Return file extension without leading dot.
 
         Returns:
             File extension (e.g., "toml", "yaml", "json", "py", "md").
         """
 
-    @classmethod
     @abstractmethod
-    def _configs(cls) -> ConfigT:
+    def _configs(self) -> ConfigT:
         """Return expected configuration structure.
 
         Returns:
@@ -172,13 +167,13 @@ class ConfigFile[ConfigT: dict[str, Any] | list[Any]](DependencySubclass):
 
     @classmethod
     def definition_package(cls) -> ModuleType:
-        """Get the package where the ConfigFile subclasses are supposed to be defined.
+        """Return the package containing ConfigFile subclass definitions.
 
-        Default is pyrig.rig.configs.
-        But can be overridden by subclasses to define their own package.
+        Default is `pyrig.rig.configs`. Can be overridden by subclasses to
+        define their own package.
 
         Returns:
-            Package module where the ConfigFile subclass is defined.
+            Package module where ConfigFile subclasses are defined.
         """
         return configs
 
@@ -201,23 +196,18 @@ class ConfigFile[ConfigT: dict[str, Any] | list[Any]](DependencySubclass):
         """
         # sort by priority (higher first),
         # so return negative priority for ascending sort
-        return -subclass.priority()
-
-    def __init__(self) -> None:
-        """Initialize config file, creating or updating as needed.
-
-        Calls create_file() if file doesn't exist (which creates parent dirs and file),
-        validates content, and adds missing configs if needed.
-        Idempotent and preserves user customizations.
-
-        Raises:
-            ValueError: If file cannot be made correct.
-        """
-        super().__init__()
-        self.validate()
+        return -subclass().priority()
 
     @classmethod
-    def validate(cls) -> None:
+    def validate_config_file(cls, config_file_cls: type["ConfigFile[ConfigT]"]) -> None:
+        """Validate a single config file class.
+
+        Args:
+            config_file_cls: The ConfigFile subclass to validate.
+        """
+        config_file_cls().validate()
+
+    def validate(self) -> None:
         """Validate config file, creating or updating as needed.
 
         Calls create_file() if file doesn't exist (which creates parent dirs and file),
@@ -227,29 +217,28 @@ class ConfigFile[ConfigT: dict[str, Any] | list[Any]](DependencySubclass):
         Raises:
             ValueError: If file cannot be made correct.
         """
-        path = cls.path()
+        path = self.path()
         logger.debug(
-            "Initializing config file: %s at: %s",
-            cls.__name__,
+            "Validating config file: %s at: %s",
+            self.__class__.__name__,
             path,
         )
         if not path.exists():
-            cls.create_file()
-            cls.dump(cls.configs())
+            self.create_file()
+            self.dump(self.configs())
 
-        if not cls.is_correct():
-            config = cls.merge_configs()
-            cls.dump(config)
+        if not self.is_correct():
+            config = self.merge_configs()
+            self.dump(config)
 
-        if not cls.is_correct():
+        if not self.is_correct():
             msg = f"Config file {path} is not correct after adding missing configs."
             raise ValueError(msg)
 
-    @classmethod
-    def create_file(cls) -> None:
+    def create_file(self) -> None:
         """Create the config file and its parent directories."""
-        path = cls.path()
-        logger.info("Creating config file %s at: %s", cls.__name__, path)
+        path = self.path()
+        logger.info("Creating config file %s at: %s", self.__class__.__name__, path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.touch()
 
@@ -263,7 +252,7 @@ class ConfigFile[ConfigT: dict[str, Any] | list[Any]](DependencySubclass):
         Returns:
             Minimum required configuration as dict or list.
         """
-        return cls._configs()
+        return cls()._configs()  # noqa: SLF001
 
     @classmethod
     @cache
@@ -277,10 +266,9 @@ class ConfigFile[ConfigT: dict[str, Any] | list[Any]](DependencySubclass):
             typically return empty dict/list for empty files (opt-out behavior).
         """
         logger.debug("Loading config file %s", cls.__name__)
-        return cls._load()
+        return cls()._load()  # noqa: SLF001
 
-    @classmethod
-    def dump(cls, config: ConfigT) -> None:
+    def dump(self, config: ConfigT) -> None:
         """Write configuration to file.
 
         Clears the cache before writing to ensure the dump operation reads
@@ -290,47 +278,34 @@ class ConfigFile[ConfigT: dict[str, Any] | list[Any]](DependencySubclass):
         Args:
             config: Configuration to write (dict or list).
         """
-        logger.info("Updating config file %s at: %s", cls.__name__, cls.path())
-        cls.load.cache_clear()
-        cls._dump(config)
-        cls.load.cache_clear()
+        logger.info(
+            "Updating config file %s at: %s", self.__class__.__name__, self.path()
+        )
+        self.load.cache_clear()
+        self._dump(config)
+        self.load.cache_clear()
 
-    @classmethod
-    def priority(cls) -> float:
-        """Return initialization priority (higher = first, default 0).
-
-        Returns:
-            Priority as float. Higher numbers processed first.
-        """
+    def priority(self) -> float:
+        """Return validation priority (higher = first, default 0)."""
         return Priority.DEFAULT
 
-    @classmethod
-    def path(cls) -> Path:
-        """Return full path by combining parent path, filename, and extension.
-
-        Returns:
-            Complete path including filename and extension.
-        """
-        return cls.parent_path() / (
-            cls.filename() + cls.extension_separator() + cls.extension()
+    def path(self) -> Path:
+        """Return full path by combining parent path, filename, and extension."""
+        return self.parent_path() / (
+            self.filename() + self.extension_separator() + self.extension()
         )
 
-    @classmethod
-    def extension_separator(cls) -> str:
-        """Return extension separator character (always ".").
-
-        Returns:
-            "." (dot character).
-        """
+    def extension_separator(self) -> str:
+        """Return extension separator character (always ".")."""
         return "."
 
-    @classmethod
-    def filename(cls) -> str:
+    def filename(self) -> str:
         """Derive filename from class name (auto-converts to snake_case).
 
         Returns:
             Filename without extension.
         """
+        cls = self.__class__
         name = cls.__name__
         abstract_parents = [
             parent.__name__ for parent in cls.__mro__ if inspect.isabstract(parent)
@@ -339,8 +314,7 @@ class ConfigFile[ConfigT: dict[str, Any] | list[Any]](DependencySubclass):
             name = name.removesuffix(parent)
         return "_".join(split_on_uppercase(name)).lower()
 
-    @classmethod
-    def merge_configs(cls) -> ConfigT:
+    def merge_configs(self) -> ConfigT:
         """Merge expected config into current, preserving user customizations.
 
         Returns:
@@ -349,25 +323,25 @@ class ConfigFile[ConfigT: dict[str, Any] | list[Any]](DependencySubclass):
         See Also:
             pyrig.src.iterate.nested_structure_is_subset: Subset validation logic
         """
-        current_config = cls.load()
-        expected_config = cls.configs()
+        current_config = self.load()
+        expected_config = self.configs()
         nested_structure_is_subset(
             expected_config,
             current_config,
-            cls.add_missing_dict_val,
-            cls.insert_missing_list_val,
+            self.add_missing_dict_val,
+            self.insert_missing_list_val,
         )
         return current_config
 
-    @staticmethod
     def add_missing_dict_val(
-        expected_dict: dict[str, Any], actual_dict: dict[str, Any], key: str
+        self, expected_dict: dict[str, Any], actual_dict: dict[str, Any], key: str
     ) -> None:
         """Merge dict value during config merging (modifies actual_dict in place).
 
         First calls setdefault to add key if missing. Then:
-        - For dict values: merges expected into actual (preserves actual values,
-          adds expected values)
+        - For dict values: updates actual with expected (overwrites overlapping
+          keys with expected values, preserves actual-only keys, adds
+          expected-only keys)
         - For non-dict values: replaces actual value with expected value
 
         Args:
@@ -384,9 +358,8 @@ class ConfigFile[ConfigT: dict[str, Any] | list[Any]](DependencySubclass):
         else:
             actual_dict[key] = expected_val
 
-    @staticmethod
     def insert_missing_list_val(
-        expected_list: list[Any], actual_list: list[Any], index: int
+        self, expected_list: list[Any], actual_list: list[Any], index: int
     ) -> None:
         """Insert missing list value during config merging (modifies in place).
 
@@ -397,8 +370,7 @@ class ConfigFile[ConfigT: dict[str, Any] | list[Any]](DependencySubclass):
         """
         actual_list.insert(index, expected_list[index])
 
-    @classmethod
-    def is_correct(cls) -> bool:
+    def is_correct(self) -> bool:
         """Check if config file is valid (empty or expected is subset of actual).
 
         Returns:
@@ -408,18 +380,18 @@ class ConfigFile[ConfigT: dict[str, Any] | list[Any]](DependencySubclass):
             is_unwanted: Check if user opted out
             is_correct_recursively: Perform subset validation
         """
-        return cls.path().exists() and (
-            cls.is_unwanted() or cls.is_correct_recursively(cls.configs(), cls.load())
+        return self.path().exists() and (
+            self.is_unwanted()
+            or self.is_correct_recursively(self.configs(), self.load())
         )
 
-    @classmethod
-    def is_unwanted(cls) -> bool:
+    def is_unwanted(self) -> bool:
         """Check if user opted out (file exists and is empty).
 
         Returns:
             True if file exists and is completely empty.
         """
-        return cls.path().exists() and cls.path().stat().st_size == 0
+        return self.path().exists() and self.path().stat().st_size == 0
 
     @staticmethod
     def is_correct_recursively(
@@ -449,33 +421,32 @@ class ConfigFile[ConfigT: dict[str, Any] | list[Any]](DependencySubclass):
 
         See Also:
             subclasses: Get all subclasses regardless of priority
-            init_priority_subclasses: Initialize only priority subclasses
+            validate_priority_subclasses: validate only priority subclasses
         """
-        return [cf for cf in cls.subclasses() if cf.priority() > 0]
+        return [cf for cf in cls.subclasses() if cf().priority() > 0]
 
     @classmethod
-    def init_subclasses(
+    def validate_subclasses(
         cls,
         *subclasses: type[Self],
     ) -> None:
-        """Initialize specific ConfigFile subclasses with priority-based ordering.
+        """Validate specific ConfigFile subclasses with priority-based ordering.
 
-        Groups by priority, initializes in the order given, parallel within groups.
-        Order by priority is defined in subclasses_ordered_by_priority.
+        Group by priority, validate in the given order, parallel within groups.
 
         Args:
-            subclasses: ConfigFile subclasses to initialize.
+            subclasses: ConfigFile subclasses to validate.
 
         See Also:
-            init_all_subclasses: Initialize all discovered subclasses
-            init_priority_subclasses: Initialize only priority subclasses
+            validate_all_subclasses: validate all discovered subclasses
+            validate_priority_subclasses: validate only priority subclasses
         """
         # order by priority
         subclasses_by_priority: dict[float, list[type[ConfigFile[Any]]]] = defaultdict(
             list
         )
         for cf in subclasses:
-            subclasses_by_priority[cf.priority()].append(cf)
+            subclasses_by_priority[cf().priority()].append(cf)
 
         biggest_group = (
             max(subclasses_by_priority.values(), key=len)
@@ -487,32 +458,32 @@ class ConfigFile[ConfigT: dict[str, Any] | list[Any]](DependencySubclass):
             for priority in sorted(subclasses_by_priority.keys(), reverse=True):
                 cf_group = subclasses_by_priority[priority]
                 logger.debug(
-                    "Initializing %d config files with priority: %s",
+                    "Validating %d config files with priority: %s",
                     len(cf_group),
                     priority,
                 )
-                list(executor.map(lambda cf: cf(), cf_group))
+                list(executor.map(cls.validate_config_file, cf_group))
 
     @classmethod
-    def init_all_subclasses(cls) -> None:
-        """Initialize all discovered ConfigFile subclasses in priority order.
+    def validate_all_subclasses(cls) -> None:
+        """Validate all discovered ConfigFile subclasses in priority order.
 
         See Also:
             subclasses: Discovery mechanism
-            init_subclasses: Initialization mechanism
-            init_priority_subclasses: Initialize only priority files
+            validate_subclasses: validation mechanism
+            validate_priority_subclasses: validate only priority files
         """
         logger.info("Creating all config files")
-        cls.init_subclasses(*cls.subclasses())
+        cls.validate_subclasses(*cls.subclasses())
 
     @classmethod
-    def init_priority_subclasses(cls) -> None:
-        """Initialize only ConfigFile subclasses with priority > 0.
+    def validate_priority_subclasses(cls) -> None:
+        """Validate only ConfigFile subclasses with priority > 0.
 
         See Also:
             priority_subclasses: Discovery mechanism
-            init_subclasses: Initialization mechanism
-            init_all_subclasses: Initialize all files
+            validate_subclasses: validation mechanism
+            validate_all_subclasses: validate all files
         """
         logger.info("Creating priority config files")
-        cls.init_subclasses(*cls.priority_subclasses())
+        cls.validate_subclasses(*cls.priority_subclasses())

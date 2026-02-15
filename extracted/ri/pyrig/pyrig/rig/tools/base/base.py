@@ -16,7 +16,7 @@ Benefits:
 
 Example:
     >>> from pyrig.rig.tools.package_manager import PackageManager
-    >>> args = PackageManager.L.install_dependencies_args()
+    >>> args = PackageManager.I.install_dependencies_args()
     >>> print(args)
     uv sync
     >>> args.run()
@@ -32,7 +32,7 @@ from typing import Self
 from pyrig.rig import tools
 from pyrig.src.processes import Args
 from pyrig.src.string_ import make_linked_badge_markdown
-from pyrig.src.subclass import DependencySubclass
+from pyrig.src.subclass import SingletonDependencySubclass
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class ToolGroup:
     TESTING = "testing"
 
 
-class Tool(DependencySubclass):
+class Tool(SingletonDependencySubclass):
     """Abstract base for tool command argument construction.
 
     Provides consistent interface for constructing command-line arguments.
@@ -63,28 +63,26 @@ class Tool(DependencySubclass):
 
     Example:
         >>> class MyTool(Tool):
-        ...     @classmethod
-        ...     def name(cls) -> str:
+        ...
+        ...     def name(self) -> str:
         ...         return "mytool"
-        ...     @classmethod
-        ...     def build_args(cls, *args: str) -> Args:
-        ...         return cls.args("build", *args)
-        >>> MyTool.build_args("--verbose")
+        ...
+        ...     def build_args(self, *args: str) -> Args:
+        ...         return self.args("build", *args)
+        >>> MyTool.I.build_args("--verbose")
         Args(('mytool', 'build', '--verbose'))
     """
 
-    @classmethod
     @abstractmethod
-    def name(cls) -> str:
+    def name(self) -> str:
         """Get tool command name.
 
         Returns:
             Tool command name (e.g., "git", "uv", "pytest").
         """
 
-    @classmethod
     @abstractmethod
-    def group(cls) -> str:
+    def group(self) -> str:
         """Returns the group the tools belongs to.
 
         Used e.g. for grouping badges in the Readme.md file.
@@ -92,9 +90,8 @@ class Tool(DependencySubclass):
         E.g. testing, tool, code-quality etc...
         """
 
-    @classmethod
     @abstractmethod
-    def badge_urls(cls) -> tuple[str, str]:
+    def badge_urls(self) -> tuple[str, str]:
         """Returns the url for a badge, like found in a Readme.md file.
 
         The first url is the picture, the badge, and the second the link
@@ -119,34 +116,31 @@ class Tool(DependencySubclass):
         other criteria.
 
         Args:
-            subclass (type[Self]): The subclass to compute a key for.
+            subclass: The subclass to compute a key for.
 
         Returns:
             str: A value suitable for use as a sort key.
         """
-        return subclass.name()
+        return subclass().name()
 
-    @classmethod
-    def badge(cls) -> str:
+    def badge(self) -> str:
         """Returns the badge string for a markdown file."""
-        badge, page = cls.badge_urls()
+        badge, page = self.badge_urls()
         return make_linked_badge_markdown(
             badge_url=badge,
             link_url=page,
-            alt_text=cls.name(),
+            alt_text=self.name(),
         )
 
-    @classmethod
-    def dev_dependencies(cls) -> list[str]:
+    def dev_dependencies(self) -> list[str]:
         """Get tool dependencies.
 
         Returns:
             List of tool dependencies. Defaults to the name of the tool.
         """
-        return [cls.name()]
+        return [self.name()]
 
-    @classmethod
-    def args(cls, *args: str) -> Args:
+    def args(self, *args: str) -> Args:
         """Construct command arguments with tool name prepended.
 
         Args:
@@ -158,7 +152,7 @@ class Tool(DependencySubclass):
         Note:
             Subclasses provide higher-level methods calling this internally.
         """
-        return Args((cls.name(), *args))
+        return Args((self.name(), *args))
 
     @classmethod
     def grouped_badges(cls) -> dict[str, list[str]]:
@@ -166,7 +160,8 @@ class Tool(DependencySubclass):
         subclasses = cls.subclasses()
         groups: defaultdict[str, list[str]] = defaultdict(list)
         for tool in subclasses:
-            groups[tool.group()].append(tool.badge())
+            t = tool()
+            groups[t.group()].append(t.badge())
         return groups
 
     @classmethod
@@ -185,5 +180,5 @@ class Tool(DependencySubclass):
         subclasses = cls.subclasses()
         all_dev_deps: list[str] = []
         for subclass in subclasses:
-            all_dev_deps.extend(subclass.dev_dependencies())
+            all_dev_deps.extend(subclass().dev_dependencies())
         return sorted(all_dev_deps)

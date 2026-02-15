@@ -163,6 +163,24 @@ pub enum SdistGenerator {
     Git,
 }
 
+/// SBOM configuration
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct SbomConfig {
+    /// Generate an SBOM for Rust crates. Defaults to `true`.
+    pub rust: Option<bool>,
+    /// Generate a CycloneDX SBOM for external shared libraries grafted during
+    /// auditwheel repair. Defaults to `true` when repair copies libraries.
+    ///
+    /// The SBOM is written to `<dist-info>/sboms/auditwheel.cdx.json` and
+    /// records which OS packages (deb, rpm, apk) provided the grafted
+    /// libraries, following the same convention as Python's auditwheel.
+    pub auditwheel: Option<bool>,
+    /// Additional SBOM files to include in the `.dist-info/sboms` directory.
+    pub include: Option<Vec<PathBuf>>,
+}
+
 /// The `[tool.maturin]` section of a pyproject.toml
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "kebab-case")]
@@ -232,6 +250,8 @@ pub struct ToolMaturin {
     // in venv.
     #[serde(default)]
     pub use_base_python: bool,
+    /// SBOM configuration
+    pub sbom: Option<SbomConfig>,
 }
 
 /// A pyproject.toml as specified in PEP 517
@@ -248,6 +268,8 @@ pub struct PyProjectToml {
     ///
     /// We use it for `[tool.maturin]`
     pub tool: Option<Tool>,
+    /// PEP 735: Dependency groups
+    pub dependency_groups: Option<pyproject_toml::DependencyGroups>,
 }
 
 impl PyProjectToml {

@@ -419,7 +419,7 @@
 //! You can disable the default behavior using crate features:
 //!
 //! - Disable HTTP resolving: `default-features = false, features = ["resolve-file"]`
-//! - Disable file resolving: `default-features = false, features = ["resolve-http"]`
+//! - Disable file resolving: `default-features = false, features = ["resolve-http", "tls-aws-lc-rs"]`
 //! - Enable async resolution: `features = ["resolve-async"]`
 //! - Disable all resolving: `default-features = false`
 //!
@@ -844,6 +844,15 @@
 ))]
 compile_error!(
     "Features 'resolve-http' and 'resolve-file' are not supported on wasm32-unknown-unknown"
+);
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    feature = "resolve-http",
+    not(any(feature = "tls-aws-lc-rs", feature = "tls-ring"))
+))]
+compile_error!(
+    "Feature `resolve-http` requires a TLS provider: enable `tls-aws-lc-rs` \
+(default) or `tls-ring`."
 );
 
 pub(crate) mod compiler;
@@ -2551,14 +2560,13 @@ pub(crate) mod tests_util {
     }
 
     pub(crate) fn expect_errors(schema: &Value, instance: &Value, errors: &[&str]) {
-        assert_eq!(
-            crate::validator_for(schema)
-                .expect("Should be a valid schema")
-                .iter_errors(instance)
-                .map(|e| e.to_string())
-                .collect::<Vec<String>>(),
-            errors
-        );
+        let mut actual = crate::validator_for(schema)
+            .expect("Should be a valid schema")
+            .iter_errors(instance)
+            .map(|e| e.to_string())
+            .collect::<Vec<String>>();
+        actual.sort();
+        assert_eq!(actual, errors);
     }
 
     #[track_caller]
@@ -2623,9 +2631,13 @@ pub(crate) mod tests_util {
     #[track_caller]
     pub(crate) fn assert_locations(schema: &Value, instance: &Value, expected: &[&str]) {
         let validator = crate::validator_for(schema).unwrap();
-        let errors = validator.iter_errors(instance);
+        let mut errors: Vec<_> = validator
+            .iter_errors(instance)
+            .map(|error| error.schema_path().as_str().to_string())
+            .collect();
+        errors.sort();
         for (error, location) in errors.into_iter().zip(expected) {
-            assert_eq!(error.schema_path().as_str(), *location);
+            assert_eq!(error, *location);
         }
     }
 

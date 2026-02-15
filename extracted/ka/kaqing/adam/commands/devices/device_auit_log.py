@@ -1,6 +1,7 @@
 from adam.commands.command import Command
 from adam.commands.devices.device import Device
 from adam.repl_state import ReplState
+from adam.utils_job.job import Job
 from adam.utils_tabulize import tabulize
 from adam.utils_athena import Athena
 from adam.utils_context import NULL
@@ -43,8 +44,8 @@ class DeviceAuditLog(Command, Device):
     def pwd(self, _: ReplState):
         return '\t'.join([f'{ReplState.L}:>', '/'])
 
-    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str, retry = False):
-        return True, chain.retry(f'audit {cmd}', state) if retry else chain.run(f'audit {cmd}', state)
+    def try_fallback_action(self, chain: Command, state: ReplState, cmd: str, job: Job = None, ctx = NULL):
+        return True, chain.retry(f'audit {cmd}', job, state, ctx=ctx) if job else chain.run(f'audit {cmd}', state)
 
     def show_tables(self, _: ReplState, ctx = NULL):
         tabulize(Athena.table_names(),

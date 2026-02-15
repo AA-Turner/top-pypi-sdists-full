@@ -240,7 +240,7 @@ class NeptuneGraphClient(AioBaseClient):
         self, **kwargs: Unpack[CreatePrivateGraphEndpointInputTypeDef]
     ) -> CreatePrivateGraphEndpointOutputTypeDef:
         """
-        Create a private graph endpoint to allow private access from to the graph from
+        Create a private graph endpoint to allow private access to the graph from
         within a VPC.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/neptune-graph/client/create_private_graph_endpoint.html)
@@ -261,7 +261,7 @@ class NeptuneGraphClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteGraphSnapshotInputTypeDef]
     ) -> DeleteGraphSnapshotOutputTypeDef:
         """
-        Deletes the specifed graph snapshot.
+        Deletes the specified graph snapshot.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/neptune-graph/client/delete_graph_snapshot.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_neptune_graph/client/#delete_graph_snapshot)

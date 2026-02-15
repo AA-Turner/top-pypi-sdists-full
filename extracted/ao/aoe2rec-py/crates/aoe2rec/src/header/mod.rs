@@ -259,6 +259,10 @@ pub struct GameSettings {
     pub timestamp: u32,
     #[serde(skip_serializing)]
     pub unknown25: u32,
+    #[br(if(major >= 67))]
+    pub unknown_de_67_2_1: u32,
+    #[br(if(major >= 67))]
+    pub unknown_de_67_2_2: u32,
 }
 
 #[binrw]
@@ -334,6 +338,8 @@ pub struct Player {
     pub handicap: [u8; 8],
     #[br(if(major >= 64))]
     pub unknown_de_64_19661: u32,
+    #[br(if(major >= 67))]
+    pub unknown_de_67_2: DeString,
 }
 
 #[binrw]

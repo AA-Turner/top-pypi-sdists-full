@@ -8,7 +8,7 @@ use crate::options::ConversionOptions;
 /// ConversionOptionsHandle stores parsed Rust options internally,
 /// allowing for efficient reuse across multiple conversions without
 /// re-parsing options on each call.
-#[pyclass(name = "ConversionOptionsHandle")]
+#[pyclass(name = "ConversionOptionsHandle", from_py_object)]
 #[derive(Clone)]
 pub struct ConversionOptionsHandle {
     pub inner: RustConversionOptions,

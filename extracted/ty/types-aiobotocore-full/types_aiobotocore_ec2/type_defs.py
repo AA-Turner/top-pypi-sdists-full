@@ -265,6 +265,7 @@ from .literals import (
     NatGatewayApplianceModifyStateType,
     NatGatewayApplianceStateType,
     NatGatewayStateType,
+    NestedVirtualizationSpecificationType,
     NetworkInterfaceAttributeType,
     NetworkInterfaceCreationTypeType,
     NetworkInterfacePermissionStateCodeType,
@@ -319,6 +320,11 @@ from .literals import (
     RouteTableAssociationStateCodeType,
     RuleActionType,
     ScopeType,
+    SecondaryInterfaceStatusType,
+    SecondaryNetworkCidrBlockAssociationStateType,
+    SecondaryNetworkStateType,
+    SecondarySubnetCidrBlockAssociationStateType,
+    SecondarySubnetStateType,
     SecurityGroupReferencingSupportValueType,
     SecurityGroupVpcAssociationStateType,
     SelfServicePortalType,
@@ -349,6 +355,7 @@ from .literals import (
     SubnetCidrReservationTypeType,
     SubnetStateType,
     SummaryStatusType,
+    SupportedAdditionalProcessorFeatureType,
     TargetCapacityUnitTypeType,
     TelemetryStatusType,
     TenancyType,
@@ -569,7 +576,9 @@ __all__ = (
     "AuthorizeSecurityGroupIngressRequestTypeDef",
     "AuthorizeSecurityGroupIngressResultTypeDef",
     "AvailabilityZoneAddressTypeDef",
+    "AvailabilityZoneGeographyTypeDef",
     "AvailabilityZoneMessageTypeDef",
+    "AvailabilityZoneSubGeographyTypeDef",
     "AvailabilityZoneTypeDef",
     "AvailableCapacityTypeDef",
     "BaselineEbsBandwidthMbpsRequestTypeDef",
@@ -833,6 +842,10 @@ __all__ = (
     "CreateRouteTableRequestTypeDef",
     "CreateRouteTableRequestVpcCreateRouteTableTypeDef",
     "CreateRouteTableResultTypeDef",
+    "CreateSecondaryNetworkRequestTypeDef",
+    "CreateSecondaryNetworkResultTypeDef",
+    "CreateSecondarySubnetRequestTypeDef",
+    "CreateSecondarySubnetResultTypeDef",
     "CreateSecurityGroupRequestServiceResourceCreateSecurityGroupTypeDef",
     "CreateSecurityGroupRequestTypeDef",
     "CreateSecurityGroupRequestVpcCreateSecurityGroupTypeDef",
@@ -1052,6 +1065,10 @@ __all__ = (
     "DeleteRouteServerResultTypeDef",
     "DeleteRouteTableRequestRouteTableDeleteTypeDef",
     "DeleteRouteTableRequestTypeDef",
+    "DeleteSecondaryNetworkRequestTypeDef",
+    "DeleteSecondaryNetworkResultTypeDef",
+    "DeleteSecondarySubnetRequestTypeDef",
+    "DeleteSecondarySubnetResultTypeDef",
     "DeleteSecurityGroupRequestSecurityGroupDeleteTypeDef",
     "DeleteSecurityGroupRequestTypeDef",
     "DeleteSecurityGroupResultTypeDef",
@@ -1506,6 +1523,19 @@ __all__ = (
     "DescribeScheduledInstancesRequestPaginateTypeDef",
     "DescribeScheduledInstancesRequestTypeDef",
     "DescribeScheduledInstancesResultTypeDef",
+    "DescribeSecondaryInterfacesRequestPaginateTypeDef",
+    "DescribeSecondaryInterfacesRequestTypeDef",
+    "DescribeSecondaryInterfacesResultTypeDef",
+    "DescribeSecondaryNetworksRequestPaginateTypeDef",
+    "DescribeSecondaryNetworksRequestTypeDef",
+    "DescribeSecondaryNetworksRequestWaitExtraTypeDef",
+    "DescribeSecondaryNetworksRequestWaitTypeDef",
+    "DescribeSecondaryNetworksResultTypeDef",
+    "DescribeSecondarySubnetsRequestPaginateTypeDef",
+    "DescribeSecondarySubnetsRequestTypeDef",
+    "DescribeSecondarySubnetsRequestWaitExtraTypeDef",
+    "DescribeSecondarySubnetsRequestWaitTypeDef",
+    "DescribeSecondarySubnetsResultTypeDef",
     "DescribeSecurityGroupReferencesRequestTypeDef",
     "DescribeSecurityGroupReferencesResultTypeDef",
     "DescribeSecurityGroupRulesRequestPaginateTypeDef",
@@ -2214,6 +2244,11 @@ __all__ = (
     "InstanceRequirementsTypeDef",
     "InstanceRequirementsUnionTypeDef",
     "InstanceRequirementsWithMetadataRequestTypeDef",
+    "InstanceSecondaryInterfaceAttachmentTypeDef",
+    "InstanceSecondaryInterfacePrivateIpAddressRequestTypeDef",
+    "InstanceSecondaryInterfacePrivateIpAddressTypeDef",
+    "InstanceSecondaryInterfaceSpecificationRequestTypeDef",
+    "InstanceSecondaryInterfaceTypeDef",
     "InstanceSpecificationTypeDef",
     "InstanceStateChangeTypeDef",
     "InstanceStateTypeDef",
@@ -2323,6 +2358,8 @@ __all__ = (
     "LaunchTemplateInstanceMetadataOptionsTypeDef",
     "LaunchTemplateInstanceNetworkInterfaceSpecificationRequestTypeDef",
     "LaunchTemplateInstanceNetworkInterfaceSpecificationTypeDef",
+    "LaunchTemplateInstanceSecondaryInterfaceSpecificationRequestTypeDef",
+    "LaunchTemplateInstanceSecondaryInterfaceSpecificationTypeDef",
     "LaunchTemplateLicenseConfigurationRequestTypeDef",
     "LaunchTemplateLicenseConfigurationTypeDef",
     "LaunchTemplateNetworkPerformanceOptionsRequestTypeDef",
@@ -2677,6 +2714,7 @@ __all__ = (
     "RebootInstancesRequestTypeDef",
     "RecurringChargeTypeDef",
     "ReferencedSecurityGroupTypeDef",
+    "RegionGeographyTypeDef",
     "RegionTypeDef",
     "RegionalSummaryTypeDef",
     "RegisterImageRequestServiceResourceRegisterImageTypeDef",
@@ -2850,6 +2888,15 @@ __all__ = (
     "SearchTransitGatewayRoutesRequestPaginateTypeDef",
     "SearchTransitGatewayRoutesRequestTypeDef",
     "SearchTransitGatewayRoutesResultTypeDef",
+    "SecondaryInterfaceAttachmentTypeDef",
+    "SecondaryInterfaceIpv4AddressTypeDef",
+    "SecondaryInterfacePrivateIpAddressSpecificationRequestTypeDef",
+    "SecondaryInterfacePrivateIpAddressSpecificationTypeDef",
+    "SecondaryInterfaceTypeDef",
+    "SecondaryNetworkIpv4CidrBlockAssociationTypeDef",
+    "SecondaryNetworkTypeDef",
+    "SecondarySubnetIpv4CidrBlockAssociationTypeDef",
+    "SecondarySubnetTypeDef",
     "SecurityGroupCreateTagsRequestTypeDef",
     "SecurityGroupForVpcTypeDef",
     "SecurityGroupIdentifierTypeDef",
@@ -3729,8 +3776,16 @@ class AvailabilityZoneAddressTypeDef(TypedDict):
     AllocationIds: NotRequired[Sequence[str]]
 
 
+class AvailabilityZoneGeographyTypeDef(TypedDict):
+    Name: NotRequired[str]
+
+
 class AvailabilityZoneMessageTypeDef(TypedDict):
     Message: NotRequired[str]
+
+
+class AvailabilityZoneSubGeographyTypeDef(TypedDict):
+    Name: NotRequired[str]
 
 
 class InstanceCapacityTypeDef(TypedDict):
@@ -4230,12 +4285,14 @@ class CpuOptionsRequestTypeDef(TypedDict):
     CoreCount: NotRequired[int]
     ThreadsPerCore: NotRequired[int]
     AmdSevSnp: NotRequired[AmdSevSnpSpecificationType]
+    NestedVirtualization: NotRequired[NestedVirtualizationSpecificationType]
 
 
 class CpuOptionsTypeDef(TypedDict):
     CoreCount: NotRequired[int]
     ThreadsPerCore: NotRequired[int]
     AmdSevSnp: NotRequired[AmdSevSnpSpecificationType]
+    NestedVirtualization: NotRequired[NestedVirtualizationSpecificationType]
 
 
 class PerformanceFactorReferenceTypeDef(TypedDict):
@@ -5049,6 +5106,18 @@ class DeleteRouteTableRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
 
+class DeleteSecondaryNetworkRequestTypeDef(TypedDict):
+    SecondaryNetworkId: str
+    ClientToken: NotRequired[str]
+    DryRun: NotRequired[bool]
+
+
+class DeleteSecondarySubnetRequestTypeDef(TypedDict):
+    SecondarySubnetId: str
+    ClientToken: NotRequired[str]
+    DryRun: NotRequired[bool]
+
+
 class DeleteSecurityGroupRequestSecurityGroupDeleteTypeDef(TypedDict):
     GroupName: NotRequired[str]
     DryRun: NotRequired[bool]
@@ -5600,16 +5669,6 @@ class DescribePrincipalIdFormatRequestTypeDef(TypedDict):
     Resources: NotRequired[Sequence[str]]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
-
-
-RegionTypeDef = TypedDict(
-    "RegionTypeDef",
-    {
-        "OptInStatus": NotRequired[str],
-        "RegionName": NotRequired[str],
-        "Endpoint": NotRequired[str],
-    },
-)
 
 
 class ScheduledInstanceRecurrenceRequestTypeDef(TypedDict):
@@ -7216,6 +7275,23 @@ class VCpuCountRangeRequestTypeDef(TypedDict):
     Max: NotRequired[int]
 
 
+class InstanceSecondaryInterfaceAttachmentTypeDef(TypedDict):
+    AttachTime: NotRequired[datetime]
+    AttachmentId: NotRequired[str]
+    DeleteOnTermination: NotRequired[bool]
+    DeviceIndex: NotRequired[int]
+    Status: NotRequired[AttachmentStatusType]
+    NetworkCardIndex: NotRequired[int]
+
+
+class InstanceSecondaryInterfacePrivateIpAddressRequestTypeDef(TypedDict):
+    PrivateIpAddress: str
+
+
+class InstanceSecondaryInterfacePrivateIpAddressTypeDef(TypedDict):
+    PrivateIpAddress: NotRequired[str]
+
+
 class InstanceStatusDetailsTypeDef(TypedDict):
     ImpairedSince: NotRequired[datetime]
     Name: NotRequired[Literal["reachability"]]
@@ -7256,7 +7332,7 @@ class PlacementGroupInfoTypeDef(TypedDict):
 class ProcessorInfoTypeDef(TypedDict):
     SupportedArchitectures: NotRequired[list[ArchitectureTypeType]]
     SustainedClockSpeedInGhz: NotRequired[float]
-    SupportedFeatures: NotRequired[list[Literal["amd-sev-snp"]]]
+    SupportedFeatures: NotRequired[list[SupportedAdditionalProcessorFeatureType]]
     Manufacturer: NotRequired[str]
 
 
@@ -7425,12 +7501,14 @@ class LaunchTemplateCpuOptionsRequestTypeDef(TypedDict):
     CoreCount: NotRequired[int]
     ThreadsPerCore: NotRequired[int]
     AmdSevSnp: NotRequired[AmdSevSnpSpecificationType]
+    NestedVirtualization: NotRequired[NestedVirtualizationSpecificationType]
 
 
 class LaunchTemplateCpuOptionsTypeDef(TypedDict):
     CoreCount: NotRequired[int]
     ThreadsPerCore: NotRequired[int]
     AmdSevSnp: NotRequired[AmdSevSnpSpecificationType]
+    NestedVirtualization: NotRequired[NestedVirtualizationSpecificationType]
 
 
 LaunchTemplateElasticInferenceAcceleratorResponseTypeDef = TypedDict(
@@ -7510,6 +7588,14 @@ class LaunchTemplateInstanceMetadataOptionsTypeDef(TypedDict):
     HttpEndpoint: NotRequired[LaunchTemplateInstanceMetadataEndpointStateType]
     HttpProtocolIpv6: NotRequired[LaunchTemplateInstanceMetadataProtocolIpv6Type]
     InstanceMetadataTags: NotRequired[LaunchTemplateInstanceMetadataTagsStateType]
+
+
+class SecondaryInterfacePrivateIpAddressSpecificationRequestTypeDef(TypedDict):
+    PrivateIpAddress: NotRequired[str]
+
+
+class SecondaryInterfacePrivateIpAddressSpecificationTypeDef(TypedDict):
+    PrivateIpAddress: NotRequired[str]
 
 
 class LaunchTemplateLicenseConfigurationRequestTypeDef(TypedDict):
@@ -7691,8 +7777,9 @@ class ModifyInstanceConnectEndpointRequestTypeDef(TypedDict):
 
 class ModifyInstanceCpuOptionsRequestTypeDef(TypedDict):
     InstanceId: str
-    CoreCount: int
-    ThreadsPerCore: int
+    CoreCount: NotRequired[int]
+    ThreadsPerCore: NotRequired[int]
+    NestedVirtualization: NotRequired[NestedVirtualizationSpecificationType]
     DryRun: NotRequired[bool]
 
 
@@ -8379,6 +8466,10 @@ class ReferencedSecurityGroupTypeDef(TypedDict):
     VpcPeeringConnectionId: NotRequired[str]
 
 
+class RegionGeographyTypeDef(TypedDict):
+    Name: NotRequired[str]
+
+
 class RegisterInstanceTagAttributeRequestTypeDef(TypedDict):
     IncludeAllTagsOfInstance: NotRequired[bool]
     InstanceTagKeys: NotRequired[Sequence[str]]
@@ -8796,6 +8887,35 @@ class TransitGatewayMulticastGroupTypeDef(TypedDict):
     GroupSource: NotRequired[bool]
     MemberType: NotRequired[MembershipTypeType]
     SourceType: NotRequired[MembershipTypeType]
+
+
+class SecondaryInterfaceAttachmentTypeDef(TypedDict):
+    AttachmentId: NotRequired[str]
+    AttachTime: NotRequired[datetime]
+    DeleteOnTermination: NotRequired[bool]
+    DeviceIndex: NotRequired[int]
+    InstanceId: NotRequired[str]
+    InstanceOwnerId: NotRequired[str]
+    NetworkCardIndex: NotRequired[int]
+    Status: NotRequired[AttachmentStatusType]
+
+
+class SecondaryInterfaceIpv4AddressTypeDef(TypedDict):
+    PrivateIpAddress: NotRequired[str]
+
+
+class SecondaryNetworkIpv4CidrBlockAssociationTypeDef(TypedDict):
+    AssociationId: NotRequired[str]
+    CidrBlock: NotRequired[str]
+    State: NotRequired[SecondaryNetworkCidrBlockAssociationStateType]
+    StateReason: NotRequired[str]
+
+
+class SecondarySubnetIpv4CidrBlockAssociationTypeDef(TypedDict):
+    AssociationId: NotRequired[str]
+    CidrBlock: NotRequired[str]
+    State: NotRequired[SecondarySubnetCidrBlockAssociationStateType]
+    StateReason: NotRequired[str]
 
 
 class SecurityGroupIdentifierTypeDef(TypedDict):
@@ -9850,6 +9970,7 @@ class ModifyInstanceCpuOptionsResultTypeDef(TypedDict):
     InstanceId: str
     CoreCount: int
     ThreadsPerCore: int
+    NestedVirtualization: NestedVirtualizationSpecificationType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -11388,6 +11509,8 @@ AvailabilityZoneTypeDef = TypedDict(
         "ParentZoneName": NotRequired[str],
         "ParentZoneId": NotRequired[str],
         "GroupLongName": NotRequired[str],
+        "Geography": NotRequired[list[AvailabilityZoneGeographyTypeDef]],
+        "SubGeography": NotRequired[list[AvailabilityZoneSubGeographyTypeDef]],
         "State": NotRequired[AvailabilityZoneStateType],
     },
 )
@@ -13647,6 +13770,51 @@ class DescribeRouteTablesRequestTypeDef(TypedDict):
     Filters: NotRequired[Sequence[FilterTypeDef]]
 
 
+class DescribeSecondaryInterfacesRequestPaginateTypeDef(TypedDict):
+    DryRun: NotRequired[bool]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    SecondaryInterfaceIds: NotRequired[Sequence[str]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeSecondaryInterfacesRequestTypeDef(TypedDict):
+    DryRun: NotRequired[bool]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    SecondaryInterfaceIds: NotRequired[Sequence[str]]
+
+
+class DescribeSecondaryNetworksRequestPaginateTypeDef(TypedDict):
+    DryRun: NotRequired[bool]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    SecondaryNetworkIds: NotRequired[Sequence[str]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeSecondaryNetworksRequestTypeDef(TypedDict):
+    DryRun: NotRequired[bool]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    SecondaryNetworkIds: NotRequired[Sequence[str]]
+
+
+class DescribeSecondarySubnetsRequestPaginateTypeDef(TypedDict):
+    DryRun: NotRequired[bool]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    SecondarySubnetIds: NotRequired[Sequence[str]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeSecondarySubnetsRequestTypeDef(TypedDict):
+    DryRun: NotRequired[bool]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    SecondarySubnetIds: NotRequired[Sequence[str]]
+
+
 class DescribeSecurityGroupRulesRequestPaginateTypeDef(TypedDict):
     Filters: NotRequired[Sequence[FilterTypeDef]]
     SecurityGroupRuleIds: NotRequired[Sequence[str]]
@@ -14917,6 +15085,42 @@ class DescribeNetworkInterfacesRequestWaitTypeDef(TypedDict):
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 
+class DescribeSecondaryNetworksRequestWaitExtraTypeDef(TypedDict):
+    DryRun: NotRequired[bool]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    SecondaryNetworkIds: NotRequired[Sequence[str]]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class DescribeSecondaryNetworksRequestWaitTypeDef(TypedDict):
+    DryRun: NotRequired[bool]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    SecondaryNetworkIds: NotRequired[Sequence[str]]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class DescribeSecondarySubnetsRequestWaitExtraTypeDef(TypedDict):
+    DryRun: NotRequired[bool]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    SecondarySubnetIds: NotRequired[Sequence[str]]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class DescribeSecondarySubnetsRequestWaitTypeDef(TypedDict):
+    DryRun: NotRequired[bool]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    SecondarySubnetIds: NotRequired[Sequence[str]]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
 class DescribeSecurityGroupVpcAssociationsRequestWaitExtraTypeDef(TypedDict):
     Filters: NotRequired[Sequence[FilterTypeDef]]
     NextToken: NotRequired[str]
@@ -15166,11 +15370,6 @@ class DescribePrefixListsResultTypeDef(TypedDict):
     PrefixLists: list[PrefixListTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
-
-
-class DescribeRegionsResultTypeDef(TypedDict):
-    Regions: list[RegionTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeSecurityGroupReferencesResultTypeDef(TypedDict):
@@ -15904,6 +16103,31 @@ class InstancePrivateIpAddressTypeDef(TypedDict):
     PrivateIpAddress: NotRequired[str]
 
 
+class InstanceSecondaryInterfaceSpecificationRequestTypeDef(TypedDict):
+    DeleteOnTermination: NotRequired[bool]
+    DeviceIndex: NotRequired[int]
+    PrivateIpAddresses: NotRequired[
+        Sequence[InstanceSecondaryInterfacePrivateIpAddressRequestTypeDef]
+    ]
+    PrivateIpAddressCount: NotRequired[int]
+    SecondarySubnetId: NotRequired[str]
+    InterfaceType: NotRequired[Literal["secondary"]]
+    NetworkCardIndex: NotRequired[int]
+
+
+class InstanceSecondaryInterfaceTypeDef(TypedDict):
+    Attachment: NotRequired[InstanceSecondaryInterfaceAttachmentTypeDef]
+    MacAddress: NotRequired[str]
+    SecondaryInterfaceId: NotRequired[str]
+    OwnerId: NotRequired[str]
+    PrivateIpAddresses: NotRequired[list[InstanceSecondaryInterfacePrivateIpAddressTypeDef]]
+    SourceDestCheck: NotRequired[bool]
+    Status: NotRequired[SecondaryInterfaceStatusType]
+    SecondarySubnetId: NotRequired[str]
+    SecondaryNetworkId: NotRequired[str]
+    InterfaceType: NotRequired[Literal["secondary"]]
+
+
 class InstanceStatusSummaryTypeDef(TypedDict):
     Details: NotRequired[list[InstanceStatusDetailsTypeDef]]
     Status: NotRequired[SummaryStatusType]
@@ -16143,6 +16367,28 @@ class LaunchTemplateInstanceMarketOptionsTypeDef(TypedDict):
     SpotOptions: NotRequired[LaunchTemplateSpotMarketOptionsTypeDef]
 
 
+class LaunchTemplateInstanceSecondaryInterfaceSpecificationRequestTypeDef(TypedDict):
+    DeleteOnTermination: NotRequired[bool]
+    DeviceIndex: NotRequired[int]
+    PrivateIpAddresses: NotRequired[
+        Sequence[SecondaryInterfacePrivateIpAddressSpecificationRequestTypeDef]
+    ]
+    PrivateIpAddressCount: NotRequired[int]
+    SecondarySubnetId: NotRequired[str]
+    InterfaceType: NotRequired[Literal["secondary"]]
+    NetworkCardIndex: NotRequired[int]
+
+
+class LaunchTemplateInstanceSecondaryInterfaceSpecificationTypeDef(TypedDict):
+    DeleteOnTermination: NotRequired[bool]
+    DeviceIndex: NotRequired[int]
+    PrivateIpAddresses: NotRequired[list[SecondaryInterfacePrivateIpAddressSpecificationTypeDef]]
+    PrivateIpAddressCount: NotRequired[int]
+    SecondarySubnetId: NotRequired[str]
+    InterfaceType: NotRequired[Literal["secondary"]]
+    NetworkCardIndex: NotRequired[int]
+
+
 class ListSnapshotsInRecycleBinResultTypeDef(TypedDict):
     Snapshots: list[SnapshotRecycleBinInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -16353,6 +16599,9 @@ class NetworkInfoTypeDef(TypedDict):
     EnaSrdSupported: NotRequired[bool]
     BandwidthWeightings: NotRequired[list[BandwidthWeightingTypeType]]
     FlexibleEnaQueuesSupport: NotRequired[FlexibleEnaQueuesSupportType]
+    SecondaryNetworkSupported: NotRequired[bool]
+    MaximumSecondaryNetworkInterfaces: NotRequired[int]
+    Ipv4AddressesPerSecondaryInterface: NotRequired[int]
 
 
 class NetworkInterfacePrivateIpAddressTypeDef(TypedDict):
@@ -16520,6 +16769,17 @@ class SecurityGroupRuleTypeDef(TypedDict):
     SecurityGroupRuleArn: NotRequired[str]
 
 
+RegionTypeDef = TypedDict(
+    "RegionTypeDef",
+    {
+        "OptInStatus": NotRequired[str],
+        "Geography": NotRequired[list[RegionGeographyTypeDef]],
+        "RegionName": NotRequired[str],
+        "Endpoint": NotRequired[str],
+    },
+)
+
+
 class RegisterInstanceEventNotificationAttributesRequestTypeDef(TypedDict):
     InstanceTagAttribute: RegisterInstanceTagAttributeRequestTypeDef
     DryRun: NotRequired[bool]
@@ -16632,6 +16892,55 @@ class SearchTransitGatewayMulticastGroupsResultTypeDef(TypedDict):
     MulticastGroups: list[TransitGatewayMulticastGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class SecondaryInterfaceTypeDef(TypedDict):
+    AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
+    Attachment: NotRequired[SecondaryInterfaceAttachmentTypeDef]
+    MacAddress: NotRequired[str]
+    OwnerId: NotRequired[str]
+    PrivateIpv4Addresses: NotRequired[list[SecondaryInterfaceIpv4AddressTypeDef]]
+    SecondaryInterfaceId: NotRequired[str]
+    SecondaryInterfaceArn: NotRequired[str]
+    SecondaryInterfaceType: NotRequired[Literal["secondary"]]
+    SecondarySubnetId: NotRequired[str]
+    SecondaryNetworkId: NotRequired[str]
+    SecondaryNetworkType: NotRequired[Literal["rdma"]]
+    SourceDestCheck: NotRequired[bool]
+    Status: NotRequired[SecondaryInterfaceStatusType]
+    Tags: NotRequired[list[TagTypeDef]]
+
+
+SecondaryNetworkTypeDef = TypedDict(
+    "SecondaryNetworkTypeDef",
+    {
+        "SecondaryNetworkId": NotRequired[str],
+        "SecondaryNetworkArn": NotRequired[str],
+        "OwnerId": NotRequired[str],
+        "Type": NotRequired[Literal["rdma"]],
+        "State": NotRequired[SecondaryNetworkStateType],
+        "StateReason": NotRequired[str],
+        "Ipv4CidrBlockAssociations": NotRequired[
+            list[SecondaryNetworkIpv4CidrBlockAssociationTypeDef]
+        ],
+        "Tags": NotRequired[list[TagTypeDef]],
+    },
+)
+
+
+class SecondarySubnetTypeDef(TypedDict):
+    SecondarySubnetId: NotRequired[str]
+    SecondarySubnetArn: NotRequired[str]
+    SecondaryNetworkId: NotRequired[str]
+    SecondaryNetworkType: NotRequired[Literal["rdma"]]
+    OwnerId: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
+    AvailabilityZone: NotRequired[str]
+    Ipv4CidrBlockAssociations: NotRequired[list[SecondarySubnetIpv4CidrBlockAssociationTypeDef]]
+    State: NotRequired[SecondarySubnetStateType]
+    StateReason: NotRequired[str]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class SecurityGroupRuleUpdateTypeDef(TypedDict):
@@ -19359,6 +19668,11 @@ class DescribeSecurityGroupRulesResultTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class DescribeRegionsResultTypeDef(TypedDict):
+    Regions: list[RegionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DescribeImageReferencesRequestPaginateTypeDef(TypedDict):
     ImageIds: Sequence[str]
     IncludeAllResourceTypes: NotRequired[bool]
@@ -19442,6 +19756,48 @@ class ScheduledInstancesLaunchSpecificationTypeDef(TypedDict):
     SecurityGroupIds: NotRequired[Sequence[str]]
     SubnetId: NotRequired[str]
     UserData: NotRequired[str]
+
+
+class DescribeSecondaryInterfacesResultTypeDef(TypedDict):
+    SecondaryInterfaces: list[SecondaryInterfaceTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class CreateSecondaryNetworkResultTypeDef(TypedDict):
+    SecondaryNetwork: SecondaryNetworkTypeDef
+    ClientToken: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteSecondaryNetworkResultTypeDef(TypedDict):
+    SecondaryNetwork: SecondaryNetworkTypeDef
+    ClientToken: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeSecondaryNetworksResultTypeDef(TypedDict):
+    SecondaryNetworks: list[SecondaryNetworkTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class CreateSecondarySubnetResultTypeDef(TypedDict):
+    SecondarySubnet: SecondarySubnetTypeDef
+    ClientToken: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteSecondarySubnetResultTypeDef(TypedDict):
+    SecondarySubnet: SecondarySubnetTypeDef
+    ClientToken: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeSecondarySubnetsResultTypeDef(TypedDict):
+    SecondarySubnets: list[SecondarySubnetTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class ModifySecurityGroupRulesRequestTypeDef(TypedDict):
@@ -20755,6 +21111,24 @@ class CreateRouteTableRequestVpcCreateRouteTableTypeDef(TypedDict):
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
     ClientToken: NotRequired[str]
     DryRun: NotRequired[bool]
+
+
+class CreateSecondaryNetworkRequestTypeDef(TypedDict):
+    Ipv4CidrBlock: str
+    NetworkType: Literal["rdma"]
+    ClientToken: NotRequired[str]
+    DryRun: NotRequired[bool]
+    TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
+
+
+class CreateSecondarySubnetRequestTypeDef(TypedDict):
+    Ipv4CidrBlock: str
+    SecondaryNetworkId: str
+    ClientToken: NotRequired[str]
+    AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
+    DryRun: NotRequired[bool]
+    TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
 
 
 class CreateSecurityGroupRequestServiceResourceCreateSecurityGroupTypeDef(TypedDict):
@@ -22290,6 +22664,9 @@ class ResponseLaunchTemplateDataTypeDef(TypedDict):
     DisableApiStop: NotRequired[bool]
     Operator: NotRequired[OperatorResponseTypeDef]
     NetworkPerformanceOptions: NotRequired[LaunchTemplateNetworkPerformanceOptionsTypeDef]
+    SecondaryInterfaces: NotRequired[
+        list[LaunchTemplateInstanceSecondaryInterfaceSpecificationTypeDef]
+    ]
 
 
 class SpotFleetLaunchSpecificationOutputTypeDef(TypedDict):
@@ -22398,6 +22775,9 @@ class RequestLaunchTemplateDataTypeDef(TypedDict):
     DisableApiStop: NotRequired[bool]
     Operator: NotRequired[OperatorRequestTypeDef]
     NetworkPerformanceOptions: NotRequired[LaunchTemplateNetworkPerformanceOptionsRequestTypeDef]
+    SecondaryInterfaces: NotRequired[
+        Sequence[LaunchTemplateInstanceSecondaryInterfaceSpecificationRequestTypeDef]
+    ]
 
 
 class DescribeConversionTasksResultTypeDef(TypedDict):
@@ -22496,6 +22876,9 @@ class RunInstancesRequestServiceResourceCreateInstancesTypeDef(TypedDict):
     EnablePrimaryIpv6: NotRequired[bool]
     NetworkPerformanceOptions: NotRequired[InstanceNetworkPerformanceOptionsRequestTypeDef]
     Operator: NotRequired[OperatorRequestTypeDef]
+    SecondaryInterfaces: NotRequired[
+        Sequence[InstanceSecondaryInterfaceSpecificationRequestTypeDef]
+    ]
     DryRun: NotRequired[bool]
     DisableApiTermination: NotRequired[bool]
     InstanceInitiatedShutdownBehavior: NotRequired[ShutdownBehaviorType]
@@ -22541,6 +22924,9 @@ class RunInstancesRequestSubnetCreateInstancesTypeDef(TypedDict):
     EnablePrimaryIpv6: NotRequired[bool]
     NetworkPerformanceOptions: NotRequired[InstanceNetworkPerformanceOptionsRequestTypeDef]
     Operator: NotRequired[OperatorRequestTypeDef]
+    SecondaryInterfaces: NotRequired[
+        Sequence[InstanceSecondaryInterfaceSpecificationRequestTypeDef]
+    ]
     DryRun: NotRequired[bool]
     DisableApiTermination: NotRequired[bool]
     InstanceInitiatedShutdownBehavior: NotRequired[ShutdownBehaviorType]
@@ -22587,6 +22973,9 @@ class RunInstancesRequestTypeDef(TypedDict):
     EnablePrimaryIpv6: NotRequired[bool]
     NetworkPerformanceOptions: NotRequired[InstanceNetworkPerformanceOptionsRequestTypeDef]
     Operator: NotRequired[OperatorRequestTypeDef]
+    SecondaryInterfaces: NotRequired[
+        Sequence[InstanceSecondaryInterfaceSpecificationRequestTypeDef]
+    ]
     DryRun: NotRequired[bool]
     DisableApiTermination: NotRequired[bool]
     InstanceInitiatedShutdownBehavior: NotRequired[ShutdownBehaviorType]
@@ -22641,6 +23030,7 @@ class InstanceTypeDef(TypedDict):
     CurrentInstanceBootMode: NotRequired[InstanceBootModeValuesType]
     NetworkPerformanceOptions: NotRequired[InstanceNetworkPerformanceOptionsTypeDef]
     Operator: NotRequired[OperatorResponseTypeDef]
+    SecondaryInterfaces: NotRequired[list[InstanceSecondaryInterfaceTypeDef]]
     InstanceId: NotRequired[str]
     ImageId: NotRequired[str]
     State: NotRequired[InstanceStateTypeDef]

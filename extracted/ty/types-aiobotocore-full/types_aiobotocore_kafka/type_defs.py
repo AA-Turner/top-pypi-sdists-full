@@ -95,6 +95,8 @@ __all__ = (
     "CreateConfigurationResponseTypeDef",
     "CreateReplicatorRequestTypeDef",
     "CreateReplicatorResponseTypeDef",
+    "CreateTopicRequestTypeDef",
+    "CreateTopicResponseTypeDef",
     "CreateVpcConnectionRequestTypeDef",
     "CreateVpcConnectionResponseTypeDef",
     "DeleteClusterPolicyRequestTypeDef",
@@ -104,6 +106,8 @@ __all__ = (
     "DeleteConfigurationResponseTypeDef",
     "DeleteReplicatorRequestTypeDef",
     "DeleteReplicatorResponseTypeDef",
+    "DeleteTopicRequestTypeDef",
+    "DeleteTopicResponseTypeDef",
     "DeleteVpcConnectionRequestTypeDef",
     "DeleteVpcConnectionResponseTypeDef",
     "DescribeClusterOperationRequestTypeDef",
@@ -265,6 +269,8 @@ __all__ = (
     "UpdateSecurityResponseTypeDef",
     "UpdateStorageRequestTypeDef",
     "UpdateStorageResponseTypeDef",
+    "UpdateTopicRequestTypeDef",
+    "UpdateTopicResponseTypeDef",
     "UserIdentityTypeDef",
     "VpcConfigOutputTypeDef",
     "VpcConfigTypeDef",
@@ -439,6 +445,14 @@ class ControllerNodeInfoTypeDef(TypedDict):
     Endpoints: NotRequired[list[str]]
 
 
+class CreateTopicRequestTypeDef(TypedDict):
+    ClusterArn: str
+    TopicName: str
+    PartitionCount: int
+    ReplicationFactor: int
+    Configs: NotRequired[str]
+
+
 class CreateVpcConnectionRequestTypeDef(TypedDict):
     TargetClusterArn: str
     Authentication: str
@@ -464,6 +478,11 @@ class DeleteConfigurationRequestTypeDef(TypedDict):
 class DeleteReplicatorRequestTypeDef(TypedDict):
     ReplicatorArn: str
     CurrentVersion: NotRequired[str]
+
+
+class DeleteTopicRequestTypeDef(TypedDict):
+    ClusterArn: str
+    TopicName: str
 
 
 class DeleteVpcConnectionRequestTypeDef(TypedDict):
@@ -774,6 +793,13 @@ class UpdateBrokerTypeRequestTypeDef(TypedDict):
     TargetInstanceType: str
 
 
+class UpdateTopicRequestTypeDef(TypedDict):
+    ClusterArn: str
+    TopicName: str
+    Configs: NotRequired[str]
+    PartitionCount: NotRequired[int]
+
+
 UserIdentityTypeDef = TypedDict(
     "UserIdentityTypeDef",
     {
@@ -827,6 +853,13 @@ class CreateReplicatorResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateTopicResponseTypeDef(TypedDict):
+    TopicArn: str
+    TopicName: str
+    Status: TopicStateType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateVpcConnectionResponseTypeDef(TypedDict):
     VpcConnectionArn: str
     State: VpcConnectionStateType
@@ -854,6 +887,13 @@ class DeleteConfigurationResponseTypeDef(TypedDict):
 class DeleteReplicatorResponseTypeDef(TypedDict):
     ReplicatorArn: str
     ReplicatorState: ReplicatorStateType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteTopicResponseTypeDef(TypedDict):
+    TopicArn: str
+    TopicName: str
+    Status: TopicStateType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1004,6 +1044,13 @@ class UpdateSecurityResponseTypeDef(TypedDict):
 class UpdateStorageResponseTypeDef(TypedDict):
     ClusterArn: str
     ClusterOperationArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateTopicResponseTypeDef(TypedDict):
+    TopicArn: str
+    TopicName: str
+    Status: TopicStateType
     ResponseMetadata: ResponseMetadataTypeDef
 
 

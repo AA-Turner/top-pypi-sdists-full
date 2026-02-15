@@ -18,6 +18,7 @@ Usage::
         GetResourceSharesPaginator,
         ListPrincipalsPaginator,
         ListResourcesPaginator,
+        ListSourceAssociationsPaginator,
     )
 
     session = get_session()
@@ -30,6 +31,7 @@ Usage::
         get_resource_shares_paginator: GetResourceSharesPaginator = client.get_paginator("get_resource_shares")
         list_principals_paginator: ListPrincipalsPaginator = client.get_paginator("list_principals")
         list_resources_paginator: ListResourcesPaginator = client.get_paginator("list_resources")
+        list_source_associations_paginator: ListSourceAssociationsPaginator = client.get_paginator("list_source_associations")
     ```
 """
 
@@ -53,6 +55,8 @@ from .type_defs import (
     ListPrincipalsResponseTypeDef,
     ListResourcesRequestPaginateTypeDef,
     ListResourcesResponseTypeDef,
+    ListSourceAssociationsRequestPaginateTypeDef,
+    ListSourceAssociationsResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -67,6 +71,7 @@ __all__ = (
     "GetResourceSharesPaginator",
     "ListPrincipalsPaginator",
     "ListResourcesPaginator",
+    "ListSourceAssociationsPaginator",
 )
 
 if TYPE_CHECKING:
@@ -179,4 +184,22 @@ class ListResourcesPaginator(_ListResourcesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ram/paginator/ListResources.html#RAM.Paginator.ListResources.paginate)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ram/paginators/#listresourcespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListSourceAssociationsPaginatorBase = AioPaginator[ListSourceAssociationsResponseTypeDef]
+else:
+    _ListSourceAssociationsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListSourceAssociationsPaginator(_ListSourceAssociationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ram/paginator/ListSourceAssociations.html#RAM.Paginator.ListSourceAssociations)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ram/paginators/#listsourceassociationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListSourceAssociationsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListSourceAssociationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ram/paginator/ListSourceAssociations.html#RAM.Paginator.ListSourceAssociations.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ram/paginators/#listsourceassociationspaginator)
         """

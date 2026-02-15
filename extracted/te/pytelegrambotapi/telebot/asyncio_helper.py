@@ -330,6 +330,16 @@ async def get_user_profile_photos(token, user_id, offset=None, limit=None):
     return await _process_request(token, method_url, params=payload)
 
 
+async def get_user_profile_audios(token, user_id, offset=None, limit=None):
+    method_url = r'getUserProfileAudios'
+    payload = {'user_id': user_id}
+    if offset:
+        payload['offset'] = offset
+    if limit:
+        payload['limit'] = limit
+    return await _process_request(token, method_url, params=payload)
+
+
 async def set_user_emoji_status(token, user_id, emoji_status_custom_emoji_id=None, emoji_status_expiration_date=None):
     method_url = r'setUserEmojiStatus'
     payload = {'user_id': user_id}
@@ -618,7 +628,8 @@ async def send_paid_media(
         business_connection_id=None, payload=None, allow_paid_broadcast=None, direct_messages_topic_id=None,
         suggested_post_parameters=None):
     method_url = r'sendPaidMedia'
-    media_json, files = convert_input_media_array(media)
+# add await. please check other errors in code 
+    media_json, files = await convert_input_media_array(media)
     _payload = {'chat_id': chat_id, 'star_count': star_count, 'media': media_json}
     # USE _payload for request payload
     if caption:
@@ -1516,6 +1527,18 @@ async def get_my_name(token, language_code=None):
     if language_code is not None:
         payload['language_code'] = language_code
     return await _process_request(token, method_url, params=payload)
+
+async def set_my_profile_photo(token, photo):
+    method_url = r'setMyProfilePhoto'
+    payload = {}
+    photo_json, files = photo.convert_input_profile_photo()
+    payload['photo'] = photo_json
+
+    return await _process_request(token, method_url, params=payload, files=files, method='post')
+
+async def remove_my_profile_photo(token):
+    method_url = r'removeMyProfilePhoto'
+    return await _process_request(token, method_url, method='post')
 
 async def set_chat_menu_button(token, chat_id=None, menu_button=None):
     method_url = r'setChatMenuButton'

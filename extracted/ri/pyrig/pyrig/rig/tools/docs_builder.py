@@ -5,7 +5,7 @@ MkDocs is a static site generator for project documentation.
 
 Example:
     >>> from pyrig.rig.tools.docs_builder import DocsBuilder
-    >>> DocsBuilder.L.build_args().run()
+    >>> DocsBuilder.I.build_args().run()
 """
 
 from pathlib import Path
@@ -25,11 +25,10 @@ class DocsBuilder(Tool):
         - Building: Build static documentation site
 
     Example:
-        >>> DocsBuilder.L.build_args().run()
+        >>> DocsBuilder.I.build_args().run()
     """
 
-    @classmethod
-    def name(cls) -> str:
+    def name(self) -> str:
         """Get tool name.
 
         Returns:
@@ -37,24 +36,22 @@ class DocsBuilder(Tool):
         """
         return "mkdocs"
 
-    @classmethod
-    def group(cls) -> str:
-        """Returns the group the tools belongs to.
+    def group(self) -> str:
+        """Returns the group the tool belongs to.
 
-        E.g. testing, tool, code-quality etc...
+        Returns:
+            `ToolGroup.DOCUMENTATION`
         """
         return ToolGroup.DOCUMENTATION
 
-    @classmethod
-    def badge_urls(cls) -> tuple[str, str]:
-        """Returns the badge and connected page."""
+    def badge_urls(self) -> tuple[str, str]:
+        """Return the badge and link URLs."""
         return (
             "https://img.shields.io/badge/MkDocs-Documentation-326CE5?logo=mkdocs&logoColor=white",
             "https://www.mkdocs.org",
         )
 
-    @classmethod
-    def dev_dependencies(cls) -> list[str]:
+    def dev_dependencies(self) -> list[str]:
         """Get tool dependencies.
 
         Returns:
@@ -67,8 +64,7 @@ class DocsBuilder(Tool):
             "mkdocstrings[python]",
         ]
 
-    @classmethod
-    def docs_dir(cls) -> Path:
+    def docs_dir(self) -> Path:
         """Get the documentation directory.
 
         Returns:
@@ -76,8 +72,7 @@ class DocsBuilder(Tool):
         """
         return Path("docs")
 
-    @classmethod
-    def build_args(cls, *args: str) -> Args:
+    def build_args(self, *args: str) -> Args:
         """Construct mkdocs build arguments.
 
         Args:
@@ -86,10 +81,9 @@ class DocsBuilder(Tool):
         Returns:
             Args for 'mkdocs build'.
         """
-        return cls.args("build", *args)
+        return self.args("build", *args)
 
-    @classmethod
-    def documentation_url(cls) -> str:
+    def documentation_url(self) -> str:
         """Construct GitHub Pages URL.
 
         Returns:
@@ -98,20 +92,21 @@ class DocsBuilder(Tool):
         Note:
             Site may not exist if GitHub Pages not enabled.
         """
-        owner, repo = VersionController.L.repo_owner_and_name(
+        owner, repo = VersionController.I.repo_owner_and_name(
             check_repo_url=False,
             url_encode=True,
         )
         return f"https://{owner}.github.io/{repo}"
 
-    @classmethod
-    def documentation_badge(cls) -> str:
-        """Returns the badge for a markdown file.
+    def documentation_badge(self) -> str:
+        """Construct a GitHub Pages documentation badge in Markdown.
 
-        Shows github pages for github.
+        Returns:
+            Markdown string with a linked badge pointing to the project's
+            GitHub Pages URL (see `documentation_url`).
         """
         return make_linked_badge_markdown(
             badge_url="https://img.shields.io/badge/Docs-GitHub%20Pages-black?style=for-the-badge&logo=github&logoColor=white",
-            link_url=cls.documentation_url(),
+            link_url=self.documentation_url(),
             alt_text="Documentation",
         )

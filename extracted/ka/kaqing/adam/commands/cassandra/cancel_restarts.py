@@ -1,7 +1,7 @@
 from adam.commands import validate_args
 from adam.commands.command import Command
-from adam.utils_cassandra.node_scheduler import NodeScheduler
-from adam.utils_cassandra.node_schedules import NodeSchedules
+from adam.utils_cassandra.node_restart_scheduler import NodeRestartScheduler
+from adam.utils_cassandra.node_restart_schedules import NodeRestartSchedules
 from adam.utils_context import NULL
 from adam.repl_state import ReplState, RequiredState
 from adam.utils import duration
@@ -35,7 +35,7 @@ class CancelRestarts(Command):
                 with validate_args(args, state, name='pod name'):
                     pods = self.comma_separated_args(args)
 
-                    canceled = list(NodeScheduler.cancel_restarts(state, pods, ctx=ctx).items())
+                    canceled = list(NodeRestartScheduler.cancel_restarts(state, pods, ctx=ctx).items())
                     canceled = sorted(canceled, key=lambda p: p[1])
 
                     ctx.log('Canceled restarts:')
@@ -48,7 +48,7 @@ class CancelRestarts(Command):
                     return state
 
     def completion(self, state: ReplState):
-        return super().completion(state, lambda: SetCompleter(NodeSchedules.restarts(namespace=state.namespace, ctx=NULL)))
+        return super().completion(state, lambda: SetCompleter(NodeRestartSchedules.restarts(namespace=state.namespace, ctx=NULL)))
 
     def help(self, state: ReplState):
         return super().help(state, 'cancel restart request on Cassandra nodes', args='<pod-name>,...')

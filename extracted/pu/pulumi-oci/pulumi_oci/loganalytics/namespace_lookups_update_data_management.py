@@ -28,7 +28,7 @@ class NamespaceLookupsUpdateDataManagementArgs:
         """
         The set of arguments for constructing a NamespaceLookupsUpdateDataManagement resource.
         :param pulumi.Input[_builtins.str] lookup_name: The name of the lookup to operate on.
-        :param pulumi.Input[_builtins.str] namespace: The Logging Analytics namespace used for the request.
+        :param pulumi.Input[_builtins.str] namespace: The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get' 
                
                
                ** IMPORTANT **
@@ -64,7 +64,7 @@ class NamespaceLookupsUpdateDataManagementArgs:
     @pulumi.getter
     def namespace(self) -> pulumi.Input[_builtins.str]:
         """
-        The Logging Analytics namespace used for the request.
+        The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get' 
 
 
         ** IMPORTANT **
@@ -140,7 +140,7 @@ class _NamespaceLookupsUpdateDataManagementState:
         :param pulumi.Input[_builtins.str] expect: A value of `100-continue` requests preliminary verification of the request method, path, and headers before the request body is sent. If no error results from such verification, the server will send a 100 (Continue) interim response to indicate readiness for the request body. The only allowed value for this parameter is "100-Continue" (case-insensitive).
         :param pulumi.Input[_builtins.bool] is_force: is force
         :param pulumi.Input[_builtins.str] lookup_name: The name of the lookup to operate on.
-        :param pulumi.Input[_builtins.str] namespace: The Logging Analytics namespace used for the request.
+        :param pulumi.Input[_builtins.str] namespace: The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get' 
                
                
                ** IMPORTANT **
@@ -212,7 +212,7 @@ class _NamespaceLookupsUpdateDataManagementState:
     @pulumi.getter
     def namespace(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The Logging Analytics namespace used for the request.
+        The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get' 
 
 
         ** IMPORTANT **
@@ -251,6 +251,13 @@ class NamespaceLookupsUpdateDataManagement(pulumi.CustomResource):
                  update_lookup_file: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
+        This resource provides the Namespace Lookups Update Data Management resource in Oracle Cloud Infrastructure Log Analytics service.
+        Api doc link for the resource: https://docs.oracle.com/iaas/api/#/en/logan-api-spec/latest/NamespaceLookupsUpdateDataManagement
+
+        Example terraform configs related to the resource : https://github.com/oracle/terraform-provider-oci/tree/master/examples/log_analytics
+
+        Updates the lookup content. The csv file containing the content to be updated is passed in as binary data in the request.
+
         ## Example Usage
 
         ```python
@@ -276,7 +283,7 @@ class NamespaceLookupsUpdateDataManagement(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] expect: A value of `100-continue` requests preliminary verification of the request method, path, and headers before the request body is sent. If no error results from such verification, the server will send a 100 (Continue) interim response to indicate readiness for the request body. The only allowed value for this parameter is "100-Continue" (case-insensitive).
         :param pulumi.Input[_builtins.bool] is_force: is force
         :param pulumi.Input[_builtins.str] lookup_name: The name of the lookup to operate on.
-        :param pulumi.Input[_builtins.str] namespace: The Logging Analytics namespace used for the request.
+        :param pulumi.Input[_builtins.str] namespace: The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get' 
                
                
                ** IMPORTANT **
@@ -290,6 +297,13 @@ class NamespaceLookupsUpdateDataManagement(pulumi.CustomResource):
                  args: NamespaceLookupsUpdateDataManagementArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
+        This resource provides the Namespace Lookups Update Data Management resource in Oracle Cloud Infrastructure Log Analytics service.
+        Api doc link for the resource: https://docs.oracle.com/iaas/api/#/en/logan-api-spec/latest/NamespaceLookupsUpdateDataManagement
+
+        Example terraform configs related to the resource : https://github.com/oracle/terraform-provider-oci/tree/master/examples/log_analytics
+
+        Updates the lookup content. The csv file containing the content to be updated is passed in as binary data in the request.
+
         ## Example Usage
 
         ```python
@@ -378,7 +392,7 @@ class NamespaceLookupsUpdateDataManagement(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] expect: A value of `100-continue` requests preliminary verification of the request method, path, and headers before the request body is sent. If no error results from such verification, the server will send a 100 (Continue) interim response to indicate readiness for the request body. The only allowed value for this parameter is "100-Continue" (case-insensitive).
         :param pulumi.Input[_builtins.bool] is_force: is force
         :param pulumi.Input[_builtins.str] lookup_name: The name of the lookup to operate on.
-        :param pulumi.Input[_builtins.str] namespace: The Logging Analytics namespace used for the request.
+        :param pulumi.Input[_builtins.str] namespace: The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get' 
                
                
                ** IMPORTANT **
@@ -433,7 +447,7 @@ class NamespaceLookupsUpdateDataManagement(pulumi.CustomResource):
     @pulumi.getter
     def namespace(self) -> pulumi.Output[_builtins.str]:
         """
-        The Logging Analytics namespace used for the request.
+        The Log Analytics namespace used for the request. The namespace can be obtained by running 'oci os ns get' 
 
 
         ** IMPORTANT **
